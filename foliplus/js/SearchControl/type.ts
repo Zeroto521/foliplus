@@ -1,24 +1,18 @@
 // SearchControl shared type definitions — decoupled from the entry module.
 // Sub-modules (event.ts, logic.ts) import these instead of the index entry
 // to avoid a type-level circular dependency (index → event → index).
+import type { SuggestItem } from "#core/geocode/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 
-/**
- * Nominatim search result element.
- * The API returns `lon`; we map to `lng` at the fetch boundary.
- */
-export interface NominatimItem {
-  lng: string;
-  lat: string;
-  name?: string;
-  display_name: string;
-}
+// Re-export the shared provider result shape so SearchControl sub-modules
+// (logic.ts, index.ts) import it from one place.
+export type { SuggestItem };
 
 /** Cached address result: the raw item + its formatted display name. */
 export interface AddressResult {
-  item: NominatimItem;
+  item: SuggestItem;
   displayName: string;
 }
 
@@ -66,7 +60,7 @@ export interface SearchControl extends BaseControl {
   inp: HTMLInputElement;
   clearBtn: HTMLElement;
   debouncedFetch: Debounced;
-  cachedSuggestions: Cache<string, NominatimItem[]>;
+  cachedSuggestions: Cache<string, SuggestItem[]>;
   searchHistory: SearchHistoryEntry[];
   scrollTargets: Array<Element | Window>;
   repositionHandler: () => void;

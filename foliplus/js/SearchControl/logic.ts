@@ -1,4 +1,6 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { resolveProvider } from "#core/geocode/index.js";
+import type { GeocodeProvider, ProviderConfig } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
@@ -12,27 +14,39 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
+import { formatAddress } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { AUTOCOMPLETE, CLASSES, FORMAT, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
 import type {
   AddressResult,
-  NominatimItem,
   ResultItem,
   SearchHistoryEntry,
+  SuggestItem,
 } from "./type.js";
 
 const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
+
+/** Resolve the configured geocode provider (falls back to Nominatim). */
+const getProvider = (): GeocodeProvider => {
+  try {
+    return resolveProvider(
+      CONF.provider as string | ProviderConfig | undefined,
+      CONF.provider_config,
+    );
+  } catch {
+    return resolveProvider();
+  }
+};
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
   inp: HTMLInputElement;
   mode: string;
   modeBtn: HTMLElement;
-  cachedSuggestions: Cache<string, NominatimItem[]>;
+  cachedSuggestions: Cache<string, SuggestItem[]>;
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
   selectedIdx: number;
@@ -218,7 +232,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // incrementing the count (addHistoryEntry treats same-query as a repeat).
   recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
-    .reverseGeocode(map, lng, lat, CONF.locale_code)
+    .reverseGeocode(map, lng, lat, CONF.locale_code, getProvider().id)
     .then(addr => {
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === raw);
@@ -248,7 +262,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   );
 
   window.foliplus
-    .geocode(map, query, CONF.locale_code)
+    .geocode(map, query, CONF.locale_code, getProvider().id)
     .then(result => {
       map.foliplus!.hideHint(CONF.name);
       if (!result) {
@@ -391,7 +405,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
 
 const renderSuggestions = (
   ctrl: SearchControlState,
-  results: NominatimItem[],
+  results: SuggestItem[],
   query: string,
 ) => {
   if (!results || results.length === 0) {
@@ -401,7 +415,7 @@ const renderSuggestions = (
 
   ctrl.cachedSuggestions.set(query, results);
 
-  const items: ResultItem[] = results.map((item: NominatimItem) => {
+  const items: ResultItem[] = results.map((item: SuggestItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = `${parseFloat(item.lng).toFixed(FORMAT.LAT_LNG_PRECISION)}, ${parseFloat(item.lat).toFixed(FORMAT.LAT_LNG_PRECISION)}`;
@@ -502,12 +516,13 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
 
+  const provider = getProvider();
   const now = Date.now();
-  if (now - ctrl.lastSuggestFetch < NOMINATIM.THROTTLE_MS) {
+  if (now - ctrl.lastSuggestFetch < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
-      NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
+      provider.throttleMs - (now - ctrl.lastSuggestFetch),
     );
     return;
   }
@@ -519,16 +534,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
 
   fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
     signal: ctrl.suggestAbortController.signal,
+    headers: provider.headers,
   })
     .then(r => r.json())
-    .then((raw: any[]) => {
-      // Map API field names: Nominatim returns `lon`, we use `lng`
-      const results: NominatimItem[] = raw.map((r: any) => ({
-        lng: r.lon ?? r.lng,
-        lat: r.lat,
-        name: r.name,
-        display_name: r.display_name,
-      }));
+    .then((raw: unknown) => {
+      // Provider normalizes raw API JSON into the shared SuggestItem shape.
+      const results: SuggestItem[] = provider.normalizeSuggest(raw);
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
       // Cache first result so searchAddress can serve it from geoCache
@@ -540,6 +551,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
           parseFloat(first.lat),
           parseFloat(first.lng),
           formatAddress(first.display_name, map, CONF.locale_code) || query,
+          provider.id,
         );
       }
       renderSuggestions(ctrl, results, query);
@@ -559,10 +571,11 @@ const initDebouncedFetch = (ctrl: SearchControlState) => {
 
 const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
   const center = map.getCenter();
-  return nominatimUrl(
-    "/search",
-    { q, limit, lon: center.lng, lat: center.lat },
-    CONF.locale_code,
+  return getProvider().suggest(
+    q,
+    limit,
+    [center.lng, center.lat],
+    CONF.locale_code ?? "en",
   );
 };
 

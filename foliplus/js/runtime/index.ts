@@ -14,9 +14,9 @@
  * (see script/shared-external.mjs), so shared code is included exactly once
  * instead of being inlined into every component.
  *
- * Geocoding helpers (NOMINATIM, nominatimUrl, formatAddress) live in
- * common/geocode.js and are statically imported by components.
- * The stateful geocode singleton lives in runtime/geocoder.js.
+ * Geocode providers (Nominatim/Photon/Pelias + custom) live in core/geocode/*;
+ * the shared `formatAddress` helper lives in common/geocode.js. The stateful
+ * geocode singleton (cache + per-provider throttle) lives in runtime/geocoder.js.
  */
 import { COMPONENTS, assertComponentName, generateId } from "#core/component.js";
 import {

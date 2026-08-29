@@ -1,30 +1,47 @@
 // Geocoding (stateful singleton) for the foliplus runtime.
 // Bidirectional global cache: address -> coordinates (forward) and
-// coordinates -> address (reverse). Shared cache + throttle queue must be
-// global once per map (Nominatim rate limit is global, not per-map).
-// Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
-// common/geocode.js and are statically imported by components.
+// coordinates -> address (reverse). Cache keys are scoped by provider id and
+// CRS; the throttle queue is per-provider (each API has its own rate limit).
+// Pure helpers and provider definitions live in core/geocode/* and are
+// statically imported here.
+import { resolveProvider } from "#core/geocode/index.js";
+import type { GeocodeProvider } from "#core/geocode/index.js";
 import { Cache } from "#common/cache.js";
 import { fromWgs84, getMapCrsType, toWgs84 } from "#common/coord.js";
 import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
+import { formatAddress } from "#common/geocode.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
-// Entries expire after 24h so Nominatim result changes are not served stale.
+// Entries expire after 24h so upstream result changes are not served stale.
 const GEO_CACHE_MAX = 500;
 const GEO_TTL_MS = 24 * 60 * 60 * 1000;
 const geoCache = new Cache<string, string>(GEO_CACHE_MAX, GEO_TTL_MS);
-let geoPromise: Promise<unknown> = Promise.resolve();
-let geoLastReq = 0;
 
-/** Serialize requests through a throttled queue (Nominatim 1 req/s). */
-const throttled = <T>(fn: () => Promise<T>): Promise<T> => {
-  geoPromise = geoPromise.then(() => {
-    const wait = Math.max(0, NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq));
+// Cache record separator. U+0001 never appears in addresses or coordinate
+// strings, so it cannot collide with payload content.
+const SEP = String.fromCodePoint(1);
+
+// Per-provider throttle queues (each API has its own rate limit).
+const queues = new Map<string, { promise: Promise<unknown>; last: number }>();
+
+const queueOf = (provider: GeocodeProvider) => {
+  let q = queues.get(provider.id);
+  if (!q) {
+    q = { promise: Promise.resolve(), last: 0 };
+    queues.set(provider.id, q);
+  }
+  return q;
+};
+
+/** Serialize requests per provider (Nominatim 1 req/s, Photon/Pelias less strict). */
+const throttled = <T>(provider: GeocodeProvider, fn: () => Promise<T>): Promise<T> => {
+  const q = queueOf(provider);
+  q.promise = q.promise.then(() => {
+    const wait = Math.max(0, provider.throttleMs - (Date.now() - q.last));
     return new Promise(r => setTimeout(r, wait));
   });
-  return geoPromise.then(() => {
-    geoLastReq = Date.now();
+  return q.promise.then(() => {
+    q.last = Date.now();
     return fn();
   });
 };
@@ -35,31 +52,35 @@ const localeFallback = (code: string, key: string, fallback: string) => {
   return common[key] || fallback;
 };
 
-/** Reverse geocode coordinates to an address via Nominatim (cached, throttled). */
+const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =>
+  fetchWithTimeout(url, {
+    timeoutMs: GEODECODE_TIMEOUT_MS,
+    headers: provider.headers,
+  }).then(r => r.json());
+
+/** Reverse geocode coordinates to an address via the given provider (cached, throttled). */
 const reverseGeocode = (
   map: L.Map,
   lng: number | string,
   lat: number | string,
   code = "en",
+  providerId?: string,
 ): Promise<string> => {
-  const key = `reverse:${lng},${lat}`;
+  const provider = resolveProvider(providerId);
+  const key = `reverse:${provider.id}:${lng},${lat}`;
   const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
-  const url = nominatimUrl(
-    "/reverse",
-    { lon: wgs[0], lat: wgs[1], zoom: NOMINATIM.ZOOM },
-    code,
-  );
+  const url = provider.reverse(wgs[0], wgs[1], code);
   const notFound = localeFallback(code, "foliplus.addr_not_found", "Address not found");
   const fail = localeFallback(code, "foliplus.geo_fail", "Lookup failed");
 
-  return throttled(() =>
-    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
-      .then(r => r.json())
+  return throttled(provider, () =>
+    requestJson(provider, url)
       .then(data => {
-        const addr = formatAddress(data.display_name, map, code) || notFound;
+        const addr =
+          formatAddress(provider.normalizeReverse(data), map, code) || notFound;
         geoCache.set(key, addr);
         return addr;
       })
@@ -67,57 +88,58 @@ const reverseGeocode = (
   );
 };
 
-/** A resolved forward-geocode result. */
+/** A resolved forward-geocode result (already in the map's CRS). */
 interface GeocodeResult {
   lat: number;
   lng: number;
   display_name: string;
 }
 
-/** Forward geocode an address to coordinates via Nominatim (cached, throttled). */
+/** Forward geocode an address to coordinates via the given provider (cached, throttled). */
 const geocode = (
   map: L.Map,
   address: string,
   code = "en",
+  providerId?: string,
 ): Promise<GeocodeResult | null> => {
+  const provider = resolveProvider(providerId);
   // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
-  // WGS84) do not share a stale cached result.
+  // WGS84) — or on different providers — do not share a stale cached result.
   const crs = getMapCrsType(map);
-  const key = `forward:${address}:${crs}`;
+  const key = `forward:${provider.id}:${address}:${crs}`;
   const cached = geoCache.get(key);
   if (cached) {
-    const [lat, lng, ...name] = cached.split("\u0001");
+    const [lat, lng, ...name] = cached.split(SEP);
     if (name.length)
       return Promise.resolve({
         lat: +lat,
         lng: +lng,
-        display_name: name.join("\u0001"),
+        display_name: name.join(SEP),
       });
   }
 
-  const url = nominatimUrl("/search", { q: address, limit: 1, format: "jsonv2" }, code);
+  const url = provider.search(address, code);
 
-  return throttled(() =>
-    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
-      .then(r => r.json())
-      .then((data: Array<{ lat: string; lon: string; display_name: string }>) => {
-        const first = Array.isArray(data) ? data[0] : null;
-        if (!first) return null;
-        // Nominatim always returns WGS84 - convert to the map CRS so
-        // downstream code (SearchControl, etc.) always gets coordinates
-        // in the same CRS as map-displayed coordinates.
-        const [lng, lat] = fromWgs84(map, parseFloat(first.lon), parseFloat(first.lat));
+  return throttled(provider, () =>
+    requestJson(provider, url)
+      .then(data => {
+        const item = provider.normalizeSearch(data);
+        if (!item) return null;
+        // All built-in providers return WGS84 - convert to the map CRS so
+        // downstream code always gets coordinates in the same CRS as map-
+        // displayed coordinates.
+        const [lng, lat] = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
         const result: GeocodeResult = {
           lat,
           lng,
-          display_name: first.display_name,
+          display_name: item.display_name,
         };
         geoCache.set(
           key,
-          `${result.lat}\u0001${result.lng}\u0001${result.display_name}`,
+          `${result.lat}${SEP}${result.lng}${SEP}${result.display_name}`,
         );
-        // Safe: (lng, lat) is unique - no collision risk
-        geoCache.set(`reverse:${lng},${lat}`, first.display_name);
+        // Safe: (lng, lat) is unique per provider - no collision risk
+        geoCache.set(`reverse:${provider.id}:${lng},${lat}`, result.display_name);
         return result;
       })
       .catch(() => null),
@@ -131,12 +153,14 @@ const cacheSuggestion = (
   lat: number,
   lng: number,
   displayName: string,
+  providerId?: string,
 ) => {
+  const provider = resolveProvider(providerId);
   const crs = getMapCrsType(map);
-  const key = `forward:${address}:${crs}`;
-  geoCache.set(key, `${lat}\u0001${lng}\u0001${displayName}`);
+  const key = `forward:${provider.id}:${address}:${crs}`;
+  geoCache.set(key, `${lat}${SEP}${lng}${SEP}${displayName}`);
   // Also populate the reverse entry for the same safety
-  geoCache.set(`reverse:${lng},${lat}`, displayName);
+  geoCache.set(`reverse:${provider.id}:${lng},${lat}`, displayName);
 };
 
 export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };

@@ -136,3 +136,61 @@ describe("cacheSuggestion", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit
   });
 });
+
+describe("provider selection", () => {
+  it("geocode with providerId='photon' fetches Photon and normalizes features", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [13.405, 52.52] },
+            properties: { name: "Berlin", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const r = await geocode(mockMap, "Berlin Provider", "en", "photon");
+    expect(r).toEqual({ lat: 52.52, lng: 13.405, display_name: "Berlin, Germany" });
+    const [url, init] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io");
+    expect(init.headers["X-User-Agent"]).toBe("foliplus");
+  });
+
+  it("isolates the cache by provider id (same address, different providers)", async () => {
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(
+        jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          features: [
+            {
+              geometry: { coordinates: [119.3, 26.08] },
+              properties: { name: "Fuzhou" },
+            },
+          ],
+        }),
+      );
+    await geocode(mockMap, "Same City", "en"); // nominatim
+    await geocode(mockMap, "Same City", "en", "photon");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2); // no cross-provider cache hit
+  });
+
+  it("reverseGeocode with providerId uses the provider URL", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [8.682, 50.11] },
+            properties: { name: "Frankfurt", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const addr = await reverseGeocode(mockMap, 8.682, 50.11, "en", "photon");
+    // formatAddress joins parts with "," (no space) for non-Chinese maps.
+    expect(addr).toBe("Frankfurt,Germany");
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io/reverse");
+  });
+});

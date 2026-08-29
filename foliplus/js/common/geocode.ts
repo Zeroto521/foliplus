@@ -1,40 +1,12 @@
-// Nominatim URL building & address formatting for foliplus components.
+// Address formatting for foliplus components.
 // Pure functions (no module-level state) — imported statically by components.
-// The stateful reverse-geocoder (geocode.js) also imports these, which
+// The stateful reverse-geocoder (runtime/geocoder.ts) also imports this, which
 // is fine: esbuild inlines a copy into runtime.min.js as well.
+//
+// NOTE: provider definitions (Nominatim/Photon/Pelias URL builders and
+// normalizers) moved to core/geocode/*; only the shared address formatter
+// remains here.
 import { getMapCrsType } from "./coord.js";
-
-// ── Geocode constants ───────────────────────────────────────────
-const NOMINATIM = {
-  URL: "https://nominatim.openstreetmap.org",
-  FORMAT: "jsonv2",
-  THROTTLE_MS: 1000,
-  ZOOM: 18,
-};
-
-/**
- * Build a Nominatim API URL with shared parameters.
- * @param endpoint - Path like "/search", "/reverse", or "" for search
- * @param params - Additional query parameters
- * @param code - Locale code for accept-language (e.g. "en"/"zh")
- * @returns Full URL
- */
-const nominatimUrl = (
-  endpoint: string,
-  params: Record<string, string | number | boolean> = {},
-  code = "en",
-): string => {
-  const url = new URL(endpoint || "", NOMINATIM.URL);
-  url.searchParams.set("format", NOMINATIM.FORMAT);
-  for (const [k, v] of Object.entries(params))
-    if (v != null) url.searchParams.set(k, String(v));
-
-  if (!url.searchParams.has("accept-language")) {
-    url.searchParams.set("accept-language", code);
-  }
-
-  return url.toString();
-};
 
 /**
  * Format a Nominatim display_name into a concise address string.
@@ -75,4 +47,4 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
   return parts.join(",");
 };
 
-export { NOMINATIM, formatAddress, nominatimUrl };
+export { formatAddress };

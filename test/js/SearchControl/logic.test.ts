@@ -205,7 +205,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en");
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en", "nominatim");
   });
 
   it("shows hint and clears input when geocode returns null", async () => {
@@ -425,6 +425,7 @@ describe("fetchSuggestions", () => {
       30.0,
       120.0,
       expect.any(String),
+      "nominatim",
     );
   });
 });
