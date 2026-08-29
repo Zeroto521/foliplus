@@ -1,13 +1,13 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
-import { createTranslator } from "#common/locale.js";
-import { getFullscreenEl, isEnabled, nativeAPI } from "./api.js";
+import { createScopedTranslator } from "#common/locale.js";
+import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
@@ -15,7 +15,7 @@ const _ = createTranslator(CONF);
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
-  fsBtn.title = isFull ? _(`${CONF.name}.title_cancel`) : _(`${CONF.name}.title`);
+  fsBtn.title = isFull ? T("title_cancel") : T("title");
 
   if (CONF.hide_others) {
     const controls = map
@@ -37,7 +37,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 
   map.foliplus!.showHint?.(
     CONF.name,
-    isFull ? _(`${CONF.name}.enter`) : _(`${CONF.name}.exit`),
+    isFull ? T("enter") : T("exit"),
     HINT_DURATION.MEDIUM,
   );
 };
@@ -48,8 +48,8 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
-      (document as unknown as Record<string, () => Promise<void>>)
-        [nativeAPI!.exitFullscreen]()
+      document
+        .exitFullscreen()
         .then(() => {
           map.isFullscreen = false;
         })
@@ -65,8 +65,9 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
-      (map.getContainer() as unknown as Record<string, () => Promise<void>>)
-        [nativeAPI!.requestFullscreen]()
+      map
+        .getContainer()
+        .requestFullscreen()
         .then(() => {
           map.isFullscreen = true;
         })
@@ -97,10 +98,9 @@ const bindFullscreenEvents = (
     updateUI(map, fsBtn, container);
   };
 
-  if (isEnabled) document.addEventListener(nativeAPI!.fullscreenchange, handleFSChange);
+  if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
   map.on("unload", () => {
-    if (isEnabled)
-      document.removeEventListener(nativeAPI!.fullscreenchange, handleFSChange);
+    if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
   });
 
   return handleFSChange;

@@ -43,15 +43,67 @@ class TestBaseControlPython:
         assert ctrl._config is config
 
     def test_build_config_missing_export_field_raises(self):
-        """If _export_fields names an attribute that doesn't exist, getattr raises."""
+        """If _export_fields names an attribute that doesn't exist, _build_config raises."""
         from foliplus.BaseControl import BaseControl
 
         class BadControl(BaseControl):
             _export_fields = ("nonexistent",)
 
         ctrl = BadControl()
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValueError, match=r"nonexistent"):
             ctrl._build_config()
+
+    def test_build_config_missing_export_field_names_control(self):
+        """The error message names the declaring control and the offending field."""
+        from foliplus.BaseControl import BaseControl
+
+        class BadControl(BaseControl):
+            _export_fields = ("typo",)
+
+        ctrl = BadControl()
+        with pytest.raises(ValueError) as exc:
+            ctrl._build_config()
+        assert "BadControl" in str(exc.value)
+        assert "'typo'" in str(exc.value)
+
+    def test_build_config_missing_export_field_fails_fast(self):
+        """Only the first missing field is reported; validation stops there."""
+        from foliplus.BaseControl import BaseControl
+
+        class BadControl(BaseControl):
+            _export_fields = ("alpha", "beta")
+
+        ctrl = BadControl()
+        with pytest.raises(ValueError) as exc:
+            ctrl._build_config()
+        assert "'alpha'" in str(exc.value)
+        assert "'beta'" not in str(exc.value)
+
+    def test_build_config_allows_none_value_export_field(self):
+        """An exported field may legitimately be None (e.g. ExportControl.background)."""
+        from foliplus.BaseControl import BaseControl
+
+        class NullControl(BaseControl):
+            _export_fields = ("nullable",)
+
+            def __init__(self):
+                super().__init__()
+                self.nullable = None
+
+        assert_config_block(NullControl(), {"nullable": None})
+
+    def test_build_config_field_set_in_subclass_init(self):
+        """Validation passes when _export_fields fields are set after super().__init__."""
+        from foliplus.BaseControl import BaseControl
+
+        class LateControl(BaseControl):
+            _export_fields = ("late_value",)
+
+            def __init__(self):
+                super().__init__()
+                self.late_value = 42
+
+        assert_config_block(LateControl(), {"late_value": 42})
 
     def test_config_block_includes_locale_tables(self, base_map: folium.Map):
         from foliplus import SearchControl

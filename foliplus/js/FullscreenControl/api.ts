@@ -1,36 +1,9 @@
-// Fullscreen API detection — extracts the correct native method names
-// (standard vs. webkit prefix) for the current browser.
-const methodMap = [
-  [
-    "requestFullscreen",
-    "exitFullscreen",
-    "fullscreenElement",
-    "fullscreenEnabled",
-    "fullscreenchange",
-    "fullscreenerror",
-  ],
-  [
-    "webkitRequestFullscreen",
-    "webkitExitFullscreen",
-    "webkitFullscreenElement",
-    "webkitFullscreenEnabled",
-    "webkitfullscreenchange",
-    "webkitfullscreenerror",
-  ],
-];
+// Fullscreen API — standard names. All modern browsers ship the unprefixed
+// Fullscreen API; the webkit prefix (last needed by Safari < 16.4, 2023) is
+// dropped, so the standard DOM properties are used directly.
+const FULLSCREEN_CHANGE = "fullscreenchange";
 
-const nativeAPI = (() => {
-  const base = methodMap[0];
-  for (const m of methodMap)
-    if (m[1] in document) return Object.fromEntries(base.map((k, i) => [k, m[i]]));
-  return null;
-})();
+const isEnabled = Boolean(document.fullscreenEnabled);
+const getFullscreenEl = (): Element | null => document.fullscreenElement ?? null;
 
-const isEnabled =
-  nativeAPI && Boolean(Reflect.get(document, nativeAPI.fullscreenEnabled));
-const getFullscreenEl = (): Element | null =>
-  (nativeAPI &&
-    (Reflect.get(document, nativeAPI.fullscreenElement) as Element | null)) ??
-  null;
-
-export { nativeAPI, isEnabled, getFullscreenEl };
+export { FULLSCREEN_CHANGE, isEnabled, getFullscreenEl };

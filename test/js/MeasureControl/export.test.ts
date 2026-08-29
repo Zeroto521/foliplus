@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
+
+vi.mock("#common/locale.js", () => ({
+  createTranslator: () => (k: string) => k,
+  createScopedTranslator: () => (k: string) => k,
+}));
 
 // ── Test data fixtures ──
 
@@ -589,7 +594,11 @@ describe("Export.handleExportClick", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     const prev = window.CONF;
-    (window as any).CONF = { name: "MeasureControl", filename: "meas" };
+    (window as any).CONF = {
+      name: "MeasureControl",
+      filename: "meas",
+      locale_code: "en",
+    };
 
     originalCreateObjectURL = URL.createObjectURL;
     URL.createObjectURL = vi.fn(() => "blob:test") as any;
@@ -627,7 +636,7 @@ describe("Export.handleExportClick", () => {
     handler({ stopPropagation: vi.fn() } as any);
     expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
       "MeasureControl",
-      "MeasureControl.export_no_data",
+      "export_no_data",
       HINT_DURATION.LONG,
     );
   });

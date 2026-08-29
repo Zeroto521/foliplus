@@ -10,9 +10,10 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */
 interface LocateCtrl {
@@ -43,9 +44,9 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     lat,
     null,
     _(titleKey),
-    _(`${CONF.name}.popup_loading`),
-    _(`${CONF.name}.popup_loc_label`),
-    _(`${CONF.name}.popup_addr_label`),
+    T("popup_loading"),
+    T("popup_loc_label"),
+    T("popup_addr_label"),
     _("foliplus.close_label"),
     CONF.locale_code,
     null,
@@ -68,15 +69,15 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
 /** Locate me via the browser geolocation API. */
 const locateMe = (ctrl: LocateCtrl) => {
-  if (guardBlocked(map, CONF.name, _(`${CONF.name}.blocked`))) return;
+  if (guardBlocked(map, CONF.name, T("blocked"))) return;
   const geo = navigator.geolocation;
   if (!geo) {
-    map.foliplus!.showHint(CONF.name, _(`${CONF.name}.geo_error`), HINT_DURATION.LONG);
+    map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     return;
   }
   map.foliplus!.showHint(
     CONF.name,
-    `${Icons.LOADING} ${_(`${CONF.name}.locating`)}`,
+    `${Icons.LOADING} ${T("locating")}`,
     HINT_DURATION.PERSIST,
   );
   geo.getCurrentPosition(
@@ -91,11 +92,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     },
     () => {
       map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(
-        CONF.name,
-        _(`${CONF.name}.geo_error`),
-        HINT_DURATION.LONG,
-      );
+      map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     },
   );
 };

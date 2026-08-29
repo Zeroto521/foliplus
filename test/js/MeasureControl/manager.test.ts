@@ -38,6 +38,7 @@ function makeManager(opts?: { id?: string }) {
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
   window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
+  window.L.polygon = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
   window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
 
   const container = document.createElement("div");
@@ -45,6 +46,7 @@ function makeManager(opts?: { id?: string }) {
     getContainer: () => container,
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
     foliplus: {
       showHint: vi.fn(),
       hideHint: vi.fn(),
@@ -224,6 +226,48 @@ describe("MeasureManager — cleanMapEvents", () => {
   });
 });
 
+describe("MeasureManager — active Escape shortcut lifecycle", () => {
+  it("setMode registers high-priority active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+
+    const im = map.foliplus.interaction;
+    // After setMode, the interaction manager has an active-escape registration
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeDefined();
+    expect(activeReg.priority).toBe(1);
+    expect(activeReg.key).toBe("Escape");
+  });
+
+  it("clearActiveMode unregisters active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+    manager.clearActiveMode();
+
+    const im = map.foliplus.interaction;
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeUndefined();
+  });
+
+  it("re-entering mode re-registers active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MODE.MARKER);
+    manager.clearActiveMode();
+    manager.setMode(CONST.MODE.POLYGON);
+
+    const im = map.foliplus.interaction;
+    const activeRegs = im.shortcuts.filter(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeRegs).toHaveLength(1);
+    expect(activeRegs[0].priority).toBe(1);
+  });
+});
+
 describe("MeasureManager — export auto-clear", () => {
   it("EVENTS.MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
     const { manager } = makeManager();
@@ -363,6 +407,71 @@ describe("MeasureManager — export click", () => {
     const { manager } = makeManager();
     const btn = document.createElement("button");
     expect(() => manager.bindExportClick(btn)).not.toThrow();
+  });
+});
+
+// ==================== Measure-mode layer interaction lock (mode-driven) ====================
+// The lock lives in core/mode ModeManager; these tests pin the MeasureManager
+// integration: setMode/clearActiveMode flow through the centralized lock.
+describe("MeasureManager — mode-driven layer interaction lock", () => {
+  const makeTop = (leaf: unknown) => ({
+    eachLayer: (fn: (l: unknown) => void) => fn(leaf),
+  });
+
+  const makeLeaf = (map: unknown, interactive = true) => {
+    const el = document.createElement("path");
+    if (interactive) el.classList.add("leaflet-interactive");
+    return {
+      leaf: {
+        options: { interactive },
+        _map: map,
+        _path: el,
+        _icon: undefined,
+        _container: undefined,
+        addInteractiveTarget: vi.fn(),
+        removeInteractiveTarget: vi.fn(),
+      },
+      el,
+    };
+  };
+
+  it("setMode suspends layer interaction and clearActiveMode restores it", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MODE.MARKER);
+    expect(leaf.options.interactive).toBe(false);
+    expect(leaf.removeInteractiveTarget).toHaveBeenCalled();
+
+    manager.clearActiveMode();
+    expect(leaf.options.interactive).toBe(true);
+    expect(leaf.addInteractiveTarget).toHaveBeenCalled();
+  });
+
+  it("switching measure modes keeps the existing suspension (no double walk)", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MODE.MARKER);
+    const callsAfterFirst = map.eachLayer.mock.calls.length;
+    expect(callsAfterFirst).toBe(1);
+
+    manager.setMode(CONST.MODE.DISTANCE);
+    // Already suspended by ModeManager → no second walk.
+    expect(map.eachLayer.mock.calls.length).toBe(callsAfterFirst);
+    expect(leaf.options.interactive).toBe(false);
+  });
+
+  it("a non-interactive layer is left untouched", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map, false);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MODE.MARKER);
+    expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
+    expect(() => manager.clearActiveMode()).not.toThrow();
   });
 });
 

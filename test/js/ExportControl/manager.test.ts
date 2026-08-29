@@ -26,6 +26,7 @@ function makeMapMock() {
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
+    eachLayer: vi.fn(),
   };
 }
 
@@ -50,85 +51,6 @@ function setCropState(manager, rect = { left: 10, top: 10, width: 100, height: 1
   manager.cropState = { rect, locked: false, box, geoBounds: null };
 }
 
-describe("ExportManager — undo/redo", () => {
-  let manager;
-
-  beforeEach(() => {
-    manager = makeManager();
-  });
-
-  it("pushUndoState records rect and clears redo", () => {
-    setCropState(manager);
-    manager.redoStack = [{ left: 0, top: 0, width: 50, height: 50 }];
-    manager.pushUndoState();
-    expect(manager.undoStack).toHaveLength(1);
-    expect(manager.undoStack[0]).toEqual({
-      left: 10,
-      top: 10,
-      width: 100,
-      height: 100,
-    });
-    expect(manager.redoStack).toHaveLength(0);
-  });
-
-  it("pushUndoState is a no-op when cropState is null", () => {
-    manager.pushUndoState();
-    expect(manager.undoStack).toHaveLength(0);
-  });
-
-  it("undoCropBox restores last undo state", () => {
-    setCropState(manager);
-    manager.undoStack = [{ left: 5, top: 5, width: 50, height: 50 }];
-    manager.undoCropBox();
-    expect(manager.cropState.rect).toEqual({ left: 5, top: 5, width: 50, height: 50 });
-    expect(manager.redoStack).toHaveLength(1);
-  });
-
-  it("undoCropBox is a no-op when stack is empty", () => {
-    setCropState(manager);
-    manager.undoCropBox();
-    expect(manager.cropState.rect).toEqual({
-      left: 10,
-      top: 10,
-      width: 100,
-      height: 100,
-    });
-  });
-
-  it("redoCropBox restores last redo state", () => {
-    setCropState(manager);
-    manager.redoStack = [{ left: 20, top: 20, width: 80, height: 80 }];
-    manager.redoCropBox();
-    expect(manager.cropState.rect).toEqual({
-      left: 20,
-      top: 20,
-      width: 80,
-      height: 80,
-    });
-    expect(manager.undoStack).toHaveLength(1);
-  });
-
-  it("undo/redo cycle round-trips", () => {
-    setCropState(manager);
-    const initial = { ...manager.cropState.rect };
-    manager.undoStack = [{ left: 0, top: 0, width: 50, height: 50 }];
-    manager.undoCropBox(); // → rect becomes undo state, redo gets initial
-    manager.redoCropBox(); // → rect returns to initial
-    expect(manager.cropState.rect).toEqual(initial);
-  });
-
-  it("undo stack is capped at UNDO_MAX entries", () => {
-    setCropState(manager);
-    // Push 21 entries (UNDO_MAX = 20)
-    for (let i = 0; i < 21; i++) {
-      manager.undoStack.push({ left: i, top: i, width: 10, height: 10 });
-    }
-    manager.undoCropBox(); // triggers the cap check via redoCropBox path too
-    // After undoCropBox: old rect pushed to redo, stack pops 1 → length 20
-    expect(manager.undoStack.length).toBeLessThanOrEqual(20);
-  });
-});
-
 describe("ExportManager — onKeyDown", () => {
   let manager;
 
@@ -152,29 +74,132 @@ describe("ExportManager — onKeyDown", () => {
     manager.onKeyDown({ key: "Enter" });
     expect(manager.lockCropBox).toHaveBeenCalled();
   });
+});
 
-  it("Ctrl+Z calls undoCropBox", () => {
-    const spy = vi.spyOn(manager, "undoCropBox");
-    manager.onKeyDown({
-      key: "z",
-      ctrlKey: true,
-      metaKey: false,
-      shiftKey: false,
-      preventDefault: vi.fn(),
-    });
-    expect(spy).toHaveBeenCalled();
+describe("ExportManager — shortcut lifecycle", () => {
+  let manager;
+  let container;
+
+  beforeEach(() => {
+    manager = makeManager();
+    // Ensure the map container is in the document so focus-based container
+    // containment checks (s.container.contains(document.activeElement)) work.
+    container = manager.map.getContainer();
+    container.tabIndex = 0; // <div> needs tabindex to be focusable in jsdom
+    document.body.appendChild(container);
+    // Restore real removeCropBox so registerShortcuts → unregisterShortcuts
+    // (which internally calls removeCropBox) does not hit a no-op stub.
+    manager.removeCropBox = () => {
+      manager.cropState = null;
+    };
+    setCropState(manager);
   });
 
-  it("Ctrl+Shift+Z calls redoCropBox", () => {
-    const spy = vi.spyOn(manager, "redoCropBox");
-    manager.onKeyDown({
-      key: "z",
-      ctrlKey: true,
-      metaKey: false,
-      shiftKey: true,
-      preventDefault: vi.fn(),
-    });
-    expect(spy).toHaveBeenCalled();
+  afterEach(() => {
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  });
+
+  it("starts with no interactionCleanup", () => {
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("registerShortcuts stores cleanup in interactionCleanup", () => {
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+  });
+
+  it("unregisterShortcuts clears interactionCleanup", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("unregisterShortcuts after registerShortcuts prevents Enter from firing", () => {
+    manager.registerShortcuts();
+    expect(manager.interactionCleanup).toBeTypeOf("function");
+
+    // Fire Enter while map container has focus — should reach onKeyDown
+    manager.map.getContainer().focus();
+    const keydown = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
+    document.dispatchEvent(keydown);
+    expect(manager.lockCropBox).toHaveBeenCalled();
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
+
+    // Same Enter after cleanup — should NOT reach onKeyDown
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
+  });
+
+  it("Enter reaches onKeyDown before cleanup, then suppressed after cleanup", () => {
+    manager.registerShortcuts();
+
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).not.toHaveBeenCalled();
+  });
+
+  it("unregisterShortcuts prevents Escape from firing", () => {
+    manager.registerShortcuts();
+
+    // Escape is global (no container required) — fires anywhere
+    let escapeCalled = false;
+    manager.removeCropBox = () => {
+      escapeCalled = true;
+      manager.cropState = null;
+    };
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(escapeCalled).toBe(true);
+
+    escapeCalled = false;
+    setCropState(manager);
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(escapeCalled).toBe(false);
+  });
+
+  it("re-registering shortcuts after cleanup restores Enter handler", () => {
+    manager.registerShortcuts();
+    manager.unregisterShortcuts();
+
+    // After cleanup, cropState is null — re-set it
+    setCropState(manager);
+
+    manager.registerShortcuts();
+    expect(typeof manager.interactionCleanup).toBe("function");
+
+    manager.map.getContainer().focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
+    manager.lockCropBox.mockReset();
+
+    manager.unregisterShortcuts();
+    expect(manager.interactionCleanup).toBeUndefined();
   });
 });
 
@@ -342,7 +367,7 @@ describe("ExportManager — mouse drag", () => {
     expect(manager.cropState.rect.top).toBe(30);
   });
 
-  it("onMouseUp resets drag state and pushes undo", () => {
+  it("onMouseUp resets drag state", () => {
     manager.dragState = {
       dragging: true,
       dragType: "move",
@@ -351,7 +376,6 @@ describe("ExportManager — mouse drag", () => {
     };
     manager.onMouseUp();
     expect(manager.dragState.dragging).toBe(false);
-    expect(manager.undoStack).toHaveLength(1);
   });
 });
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  FULLSCREEN_CHANGE,
   getFullscreenEl,
   isEnabled,
-  nativeAPI,
 } from "#foliplus/FullscreenControl/api.js";
 import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 
@@ -25,16 +25,15 @@ describe("const.js", () => {
 });
 
 describe("api.js (jsdom — no native Fullscreen API)", () => {
-  it("nativeAPI is null when no fullscreen support", () => {
-    expect(nativeAPI).toBeNull();
+  it("FULLSCREEN_CHANGE is the standard event name", () => {
+    expect(FULLSCREEN_CHANGE).toBe("fullscreenchange");
   });
 
-  it("isEnabled is false", () => {
-    // nativeAPI is null, so null && ... evaluates to null
-    expect(isEnabled).toBeNull();
+  it("isEnabled is false when fullscreenEnabled is unavailable", () => {
+    expect(isEnabled).toBe(false);
   });
 
-  it("getFullscreenEl returns null", () => {
+  it("getFullscreenEl returns null when fullscreenElement is unavailable", () => {
     expect(getFullscreenEl()).toBe(null);
   });
 });

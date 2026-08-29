@@ -5,6 +5,7 @@
 import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { suspendMapInteractions } from "#core/layer/util.js";
 
 interface ModeChangePayload {
   component: string;
@@ -20,8 +21,13 @@ const BLOCKED_BY: Record<string, string[]> = {
 
 class ModeManager {
   private modes = new Map<string, string | null>();
+  /** Restore closure for map layers disabled while a mode is active. */
+  private interactionLock: (() => void) | null = null;
 
-  constructor(private readonly bus: EventBus) {}
+  constructor(
+    private readonly bus: EventBus,
+    private readonly map: L.Map,
+  ) {}
 
   getMode(component: string): string | null {
     return this.modes.get(component) ?? null;
@@ -32,6 +38,25 @@ class ModeManager {
     if (this.modes.get(component) === mode) return;
     this.modes.set(component, mode);
     this.bus.emit(EVENTS.MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
+    this.syncInteractionLock();
+  }
+
+  /**
+   * Suppress map-layer interaction while any component owns the map, and
+   * restore it once the last mode clears. The policy is "any non-null mode
+   * needs exclusive map interaction" — today only measure modes and export
+   * crop/export register modes, and both require it. If a future mode is
+   * added that does NOT need exclusivity, extend this with an explicit
+   * opt-out marker instead of weakening the condition.
+   */
+  private syncInteractionLock() {
+    const anyActive = [...this.modes.values()].some(m => m !== null);
+    if (anyActive && !this.interactionLock) {
+      this.interactionLock = suspendMapInteractions(this.map);
+    } else if (!anyActive && this.interactionLock) {
+      this.interactionLock();
+      this.interactionLock = null;
+    }
   }
 
   /** Check whether a component is blocked by any active mode. */
@@ -50,6 +75,7 @@ class ModeManager {
 
   clear(): void {
     this.modes.clear();
+    this.syncInteractionLock();
   }
 }
 
@@ -60,15 +86,19 @@ const instances = new WeakMap<L.Map, ModeManager>();
 const ensureModes = (map: L.Map): ModeManager => {
   const existing = instances.get(map);
   if (existing) return existing;
-  const manager = new ModeManager(ensureEvents(map));
+  const manager = new ModeManager(ensureEvents(map), map);
   instances.set(map, manager);
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
   map.foliplus!.modes = manager;
+  // On map unload, clear modes and release the interaction lock so manager
+  // state and the disabled-layers closure do not outlive the map (mirrors the
+  // per-map cleanup pattern used by core/interaction).
+  map.on("unload" as any, () => manager.clear());
   return manager;
 };
 
 /** Check whether a component is blocked by an active mode and show a hint.
- *  Caller provides the translated hint text (e.g. `_(`${CONF.name}.blocked`)`).
+ *  Caller provides the translated hint text (e.g. `T("blocked")`).
  *  Returns `true` when blocked (caller should return early). */
 export const guardBlocked = (map: L.Map, name: string, hintText: string): boolean => {
   if (map.foliplus?.modes?.isBlocked(name)) {

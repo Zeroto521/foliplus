@@ -1,8 +1,8 @@
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Test whether a rectangle intersects the visible crop area. */
 const isVisible = (
@@ -64,7 +64,7 @@ const loadImage = (src: string, crossOrigin?: string) =>
           /* ignore */
         }
       }
-      reject(new Error(_(`${CONF.name}.err_image_load`)));
+      reject(new Error(T("err_image_load")));
     };
     i.src = src;
   });

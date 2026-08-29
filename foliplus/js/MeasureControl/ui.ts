@@ -1,13 +1,13 @@
 // MeasureControl UI — standalone functions invoked with a MeasureManager context.
 import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /**
  * Mutable toggle state shared between createToggleUI and setupMapClickActive.
@@ -125,10 +125,7 @@ const attachDistanceUI = (
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
-        title:
-          isFirst || isLastWhenTwo
-            ? _(`${CONF.name}.del_all`)
-            : _(`${CONF.name}.del_node`),
+        title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
       }),
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
@@ -164,7 +161,7 @@ const attachDistanceUI = (
             lastDel.off("click");
             attachDelClick(lastDel, deleteMeasurement);
             const iconEl = lastDel.getElement();
-            if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
+            if (iconEl) iconEl.title = T("del_all");
           }
         }
 
@@ -356,7 +353,7 @@ const attachPolygonUI = (
     ) as L.Marker;
 
     centroidDel = layers.addLayer(
-      makeDelIcon(centroid, { title: _(`${CONF.name}.del_all`) }),
+      makeDelIcon(centroid, { title: T("del_all") }),
     ) as L.Marker;
     attachDelClick(centroidDel, deleteMeasurement);
 
@@ -412,7 +409,7 @@ const attachPolygonUI = (
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
-        title: is3pt ? _(`${CONF.name}.del_all`) : _(`${CONF.name}.del_node`),
+        title: is3pt ? T("del_all") : T("del_node"),
       }),
     ) as L.Marker;
     nodeDelIcons.push(delMarker);
@@ -451,7 +448,7 @@ const attachPolygonUI = (
               } else handleItemClick(event);
             });
             const iconEl = d.getElement();
-            if (iconEl) iconEl.title = _(`${CONF.name}.del_all`);
+            if (iconEl) iconEl.title = T("del_all");
           });
         }
 

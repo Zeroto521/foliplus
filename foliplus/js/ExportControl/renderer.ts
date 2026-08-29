@@ -1,10 +1,10 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
-import { createTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONF);
 
 /** Render context threaded through all rendering passes. */
 interface RenderCtx {
@@ -39,11 +39,11 @@ interface TileDesc {
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
 // Load items with a bounded in-flight count (preserves array order on resolve).
-async function pooledEach<T, R>(
+const pooledEach = async <T, R>(
   items: T[],
   maxConcurrency: number,
   fn: (item: T, index: number) => Promise<R | null> | R | null,
-): Promise<Array<R | null>> {
+): Promise<Array<R | null>> => {
   if (items.length === 0) return [];
   const cap = Math.max(1, maxConcurrency);
   const results = new Array<R | null>(items.length);
@@ -62,7 +62,8 @@ async function pooledEach<T, R>(
   };
   await Promise.all(Array.from({ length: cap }, enqueue));
   return results;
-}
+};
+
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
@@ -145,7 +146,7 @@ class ExportRenderer {
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
-    if (sw < 1 || sh < 1) throw new Error(_(`${CONF.name}.err_crop_too_small`));
+    if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;
