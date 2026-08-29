@@ -305,9 +305,7 @@ class TestExportControlBrowser:
 
             # Close the crop box (Escape) → interaction restored.
             page.keyboard.press("Escape")
-            page.wait_for_selector(
-                ".foliplus-export-box", state="hidden", timeout=5000
-            )
+            page.wait_for_selector(".foliplus-export-box", state="hidden", timeout=5000)
             page.wait_for_timeout(300)
             assert page.evaluate("window.__featureMarker.options.interactive") is True
             assert not errors, f"JS errors: {errors}"
