@@ -430,10 +430,7 @@
 /* ── Active: the layer-item "selected" language — accent light background,
      text stays text-primary (the accent left border is added per-component
      where a persistent selection exists, e.g. the Heatmap scheme picker). ── */
-:is(
-  .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item
-).active {
+:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item).active {
   background: var(--accent-light);
 }
 
