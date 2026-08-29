@@ -114,9 +114,7 @@ const scanImports = dir => {
   }
 
   const usedExports = {};
-  for (const [spec, names] of imported) {
-    usedExports[spec] = [...names].sort();
-  }
+  for (const [spec, names] of imported) usedExports[spec] = [...names].sort();
   return usedExports;
 };
 

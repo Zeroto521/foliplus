@@ -277,9 +277,7 @@ const check = (args, root = ROOT) => {
   if (!baseline) {
     console.warn(`\n${WARN}  No baseline found. Create one:`);
     console.warn("  node script/size-check.mjs --save");
-  } else {
-    console.log(`\n${OK} All bundles within threshold.`);
-  }
+  } else console.log(`\n${OK} All bundles within threshold.`);
   return 0;
 };
 

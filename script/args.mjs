@@ -6,7 +6,7 @@
  * decides how to handle help/errors. This makes it testable in isolation.
  *
  * Usage:
- *   import { parseArgs, usage, help } from "./args.mjs";
+ *   import { parseArgs, help } from "./args.mjs";
  *
  *   const spec = {
  *     dev:    { type: "bool"   },
