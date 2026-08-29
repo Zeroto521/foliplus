@@ -73,4 +73,22 @@ describe("Nominatim provider — normalizers", () => {
     );
     expect(provider.normalizeReverse({})).toBe("");
   });
+
+  it("normalizeSuggest returns [] for non-array input", () => {
+    expect(provider.normalizeSuggest({})).toEqual([]);
+    expect(provider.normalizeSuggest(null)).toEqual([]);
+  });
+
+  it("accept-language falls back to en when code is empty", () => {
+    expect(provider.search("Paris", "")).toContain("accept-language=en");
+    expect(provider.reverse(119.3, 26.08, "")).toContain("accept-language=en");
+  });
+
+  it("normalizes non-string name/display_name to undefined/''", () => {
+    const items = provider.normalizeSuggest([
+      { lon: "1", lat: "2", name: 123, display_name: 456 },
+    ]);
+    expect(items[0].name).toBeUndefined();
+    expect(items[0].display_name).toBe("");
+  });
 });

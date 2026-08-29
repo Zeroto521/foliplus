@@ -41,6 +41,16 @@ const getProvider = (): GeocodeProvider => {
   }
 };
 
+/** Raw provider spec from CONF, forwarded to the shared runtime geocoder so
+ *  custom providers resolve identically there (cache keys stay consistent). */
+const providerArgs = (): [
+  string | Record<string, unknown> | undefined,
+  Record<string, unknown> | null | undefined,
+] => [
+  CONF.provider as string | Record<string, unknown> | undefined,
+  CONF.provider_config,
+];
+
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
   inp: HTMLInputElement;
@@ -232,7 +242,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // incrementing the count (addHistoryEntry treats same-query as a repeat).
   recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
-    .reverseGeocode(map, lng, lat, CONF.locale_code, getProvider().id)
+    .reverseGeocode(map, lng, lat, CONF.locale_code, ...providerArgs())
     .then(addr => {
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === raw);
@@ -262,7 +272,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   );
 
   window.foliplus
-    .geocode(map, query, CONF.locale_code, getProvider().id)
+    .geocode(map, query, CONF.locale_code, ...providerArgs())
     .then(result => {
       map.foliplus!.hideHint(CONF.name);
       if (!result) {
@@ -551,7 +561,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
           parseFloat(first.lat),
           parseFloat(first.lng),
           formatAddress(first.display_name, map, CONF.locale_code) || query,
-          provider.id,
+          ...providerArgs(),
         );
       }
       renderSuggestions(ctrl, results, query);

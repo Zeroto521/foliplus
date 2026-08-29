@@ -79,4 +79,26 @@ describe("Photon provider — normalizers", () => {
     expect(item?.display_name).toContain("Berlin");
     expect(provider.normalizeReverse(featureCollection)).toBe(item?.display_name);
   });
+
+  it("search/reverse omit lang when code is empty", () => {
+    expect(provider.search("Berlin", "")).not.toContain("lang=");
+    expect(provider.reverse(13.4, 52.5, "")).not.toContain("lang=");
+  });
+
+  it("normalizeSearch/normalizeReverse return null/'' for empty results", () => {
+    expect(provider.normalizeSearch({ features: [] })).toBeNull();
+    expect(provider.normalizeReverse({ features: [] })).toBe("");
+  });
+
+  it("filters non-string properties fields (e.g. numeric housenumber)", () => {
+    const items = provider.normalizeSuggest({
+      features: [
+        {
+          geometry: { coordinates: [1, 2] },
+          properties: { housenumber: 42, name: "A", country: "C" },
+        },
+      ],
+    });
+    expect(items[0].display_name).toBe("A, C");
+  });
 });

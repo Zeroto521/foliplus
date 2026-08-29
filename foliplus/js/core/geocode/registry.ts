@@ -77,16 +77,21 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
         limit,
         lon: center ? center[0] : "",
         lat: center ? center[1] : "",
+        code,
+        lang: code,
       });
     },
     search(q, code) {
-      return buildUrl(config.search, { q });
+      return buildUrl(config.search, { q, limit: 1, code, lang: code });
     },
     reverse(lng, lat, code) {
-      return buildUrl(config.reverse, { lon: lng, lat });
+      return buildUrl(config.reverse, { lon: lng, lat, code, lang: code });
     },
     normalizeSuggest(data) {
-      return normalizeSuggestFn ? toItems(normalizeSuggestFn(data)) : [];
+      if (!normalizeSuggestFn) return [];
+      const out = normalizeSuggestFn(data);
+      // A suggest normalizer may return a single item or an array of items.
+      return toItems(Array.isArray(out) ? out : [out]);
     },
     normalizeSearch(data) {
       if (!normalizeSearchFn) return null;

@@ -63,4 +63,8 @@ describe("formatAddress", () => {
     expect(result).toContain("London");
     expect(result).toContain("UK");
   });
+
+  it("drops empty tokens from consecutive or trailing commas", () => {
+    expect(formatAddress("Paris,, France,", undefined, "en")).toBe("Paris,France");
+  });
 });

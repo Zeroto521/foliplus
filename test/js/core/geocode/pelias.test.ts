@@ -82,4 +82,33 @@ describe("Pelias provider — normalizers", () => {
     );
     expect(provider.normalizeReverse(featureCollection)).toBe("Berlin, Germany");
   });
+
+  it("omits focus/lang when no bias or locale", () => {
+    const url = provider.suggest("Berlin", 5, null, "");
+    expect(url).not.toContain("focus.point");
+    expect(url).not.toContain("lang=");
+  });
+
+  it("search/reverse omit lang when code is empty", () => {
+    expect(provider.search("Berlin", "")).not.toContain("lang=");
+    expect(provider.reverse(13.4, 52.5, "")).not.toContain("lang=");
+  });
+
+  it("display name falls back through label → name → empty", () => {
+    const empty = provider.normalizeSuggest({
+      features: [{ geometry: { coordinates: [0, 0] }, properties: { label: "" } }],
+    });
+    expect(empty[0].display_name).toBe("");
+    const nameFallback = provider.normalizeSuggest({
+      features: [
+        { geometry: { coordinates: [0, 0] }, properties: { label: "", name: "X" } },
+      ],
+    });
+    expect(nameFallback[0].display_name).toBe("X");
+  });
+
+  it("normalizeSearch/normalizeReverse return null/'' for empty results", () => {
+    expect(provider.normalizeSearch({ features: [] })).toBeNull();
+    expect(provider.normalizeReverse({ features: [] })).toBe("");
+  });
 });

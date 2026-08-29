@@ -35,6 +35,11 @@ describe("resolveProvider", () => {
   it("ignores an empty provider_config", () => {
     expect(resolveProvider("nominatim", {})).toBe(BUILTIN_PROVIDERS.nominatim);
   });
+
+  it("keeps the built-in baseUrl when provider_config.baseUrl is empty", () => {
+    const provider = resolveProvider("photon", { baseUrl: "" });
+    expect(provider.search("Berlin", "en")).toContain("photon.komoot.io");
+  });
 });
 
 describe("providerFromConfig", () => {
@@ -89,6 +94,31 @@ describe("providerFromConfig", () => {
     expect(provider.normalizeReverse({ label: "B" })).toBe("B");
   });
 
+  it("interpolates the {code} / {lang} placeholders from the locale", () => {
+    const provider = providerFromConfig({
+      id: "locale",
+      baseUrl: "https://x.example.com",
+      search: { url: "/search?q={q}&lang={lang}&code={code}&size={limit}" },
+    });
+    expect(provider.search("Paris", "zh")).toBe(
+      "https://x.example.com/search?q=Paris&lang=zh&code=zh&size=1",
+    );
+  });
+
+  it("coerces a single-object suggest normalizer result to an array", () => {
+    const provider = providerFromConfig({
+      id: "single",
+      baseUrl: "https://x.example.com",
+      suggest: { url: "/suggest?q={q}" },
+      normalize: {
+        suggest: "d => ({ lng: '1', lat: '2', display_name: 'A' })",
+      },
+    });
+    expect(provider.normalizeSuggest({})).toEqual([
+      { lng: "1", lat: "2", name: undefined, display_name: "A" },
+    ]);
+  });
+
   it("returns empty results when no normalizer is provided", () => {
     const provider = providerFromConfig({
       id: "bare",
@@ -115,5 +145,15 @@ describe("providerFromConfig", () => {
         normalize: { search: "not an arrow function" },
       }),
     ).toThrow(/invalid normalizer/);
+  });
+
+  it("yields an empty URL for an operation that is not configured", () => {
+    const provider = providerFromConfig({
+      id: "no-search",
+      baseUrl: "https://x.example.com",
+      suggest: { url: "/suggest?q={q}" },
+    });
+    expect(provider.search("q", "en")).toBe("");
+    expect(provider.reverse(1, 2, "en")).toBe("");
   });
 });

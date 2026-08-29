@@ -46,6 +46,10 @@ describe("withParams", () => {
     expect(url).toContain("size=5");
     expect(url).not.toContain("skip");
   });
+
+  it("returns an empty URL unchanged", () => {
+    expect(withParams("", { a: "1" })).toBe("");
+  });
 });
 
 describe("safeEval", () => {

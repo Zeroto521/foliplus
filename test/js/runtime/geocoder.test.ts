@@ -194,3 +194,46 @@ describe("provider selection", () => {
     expect(url).toContain("photon.komoot.io/reverse");
   });
 });
+
+describe("custom provider (declarative dict)", () => {
+  const custom = {
+    id: "myapi",
+    baseUrl: "https://geo.example.com",
+    search: { url: "/search?q={q}" },
+    reverse: { url: "/reverse?lon={lon}&lat={lat}" },
+    normalize: {
+      search:
+        "d => d.results && d.results[0] ? { lng: String(d.results[0].lon), lat: String(d.results[0].lat), display_name: d.results[0].label } : null",
+      reverse: "d => (d && d.label) || ''",
+    },
+  };
+
+  it("geocode resolves a declarative custom provider", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({ results: [{ lon: 12.3, lat: 45.6, label: "Custom Place" }] }),
+    );
+    const r = await geocode(mockMap, "Custom Place", "en", custom);
+    expect(r).toEqual({ lat: 45.6, lng: 12.3, display_name: "Custom Place" });
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    // Custom-provider templates encode via encodeURIComponent (space → %20).
+    expect(url).toBe("https://geo.example.com/search?q=Custom%20Place");
+  });
+
+  it("reverseGeocode resolves a declarative custom provider", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({ label: "Custom, Place" }),
+    );
+    const addr = await reverseGeocode(mockMap, 99.9, 44.4, "en", custom);
+    // formatAddress joins comma-separated parts without a space.
+    expect(addr).toBe("Custom,Place");
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toBe("https://geo.example.com/reverse?lon=99.9&lat=44.4");
+  });
+
+  it("cacheSuggestion with a custom provider pre-fills its own cache key", async () => {
+    cacheSuggestion(mockMap, "Cached Custom", 10.1, 20.2, "Custom, Place", custom);
+    const r = await geocode(mockMap, "Cached Custom", "en", custom);
+    expect(r).toEqual({ lat: 10.1, lng: 20.2, display_name: "Custom, Place" });
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit, no API call
+  });
+});

@@ -177,13 +177,15 @@ declare global {
       lng: number | string,
       lat: number | string,
       code?: string,
-      providerId?: string,
+      provider?: string | Record<string, unknown>,
+      providerConfig?: Record<string, unknown> | null,
     ) => Promise<string>;
     geocode: (
       map: Leaflet.Map,
       address: string,
       code?: string,
-      providerId?: string,
+      provider?: string | Record<string, unknown>,
+      providerConfig?: Record<string, unknown> | null,
     ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
     cacheSuggestion: (
       map: Leaflet.Map,
@@ -191,7 +193,8 @@ declare global {
       lat: number,
       lng: number,
       displayName: string,
-      providerId?: string,
+      provider?: string | Record<string, unknown>,
+      providerConfig?: Record<string, unknown> | null,
     ) => void;
     _TABLES: Record<string, Record<string, string>>;
     /** Shared core modules (layer, event, mode). Set by _shared-registry + runtime. */

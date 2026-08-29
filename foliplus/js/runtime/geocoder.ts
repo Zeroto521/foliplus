@@ -5,7 +5,7 @@
 // Pure helpers and provider definitions live in core/geocode/* and are
 // statically imported here.
 import { resolveProvider } from "#core/geocode/index.js";
-import type { GeocodeProvider } from "#core/geocode/index.js";
+import type { GeocodeProvider, ProviderConfig } from "#core/geocode/index.js";
 import { Cache } from "#common/cache.js";
 import { fromWgs84, getMapCrsType, toWgs84 } from "#common/coord.js";
 import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
@@ -64,23 +64,24 @@ const reverseGeocode = (
   lng: number | string,
   lat: number | string,
   code = "en",
-  providerId?: string,
+  provider?: string | ProviderConfig,
+  providerConfig?: Record<string, unknown> | null,
 ): Promise<string> => {
-  const provider = resolveProvider(providerId);
-  const key = `reverse:${provider.id}:${lng},${lat}`;
+  const resolved = resolveProvider(provider, providerConfig);
+  const key = `reverse:${resolved.id}:${lng},${lat}`;
   const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
-  const url = provider.reverse(wgs[0], wgs[1], code);
+  const url = resolved.reverse(wgs[0], wgs[1], code);
   const notFound = localeFallback(code, "foliplus.addr_not_found", "Address not found");
   const fail = localeFallback(code, "foliplus.geo_fail", "Lookup failed");
 
-  return throttled(provider, () =>
-    requestJson(provider, url)
+  return throttled(resolved, () =>
+    requestJson(resolved, url)
       .then(data => {
         const addr =
-          formatAddress(provider.normalizeReverse(data), map, code) || notFound;
+          formatAddress(resolved.normalizeReverse(data), map, code) || notFound;
         geoCache.set(key, addr);
         return addr;
       })
@@ -100,13 +101,14 @@ const geocode = (
   map: L.Map,
   address: string,
   code = "en",
-  providerId?: string,
+  provider?: string | ProviderConfig,
+  providerConfig?: Record<string, unknown> | null,
 ): Promise<GeocodeResult | null> => {
-  const provider = resolveProvider(providerId);
+  const resolved = resolveProvider(provider, providerConfig);
   // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
   // WGS84) — or on different providers — do not share a stale cached result.
   const crs = getMapCrsType(map);
-  const key = `forward:${provider.id}:${address}:${crs}`;
+  const key = `forward:${resolved.id}:${address}:${crs}`;
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split(SEP);
@@ -118,12 +120,12 @@ const geocode = (
       });
   }
 
-  const url = provider.search(address, code);
+  const url = resolved.search(address, code);
 
-  return throttled(provider, () =>
-    requestJson(provider, url)
+  return throttled(resolved, () =>
+    requestJson(resolved, url)
       .then(data => {
-        const item = provider.normalizeSearch(data);
+        const item = resolved.normalizeSearch(data);
         if (!item) return null;
         // All built-in providers return WGS84 - convert to the map CRS so
         // downstream code always gets coordinates in the same CRS as map-
@@ -139,7 +141,7 @@ const geocode = (
           `${result.lat}${SEP}${result.lng}${SEP}${result.display_name}`,
         );
         // Safe: (lng, lat) is unique per provider - no collision risk
-        geoCache.set(`reverse:${provider.id}:${lng},${lat}`, result.display_name);
+        geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, result.display_name);
         return result;
       })
       .catch(() => null),
@@ -153,14 +155,15 @@ const cacheSuggestion = (
   lat: number,
   lng: number,
   displayName: string,
-  providerId?: string,
+  provider?: string | ProviderConfig,
+  providerConfig?: Record<string, unknown> | null,
 ) => {
-  const provider = resolveProvider(providerId);
+  const resolved = resolveProvider(provider, providerConfig);
   const crs = getMapCrsType(map);
-  const key = `forward:${provider.id}:${address}:${crs}`;
+  const key = `forward:${resolved.id}:${address}:${crs}`;
   geoCache.set(key, `${lat}${SEP}${lng}${SEP}${displayName}`);
   // Also populate the reverse entry for the same safety
-  geoCache.set(`reverse:${provider.id}:${lng},${lat}`, displayName);
+  geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, displayName);
 };
 
 export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };
