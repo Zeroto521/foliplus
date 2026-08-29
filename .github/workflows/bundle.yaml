@@ -61,6 +61,8 @@ jobs:
           {
             echo ""
             echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
+            echo ""
+            echo "_Table above = brotli-compressed sizes; treemap = uncompressed._"
           } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2
