@@ -6,7 +6,7 @@ beforeEach(() => {
   vi.resetModules();
 });
 
-const importFresh = () => import("../../../script/version.mjs");
+const importFresh = () => import("#script/version.mjs");
 
 // child_process is a CJS module — provide both the named export and `default`
 // so the mock satisfies ESM interop (version.mjs does `import { spawnSync }`).

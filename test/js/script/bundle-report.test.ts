@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkBundleCoverage } from "../../../script/bundle-report.mjs";
+import { checkBundleCoverage } from "#script/bundle-report.mjs";
 
 let tmpRoots: string[] = [];
 

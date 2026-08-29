@@ -15,7 +15,7 @@ import {
   rowCells,
   save,
   summarize,
-} from "../../../script/bundle-size-check.mjs";
+} from "#script/bundle-size-check.mjs";
 
 const brotli = (s: string) => brotliCompressSync(Buffer.from(s)).length;
 
