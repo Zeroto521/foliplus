@@ -352,16 +352,19 @@ describe("attachPolygonUI", () => {
     const finalPoly = { on: vi.fn(), setLatLngs: vi.fn() };
     const points = [0, 1, 2, 3].map(lat => ({ lat, lng: 0 }));
 
-    UI.attachPolygonUI(mgr as any, {
-      layers,
-      finalPoly,
-      nodeMarkers,
-      segLabels,
-      points,
-      area: 5000,
-      onDelete: vi.fn(),
-      onUpdate: vi.fn(),
-    } as any);
+    UI.attachPolygonUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        points,
+        area: 5000,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
 
     // makeDelIcon call order: [0]=centroid, [1..4]=one per node.
     const centroidDel = (makeDelIcon as any).mock.results[0].value;
