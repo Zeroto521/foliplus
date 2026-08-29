@@ -39,17 +39,26 @@ jobs:
           git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null || echo '{"files":{}}' > base-baseline.json
           node script/bundle-size-check.mjs --baseline=base-baseline.json --report=size-report.md || true
 
+      # Upload the sonda treemap (HTML only) so the comment can link to it.
+      - name: Upload report
+        id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle-report
+          path: bundle-report/
+
+      # Append a link to the uploaded treemap, then post the comment.
+      - name: Append report link
+        if: github.event_name == 'pull_request'
+        run: |
+          {
+            echo ""
+            echo "**Report:** [bundle report](${{ steps.upload.outputs.artifact-url }})"
+          } >> size-report.md
+
       - uses: marocchino/sticky-pull-request-comment@v2
         if: github.event_name == 'pull_request'
         continue-on-error: true # fork PRs lack comment permission
         with:
           header: bundle-size
           path: size-report.md
-
-      # Upload even when size:check failed, so the report stays downloadable
-      # for debugging the breach.
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: bundle-report
-          path: bundle-report/
