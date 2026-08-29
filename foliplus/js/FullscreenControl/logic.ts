@@ -100,8 +100,7 @@ const bindFullscreenEvents = (
 
   if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
   map.on("unload", () => {
-    if (isEnabled)
-      document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
+    if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
   });
 
   return handleFSChange;
