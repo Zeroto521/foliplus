@@ -32,7 +32,7 @@ coverage.xml
 junit.xml
 *.junit.xml
 coverage/
-bundle-report.html
+bundle-treemap.html
 htmlcov/
 html/
 .tox/

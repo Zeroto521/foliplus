@@ -276,7 +276,7 @@ const main = async () => {
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
   if (sonda)
-    console.log("  Sonda analysis enabled (combined report → bundle-report.html)");
+    console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
   const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
@@ -294,20 +294,20 @@ const main = async () => {
   }
 
   // ── Step 4.5: Combined sonda report + coverage check (--sonda) ──
-  // Merge per-build metafiles into one sonda treemap (bundle-report.html) and
+  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html) and
   // warn if any dist bundle is missing from bundle-size-baseline.json.
   if (sonda) {
     const metafiles = results
       .filter(r => r.status === "fulfilled")
       .map(r => r.value?.metafile)
       .filter(Boolean);
-    const reportFile = resolve(CFG.root, "bundle-report.html");
+    const reportFile = resolve(CFG.root, "bundle-treemap.html");
     rmSync(reportFile, { force: true });
     const config = new sonda.Config(
       {
         format: "html",
         outputDir: CFG.root,
-        filename: "bundle-report.html",
+        filename: "bundle-treemap.html",
         open: false,
         include: [/\.(js|css)$/],
       },

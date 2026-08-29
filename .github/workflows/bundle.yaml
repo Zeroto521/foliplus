@@ -53,8 +53,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         id: upload
         with:
-          name: bundle-report
-          path: bundle-report.html
+          name: bundle-treemap
+          path: bundle-treemap.html
 
       - name: Link treemap report
         run: |
