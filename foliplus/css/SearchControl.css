@@ -34,33 +34,22 @@
   }
 }
 
-/* ── Result Panel (mounted on map container, shared by suggestions and history) ── */
+/* ── Result Panel (mounted on map container, shared by suggestions and history) ──
+   Shell + item hover/active live in common.css (Unified Dropdown / Menu). */
 .foliplus-search-result-panel {
   position: fixed;
-  box-sizing: border-box;
-  margin-top: var(--space-xs);
-  background: var(--input-bg);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  /* Above other floating controls: the panel is mounted on the map container. */
   z-index: calc(var(--z-index-floating) + 9);
-  max-height: 240px;
-  overflow-y: auto;
   width: var(--panel-width);
+  max-height: 240px;
 }
 .foliplus-search-result-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background var(--transition-fast);
 
   &:is(:hover, .active) {
-    background: var(--accent-light);
-    color: var(--accent-primary);
     .foliplus-search-result-icon {
       color: var(--accent-primary);
     }
