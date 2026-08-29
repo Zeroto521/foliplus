@@ -275,8 +275,7 @@ const main = async () => {
   // ── Step 3: Discover components & build entries ───────────────
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda)
-    console.log("  Sonda analysis enabled (combined report → bundle-report/)");
+  if (sonda) console.log("  Sonda analysis enabled (combined report → bundle-report/)");
   const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
