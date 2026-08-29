@@ -6,6 +6,8 @@ const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reset the one-shot drag-synthetic-click flag between tests.
+  delete (window as any).__foliplus_measure_drag_click;
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.DomEvent = {
     ...window.L.DomEvent,
@@ -82,6 +84,12 @@ describe("label div icons", () => {
     const opts = window.L.divIcon.mock.calls[0][0];
     expect(opts.html).toContain("foliplus-measure-label-mid");
   });
+
+  it("makeLabelDivIcon falls back to the default anchor when none is given", () => {
+    Util.makeLabelDivIcon("hi");
+    const opts = window.L.divIcon.mock.calls[0][0];
+    expect(opts.iconAnchor).toEqual([0, -10]);
+  });
 });
 
 describe("makeNode", () => {
@@ -105,6 +113,16 @@ describe("setLabelText", () => {
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
     Util.setLabelText(marker, "new text");
     expect(labelEl.textContent).toBe("new text");
+  });
+
+  it("does nothing when the marker has no element", () => {
+    const marker = { getElement: () => null };
+    expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
+  });
+
+  it("does nothing when the label element is absent", () => {
+    const marker = { getElement: () => ({ querySelector: () => null }) };
+    expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
   });
 });
 
@@ -261,6 +279,15 @@ describe("buildEditOverlay", () => {
     expect(typeof overlay.close).toBe("function");
   });
 
+  it("close() is a no-op when the overlay is not open", () => {
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen: vi.fn(), onEmpty });
+
+    overlay.close();
+
+    expect(onEmpty).not.toHaveBeenCalled();
+  });
+
   it("fires onOpen and stops Leaflet propagation on open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
@@ -292,6 +319,16 @@ describe("buildEditOverlay", () => {
     const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("does not open on a drag-synthetic click", () => {
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen });
+
+    Util.markDragSyntheticClick();
+    overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).not.toHaveBeenCalled();
   });

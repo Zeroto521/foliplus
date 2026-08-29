@@ -91,6 +91,15 @@ describe("MeasureManager — persistence", () => {
     expect(id2).not.toBe(id1);
   });
 
+  it("featureCountProvider reports the live measurement count to LayerControl", () => {
+    const { manager, map } = makeManager();
+    const opts = map.foliplus.LayerAPI.createLayers.mock.calls[0][0];
+    manager.measurements = [{}, {}, {}] as any;
+    expect(opts.featureCountProvider()).toBe(3);
+    manager.measurements = [] as any;
+    expect(opts.featureCountProvider()).toBe(0);
+  });
+
   it("saveMeasurements persists to storage", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];

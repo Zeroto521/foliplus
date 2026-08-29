@@ -4,6 +4,9 @@ import { vi } from "vitest";
 
 export function initMocks() {
   vi.clearAllMocks();
+  // Reset the one-shot drag-synthetic-click flag so a prior test's drag end
+  // doesn't leak into the next test's click handler.
+  delete (window as any).__foliplus_measure_drag_click;
 
   window.L.circleMarker = vi.fn(() => ({
     bringToFront: vi.fn(),
@@ -46,6 +49,7 @@ export function initMocks() {
       setZIndexOffset: vi.fn(),
       bindPopup: vi.fn(() => ({})),
       openPopup: vi.fn(),
+      closePopup: vi.fn(),
       getPopup: vi.fn(() => null),
       setPopupContent: vi.fn(),
       addTo: vi.fn(() => m),

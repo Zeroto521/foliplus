@@ -525,3 +525,69 @@ describe("MarkerMode — start + click", () => {
     expect(pin.setPopupContent).toHaveBeenCalled();
   });
 });
+
+describe("MarkerMode — pin edit overlay (✕)", () => {
+  /** Restore a pin and give its ✕ a real DOM icon so toggleDelIcon is observable. */
+  const restoreWithIcon = (isEditMode: boolean) => {
+    const manager = makeManagerMock() as any;
+    manager.isEditMode = isEditMode;
+    MarkerMode.restore(manager, {
+      id: "m_ov",
+      type: "marker",
+      lng: 121,
+      lat: 31,
+      address: "Old",
+    });
+    const pin = (window.L.marker as any).mock.results[0].value;
+    const del = (window.L.marker as any).mock.results[1].value;
+    const el = document.createElement("div");
+    el.innerHTML = '<span data-del-icon=""></span>';
+    del.getElement = vi.fn(() => el);
+    const icon = el.querySelector("[data-del-icon]")!;
+    return { manager, pin, del, icon };
+  };
+
+  it("shows the ✕ when the pin is clicked in edit mode", () => {
+    const { pin, icon } = restoreWithIcon(true);
+    const onPinClick = pin.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
+    expect(icon.classList.contains("visible")).toBe(true);
+  });
+
+  it("does not show the ✕ outside edit mode", () => {
+    const { pin, icon } = restoreWithIcon(false);
+    const onPinClick = pin.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
+    expect(icon.classList.contains("visible")).toBe(false);
+  });
+
+  it("ignores the synthetic click that follows a drag", () => {
+    const { pin, icon } = restoreWithIcon(true);
+    (window as any).__foliplus_measure_drag_click = true;
+    const onPinClick = pin.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
+    expect(icon.classList.contains("visible")).toBe(false);
+  });
+
+  it("closes the overlay (hides ✕ and popup) when empty map space is clicked", () => {
+    const { manager, pin, icon } = restoreWithIcon(true);
+    const onPinClick = pin.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
+    expect(icon.classList.contains("visible")).toBe(true);
+
+    const onMapClick = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    onMapClick();
+    expect(icon.classList.contains("visible")).toBe(false);
+    expect(pin.closePopup).toHaveBeenCalled();
+  });
+});
