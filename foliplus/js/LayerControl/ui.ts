@@ -62,8 +62,10 @@ class LayerUI {
   private focusingLayerId: string | null;
   /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
   private onFocusMapMove: (() => void) | null;
-  /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
-  private dimmedLayers: Array<() => void>;
+  /** Inverse-mask polygon that dims everything outside the focused bounds. */
+  private focusMask: L.Polygon | null;
+  /** SVG renderer hosting the focus overlay (mask + rectangle + corners). */
+  private focusRenderer: L.SVG | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -83,7 +85,8 @@ class LayerUI {
     this.focusCorners = [];
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
-    this.dimmedLayers = [];
+    this.focusMask = null;
+    this.focusRenderer = null;
   }
 
   /** Alias for convenience */
@@ -1244,9 +1247,6 @@ class LayerUI {
     const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
     if (!bounds.isValid()) return;
 
-    // Dim every other visible layer so the focused layer stands out.
-    this.dimOtherLayers(layer);
-
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
@@ -1266,6 +1266,7 @@ class LayerUI {
       return;
     }
 
+    this.drawFocusMask(bounds);
     const corners = this.drawFocusRect(bounds, layerId);
     this.focusCorners = corners;
     this.highlightFocusedRow(itemEl, layerId);
@@ -1308,7 +1309,6 @@ class LayerUI {
   private dismissFocus(): void {
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
-    this.restoreDimmedLayers();
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1319,69 +1319,68 @@ class LayerUI {
     }
     this.focusCorners = [];
 
+    if (this.focusMask) {
+      this.m.map.removeLayer(this.focusMask);
+      this.focusMask = null;
+    }
+    if (this.focusRenderer) {
+      this.m.map.removeLayer(this.focusRenderer);
+      this.focusRenderer = null;
+    }
+
     this.focusingLayerId = null;
   }
 
   /**
-   * Dim every other visible registered layer so the focused layer stands out.
-   * Type-aware: vector paths use setStyle(opacity + fillOpacity), opacity
-   * layers (Marker/Tile/Grid/ImageOverlay) use setOpacity, and containers
-   * (LayerGroup/FeatureGroup) recurse into children. Restore callbacks are
-   * collected and replayed by restoreDimmedLayers().
+   * Draw an inverse mask that dims everything outside the focused bounds —
+   * the same "inside highlighted / outside dimmed" spotlight as the export
+   * crop box. The mask is a polygon of the visible view with the layer bounds
+   * as a hole, rendered in a high-z pane above the layer panes but below the
+   * focus rectangle, so the focused layer inside the hole stays bright.
    */
-  private dimOtherLayers(focusedLayer: L.Layer): void {
-    for (const layerInfo of this.m.layers) {
-      const layer = this.m.findLayer(layerInfo);
-      if (!layer || layer === focusedLayer) continue;
-      if (!this.m.map.hasLayer(layer)) continue;
-      const restore = this.dimLayer(layer, CONST.FOCUS.DIM_OPACITY);
-      if (restore) this.dimmedLayers.push(restore);
-    }
-  }
+  private drawFocusMask(bounds: L.LatLngBounds): void {
+    const map = this.m.map;
 
-  /**
-   * Dim a single layer and return a restore callback (or null if the layer
-   * has no dimmable representation).
-   */
-  private dimLayer(layer: L.Layer, opacity: number): (() => void) | null {
-    const dimmable = layer as L.Layer & {
-      setOpacity?: (o: number) => L.Layer;
-      eachLayer?: (fn: (c: L.Layer) => void) => void;
-      options?: { opacity?: number; fillOpacity?: number };
-    };
-
-    // Vector path: dim stroke + fill together.
-    if (layer instanceof L.Path) {
-      const opts = layer.options as L.PathOptions;
-      const origOpacity = opts.opacity ?? 1;
-      const origFill = opts.fillOpacity ?? origOpacity;
-      layer.setStyle({ opacity, fillOpacity: opacity });
-      return () => layer.setStyle({ opacity: origOpacity, fillOpacity: origFill });
+    // Shared SVG renderer + pane for the mask, rectangle and corners.
+    if (!this.focusRenderer) {
+      let pane = map.getPane(CONST.FOCUS_PANE);
+      if (!pane) {
+        pane = map.createPane(CONST.FOCUS_PANE);
+        pane.style.zIndex = "9000";
+      }
+      this.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
+      this.focusRenderer.addTo(map);
     }
 
-    // Opacity-bearing layers (Marker, TileLayer, GridLayer, ImageOverlay).
-    if (typeof dimmable.setOpacity === "function") {
-      const orig = dimmable.options?.opacity ?? 1;
-      dimmable.setOpacity(opacity);
-      return () => dimmable.setOpacity!(orig);
-    }
+    // Outer ring: the visible view bounds, padded so the dim covers the
+    // viewport (a little pan during the fitBounds animation stays covered).
+    const view = map.getBounds().pad(1);
+    const outer: L.LatLngExpression[] = [
+      view.getSouthWest(),
+      view.getNorthWest(),
+      view.getNorthEast(),
+      view.getSouthEast(),
+    ];
+    // Hole: the layer bounds (the focused layer lives inside it, so it stays
+    // bright while everything else is dimmed by the mask).
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const hole: L.LatLngExpression[] = [
+      sw,
+      L.latLng(ne.lat, sw.lng),
+      ne,
+      L.latLng(sw.lat, ne.lng),
+    ];
 
-    // Container (LayerGroup/FeatureGroup): dim each child.
-    if (typeof dimmable.eachLayer === "function") {
-      const restores: Array<(() => void) | null> = [];
-      dimmable.eachLayer(child => {
-        restores.push(this.dimLayer(child, opacity));
-      });
-      return () => restores.forEach(r => r?.());
-    }
-
-    return null;
-  }
-
-  /** Restore all layers dimmed during the current focus. */
-  private restoreDimmedLayers(): void {
-    for (const restore of this.dimmedLayers) restore();
-    this.dimmedLayers = [];
+    this.focusMask = L.polygon([outer, hole], {
+      className: "foliplus-focus-mask",
+      fillColor: "#000000",
+      fillOpacity: CONST.FOCUS.MASK_OPACITY,
+      stroke: false,
+      interactive: false,
+      renderer: this.focusRenderer,
+    });
+    map.addLayer(this.focusMask);
   }
 
   /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */
@@ -1394,6 +1393,7 @@ class LayerUI {
       fill: true,
       fillOpacity: 0,
       interactive: false,
+      renderer: this.focusRenderer ?? undefined,
     });
     map.addLayer(this.focusRect);
 
@@ -1410,6 +1410,7 @@ class LayerUI {
         radius: 4,
         className: "foliplus-focus-corner",
         interactive: false,
+        renderer: this.focusRenderer ?? undefined,
       };
       const corner = (
         typeof L.circleMarker === "function"

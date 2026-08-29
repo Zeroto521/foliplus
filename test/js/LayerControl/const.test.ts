@@ -127,8 +127,8 @@ describe("FOCUS", () => {
     expect(CONST.FOCUS.MIN_BOUNDS_AREA).toBe(0.0001);
   });
 
-  it("defines the opacity applied to non-focused layers while focusing", () => {
-    expect(CONST.FOCUS.DIM_OPACITY).toBe(0.3);
+  it("defines the opacity of the dim-outside mask", () => {
+    expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
   });
 });
 

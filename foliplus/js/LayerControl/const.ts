@@ -27,10 +27,12 @@ export const FOCUS = {
   MAX_ZOOM_STEP: 6,
   /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
-  /** Opacity applied to non-focused layers while a focus is in progress.
-   *  Mirrors --alpha-30 from common.css (the receded/background-layer token). */
-  DIM_OPACITY: 0.3,
+  /** Opacity of the "dim outside" mask (matches the export crop box dim). */
+  MASK_OPACITY: 0.4,
 };
+
+/** Leaflet pane name for the focus overlay (mask + rectangle + corners). */
+export const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** CSS class names. */
 export const CLASSES = {

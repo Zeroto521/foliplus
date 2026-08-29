@@ -70,6 +70,9 @@ const initFixture = (
   window.L.CircleMarker = CircleMarker;
   window.L.stamp = stamp;
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+  window.L.polygon = vi.fn(
+    (rings: any, opts: any) => ({ options: opts, _rings: rings }) as any,
+  );
   window.L.rectangle = vi.fn(
     (_bounds: any, opts: any) =>
       ({
@@ -108,6 +111,16 @@ const initFixture = (
     flyTo: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
+    getBounds: vi.fn(() => {
+      const view = {
+        pad: vi.fn(() => view),
+        getSouthWest: () => ({ lat: 20, lng: 90 }),
+        getNorthWest: () => ({ lat: 50, lng: 90 }),
+        getNorthEast: () => ({ lat: 50, lng: 120 }),
+        getSouthEast: () => ({ lat: 20, lng: 120 }),
+      };
+      return view;
+    }),
     getContainer: vi.fn(() => container),
     getPane: vi.fn(() => {
       const p = makePane();
@@ -438,81 +451,72 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
-  // ─────────────────── dim other layers ───────────────────
+  // ─────────────────── inverse mask (dim outside) ───────────────────
 
-  describe("focusLayer dims other layers", () => {
-    it("dims other on-map layers but not the focused layer", () => {
-      const dimSpy = vi.spyOn(ui, "dimLayer");
-      map.hasLayer.mockReturnValue(true);
-
-      ui.focusLayer("overlay1");
-
-      // overlay1 is focused (skipped); base1 is the only other layer.
-      expect(dimSpy).toHaveBeenCalledTimes(1);
-      dimSpy.mockRestore();
-    });
-
-    it("skips layers that are not on the map", () => {
-      const dimSpy = vi.spyOn(ui, "dimLayer");
-      map.hasLayer.mockReturnValue(false); // base1 is off-map
+  describe("focusLayer inverse mask", () => {
+    it("draws a polygon with the view bounds as outer ring and layer bounds as hole", () => {
+      const polygonSpy = vi.spyOn(window.L, "polygon");
 
       ui.focusLayer("overlay1");
 
-      expect(dimSpy).not.toHaveBeenCalled();
-      dimSpy.mockRestore();
-    });
-  });
+      expect(polygonSpy).toHaveBeenCalledTimes(1);
+      const rings = polygonSpy.mock.calls[0][0];
+      expect(rings).toHaveLength(2);
+      // Hole ring = overlay1 bounds: SW(30,100) → NE(40,110).
+      const hole = rings[1];
+      expect(hole[0]).toEqual({ lat: 30, lng:100 });
+      expect(hole[2]).toEqual({ lat: 40, lng:110 });
 
-  describe("dimming by layer type", () => {
-    const DIM = CONST.FOCUS.DIM_OPACITY;
-
-    it("dims a vector path via setStyle and restores the original style", () => {
-      const path = new window.L.Path();
-      path.options = { opacity: 1, fillOpacity: 0.8 };
-      const setStyle = (path.setStyle = vi.fn());
-
-      const restore = ui.dimLayer(path, DIM);
-
-      expect(setStyle).toHaveBeenCalledWith({ opacity: DIM, fillOpacity: DIM });
-      restore();
-      expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0.8 });
+      polygonSpy.mockRestore();
     });
 
-    it("dims an opacity layer via setOpacity and restores the original opacity", () => {
-      const tile = { options: { opacity: 1 }, setOpacity: vi.fn() };
+    it("dims with MASK_OPACITY and renders above layer panes", () => {
+      const polygonSpy = vi.spyOn(window.L, "polygon");
 
-      const restore = ui.dimLayer(tile, DIM);
+      ui.focusLayer("overlay1");
 
-      expect(tile.setOpacity).toHaveBeenCalledWith(DIM);
-      restore();
-      expect(tile.setOpacity).toHaveBeenLastCalledWith(1);
+      const opts = polygonSpy.mock.calls[0][1];
+      expect(opts.fillOpacity).toBe(CONST.FOCUS.MASK_OPACITY);
+      expect(opts.fillColor).toBe("#000000");
+      expect(opts.stroke).toBe(false);
+      expect(opts.interactive).toBe(false);
+      // The mask renders in the shared focus renderer, not the default pane.
+      expect(opts.renderer).toBeTruthy();
+
+      polygonSpy.mockRestore();
     });
 
-    it("recurses into a container and dims each child", () => {
-      const childA = { options: { opacity: 1 }, setOpacity: vi.fn() };
-      const childB = new window.L.Path();
-      childB.options = { opacity: 1, fillOpacity: 1 };
-      const childBSetStyle = (childB.setStyle = vi.fn());
-      const group = {
-        eachLayer: vi.fn((fn: (c: unknown) => void) => {
-          fn(childA);
-          fn(childB);
-        }),
+    it("cancelFocus removes the mask and the shared renderer", () => {
+      ui.focusLayer("overlay1");
+      const mask = ui.focusMask!;
+      const renderer = ui.focusRenderer!;
+
+      ui.cancelFocus();
+
+      expect(map.removeLayer).toHaveBeenCalledWith(mask);
+      expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+      expect(ui.focusMask).toBeNull();
+      expect(ui.focusRenderer).toBeNull();
+    });
+
+    it("does not draw a mask for single-point (flyTo) layers", () => {
+      const polygonSpy = vi.spyOn(window.L, "polygon");
+
+      const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
+      const tinyBounds = {
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
+        getCenter: () => ({ lat: 30, lng: 100 }),
       };
+      // @ts-expect-error — override mocked getBounds
+      layer.getBounds.mockReturnValue(tinyBounds);
 
-      const restore = ui.dimLayer(group, DIM);
+      ui.focusLayer("overlay1");
 
-      expect(childA.setOpacity).toHaveBeenCalledWith(DIM);
-      expect(childBSetStyle).toHaveBeenCalledWith({ opacity: DIM, fillOpacity: DIM });
+      expect(polygonSpy).not.toHaveBeenCalled();
 
-      restore();
-      expect(childA.setOpacity).toHaveBeenLastCalledWith(1);
-      expect(childBSetStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
-    });
-
-    it("returns null for a layer with no dimmable representation", () => {
-      const plain = { options: {} };
-      expect(ui.dimLayer(plain, DIM)).toBeNull();
+      polygonSpy.mockRestore();
     });
   });
 

@@ -34,6 +34,11 @@ path.foliplus-focus-corner {
   stroke: var(--neutral-0);
   stroke-width: 1.5;
 }
+/* Inverse mask that dims everything outside the focused bounds (the hole is
+   carved by the polygon's fill-rule; the mask must never capture input). */
+path.foliplus-focus-mask {
+  pointer-events: none;
+}
 @keyframes foliplus-focus-march {
   to {
     stroke-dashoffset: -10;
