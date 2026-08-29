@@ -87,8 +87,16 @@ const initFixture = (
     const sw = { lat: Infinity, lng: Infinity };
     const ne = { lat: -Infinity, lng: -Infinity };
     const include = (x: unknown): void => {
-      const item = x as { lat?: number; lng?: number; getSouthWest?: () => { lat: number; lng: number }; getNorthEast?: () => { lat: number; lng: number } };
-      if (typeof item.getSouthWest === "function" && typeof item.getNorthEast === "function") {
+      const item = x as {
+        lat?: number;
+        lng?: number;
+        getSouthWest?: () => { lat: number; lng: number };
+        getNorthEast?: () => { lat: number; lng: number };
+      };
+      if (
+        typeof item.getSouthWest === "function" &&
+        typeof item.getNorthEast === "function"
+      ) {
         const s = item.getSouthWest();
         const n = item.getNorthEast();
         sw.lat = Math.min(sw.lat, s.lat);
