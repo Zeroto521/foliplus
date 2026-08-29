@@ -54,7 +54,6 @@ afterEach(() => {
 describe("parseArgs", () => {
   it("defaults to check mode with threshold 10", () => {
     const a = parseArgs([]);
-    expect(a.check).toBe(true);
     expect(a.save).toBe(false);
     expect(a.audit).toBe(false);
     expect(a.threshold).toBe(10);

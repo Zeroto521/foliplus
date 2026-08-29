@@ -36,7 +36,6 @@ const baselinePath = root => resolve(root, "size-baseline.json");
 
 const parseArgs = argv => {
   const args = {
-    check: true,
     save: false,
     audit: false,
     threshold: DEFAULT_THRESHOLD,
@@ -56,7 +55,6 @@ const parseArgs = argv => {
     else if (a.startsWith("--report=")) args.report = a.split("=")[1];
     else args.unknown.push(a);
   }
-  if (args.save) args.check = false;
   return args;
 };
 
@@ -120,29 +118,21 @@ const buildRows = (current, baseline, threshold) => {
       ...(baseline ? Object.keys(baseline.files || {}) : []),
     ]),
   ].sort();
+  // Rows with no comparison counterpart (bundle added/removed) carry no delta.
+  const absent = (file, curr, prev, status) => ({
+    file,
+    curr,
+    prev,
+    delta: null,
+    pct: null,
+    status,
+    over: false,
+  });
   return allFiles.map(f => {
     const curr = current[f] ?? null;
     const prev = baseline ? (baseline.files[f] ?? null) : null;
-    if (curr === null)
-      return {
-        file: f,
-        curr: null,
-        prev,
-        delta: null,
-        pct: null,
-        status: "missing",
-        over: false,
-      };
-    if (prev === null)
-      return {
-        file: f,
-        curr,
-        prev: null,
-        delta: null,
-        pct: null,
-        status: "new",
-        over: false,
-      };
+    if (curr === null) return absent(f, null, prev, "missing");
+    if (prev === null) return absent(f, curr, null, "new");
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
     const over = pct > threshold;
@@ -307,7 +297,7 @@ const audit = (root = ROOT) => {
   }
   const threshold = baseline.threshold ?? DEFAULT_THRESHOLD;
   console.log(
-    `\nBundle Size Audit (baseline: ${baseline.lastUpdated}, threshold: ${threshold}%)`,
+    `\nBundle Size Audit (baseline: ${baseline.lastUpdated ?? "unknown"}, threshold: ${threshold}%)`,
   );
   console.log("─".repeat(78));
   console.log(

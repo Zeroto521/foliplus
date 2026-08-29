@@ -51,7 +51,6 @@ const loadSonda = async () => {
 // preservation — Python render-string tests rely on `keepNames` finding
 // `foliplus.showHint` etc. in unminified bundles.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
 // The shared-runtime directory is bundled as foliplus-common.min.js and
 // must NOT be externalized (it bundles the shared modules).
 const SHARED_ENTRY = "runtime";
@@ -74,13 +73,12 @@ if (_raw.errors.length) {
 }
 const CFG = _raw;
 CFG.root = resolve(CFG.root);
-const ROOT_RESOLVED = CFG.root;
 
-const srcDir = resolve(ROOT_RESOLVED, "foliplus/js");
-const cssDir = resolve(ROOT_RESOLVED, "foliplus/css");
-const distDir = resolve(ROOT_RESOLVED, "foliplus/dist");
-const buildJs = resolve(ROOT_RESOLVED, "foliplus/.build/js");
-const buildCss = resolve(ROOT_RESOLVED, "foliplus/.build/css");
+const srcDir = resolve(CFG.root, "foliplus/js");
+const cssDir = resolve(CFG.root, "foliplus/css");
+const distDir = resolve(CFG.root, "foliplus/dist");
+const buildJs = resolve(CFG.root, "foliplus/.build/js");
+const buildCss = resolve(CFG.root, "foliplus/.build/css");
 const MERGED_CSS_NAME = "_common_merged.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
@@ -255,7 +253,7 @@ const mergeMetafiles = metafiles => {
 const generateSharedRegistry = () => {
   const genResult = spawnSync(
     process.execPath,
-    [resolve(__dirname, "scan-registry.mjs"), "--root", ROOT_RESOLVED, "--silent"],
+    [resolve(__dirname, "scan-registry.mjs"), "--root", CFG.root, "--silent"],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (genResult.error) throw genResult.error;
@@ -303,7 +301,7 @@ const main = async () => {
       .filter(r => r.status === "fulfilled")
       .map(r => r.value?.metafile)
       .filter(Boolean);
-    const reportDir = resolve(ROOT_RESOLVED, "bundle-reports");
+    const reportDir = resolve(CFG.root, "bundle-reports");
     rmSync(reportDir, { recursive: true, force: true });
     const config = new sonda.Config(
       {
@@ -316,7 +314,7 @@ const main = async () => {
       { integration: "esbuild" },
     );
     await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
-    checkBundleCoverage(ROOT_RESOLVED);
+    checkBundleCoverage(CFG.root);
   }
 
   // ── Step 5: Verification (--check) ────────────────────────────
