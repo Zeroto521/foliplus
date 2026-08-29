@@ -649,9 +649,7 @@ class TestMeasureControlBrowser:
         """Activating a measure mode disables interactivity on other map layers
         (so clicks fall through to the map), and exiting restores it."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            state = page.evaluate(
-                _js("MeasureControl/read_marker_interactive_state")
-            )
+            state = page.evaluate(_js("MeasureControl/read_marker_interactive_state"))
             assert state["before"] is True, (
                 f"marker should start interactive, got {state!r}"
             )
