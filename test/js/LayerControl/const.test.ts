@@ -131,8 +131,8 @@ describe("FOCUS", () => {
     expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
   });
 
-  it("defines the brightness applied to non-focused layers", () => {
-    expect(CONST.FOCUS.DIM_BRIGHTNESS).toBe(0.5);
+  it("defines the filter applied to non-focused layers", () => {
+    expect(CONST.FOCUS.DIM_FILTER).toBe("brightness(0.6) saturate(0.3)");
   });
 });
 

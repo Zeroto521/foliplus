@@ -29,10 +29,11 @@ export const FOCUS = {
   MIN_BOUNDS_AREA: 0.0001,
   /** Opacity of the "dim outside" mask (matches the export crop box dim). */
   MASK_OPACITY: 0.4,
-  /** Brightness applied to non-focused layers while a focus is in progress.
-   *  Brightness darkens but keeps layers opaque (unlike opacity, which fades
-   *  to the light basemap and reads as "brighter"). */
-  DIM_BRIGHTNESS: 0.5,
+  /** CSS filter applied to non-focused layers while a focus is in progress.
+   *  Darkens and desaturates ("grey ghost") so the focused layer is the only
+   *  coloured + bright element. Keeps layers opaque — unlike opacity, which
+   *  fades to the light basemap and reads as brighter. */
+  DIM_FILTER: "brightness(0.6) saturate(0.3)",
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle + corners). */

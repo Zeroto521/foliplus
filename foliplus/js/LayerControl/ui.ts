@@ -1356,7 +1356,7 @@ class LayerUI {
     const apply = (el: HTMLElement): (() => void) | null => {
       if (!el) return null;
       const orig = el.style.filter;
-      el.style.filter = `brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`;
+      el.style.filter = CONST.FOCUS.DIM_FILTER;
       return () => {
         el.style.filter = orig;
       };

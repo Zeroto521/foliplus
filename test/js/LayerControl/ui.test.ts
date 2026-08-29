@@ -523,7 +523,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const restore = ui.dimLayer(layer);
 
-      expect(el.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      expect(el.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
       expect(el.style.filter).toBe("");
     });
@@ -535,7 +535,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const restore = ui.dimLayer(layer);
 
-      expect(container.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      expect(container.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
       expect(container.style.filter).toBe("");
     });
@@ -549,7 +549,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const restore = ui.dimLayer(group);
 
-      expect(child.style.filter).toBe(`brightness(${CONST.FOCUS.DIM_BRIGHTNESS})`);
+      expect(child.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
       expect(child.style.filter).toBe("");
     });
