@@ -57,7 +57,7 @@ jobs:
         run: |
           {
             echo ""
-            echo "**Report:** [bundle report](${{ steps.upload.outputs.artifact-url }})"
+            echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
           } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2

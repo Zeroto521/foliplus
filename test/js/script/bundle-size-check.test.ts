@@ -304,7 +304,7 @@ describe("check", () => {
     expect(check(parseArgs(["--baseline=" + customBaseline]), root)).toBe(1);
   });
 
-  it("writes a report file via --report", () => {
+  it("writes a collapsible Markdown report via --report", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
@@ -312,7 +312,26 @@ describe("check", () => {
     writeBaselineJson(root, { files: { "a.min.js": size }, threshold: 10 });
     const report = join(root, "report.md");
     expect(check(parseArgs(["--report=" + report]), root)).toBe(0);
-    expect(readFileSync(report, "utf-8")).toContain("Bundle Size Check");
+    const md = readFileSync(report, "utf-8");
+    expect(md).toContain("Bundle Size Check");
+    expect(md).toContain("<details>");
+    expect(md).toContain("📦 Per-bundle breakdown");
+    expect(md).not.toContain("over threshold"); // nothing exceeds the threshold
+  });
+
+  it("flags over-threshold bundles in the report summary", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    // baseline 20% smaller → 25% growth > 10%
+    writeBaselineJson(root, {
+      files: { "a.min.js": Math.round(size * 0.8) },
+      threshold: 10,
+    });
+    const report = join(root, "report.md");
+    expect(check(parseArgs(["--report=" + report]), root)).toBe(1);
+    expect(readFileSync(report, "utf-8")).toContain("over threshold");
   });
 
   it("renders a baseline bundle that is missing from dist without failing", () => {

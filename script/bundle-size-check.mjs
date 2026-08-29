@@ -191,12 +191,15 @@ const totalCells = t => ({
 const renderTable = (rows, threshold) => {
   const { curr, prev, delta, pct } = totalCells(summarize(rows));
   const changed = rows.filter(r => r.status !== "same").length;
+  const over = rows.filter(r => r.over).length;
   const lines = [
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
-    `**Total:** ${curr} (${delta}, ${pct})`,
-    `**Bundles:** ${changed} of ${rows.length} changed`,
+    `**Total:** ${curr} · **Δ** ${delta} (${pct}) · ${changed} of ${rows.length} bundles changed`,
+    "",
+    "<details>",
+    `<summary>📦 Per-bundle breakdown${over ? ` — ${WARN} ${over} over threshold` : ""}</summary>`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
     "|:-----|--------:|---------:|-----:|----:|--------|",
@@ -208,6 +211,7 @@ const renderTable = (rows, threshold) => {
     );
   }
   lines.push(`| **Total** | **${curr}** | **${prev}** | **${delta}** | **${pct}** | |`);
+  lines.push("", "</details>");
   return lines.join("\n");
 };
 
