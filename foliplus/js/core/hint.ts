@@ -2,6 +2,7 @@
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { dom } from "#common/dom.js";
+import { getFullscreenEl, nativeAPI } from "#common/fullscreen.js";
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
@@ -42,16 +43,17 @@ class HintManager {
     this.hintMap = new Map();
     // When the map goes fullscreen, only the fullscreen element is visible —
     // hints appended to document.body would disappear. Migrate them to the
-    // fullscreen element (and back again on exit).
+    // fullscreen element (and back again on exit). The event name is
+    // feature-detected (standard vs. webkit prefix), so only one listener is
+    // registered.
     this.onFullscreenChange = () => this.migrateHints();
-    document.addEventListener("fullscreenchange", this.onFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", this.onFullscreenChange);
+    if (nativeAPI)
+      document.addEventListener(nativeAPI.fullscreenchange, this.onFullscreenChange);
     activeManagers.add(this);
   }
 
   private migrateHints() {
-    const target: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+    const target: HTMLElement = (getFullscreenEl() as HTMLElement | null) || document.body;
     if (target === document.documentElement) return;
     let moved = false;
     for (const entry of this.hintMap.values()) {
@@ -81,8 +83,7 @@ class HintManager {
     if (subkey) this.hideHint(key, subkey);
     else if (!append) this.hideHint(key);
 
-    const hintTarget: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+    const hintTarget: HTMLElement = (getFullscreenEl() as HTMLElement | null) || document.body;
 
     const cls = subkey
       ? `${CLASS} ${CLASS}-${key}-${subkey}`
@@ -160,8 +161,8 @@ class HintManager {
       if (entry.element) entry.element.remove();
     }
     this.hintMap.clear();
-    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
-    document.removeEventListener("webkitfullscreenchange", this.onFullscreenChange);
+    if (nativeAPI)
+      document.removeEventListener(nativeAPI.fullscreenchange, this.onFullscreenChange);
     activeManagers.delete(this);
   }
 }
