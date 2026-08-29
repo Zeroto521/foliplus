@@ -12,8 +12,8 @@ ExportFormat = Literal["geojson", "csv"]
 
 class MeasureControl(BaseControl):
     """
-    Distance measurement, area measurement, circle drawing, location marker with
-    geocoding, and node-drag edit mode.
+    Measure distances, areas, circles, and geocoded markers, then edit them by
+    dragging nodes.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
       address. Click the popup or the × on the marker to delete it.
