@@ -159,6 +159,25 @@ describe("summarize", () => {
     expect(t.prev).toBe(110);
     expect(t.delta).toBe(40);
   });
+
+  it("leaves delta null when there is no baseline to diff against", () => {
+    // Every bundle is "new" — reporting the whole total as growth would be wrong.
+    const rows = buildRows({ "a.min.js": 100 }, null, 10);
+    const t = summarize(rows);
+    expect(t.curr).toBe(100);
+    expect(t.prev).toBe(0);
+    expect(t.hasPrev).toBe(false);
+    expect(t.delta).toBeNull();
+    expect(t.pct).toBeNull();
+  });
+
+  it("marks hasPrev true when at least one baseline size is present", () => {
+    const t = summarize(
+      buildRows({ "a.min.js": 100 }, { files: { "a.min.js": 80 } }, 10),
+    );
+    expect(t.hasPrev).toBe(true);
+    expect(t.delta).toBe(20);
+  });
 });
 
 describe("formatters", () => {

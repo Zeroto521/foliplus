@@ -156,30 +156,47 @@ const rowCells = r => ({
   label: r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status,
 });
 
-/** Aggregate totals across all rows (current vs baseline, in bytes). */
+/** Aggregate totals across all rows (current vs baseline, in bytes). With no
+ *  prior sizes there is nothing to diff against, so delta/pct stay null. */
 const summarize = rows => {
   let curr = 0;
   let prev = 0;
+  let prevSeen = false;
   for (const r of rows) {
     if (r.curr != null) curr += r.curr;
-    if (r.prev != null) prev += r.prev;
+    if (r.prev != null) {
+      prev += r.prev;
+      prevSeen = true;
+    }
   }
   return {
     curr,
     prev,
-    delta: curr - prev,
-    pct: prev > 0 ? ((curr - prev) / prev) * 100 : null,
+    hasPrev: prevSeen,
+    delta: prevSeen ? curr - prev : null,
+    pct: prevSeen && prev > 0 ? ((curr - prev) / prev) * 100 : null,
   };
 };
 
+/** Total-row formatting, mirroring rowCells: with no baseline sizes there is
+ *  nothing to diff against, so the baseline and difference cells read "—"
+ *  rather than 0.00 KB. */
+const totalCells = t => ({
+  curr: fmtKB(t.curr),
+  prev: t.hasPrev ? fmtKB(t.prev) : "—",
+  delta: t.delta == null ? "—" : fmtDelta(t.curr, t.prev),
+  pct: t.pct == null ? "—" : fmtPct(t.curr, t.prev),
+});
+
 const renderTable = (rows, threshold) => {
-  const t = summarize(rows);
+  const { curr, prev, delta, pct } = totalCells(summarize(rows));
   const changed = rows.filter(r => r.status !== "same").length;
   const lines = [
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
-    `**Total:** ${fmtKB(t.curr)} (${fmtDelta(t.curr, t.prev)}, ${fmtPct(t.curr, t.prev)}) · ${changed} of ${rows.length} bundles changed`,
+    `**Total:** ${curr} (${delta}, ${pct})`,
+    `**Bundles:** ${changed} of ${rows.length} changed`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
     "|:-----|--------:|---------:|-----:|----:|--------|",
@@ -190,9 +207,7 @@ const renderTable = (rows, threshold) => {
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
     );
   }
-  lines.push(
-    `| **Total** | **${fmtKB(t.curr)}** | **${fmtKB(t.prev)}** | **${fmtDelta(t.curr, t.prev)}** | **${fmtPct(t.curr, t.prev)}** | |`,
-  );
+  lines.push(`| **Total** | **${curr}** | **${prev}** | **${delta}** | **${pct}** | |`);
   return lines.join("\n");
 };
 
@@ -204,9 +219,9 @@ const renderConsole = rows => {
       `  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`,
     );
   }
-  const t = summarize(rows);
+  const { curr, prev, delta, pct } = totalCells(summarize(rows));
   lines.push(
-    `  ${"Total".padEnd(44)} ${fmtKB(t.curr).padStart(10)}  ←  ${fmtKB(t.prev).padStart(10)}  ${fmtDelta(t.curr, t.prev).padStart(9)}  ${fmtPct(t.curr, t.prev).padStart(6)}`,
+    `  ${"Total".padEnd(44)} ${curr.padStart(10)}  ←  ${prev.padStart(10)}  ${delta.padStart(9)}  ${pct.padStart(6)}`,
   );
   return lines.join("\n");
 };
