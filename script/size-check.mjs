@@ -183,12 +183,16 @@ const summarize = rows => {
 };
 
 const renderTable = (rows, threshold) => {
+  const t = summarize(rows);
+  const changed = rows.filter(r => r.status !== "same").length;
   const lines = [
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
+    `**Total:** ${fmtKB(t.curr)} (${fmtDelta(t.curr, t.prev)}, ${fmtPct(t.curr, t.prev)}) · ${changed} of ${rows.length} bundles changed`,
+    "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
-    "|------|---------|----------|------|-----|--------|",
+    "|:-----|--------:|---------:|-----:|----:|--------|",
   ];
   for (const r of rows) {
     const { icon, currStr, prevStr, label } = rowCells(r);
@@ -196,9 +200,8 @@ const renderTable = (rows, threshold) => {
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
     );
   }
-  const t = summarize(rows);
   lines.push(
-    `| **Total** | ${fmtKB(t.curr)} | ${fmtKB(t.prev)} | ${fmtDelta(t.curr, t.prev)} | ${fmtPct(t.curr, t.prev)} | |`,
+    `| **Total** | **${fmtKB(t.curr)}** | **${fmtKB(t.prev)}** | **${fmtDelta(t.curr, t.prev)}** | **${fmtPct(t.curr, t.prev)}** | |`,
   );
   return lines.join("\n");
 };
