@@ -33,32 +33,33 @@ jobs:
       # post the diff as a sticky PR comment (updated on every push). The gate
       # above uses the PR's own baseline; this diff is informational.
       - name: Prepare size report vs base
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && always()
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null || echo '{"files":{}}' > base-baseline.json
-          node script/bundle-size-check.mjs --baseline=base-baseline.json --report=size-report.md || true
+          node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
 
       # Upload the sonda treemap (HTML only) so the comment can link to it.
-      - name: Upload report
+      # always(): keep the report downloadable when the gate above fails.
+      - uses: actions/upload-artifact@v7
         id: upload
-        uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: bundle-report
           path: bundle-report/
 
       # Append a link to the uploaded treemap, then post the comment.
       - name: Append report link
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && always()
         run: |
           {
             echo ""
             echo "**Report:** [bundle report](${{ steps.upload.outputs.artifact-url }})"
-          } >> size-report.md
+          } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && always()
         continue-on-error: true # fork PRs lack comment permission
         with:
-          header: bundle-size
-          path: size-report.md
+          header: bundle-report
+          path: bundle-report.md
