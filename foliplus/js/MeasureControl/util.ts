@@ -115,13 +115,16 @@ const bindNodeDrag = (
     onEnd?: (latlng: L.LatLng) => void;
   },
 ): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
-  const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
   let enabled = false;
   let dragging = false;
   let moved = false;
   let startPt: { x: number; y: number } | null = null;
 
+  // Query the element fresh each time: resortLayers() removes/re-adds nodes,
+  // which re-creates their SVG path, so a captured element reference would go
+  // stale and the `move` cursor would silently stop applying.
   const setCursor = (cursor: string) => {
+    const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
     if (el) el.style.cursor = cursor;
   };
 

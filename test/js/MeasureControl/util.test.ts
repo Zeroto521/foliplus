@@ -402,6 +402,30 @@ describe("markDragSyntheticClick / isDragSyntheticClick", () => {
 });
 
 describe("bindNodeDrag", () => {
+  it("re-queries the node element when applying the move cursor (regression)", () => {
+    // resortLayers() re-creates a node's SVG path, so a cursor captured at
+    // bind time would go stale and the "move" cursor would silently stop.
+    let current: { style: { cursor: string } } = { style: { cursor: "" } };
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getElement: vi.fn(() => current),
+      setLatLng: vi.fn(),
+    };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+
+    // Simulate the node's element being replaced (resortLayers re-render).
+    current = { style: { cursor: "" } };
+
+    setEnabled(true);
+    expect(current.style.cursor).toBe("move");
+  });
+
   it("calls onDrag and onEnd through the drag lifecycle", () => {
     const node = {
       on: vi.fn(),
