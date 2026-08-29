@@ -411,10 +411,10 @@
   color: var(--text-primary);
   transition: background var(--transition-fast);
 }
-:is(
-  .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item
-):is(:hover, .active) {
+:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item):is(
+  :hover,
+  .active
+) {
   background: var(--accent-light);
   color: var(--accent-primary);
 }
