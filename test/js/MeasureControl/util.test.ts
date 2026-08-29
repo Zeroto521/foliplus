@@ -67,20 +67,6 @@ describe("formatArea", () => {
   });
 });
 
-describe("toggleVisibility", () => {
-  it("toggles the hidden class on elements", () => {
-    const el = document.createElement("div");
-    Util.toggleVisibility([el], false);
-    expect(el.classList.contains("foliplus-measure-hidden")).toBe(true);
-    Util.toggleVisibility([el], true);
-    expect(el.classList.contains("foliplus-measure-hidden")).toBe(false);
-  });
-
-  it("skips null elements", () => {
-    expect(() => Util.toggleVisibility([null, undefined], true)).not.toThrow();
-  });
-});
-
 describe("label div icons", () => {
   it("makeLabelDivIcon builds a divIcon with label html", () => {
     Util.makeLabelDivIcon("hi", [0, -10], "extra");
@@ -178,31 +164,6 @@ describe("formatSegmentLabel", () => {
   });
 });
 
-describe("suppressHide", () => {
-  it("sets a delayed flag and clears it after the delay", () => {
-    vi.useFakeTimers();
-    const manager = { isSuppressHideDel: false };
-    Util.suppressHide(manager);
-    expect(manager.isSuppressHideDel).toBe(true);
-    vi.advanceTimersByTime(1000);
-    expect(manager.isSuppressHideDel).toBe(false);
-    vi.useRealTimers();
-  });
-});
-
-describe("applyVisibilityToggle", () => {
-  it("toggles labels and calls onToggle", () => {
-    const labelEl = document.createElement("span");
-    labelEl.classList.add("foliplus-measure-label");
-    const marker = { getElement: () => ({ querySelector: () => labelEl }) };
-    const delMarker = { getElement: () => ({ querySelector: () => null }) };
-    const onToggle = vi.fn();
-    Util.applyVisibilityToggle(delMarker, true, [marker], false, null, onToggle);
-    expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(onToggle).toHaveBeenCalledWith(true, false);
-  });
-});
-
 describe("buildPopup", () => {
   it("delegates to buildPopupHtml", () => {
     const result = Util.buildPopup(1, 2, "addr");
@@ -265,38 +226,6 @@ describe("recalculateSegments edge cases", () => {
   });
 });
 
-describe("applyVisibilityToggle edge cases", () => {
-  it("handles null delMarker gracefully", () => {
-    expect(() =>
-      Util.applyVisibilityToggle(null, true, [], false, null, undefined),
-    ).not.toThrow();
-  });
-
-  it("applies visibility to extra label", () => {
-    const extraEl = document.createElement("span");
-    extraEl.classList.add("foliplus-measure-label");
-    const extraLabel = { getElement: () => ({ querySelector: () => extraEl }) };
-    const onToggle = vi.fn();
-    Util.applyVisibilityToggle(undefined, true, [], false, extraLabel as any, onToggle);
-    expect(extraEl.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(onToggle).toHaveBeenCalledWith(true, false);
-  });
-});
-
-describe("toggleVisibility edge cases", () => {
-  it("handles empty array", () => {
-    expect(() => Util.toggleVisibility([], true)).not.toThrow();
-  });
-
-  it("toggles multiple elements", () => {
-    const el1 = document.createElement("div");
-    const el2 = document.createElement("div");
-    Util.toggleVisibility([el1, el2], false);
-    expect(el1.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
-  });
-});
-
 describe("getEventTarget", () => {
   it("returns the target from a LeafletMouseEvent", () => {
     const el = document.createElement("div");
@@ -344,6 +273,17 @@ describe("buildEditOverlay", () => {
     // Stops layer→map propagation so the overlay's own map-click handler
     // (which closes it) doesn't fire right after open.
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
+  });
+
+  it("closes other open overlays on open (single ✕ set at a time)", () => {
+    const closeOtherEditOverlays = vi.fn();
+    const mgr = makeMgr({ closeOtherEditOverlays });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+
+    overlay.open({ originalEvent: {} } as any);
+
+    expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
+    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("does not open when not in edit mode", () => {

@@ -89,6 +89,7 @@ const makeMgr = () => ({
   isEditMode: true,
   registerEditOverlayCloser: vi.fn(() => () => {}),
   registerEditDragToggle: vi.fn(() => () => {}),
+  closeOtherEditOverlays: vi.fn(),
 });
 
 describe("attachCircleUI — delete flow", () => {

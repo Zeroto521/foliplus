@@ -248,6 +248,22 @@ describe("MeasureManager — setEditMode", () => {
     expect(close).toHaveBeenCalledTimes(2);
   });
 
+  it("closes other overlays but skips the given one", () => {
+    const { manager } = makeManager();
+    const a = vi.fn();
+    const b = vi.fn();
+    const c = vi.fn();
+    manager.registerEditOverlayCloser(a);
+    manager.registerEditOverlayCloser(b);
+    manager.registerEditOverlayCloser(c);
+
+    manager.closeOtherEditOverlays(b);
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(c).toHaveBeenCalledTimes(1);
+    expect(b).not.toHaveBeenCalled();
+  });
+
   it("unregisters a closer when the returned unregister runs", () => {
     const { manager } = makeManager();
     const close = vi.fn();

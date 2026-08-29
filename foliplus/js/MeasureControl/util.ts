@@ -1,5 +1,5 @@
 // MeasureControl utility functions — standalone, no manager dependency.
-import { hideDelIcons, toggleDelIcon } from "#common/delicon.js";
+import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -50,6 +50,7 @@ const buildEditOverlay = (
     isEditMode: boolean;
     map: L.Map;
     registerEditOverlayCloser?: (close: () => void) => () => void;
+    closeOtherEditOverlays?: (except: () => void) => void;
   },
   opts: { onOpen: () => void; onEmpty?: () => void },
 ): {
@@ -78,6 +79,8 @@ const buildEditOverlay = (
     if (!mgr.isEditMode) return;
     if (open) return;
     if (isDragSyntheticClick()) return;
+    // Only one measurement shows ✕ at a time: close any other open overlay.
+    mgr.closeOtherEditOverlays?.(close);
     // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.
@@ -181,17 +184,9 @@ const bindNodeDrag = (
   return { setEnabled, cleanup };
 };
 
-/** Toggle CSS hidden class on a list of DOM elements. */
-const toggleVisibility = (elements: (HTMLElement | null)[], visible: boolean) => {
-  elements.forEach(el => {
-    if (el) el.classList.toggle(CONST.CLASSES.HIDDEN, !visible);
-  });
-};
-
 /**
- * Mark a click as drag-synthetic so handleItemClick skips the toggle.
- * Drag ends with mouseup, which also fires the marker's click; this flag
- * lets the click handler tell the two apart. Checked by attach*UI and reset.
+ * Mark a click as drag-synthetic so the ensuing click (a drag ends with
+ * mouseup, which also fires a click) doesn't reopen or close an overlay.
  */
 const markDragSyntheticClick = () => {
   (
@@ -204,55 +199,6 @@ const isDragSyntheticClick = (): boolean => {
   const v = w.__foliplus_measure_drag_click;
   w.__foliplus_measure_drag_click = false;
   return v;
-};
-
-/** Temporarily suppress map click hide of delete icons. In edit mode the ✕
- *   handles are owned by the edit overlay and must not be hidden by a stray
- *   map click, so the whole hide dance is skipped there. */
-const suppressHide = (manager: {
-  isSuppressHideDel: boolean;
-  isEditMode?: boolean;
-}) => {
-  if (manager.isEditMode) return;
-  manager.isSuppressHideDel = true;
-  setTimeout(() => {
-    manager.isSuppressHideDel = false;
-  }, CONST.TIMING.SUPPRESS_HIDE_DELAY);
-  hideDelIcons();
-};
-
-/** Apply toggle visibility state to del icon, labels, and optional extra label. */
-const applyVisibilityToggle = (
-  delMarker: L.Layer | undefined,
-  isXVisible: boolean,
-  labels: L.Layer[],
-  isLabelsVisible: boolean,
-  extraLbl?: L.Layer,
-  onToggle?: (xVisible: boolean, lblVisible: boolean) => void,
-) => {
-  const applyDelIcon = (marker: L.Layer | undefined, show: boolean) => {
-    if (!marker) return;
-    toggleDelIcon(marker as L.Marker, show);
-  };
-
-  applyDelIcon(delMarker, isXVisible);
-  labels.forEach(m => {
-    const el = (m as L.Marker).getElement();
-    if (el) {
-      const label = el.querySelector(CONST.SEL.LABEL);
-      if (label) label.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
-    }
-  });
-
-  if (extraLbl) {
-    const sEl = (extraLbl as L.Marker).getElement();
-    if (sEl) {
-      const sL = sEl.querySelector(CONST.SEL.LABEL);
-      if (sL) sL.classList.toggle(CONST.CLASSES.HIDDEN, !isLabelsVisible);
-    }
-  }
-
-  if (onToggle) onToggle(isXVisible, isLabelsVisible);
 };
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
@@ -377,7 +323,6 @@ const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
 
 export {
   animateDashSweep,
-  applyVisibilityToggle,
   area,
   buildEditOverlay,
   bearing,
@@ -399,6 +344,4 @@ export {
   pointsToLatLngs,
   recalculateSegments,
   setLabelText,
-  suppressHide,
-  toggleVisibility,
 };

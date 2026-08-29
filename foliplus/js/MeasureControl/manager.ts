@@ -250,6 +250,14 @@ class MeasureManager {
     };
   };
 
+  /** Close every open edit overlay except the given one, so selecting a new
+   *  measurement hides the previously selected one's ✕ handles. */
+  closeOtherEditOverlays = (except: () => void) => {
+    this.editOverlayClosers.forEach(c => {
+      if (c !== except) c();
+    });
+  };
+
   /** Register a node-drag toggle so setEditMode toggles dragging directly.
    *  Returns an unregister function so deleted measurements drop their entry. */
   registerEditDragToggle = (toggle: (enabled: boolean) => void): (() => void) => {
