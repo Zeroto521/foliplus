@@ -177,6 +177,101 @@ describe("loadHistory / saveHistory", () => {
     expect(loaded.find(e => e.type === "addr")?.query).toBe("Paris");
   });
 
+  it("does not collapse out-of-range coord keys that fail to validate", () => {
+    // Out-of-range values pass parseCoord's shape check but fail range validation,
+    // so their keys stay as typed and distinct entries stay distinct.
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "200,32",
+          type: "coord",
+          coordDisplay: "1.000000, 1.000000",
+          addrDisplay: "",
+          lng: 1,
+          lat: 1,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "999,32",
+          type: "coord",
+          coordDisplay: "2.000000, 2.000000",
+          addrDisplay: "",
+          lng: 2,
+          lat: 2,
+          ts: 2,
+          count: 1,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    // Stored in insertion order, as loadHistory preserves it
+    expect(loaded.map(e => e.lng)).toEqual([1, 2]);
+    // Unparseable keys are never rewritten
+    expect(loaded.map(e => e.query)).toEqual(["200,32", "999,32"]);
+  });
+
+  it("does not collapse a coord and an addr entry that share a key string", () => {
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "120,32",
+          type: "coord",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "",
+          lng: 120,
+          lat: 32,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "120,32",
+          type: "addr",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "Somewhere",
+          lng: 120,
+          lat: 32,
+          ts: 2,
+          count: 1,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    expect(loaded.filter(e => e.type === "coord")).toHaveLength(1);
+    expect(loaded.filter(e => e.type === "addr")).toHaveLength(1);
+  });
+
+  it("keeps the newest-first order for non-duplicate entries", () => {
+    const entries: SearchHistoryEntry[] = [
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "Paris",
+        lng: 0,
+        lat: 0,
+        ts: 1,
+        count: 1,
+      },
+      {
+        query: "Berlin",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "Berlin",
+        lng: 0,
+        lat: 0,
+        ts: 2,
+        count: 1,
+      },
+    ];
+    saveHistory(entries);
+    expect(loadHistory()).toEqual(entries);
+  });
+
   it("saves an empty array when history is cleared", () => {
     const entries: SearchHistoryEntry[] = [
       {

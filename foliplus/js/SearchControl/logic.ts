@@ -70,26 +70,34 @@ const parseCoord = (raw: string): { lng: number; lat: number } | null => {
 };
 
 /** Canonicalize an entry's history key: coord entries key on the parsed
- * longitude/latitude, so "120,32" and "120, 32" resolve to one entry. */
+ * longitude/latitude, so "120,32" and "120, 32" resolve to one entry. Anything
+ * that does not parse is returned unchanged. */
 const canonicalQuery = (query: string, type: "coord" | "addr"): string => {
   if (type !== MODE.COORD) return query;
   const parsed = parseCoord(query);
   return parsed ? `${parsed.lng},${parsed.lat}` : query;
 };
 
+/** Dedup key. Type is part of it: typing "120,32" in addr mode yields a
+ * geocode result whose key string can collide with a coord entry's, and those
+ * are two distinct searches that must both be kept. */
+const historyKey = (entry: Pick<SearchHistoryEntry, "type" | "query">): string =>
+  `${entry.type}:${entry.query}`;
+
 /**
  * Merge history entries by key. Repeated searches accumulate into a single
  * entry: the most recent one wins for timestamp and coordinates, counts are
  * summed, and an empty display field falls back to an older entry's value.
- * Entry order of the result follows first appearance, so callers passing
- * newest-first input keep the "most recent first" invariant.
+ * Map re-set keeps a key's insertion slot, so the result order is first-seen
+ * order — with newest-first input that puts a repeated search at the front.
  */
 const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[] => {
-  const byQuery = new Map<string, SearchHistoryEntry>();
+  const byKey = new Map<string, SearchHistoryEntry>();
   for (const entry of entries) {
-    const existing = byQuery.get(entry.query);
+    const key = historyKey(entry);
+    const existing = byKey.get(key);
     if (!existing) {
-      byQuery.set(entry.query, { ...entry });
+      byKey.set(key, { ...entry });
       continue;
     }
     const [newer, older] =
@@ -97,23 +105,20 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
     newer.count = existing.count + entry.count;
     newer.coordDisplay = newer.coordDisplay || older.coordDisplay;
     newer.addrDisplay = newer.addrDisplay || older.addrDisplay;
-    byQuery.set(entry.query, newer);
+    byKey.set(key, newer);
   }
-  return Array.from(byQuery.values()).slice(0, HISTORY.MAX_ENTRIES);
+  return Array.from(byKey.values());
 };
 
 const loadHistory = (): SearchHistoryEntry[] => {
   const data = Storage.load<SearchHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
   if (!Array.isArray(data)) return [];
-  // Migrate old entries (pre-refactor with `label` field) to the new format,
-  // canonicalize coord keys, and collapse the duplicate entries that a raw-input
-  // key created before this fix (e.g. "120,32" + "120, 32").
+  // Migrate old entries (pre-refactor with `label` field) to the new format.
   const migrated = data.map(e => {
     const type = (e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : "addr") as
       "coord" | "addr";
-    const query = e.query ?? "";
     return {
-      query: canonicalQuery(query, type),
+      query: canonicalQuery(e.query ?? "", type),
       type,
       coordDisplay:
         e.coordDisplay ?? (type === MODE.COORD ? ((e as any).label ?? "") : ""),
@@ -125,6 +130,9 @@ const loadHistory = (): SearchHistoryEntry[] => {
       count: e.count ?? 1,
     };
   });
+  // Collapse entries a raw-input key created before this fix (e.g. "120,32" +
+  // "120, 32"). No trimming here — the cap applies when an entry is added, so
+  // stale rows from an older version are shown rather than dropped on load.
   return mergeHistoryEntries(migrated);
 };
 
@@ -133,7 +141,10 @@ const saveHistory = (entries: SearchHistoryEntry[]): void => {
 };
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
-  const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]);
+  const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]).slice(
+    0,
+    HISTORY.MAX_ENTRIES,
+  );
   ctrl.searchHistory = updated;
   saveHistory(updated);
 };
