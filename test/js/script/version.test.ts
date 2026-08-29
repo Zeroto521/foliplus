@@ -40,4 +40,13 @@ describe("resolveVersion", () => {
     const { resolveVersion } = await importFresh();
     expect(resolveVersion()).toBe("unknown");
   });
+
+  it("caches the resolved version (no repeat subprocess)", async () => {
+    const spawnSync = vi.fn(() => ({ status: 0, stdout: "0.3.2.dev1\n" }));
+    vi.doMock("child_process", () => ({ default: { spawnSync }, spawnSync }));
+    const { resolveVersion } = await importFresh();
+    expect(resolveVersion()).toBe("0.3.2.dev1");
+    expect(resolveVersion()).toBe("0.3.2.dev1"); // served from the module cache
+    expect(spawnSync).toHaveBeenCalledTimes(1);
+  });
 });
