@@ -1,6 +1,6 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
+import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -1244,8 +1244,8 @@ class LayerUI {
     // Ensure the layer is on the map so the rectangle highlight is visible.
     if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
 
-    const bounds = (layer as L.Layer & { getBounds(): L.LatLngBounds }).getBounds();
-    if (!bounds.isValid()) return;
+    const bounds = this.computeLayerBounds(layer);
+    if (!bounds) return;
 
     // Dim every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
@@ -1393,6 +1393,29 @@ class LayerUI {
   private restoreDimmedLayers(): void {
     for (const restore of this.dimmedLayers) restore();
     this.dimmedLayers = [];
+  }
+
+  /**
+   * Compute a layer's geographic bounds. Third-party layers may be custom
+   * L.Layer subclasses without a getBounds() method; fall back to summing the
+   * bounds of the layer's leaf nodes so focus still works for them.
+   */
+  private computeLayerBounds(layer: L.Layer): L.LatLngBounds | null {
+    const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
+    if (typeof withBounds.getBounds === "function") {
+      const b = withBounds.getBounds();
+      if (b && b.isValid()) return b;
+    }
+    const acc = L.latLngBounds([]);
+    let hasLeaf = false;
+    forEachLeaf(layer, leaf => {
+      const lb = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds?.();
+      if (lb && lb.isValid()) {
+        acc.extend(lb);
+        hasLeaf = true;
+      }
+    });
+    return hasLeaf ? acc : null;
   }
 
   /**

@@ -82,6 +82,42 @@ const initFixture = (
         eachLayer: vi.fn(),
       }) as any,
   );
+  // Minimal LatLngBounds accumulator for computeLayerBounds' leaf fallback.
+  window.L.latLngBounds = vi.fn((a?: unknown, b?: unknown) => {
+    const sw = { lat: Infinity, lng: Infinity };
+    const ne = { lat: -Infinity, lng: -Infinity };
+    const include = (x: unknown): void => {
+      const item = x as { lat?: number; lng?: number; getSouthWest?: () => { lat: number; lng: number }; getNorthEast?: () => { lat: number; lng: number } };
+      if (typeof item.getSouthWest === "function" && typeof item.getNorthEast === "function") {
+        const s = item.getSouthWest();
+        const n = item.getNorthEast();
+        sw.lat = Math.min(sw.lat, s.lat);
+        sw.lng = Math.min(sw.lng, s.lng);
+        ne.lat = Math.max(ne.lat, n.lat);
+        ne.lng = Math.max(ne.lng, n.lng);
+      } else if (typeof item.lat === "number" && typeof item.lng === "number") {
+        sw.lat = Math.min(sw.lat, item.lat);
+        sw.lng = Math.min(sw.lng, item.lng);
+        ne.lat = Math.max(ne.lat, item.lat);
+        ne.lng = Math.max(ne.lng, item.lng);
+      }
+    };
+    const acc = {
+      isValid: () => sw.lat !== Infinity,
+      extend: (x: unknown) => {
+        include(x);
+        return acc;
+      },
+      getSouthWest: () => sw,
+      getNorthEast: () => ne,
+    };
+    if (Array.isArray(a)) for (const x of a) include(x);
+    else if (a != null) {
+      include(a);
+      if (b != null) include(b);
+    }
+    return acc;
+  }) as unknown as typeof L.latLngBounds;
 
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -293,6 +329,36 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(L.rectangle).not.toHaveBeenCalled();
       expect(map.fitBounds).not.toHaveBeenCalled();
+    });
+
+    it("computes bounds from leaf nodes when the layer has no getBounds (third-party)", () => {
+      // A third-party layer without getBounds() — focus must fall back to
+      // summing its children's bounds instead of throwing.
+      const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
+      // @ts-expect-error — strip getBounds to simulate a custom L.Layer subclass
+      layer.getBounds = undefined;
+      // @ts-expect-error — eachLayer iterates two leaf children
+      layer.eachLayer = (fn: (c: unknown) => void) => {
+        fn({
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        });
+        fn({
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 31, lng: 101 }),
+            getNorthEast: () => ({ lat: 39, lng: 109 }),
+          }),
+        });
+      };
+
+      ui.focusLayer("overlay1");
+
+      expect(map.fitBounds).toHaveBeenCalled();
+      expect(L.rectangle).toHaveBeenCalled();
     });
 
     it("bails out when the layer is not found on the map", () => {
