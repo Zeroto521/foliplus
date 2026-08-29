@@ -31,9 +31,9 @@
   "LayerControl.more_tooltip": "More options",
   "LayerControl.focus_layer": "Zoom to Layer",
   "LayerControl.focus_layer_tooltip": "Zoom to this layer and highlight it",
-  "LayerControl.focus_layer_hidden": "Layer is hidden; cannot focus",
+  "LayerControl.focus_layer_hidden": "Layer is hidden — cannot focus",
   "LayerControl.focus_cancelled": "Focus cancelled",
-  "LayerControl.readonly_error": "layers is read-only; use LayerAPI (registerLayer / unregisterLayer / bringLayerToFront) instead.",
-  "LayerControl.readonly_del_error": "layers is read-only; use LayerAPI instead.",
-  "LayerControl.readonly_method_error": "layers.{method}() is read-only; use LayerAPI instead."
+  "LayerControl.readonly_error": "layers is read-only — use LayerAPI (registerLayer / unregisterLayer / bringLayerToFront) instead.",
+  "LayerControl.readonly_del_error": "layers is read-only — use LayerAPI instead.",
+  "LayerControl.readonly_method_error": "layers.{method}() is read-only — use LayerAPI instead."
 }
