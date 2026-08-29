@@ -464,8 +464,8 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(rings).toHaveLength(2);
       // Hole ring = overlay1 bounds: SW(30,100) → NE(40,110).
       const hole = rings[1];
-      expect(hole[0]).toEqual({ lat: 30, lng:100 });
-      expect(hole[2]).toEqual({ lat: 40, lng:110 });
+      expect(hole[0]).toEqual({ lat: 30, lng: 100 });
+      expect(hole[2]).toEqual({ lat: 40, lng: 110 });
 
       polygonSpy.mockRestore();
     });
