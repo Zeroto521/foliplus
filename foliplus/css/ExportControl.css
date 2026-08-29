@@ -98,7 +98,11 @@
    cannot match the SVG stroke-dasharray `6 4` used by the focus rect. */
 .foliplus-export-box {
   position: absolute;
-  border: none;
+  /* Transparent border reserves the padding box so the ::before dim mask and
+     the handles keep their edge offsets (they are inset from the padding box,
+     which a removed border would shift). The visible dashes come from the
+     background gradients below. */
+  border: var(--border-thick) solid transparent;
   background-color: transparent;
   background-image:
     repeating-linear-gradient(
@@ -149,10 +153,11 @@
   }
   &.locked {
     cursor: default;
-    border: var(--border-thick) solid var(--input-focus-border);
+    /* Same accent color + thickness as the dashed border, only solid. */
+    border: var(--border-thick) solid var(--accent-primary);
     background-image: none;
     pointer-events: none;
-    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+    box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
     transition: none;
 
     &::before {

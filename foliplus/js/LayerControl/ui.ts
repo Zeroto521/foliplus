@@ -56,8 +56,6 @@ class LayerUI {
   } | null;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
-  /** Corner markers for the focus rectangle (cleared on cancel). */
-  private focusCorners: L.Layer[];
   /** Layer id currently being focused, or null. */
   private focusingLayerId: string | null;
   /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
@@ -82,7 +80,6 @@ class LayerUI {
     this.onMoreMapClick = null;
     this.activeMenu = null;
     this.focusRect = null;
-    this.focusCorners = [];
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
     this.focusMask = null;
@@ -1267,8 +1264,7 @@ class LayerUI {
     }
 
     this.drawFocusMask(bounds);
-    const corners = this.drawFocusRect(bounds, layerId);
-    this.focusCorners = corners;
+    this.drawFocusRect(bounds, layerId);
     this.highlightFocusedRow(itemEl, layerId);
 
     this.m.map.fitBounds(bounds, {
@@ -1314,10 +1310,6 @@ class LayerUI {
       this.m.map.removeLayer(this.focusRect);
       this.focusRect = null;
     }
-    for (const corner of this.focusCorners) {
-      this.m.map.removeLayer(corner);
-    }
-    this.focusCorners = [];
 
     if (this.focusMask) {
       this.m.map.removeLayer(this.focusMask);
@@ -1383,46 +1375,17 @@ class LayerUI {
     map.addLayer(this.focusMask);
   }
 
-  /** Draw a dashed focus rectangle + 4 corner circleMarkers; return the corners. */
-  private drawFocusRect(bounds: L.LatLngBounds, layerId: string): L.Layer[] {
+  /** Draw the dashed focus rectangle (border only, no fill). */
+  private drawFocusRect(bounds: L.LatLngBounds, layerId: string): void {
     const map = this.m.map;
-    const cornerRadius = 4;
 
     this.focusRect = L.rectangle(bounds, {
       className: "foliplus-focus-rect",
-      fill: true,
-      fillOpacity: 0,
+      fill: false,
       interactive: false,
       renderer: this.focusRenderer ?? undefined,
     });
     map.addLayer(this.focusRect);
-
-    const southWest = bounds.getSouthWest();
-    const northEast = bounds.getNorthEast();
-    const corners: L.LatLngExpression[] = [
-      southWest,
-      { lat: northEast.lat, lng: southWest.lng },
-      northEast,
-      { lat: southWest.lat, lng: northEast.lng },
-    ];
-    return corners.map(latlng => {
-      const opts = {
-        radius: 4,
-        className: "foliplus-focus-corner",
-        interactive: false,
-        renderer: this.focusRenderer ?? undefined,
-      };
-      const corner = (
-        typeof L.circleMarker === "function"
-          ? L.circleMarker(latlng, opts)
-          : new L.CircleMarker(latlng, opts)
-      ) as L.Layer & {
-        addTo?: (m: L.Map) => L.Layer;
-      };
-      if (corner.addTo) return corner.addTo(map);
-      map.addLayer(corner);
-      return corner;
-    });
   }
 
   /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */

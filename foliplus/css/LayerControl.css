@@ -16,10 +16,10 @@
    Shares the "selection border" language with ExportControl's crop box:
    accent dashed outline, --border-thick (2px). The focus rect is transient
    (marching ants), the crop box is interactive (static), so animation
-   differs. */
+   differs. No fill — a thin border only, so it never tints the focused
+   layer underneath. */
 path.foliplus-focus-rect {
-  fill: var(--accent-primary);
-  fill-opacity: var(--alpha-15);
+  fill: none;
   stroke: var(--accent-primary);
   stroke-dasharray: var(--size-6) var(--size-4);
   stroke-width: var(--border-thick);
@@ -27,12 +27,6 @@ path.foliplus-focus-rect {
   /* "Marching ants" selection marquee — the dashes flow along the border. */
   animation: foliplus-focus-march 0.8s linear infinite;
   pointer-events: none;
-}
-/* Corner circleMarkers for the focus rectangle */
-path.foliplus-focus-corner {
-  fill: var(--accent-primary);
-  stroke: var(--neutral-0);
-  stroke-width: 1.5;
 }
 /* Inverse mask that dims everything outside the focused bounds (the hole is
    carved by the polygon's fill-rule; the mask must never capture input). */

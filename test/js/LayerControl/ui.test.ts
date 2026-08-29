@@ -189,17 +189,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("focusLayer()", () => {
-    it("draws a dashed rectangle + 4 corner markers on the layer bounds", () => {
-      const circleSpy = vi.spyOn(window.L, "CircleMarker");
-
+    it("draws a border-only dashed rectangle on the layer bounds", () => {
       ui.focusLayer("overlay1");
 
       expect(L.rectangle).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           className: "foliplus-focus-rect",
-          fill: true,
-          fillOpacity: 0,
+          fill: false,
           interactive: false,
         }),
       );
@@ -210,10 +207,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
           }),
         }),
       );
-      // Corner markers are added for each of the 4 rectangle corners.
-      expect(circleSpy).toHaveBeenCalledTimes(4);
-
-      circleSpy.mockRestore();
     });
 
     it("passes the correct bounds object to L.rectangle", () => {
@@ -414,7 +407,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.isFocusing()).toBe(true);
     });
 
-    it("cancelFocus() removes rect, corners, row highlight, and map handlers", () => {
+    it("cancelFocus() removes rect, row highlight, and map handlers", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
@@ -941,26 +934,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         "LayerControl.focus_cancelled",
         expect.any(Number),
       );
-    });
-
-    it("corner markers use L.CircleMarker when L.circleMarker is unavailable", () => {
-      vi.useFakeTimers();
-
-      // Remove the factory function to force the `new L.CircleMarker` fallback.
-      const origCircleMarker = (window.L as any).circleMarker;
-      (window.L as any).circleMarker = undefined;
-
-      try {
-        const circleClassSpy = vi.spyOn(window.L, "CircleMarker");
-
-        ui.focusLayer("overlay1");
-
-        expect(circleClassSpy).toHaveBeenCalledTimes(4);
-
-        circleClassSpy.mockRestore();
-      } finally {
-        (window.L as any).circleMarker = origCircleMarker;
-      }
     });
   });
 
