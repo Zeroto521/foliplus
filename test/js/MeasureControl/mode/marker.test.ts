@@ -9,6 +9,13 @@ beforeEach(initMocks);
  *  several microtask hops, so a single `await Promise.resolve()` is not enough). */
 const flushAsync = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
+/** Enable pin drag the way edit-mode entry does: invoke the registered drag
+ *  toggle (drag is edit-mode-gated, not popup-gated). */
+const enableDrag = (manager: any) => {
+  const toggle = manager.registerEditDragToggle.mock.calls.at(-1)[0];
+  toggle(true);
+};
+
 describe("MarkerMode — TYPE", () => {
   it("has correct TYPE constant", () => {
     expect(MarkerMode.TYPE).toBe(CONST.MODE.MARKER);
@@ -166,13 +173,9 @@ describe("MarkerMode — start + click", () => {
       const pin = (window.L.marker as any).mock.results[0].value;
       const del = (window.L.marker as any).mock.results[1].value;
 
-      // popup opens in edit mode → ✕ shown + drag enabled. There are two
-      // popupopen handlers on the pin: the content-refresh one (registered
-      // first in restore) and the drag-gate one (registered by bindPinDrag).
-      const onPopupOpen = pin.on.mock.calls
-        .filter(([ev]: [string]) => ev === "popupopen")
-        .at(-1)[1];
-      onPopupOpen();
+      // Entering edit mode enables the pin's drag via the registered toggle
+      // (drag is edit-mode-gated, not popup-gated).
+      enableDrag(manager);
 
       const onDown = pin.on.mock.calls.find(
         ([ev]: [string]) => ev === "mousedown",
@@ -219,7 +222,7 @@ describe("MarkerMode — start + click", () => {
     }
   });
 
-  it("does not enable drag when popup opens outside edit mode", () => {
+  it("does not drag when edit mode is off (drag stays disabled by default)", () => {
     const manager = makeManagerMock() as any;
     manager.isEditMode = false;
     MarkerMode.restore(manager, {
@@ -231,12 +234,8 @@ describe("MarkerMode — start + click", () => {
     });
 
     const pin = (window.L.marker as any).mock.results[0].value;
-    const onPopupOpen = pin.on.mock.calls
-      .filter(([ev]: [string]) => ev === "popupopen")
-      .at(-1)[1];
-    onPopupOpen();
 
-    // Drag stays disabled: mousedown is a no-op, map dragging is not disabled.
+    // No edit-mode entry → drag toggle never fired → mousedown is a no-op.
     const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
     onDown({
       originalEvent: { clientX: 0, clientY: 0 },
@@ -279,9 +278,7 @@ describe("MarkerMode — start + click", () => {
       MarkerMode.restore(manager, data);
 
       const pin = (window.L.marker as any).mock.results[0].value;
-      pin.on.mock.calls
-        .filter(([ev]: [string]) => ev === "popupopen")
-        .at(-1)[1]();
+      enableDrag(manager);
 
       const onDown = pin.on.mock.calls.find(
         ([ev]: [string]) => ev === "mousedown",
@@ -326,7 +323,7 @@ describe("MarkerMode — start + click", () => {
     }
   });
 
-  it("hides ✕ and disables drag on popupclose", () => {
+  it("disables drag when edit mode is toggled off", () => {
     const manager = makeManagerMock() as any;
     manager.isEditMode = true;
     MarkerMode.restore(manager, {
@@ -337,15 +334,11 @@ describe("MarkerMode — start + click", () => {
       address: "Old",
     });
     const pin = (window.L.marker as any).mock.results[0].value;
-    // open popup → drag enabled
-    pin.on.mock.calls
-      .filter(([ev]: [string]) => ev === "popupopen")
-      .at(-1)[1]();
-
-    const onPopupClose = pin.on.mock.calls.find(
-      ([ev]: [string]) => ev === "popupclose",
-    )?.[1];
-    onPopupClose();
+    // enter edit mode → drag enabled
+    enableDrag(manager);
+    // leave edit mode → drag disabled
+    const toggle = manager.registerEditDragToggle.mock.calls.at(-1)[0];
+    toggle(false);
 
     const onDown = pin.on.mock.calls.find(([ev]: [string]) => ev === "mousedown")?.[1];
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
@@ -393,9 +386,7 @@ describe("MarkerMode — start + click", () => {
       const pin = (window.L.marker as any).mock.results[0].value;
       pin.getPopup = vi.fn(() => ({ isOpen: () => true }));
 
-      pin.on.mock.calls
-        .filter(([ev]: [string]) => ev === "popupopen")
-        .at(-1)[1]();
+      enableDrag(manager);
       const onDown = pin.on.mock.calls.find(
         ([ev]: [string]) => ev === "mousedown",
       )?.[1];
@@ -444,9 +435,7 @@ describe("MarkerMode — start + click", () => {
         address: "Old",
       });
       const pin = (window.L.marker as any).mock.results[0].value;
-      pin.on.mock.calls
-        .filter(([ev]: [string]) => ev === "popupopen")
-        .at(-1)[1]();
+      enableDrag(manager);
       const onDown = pin.on.mock.calls.find(
         ([ev]: [string]) => ev === "mousedown",
       )?.[1];

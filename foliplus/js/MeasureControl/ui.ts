@@ -136,22 +136,47 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
           Math.abs(p.lat - node.getLatLng().lat) < 1e-9 &&
           Math.abs(p.lng - node.getLatLng().lng) < 1e-9,
       );
-    const db = Util.bindNodeDrag(node, delMarker, mgr.map, {
-      onDrag: (latlng: L.LatLng) => {
-        const pIdx = findPtIdx();
-        if (pIdx === -1) return;
-        points[pIdx] = latlng;
-        finalPoly.setLatLngs(points);
-        relabel();
-      },
-      onEnd: (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
-        const pIdx = findPtIdx();
-        if (pIdx === -1) return;
-        points[pIdx] = latlng;
-        if (onUpdate) onUpdate(points);
-      },
-    });
+
+    let db;
+    if (isFirst) {
+      // The solid start point translates the whole distance (like the circle
+      // center / polygon centroid); hollow nodes reshape instead.
+      db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+        onDrag: (latlng: L.LatLng) => {
+          const origin = node.getLatLng(); // still the old pos (onDrag runs first)
+          const dLat = latlng.lat - origin.lat;
+          const dLng = latlng.lng - origin.lng;
+          for (let i = 0; i < points.length; i++) {
+            points[i] = L.latLng(points[i].lat + dLat, points[i].lng + dLng);
+          }
+          finalPoly.setLatLngs(points);
+          nodeMarkers.forEach((m, i) => m.setLatLng(points[i]));
+          nodeDelIcons.forEach((d, i) => d.setLatLng(points[i]));
+          relabel();
+        },
+        onEnd: () => {
+          Util.markDragSyntheticClick();
+          if (onUpdate) onUpdate(points);
+        },
+      });
+    } else {
+      db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+        onDrag: (latlng: L.LatLng) => {
+          const pIdx = findPtIdx();
+          if (pIdx === -1) return;
+          points[pIdx] = latlng;
+          finalPoly.setLatLngs(points);
+          relabel();
+        },
+        onEnd: (latlng: L.LatLng) => {
+          Util.markDragSyntheticClick();
+          const pIdx = findPtIdx();
+          if (pIdx === -1) return;
+          points[pIdx] = latlng;
+          if (onUpdate) onUpdate(points);
+        },
+      });
+    }
     dragBinds.push(db);
   });
 

@@ -76,23 +76,29 @@ class MarkerMode extends MeasureMode {
           );
       },
     });
+    // Drag is gated by edit mode (no popup-first required), matching
+    // distance/polygon/circle nodes.
+    const unregisterDragToggle = manager.registerEditDragToggle(enabled =>
+      drag.setEnabled(enabled),
+    );
 
-    // In edit mode, opening the popup shows the ✕ handle AND enables drag;
-    // closing it disables both. (The pin has no edit overlay, so the popup
-    // open/close state is what gates drag — mirroring distance/polygon/circle
-    // whose overlay onOpen/onEmpty toggles the same bindings.)
-    const onPopupOpen = () => {
-      if (manager.isEditMode) {
-        toggleDelIcon(delMarker, true);
-        drag.setEnabled(true);
-      }
+    // The pin shares the edit overlay: clicking it in edit mode shows its ✕
+    // and closes every other open overlay (single selection). Outside edit
+    // mode the marker's default popup (address) behavior is untouched.
+    const overlay = Util.buildEditOverlay(manager, {
+      onOpen: () => toggleDelIcon(delMarker, true),
+      onEmpty: () => {
+        toggleDelIcon(delMarker, false);
+        marker.closePopup();
+      },
+    });
+
+    const onPinClick = (ev: L.LeafletMouseEvent) => {
+      if (!manager.isEditMode) return;
+      if (Util.isDragSyntheticClick()) return;
+      overlay.open(ev);
     };
-    const onPopupClose = () => {
-      toggleDelIcon(delMarker, false);
-      drag.setEnabled(false);
-    };
-    marker.on("popupopen", onPopupOpen);
-    marker.on("popupclose", onPopupClose);
+    marker.on("click", onPinClick);
 
     return () => {
       if (rafId) {
@@ -101,7 +107,9 @@ class MarkerMode extends MeasureMode {
       }
       generation += 1; // invalidate any in-flight geocode
       drag.cleanup();
-      marker.off("popupopen", onPopupOpen).off("popupclose", onPopupClose);
+      unregisterDragToggle();
+      overlay.cleanup();
+      marker.off("click", onPinClick);
     };
   }
 
