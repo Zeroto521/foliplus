@@ -281,7 +281,10 @@ describe("buildEditOverlay", () => {
 
   it("close() is a no-op when the overlay is not open", () => {
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = Util.buildEditOverlay(makeMgr() as any, {
+      onOpen: vi.fn(),
+      onEmpty,
+    });
 
     overlay.close();
 
