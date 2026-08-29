@@ -549,18 +549,14 @@ describe("MarkerMode — pin edit overlay (✕)", () => {
 
   it("shows the ✕ when the pin is clicked in edit mode", () => {
     const { pin, icon } = restoreWithIcon(true);
-    const onPinClick = pin.on.mock.calls.find(
-      ([ev]: [string]) => ev === "click",
-    )?.[1];
+    const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(true);
   });
 
   it("does not show the ✕ outside edit mode", () => {
     const { pin, icon } = restoreWithIcon(false);
-    const onPinClick = pin.on.mock.calls.find(
-      ([ev]: [string]) => ev === "click",
-    )?.[1];
+    const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(false);
   });
@@ -568,18 +564,14 @@ describe("MarkerMode — pin edit overlay (✕)", () => {
   it("ignores the synthetic click that follows a drag", () => {
     const { pin, icon } = restoreWithIcon(true);
     (window as any).__foliplus_measure_drag_click = true;
-    const onPinClick = pin.on.mock.calls.find(
-      ([ev]: [string]) => ev === "click",
-    )?.[1];
+    const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(false);
   });
 
   it("closes the overlay (hides ✕ and popup) when empty map space is clicked", () => {
     const { manager, pin, icon } = restoreWithIcon(true);
-    const onPinClick = pin.on.mock.calls.find(
-      ([ev]: [string]) => ev === "click",
-    )?.[1];
+    const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(true);
 
