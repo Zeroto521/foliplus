@@ -19,15 +19,16 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const DIST = resolve(ROOT, "foliplus/dist");
-const BASELINE = resolve(ROOT, "size-baselines.json");
 const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
+
+const distDir = root => resolve(root, "foliplus/dist");
+const baselinePath = root => resolve(root, "size-baselines.json");
 
 const parseArgs = argv => {
   const args = {
@@ -36,6 +37,7 @@ const parseArgs = argv => {
     audit: false,
     threshold: DEFAULT_THRESHOLD,
     thresholdSet: false,
+    unknown: [],
   };
   for (const a of argv) {
     if (a === "--save") args.save = true;
@@ -44,7 +46,7 @@ const parseArgs = argv => {
       const v = parseInt(a.split("=")[1], 10);
       args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
       args.thresholdSet = true;
-    }
+    } else args.unknown.push(a);
   }
   if (args.save) args.check = false;
   return args;
@@ -59,22 +61,24 @@ const resolveThreshold = (args, baseline) => {
   return DEFAULT_THRESHOLD;
 };
 
-const readSizes = () => {
-  const files = readdirSync(DIST)
+const readSizes = (root = ROOT) => {
+  const dir = distDir(root);
+  const files = readdirSync(dir)
     .filter(f => /\.min\.(js|css)$/.test(f))
     .sort();
   const sizes = {};
   for (const f of files)
-    sizes[f] = brotliCompressSync(readFileSync(resolve(DIST, f))).length;
+    sizes[f] = brotliCompressSync(readFileSync(resolve(dir, f))).length;
   return sizes;
 };
 
-const readBaseline = () => {
-  if (!existsSync(BASELINE)) return null;
-  return JSON.parse(readFileSync(BASELINE, "utf-8"));
+const readBaseline = (root = ROOT) => {
+  const path = baselinePath(root);
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, "utf-8"));
 };
 
-const writeBaseline = (files, threshold) => {
+const writeBaseline = (files, threshold, root = ROOT) => {
   const data = {
     version: 1,
     threshold,
@@ -82,8 +86,9 @@ const writeBaseline = (files, threshold) => {
     updatedBy: process.env.GITHUB_ACTOR || "local",
     files,
   };
-  mkdirSync(dirname(BASELINE), { recursive: true });
-  writeFileSync(BASELINE, JSON.stringify(data, null, 2) + "\n");
+  const path = baselinePath(root);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(data, null, 2) + "\n");
 };
 
 const fmtKB = n => (n / 1024).toFixed(2) + " KB";
@@ -187,9 +192,9 @@ const appendSummary = text => {
   }
 };
 
-const check = args => {
-  const current = readSizes();
-  const baseline = readBaseline();
+const check = (args, root = ROOT) => {
+  const current = readSizes(root);
+  const baseline = readBaseline(root);
   const threshold = resolveThreshold(args, baseline);
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
@@ -209,7 +214,7 @@ const check = args => {
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
       );
     console.error("\nUpdate baseline: node script/size-check.mjs --save");
-    process.exit(1);
+    return 1;
   }
   if (lowMargin.length > 0) {
     console.warn(
@@ -227,29 +232,31 @@ const check = args => {
   } else {
     console.log("\n✓ All bundles within threshold.");
   }
+  return 0;
 };
 
-const save = args => {
-  const current = readSizes();
+const save = (args, root = ROOT) => {
+  const current = readSizes(root);
   if (!Object.keys(current).length) {
     console.error("No bundles found in foliplus/dist/. Run build first.");
-    process.exit(1);
+    return 1;
   }
-  writeBaseline(current, resolveThreshold(args, readBaseline()));
+  writeBaseline(current, resolveThreshold(args, readBaseline(root)), root);
   const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `✓ Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
   );
   for (const [f, s] of Object.entries(current))
     console.log(`  ${fmtKB(s).padStart(10)}  ${f}`);
+  return 0;
 };
 
-const audit = () => {
-  const current = readSizes();
-  const baseline = readBaseline();
+const audit = (root = ROOT) => {
+  const current = readSizes(root);
+  const baseline = readBaseline(root);
   if (!baseline) {
     console.log("No baseline found. Run: node script/size-check.mjs --save");
-    return;
+    return 0;
   }
   const threshold = baseline.threshold ?? DEFAULT_THRESHOLD;
   console.log(
@@ -298,9 +305,27 @@ const audit = () => {
         status,
     );
   }
+  return 0;
 };
 
-const args = parseArgs(process.argv.slice(2));
-if (args.save) save(args);
-else if (args.audit) audit();
-else check(args);
+export {
+  audit,
+  buildRows,
+  check,
+  fmtDelta,
+  fmtKB,
+  fmtPct,
+  parseArgs,
+  resolveThreshold,
+  save,
+};
+
+// CLI entry point: `node script/size-check.mjs [--save|--audit] [--threshold=N]`.
+// Guarded so importing this module (for tests) has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.unknown.length)
+    console.warn(`⚠️  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
+  const code = args.save ? save(args) : args.audit ? audit() : check(args);
+  process.exit(code ?? 0);
+}

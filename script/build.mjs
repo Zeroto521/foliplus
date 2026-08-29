@@ -28,7 +28,7 @@ import {
 import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
 import { checkBundleCoverage } from "./bundle-report.mjs";
 import { transformSource } from "./compress.mjs";
@@ -351,7 +351,11 @@ const main = async () => {
   console.timeEnd("build");
 };
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+// CLI entry point: `node script/build.mjs [--dev|--check|--sonda]`.
+// Guarded so importing this module has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
+}
