@@ -189,6 +189,9 @@ class MeasureManager {
 
     this.cleanMapEvents();
     this.currentMode = mode;
+    // Registering a mode in the ModeManager also suspends map-layer interaction
+    // while measuring (see core/mode syncInteractionLock), so clicks fall
+    // through to the map for node placement instead of firing layer handlers.
     ensureModes(this.map).setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
@@ -222,6 +225,7 @@ class MeasureManager {
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
     this.currentMode = null;
+    // Clearing the mode restores map-layer interaction (core/mode lock).
     ensureModes(this.map).setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);

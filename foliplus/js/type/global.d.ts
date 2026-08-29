@@ -74,6 +74,11 @@ declare module "leaflet" {
   }
   interface Layer {
     _layers: Record<string, L.Layer>;
+    /** Detached Leaflet internals used by core/layer setInteractive. */
+    _path?: SVGElement;
+    _icon?: HTMLElement;
+    _container?: HTMLElement;
+    _initInteraction?: () => void;
   }
   interface LayerGroup {
     _layers: Record<string, L.Layer>;
