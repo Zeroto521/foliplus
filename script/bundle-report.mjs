@@ -34,7 +34,9 @@ export const checkBundleCoverage = (root = projectRoot) => {
   console.warn(
     `${WARN}  ${unmonitored.length} bundle(s) not covered by bundle-size-baseline.json: ${unmonitored.join(", ")}`,
   );
-  console.warn("   Add them to bundle-size-baseline.json or they will not be size-checked.");
+  console.warn(
+    "   Add them to bundle-size-baseline.json or they will not be size-checked.",
+  );
 };
 
 // CLI entry point: `node script/bundle-report.mjs`
