@@ -102,6 +102,9 @@
   --toggle-size: 36px;
   --panel-width: 280px;
   --panel-max-height: 400px;
+  /* 240px matches the original SearchControl result-panel height; Heatmap's
+     scheme picker was 200px and gains a little headroom, which is harmless. */
+  --dropdown-max-height: 240px;
   --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
 
@@ -376,6 +379,44 @@
   height: var(--border-thin);
   background: linear-gradient(to right, transparent, var(--divider-color), transparent);
   border: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Unified Dropdown / Menu
+  Floating menus in SearchControl (result panel) and HeatmapControl (scheme
+  picker) share one visual recipe. Position/width/item-layout stay
+  per-component; this block owns the shell + hover/active item states.
+  When LayerControl's overflow menu (foliplus-layer-more-menu) lands from
+  the layer/focus branch, add it to these two :is() groups and drop its
+  duplicated shell/item-hover properties.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ── */
+:is(.foliplus-search-result-panel, .foliplus-heatmap-scheme-dropdown) {
+  box-sizing: border-box;
+  margin-top: var(--space-xs);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-index-floating);
+  max-height: var(--dropdown-max-height);
+  overflow-y: auto;
+}
+
+/* ── Item base + hover/active ── */
+:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item) {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: background var(--transition-fast);
+}
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item
+):is(:hover, .active) {
+  background: var(--accent-light);
+  color: var(--accent-primary);
 }
 
 .foliplus-ctrl-btn {

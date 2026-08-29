@@ -172,10 +172,12 @@ class TestHeatmapControlRendering:
         assert "panel-shadow" in html
 
     def test_css_scheme_dropdown_hover(self):
-        """Scheme dropdown items use accent-light on hover."""
+        """Scheme dropdown items use accent-light on hover via the unified
+        dropdown rule in common.css (item class + hover color both injected)."""
         html = render_control(HeatmapControl())
-        assert "scheme-dropdown-item:hover" in html
+        assert "scheme-dropdown-item" in html
         assert "accent-light" in html
+        assert ":is(:hover, .active)" in html
 
     def test_css_scheme_bar_open_rule(self):
         """scheme-bar-open class triggers breathing animation and red border."""
