@@ -37,12 +37,11 @@ const formatArea = (sqMeters: number): string => {
 const DRAG_THRESHOLD = 4;
 
 /**
- * Build the shared edit overlay for a finalized distance / polygon / circle
- * measurement. The caller wires `result.open(ev)` onto each of the measure's
- * layers; clicking empty map space closes the overlay (the manager's global
- * click handler stops propagation for item clicks, so only empty-space clicks
- * reach here). Pin markers use popup coupling instead of an overlay, so they
- * don't call this.
+ * Build the shared edit overlay for a finalized measurement (distance,
+ * polygon, circle, or pin). The caller wires `result.open(ev)` onto each of
+ * the measure's clickable layers; clicking empty map space closes the overlay
+ * (the manager's global click handler stops propagation for item clicks, so
+ * only empty-space clicks reach here).
  */
 const buildEditOverlay = (
   mgr: {

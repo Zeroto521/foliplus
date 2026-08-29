@@ -6,6 +6,14 @@ import { dom } from "#common/dom.js";
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
 
+/** Make a non-body target a positioned ancestor so absolutely-positioned hints
+ *  anchor to it (the default body/fullscreen root is already positioned). */
+const anchorRelative = (target: HTMLElement): void => {
+  if (target === document.body || target === document.documentElement) return;
+  const cs = window.getComputedStyle(target);
+  if (cs.position === "static") target.style.position = "relative";
+};
+
 /** Hint duration constants (shared by components and the toast system). */
 const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 
@@ -60,10 +68,7 @@ class HintManager {
         moved = true;
       }
     }
-    if (moved && target !== document.body) {
-      const cs = window.getComputedStyle(target);
-      if (cs.position === "static") target.style.position = "relative";
-    }
+    if (moved) anchorRelative(target);
   }
 
   /** (Re)seed icons from the shared registry (called at registerHintIcon time). */
@@ -96,10 +101,7 @@ class HintManager {
       parent: hintTarget,
       innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
     });
-    if (hintTarget !== document.body && hintTarget !== document.documentElement) {
-      const cs = window.getComputedStyle(hintTarget);
-      if (cs.position === "static") hintTarget.style.position = "relative";
-    }
+    anchorRelative(hintTarget);
     const storeKey = subkey
       ? `${key}|${subkey}`
       : append

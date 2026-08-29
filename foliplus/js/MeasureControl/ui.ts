@@ -34,6 +34,22 @@ const bindOpenOverlay = (
   });
 };
 
+/** Handle returned by Util.bindNodeDrag — enable/disable + unbind a node drag. */
+interface DragBind {
+  setEnabled: (enabled: boolean) => void;
+  cleanup: () => void;
+}
+
+/** Index of `target` in `points` (exact lat/lng match, with float tolerance).
+ *  Nodes are created at point coordinates and moved in lockstep with them, so
+ *  a tight tolerance is safe and avoids matching a nearby-but-different node. */
+const findPointIndex = (points: L.LatLng[], target: L.LatLng): number => {
+  return points.findIndex(
+    (p: L.LatLng) =>
+      Math.abs(p.lat - target.lat) < 1e-9 && Math.abs(p.lng - target.lng) < 1e-9,
+  );
+};
+
 /** Options for attachDistanceUI. */
 interface AttachOpts {
   layers: CreateLayersAPI;
@@ -49,8 +65,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
   const nodeDelIcons: L.Marker[] = [];
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
-    [];
+  const dragBinds: DragBind[] = [];
 
   const relabel = () => {
     let cumulative = 0;
@@ -103,11 +118,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
     else
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
-        const ptIdx = points.findIndex(
-          (p: L.LatLng) =>
-            Math.abs(p.lat - latlng.lat) < 0.0001 &&
-            Math.abs(p.lng - latlng.lng) < 0.0001,
-        );
+        const ptIdx = findPointIndex(points, latlng);
         if (ptIdx === -1) return;
         const lblIdx = ptIdx - 1;
         points.splice(ptIdx, 1);
@@ -142,12 +153,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
 
     bindOpenOverlay(delMarker, openOverlay);
 
-    const findPtIdx = () =>
-      points.findIndex(
-        (p: L.LatLng) =>
-          Math.abs(p.lat - node.getLatLng().lat) < 1e-9 &&
-          Math.abs(p.lng - node.getLatLng().lng) < 1e-9,
-      );
+    const findPtIdx = () => findPointIndex(points, node.getLatLng());
 
     let db;
     if (isFirst) {
@@ -232,8 +238,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   } = opts;
 
   let unregisterDragToggle: () => void = () => {};
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
-    [];
+  const dragBinds: DragBind[] = [];
 
   const deleteMeasurement = () => {
     dragBinds.forEach(db => db.cleanup());
@@ -353,8 +358,7 @@ const attachPolygonUI = (
     area: initArea,
   } = opts;
   const nodeDelIcons: L.Marker[] = [];
-  const dragBinds: Array<{ setEnabled: (v: boolean) => void; cleanup: () => void }> =
-    [];
+  const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
   let centroidDot: L.Marker | null = null;
   let centroidLabel: L.Marker | null = null;
@@ -467,11 +471,7 @@ const attachPolygonUI = (
     else
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
-        const ptIdx = points.findIndex(
-          (p: L.LatLng) =>
-            Math.abs(p.lat - latlng.lat) < 0.0001 &&
-            Math.abs(p.lng - latlng.lng) < 0.0001,
-        );
+        const ptIdx = findPointIndex(points, latlng);
         if (ptIdx === -1) return;
         points.splice(ptIdx, 1);
         layers.removeLayer(node, delMarker);
@@ -509,12 +509,7 @@ const attachPolygonUI = (
 
     bindOpenOverlay(delMarker, openOverlay);
 
-    const findPtIdx = () =>
-      points.findIndex(
-        (p: L.LatLng) =>
-          Math.abs(p.lat - node.getLatLng().lat) < 1e-9 &&
-          Math.abs(p.lng - node.getLatLng().lng) < 1e-9,
-      );
+    const findPtIdx = () => findPointIndex(points, node.getLatLng());
     const db = Util.bindNodeDrag(node, delMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         const pIdx = findPtIdx();
