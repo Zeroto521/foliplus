@@ -75,15 +75,15 @@ describe("MORE", () => {
 });
 
 describe("FOCUS", () => {
-  it("is an SVG string with target crosshair (rings + center dot + ticks)", () => {
+  it("is an SVG string with corner brackets + center dot", () => {
     expect(SVGs.FOCUS).toContain("<svg");
-    // Outer ring + inner ring + center dot
-    expect(SVGs.FOCUS).toContain("circle");
-    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(3);
-    // Four directional ticks (N/S/E/W)
-    expect(SVGs.FOCUS).toMatch(/d="M12 2 L12 6"/);
-    expect(SVGs.FOCUS).toMatch(/d="M12 18 L12 22"/);
-    expect(SVGs.FOCUS).toMatch(/d="M2 12 L6 12"/);
-    expect(SVGs.FOCUS).toMatch(/d="M18 12 L22 12"/);
+    // Center dot (solid fill)
+    expect(SVGs.FOCUS).toContain('class="solid"');
+    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(1);
+    // Four corner brackets (extent frame)
+    expect(SVGs.FOCUS).toContain("M3 9 V3 H9");
+    expect(SVGs.FOCUS).toContain("M15 3 H21 V9");
+    expect(SVGs.FOCUS).toContain("M21 15 V21 H15");
+    expect(SVGs.FOCUS).toContain("M9 21 H3 V15");
   });
 });

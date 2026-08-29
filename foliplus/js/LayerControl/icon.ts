@@ -67,14 +67,9 @@ export const MORE = `
     <circle cx="12" cy="18" r="1.75" fill="currentColor"/>
   </svg>`;
 
-/** "Focus on layer" icon — target crosshair (outer ring + inner ring + center dot) */
+/** "Focus on layer" icon — corner brackets (extent) + center dot (aim). */
 export const FOCUS = `
   <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8"/>
-    <circle cx="12" cy="12" r="3.5"/>
-    <circle cx="12" cy="12" r="2" class="solid"/>
-    <path d="M12 2 L12 6"/>
-    <path d="M12 18 L12 22"/>
-    <path d="M2 12 L6 12"/>
-    <path d="M18 12 L22 12"/>
+    <path d="M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15"/>
+    <circle cx="12" cy="12" r="2.2" class="solid"/>
   </svg>`;

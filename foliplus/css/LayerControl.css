@@ -412,7 +412,9 @@
   .foliplus-layer-more-menu li {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
+    /* Icon stays left, label aligns right (the gap is the minimum spacing). */
+    justify-content: space-between;
+    gap: var(--space-md);
     padding: var(--space-xs) var(--space-sm);
     white-space: nowrap;
   }
@@ -422,8 +424,8 @@
   }
   .foliplus-layer-more-menu li svg {
     flex-shrink: 0;
-    width: var(--space-md);
-    height: var(--space-md);
+    width: var(--icon-size-xs);
+    height: var(--icon-size-xs);
     color: var(--text-muted);
     fill: none;
     stroke: currentColor;
@@ -443,8 +445,10 @@
     color: var(--text-primary);
   }
 
-  /* ── Focus bounds rectangle (drawn on the map) ── */
-  .foliplus-focus-rect polygon {
+  /* ── Focus bounds rectangle (drawn on the map) ──
+     Leaflet renders L.rectangle as a <path> with className applied directly,
+     so the selector targets path.foliplus-focus-rect (not a polygon child). */
+  path.foliplus-focus-rect {
     fill: var(--accent-primary);
     fill-opacity: 0.12;
     stroke: var(--accent-primary);
@@ -455,7 +459,7 @@
     pointer-events: none;
   }
   /* Corner circleMarkers for the focus rectangle */
-  .foliplus-focus-corner path {
+  path.foliplus-focus-corner {
     fill: var(--accent-primary);
     stroke: #ffffff;
     stroke-width: 1.5;
