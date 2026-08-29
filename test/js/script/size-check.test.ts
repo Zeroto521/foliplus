@@ -187,6 +187,30 @@ describe("check", () => {
     });
     expect(check(parseArgs([]), root)).toBe(0);
   });
+
+  it("warns but returns 0 when there is no baseline", () => {
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    expect(check(parseArgs([]), root)).toBe(0);
+  });
+
+  it("appends a Markdown summary when GITHUB_STEP_SUMMARY is set", () => {
+    const root = mkTmp();
+    const summary = join(root, "summary.md");
+    const content = "const x = 1;".repeat(50);
+    mkDist(root, { "a.min.js": content });
+    writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
+    const prev = process.env.GITHUB_STEP_SUMMARY;
+    process.env.GITHUB_STEP_SUMMARY = summary;
+    try {
+      // first call: summary file does not exist → catch branch; second: exists → append.
+      expect(check(parseArgs([]), root)).toBe(0);
+      expect(check(parseArgs([]), root)).toBe(0);
+    } finally {
+      process.env.GITHUB_STEP_SUMMARY = prev;
+    }
+    expect(readFileSync(summary, "utf-8")).toContain("Bundle Size Check");
+  });
 });
 
 describe("save", () => {
@@ -222,6 +246,14 @@ describe("audit", () => {
     const root = mkTmp();
     const content = "const a = 1;".repeat(20);
     mkDist(root, { "a.min.js": content });
+    writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
+    expect(audit(root)).toBe(0);
+  });
+
+  it("reports a bundle that is missing from the baseline", () => {
+    const root = mkTmp();
+    const content = "const a = 1;".repeat(20);
+    mkDist(root, { "a.min.js": content, "b.min.js": content });
     writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
     expect(audit(root)).toBe(0);
   });

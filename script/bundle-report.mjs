@@ -38,6 +38,8 @@ export const checkBundleCoverage = (root = projectRoot) => {
 };
 
 // CLI entry point: `node script/bundle-report.mjs`
+/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   checkBundleCoverage();
 }
+/* v8 ignore stop */

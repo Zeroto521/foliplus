@@ -32,6 +32,7 @@ const SCAN_SPEC = {
   silent: { type: "bool", desc: "Suppress output messages" },
 };
 const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
+/* v8 ignore start -- help/error handling only runs when invoked as a CLI */
 if (_raw.help) {
   console.log(help(SCAN_SPEC));
   process.exit(0);
@@ -41,6 +42,7 @@ if (_raw.errors.length) {
   console.error(help(SCAN_SPEC));
   process.exit(1);
 }
+/* v8 ignore stop */
 const opts = _raw;
 
 const ROOT = resolve(opts.root);
@@ -215,6 +217,8 @@ export { generateRegistry, scanImports };
 
 // CLI entry point: `node script/scan-registry.mjs [--root <path>] [--silent]`.
 // Guarded so importing this module (e.g. for tests) has no side effects.
+/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   generateRegistry();
 }
+/* v8 ignore stop */

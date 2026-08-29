@@ -238,4 +238,17 @@ describe("generateRegistry", () => {
     expect(output).toContain("// AUTO-GENERATED");
     expect(output).toContain("window.foliplus = window.foliplus || {};");
   });
+
+  it("registers single-file core modules (non-skipped)", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/foo.ts": `export const foo = {};`,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { foo } from "#core/foo.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["foo"]');
+    expect(output).toContain("#core/foo.js");
+  });
 });

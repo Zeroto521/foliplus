@@ -321,6 +321,7 @@ export {
 
 // CLI entry point: `node script/size-check.mjs [--save|--audit] [--threshold=N]`.
 // Guarded so importing this module (for tests) has no side effects.
+/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
   if (args.unknown.length)
@@ -328,3 +329,4 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   const code = args.save ? save(args) : args.audit ? audit() : check(args);
   process.exit(code ?? 0);
 }
+/* v8 ignore stop */
