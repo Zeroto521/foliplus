@@ -8,7 +8,12 @@ const { attachDelClick, makeDelIcon, toggleDelIcon } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+  makeDelIcon: vi.fn(() => ({
+    getElement: vi.fn(() => null),
+    on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
+  })),
   toggleDelIcon: vi.fn(),
 }));
 
@@ -26,10 +31,26 @@ vi.mock("#common/delicon.js", async importOriginal => {
 beforeEach(() => {
   vi.clearAllMocks();
   window.L = {
-    marker: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+    marker: vi.fn(() => ({
+      getElement: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      setLatLng: vi.fn(),
+    })),
     latLng: vi.fn((lat, lng) => ({ lat, lng })),
     divIcon: vi.fn(() => ({})),
     DomEvent: { stopPropagation: vi.fn() },
+  };
+  globalThis.turf = {
+    point: coords => ({ coords }),
+    distance: vi.fn(() => 100),
+    bearing: vi.fn(() => 45),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
+    area: vi.fn(() => 1000),
+    polygon: vi.fn(rings => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: rings },
+    })),
   };
 });
 
@@ -310,5 +331,59 @@ describe("attachPolygonUI", () => {
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
     expect(() => toggle(true)).not.toThrow();
     expect(() => toggle(false)).not.toThrow();
+  });
+
+  it("deleting a node cleans up only its drag bind and keeps the centroid (regression)", () => {
+    const mgr = makeMgr();
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const mkNode = (lat: number) => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat, lng: 0 })),
+      getElement: vi.fn(() => null),
+      setLatLng: vi.fn(),
+    });
+    const nodeMarkers = [0, 1, 2, 3].map(mkNode);
+    const segLabels = [0, 1, 2].map(() => ({ on: vi.fn() }));
+    const finalPoly = { on: vi.fn(), setLatLngs: vi.fn() };
+    const points = [0, 1, 2, 3].map(lat => ({ lat, lng: 0 }));
+
+    UI.attachPolygonUI(mgr as any, {
+      layers,
+      finalPoly,
+      nodeMarkers,
+      segLabels,
+      points,
+      area: 5000,
+      onDelete: vi.fn(),
+      onUpdate: vi.fn(),
+    } as any);
+
+    // makeDelIcon call order: [0]=centroid, [1..4]=one per node.
+    const centroidDel = (makeDelIcon as any).mock.results[0].value;
+    const node0Del = (makeDelIcon as any).mock.results[1].value;
+    // The centroid dot is the first L.marker built (rebuildCentroid).
+    const centroidDot = (window.L.marker as any).mock.results[0].value;
+    const centroidEl = { style: {} };
+    centroidDot.getElement = vi.fn(() => centroidEl);
+
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    toggle(true);
+    expect(centroidEl.style.cursor).toBe("move");
+
+    // Delete node 0: its drag bind must be spliced AND cleaned up (map off).
+    const offBefore = mgr.map.off.mock.calls.length;
+    node0Del._delClick();
+    expect(mgr.map.off).toHaveBeenCalledTimes(offBefore + 2); // mousemove + mouseup
+
+    // The centroid bind must survive: leaving edit mode still disables it.
+    toggle(false);
+    expect(centroidEl.style.cursor).toBe("");
+    // And the centroid ✕ still deletes the whole measurement.
+    expect(() => centroidDel._delClick()).not.toThrow();
   });
 });
