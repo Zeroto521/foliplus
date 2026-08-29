@@ -22,8 +22,8 @@
   "HeatmapControl.label": "Label",
   "HeatmapControl.clear": "Reset",
   "HeatmapControl.confirm": "Apply",
-  "HeatmapControl.no_layer": "No point layers found, add a GeoJson/Marker layer with .feature to enable heatmap",
-  "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl, please add LayerControl to the map first",
+  "HeatmapControl.no_layer": "No point layers found — add a GeoJson/Marker layer with .feature to enable heatmap",
+  "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl — please add LayerControl to the map first",
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
   "HeatmapControl.close_title": "Close"
