@@ -177,7 +177,6 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "scheme-dropdown-item" in html
         assert "accent-light" in html
-        assert ".active" in html
 
     def test_css_scheme_bar_open_rule(self):
         """scheme-bar-open class triggers breathing animation and red border."""

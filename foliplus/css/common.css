@@ -405,7 +405,9 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  transition: background var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same

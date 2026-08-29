@@ -182,10 +182,13 @@
     padding: 0 var(--space-lg);
     height: var(--ctrl-size);
     box-sizing: border-box;
+    /* Reserved border: same "selected" language as layer items — a permanent
+       transparent left border, .active only recolors it. No layout shift and
+       the border-color can transition. */
+    border-left: var(--border-thick) solid transparent;
 
     &.active {
-      border-left: var(--border-thick) solid var(--accent-primary);
-      padding-left: calc(var(--space-lg) - var(--border-thick));
+      border-left-color: var(--accent-primary);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {
