@@ -32,6 +32,7 @@ coverage.xml
 junit.xml
 *.junit.xml
 coverage/
+bundle-report/
 htmlcov/
 html/
 .tox/
@@ -89,4 +90,3 @@ UPDATE_MEMORY.md
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
-bundle-reports/

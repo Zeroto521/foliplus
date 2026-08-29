@@ -276,7 +276,7 @@ const main = async () => {
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
   if (sonda)
-    console.log("  Sonda analysis enabled (combined report → bundle-reports/)");
+    console.log("  Sonda analysis enabled (combined report → bundle-report/)");
   const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
@@ -301,7 +301,7 @@ const main = async () => {
       .filter(r => r.status === "fulfilled")
       .map(r => r.value?.metafile)
       .filter(Boolean);
-    const reportDir = resolve(CFG.root, "bundle-reports");
+    const reportDir = resolve(CFG.root, "bundle-report");
     rmSync(reportDir, { recursive: true, force: true });
     const config = new sonda.Config(
       {

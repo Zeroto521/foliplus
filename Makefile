@@ -3,7 +3,7 @@
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
 .PHONY: size-check size-audit size-save
-.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-reports
+.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-report
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -46,10 +46,10 @@ clean-html:
 	rm -rf doc/_build
 	rm -rf doc/source/_build
 
-clean: clean-build clean-pyc clean-cov clean-html clean-bundle-reports
+clean-bundle-report:
+	rm -rf bundle-report/
 
-clean-bundle-reports:
-	rm -rf bundle-reports/
+clean: clean-build clean-pyc clean-cov clean-html clean-bundle-report
 
 lint:
 	pre-commit run -a -v

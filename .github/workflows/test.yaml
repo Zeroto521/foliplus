@@ -97,5 +97,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bundle-reports
-          path: bundle-reports/
+          name: bundle-report
+          path: bundle-report/
