@@ -580,6 +580,246 @@ class TestHeatmapControlBrowser:
             assert canvas_visible, "Canvas should be visible after layer selection"
             assert not errors, f"JS errors: {errors}"
 
+    def test_config_persists_across_reload(self, browser, tmp_path):
+        """Saved config is restored from localStorage after a reload, and the
+        heatmap is re-rendered (restore path must call renderHexagons)."""
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=3
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+
+            # Select a layer (persists via sel.onchange) and bump numClasses.
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[1])
+            page.wait_for_timeout(500)
+            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
+            page.evaluate("window.__heatmapCtrl.manager.saveConfig()")
+
+            stored = page.evaluate(
+                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? localStorage.getItem(k) : null; }"
+            )
+            assert stored, "No heatmap storage entry written"
+            saved = json.loads(stored)
+            assert saved["layerId"] == opts[1]
+            assert saved["numClasses"] == 4
+
+            # Reload: applySavedConfig must restore the layer AND re-render.
+            page.reload()
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(3000)
+
+            state = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  return {
+                    layerId: m.selectedLayerId,
+                    numClasses: m.numClasses,
+                    hasFeatures: m.cachedFeatures !== null,
+                  };
+                }"""
+            )
+            assert state["layerId"] == opts[1], (
+                f"restored layer mismatch: {state['layerId']!r} vs {opts[1]!r}"
+            )
+            assert state["numClasses"] == 4, (
+                f"restored numClasses mismatch: {state['numClasses']!r}"
+            )
+            assert state["hasFeatures"] is True, (
+                "heatmap should re-render after restore (cachedFeatures set)"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_clear_button_clears_storage(self, browser, tmp_path):
+        """Clear button wipes localStorage so a reload does NOT restore the
+        previously saved config (returns to Python defaults)."""
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=3
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+            # Select a layer (persists via sel.onchange) so storage is non-empty.
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
+            page.wait_for_timeout(500)
+
+            stored = page.evaluate(
+                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? localStorage.getItem(k) : null; }"
+            )
+            assert stored, "Expected a stored config before clearing"
+
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear').click()"
+            )
+            page.wait_for_timeout(500)
+
+            gone = page.evaluate(
+                "() => Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')) === undefined"
+            )
+            assert gone, "Clear button must remove the saved config from localStorage"
+
+            # Reload: with no saved config, multi-layer page must NOT auto-select
+            # or render (defaults apply).
+            page.reload()
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(3000)
+            state = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  return {
+                    layerId: m.selectedLayerId,
+                    numClasses: m.numClasses,
+                    hasFeatures: m.cachedFeatures !== null,
+                  };
+                }"""
+            )
+            assert state["layerId"] is None, (
+                f"cleared config must not restore a layer, got {state['layerId']!r}"
+            )
+            assert state["numClasses"] == 6, (
+                f"cleared config must keep Python default, got {state['numClasses']!r}"
+            )
+            assert state["hasFeatures"] is False, (
+                "no layer selected after clear, so no render expected"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_ui_control_changes_persist(self, browser, tmp_path):
+        """Style controls (agg/method/scheme/label/border) write to localStorage
+        on change, not just the layer select."""
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            def stored():
+                return page.evaluate(
+                    "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? JSON.parse(localStorage.getItem(k)) : null; }"
+                )
+
+            # agg select
+            page.evaluate(
+                "window.__heatmapCtrl.aggSelect.value = 'sum'; window.__heatmapCtrl.aggSelect.dispatchEvent(new Event('change'))"
+            )
+            page.wait_for_timeout(300)
+            assert stored()["agg"] == "sum", "agg change must persist"
+
+            # classification method
+            page.evaluate(
+                "window.__heatmapCtrl.methodSelect.value = 'quantile'; window.__heatmapCtrl.methodSelect.dispatchEvent(new Event('change'))"
+            )
+            page.wait_for_timeout(300)
+            assert stored()["method"] == "quantile", "method change must persist"
+
+            # scheme (hidden select fires persist onchange)
+            page.evaluate(
+                "window.__heatmapCtrl.schemeSelectHidden.value = 'Blues'; window.__heatmapCtrl.schemeSelectHidden.dispatchEvent(new Event('change'))"
+            )
+            page.wait_for_timeout(300)
+            assert stored()["scheme"] == "Blues", "scheme change must persist"
+
+            # label toggle
+            page.evaluate(
+                "window.__heatmapCtrl.labelChk.checked = false; window.__heatmapCtrl.labelChk.dispatchEvent(new Event('change'))"
+            )
+            page.wait_for_timeout(300)
+            assert stored()["labelShow"] is False, "label toggle must persist"
+
+            # border weight (onchange clamps then persists)
+            page.evaluate(
+                "window.__heatmapCtrl.borderWeightInput.value = '2.5'; window.__heatmapCtrl.borderWeightInput.dispatchEvent(new Event('change'))"
+            )
+            page.wait_for_timeout(300)
+            assert stored()["borderWeight"] == 2.5, "border weight must persist"
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_uncommitted_borderweight_survives_reload(self, browser, tmp_path):
+        """A border weight typed into the input field but not yet committed
+        (no change/blur event) still persists on reload.
+
+        Regression: ``borderWeightInput.oninput`` updated ``manager.borderWeight``
+        and re-rendered but never called ``saveConfig`` — only the ``onchange``
+        handler persisted.  A reload before the user blurred the field therefore
+        snapped the weight back to the Python default.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            # Focus + set value + fire INPUT only — no change event, no blur.
+            page.evaluate(
+                """() => {
+                    const el = window.__heatmapCtrl.borderWeightInput;
+                    el.focus();
+                    el.value = '3.5';
+                    el.dispatchEvent(new Event('input'));
+                }"""
+            )
+            page.wait_for_timeout(500)
+
+            stored = page.evaluate(
+                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? JSON.parse(localStorage.getItem(k)) : null; }"
+            )
+            assert stored["borderWeight"] == 3.5, (
+                f"uncommitted border weight must persist on input, got {stored['borderWeight']!r}"
+            )
+
+            page.reload()
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(3000)
+
+            after = page.evaluate(
+                """() => ({
+                    m: window.__heatmapCtrl.manager.borderWeight,
+                    input: document.querySelector('.foliplus-heatmap-weight-input').value,
+                })"""
+            )
+            assert after["m"] == 3.5, (
+                f"border weight must be restored after reload, got {after['m']!r}"
+            )
+            assert after["input"] == "3.5", (
+                f"input field must show the restored weight, got {after['input']!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_clear_all_removes_content(self, browser, tmp_path):
         """clearHeatmapCanvas() clears cached data and hides the overlay."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
