@@ -1,38 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { formatAddress, nominatimUrl } from "#common/geocode.js";
-
-describe("nominatimUrl", () => {
-  it("builds a search URL with default params", () => {
-    const url = nominatimUrl("/search", { q: "Paris" });
-    expect(url).toContain("nominatim.openstreetmap.org/search");
-    expect(url).toContain("format=jsonv2");
-    expect(url).toContain("q=Paris");
-    expect(url).toContain("accept-language=en");
-  });
-
-  it("includes all non-null params", () => {
-    const url = nominatimUrl("/reverse", {
-      lat: "30",
-      lon: "120",
-      zoom: 18,
-      nullVal: null,
-    });
-    expect(url).toContain("lat=30");
-    expect(url).toContain("lon=120");
-    expect(url).toContain("zoom=18");
-    expect(url).not.toContain("nullVal");
-  });
-
-  it("uses accept-language from code param", () => {
-    const url = nominatimUrl("/search", { q: "test" }, "zh");
-    expect(url).toContain("accept-language=zh");
-  });
-
-  it("does not override accept-language if already set", () => {
-    const url = nominatimUrl("/search", { q: "test", "accept-language": "fr" });
-    expect(url).toContain("accept-language=fr");
-  });
-});
+import { describe, expect, it } from "vitest";
+import { formatAddress } from "#common/geocode.js";
 
 describe("formatAddress", () => {
   it("returns empty string for empty input", () => {
@@ -95,5 +62,9 @@ describe("formatAddress", () => {
     expect(result).toContain("Baker Street");
     expect(result).toContain("London");
     expect(result).toContain("UK");
+  });
+
+  it("drops empty tokens from consecutive or trailing commas", () => {
+    expect(formatAddress("Paris,, France,", undefined, "en")).toBe("Paris,France");
   });
 });

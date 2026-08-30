@@ -136,3 +136,114 @@ describe("cacheSuggestion", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit
   });
 });
+
+describe("provider selection", () => {
+  it("geocode with providerId='photon' fetches Photon and normalizes features", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [13.405, 52.52] },
+            properties: { name: "Berlin", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const r = await geocode(mockMap, "Berlin Provider", "en", "photon");
+    expect(r).toEqual({ lat: 52.52, lng: 13.405, display_name: "Berlin, Germany" });
+    const [url, init] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io");
+    expect(init.headers["X-User-Agent"]).toBe("foliplus");
+  });
+
+  it("isolates the cache by provider id (same address, different providers)", async () => {
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(
+        jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          features: [
+            {
+              geometry: { coordinates: [119.3, 26.08] },
+              properties: { name: "Fuzhou" },
+            },
+          ],
+        }),
+      );
+    await geocode(mockMap, "Same City", "en"); // nominatim
+    await geocode(mockMap, "Same City", "en", "photon");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2); // no cross-provider cache hit
+  });
+
+  it("reverseGeocode with providerId uses the provider URL", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [8.682, 50.11] },
+            properties: { name: "Frankfurt", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const addr = await reverseGeocode(mockMap, 8.682, 50.11, "en", "photon");
+    // formatAddress joins parts with "," (no space) for non-Chinese maps.
+    expect(addr).toBe("Frankfurt,Germany");
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io/reverse");
+  });
+
+  it("falls back to Nominatim for an unknown provider id instead of throwing", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lon: "119.3", lat: "26.08", display_name: "Fuzhou" }]),
+    );
+    const r = await geocode(mockMap, "Unknown Provider", "en", "bogus");
+    expect(r).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("nominatim.openstreetmap.org");
+  });
+});
+
+describe("custom provider (declarative dict)", () => {
+  const custom = {
+    id: "myapi",
+    baseUrl: "https://geo.example.com",
+    search: { url: "/search?q={q}" },
+    reverse: { url: "/reverse?lon={lon}&lat={lat}" },
+    normalize: {
+      search:
+        "d => d.results && d.results[0] ? { lng: String(d.results[0].lon), lat: String(d.results[0].lat), display_name: d.results[0].label } : null",
+      reverse: "d => (d && d.label) || ''",
+    },
+  };
+
+  it("geocode resolves a declarative custom provider", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({ results: [{ lon: 12.3, lat: 45.6, label: "Custom Place" }] }),
+    );
+    const r = await geocode(mockMap, "Custom Place", "en", custom);
+    expect(r).toEqual({ lat: 45.6, lng: 12.3, display_name: "Custom Place" });
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    // Custom-provider templates encode via encodeURIComponent (space → %20).
+    expect(url).toBe("https://geo.example.com/search?q=Custom%20Place");
+  });
+
+  it("reverseGeocode resolves a declarative custom provider", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({ label: "Custom, Place" }),
+    );
+    const addr = await reverseGeocode(mockMap, 99.9, 44.4, "en", custom);
+    // formatAddress joins comma-separated parts without a space.
+    expect(addr).toBe("Custom,Place");
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toBe("https://geo.example.com/reverse?lon=99.9&lat=44.4");
+  });
+
+  it("cacheSuggestion with a custom provider pre-fills its own cache key", async () => {
+    cacheSuggestion(mockMap, "Cached Custom", 10.1, 20.2, "Custom, Place", custom);
+    const r = await geocode(mockMap, "Cached Custom", "en", custom);
+    expect(r).toEqual({ lat: 10.1, lng: 20.2, display_name: "Custom, Place" });
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit, no API call
+  });
+});

@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import folium
 import pytest
-from conftest import _js, assert_locale, make_browser_page, render_control, use_page
+from conftest import (
+    _js,
+    assert_config_block,
+    assert_config_value,
+    assert_locale,
+    make_browser_page,
+    render_control,
+    use_page,
+)
 
 from foliplus import SearchControl
 
@@ -51,6 +59,76 @@ class TestSearchControlPython:
         """Zoom below 1 raises ValueError."""
         with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
             SearchControl(zoom=0)
+
+    def test_default_provider(self):
+        assert SearchControl().provider == "nominatim"
+
+    def test_default_provider_config(self):
+        assert SearchControl().provider_config is None
+
+    def test_builtin_provider(self):
+        assert SearchControl(provider="photon").provider == "photon"
+        assert SearchControl(provider="pelias").provider == "pelias"
+
+    def test_invalid_provider_raises(self):
+        with pytest.raises(ValueError, match="provider must be one of"):
+            SearchControl(provider="bogus")
+
+    def test_provider_config_passthrough(self):
+        ctrl = SearchControl(
+            provider="photon", provider_config={"baseUrl": "https://x"}
+        )
+        assert ctrl.provider_config == {"baseUrl": "https://x"}
+
+    def test_provider_config_non_dict_raises(self):
+        with pytest.raises(ValueError, match="provider_config must be a dict"):
+            SearchControl(provider="photon", provider_config="nope")
+
+    def test_custom_provider_dict(self):
+        ctrl = SearchControl(provider={"id": "myapi", "baseUrl": "https://x"})
+        assert ctrl.provider == {"id": "myapi", "baseUrl": "https://x"}
+
+    def test_custom_provider_dict_missing_id_raises(self):
+        with pytest.raises(ValueError, match="must contain an 'id' key"):
+            SearchControl(provider={"baseUrl": "https://x"})
+
+    def test_provider_config_with_dict_provider_raises(self):
+        with pytest.raises(ValueError, match="only valid with a built-in"):
+            SearchControl(provider={"id": "myapi"}, provider_config={"baseUrl": "x"})
+
+    def test_provider_not_str_or_dict_raises(self):
+        with pytest.raises(ValueError, match="provider must be a str or dict"):
+            SearchControl(provider=42)  # type: ignore[arg-type]
+
+
+class TestSearchControlProviderConfig:
+    """Python ↔ JS bridge tests for provider serialization."""
+
+    def test_provider_serialized_in_config(self):
+        ctrl = SearchControl(provider="photon")
+        assert_config_block(ctrl, {"provider": "photon", "provider_config": None})
+
+    def test_provider_config_serialized_in_config(self):
+        ctrl = SearchControl(
+            provider="pelias",
+            provider_config={"baseUrl": "https://geocode.example.com"},
+        )
+        assert_config_block(
+            ctrl,
+            {
+                "provider": "pelias",
+                "provider_config": {"baseUrl": "https://geocode.example.com"},
+            },
+        )
+
+    def test_custom_provider_serialized_in_config(self):
+        provider = {"id": "myapi", "baseUrl": "https://x.example.com"}
+        ctrl = SearchControl(provider=provider)
+        assert_config_block(ctrl, {"provider": provider})
+
+    def test_provider_value_in_rendered_html(self):
+        html = render_control(SearchControl(provider="photon"))
+        assert_config_value(html, "provider", "photon")
 
 
 class TestSearchControlRendering:
