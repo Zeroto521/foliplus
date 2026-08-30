@@ -63,6 +63,51 @@ describe("ExportControl interaction", () => {
     expect(mgr.onKeyDown).not.toHaveBeenCalled();
   });
 
+  it("R and arrow keys reach onKeyDown when container is focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyDown).toHaveBeenCalledTimes(6);
+    cleanup();
+  });
+
+  it("R and arrow keys do not fire when the container is not focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    document.body.focus();
+
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("cleanup suppresses R and arrow keys", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    cleanup();
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+  });
+
   it("Escape handler calls onKeyDown", () => {
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);

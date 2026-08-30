@@ -291,9 +291,63 @@ class ExportManager {
       if (this.cropState?.locked) this.unlockCropBox();
       else this.removeCropBox();
     } else if (event.key === "Enter") {
-      if (this.cropState && !this.cropState.locked) this.lockCropBox();
+      if (this.isEditing()) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
+    } else if (event.key === "r" || event.key === "R") {
+      // R: reset the crop box to the default centered size.
+      if (this.isEditing()) this.resetCropBox();
+    } else if (CONST.NUDGE_KEYS.includes(event.key)) {
+      // Arrow keys: nudge the crop box by a fixed step (unlocked only, so it
+      // cannot fight the geo-anchored locked box).
+      if (this.isEditing()) this.nudgeCropBox(event.key);
     }
+  }
+
+  /** True while the crop box is open and being edited (not locked). */
+  private isEditing(): boolean {
+    return !!this.cropState && !this.cropState.locked;
+  }
+
+  /** Apply a new rect: update state, box style, and the size hint. */
+  private applyRect(r: Rect) {
+    if (!this.cropState) return;
+    this.cropState.rect = r;
+    this.updateBoxStyle(this.cropState.box, r);
+    this.showHintWithInfo(r, T("hint_unlocked"));
+  }
+
+  /** Reset the unlocked crop box to the default centered size. */
+  resetCropBox() {
+    if (!this.isEditing()) return;
+    this.applyRect(this.defaultRect());
+  }
+
+  /** Nudge the unlocked crop box by NUDGE_STEP px in an arrow direction. */
+  nudgeCropBox(key: string) {
+    const st = this.cropState;
+    if (!st || st.locked) return;
+    const mapRect = this.mapContainer.getBoundingClientRect();
+    const step = CONST.CROP.NUDGE_STEP;
+    const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
+    const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
+    const r = Object.assign({}, st.rect);
+    // Clamp within the map bounds (same clamp as mouse-move dragging).
+    r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + dx));
+    r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + dy));
+    this.applyRect(r);
+  }
+
+  /** Default centered crop box (same as the no-history branch of showCropBox). */
+  defaultRect(): Rect {
+    const mapRect = this.mapContainer.getBoundingClientRect();
+    const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
+    const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
+    return {
+      left: padW,
+      top: padH,
+      width: mapRect.width - padW * 2,
+      height: mapRect.height - padH * 2,
+    };
   }
 
   onMapChange(skipHint?: boolean) {

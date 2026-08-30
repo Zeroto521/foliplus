@@ -24,6 +24,7 @@ function makeMapMock() {
       getWest: () => -180,
     }),
     latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
+    keyboard: { disable: vi.fn(), enable: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),

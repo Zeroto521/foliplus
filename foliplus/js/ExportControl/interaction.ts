@@ -1,6 +1,12 @@
 // ExportControl interaction — keyboard + mouse event registration.
 import { ensureInteraction } from "#core/interaction.js";
+import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
+
+// Keys that confirm / reset / nudge the crop box. They require map container
+// focus (so typing into other inputs elsewhere doesn't move the box) and are
+// all routed through onKeyDown.
+const CROP_KEYS = ["Enter", "r", "R", ...CONST.NUDGE_KEYS];
 
 const registerInteractions = (mgr: ExportManager): (() => void) => {
   const im = ensureInteraction(mgr.map);
@@ -10,16 +16,13 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   // cleanup function unregisters them all at once when the crop box is removed.
   return im.register(CONF.name, [
     // Escape: global — dismiss crop box from anywhere.
-    {
-      key: "Escape",
-      handler: e => mgr.onKeyDown(e as KeyboardEvent),
-    },
-    // Enter: require map container focus — confirm export / lock crop box
-    {
-      key: "Enter",
+    { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
+    // Enter / R / arrows: container-bound, routed through onKeyDown.
+    ...CROP_KEYS.map(key => ({
+      key,
       container,
-      handler: e => mgr.onKeyDown(e as KeyboardEvent),
-    },
+      handler: (e: Event) => mgr.onKeyDown(e as KeyboardEvent),
+    })),
   ]);
 };
 

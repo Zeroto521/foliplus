@@ -76,6 +76,122 @@ describe("ExportManager — onKeyDown", () => {
   });
 });
 
+describe("ExportManager — shortcut routing (R + arrows)", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.resetCropBox = vi.fn();
+    manager.nudgeCropBox = vi.fn();
+  });
+
+  it("R routes to resetCropBox when unlocked", () => {
+    manager.onKeyDown({ key: "r" });
+    expect(manager.resetCropBox).toHaveBeenCalledTimes(1);
+    manager.onKeyDown({ key: "R" });
+    expect(manager.resetCropBox).toHaveBeenCalledTimes(2);
+    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+  });
+
+  it("R is ignored when locked", () => {
+    manager.cropState.locked = true;
+    manager.onKeyDown({ key: "r" });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+  });
+
+  it("arrow keys route to nudgeCropBox when unlocked", () => {
+    manager.onKeyDown({ key: "ArrowLeft" });
+    manager.onKeyDown({ key: "ArrowRight" });
+    manager.onKeyDown({ key: "ArrowUp" });
+    manager.onKeyDown({ key: "ArrowDown" });
+    expect(manager.nudgeCropBox).toHaveBeenCalledTimes(4);
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+  });
+
+  it("arrow keys are ignored when locked", () => {
+    manager.cropState.locked = true;
+    manager.onKeyDown({ key: "ArrowLeft" });
+    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+  });
+
+  it("R and arrows are no-ops without a crop box", () => {
+    manager.cropState = null;
+    manager.onKeyDown({ key: "r" });
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — resetCropBox / nudgeCropBox", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.mapContainer.getBoundingClientRect = () => ({
+      width: 500,
+      height: 400,
+    });
+  });
+
+  it("resetCropBox restores the default centered box", () => {
+    manager.cropState.rect = { left: 10, top: 10, width: 100, height: 100 };
+    manager.resetCropBox();
+    // defaultRect with a 500x400 map and PADDING_RATIO 0.25
+    expect(manager.cropState.rect).toEqual({
+      left: 125,
+      top: 100,
+      width: 250,
+      height: 200,
+    });
+    expect(manager.updateBoxStyle).toHaveBeenCalled();
+    expect(manager.showHintWithInfo).toHaveBeenCalled();
+  });
+
+  it("resetCropBox is a no-op when locked", () => {
+    manager.cropState.locked = true;
+    manager.cropState.rect = { left: 10, top: 10, width: 100, height: 100 };
+    manager.resetCropBox();
+    expect(manager.cropState.rect).toEqual({
+      left: 10,
+      top: 10,
+      width: 100,
+      height: 100,
+    });
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox moves right by NUDGE_STEP", () => {
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(110);
+    expect(manager.updateBoxStyle).toHaveBeenCalled();
+    expect(manager.showHintWithInfo).toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox moves up and clamps at the map top edge", () => {
+    manager.cropState.rect = { left: 100, top: 5, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowUp");
+    expect(manager.cropState.rect.top).toBe(0);
+  });
+
+  it("nudgeCropBox clamps right edge to the map width", () => {
+    manager.cropState.rect = { left: 490, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(400); // 500 - 100
+  });
+
+  it("nudgeCropBox is a no-op when locked", () => {
+    manager.cropState.locked = true;
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(100);
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+  });
+});
+
 describe("ExportManager — shortcut lifecycle", () => {
   let manager;
   let container;

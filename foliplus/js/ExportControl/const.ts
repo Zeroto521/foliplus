@@ -3,7 +3,12 @@ export const CROP = {
   MIN_SIZE: 40,
   PADDING_RATIO: 0.25,
   CONTAINER_PADDING: 200,
+  /** Pixels the crop box moves per arrow-key nudge (unlocked state). */
+  NUDGE_STEP: 10,
 };
+
+/** Arrow keys that nudge the crop box position (unlocked state). */
+export const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
 export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };

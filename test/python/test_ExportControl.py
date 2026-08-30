@@ -329,6 +329,71 @@ class TestExportControlBrowser:
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
 
+    def test_arrow_keys_nudge_crop_box(self, browser, tmp_path):
+        """Arrow keys nudge the unlocked crop box by NUDGE_STEP without panning."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            # The arrow shortcuts are container-bound — focus the map container.
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            rect0 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center0 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            rect1 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center1 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            # Box moved by NUDGE_STEP in both axes; the map must NOT pan
+            # (Leaflet's built-in arrow-key handler is disabled while editing).
+            assert rect1["l"] == pytest.approx(rect0["l"] + 10)
+            assert rect1["t"] == pytest.approx(rect0["t"] + 10)
+            assert center1 == center0
+
+    def test_r_resets_crop_box(self, browser, tmp_path):
+        """R resets the unlocked crop box to the default centered size."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            default = page.evaluate(
+                "() => { const r = window.__exportManager.defaultRect(); "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Nudge away from default so a reset is observable.
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            moved = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert moved != default, "expected box to move before reset"
+            page.keyboard.press("r")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert after == pytest.approx(default)
+
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""
 
