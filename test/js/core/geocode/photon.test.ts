@@ -42,7 +42,7 @@ describe("Photon provider — normalizers", () => {
         geometry: { coordinates: [13.405, 52.52] },
         properties: {
           name: "Berlin",
-          street: "Unter den Linden",
+          street: "Pariser Platz",
           city: "Berlin",
           country: "Germany",
         },
@@ -59,7 +59,7 @@ describe("Photon provider — normalizers", () => {
     expect(items).toHaveLength(2);
     expect(items[0].lng).toBe("13.405");
     expect(items[0].lat).toBe("52.52");
-    expect(items[0].display_name).toBe("Berlin, Unter den Linden, Berlin, Germany");
+    expect(items[0].display_name).toBe("Berlin, Pariser Platz, Berlin, Germany");
   });
 
   it("skips features without coordinates", () => {
