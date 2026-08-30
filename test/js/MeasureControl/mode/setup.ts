@@ -106,6 +106,7 @@ export function initMocks() {
 }
 
 export function makeManagerMock() {
+  const finalizedClickHandlers: Array<() => void> = [];
   return {
     map: {
       on: vi.fn(),
@@ -132,9 +133,16 @@ export function makeManagerMock() {
     cleanMapEvents: vi.fn(),
     registerEditOverlayCloser: vi.fn(() => () => {}),
     registerEditDragToggle: vi.fn(() => () => {}),
+    registerFinalized: vi.fn((cleanup: () => void) => {
+      finalizedClickHandlers.push(cleanup);
+      return () => {
+        const i = finalizedClickHandlers.indexOf(cleanup);
+        if (i !== -1) finalizedClickHandlers.splice(i, 1);
+      };
+    }),
     currentMode: null,
     isEditMode: false,
     measurements: [],
-    finalizedClickHandlers: [],
+    finalizedClickHandlers,
   };
 }

@@ -109,6 +109,7 @@ const makeMgr = () => ({
   isEditMode: true,
   registerEditOverlayCloser: vi.fn(() => () => {}),
   registerEditDragToggle: vi.fn(() => () => {}),
+  registerFinalized: vi.fn(() => () => {}),
   closeOtherEditOverlays: vi.fn(),
 });
 
@@ -169,17 +170,16 @@ describe("attachCircleUI — delete flow", () => {
     expect(layers.unregister).toHaveBeenCalled();
   });
 
-  it("does nothing on map click after deletion (isDeleted guard)", () => {
-    const { layers, delMarker, opts } = makeOpts();
+  it("unbinds the overlay map-click listener on deletion", () => {
+    const { delMarker, opts } = makeOpts();
     const mgr = makeMgr();
-    const onMapClickActive = UI.attachCircleUI(mgr as any, opts as any);
+    UI.attachCircleUI(mgr as any, opts as any);
+    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
 
     (delMarker as any)._delClick();
-    onMapClickActive();
 
-    // state.isXVisible is still false, so toggleUI would hide more layers —
-    // but after deletion the map-click handler must not toggle.
-    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
+    // Deleting disposes the overlay, unbinding its map-click listener.
+    expect(mgr.map.off).toHaveBeenCalledWith("click", expect.any(Function));
   });
 
   it("attaches click handlers that open the edit overlay on circle parts", () => {
@@ -240,10 +240,9 @@ describe("attachDistanceUI", () => {
 
   it("binds click handlers on the polyline and nodes", () => {
     const opts = makeOpts();
-    const onMapClickActive = UI.attachDistanceUI(makeMgr() as any, opts as any);
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(typeof onMapClickActive).toBe("function");
   });
 
   it("creates a delete icon per node", () => {
@@ -302,12 +301,13 @@ describe("attachPolygonUI", () => {
     };
   };
 
-  it("binds handlers and returns a map-click cleanup", () => {
+  it("binds handlers and registers its dispose with the manager", () => {
     const opts = makeOpts();
-    const onMapClickActive = UI.attachPolygonUI(makeMgr() as any, opts as any);
+    const mgr = makeMgr();
+    UI.attachPolygonUI(mgr as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(typeof onMapClickActive).toBe("function");
+    expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("rebuilds the centroid dot alongside the label and delete icon", () => {

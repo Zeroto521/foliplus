@@ -55,26 +55,24 @@ class DistanceMode extends PreviewMode {
       });
     }
 
-    manager.finalizedClickHandlers.push(
-      attachDistanceUI(manager, {
-        layers: manager.layers,
-        finalPoly,
-        nodeMarkers,
-        segLabels,
-        points: points,
-        onDelete: () => {
-          manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-          manager.saveMeasurements();
-        },
-        onUpdate: () => {
-          const { segments, totalDistance } = Util.recalculateSegments(points);
-          data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          data.segments = segments;
-          data.totalDistance = totalDistance;
-          manager.saveMeasurements();
-        },
-      }),
-    );
+    attachDistanceUI(manager, {
+      layers: manager.layers,
+      finalPoly,
+      nodeMarkers,
+      segLabels,
+      points: points,
+      onDelete: () => {
+        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
+        manager.saveMeasurements();
+      },
+      onUpdate: () => {
+        const { segments, totalDistance } = Util.recalculateSegments(points);
+        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
+        data.segments = segments;
+        data.totalDistance = totalDistance;
+        manager.saveMeasurements();
+      },
+    });
   }
 
   start() {
@@ -147,8 +145,9 @@ class DistanceMode extends PreviewMode {
         );
       }
 
-      // Attach toggle/delete UI (shared with restoreDistance)
-      const onDistMapClick = attachDistanceUI(this.m, {
+      // Attach toggle/delete UI (shared with restoreDistance). It self-registers
+      // its dispose via registerFinalized, so clearAll/destroy can unbind it.
+      attachDistanceUI(this.m, {
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -169,11 +168,8 @@ class DistanceMode extends PreviewMode {
         },
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized
-      // polyline/nodes, so replace it with a no-op. The overlay's own cleanup
-      // is registered below so clearAll/destroy can unbind its map-click
-      // listener.
+      // polyline/nodes, so replace it with a no-op.
       this._cleanup = () => {};
-      this.m.finalizedClickHandlers.push(onDistMapClick);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);

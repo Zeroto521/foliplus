@@ -6,9 +6,13 @@ import { initMocks, makeManagerMock } from "./setup.js";
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
 // be exercised directly (these are the lines codecov flags as missing).
 const { attachDistanceUIMock } = vi.hoisted(() => ({
-  attachDistanceUIMock: vi.fn((_mgr: unknown, opts: unknown) => {
+  attachDistanceUIMock: vi.fn((mgr: unknown, opts: unknown) => {
     capturedDistanceOpts = opts;
-    return () => {};
+    // Simulate the real attachDistanceUI, which self-registers its dispose via
+    // registerFinalized (delete and clearAll both run it).
+    const cleanup = () => {};
+    (mgr as { registerFinalized?: (c: () => void) => void }).registerFinalized?.(cleanup);
+    return cleanup;
   }),
 }));
 

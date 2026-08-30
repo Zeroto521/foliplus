@@ -159,8 +159,10 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       data,
     );
+    const unregisterFinalized = manager.registerFinalized(cleanupPin);
 
     const deleteMeasurement = () => {
+      unregisterFinalized();
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
@@ -169,7 +171,6 @@ class MarkerMode extends MeasureMode {
       manager.layers.unregister();
     };
     attachDelClick(delMarker, deleteMeasurement);
-    manager.finalizedClickHandlers.push(cleanupPin);
   }
 
   start() {
@@ -241,8 +242,10 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       measurement,
     );
+    const unregisterFinalized = this.m.registerFinalized(cleanupPin);
 
     const deleteMeasurement = () => {
+      unregisterFinalized();
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
@@ -256,8 +259,6 @@ class MarkerMode extends MeasureMode {
       if (measurement.address !== null)
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
     });
-
-    this.m.finalizedClickHandlers.push(cleanupPin);
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */

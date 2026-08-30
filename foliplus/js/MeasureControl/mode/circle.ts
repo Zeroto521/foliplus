@@ -84,7 +84,7 @@ class CircleMode extends PreviewMode {
       true,
     ) as L.Marker;
 
-    const onMapClickActive = attachCircleUI(manager, {
+    attachCircleUI(manager, {
       layers: manager.layers,
       circle,
       radiusLine,
@@ -97,7 +97,6 @@ class CircleMode extends PreviewMode {
         manager.saveMeasurements();
       },
     });
-    manager.finalizedClickHandlers.push(onMapClickActive);
   }
 
   start() {
@@ -311,7 +310,7 @@ class CircleMode extends PreviewMode {
       });
       this.m.saveMeasurements();
 
-      const onMapClickActive = attachCircleUI(this.m, {
+      attachCircleUI(this.m, {
         layers: this.layers,
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
@@ -324,7 +323,6 @@ class CircleMode extends PreviewMode {
           this.m.saveMeasurements();
         },
       });
-      this.m.finalizedClickHandlers.push(onMapClickActive);
     };
 
     const circleEvents = [

@@ -61,7 +61,7 @@ interface AttachOpts {
   points: L.LatLng[];
 }
 
-const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) => {
+const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
   const nodeDelIcons: L.Marker[] = [];
@@ -95,10 +95,17 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
     dragBinds.forEach(db => db.setEnabled(enabled)),
   );
 
-  const deleteMeasurement = () => {
+  // Single dispose owns every binding; delete and clearAll/destroy both run it.
+  const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
     overlay.cleanup();
     unregisterDragToggle();
+  };
+  const unregisterFinalized = mgr.registerFinalized(dispose);
+
+  const deleteMeasurement = () => {
+    unregisterFinalized();
+    dispose();
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     onDelete();
     layers.unregister();
@@ -203,12 +210,6 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): (() => void) =
   segLabels.forEach(l => l.on("click", openOverlay));
 
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
-
-  return () => {
-    dragBinds.forEach(db => db.cleanup());
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
 };
 
 /** Options for attachCircleUI. */
@@ -224,7 +225,7 @@ interface CircleAttachOpts {
   onEnd?: (latlng: L.LatLng) => void;
 }
 
-const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => void) => {
+const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   const {
     layers,
     circle,
@@ -249,10 +250,17 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
-  const deleteMeasurement = () => {
+  // Single dispose owns every binding; delete and clearAll/destroy both run it.
+  const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
     overlay.cleanup();
     unregisterDragToggle();
+  };
+  const unregisterFinalized = mgr.registerFinalized(dispose);
+
+  const deleteMeasurement = () => {
+    unregisterFinalized();
+    dispose();
     layers.removeLayer(circle);
     if (radiusLine) layers.removeLayer(radiusLine);
     if (radiusNode) layers.removeLayer(radiusNode);
@@ -325,12 +333,6 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): (() => voi
 
   attachDelClick(delMarker, deleteMeasurement);
   bindOpenOverlay(delMarker, openOverlay);
-
-  return () => {
-    dragBinds.forEach(db => db.cleanup());
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
 };
 
 /** Options for attachPolygonUI. */
@@ -348,7 +350,7 @@ interface PolygonAttachOpts {
 const attachPolygonUI = (
   mgr: MeasureManager,
   opts: PolygonAttachOpts,
-): (() => void) => {
+): void => {
   const {
     layers,
     finalPoly,
@@ -376,6 +378,14 @@ const attachPolygonUI = (
   };
   const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
+
+  // Single dispose owns every binding; delete and clearAll/destroy both run it.
+  const dispose = () => {
+    dragBinds.forEach(db => db.cleanup());
+    overlay.cleanup();
+    unregisterDragToggle();
+  };
+  const unregisterFinalized = mgr.registerFinalized(dispose);
 
   const relabel = () => {
     const area = Util.area(points);
@@ -437,9 +447,8 @@ const attachPolygonUI = (
   };
 
   const deleteMeasurement = () => {
-    dragBinds.forEach(db => db.cleanup());
-    overlay.cleanup();
-    unregisterDragToggle();
+    unregisterFinalized();
+    dispose();
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelIcons);
     if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
@@ -564,12 +573,6 @@ const attachPolygonUI = (
   );
 
   resortLayers(layers, nodeMarkers, nodeDelIcons, segLabels);
-
-  return () => {
-    dragBinds.forEach(db => db.cleanup());
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
 };
 
 export { attachCircleUI, attachDistanceUI, attachPolygonUI, resortLayers };

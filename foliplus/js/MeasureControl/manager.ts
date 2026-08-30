@@ -276,6 +276,18 @@ class MeasureManager {
     };
   };
 
+  /** Register a finalized measurement's dispose so clearAll/destroy run it.
+   *  Returns an unregister function so deleting one measurement drops its entry
+   *  (mirrors registerEditOverlayCloser / registerEditDragToggle). */
+  registerFinalized = (cleanup: () => void): (() => void) => {
+    this.finalizedClickHandlers.push(cleanup);
+    return () => {
+      this.finalizedClickHandlers = this.finalizedClickHandlers.filter(
+        h => h !== cleanup,
+      );
+    };
+  };
+
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
