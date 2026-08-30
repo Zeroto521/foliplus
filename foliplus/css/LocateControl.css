@@ -1,0 +1,32 @@
+/* ── LocateControl button states ──
+  Busy state while the browser geolocation resolves: the crosshair swaps for the
+  shared foliplus spinner (Icons.LOADING, spun by common.css' foliplus-spin).
+  Colors/sizing and the hover/active icon scale all inherit from common.css — its
+  ":hover svg" rule is a descendant selector, so it already reaches the SVG nested
+  inside the wrapper spans below. No transform is redefined here. */
+.foliplus-locate-btn {
+  .locate-btn-icon,
+  .locate-btn-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .locate-btn-loading {
+    display: none;
+  }
+
+  /* ── Busy: crosshair out, spinner in; the click is ignored too, so a
+     second press can't queue a second geolocation request. ── */
+  &.loading {
+    pointer-events: none;
+
+    .locate-btn-icon {
+      display: none;
+    }
+
+    .locate-btn-loading {
+      display: flex;
+    }
+  }
+}
