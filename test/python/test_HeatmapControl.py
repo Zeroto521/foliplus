@@ -580,6 +580,67 @@ class TestHeatmapControlBrowser:
             assert canvas_visible, "Canvas should be visible after layer selection"
             assert not errors, f"JS errors: {errors}"
 
+    def test_config_persists_across_reload(self, browser, tmp_path):
+        """Saved config is restored from localStorage after a reload, and the
+        heatmap is re-rendered (restore path must call renderHexagons)."""
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=3
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(2000)
+
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+
+            # Select a layer (persists via sel.onchange) and bump numClasses.
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[1])
+            page.wait_for_timeout(500)
+            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
+            page.evaluate("window.__heatmapCtrl.manager.saveConfig()")
+
+            stored = page.evaluate(
+                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? localStorage.getItem(k) : null; }"
+            )
+            assert stored, "No heatmap storage entry written"
+            saved = json.loads(stored)
+            assert saved["layerId"] == opts[1]
+            assert saved["numClasses"] == 4
+
+            # Reload: applySavedConfig must restore the layer AND re-render.
+            page.reload()
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(3000)
+
+            state = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  return {
+                    layerId: m.selectedLayerId,
+                    numClasses: m.numClasses,
+                    hasFeatures: m.cachedFeatures !== null,
+                  };
+                }"""
+            )
+            assert state["layerId"] == opts[1], (
+                f"restored layer mismatch: {state['layerId']!r} vs {opts[1]!r}"
+            )
+            assert state["numClasses"] == 4, (
+                f"restored numClasses mismatch: {state['numClasses']!r}"
+            )
+            assert state["hasFeatures"] is True, (
+                "heatmap should re-render after restore (cachedFeatures set)"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_clear_all_removes_content(self, browser, tmp_path):
         """clearHeatmapCanvas() clears cached data and hides the overlay."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (

@@ -4,7 +4,6 @@ import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
@@ -479,7 +478,16 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
       T(missingLayerControl ? "no_layercontrol" : "no_layer"),
       HINT_DURATION.LONG,
     );
-  } else rebuildLayerDropdown(ctrl);
+  } else {
+    rebuildLayerDropdown(ctrl);
+    // Restore path: rebuild only syncs the dropdown value — refresh the
+    // field selector and draw the saved layer so a reload shows the saved
+    // configuration without waiting for user input.
+    if (ctrl.m.selectedLayerId) {
+      updateFieldSelector(ctrl);
+      if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+    }
+  }
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {
