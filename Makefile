@@ -3,7 +3,7 @@
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
 .PHONY: size-check size-save
-.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-report
+.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -19,7 +19,7 @@ help:
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
-	@echo "'size-check'   - check bundle sizes vs baseline (fail > 10%)"
+	@echo "'size-check'   - check bundle sizes vs baseline (flag > 10% growth)"
 	@echo "'size-save'    - update bundle-size-baseline.json from current build"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
@@ -45,10 +45,10 @@ clean-html:
 	rm -rf doc/_build
 	rm -rf doc/source/_build
 
-clean-bundle-report:
+clean-bundle-treemap:
 	rm -f bundle-treemap.html
 
-clean: clean-build clean-pyc clean-cov clean-html clean-bundle-report
+clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 lint:
 	pre-commit run -a -v
