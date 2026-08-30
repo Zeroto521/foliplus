@@ -131,10 +131,6 @@ describe("FOCUS", () => {
     expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
   });
 
-  it("defines the boost filter applied to the focused layer", () => {
-    expect(CONST.FOCUS.FOCUS_FILTER).toBe("drop-shadow(0 0 4px var(--accent-primary))");
-  });
-
   it("defines the focus overlay pane z-index", () => {
     expect(CONST.FOCUS.PANE_Z).toBe(9000);
   });
@@ -146,9 +142,10 @@ describe("CLASSES.FOCUSING", () => {
   });
 });
 
-describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE", () => {
+describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW", () => {
   it("defines the container + focused-pane classes for declarative hiding", () => {
     expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-focus-active");
     expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
+    expect(CONST.CLASSES.FOCUS_GLOW).toBe("foliplus-focus-glow");
   });
 });

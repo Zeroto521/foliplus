@@ -33,6 +33,21 @@ path.foliplus-focus-rect {
 path.foliplus-focus-mask {
   pointer-events: none;
 }
+/* Accent glow on the focused layer. Applied to the focused pane (one element)
+   by bringFocusedLayerToFront, NOT per leaf element — so focusing a dense
+   layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
+.foliplus-focus-pane.foliplus-focus-glow {
+  animation: foliplus-focus-glow-in 0.2s ease-out;
+  filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+}
+@keyframes foliplus-focus-glow-in {
+  from {
+    filter: drop-shadow(0 0 0 rgba(var(--red-rgb), 0));
+  }
+  to {
+    filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+  }
+}
 
 /* ── Focus: hide every non-focused layer, declaratively ──
    While focusing, the map container gets `.foliplus-focus-active` and every

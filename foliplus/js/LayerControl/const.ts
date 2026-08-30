@@ -33,10 +33,6 @@ export const FOCUS = {
   /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
    *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
-  /** CSS filter applied to the focused layer itself. An accent drop-shadow
-   *  gives it a positive "selected" glow so it stands out against the mask —
-   *  even a grey layer reads as "the one being looked at". */
-  FOCUS_FILTER: "drop-shadow(0 0 4px var(--accent-primary))",
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this (600 + 10·i); the focused layer is temporarily lifted just
    *  below it (PANE_Z − 10) so other layers never cover it. */
@@ -77,6 +73,9 @@ export const CLASSES = {
   /** Marked on the focused layer's pane(s)/canvas so it stays visible while
    *  every other layer is hidden by the `.foliplus-focus-active` rule. */
   FOCUS_PANE: "foliplus-focus-pane",
+  /** Added to the focused layer's element(s) so its accent drop-shadow glow
+   *  fades in (CSS animation) — a single element, not a per-layer loop. */
+  FOCUS_GLOW: "foliplus-focus-glow",
 };
 
 /** Data attribute names. */

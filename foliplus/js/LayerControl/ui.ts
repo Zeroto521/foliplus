@@ -64,8 +64,6 @@ class LayerUI {
   private focusMask: L.Polygon | null;
   /** SVG renderer hosting the focus overlay (mask + rectangle). */
   private focusRenderer: L.SVG | null;
-  /** Restore callback for the focused layer's boost glow (cleared on cancel). */
-  private focusedBoostRestore: (() => void) | null;
   /** Restore callbacks for pane z-indexes lifted to bring the focused layer
    *  to the front (cleared on cancel). */
   private focusedPaneRestores: Array<() => void>;
@@ -89,7 +87,6 @@ class LayerUI {
     this.onFocusMapMove = null;
     this.focusMask = null;
     this.focusRenderer = null;
-    this.focusedBoostRestore = null;
     this.focusedPaneRestores = [];
   }
 
@@ -1259,9 +1256,8 @@ class LayerUI {
     // Hide every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.hideOtherLayers();
-    // Positive boost so a grey focused layer still pops against hidden grey
-    // peers, and lift it above them so it can't be covered.
-    this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
+    // Lift it above the hidden peers (so it can't be covered) and apply the
+    // accent glow — one O(panes) pass, not a per-leaf-element loop.
     this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
 
     // Single-point / tiny bounds → flyTo the center.
@@ -1326,8 +1322,6 @@ class LayerUI {
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
     this.restoreHiddenLayers();
-    this.focusedBoostRestore?.();
-    this.focusedBoostRestore = null;
     for (const restore of this.focusedPaneRestores) restore();
     this.focusedPaneRestores = [];
 
@@ -1369,67 +1363,17 @@ class LayerUI {
     this.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
   }
 
-  /** Apply a CSS filter to a DOM element and return a restore callback. */
-  private applyElementFilter(
-    el: HTMLElement | null,
-    filter: string,
-  ): (() => void) | null {
-    if (!el) return null;
-    const orig = el.style.filter;
-    el.style.filter = filter;
-    return () => {
-      el.style.filter = orig;
-    };
-  }
-
-  /**
-   * Apply a CSS filter to a layer's rendered element and return a restore
-   * callback (or null if it has no element). Handles vector paths / markers
-   * (getElement), tile/grid layers (getContainer) and groups (eachLayer).
-   */
-  private applyLayerFilter(layer: L.Layer, filter: string): (() => void) | null {
-    // Vector path or marker: the SVG path / icon element.
-    const el = (
-      layer as L.Layer & { getElement?: () => HTMLElement | null }
-    ).getElement?.();
-    if (el) return this.applyElementFilter(el, filter);
-
-    // Tile / Grid layer: the tile container div.
-    const container = (
-      layer as L.Layer & { getContainer?: () => HTMLElement }
-    ).getContainer?.();
-    if (container) return this.applyElementFilter(container, filter);
-
-    // LayerGroup / FeatureGroup: recurse into children.
-    if (typeof (layer as L.LayerGroup).eachLayer === "function") {
-      const restores: Array<(() => void) | null> = [];
-      (layer as L.LayerGroup).eachLayer(child => {
-        restores.push(this.applyLayerFilter(child, filter));
-      });
-      return () => restores.forEach(r => r?.());
-    }
-
-    return null;
-  }
-
-  /** Give the focused layer a positive "selected" glow so it stands out even
-   *  when it is grey (hiding alone greys colour but leaves grey unchanged).
-   *  Accepts a Leaflet layer or a canvas element (canvas layers have no layer). */
-  private boostFocusedLayer(target: L.Layer | HTMLElement | null): void {
-    this.focusedBoostRestore =
-      target instanceof HTMLElement
-        ? this.applyElementFilter(target, CONST.FOCUS.FOCUS_FILTER)
-        : target
-          ? this.applyLayerFilter(target, CONST.FOCUS.FOCUS_FILTER)
-          : null;
-  }
-
   /**
    * Temporarily lift the focused layer's pane above every other layer so the
    * hidden layers stacked above it cannot cover it — a layer at the bottom
    * of the z-order stays hidden even with the boost glow. Canvas layers
    * (heatmap) have no pane; their canvas element's z-index is lifted instead.
-   * Restored on cancel via focusedPaneRestores.
+   *
+   * This is the single O(panes) pass that also applies the focused-layer glow
+   * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
+   * element) the accent drop-shadow is applied once per pane, so focusing a
+   * dense layer (e.g. thousands of CircleMarkers) stays cheap. Restored on
+   * cancel via focusedPaneRestores.
    */
   private bringFocusedLayerToFront(
     layer: L.Layer | null,
@@ -1442,9 +1386,12 @@ class LayerUI {
       // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
       // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
       el.classList.add(CONST.CLASSES.FOCUS_PANE);
+      // Glow: applied at pane level (one element), fading in via CSS animation.
+      el.classList.add(CONST.CLASSES.FOCUS_GLOW);
       restores.push(() => {
         el.style.zIndex = orig;
         el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+        el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
       });
     };
 
@@ -1453,7 +1400,7 @@ class LayerUI {
     } else if (layer) {
       // Best-effort: some third-party layers expose children without a pane
       // (getLayerPanes walks options.pane), so skip the lift if discovery
-      // throws — the boost + hide still work without it.
+      // throws — the hide + glow still work without it.
       let panes: string[] = [];
       try {
         panes = this.m.getLayerPanes(layer);

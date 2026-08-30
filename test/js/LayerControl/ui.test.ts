@@ -392,7 +392,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(map.fitBounds).toHaveBeenCalled();
       expect(L.rectangle).toHaveBeenCalled();
-      expect(canvas.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
+      // Glow applied via class (CSS-owned), not an inline filter — keeps it
+      // at pane/element level so dense layers stay cheap.
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(true);
     });
 
     it("bails out when the layer is not found on the map", () => {
@@ -746,16 +748,63 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(marked).toHaveLength(0);
     });
 
-    it("boosts the focused layer's geometry via applyLayerFilter", () => {
-      const el = document.createElement("path");
-      el.style.filter = "";
-      const layer = { getElement: () => el } as unknown as L.Layer;
+    it("applies the glow class to the focused pane (not per leaf element)", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
 
-      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.FOCUS_FILTER);
+      ui.focusLayer("overlay2");
 
-      expect(el.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
-      restore!();
-      expect(el.style.filter).toBe("");
+      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
+        true,
+      );
+      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(
+        true,
+      );
+
+      ui.cancelFocus();
+
+      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(
+        false,
+      );
+    });
+
+    it("applies the glow class to a focused canvas (heatmap) layer", () => {
+      const canvas = document.createElement("canvas");
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        canvas,
+        onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+
+      ui.focusLayer("heat1");
+
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(true);
+
+      ui.cancelFocus();
+
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(false);
     });
 
     it("cancelFocus removes the focus-active class and the focus-pane markers", () => {
@@ -780,31 +829,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(container().classList.contains(CONST.CLASSES.FOCUS_ACTIVE)).toBe(false);
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(false);
-    });
-
-    it("cancelFocus restores the focused layer's boost glow", () => {
-      const el = document.createElement("path");
-      el.style.filter = "";
-      manager.registerLayer({
-        id: "overlay2",
-        name: "Shapes",
-        layer: {
-          options: {},
-          getElement: () => el,
-          getBounds: () => ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }),
-        } as unknown as L.Layer,
-      });
-
-      ui.focusLayer("overlay2");
-      expect(el.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
-
-      ui.cancelFocus();
-
-      expect(el.style.filter).toBe("");
     });
 
     it("lifts the focused layer's pane above others and restores it on cancel", () => {
