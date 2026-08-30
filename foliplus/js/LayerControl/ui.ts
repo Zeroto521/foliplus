@@ -1223,7 +1223,6 @@ class LayerUI {
     const layerInfo = this.m.layerRegistry.get(layerId);
     if (!layerInfo) return;
     const layer = this.m.findLayer(layerInfo);
-    if (!layer) return;
 
     // Hidden layer: nothing to focus on — show a hint instead.
     const itemEl = this.uiContainer.querySelector(
@@ -1241,20 +1240,26 @@ class LayerUI {
       return;
     }
 
+    // Bounds come from the Leaflet layer (with a forEachLeaf fallback), or
+    // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
+    let bounds: L.LatLngBounds | null = null;
+    if (layer) {
+      // Ensure the layer is on the map so the rectangle highlight is visible.
+      if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+      bounds = this.computeLayerBounds(layer);
+    } else if (typeof layerInfo.getBounds === "function") {
+      bounds = layerInfo.getBounds();
+    }
+    if (!bounds || !bounds.isValid()) return;
+
     // Cancel any in-flight focus first.
     this.dismissFocus();
-
-    // Ensure the layer is on the map so the rectangle highlight is visible.
-    if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
-
-    const bounds = this.computeLayerBounds(layer);
-    if (!bounds) return;
 
     // Dim every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.dimOtherLayers(layer);
     // Positive boost so a grey focused layer still pops against grey ghosts.
-    this.boostFocusedLayer(layer);
+    this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
 
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
@@ -1345,7 +1350,7 @@ class LayerUI {
    * the whole basemap, including inside the hole, killing the spotlight and
    * making inside as dark as outside.
    */
-  private dimOtherLayers(focusedLayer: L.Layer): void {
+  private dimOtherLayers(focusedLayer: L.Layer | null): void {
     for (const layerInfo of this.m.layers) {
       if (layerInfo.isBase) continue;
       const layer = this.m.findLayer(layerInfo);
@@ -1354,6 +1359,19 @@ class LayerUI {
       const restore = this.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
       if (restore) this.dimmedLayers.push(restore);
     }
+  }
+
+  /** Apply a CSS filter to a DOM element and return a restore callback. */
+  private applyElementFilter(
+    el: HTMLElement | null,
+    filter: string,
+  ): (() => void) | null {
+    if (!el) return null;
+    const orig = el.style.filter;
+    el.style.filter = filter;
+    return () => {
+      el.style.filter = orig;
+    };
   }
 
   /**
@@ -1365,26 +1383,17 @@ class LayerUI {
     layer: L.Layer,
     filter: string,
   ): (() => void) | null {
-    const apply = (el: HTMLElement): (() => void) | null => {
-      if (!el) return null;
-      const orig = el.style.filter;
-      el.style.filter = filter;
-      return () => {
-        el.style.filter = orig;
-      };
-    };
-
     // Vector path or marker: the SVG path / icon element.
     const el = (
       layer as L.Layer & { getElement?: () => HTMLElement | null }
     ).getElement?.();
-    if (el) return apply(el);
+    if (el) return this.applyElementFilter(el, filter);
 
     // Tile / Grid layer: the tile container div.
     const container = (
       layer as L.Layer & { getContainer?: () => HTMLElement }
     ).getContainer?.();
-    if (container) return apply(container);
+    if (container) return this.applyElementFilter(container, filter);
 
     // LayerGroup / FeatureGroup: recurse into children.
     if (typeof (layer as L.LayerGroup).eachLayer === "function") {
@@ -1399,12 +1408,15 @@ class LayerUI {
   }
 
   /** Give the focused layer a positive "selected" glow so it stands out even
-   *  when it is grey (dimming alone greys colour but leaves grey unchanged). */
-  private boostFocusedLayer(layer: L.Layer): void {
-    this.focusedBoostRestore = this.applyLayerFilter(
-      layer,
-      CONST.FOCUS.FOCUS_FILTER,
-    );
+   *  when it is grey (dimming alone greys colour but leaves grey unchanged).
+   *  Accepts a Leaflet layer or a canvas element (canvas layers have no layer). */
+  private boostFocusedLayer(target: L.Layer | HTMLElement | null): void {
+    this.focusedBoostRestore =
+      target instanceof HTMLElement
+        ? this.applyElementFilter(target, CONST.FOCUS.FOCUS_FILTER)
+        : target
+          ? this.applyLayerFilter(target, CONST.FOCUS.FOCUS_FILTER)
+          : null;
   }
 
   /** Restore all layers dimmed during the current focus. */

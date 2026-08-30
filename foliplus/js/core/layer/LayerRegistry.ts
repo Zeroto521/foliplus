@@ -80,6 +80,7 @@ class LayerRegistry {
       onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
+      getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
     };
   }
 

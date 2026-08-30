@@ -259,6 +259,7 @@ class LayerFactory {
       onToggle,
       onZIndex,
       featureCountProvider: opts.featureCountProvider ?? null,
+      getBounds: opts.getBounds ?? null,
     };
     const register = () => {
       if (registered) return;

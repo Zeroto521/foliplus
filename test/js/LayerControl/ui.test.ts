@@ -369,6 +369,32 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(L.rectangle).toHaveBeenCalled();
     });
 
+    it("focuses a canvas layer via its getBounds provider", () => {
+      // Canvas layers (e.g. HeatmapControl) have no Leaflet layer, only a
+      // canvas element + a getBounds provider. Focus must use the provider
+      // and boost the canvas element itself.
+      const canvas = document.createElement("canvas");
+      canvas.style.filter = "";
+      manager.registerLayer({
+        id: "heatmap1",
+        name: "Heatmap",
+        canvas,
+        onToggle: () => {},
+        getBounds: () =>
+          ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }) as unknown as L.LatLngBounds,
+      });
+
+      ui.focusLayer("heatmap1");
+
+      expect(map.fitBounds).toHaveBeenCalled();
+      expect(L.rectangle).toHaveBeenCalled();
+      expect(canvas.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
+    });
+
     it("bails out when the layer is not found on the map", () => {
       vi.spyOn(manager, "findLayer").mockReturnValue(null);
 
