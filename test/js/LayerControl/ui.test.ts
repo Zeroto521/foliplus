@@ -579,7 +579,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       polygonSpy.mockRestore();
     });
 
-    it("cancelFocus removes the mask and the shared renderer", () => {
+    it("cancelFocus removes the mask but keeps the shared renderer for reuse", () => {
       ui.focusLayer("overlay1");
       const mask = ui.focusMask!;
       const renderer = ui.focusRenderer!;
@@ -587,9 +587,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.cancelFocus();
 
       expect(map.removeLayer).toHaveBeenCalledWith(mask);
-      expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+      // The SVG renderer is intentionally kept alive across focuses to avoid
+      // recreating it (L.svg + addTo) on every click — that synchronous DOM
+      // churn is a large part of the perceived click jank.
+      expect(map.removeLayer).not.toHaveBeenCalledWith(renderer);
       expect(ui.focusMask).toBeNull();
-      expect(ui.focusRenderer).toBeNull();
+      expect(ui.focusRenderer).toBe(renderer);
     });
 
     it("does not draw a mask for single-point (flyTo) layers", () => {
