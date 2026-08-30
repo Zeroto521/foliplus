@@ -639,7 +639,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.focusMask).not.toBe(firstMask);
       expect(ui.focusingLayerId).toBe("overlay2");
       // A single mask exists (fresh renderer each focus), hole = overlay2 SW.
-      const hole = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0][1];
+      const hole = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.at(
+        -1,
+      )?.[0][1];
       expect(hole[0]).toEqual({ lat: 35, lng: 105 });
 
       // And it still tears down cleanly.
