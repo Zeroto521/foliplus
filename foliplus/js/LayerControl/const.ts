@@ -33,20 +33,13 @@ export const FOCUS = {
   /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
    *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
-  /** CSS filter applied to non-focused layers while a focus is in progress.
-   *  Darkens and desaturates ("grey ghost") so the focused layer is the only
-   *  coloured + bright element. Keeps layers opaque — unlike opacity, which
-   *  fades to the light basemap and reads as brighter. Brightness is the
-   *  primary signal: it also dims layers that are already grey (desaturation
-   *  alone would leave them unchanged). */
-  DIM_FILTER: "brightness(0.4) saturate(0.15)",
   /** CSS filter applied to the focused layer itself. An accent drop-shadow
-   *  gives it a positive "selected" glow, so it stands out even when it is
-   *  grey (a grey layer dimmed against grey ghosts is otherwise invisible). */
+   *  gives it a positive "selected" glow so it stands out against the mask —
+   *  even a grey layer reads as "the one being looked at". */
   FOCUS_FILTER: "drop-shadow(0 0 4px var(--accent-primary))",
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this (600 + 10·i); the focused layer is temporarily lifted just
-   *  below it (PANE_Z − 10) so dimmed layers above it never cover it. */
+   *  below it (PANE_Z − 10) so other layers never cover it. */
   PANE_Z: 9000,
 };
 

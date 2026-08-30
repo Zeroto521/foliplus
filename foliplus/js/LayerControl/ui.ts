@@ -64,8 +64,8 @@ class LayerUI {
   private focusMask: L.Polygon | null;
   /** SVG renderer hosting the focus overlay (mask + rectangle). */
   private focusRenderer: L.SVG | null;
-  /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
-  private dimmedLayers: Array<() => void>;
+  /** Restore callbacks for layers hidden during focus (cleared on cancel). */
+  private hiddenLayers: Array<() => void>;
   /** Restore callback for the focused layer's boost glow (cleared on cancel). */
   private focusedBoostRestore: (() => void) | null;
   /** Restore callbacks for pane z-indexes lifted to bring the focused layer
@@ -91,7 +91,7 @@ class LayerUI {
     this.onFocusMapMove = null;
     this.focusMask = null;
     this.focusRenderer = null;
-    this.dimmedLayers = [];
+    this.hiddenLayers = [];
     this.focusedBoostRestore = null;
     this.focusedPaneRestores = [];
   }
@@ -1266,9 +1266,12 @@ class LayerUI {
     // Cancel any in-flight focus first.
     this.dismissFocus();
 
-    // Dim every other visible layer so the focused one stands out — including
+    // Hide every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
-    this.dimOtherLayers(layerId);
+    // Uses visibility (not a CSS filter): toggling visibility on a pane is far
+    // cheaper than applying brightness/saturate filters to many elements, which
+    // was the main source of click jank.
+    this.hideOtherLayers(layerId);
     // Positive boost so a grey focused layer still pops against grey ghosts,
     // and lift it above the dimmed layers so they can't cover it.
     this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
@@ -1335,7 +1338,7 @@ class LayerUI {
   private dismissFocus(): void {
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
-    this.restoreDimmedLayers();
+    this.restoreHiddenLayers();
     this.focusedBoostRestore?.();
     this.focusedBoostRestore = null;
     for (const restore of this.focusedPaneRestores) restore();
@@ -1359,28 +1362,24 @@ class LayerUI {
   }
 
   /**
-   * Dim every other visible overlay layer so the focused layer stands out.
+   * Hide every other visible overlay layer so the focused layer stands out.
    * Works alongside the inverse mask (which dims the basemap + everything
-   * outside the bounds). Base maps are skipped — dimming them would grey out
-   * the whole basemap, including inside the hole, killing the spotlight and
-   * making inside as dark as outside.
+   * outside the bounds). Base maps are skipped — hiding the basemap would
+   * remove all spatial context.
    *
-   * Dims at the pane level rather than filtering individual SVG paths:
-   * per-path CSS filters create stacking contexts that lift the graph pane
-   * above sibling label panes (e.g. MeasureControl labels getting covered by
-   * their own graph). Canvas layers (heatmap) have no Leaflet layer or pane,
-   * so their canvas element is dimmed directly.
+   * Uses `visibility: hidden` instead of a CSS filter: filters force every
+   * element to re-rasterize (a big synchronous cost per click — the jank the
+   * old grey-ghost dim introduced), while a visibility toggle is a single
+   * cheap property write. Canvas layers (heatmap) have no Leaflet layer or
+   * pane, so their canvas element is hidden directly.
    */
-  private dimOtherLayers(focusedLayerId: string): void {
+  private hideOtherLayers(focusedLayerId: string): void {
     for (const layerInfo of this.m.layers) {
       if (layerInfo.isBase || layerInfo.id === focusedLayerId) continue;
 
       if (layerInfo.canvas) {
-        const restore = this.applyElementFilter(
-          layerInfo.canvas,
-          CONST.FOCUS.DIM_FILTER,
-        );
-        if (restore) this.dimmedLayers.push(restore);
+        const restore = this.applyElementVisibility(layerInfo.canvas);
+        if (restore) this.hiddenLayers.push(restore);
         continue;
       }
 
@@ -1390,10 +1389,20 @@ class LayerUI {
       for (const paneName of this.m.getLayerPanes(layer)) {
         if (this.m.panes.defaultPanes.has(paneName)) continue;
         const pane = this.m.map.getPane(paneName) as HTMLElement | undefined;
-        const restore = this.applyElementFilter(pane ?? null, CONST.FOCUS.DIM_FILTER);
-        if (restore) this.dimmedLayers.push(restore);
+        const restore = this.applyElementVisibility(pane ?? null);
+        if (restore) this.hiddenLayers.push(restore);
       }
     }
+  }
+
+  /** Set an element to visibility:hidden and return a restore callback. */
+  private applyElementVisibility(el: HTMLElement | null): (() => void) | null {
+    if (!el) return null;
+    const orig = el.style.visibility;
+    el.style.visibility = "hidden";
+    return () => {
+      el.style.visibility = orig;
+    };
   }
 
   /** Apply a CSS filter to a DOM element and return a restore callback. */
@@ -1485,8 +1494,8 @@ class LayerUI {
       }
       for (const name of panes) {
         // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
-        // fallback panes are unique and safe to lift — and dimOtherLayers
-        // already dims them, so the two must stay symmetric.
+        // fallback panes are unique and safe to lift — and hideOtherLayers
+        // already hides them, so the two must stay symmetric.
         if (this.m.panes.defaultPanes.has(name)) continue;
         const pane = this.m.map.getPane(name);
         if (pane) lift(pane);
@@ -1495,10 +1504,10 @@ class LayerUI {
     this.focusedPaneRestores = restores;
   }
 
-  /** Restore all layers dimmed during the current focus. */
-  private restoreDimmedLayers(): void {
-    for (const restore of this.dimmedLayers) restore();
-    this.dimmedLayers = [];
+  /** Restore all layers hidden during the current focus. */
+  private restoreHiddenLayers(): void {
+    for (const restore of this.hiddenLayers) restore();
+    this.hiddenLayers = [];
   }
 
   /**

@@ -616,12 +616,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
-  // ─────────────────── dim other layers ───────────────────
+  // ─────────────────── hide other layers ───────────────────
 
-  describe("focusLayer dims other layers", () => {
-    it("dims a canvas (heatmap) layer's canvas element", () => {
+  describe("focusLayer hides other layers", () => {
+    it("hides a canvas (heatmap) layer's canvas element", () => {
       const canvas = document.createElement("canvas");
-      canvas.style.filter = "";
+      canvas.style.visibility = "";
       manager.registerLayer({
         id: "heat1",
         name: "Heat",
@@ -631,10 +631,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(canvas.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+      expect(canvas.style.visibility).toBe("hidden");
     });
 
-    it("dims another overlay's pane rather than its individual SVG paths", () => {
+    it("hides another overlay's pane rather than its individual SVG paths", () => {
       const panes = new Map<string, HTMLElement>();
       map.getPane.mockImplementation((name: string) => {
         if (!panes.has(name)) panes.set(name, makePane());
@@ -652,19 +652,19 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(panes.get("custom_pane")?.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+      expect(panes.get("custom_pane")?.style.visibility).toBe("hidden");
     });
 
-    it("does not dim shared default panes (overlayPane/markerPane)", () => {
+    it("does not hide shared default panes (overlayPane/markerPane)", () => {
       // overlay1's mock layer has no custom pane, so getLayerPanes falls back
-      // to overlayPane/markerPane — those are shared and must stay undimmed.
+      // to overlayPane/markerPane — those are shared and must stay visible.
       const pane = document.createElement("div");
-      pane.style.filter = "";
+      pane.style.visibility = "";
       map.getPane.mockReturnValue(pane);
 
       ui.focusLayer("overlay1");
 
-      expect(pane.style.filter).toBe("");
+      expect(pane.style.visibility).toBe("");
     });
 
     it("boosts the focused layer's geometry via applyLayerFilter", () => {
@@ -679,22 +679,21 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(el.style.filter).toBe("");
     });
 
-    it("skips base maps and the focused layer when dimming", () => {
-      const elSpy = vi.spyOn(ui, "applyElementFilter");
+    it("skips base maps and the focused layer when hiding", () => {
+      const hideSpy = vi.spyOn(ui, "applyElementVisibility");
 
       ui.focusLayer("overlay1");
 
-      // base1 is a base map (skipped); overlay1 is the focused layer (its
-      // canvas/element is boosted, not dimmed). No DIM filter is applied.
-      const dims = elSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.DIM_FILTER);
-      expect(dims).toHaveLength(0);
+      // base1 is a base map (skipped); overlay1 is the focused layer. With no
+      // other overlays present, nothing is hidden.
+      expect(hideSpy).not.toHaveBeenCalled();
 
-      elSpy.mockRestore();
+      hideSpy.mockRestore();
     });
 
-    it("cancelFocus restores dimmed pane and canvas filters", () => {
+    it("cancelFocus restores hidden pane and canvas visibility", () => {
       const canvas = document.createElement("canvas");
-      canvas.style.filter = "";
+      canvas.style.visibility = "";
       manager.registerLayer({
         id: "heat1",
         name: "Heat",
@@ -717,13 +716,13 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
 
       ui.focusLayer("overlay1");
-      expect(canvas.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
-      expect(panes.get("custom_pane")?.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+      expect(canvas.style.visibility).toBe("hidden");
+      expect(panes.get("custom_pane")?.style.visibility).toBe("hidden");
 
       ui.cancelFocus();
 
-      expect(canvas.style.filter).toBe("");
-      expect(panes.get("custom_pane")?.style.filter).toBe("");
+      expect(canvas.style.visibility).toBe("");
+      expect(panes.get("custom_pane")?.style.visibility).toBe("");
     });
 
     it("cancelFocus restores the focused layer's boost glow", () => {
