@@ -598,9 +598,8 @@ class HeatmapManager {
 
   /** Load saved configuration from localStorage into this manager's state. */
   loadSavedConfig(): SavedConfig | null {
-    const data = Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
-    if (!data) return null;
-    return data;
+    // Storage.load already returns null when the key is missing/unreadable.
+    return Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
   }
 
   /** Save the current manager state to localStorage. */
