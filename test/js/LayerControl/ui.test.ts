@@ -1269,5 +1269,17 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.focusRect).toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
+
+    it("removes the reused focus SVG renderer so it does not leak", () => {
+      ui.focusLayer("overlay1");
+      ui.cancelFocus(); // renderer is kept alive across focuses...
+      const renderer = ui.focusRenderer!;
+      expect(renderer).not.toBeNull();
+
+      manager.destroy(); // ...but must be released on destroy.
+
+      expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+      expect(ui.focusRenderer).toBeNull();
+    });
   });
 });

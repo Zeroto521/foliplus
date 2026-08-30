@@ -656,6 +656,13 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+    // The focus SVG renderer is kept alive across focuses to avoid recreating
+    // it (L.svg + addTo) on every click, but it must be removed when the
+    // control is destroyed — otherwise it leaks in the map's overlay pane.
+    if (this.focusRenderer) {
+      this.m.map.removeLayer(this.focusRenderer);
+      this.focusRenderer = null;
+    }
     this.clearActiveItem();
     this.interactionCleanup?.();
     this.onChange = this.onInput = this.onClick = null;
@@ -1477,7 +1484,10 @@ class LayerUI {
         panes = [];
       }
       for (const name of panes) {
-        if (this.m.panes.isDefaultPane(name)) continue;
+        // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
+        // fallback panes are unique and safe to lift — and dimOtherLayers
+        // already dims them, so the two must stay symmetric.
+        if (this.m.panes.defaultPanes.has(name)) continue;
         const pane = this.m.map.getPane(name);
         if (pane) lift(pane);
       }
