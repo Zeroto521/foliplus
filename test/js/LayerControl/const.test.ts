@@ -145,3 +145,10 @@ describe("CLASSES.FOCUSING", () => {
     expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
   });
 });
+
+describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE", () => {
+  it("defines the container + focused-pane classes for declarative hiding", () => {
+    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-focus-active");
+    expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
+  });
+});

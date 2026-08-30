@@ -64,8 +64,6 @@ class LayerUI {
   private focusMask: L.Polygon | null;
   /** SVG renderer hosting the focus overlay (mask + rectangle). */
   private focusRenderer: L.SVG | null;
-  /** Restore callbacks for layers hidden during focus (cleared on cancel). */
-  private hiddenLayers: Array<() => void>;
   /** Restore callback for the focused layer's boost glow (cleared on cancel). */
   private focusedBoostRestore: (() => void) | null;
   /** Restore callbacks for pane z-indexes lifted to bring the focused layer
@@ -91,7 +89,6 @@ class LayerUI {
     this.onFocusMapMove = null;
     this.focusMask = null;
     this.focusRenderer = null;
-    this.hiddenLayers = [];
     this.focusedBoostRestore = null;
     this.focusedPaneRestores = [];
   }
@@ -1268,10 +1265,7 @@ class LayerUI {
 
     // Hide every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
-    // Uses visibility (not a CSS filter): toggling visibility on a pane is far
-    // cheaper than applying brightness/saturate filters to many elements, which
-    // was the main source of click jank.
-    this.hideOtherLayers(layerId);
+    this.hideOtherLayers();
     // Positive boost so a grey focused layer still pops against grey ghosts,
     // and lift it above the dimmed layers so they can't cover it.
     this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
@@ -1362,47 +1356,19 @@ class LayerUI {
   }
 
   /**
-   * Hide every other visible overlay layer so the focused layer stands out.
+   * Hide every other visible layer so the focused layer stands out.
    * Works alongside the inverse mask (which dims the basemap + everything
-   * outside the bounds). Base maps are skipped — hiding the basemap would
-   * remove all spatial context.
+   * outside the bounds). The basemap (tilePane) has no `foliplus-layer-pane`
+   * class, so it is naturally excluded and keeps the spatial context.
    *
-   * Uses `visibility: hidden` instead of a CSS filter: filters force every
-   * element to re-rasterize (a big synchronous cost per click — the jank the
-   * old grey-ghost dim introduced), while a visibility toggle is a single
-   * cheap property write. Canvas layers (heatmap) have no Leaflet layer or
-   * pane, so their canvas element is hidden directly.
+   * Declarative: one class write on the map container. CSS
+   * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
+   * hides every layer pane except the focused one — instead of a JS
+   * visibility loop over N panes. `bringFocusedLayerToFront` marks the
+   * focused pane(s)/canvas with `foliplus-focus-pane` so they stay visible.
    */
-  private hideOtherLayers(focusedLayerId: string): void {
-    for (const layerInfo of this.m.layers) {
-      if (layerInfo.isBase || layerInfo.id === focusedLayerId) continue;
-
-      if (layerInfo.canvas) {
-        const restore = this.applyElementVisibility(layerInfo.canvas);
-        if (restore) this.hiddenLayers.push(restore);
-        continue;
-      }
-
-      const layer = this.m.findLayer(layerInfo);
-      if (!layer || !this.m.map.hasLayer(layer)) continue;
-
-      for (const paneName of this.m.getLayerPanes(layer)) {
-        if (this.m.panes.defaultPanes.has(paneName)) continue;
-        const pane = this.m.map.getPane(paneName) as HTMLElement | undefined;
-        const restore = this.applyElementVisibility(pane ?? null);
-        if (restore) this.hiddenLayers.push(restore);
-      }
-    }
-  }
-
-  /** Set an element to visibility:hidden and return a restore callback. */
-  private applyElementVisibility(el: HTMLElement | null): (() => void) | null {
-    if (!el) return null;
-    const orig = el.style.visibility;
-    el.style.visibility = "hidden";
-    return () => {
-      el.style.visibility = orig;
-    };
+  private hideOtherLayers(): void {
+    this.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
   }
 
   /** Apply a CSS filter to a DOM element and return a restore callback. */
@@ -1475,8 +1441,12 @@ class LayerUI {
     const lift = (el: HTMLElement): void => {
       const orig = el.style.zIndex;
       el.style.zIndex = String(CONST.FOCUS.PANE_Z - 10);
+      // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
+      // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
+      el.classList.add(CONST.CLASSES.FOCUS_PANE);
       restores.push(() => {
         el.style.zIndex = orig;
+        el.classList.remove(CONST.CLASSES.FOCUS_PANE);
       });
     };
 
@@ -1504,10 +1474,9 @@ class LayerUI {
     this.focusedPaneRestores = restores;
   }
 
-  /** Restore all layers hidden during the current focus. */
+  /** Remove the container class that hides every non-focused layer. */
   private restoreHiddenLayers(): void {
-    for (const restore of this.hiddenLayers) restore();
-    this.hiddenLayers = [];
+    this.m.map.getContainer().classList.remove(CONST.CLASSES.FOCUS_ACTIVE);
   }
 
   /**

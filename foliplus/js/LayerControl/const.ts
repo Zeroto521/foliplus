@@ -70,6 +70,13 @@ export const CLASSES = {
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",
   FOCUSING: "foliplus-layer-focusing",
+  /** Set on the map container while a focus is active. CSS hides every
+   *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)
+   *  declaratively — one class write instead of a JS visibility loop. */
+  FOCUS_ACTIVE: "foliplus-focus-active",
+  /** Marked on the focused layer's pane(s)/canvas so it stays visible while
+   *  every other layer is hidden by the `.foliplus-focus-active` rule. */
+  FOCUS_PANE: "foliplus-focus-pane",
 };
 
 /** Data attribute names. */

@@ -616,55 +616,78 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
-  // ─────────────────── hide other layers ───────────────────
+  // ─────────────────── hide other layers (declarative CSS class) ───────────────────
 
   describe("focusLayer hides other layers", () => {
-    it("hides a canvas (heatmap) layer's canvas element", () => {
-      const canvas = document.createElement("canvas");
-      canvas.style.visibility = "";
-      manager.registerLayer({
-        id: "heat1",
-        name: "Heat",
-        canvas,
-        onToggle: () => {},
-      });
+    const container = () => ui.m.map.getContainer() as HTMLElement;
 
+    it("adds the focus-active class to the map container on focus", () => {
       ui.focusLayer("overlay1");
 
-      expect(canvas.style.visibility).toBe("hidden");
+      expect(container().classList.contains(CONST.CLASSES.FOCUS_ACTIVE)).toBe(true);
     });
 
-    it("hides another overlay's pane rather than its individual SVG paths", () => {
+    it("marks the focused layer's pane with focus-pane so CSS keeps it visible", () => {
       const panes = new Map<string, HTMLElement>();
       map.getPane.mockImplementation((name: string) => {
         if (!panes.has(name)) panes.set(name, makePane());
         return panes.get(name)!;
       });
-
       manager.registerLayer({
         id: "overlay2",
         name: "Shapes",
         layer: {
           options: { pane: "custom_pane" },
           eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
         } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+
+      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
+        true,
+      );
+    });
+
+    it("marks a canvas (heatmap) focused layer with focus-pane", () => {
+      const canvas = document.createElement("canvas");
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        canvas,
+        onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+
+      ui.focusLayer("heat1");
+
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+    });
+
+    it("does not mark shared default panes (overlayPane/markerPane)", () => {
+      // overlay1's mock layer has no custom pane, so getLayerPanes falls back
+      // to overlayPane/markerPane — those are shared and must not be touched.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
       });
 
       ui.focusLayer("overlay1");
 
-      expect(panes.get("custom_pane")?.style.visibility).toBe("hidden");
-    });
-
-    it("does not hide shared default panes (overlayPane/markerPane)", () => {
-      // overlay1's mock layer has no custom pane, so getLayerPanes falls back
-      // to overlayPane/markerPane — those are shared and must stay visible.
-      const pane = document.createElement("div");
-      pane.style.visibility = "";
-      map.getPane.mockReturnValue(pane);
-
-      ui.focusLayer("overlay1");
-
-      expect(pane.style.visibility).toBe("");
+      const marked = Array.from(panes.values()).filter(p =>
+        p.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      );
+      expect(marked).toHaveLength(0);
     });
 
     it("boosts the focused layer's geometry via applyLayerFilter", () => {
@@ -679,50 +702,28 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(el.style.filter).toBe("");
     });
 
-    it("skips base maps and the focused layer when hiding", () => {
-      const hideSpy = vi.spyOn(ui, "applyElementVisibility");
-
-      ui.focusLayer("overlay1");
-
-      // base1 is a base map (skipped); overlay1 is the focused layer. With no
-      // other overlays present, nothing is hidden.
-      expect(hideSpy).not.toHaveBeenCalled();
-
-      hideSpy.mockRestore();
-    });
-
-    it("cancelFocus restores hidden pane and canvas visibility", () => {
+    it("cancelFocus removes the focus-active class and the focus-pane markers", () => {
       const canvas = document.createElement("canvas");
-      canvas.style.visibility = "";
       manager.registerLayer({
         id: "heat1",
         name: "Heat",
         canvas,
         onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
       });
 
-      const panes = new Map<string, HTMLElement>();
-      map.getPane.mockImplementation((name: string) => {
-        if (!panes.has(name)) panes.set(name, makePane());
-        return panes.get(name)!;
-      });
-      manager.registerLayer({
-        id: "overlay2",
-        name: "Shapes",
-        layer: {
-          options: { pane: "custom_pane" },
-          eachLayer: vi.fn(),
-        } as unknown as L.Layer,
-      });
-
-      ui.focusLayer("overlay1");
-      expect(canvas.style.visibility).toBe("hidden");
-      expect(panes.get("custom_pane")?.style.visibility).toBe("hidden");
+      ui.focusLayer("heat1");
+      expect(container().classList.contains(CONST.CLASSES.FOCUS_ACTIVE)).toBe(true);
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
 
       ui.cancelFocus();
 
-      expect(canvas.style.visibility).toBe("");
-      expect(panes.get("custom_pane")?.style.visibility).toBe("");
+      expect(container().classList.contains(CONST.CLASSES.FOCUS_ACTIVE)).toBe(false);
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(false);
     });
 
     it("cancelFocus restores the focused layer's boost glow", () => {
