@@ -88,8 +88,8 @@ const historyKey = (entry: Pick<SearchHistoryEntry, "type" | "query">): string =
  * Merge history entries by key. Repeated searches accumulate into a single
  * entry: the most recent one wins for timestamp and coordinates, counts are
  * summed, and an empty display field falls back to an older entry's value.
- * Map re-set keeps a key's insertion slot, so the result order is first-seen
- * order — with newest-first input that puts a repeated search at the front.
+ * Map re-set keeps a key's insertion slot, so the result preserves first-seen
+ * order without re-sorting the caller's list.
  */
 const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[] => {
   const byKey = new Map<string, SearchHistoryEntry>();
@@ -258,7 +258,8 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const coordDisplay = `${lng.toFixed(FORMAT.LAT_LNG_PRECISION)}, ${lat.toFixed(FORMAT.LAT_LNG_PRECISION)}`;
   // Save coord entry immediately, then update address via reverse geocode.
   // NOTE: reverse-geocode updates the existing entry in-place to avoid
-  // incrementing the count (addHistoryEntry treats same-query as a repeat).
+  // incrementing the count (a later addHistoryEntry for the same type:query
+  // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
@@ -309,7 +310,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       recordHistorySearch(
         ctrl,
         query,
-        "addr",
+        MODE.ADDR,
         coordDisplay,
         addrDisplay,
         wgs[0],
