@@ -2,6 +2,7 @@ import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createControlEnv } from "#common/guard.js";
+import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { locateMe, removeMarker } from "./logic.js";
 
@@ -17,6 +18,11 @@ const LOCATE = `
     <line x1="19" y1="12" x2="22.5" y2="12"/>
   </svg>`;
 
+// Idle crosshair + shared foliplus spinner, toggled by the .loading button class.
+const BTN_HTML = `
+  <span class="locate-btn-icon">${LOCATE}</span>
+  <span class="locate-btn-loading">${Icons.LOADING}</span>`;
+
 createControlEnv(CONF, LOCATE);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
@@ -24,17 +30,18 @@ ensureHint(map);
 // ==================== Control Definition ====================
 class LocateControl extends BaseControl {
   declare container: HTMLElement;
+  declare btn: HTMLButtonElement;
   declare marker: L.Marker | null;
   declare delIcon: L.Marker | null;
 
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
     const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
-    createIconButton({
+    this.btn = createIconButton({
       class: "foliplus-tool-btn foliplus-locate-btn",
       title: T("title"),
       ariaLabel: T("title"),
-      svg: LOCATE,
+      svg: BTN_HTML,
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
