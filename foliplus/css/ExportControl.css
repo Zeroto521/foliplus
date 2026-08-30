@@ -14,7 +14,9 @@
 
 .foliplus-export-mode {
   --z-export-base: 9500;
-  /* Dim mask shadow extent & color */
+  /* Dim mask shadow extent & color. --export-dim-color (0.4) must stay in
+     sync with LayerControl's FOCUS.MASK_OPACITY so both selection boxes
+     dim alike. */
   --export-dim-extent: 9999px;
   --export-dim-color: rgba(0, 0, 0, 0.4);
   --export-dim-color-locked: rgba(0, 0, 0, var(--alpha-50));

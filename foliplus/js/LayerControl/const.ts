@@ -17,7 +17,7 @@ export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
 /** Focus-on-layer behaviour. */
 export const FOCUS = {
-  /** How long the focus rectangle + corner markers stay visible. */
+  /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
   /** fitBounds animation duration. */
   FIT_DURATION: 0.6,
@@ -27,7 +27,8 @@ export const FOCUS = {
   MAX_ZOOM_STEP: 6,
   /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
-  /** Opacity of the "dim outside" mask (matches the export crop box dim). */
+  /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
+   *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
   /** CSS filter applied to non-focused layers while a focus is in progress.
    *  Darkens and desaturates ("grey ghost") so the focused layer is the only
@@ -36,7 +37,7 @@ export const FOCUS = {
   DIM_FILTER: "brightness(0.6) saturate(0.3)",
 };
 
-/** Leaflet pane name for the focus overlay (mask + rectangle + corners). */
+/** Leaflet pane name for the focus overlay (mask + rectangle). */
 export const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** CSS class names. */

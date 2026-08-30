@@ -62,7 +62,7 @@ class LayerUI {
   private onFocusMapMove: (() => void) | null;
   /** Inverse-mask polygon that dims everything outside the focused bounds. */
   private focusMask: L.Polygon | null;
-  /** SVG renderer hosting the focus overlay (mask + rectangle + corners). */
+  /** SVG renderer hosting the focus overlay (mask + rectangle). */
   private focusRenderer: L.SVG | null;
   /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
   private dimmedLayers: Array<() => void>;
@@ -635,7 +635,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
-    // Remove any focus animation still in flight (rect + corners + row highlight).
+    // Remove any focus animation still in flight (rect + row highlight).
     this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
@@ -1207,8 +1207,8 @@ class LayerUI {
    * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
    *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
    *    `fitBounds` on a degenerate box has no effect.
-   * 4. Draw a dashed rectangle on the exact bounds + 4 corner circleMarkers
-   *    so the user sees exactly what "this layer" covers.
+   * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
+   *    what "this layer" covers.
    * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
    *    class so the list ↔ map linkage is visible.
    * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
@@ -1302,7 +1302,7 @@ class LayerUI {
     return this.focusRect != null || this.focusingLayerId != null;
   }
 
-  /** Cancel an in-flight focus: remove rect + corners + row highlight. */
+  /** Cancel an in-flight focus: remove rect + mask + row highlight. */
   cancelFocus(): void {
     this.dismissFocus();
     this.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
@@ -1428,7 +1428,7 @@ class LayerUI {
   private drawFocusMask(bounds: L.LatLngBounds): void {
     const map = this.m.map;
 
-    // Shared SVG renderer + pane for the mask, rectangle and corners.
+    // Shared SVG renderer + pane for the mask and rectangle.
     if (!this.focusRenderer) {
       let pane = map.getPane(CONST.FOCUS_PANE);
       if (!pane) {
