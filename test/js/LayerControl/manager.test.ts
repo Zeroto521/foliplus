@@ -63,6 +63,11 @@ describe("bringToFront patch refcounting", () => {
   });
 });
 
+// Identity-stable stamp: the shared mock in beforeEach is a counter, which
+// would shift a layer's stamp between the sweep and the assertion.
+const stableStamp = vi.fn(obj => obj.__id ?? (obj.__id = ++stableStampId));
+let stableStampId = 1000;
+
 describe("LayerManager", () => {
   let manager, map;
 
@@ -131,6 +136,7 @@ describe("LayerManager", () => {
       }),
       _container: document.createElement("div"),
       _layers: {},
+      _paneRenderers: {},
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
 
@@ -215,6 +221,41 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
     expect(result).toBe(true);
+  });
+
+  it("unregisterLayer reclaims only the unregistered layer's fallback pane", () => {
+    // A full sweep on every unregister would also delete another
+    // registered layer's pane. The map fixture needs the Leaflet pane
+    // registry for the teardown to run.
+    const paneA = document.createElement("div");
+    const paneB = document.createElement("div");
+    const paneRegistry = { foliplus_pane_a: paneA, foliplus_pane_b: paneB };
+    map._panes = paneRegistry;
+    // Stable fallback so a debounced enforceOrder firing after this test's
+    // teardown does not read a deleted registry.
+    map.getPane = vi.fn(name => paneRegistry[name] ?? document.createElement("div"));
+    const layerA = { options: {} };
+    const layerB = { options: {} };
+    window["fb_a"] = layerA;
+    window["fb_b"] = layerB;
+    manager.registerLayer({ id: "fb_a", name: "A", layer: layerA });
+    manager.registerLayer({ id: "fb_b", name: "B", layer: layerB });
+    // The shared stamp mock is a counter, so stamps would shift between the
+    // sweep and the assertion. Use an identity-stable stamp like Leaflet's.
+    window.L.stamp = stableStamp;
+    const stampA = window.L.stamp(layerA);
+    const stampB = window.L.stamp(layerB);
+    manager.panes.fallbackPaneMap.set(stampA, "foliplus_pane_a");
+    manager.panes.fallbackPaneMap.set(stampB, "foliplus_pane_b");
+    expect(manager.unregisterLayer("fb_a")).toBe(true);
+    // A is gone from both the records and the map DOM.
+    expect(manager.panes.fallbackPaneMap.size).toBe(1);
+    expect(paneRegistry.foliplus_pane_a).toBeUndefined();
+    // B is still registered, so its pane survives the sweep.
+    expect(paneRegistry.foliplus_pane_b).toBe(paneB);
+    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus_pane_b"]);
+    delete window["fb_a"];
+    delete window["fb_b"];
   });
 
   it("unregisterLayer emits EVENTS.LAYER_REMOVED event with the layer id", () => {
