@@ -1375,10 +1375,7 @@ class LayerUI {
       for (const paneName of this.m.getLayerPanes(layer)) {
         if (this.m.panes.defaultPanes.has(paneName)) continue;
         const pane = this.m.map.getPane(paneName) as HTMLElement | undefined;
-        const restore = this.applyElementFilter(
-          pane ?? null,
-          CONST.FOCUS.DIM_FILTER,
-        );
+        const restore = this.applyElementFilter(pane ?? null, CONST.FOCUS.DIM_FILTER);
         if (restore) this.dimmedLayers.push(restore);
       }
     }
