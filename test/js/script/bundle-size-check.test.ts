@@ -139,6 +139,20 @@ describe("buildRows", () => {
     expect(rows[0].pct).toBeNull();
     expect(rows[0].status).toBe("up");
   });
+
+  it("classifies a sub-0.05% drift as same, not up/down", () => {
+    // A 1-byte shift on a ~10 KB bundle rounds to "0.0%" — the status must agree.
+    const rows = buildRows(
+      { "up.min.js": 10001, "down.min.js": 9999, "flat.min.js": 10000 },
+      { files: { "up.min.js": 10000, "down.min.js": 10000, "flat.min.js": 10000 } },
+      10,
+    );
+    const byFile = Object.fromEntries(rows.map(r => [r.file, r]));
+    expect(byFile["up.min.js"].pct).toBeCloseTo(0.01, 2); // +0.01% → displays 0.0%
+    expect(byFile["up.min.js"].status).toBe("same");
+    expect(byFile["down.min.js"].status).toBe("same");
+    expect(byFile["flat.min.js"].status).toBe("same");
+  });
 });
 
 describe("summarize", () => {

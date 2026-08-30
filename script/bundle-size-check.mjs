@@ -79,10 +79,19 @@ const fmtPct = (curr, prev) => {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
 
-/** Map the comparison numbers to a display status, most severe first. */
-const statusOf = (over, low, delta) => {
+/** Map the comparison numbers to a display status, most severe first.
+ *  Judged by the displayed percent (`pct.toFixed(1)`) so a sub-0.05% byte
+ *  drift renders "0.0%" and is classified "same" — except when pct is
+ *  incalculable (zero-size baseline), where the raw byte delta decides. */
+const statusOf = (over, low, pct, delta) => {
   if (over) return "over";
   if (low) return "low";
+  if (pct != null) {
+    const shown = parseFloat(pct.toFixed(1));
+    if (shown > 0) return "up";
+    if (shown < 0) return "down";
+    return "same";
+  }
   if (delta > 0) return "up";
   if (delta < 0) return "down";
   return "same";
@@ -120,7 +129,7 @@ const buildRows = (current, baseline, threshold) => {
       prev,
       delta,
       pct,
-      status: statusOf(over, low, delta),
+      status: statusOf(over, low, pct, delta),
       over,
     };
   });
