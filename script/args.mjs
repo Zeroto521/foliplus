@@ -6,7 +6,7 @@
  * decides how to handle help/errors. This makes it testable in isolation.
  *
  * Usage:
- *   import { parseArgs, usage, help } from "./args.mjs";
+ *   import { parseArgs, help } from "./args.mjs";
  *
  *   const spec = {
  *     dev:    { type: "bool"   },
@@ -33,7 +33,7 @@
  * @param {object} spec — flag spec (see above)
  * @returns {{ help: boolean, errors: string[], [flagName]: any }}
  */
-export function parseArgs(argv, spec) {
+export const parseArgs = (argv, spec) => {
   const result = {};
   for (const [name, meta] of Object.entries(spec)) {
     if (meta.type === "array") result[name] = [];
@@ -73,7 +73,7 @@ export function parseArgs(argv, spec) {
       continue;
     }
 
-    if (token === "--help" || token === "-h") {
+    if (token === "--help") {
       result.help = true;
       return result;
     }
@@ -135,12 +135,12 @@ export function parseArgs(argv, spec) {
   }
 
   return result;
-}
+};
 
 /**
  * Print a usage string with descriptions.
  */
-export function help(spec) {
+export const help = spec => {
   const lines = ["Usage:"];
   for (const [name, meta] of Object.entries(spec)) {
     const typeHint =
@@ -150,9 +150,8 @@ export function help(spec) {
     prefix += "--" + name;
     if (meta.type === "array") prefix += " [repeated]";
     else if (meta.type !== "bool") prefix += " <" + typeHint + ">";
-    else if (meta.type !== "bool") prefix += " <value>";
     if (meta.desc) prefix += "  # " + meta.desc;
     lines.push(prefix);
   }
   return lines.join("\n");
-}
+};

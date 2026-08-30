@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { generateRegistry, scanImports } from "../../../script/scan-registry.mjs";
+import { generateRegistry, scanImports } from "#script/scan-registry.mjs";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -237,5 +237,18 @@ describe("generateRegistry", () => {
     const output = readRegistry(buildDir);
     expect(output).toContain("// AUTO-GENERATED");
     expect(output).toContain("window.foliplus = window.foliplus || {};");
+  });
+
+  it("registers single-file core modules (non-skipped)", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/foo.ts": `export const foo = {};`,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { foo } from "#core/foo.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["foo"]');
+    expect(output).toContain("#core/foo.js");
   });
 });

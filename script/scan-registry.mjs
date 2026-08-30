@@ -17,11 +17,11 @@
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { resolve } from "path";
-import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "..");
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SCAN_SPEC = {
   root: {
@@ -32,6 +32,7 @@ const SCAN_SPEC = {
   silent: { type: "bool", desc: "Suppress output messages" },
 };
 const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
+/* v8 ignore start -- help/error handling only runs when invoked as a CLI */
 if (_raw.help) {
   console.log(help(SCAN_SPEC));
   process.exit(0);
@@ -41,6 +42,7 @@ if (_raw.errors.length) {
   console.error(help(SCAN_SPEC));
   process.exit(1);
 }
+/* v8 ignore stop */
 const opts = _raw;
 
 const ROOT = resolve(opts.root);
@@ -48,12 +50,12 @@ const srcDir = resolve(ROOT, "foliplus/js");
 const buildJs = resolve(ROOT, "foliplus/.build/js");
 mkdirSync(buildJs, { recursive: true });
 
-function scanImports(dir) {
+const scanImports = dir => {
   const imported = new Map();
   const starImported = new Map();
   const allSrc = new Map();
 
-  function walk(d) {
+  const walk = d => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = resolve(d, entry.name);
       if (entry.isDirectory()) walk(full);
@@ -91,7 +93,7 @@ function scanImports(dir) {
         }
       }
     }
-  }
+  };
 
   walk(dir);
 
@@ -112,13 +114,11 @@ function scanImports(dir) {
   }
 
   const usedExports = {};
-  for (const [spec, names] of imported) {
-    usedExports[spec] = [...names].sort();
-  }
+  for (const [spec, names] of imported) usedExports[spec] = [...names].sort();
   return usedExports;
-}
+};
 
-function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
+const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
   const buildDir = buildJsParam;
   const commonDir = resolve(sourceDir, "common");
@@ -209,8 +209,14 @@ function generateRegistry(srcDirParam = srcDir, buildJsParam = buildJs) {
       `_shared-registry.ts written (${lines.length} lines, ${Object.keys(usedExports).length} specs)`,
     );
   }
-}
+};
 
 export { generateRegistry, scanImports };
 
-generateRegistry();
+// CLI entry point: `node script/scan-registry.mjs [--root <path>] [--silent]`.
+// Guarded so importing this module (e.g. for tests) has no side effects.
+/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  generateRegistry();
+}
+/* v8 ignore stop */
