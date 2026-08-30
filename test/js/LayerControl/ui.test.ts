@@ -613,64 +613,80 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
-  // ─────────────────── dim other layers (brightness) ───────────────────
+  // ─────────────────── dim other layers ───────────────────
 
   describe("focusLayer dims other layers", () => {
-    it("darkens an element via the dim filter and restores it", () => {
+    it("dims a canvas (heatmap) layer's canvas element", () => {
+      const canvas = document.createElement("canvas");
+      canvas.style.filter = "";
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        canvas,
+        onToggle: () => {},
+      });
+
+      ui.focusLayer("overlay1");
+
+      expect(canvas.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+    });
+
+    it("dims another overlay's pane rather than its individual SVG paths", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay1");
+
+      expect(panes.get("custom_pane")?.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+    });
+
+    it("does not dim shared default panes (overlayPane/markerPane)", () => {
+      // overlay1's mock layer has no custom pane, so getLayerPanes falls back
+      // to overlayPane/markerPane — those are shared and must stay undimmed.
+      const pane = document.createElement("div");
+      pane.style.filter = "";
+      map.getPane.mockReturnValue(pane);
+
+      ui.focusLayer("overlay1");
+
+      expect(pane.style.filter).toBe("");
+    });
+
+    it("boosts the focused layer's geometry via applyLayerFilter", () => {
       const el = document.createElement("path");
       el.style.filter = "";
       const layer = { getElement: () => el } as unknown as L.Layer;
 
-      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
+      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.FOCUS_FILTER);
 
-      expect(el.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+      expect(el.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
       restore!();
       expect(el.style.filter).toBe("");
     });
 
-    it("darkens a tile layer's container", () => {
-      const container = document.createElement("div");
-      container.style.filter = "";
-      const layer = { getContainer: () => container } as unknown as L.Layer;
-
-      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
-
-      expect(container.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
-      restore!();
-      expect(container.style.filter).toBe("");
-    });
-
-    it("recurse into a group's children", () => {
-      const child = document.createElement("path");
-      child.style.filter = "";
-      const group = {
-        eachLayer: (fn: (c: unknown) => void) => fn({ getElement: () => child }),
-      } as unknown as L.Layer;
-
-      const restore = ui.applyLayerFilter(group, CONST.FOCUS.DIM_FILTER);
-
-      expect(child.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
-      restore!();
-      expect(child.style.filter).toBe("");
-    });
-
-    it("focusLayer dims other overlays, boosts the focused layer, and skips base maps", () => {
-      const filterSpy = vi.spyOn(ui, "applyLayerFilter");
+    it("skips base maps and the focused layer when dimming", () => {
+      const elSpy = vi.spyOn(ui, "applyElementFilter");
 
       ui.focusLayer("overlay1");
 
-      // Only overlay1 exists as an overlay and it is the focused layer, so
-      // nothing gets the DIM filter (base1 is a base map, skipped — dimming the
-      // basemap would grey it inside the hole and kill the spotlight). The
-      // focused layer gets the FOCUS boost instead.
-      const dims = filterSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.DIM_FILTER);
-      const boosts = filterSpy.mock.calls.filter(
-        c => c[1] === CONST.FOCUS.FOCUS_FILTER,
-      );
+      // base1 is a base map (skipped); overlay1 is the focused layer (its
+      // canvas/element is boosted, not dimmed). No DIM filter is applied.
+      const dims = elSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.DIM_FILTER);
       expect(dims).toHaveLength(0);
-      expect(boosts).toHaveLength(1);
 
-      filterSpy.mockRestore();
+      elSpy.mockRestore();
     });
   });
 

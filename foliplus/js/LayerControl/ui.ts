@@ -1257,7 +1257,7 @@ class LayerUI {
 
     // Dim every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
-    this.dimOtherLayers(layer);
+    this.dimOtherLayers(layerId);
     // Positive boost so a grey focused layer still pops against grey ghosts.
     this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
 
@@ -1349,15 +1349,38 @@ class LayerUI {
    * outside the bounds). Base maps are skipped — dimming them would grey out
    * the whole basemap, including inside the hole, killing the spotlight and
    * making inside as dark as outside.
+   *
+   * Dims at the pane level rather than filtering individual SVG paths:
+   * per-path CSS filters create stacking contexts that lift the graph pane
+   * above sibling label panes (e.g. MeasureControl labels getting covered by
+   * their own graph). Canvas layers (heatmap) have no Leaflet layer or pane,
+   * so their canvas element is dimmed directly.
    */
-  private dimOtherLayers(focusedLayer: L.Layer | null): void {
+  private dimOtherLayers(focusedLayerId: string): void {
     for (const layerInfo of this.m.layers) {
-      if (layerInfo.isBase) continue;
+      if (layerInfo.isBase || layerInfo.id === focusedLayerId) continue;
+
+      if (layerInfo.canvas) {
+        const restore = this.applyElementFilter(
+          layerInfo.canvas,
+          CONST.FOCUS.DIM_FILTER,
+        );
+        if (restore) this.dimmedLayers.push(restore);
+        continue;
+      }
+
       const layer = this.m.findLayer(layerInfo);
-      if (!layer || layer === focusedLayer) continue;
-      if (!this.m.map.hasLayer(layer)) continue;
-      const restore = this.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
-      if (restore) this.dimmedLayers.push(restore);
+      if (!layer || !this.m.map.hasLayer(layer)) continue;
+
+      for (const paneName of this.m.getLayerPanes(layer)) {
+        if (this.m.panes.defaultPanes.has(paneName)) continue;
+        const pane = this.m.map.getPane(paneName) as HTMLElement | undefined;
+        const restore = this.applyElementFilter(
+          pane ?? null,
+          CONST.FOCUS.DIM_FILTER,
+        );
+        if (restore) this.dimmedLayers.push(restore);
+      }
     }
   }
 
