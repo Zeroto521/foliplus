@@ -9,6 +9,7 @@ from conftest import (
     assert_config_value,
     assert_locale,
     make_browser_page,
+    read_css,
     render_control,
     use_page,
 )
@@ -67,6 +68,29 @@ class TestLocateControlRendering:
     def test_custom_zoom_config(self):
         html = render_control(LocateControl(zoom=16))
         assert_config_value(html, "zoom", 16)
+
+    def test_loading_state_css(self):
+        """The button swaps the crosshair for a spinner while locating."""
+        css = read_css("foliplus/css/LocateControl.css")
+        assert ".locate-btn-icon" in css
+        assert ".locate-btn-loading" in css
+        assert "&.loading" in css
+        assert "pointer-events: none" in css
+
+    def test_button_ships_both_icons(self):
+        """The button markup carries the idle crosshair and the loading spinner."""
+        html = render_control(LocateControl())
+        assert "locate-btn-icon" in html
+        assert "locate-btn-loading" in html
+        # The spinner markup ships from the shared Icons.LOADING in common.js.
+        assert "foliplus-spin" in html
+
+    def test_spins_with_shared_keyframes(self):
+        """The loading state reuses the shared foliplus spinner, no local animation."""
+        # The animation lives in common.css; LocateControl.css only toggles
+        # which icon shows.
+        assert "@keyframes foliplus-spin" in read_css("foliplus/css/common.css")
+        assert "@keyframes" not in read_css("foliplus/css/LocateControl.css")
 
     def test_contains_gcoord_dependency(self):
         """WGS-84 → map CRS conversion needs gcoord."""
@@ -127,5 +151,40 @@ class TestLocateControlBrowser:
             popup = page.evaluate(_js("LocateControl/read_popup"))
             assert popup and "119.3" in popup and "26.08" in popup, (
                 f"Expected located coords in popup, got: {popup!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_button_spins_while_locating(self, browser, tmp_path):
+        """While geolocation is in flight the crosshair swaps for the spinner."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("LocateControl/locate_pending"))
+            assert state["loading"], f"button not marked loading: {state!r}"
+            assert state["spinnerVisible"], f"spinner not shown: {state!r}"
+            assert state["spinnerAnimating"], f"spinner not animating: {state!r}"
+            assert not state["iconVisible"], f"crosshair still shown: {state!r}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_button_returns_to_idle_after_locate(self, browser, tmp_path):
+        """Once geolocation settles the spinner gives way to the crosshair."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LocateControl/locate_pending"))
+            # The loading class is cleared synchronously in the success
+            # callback, before flyTo animates, so no marker wait is needed.
+            state = page.evaluate(_js("LocateControl/locate_resolve"))
+            assert not state["loading"], f"loading class stuck: {state!r}"
+            assert state["iconVisible"], f"crosshair not restored: {state!r}"
+            assert not state["spinnerVisible"], f"spinner still shown: {state!r}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_button_spins_on_geolocation_error(self, browser, tmp_path):
+        """A rejected geolocation clears the spinner too."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("LocateControl/locate_reject"))
+            assert state["loading"], f"spinner not shown before the reject: {state!r}"
+            assert state["spinnerVisible"], f"spinner not shown: {state!r}"
+            assert not state["iconVisible"], f"crosshair not hidden: {state!r}"
+            assert not state["loadingAfter"], f"loading stuck after reject: {state!r}"
+            assert not state["spinnerVisibleAfter"], (
+                f"spinner stuck after reject: {state!r}"
             )
             assert not errors, f"JS errors: {errors}"

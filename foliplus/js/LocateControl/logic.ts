@@ -17,9 +17,15 @@ const T = createScopedTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */
 interface LocateCtrl {
+  btn: HTMLButtonElement;
   marker: L.Marker | null;
   delIcon: L.Marker | null;
 }
+
+/** Toggle the button's loading state — spinner while geolocation resolves. */
+const setLocating = (ctrl: LocateCtrl, locating: boolean): void => {
+  ctrl.btn.classList.toggle("loading", locating);
+};
 
 /** Remove the current location pin and its delete icon. */
 const removeMarker = (ctrl: LocateCtrl) => {
@@ -75,6 +81,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     return;
   }
+  setLocating(ctrl, true);
   map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${T("locating")}`,
@@ -82,6 +89,7 @@ const locateMe = (ctrl: LocateCtrl) => {
   );
   geo.getCurrentPosition(
     pos => {
+      setLocating(ctrl, false);
       map.foliplus!.hideHint(CONF.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
@@ -91,10 +99,11 @@ const locateMe = (ctrl: LocateCtrl) => {
       placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
     },
     () => {
+      setLocating(ctrl, false);
       map.foliplus!.hideHint(CONF.name);
       map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     },
   );
 };
 
-export { locateMe, placeMarker, removeMarker };
+export { locateMe, placeMarker, removeMarker, setLocating };
