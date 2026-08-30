@@ -1,0 +1,26 @@
+{
+  "version": "v0.3.1-87-ge818c38",
+  "threshold": 10,
+  "unit": "brotli bytes",
+  "lastUpdated": "2026-08-29",
+  "updatedBy": "Zeroto521",
+  "files": {
+    "foliplus-ExportControl.min.css": 880,
+    "foliplus-ExportControl.min.js": 9115,
+    "foliplus-FullscreenControl.min.css": 269,
+    "foliplus-FullscreenControl.min.js": 1223,
+    "foliplus-HeatmapControl.min.css": 1728,
+    "foliplus-HeatmapControl.min.js": 7097,
+    "foliplus-LayerControl.min.css": 1982,
+    "foliplus-LayerControl.min.js": 8230,
+    "foliplus-LocateControl.min.js": 1025,
+    "foliplus-MeasureControl.min.css": 721,
+    "foliplus-MeasureControl.min.js": 9113,
+    "foliplus-ScaleControl.min.css": 227,
+    "foliplus-ScaleControl.min.js": 411,
+    "foliplus-SearchControl.min.css": 530,
+    "foliplus-SearchControl.min.js": 4229,
+    "foliplus-common.min.css": 2446,
+    "foliplus-common.min.js": 12280
+  }
+}
