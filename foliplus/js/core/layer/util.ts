@@ -199,9 +199,7 @@ const countFeatureGeometry = (layer: L.Layer): number => {
  * other layer. The pane list is supplied by the caller, keeping this helper
  * component-agnostic.
  */
-const isLayerInPanes = (
-  panes: readonly string[],
-): ((leaf: L.Layer) => boolean) => {
+const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) => {
   return (leaf: L.Layer) => {
     const opts = leaf.options as { pane?: string } | undefined;
     return !!opts?.pane && panes.includes(opts.pane);

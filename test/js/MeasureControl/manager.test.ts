@@ -710,7 +710,12 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     const { leaf: dataLeaf } = makeLeaf(map);
     dataLeaf.options.pane = "overlayPane";
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
-      fn({ eachLayer: (c: (l: unknown) => void) => { c(measureLeaf); c(dataLeaf); } }),
+      fn({
+        eachLayer: (c: (l: unknown) => void) => {
+          c(measureLeaf);
+          c(dataLeaf);
+        },
+      }),
     );
 
     manager.setEditMode(true);

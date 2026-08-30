@@ -81,11 +81,15 @@ class ModeManager {
     const hasSuspender = active.some(([component]) => !this.modeSkips.has(component));
     const signature = hasSuspender
       ? "suspend-all"
-      : active.map(([component]) => component).sort().join(",");
+      : active
+          .map(([component]) => component)
+          .sort()
+          .join(",");
     if (this.interactionLock && this.interactionSkipSignature === signature) return;
     if (this.interactionLock) this.interactionLock();
     const skip = (leaf: L.Layer) =>
-      !hasSuspender && active.every(([component]) => this.modeSkips.get(component)?.(leaf) ?? false);
+      !hasSuspender &&
+      active.every(([component]) => this.modeSkips.get(component)?.(leaf) ?? false);
     this.interactionLock = suspendMapInteractions(this.map, skip);
     this.interactionSkipSignature = signature;
   }
