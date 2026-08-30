@@ -35,8 +35,11 @@ export const FOCUS = {
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this (600 + 10·i); the focused layer is temporarily lifted just
-   *  below it (PANE_Z − 10) so other layers never cover it. */
+   *  below it so other layers never cover it. */
   PANE_Z: 9000,
+  /** Gap below PANE_Z the focused layer's pane is lifted to (must stay below
+   *  the mask, above every layer pane). */
+  FOCUSED_Z_GAP: 10,
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
