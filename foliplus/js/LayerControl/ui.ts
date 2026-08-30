@@ -653,13 +653,6 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
-    // The focus SVG renderer is kept alive across focuses to avoid recreating
-    // it (L.svg + addTo) on every click, but it must be removed when the
-    // control is destroyed — otherwise it leaks in the map's overlay pane.
-    if (this.focusRenderer) {
-      this.m.map.removeLayer(this.focusRenderer);
-      this.focusRenderer = null;
-    }
     this.clearActiveItem();
     this.interactionCleanup?.();
     this.onChange = this.onInput = this.onClick = null;
@@ -1266,8 +1259,8 @@ class LayerUI {
     // Hide every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.hideOtherLayers();
-    // Positive boost so a grey focused layer still pops against grey ghosts,
-    // and lift it above the dimmed layers so they can't cover it.
+    // Positive boost so a grey focused layer still pops against hidden grey
+    // peers, and lift it above them so it can't be covered.
     this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
     this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
 
@@ -1291,7 +1284,7 @@ class LayerUI {
     }
 
     this.drawFocusMask(bounds);
-    this.drawFocusRect(bounds, layerId);
+    this.drawFocusRect(bounds);
     this.highlightFocusedRow(itemEl, layerId);
 
     this.m.map.fitBounds(bounds, {
@@ -1420,7 +1413,7 @@ class LayerUI {
   }
 
   /** Give the focused layer a positive "selected" glow so it stands out even
-   *  when it is grey (dimming alone greys colour but leaves grey unchanged).
+   *  when it is grey (hiding alone greys colour but leaves grey unchanged).
    *  Accepts a Leaflet layer or a canvas element (canvas layers have no layer). */
   private boostFocusedLayer(target: L.Layer | HTMLElement | null): void {
     this.focusedBoostRestore =
@@ -1433,7 +1426,7 @@ class LayerUI {
 
   /**
    * Temporarily lift the focused layer's pane above every other layer so the
-   * dimmed grey layers stacked on top cannot cover it — a layer at the bottom
+   * hidden layers stacked above it cannot cover it — a layer at the bottom
    * of the z-order stays hidden even with the boost glow. Canvas layers
    * (heatmap) have no pane; their canvas element's z-index is lifted instead.
    * Restored on cancel via focusedPaneRestores.
@@ -1460,7 +1453,7 @@ class LayerUI {
     } else if (layer) {
       // Best-effort: some third-party layers expose children without a pane
       // (getLayerPanes walks options.pane), so skip the lift if discovery
-      // throws — the boost + dim still work without it.
+      // throws — the boost + hide still work without it.
       let panes: string[] = [];
       try {
         panes = this.m.getLayerPanes(layer);
@@ -1560,7 +1553,7 @@ class LayerUI {
   }
 
   /** Draw the dashed focus rectangle (border only, no fill). */
-  private drawFocusRect(bounds: L.LatLngBounds, layerId: string): void {
+  private drawFocusRect(bounds: L.LatLngBounds): void {
     const map = this.m.map;
 
     this.focusRect = L.rectangle(bounds, {

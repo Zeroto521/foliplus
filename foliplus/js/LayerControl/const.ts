@@ -21,8 +21,8 @@ export const FOCUS = {
   RECT_DURATION_MS: 3500,
   /** fitBounds animation duration. */
   FIT_DURATION: 0.6,
-  /** [topBottom, leftRight] fitBounds padding (px). 32px keeps the dashed rect
-   *  + 4px corner markers clear of the viewport edge (Leaflet clips at 0). */
+  /** [topBottom, leftRight] fitBounds padding (px). 32px keeps the dashed
+   *  selection rect clear of the viewport edge (Leaflet clips at 0). */
   PADDING: [32, 32] as [number, number],
   /** Cap fitBounds maxZoom at current + this step. Without it, a small feature
    *  snaps to the map's max zoom (satellite view); +6 keeps the layer's
