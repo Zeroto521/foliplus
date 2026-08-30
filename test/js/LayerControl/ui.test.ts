@@ -770,18 +770,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       ui.focusLayer("overlay2");
 
-      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
-        true,
-      );
-      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(
-        true,
-      );
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(true);
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW),
+      ).toBe(true);
 
       ui.cancelFocus();
 
-      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(
-        false,
-      );
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_GLOW),
+      ).toBe(false);
     });
 
     it("applies the glow class to a focused canvas (heatmap) layer", () => {
