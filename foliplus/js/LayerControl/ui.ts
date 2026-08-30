@@ -945,23 +945,28 @@ class LayerUI {
   /** Set the active item index and apply focus styling. */
   setActiveItem(idx: number): void {
     this.clearActiveItem();
-    if (idx < 0 || idx >= this.getNavigableItems().length) {
+    const items = this.getNavigableItems();
+    if (idx < 0 || idx >= items.length) {
       this.activeIdx = null;
       return;
     }
-    this.activeIdx = idx;
-    this.moveActiveMarker(this.getNavigableItems()[idx]);
-    this.getNavigableItems()[idx].focus();
+    const item = items[idx];
+    this.moveActiveMarker(item, items);
+    item.focus();
   }
 
   /** Move the focus marker onto an item. The marker lives on the element as
    *  well as in activeIdx, so it must travel with the cursor — otherwise the
    *  row that was clicked before keeps the marker and reads as the active row.
    *  blurActiveItem() scans the DOM rather than following activeIdx, so a
-   *  marker stranded on an old, rebuilt element is picked up too. */
-  private moveActiveMarker(item: HTMLElement | null): void {
+   *  marker stranded on an old, rebuilt element is picked up too. Callers pass
+   *  the item list they already hold rather than re-querying for indexOf. */
+  private moveActiveMarker(item: HTMLElement | null, items: HTMLElement[]): void {
     this.blurActiveItem();
-    this.activeIdx = item === null ? null : this.getNavigableItems().indexOf(item);
+    // indexOf yields -1 for an item outside the list; normalize it to null so
+    // activeIdx never holds an index getActiveLayerItem() would misread.
+    const idx = item ? items.indexOf(item) : -1;
+    this.activeIdx = idx === -1 ? null : idx;
     item?.classList.add(CONST.CLASSES.FOCUSED);
   }
 
@@ -987,8 +992,7 @@ class LayerUI {
    *  previously focused row, which is what made Space/Enter toggle the wrong
    *  row. The DOM-focus read is the bootstrap: the very first key has no
    *  clickedRow yet and establishes the cursor. */
-  private resolveActiveIdx(): number | null {
-    const items = this.getNavigableItems();
+  private resolveActiveIdx(items: HTMLElement[]): number | null {
     const rows: (HTMLElement | null)[] = [];
     if (this.clickedRow) rows.push(this.clickedRow);
     rows.push(
@@ -1007,9 +1011,11 @@ class LayerUI {
     return null;
   }
 
-  /** Align the cursor marker with whichever row resolveActiveIdx() names. */
+  /** Align the cursor marker with whichever row resolveActiveIdx() names.
+   *  Queries once — resolveActiveIdx and moveActiveMarker both need the list. */
   private syncActiveItem(): void {
-    this.moveActiveMarker(this.getNavigableItems()[this.resolveActiveIdx() ?? -1]);
+    const items = this.getNavigableItems();
+    this.moveActiveMarker(items[this.resolveActiveIdx(items) ?? -1], items);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position. */
