@@ -1,0 +1,68 @@
+name: bundle
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write # post/update the sticky comment
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build the PR and the base branch, diff the two, and post the result as a
+  # sticky comment. There is no committed baseline — the base branch's own build
+  # is the reference, so nothing is ever written back to main.
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+
+      - run: npm install
+      - run: npm run build:sonda
+
+      # Build the base branch in a detached worktree and capture its sizes, then
+      # diff the PR build against them.
+      - name: Capture base sizes
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
+          (
+            cd /tmp/base
+            npm install
+            npm run build
+          )
+          node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
+          git worktree remove --force /tmp/base
+
+      - name: Compare with base
+        run: node script/bundle-size-check.mjs --baseline=base-sizes.json --report=bundle-report.md || true
+
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: bundle-treemap
+          path: bundle-treemap.html
+
+      - name: Link treemap report
+        run: |
+          {
+            echo ""
+            echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
+            echo ""
+            echo "_Table above = brotli-compressed sizes; treemap = uncompressed._"
+          } >> bundle-report.md
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        continue-on-error: true # fork PRs lack comment permission
+        with:
+          header: bundle-report
+          path: bundle-report.md

@@ -8,6 +8,7 @@
   "MeasureControl.tool_circle": "画圆",
   "MeasureControl.tool_clear": "清空",
   "MeasureControl.tool_export": "导出",
+  "MeasureControl.tool_edit": "编辑",
   "MeasureControl.name_marker": "定位标记",
   "MeasureControl.name_distance": "距离测量",
   "MeasureControl.name_polygon": "面积测量",
@@ -27,5 +28,7 @@
   "MeasureControl.del_node": "删除此点",
   "MeasureControl.del_all": "全部删除",
   "MeasureControl.export_paused": "导出中，测量已暂停",
-  "MeasureControl.export_no_data": "没有可导出的测量数据"
+  "MeasureControl.export_no_data": "没有可导出的测量数据",
+  "MeasureControl.hint_edit": "点击测量项显示删除点，拖动节点以调整位置",
+  "MeasureControl.hint_edit_empty": "暂无测量可编辑，请先绘制"
 }

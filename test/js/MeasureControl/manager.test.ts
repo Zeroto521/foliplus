@@ -26,15 +26,23 @@ function makeManager(opts?: { id?: string }) {
   const layers = mockLayerAPI();
 
   // Mock L marker / circleMarker / divIcon for mode.ts side effects
-  window.L.marker = vi.fn(() => ({
-    bindPopup: vi.fn(),
-    openPopup: vi.fn(),
-    addTo: vi.fn(),
-    getPopup: () => null,
-    on: vi.fn(),
-    setPopupContent: vi.fn(),
-    closePopup: vi.fn(),
-  }));
+  const mkMarker = () => {
+    const m: any = {
+      bindPopup: vi.fn(() => m),
+      openPopup: vi.fn(),
+      addTo: vi.fn(() => m),
+      getPopup: () => null,
+      setPopupContent: vi.fn(),
+      closePopup: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+      setLatLng: vi.fn(),
+      getElement: vi.fn(() => null),
+    };
+    m.on = vi.fn(() => m);
+    m.off = vi.fn(() => m);
+    return m;
+  };
+  window.L.marker = vi.fn(mkMarker);
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.divIcon = vi.fn(() => ({}));
   window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
@@ -81,6 +89,15 @@ describe("MeasureManager — persistence", () => {
     const id2 = manager.nextMeasurementId("distance");
     expect(id1).toContain("distance");
     expect(id2).not.toBe(id1);
+  });
+
+  it("featureCountProvider reports the live measurement count to LayerControl", () => {
+    const { manager, map } = makeManager();
+    const opts = map.foliplus.LayerAPI.createLayers.mock.calls[0][0];
+    manager.measurements = [{}, {}, {}] as any;
+    expect(opts.featureCountProvider()).toBe(3);
+    manager.measurements = [] as any;
+    expect(opts.featureCountProvider()).toBe(0);
   });
 
   it("saveMeasurements persists to storage", () => {
@@ -137,6 +154,209 @@ describe("MeasureManager — mode switching", () => {
     manager.toolBtns = [btn];
     manager.setMode(CONST.MODE.MARKER);
     expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
+
+  it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+    // The start hint must persist until the mode is cleared. setMode shows it
+    // AFTER cleanMapEvents hides any previous hint, so showHint must be the
+    // last hint operation (previously a trailing hideHint swallowed it).
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+    const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
+    const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
+    expect(showOrder).toBeGreaterThan(hideOrder);
+  });
+});
+
+describe("MeasureManager — setEditMode", () => {
+  it("shows the edit hint and activates the edit button when enabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MODE.EDIT;
+    const otherBtn = document.createElement("button");
+    otherBtn.dataset.mode = CONST.MODE.DISTANCE;
+    manager.toolBtns = [editBtn, otherBtn];
+
+    manager.setEditMode(true);
+
+    expect(manager.isEditMode).toBe(true);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(otherBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+  });
+
+  it("toggles the EDITING class on the map container for cursor styling", () => {
+    const { manager, container } = makeManager();
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+
+    manager.setEditMode(true);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(true);
+
+    manager.setEditMode(false);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+  });
+
+  it("hides the hint and deactivates the edit button when disabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MODE.EDIT;
+    manager.toolBtns = [editBtn];
+    manager.setEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+
+    manager.setEditMode(false);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent for the same state", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+    manager.setEditMode(true); // no-op
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("closes registered overlays when disabled", () => {
+    const { manager } = makeManager();
+    const close1 = vi.fn();
+    const close2 = vi.fn();
+    manager.registerEditOverlayCloser(close1);
+    manager.registerEditOverlayCloser(close2);
+
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+
+    expect(close1).toHaveBeenCalledTimes(1);
+    expect(close2).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps closers registered so a later edit session can close them again", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    manager.registerEditOverlayCloser(close);
+
+    // First session: open → close
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).toHaveBeenCalledTimes(1);
+
+    // Second session must still close (regression: closers were cleared on exit)
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).toHaveBeenCalledTimes(2);
+  });
+
+  it("closes other overlays but skips the given one", () => {
+    const { manager } = makeManager();
+    const a = vi.fn();
+    const b = vi.fn();
+    const c = vi.fn();
+    manager.registerEditOverlayCloser(a);
+    manager.registerEditOverlayCloser(b);
+    manager.registerEditOverlayCloser(c);
+
+    manager.closeOtherEditOverlays(b);
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(c).toHaveBeenCalledTimes(1);
+    expect(b).not.toHaveBeenCalled();
+  });
+
+  it("unregisters a closer when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    const unregister = manager.registerEditOverlayCloser(close);
+
+    unregister();
+
+    manager.setEditMode(true);
+    manager.setEditMode(false);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("toggles registered drag binds on setEditMode (nodes draggable without click-first)", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    manager.registerEditDragToggle(toggle);
+
+    manager.setEditMode(true);
+    expect(toggle).toHaveBeenCalledWith(true);
+
+    manager.setEditMode(false);
+    expect(toggle).toHaveBeenCalledWith(false);
+  });
+
+  it("unregisters a drag toggle when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    const unregister = manager.registerEditDragToggle(toggle);
+
+    unregister();
+    manager.setEditMode(true);
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("setMode EDIT enters edit mode when off", () => {
+    const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.setMode(CONST.MODE.EDIT);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT exits edit mode when already on (toggle)", () => {
+    const { manager } = makeManager();
+    manager.isEditMode = true;
+    manager.setMode(CONST.MODE.EDIT);
+    expect(manager.isEditMode).toBe(false);
+  });
+
+  it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.currentMode = CONST.MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    manager.setMode(CONST.MODE.EDIT);
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT does not enter edit mode when there is nothing to edit", () => {
+    const { manager } = makeManager();
+    manager.measurements = [];
+
+    manager.setMode(CONST.MODE.EDIT);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+  });
+
+  it("setMode drawing cancels edit mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+
+    manager.setMode(CONST.MODE.DISTANCE);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
   });
 });
 
@@ -207,6 +427,15 @@ describe("MeasureManager — global events", () => {
     manager.currentMode = null;
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("Escape keydown exits edit mode when no drawing mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "setEditMode");
+    manager.setEditMode(true);
+    manager.currentMode = null;
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    expect(spy).toHaveBeenCalledWith(false);
   });
 });
 
@@ -473,6 +702,31 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
     expect(() => manager.clearActiveMode()).not.toThrow();
   });
+
+  it("edit mode suspends data layers but keeps measurement layers interactive", () => {
+    const { manager, map } = makeManager();
+    const { leaf: measureLeaf } = makeLeaf(map);
+    measureLeaf.options.pane = "measure_graph";
+    const { leaf: dataLeaf } = makeLeaf(map);
+    dataLeaf.options.pane = "overlayPane";
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
+      fn({
+        eachLayer: (c: (l: unknown) => void) => {
+          c(measureLeaf);
+          c(dataLeaf);
+        },
+      }),
+    );
+
+    manager.setEditMode(true);
+    expect(dataLeaf.options.interactive).toBe(false);
+    expect(dataLeaf.removeInteractiveTarget).toHaveBeenCalled();
+    expect(measureLeaf.options.interactive).toBe(true); // kept draggable/clickable
+
+    manager.setEditMode(false);
+    expect(dataLeaf.options.interactive).toBe(true);
+    expect(dataLeaf.addInteractiveTarget).toHaveBeenCalled();
+  });
 });
 
 it("onExportClick triggers the export flow", () => {
@@ -495,5 +749,44 @@ describe("MeasureManager — onMapClick handler", () => {
     // Simulate a click with a non-del-icon target
     const event = { originalEvent: { target: document.createElement("div") } } as any;
     expect(() => clickHandler(event)).not.toThrow();
+  });
+
+  it("does NOT exit edit mode when clicking empty space", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    expect(manager.isEditMode).toBe(true);
+
+    const handler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    // Empty-space click with a plain target
+    const event = {
+      originalEvent: { target: document.createElement("div") },
+    } as any;
+    handler(event);
+
+    // Edit mode stays on; the click is handled by each overlay's own
+    // map-click handler, not the manager.
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("ignores a del-icon click in edit mode", () => {
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    const delBtn = document.createElement("button");
+    delBtn.classList.add("foliplus-measure-delete");
+    const event = {
+      originalEvent: { target: delBtn },
+    } as any;
+    clickHandler(event);
+
+    // A del-icon click must not reach the empty-space path.
+    expect(manager.isEditMode).toBe(true);
   });
 });

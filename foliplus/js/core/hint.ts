@@ -6,6 +6,14 @@ import { dom } from "#common/dom.js";
 const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
 const CLASS = "foliplus-hint";
 
+/** Make a non-body target a positioned ancestor so absolutely-positioned hints
+ *  anchor to it (the default body/fullscreen root is already positioned). */
+const anchorRelative = (target: HTMLElement): void => {
+  if (target === document.body || target === document.documentElement) return;
+  const cs = window.getComputedStyle(target);
+  if (cs.position === "static") target.style.position = "relative";
+};
+
 /** Hint duration constants (shared by components and the toast system). */
 const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 
@@ -35,11 +43,32 @@ const activeManagers = new Set<HintManager>();
 class HintManager {
   hintIcons: Record<string, string>;
   hintMap: Map<string, HintEntry>;
+  private onFullscreenChange: () => void;
 
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
+    // When the map goes fullscreen, only the fullscreen element is visible —
+    // hints appended to document.body would disappear. Migrate them to the
+    // fullscreen element (and back again on exit). Standard API only — the
+    // webkit prefix is dropped (see FullscreenControl/api.ts).
+    this.onFullscreenChange = () => this.migrateHints();
+    document.addEventListener("fullscreenchange", this.onFullscreenChange);
     activeManagers.add(this);
+  }
+
+  private migrateHints() {
+    const target: HTMLElement =
+      (document.fullscreenElement as HTMLElement | null) || document.body;
+    if (target === document.documentElement) return;
+    let moved = false;
+    for (const entry of this.hintMap.values()) {
+      if (entry.element.parentElement !== target) {
+        target.appendChild(entry.element);
+        moved = true;
+      }
+    }
+    if (moved) anchorRelative(target);
   }
 
   /** (Re)seed icons from the shared registry (called at registerHintIcon time). */
@@ -72,10 +101,7 @@ class HintManager {
       parent: hintTarget,
       innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
     });
-    if (hintTarget !== document.body && hintTarget !== document.documentElement) {
-      const cs = window.getComputedStyle(hintTarget);
-      if (cs.position === "static") hintTarget.style.position = "relative";
-    }
+    anchorRelative(hintTarget);
     const storeKey = subkey
       ? `${key}|${subkey}`
       : append
@@ -136,6 +162,7 @@ class HintManager {
       if (entry.element) entry.element.remove();
     }
     this.hintMap.clear();
+    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
     activeManagers.delete(this);
   }
 }

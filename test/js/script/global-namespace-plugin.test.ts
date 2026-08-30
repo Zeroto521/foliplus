@@ -4,8 +4,9 @@ import { join } from "path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   collectExports,
+  globalNamespacePlugin,
   sharedGlobalNamespace,
-} from "../../../script/global-namespace-plugin.mjs";
+} from "#script/global-namespace-plugin.mjs";
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
@@ -70,5 +71,66 @@ describe("collectExports", () => {
     expect(names).toContain("value");
     expect(names).not.toContain("Foo");
     expect(names).not.toContain("Bar");
+  });
+});
+
+describe("globalNamespacePlugin", () => {
+  const dir = mkdtempSync(join(tmpdir(), "foliplus-plugin-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  // Wire the plugin to a minimal mock `build`, capturing its onResolve/onLoad
+  // callbacks so they can be invoked directly (no esbuild build needed).
+  const setupPlugin = () => {
+    const handlers = {};
+    globalNamespacePlugin(dir).setup({
+      initialOptions: { entryPoints: [join(dir, "index.ts")] },
+      onResolve: (_opts, cb) => {
+        handlers.onResolve = cb;
+      },
+      onLoad: (_opts, cb) => {
+        handlers.onLoad = cb;
+      },
+    });
+    return handlers;
+  };
+
+  it("resolves #core/#common/#foliplus imports to the shared namespace", () => {
+    const { onResolve } = setupPlugin();
+    expect(onResolve({ path: "#core/layer.js" })).toEqual({
+      path: "#core/layer.js",
+      namespace: "foliplus-shared",
+    });
+  });
+
+  it("shims named imports via usedExports", () => {
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { Foo } from "#core/layer/foo.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin();
+    const result = onLoad({ path: "#core/layer/foo.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("export const Foo =");
+  });
+
+  it("shims star-imported property usage via starUsed", () => {
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import * as Storage from "#common/storage.js";\nStorage.load();\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin();
+    const result = onLoad({ path: "#common/storage.js" });
+    expect(result.contents).toContain("export const load =");
+  });
+
+  it("falls back to collectExports and returns empty for unknown files", () => {
+    writeFileSync(join(dir, "index.ts"), "", "utf-8");
+    const { onLoad } = setupPlugin();
+    expect(onLoad({ path: "#common/nonexistent.js" })).toEqual({
+      contents: "",
+      loader: "js",
+    });
   });
 });

@@ -3,7 +3,33 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { DistanceMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
-beforeEach(initMocks);
+// Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
+// be exercised directly (these are the lines codecov flags as missing).
+const { attachDistanceUIMock } = vi.hoisted(() => ({
+  attachDistanceUIMock: vi.fn((mgr: unknown, opts: unknown) => {
+    capturedDistanceOpts = opts;
+    // Simulate the real attachDistanceUI, which self-registers its dispose via
+    // registerFinalized (delete and clearAll both run it).
+    const cleanup = () => {};
+    (mgr as { registerFinalized?: (c: () => void) => void }).registerFinalized?.(
+      cleanup,
+    );
+    return cleanup;
+  }),
+}));
+
+let capturedDistanceOpts: any = null;
+
+vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
+  const actual =
+    await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
+  return { ...actual, attachDistanceUI: attachDistanceUIMock };
+});
+
+beforeEach(() => {
+  initMocks();
+  capturedDistanceOpts = null;
+});
 
 describe("DistanceMode — marker click stops map propagation", () => {
   it("does not add a duplicate point when re-clicking an existing node", () => {
@@ -72,6 +98,58 @@ describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
       ([, opts]) => opts.className === CONST.CLASSES.PATH_PREVIEW,
     );
     expect(polylineCall).toBeDefined();
+  });
+});
+
+describe("DistanceMode — restore registers overlay cleanup", () => {
+  it("pushes the overlay cleanup into finalizedClickHandlers", () => {
+    const manager = makeManagerMock() as any;
+    DistanceMode.restore(manager, {
+      id: "d_reg",
+      type: "distance",
+      points: [
+        { lng: 121, lat: 30 },
+        { lng: 122, lat: 31 },
+      ],
+      segments: [],
+      totalDistance: 0,
+    });
+
+    // Regression: restored distances leaked their overlay map-click listener
+    // because attachDistanceUI's return value was discarded.
+    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+  });
+
+  it("invokes restore's onDelete and onUpdate callbacks", () => {
+    const manager = makeManagerMock() as any;
+    const data: MeasureData = {
+      id: "d_cb",
+      type: "distance",
+      points: [
+        { lng: 121, lat: 30 },
+        { lng: 122, lat: 31 },
+      ],
+      segments: [],
+      totalDistance: 0,
+    };
+    manager.measurements = [data];
+    DistanceMode.restore(manager, data);
+
+    expect(capturedDistanceOpts).toBeDefined();
+
+    // onDelete removes the measurement and persists.
+    capturedDistanceOpts.onDelete();
+    expect(manager.measurements.length).toBe(0);
+    expect(manager.saveMeasurements).toHaveBeenCalled();
+
+    // onUpdate recomputes segments/totalDistance and persists back to `data`.
+    manager.saveMeasurements.mockClear();
+    capturedDistanceOpts.onUpdate();
+    expect(data.segments!.length).toBeGreaterThan(0);
+    expect(data.totalDistance).toBeGreaterThan(0);
+    expect(data.points).toHaveLength(2);
+    expect(manager.saveMeasurements).toHaveBeenCalled();
   });
 });
 
@@ -221,6 +299,26 @@ describe("DistanceMode — finish saves measurement", () => {
     expect(saved.totalDistance).toBeGreaterThan(0);
     expect(saved.segments).toBeDefined();
     expect(saved.segments![0].bearing).toBeDefined();
+  });
+
+  it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const dblHandler = manager.map.on.mock.calls.find(([ev]) => ev === "dblclick")?.[1];
+
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    dblHandler({ latlng: { lat: 31, lng: 121 } });
+
+    // Regression: finishing overwrote _cleanup with a broken map.off(...) that
+    // never unbound the overlay, and never registered the cleanup anywhere.
+    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+    expect(() => manager.finalizedClickHandlers[0]()).not.toThrow();
   });
 });
 

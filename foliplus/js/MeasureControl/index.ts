@@ -48,6 +48,7 @@ class MeasureControl extends BaseControl {
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
       { title: T("tool_export"), svg: Icons.DOWNLOAD },
+      { mode: CONST.MODE.EDIT, title: T("tool_edit"), svg: SVGs.EDIT },
       { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;

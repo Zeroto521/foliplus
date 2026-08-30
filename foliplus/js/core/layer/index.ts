@@ -15,6 +15,7 @@ export {
   findLayer,
   forEachLayer,
   forEachLeaf,
+  isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
   getGeometryType,
