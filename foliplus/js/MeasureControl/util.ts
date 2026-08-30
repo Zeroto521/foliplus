@@ -103,7 +103,7 @@ const buildEditOverlay = (
  * icon along. Works for both SVG circleMarkers and div-based pin markers.
  *
  * Returns { setEnabled, cleanup }: the caller enables the binding on edit-mode
- * enter (or popup open for pins) and cleans it up on delete.
+ * enter (via the manager's edit drag toggles) and cleans it up on delete.
  */
 const bindNodeDrag = (
   node: L.Layer,

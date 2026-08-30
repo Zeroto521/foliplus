@@ -151,7 +151,17 @@ class MarkerMode extends MeasureMode {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
     });
 
+    // Pass `data` by reference so drag mutations persist to the manager's
+    // measurements (a copy would be discarded by saveMeasurements()).
+    const cleanupPin = MarkerMode.bindPinDrag(
+      manager,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      data,
+    );
+
     const deleteMeasurement = () => {
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
       manager.measurements = manager.measurements.filter(x => x.id !== data.id);
@@ -159,12 +169,7 @@ class MarkerMode extends MeasureMode {
       manager.layers.unregister();
     };
     attachDelClick(delMarker, deleteMeasurement);
-
-    // Pass `data` by reference so drag mutations persist to the manager's
-    // measurements (a copy would be discarded by saveMeasurements()).
-    manager.finalizedClickHandlers.push(
-      MarkerMode.bindPinDrag(manager, marker as L.Marker, delMarker as L.Marker, data),
-    );
+    manager.finalizedClickHandlers.push(cleanupPin);
   }
 
   start() {
@@ -230,7 +235,15 @@ class MarkerMode extends MeasureMode {
 
     // Bind delete + popup events BEFORE async geocode so the X works even
     // while the address lookup is still in flight.
+    const cleanupPin = MarkerMode.bindPinDrag(
+      this.m,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      measurement,
+    );
+
     const deleteMeasurement = () => {
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
       this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
@@ -244,14 +257,7 @@ class MarkerMode extends MeasureMode {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
     });
 
-    this.m.finalizedClickHandlers.push(
-      MarkerMode.bindPinDrag(
-        this.m,
-        marker as L.Marker,
-        delMarker as L.Marker,
-        measurement,
-      ),
-    );
+    this.m.finalizedClickHandlers.push(cleanupPin);
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */
