@@ -16,10 +16,15 @@ describe("MODE_MAP", () => {
     expect(MODE_MAP[CONST.MODE.CIRCLE]).toBe(CircleMode);
   });
 
-  it("covers all CONST.MODE keys except clear", () => {
-    const modeKeys = Object.values(CONST.MODE).filter(k => k !== "clear");
+  it("covers all CONST.MODE keys except clear and edit", () => {
+    const modeKeys = Object.values(CONST.MODE).filter(
+      k => k !== "clear" && k !== "edit",
+    );
     for (const key of modeKeys) {
       expect(MODE_MAP[key]).toBeDefined();
     }
+    // EDIT is a global overlay mode, not a layer-drawing mode — it has no
+    // entry in MODE_MAP (there is no EditMode class).
+    expect(MODE_MAP[CONST.MODE.EDIT]).toBeUndefined();
   });
 });
