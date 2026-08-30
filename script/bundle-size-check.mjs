@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 /**
- * Bundle size baseline checker — compares each dist bundle's brotli size
- * against a committed baseline (`bundle-size-baseline.json`). Fails when a bundle
- * grows beyond the configured threshold (default 10%).
+ * Bundle size checker — compares the built dist bundles' brotli sizes against
+ * another build's sizes (typically the base branch), flagging bundles that grow
+ * past a threshold (default 10%).
  *
- * Modes:
- *   (default)    Check current sizes vs baseline, fail on exceedance.
- *   --save       Update baseline from current sizes.
+ * There is no committed baseline: CI builds the base branch and captures its
+ * sizes with `--emit`, then diffs the PR build against that file.
  *
  * Usage:
- *   node script/bundle-size-check.mjs            # check (CI / local)
- *   node script/bundle-size-check.mjs --save     # update baseline
- *   node script/bundle-size-check.mjs --threshold=15  # override threshold
- *   node script/bundle-size-check.mjs --baseline=<path>  # compare against a custom baseline
- *   node script/bundle-size-check.mjs --report=<path>    # also write the Markdown table to a file
+ *   node script/bundle-size-check.mjs --emit=base-sizes.json          # capture sizes
+ *   node script/bundle-size-check.mjs --baseline=base-sizes.json      # diff vs base
+ *   node script/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
+ *   node script/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
+ *   node script/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
@@ -22,7 +21,6 @@ import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
 import { OK, STATUS, WARN } from "./glyphs.mjs";
-import { resolveVersion } from "./version.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -30,38 +28,27 @@ const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
 
 const distDir = root => resolve(root, "foliplus/dist");
-const baselinePath = root => resolve(root, "bundle-size-baseline.json");
 
 const parseArgs = argv => {
   const args = {
-    save: false,
+    emit: null,
     threshold: DEFAULT_THRESHOLD,
-    thresholdSet: false,
     baseline: null,
     report: null,
+    root: null,
     unknown: [],
   };
   for (const a of argv) {
-    if (a === "--save") args.save = true;
+    if (a.startsWith("--emit=")) args.emit = a.split("=")[1];
     else if (a.startsWith("--threshold=")) {
       const v = parseInt(a.split("=")[1], 10);
       args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
-      args.thresholdSet = true;
     } else if (a.startsWith("--baseline=")) args.baseline = a.split("=")[1];
     else if (a.startsWith("--report=")) args.report = a.split("=")[1];
+    else if (a.startsWith("--root=")) args.root = a.split("=")[1];
     else args.unknown.push(a);
   }
   return args;
-};
-
-/** Resolve the effective threshold: explicit --threshold wins, else the
- *  baseline's stored threshold (so `--save --threshold=15` is honored by a
- *  later plain `check`), else the default. */
-const resolveThreshold = (args, baseline) => {
-  if (args.thresholdSet) return args.threshold;
-  const stored = Number(baseline?.threshold);
-  if (Number.isFinite(stored)) return stored;
-  return DEFAULT_THRESHOLD;
 };
 
 const readSizes = (root = ROOT) => {
@@ -80,29 +67,6 @@ const readBaseline = path => {
   return JSON.parse(readFileSync(path, "utf-8"));
 };
 
-/** True when two size maps have identical keys and values. */
-const sameFiles = (a, b) => {
-  const keysA = Object.keys(a || {}).sort();
-  const keysB = Object.keys(b || {}).sort();
-  if (keysA.length !== keysB.length) return false;
-  return keysA.every((k, i) => k === keysB[i] && a[k] === b[k]);
-};
-
-const writeBaseline = (files, threshold, root = ROOT) => {
-  const data = {
-    version: resolveVersion(),
-    threshold,
-    // `files` values are brotli-compressed sizes in bytes (see readSizes).
-    unit: "brotli bytes",
-    lastUpdated: new Date().toISOString().split("T")[0],
-    updatedBy: process.env.GITHUB_ACTOR || "local",
-    files,
-  };
-  const path = baselinePath(root);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(data, null, 2) + "\n");
-};
-
 const fmtKB = n => (n / 1024).toFixed(2) + " KB";
 const fmtDelta = (curr, prev) => {
   if (curr == null || prev == null) return "—";
@@ -115,10 +79,19 @@ const fmtPct = (curr, prev) => {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 };
 
-/** Map the comparison numbers to a display status, most severe first. */
-const statusOf = (over, low, delta) => {
+/** Map the comparison numbers to a display status, most severe first.
+ *  Judged by the displayed percent (`pct.toFixed(1)`) so a sub-0.05% byte
+ *  drift renders "0.0%" and is classified "same" — except when pct is
+ *  incalculable (zero-size baseline), where the raw byte delta decides. */
+const statusOf = (over, low, pct, delta) => {
   if (over) return "over";
   if (low) return "low";
+  if (pct != null) {
+    const shown = parseFloat(pct.toFixed(1));
+    if (shown > 0) return "up";
+    if (shown < 0) return "down";
+    return "same";
+  }
   if (delta > 0) return "up";
   if (delta < 0) return "down";
   return "same";
@@ -156,7 +129,7 @@ const buildRows = (current, baseline, threshold) => {
       prev,
       delta,
       pct,
-      status: statusOf(over, low, delta),
+      status: statusOf(over, low, pct, delta),
       over,
     };
   });
@@ -244,6 +217,17 @@ const renderConsole = rows => {
   return lines.join("\n");
 };
 
+/** Console listing of just the current sizes — used when there is no baseline
+ *  to diff against (a bare local `bundle-size:check`). */
+const renderSizes = sizes => {
+  const files = Object.keys(sizes).sort();
+  const lines = ["", "Bundle Sizes", "─".repeat(70)];
+  for (const f of files) lines.push(`  ${fmtKB(sizes[f]).padStart(10)}  ${f}`);
+  const total = files.reduce((a, f) => a + sizes[f], 0);
+  lines.push(`  ${fmtKB(total).padStart(10)}  ${files.length} bundles`);
+  return lines.join("\n");
+};
+
 const appendSummary = text => {
   if (!process.env.GITHUB_STEP_SUMMARY) return;
   try {
@@ -254,10 +238,37 @@ const appendSummary = text => {
   }
 };
 
+/** Write the current dist sizes to a JSON file (CI captures the base branch's
+ *  sizes this way, so a PR can diff against them). */
+const emit = (args, root = ROOT) => {
+  const sizes = readSizes(root);
+  if (!Object.keys(sizes).length) {
+    console.error("No bundles found in foliplus/dist/. Run build first.");
+    return 1;
+  }
+  const path = resolve(args.emit);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify({ files: sizes }, null, 2) + "\n");
+  const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
+  console.log(
+    `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
+  );
+  return 0;
+};
+
 const check = (args, root = ROOT) => {
   const current = readSizes(root);
-  const baseline = readBaseline(args.baseline || baselinePath(root));
-  const threshold = resolveThreshold(args, baseline);
+  const baseline = readBaseline(args.baseline);
+  // No baseline: nothing to diff against — list sizes instead of a
+  // misleading all-"new" table.
+  if (!baseline) {
+    console.log(renderSizes(current));
+    console.warn(
+      `\n${WARN}  No baseline provided — pass --baseline=<sizes-file> to diff.`,
+    );
+    return 0;
+  }
+  const threshold = args.threshold;
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
   const lowMargin = rows.filter(r => r.status === "low");
@@ -277,7 +288,7 @@ const check = (args, root = ROOT) => {
       console.error(
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
       );
-    console.error("\nUpdate baseline: node script/bundle-size-check.mjs --save");
+    console.error("\nBundle growth exceeded the threshold — review the change.");
     return 1;
   }
   if (lowMargin.length > 0) {
@@ -290,59 +301,31 @@ const check = (args, root = ROOT) => {
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
   }
-  if (!baseline) {
-    console.warn(`\n${WARN}  No baseline found. Create one:`);
-    console.warn("  node script/bundle-size-check.mjs --save");
-  } else console.log(`\n${OK} All bundles within threshold.`);
-  return 0;
-};
-
-const save = (args, root = ROOT) => {
-  const current = readSizes(root);
-  if (!Object.keys(current).length) {
-    console.error("No bundles found in foliplus/dist/. Run build first.");
-    return 1;
-  }
-  const existing = readBaseline(baselinePath(root));
-  // Skip the write when the sizes already match — otherwise every push to main
-  // rewrites the version field and produces a useless bot commit.
-  if (existing && !args.thresholdSet && sameFiles(existing.files, current)) {
-    console.log(
-      `${OK} Baseline unchanged: ${Object.keys(current).length} bundles already match.`,
-    );
-    return 0;
-  }
-  writeBaseline(current, resolveThreshold(args, existing), root);
-  const totalKB = Object.values(current).reduce((a, b) => a + b, 0) / 1024;
-  console.log(
-    `${OK} Baseline saved: ${Object.keys(current).length} bundles, ${totalKB.toFixed(2)} KB total`,
-  );
-  for (const [f, s] of Object.entries(current))
-    console.log(`  ${fmtKB(s).padStart(10)}  ${f}`);
+  console.log(`\n${OK} All bundles within threshold.`);
   return 0;
 };
 
 export {
   buildRows,
   check,
+  emit,
   fmtDelta,
   fmtKB,
   fmtPct,
   parseArgs,
-  resolveThreshold,
   rowCells,
-  save,
   summarize,
 };
 
-// CLI entry point: `node script/bundle-size-check.mjs [--save] [--threshold=N]`.
+// CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
 // Guarded so importing this module (for tests) has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
   if (args.unknown.length)
     console.warn(`${WARN}  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
-  const code = args.save ? save(args) : check(args);
+  const root = args.root ? resolve(args.root) : ROOT;
+  const code = args.emit ? emit(args, root) : check(args, root);
   process.exit(code ?? 0);
 }
 /* v8 ignore stop */
