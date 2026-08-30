@@ -132,7 +132,13 @@ describe("FOCUS", () => {
   });
 
   it("defines the filter applied to non-focused layers", () => {
-    expect(CONST.FOCUS.DIM_FILTER).toBe("brightness(0.6) saturate(0.3)");
+    expect(CONST.FOCUS.DIM_FILTER).toBe("brightness(0.4) saturate(0.15)");
+  });
+
+  it("defines the boost filter applied to the focused layer", () => {
+    expect(CONST.FOCUS.FOCUS_FILTER).toBe(
+      "drop-shadow(0 0 4px var(--accent-primary))",
+    );
   });
 });
 

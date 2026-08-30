@@ -66,6 +66,8 @@ class LayerUI {
   private focusRenderer: L.SVG | null;
   /** Restore callbacks for layers dimmed during focus (cleared on cancel). */
   private dimmedLayers: Array<() => void>;
+  /** Restore callback for the focused layer's boost glow (cleared on cancel). */
+  private focusedBoostRestore: (() => void) | null;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -87,6 +89,7 @@ class LayerUI {
     this.focusMask = null;
     this.focusRenderer = null;
     this.dimmedLayers = [];
+    this.focusedBoostRestore = null;
   }
 
   /** Alias for convenience */
@@ -1250,6 +1253,8 @@ class LayerUI {
     // Dim every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.dimOtherLayers(layer);
+    // Positive boost so a grey focused layer still pops against grey ghosts.
+    this.boostFocusedLayer(layer);
 
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
@@ -1313,6 +1318,8 @@ class LayerUI {
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
     this.restoreDimmedLayers();
+    this.focusedBoostRestore?.();
+    this.focusedBoostRestore = null;
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1344,22 +1351,24 @@ class LayerUI {
       const layer = this.m.findLayer(layerInfo);
       if (!layer || layer === focusedLayer) continue;
       if (!this.m.map.hasLayer(layer)) continue;
-      const restore = this.dimLayer(layer);
+      const restore = this.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
       if (restore) this.dimmedLayers.push(restore);
     }
   }
 
   /**
-   * Dim a single layer by darkening its rendered element with a brightness
-   * filter, returning a restore callback (or null if it has no element).
-   * Brightness keeps the layer opaque but darker — unlike opacity, which
-   * fades to the light basemap and reads as brighter.
+   * Apply a CSS filter to a layer's rendered element and return a restore
+   * callback (or null if it has no element). Handles vector paths / markers
+   * (getElement), tile/grid layers (getContainer) and groups (eachLayer).
    */
-  private dimLayer(layer: L.Layer): (() => void) | null {
+  private applyLayerFilter(
+    layer: L.Layer,
+    filter: string,
+  ): (() => void) | null {
     const apply = (el: HTMLElement): (() => void) | null => {
       if (!el) return null;
       const orig = el.style.filter;
-      el.style.filter = CONST.FOCUS.DIM_FILTER;
+      el.style.filter = filter;
       return () => {
         el.style.filter = orig;
       };
@@ -1381,12 +1390,21 @@ class LayerUI {
     if (typeof (layer as L.LayerGroup).eachLayer === "function") {
       const restores: Array<(() => void) | null> = [];
       (layer as L.LayerGroup).eachLayer(child => {
-        restores.push(this.dimLayer(child));
+        restores.push(this.applyLayerFilter(child, filter));
       });
       return () => restores.forEach(r => r?.());
     }
 
     return null;
+  }
+
+  /** Give the focused layer a positive "selected" glow so it stands out even
+   *  when it is grey (dimming alone greys colour but leaves grey unchanged). */
+  private boostFocusedLayer(layer: L.Layer): void {
+    this.focusedBoostRestore = this.applyLayerFilter(
+      layer,
+      CONST.FOCUS.FOCUS_FILTER,
+    );
   }
 
   /** Restore all layers dimmed during the current focus. */

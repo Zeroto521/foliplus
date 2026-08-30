@@ -590,12 +590,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   // ─────────────────── dim other layers (brightness) ───────────────────
 
   describe("focusLayer dims other layers", () => {
-    it("darkens an element via brightness filter and restores it", () => {
+    it("darkens an element via the dim filter and restores it", () => {
       const el = document.createElement("path");
       el.style.filter = "";
       const layer = { getElement: () => el } as unknown as L.Layer;
 
-      const restore = ui.dimLayer(layer);
+      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
 
       expect(el.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
@@ -607,7 +607,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       container.style.filter = "";
       const layer = { getContainer: () => container } as unknown as L.Layer;
 
-      const restore = ui.dimLayer(layer);
+      const restore = ui.applyLayerFilter(layer, CONST.FOCUS.DIM_FILTER);
 
       expect(container.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
@@ -621,23 +621,28 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         eachLayer: (fn: (c: unknown) => void) => fn({ getElement: () => child }),
       } as unknown as L.Layer;
 
-      const restore = ui.dimLayer(group);
+      const restore = ui.applyLayerFilter(group, CONST.FOCUS.DIM_FILTER);
 
       expect(child.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
       restore!();
       expect(child.style.filter).toBe("");
     });
 
-    it("focusLayer dims other overlays but skips base maps and the focused layer", () => {
-      const dimSpy = vi.spyOn(ui, "dimLayer");
+    it("focusLayer dims other overlays, boosts the focused layer, and skips base maps", () => {
+      const filterSpy = vi.spyOn(ui, "applyLayerFilter");
 
       ui.focusLayer("overlay1");
 
-      // overlay1 is focused (skipped); base1 is a base map (skipped — dimming
-      // the basemap would grey it out inside the hole and kill the spotlight).
-      expect(dimSpy).not.toHaveBeenCalled();
+      // Only overlay1 exists as an overlay and it is the focused layer, so
+      // nothing gets the DIM filter (base1 is a base map, skipped — dimming the
+      // basemap would grey it inside the hole and kill the spotlight). The
+      // focused layer gets the FOCUS boost instead.
+      const dims = filterSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.DIM_FILTER);
+      const boosts = filterSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.FOCUS_FILTER);
+      expect(dims).toHaveLength(0);
+      expect(boosts).toHaveLength(1);
 
-      dimSpy.mockRestore();
+      filterSpy.mockRestore();
     });
   });
 

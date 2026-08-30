@@ -33,8 +33,14 @@ export const FOCUS = {
   /** CSS filter applied to non-focused layers while a focus is in progress.
    *  Darkens and desaturates ("grey ghost") so the focused layer is the only
    *  coloured + bright element. Keeps layers opaque — unlike opacity, which
-   *  fades to the light basemap and reads as brighter. */
-  DIM_FILTER: "brightness(0.6) saturate(0.3)",
+   *  fades to the light basemap and reads as brighter. Brightness is the
+   *  primary signal: it also dims layers that are already grey (desaturation
+   *  alone would leave them unchanged). */
+  DIM_FILTER: "brightness(0.4) saturate(0.15)",
+  /** CSS filter applied to the focused layer itself. An accent drop-shadow
+   *  gives it a positive "selected" glow, so it stands out even when it is
+   *  grey (a grey layer dimmed against grey ghosts is otherwise invisible). */
+  FOCUS_FILTER: "drop-shadow(0 0 4px var(--accent-primary))",
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
