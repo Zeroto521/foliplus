@@ -33,10 +33,14 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
+  /** Last row the pointer touched. Fallback for resolveActiveIdx, where
+   *  document.activeElement may still name the row focused before the click. */
+  clickedRow: HTMLElement | null;
   private interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
+  declare onFocusIn: (() => void) | null;
   declare onDragStart: ((event: DragEvent) => void) | null;
   declare onDragOver: ((event: DragEvent) => void) | null;
   declare onDragLeave: ((event: DragEvent) => void) | null;
@@ -81,6 +85,7 @@ class LayerUI {
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
     this.activeIdx = null;
+    this.clickedRow = null;
     this.unsubscribeCountChange = null;
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
@@ -247,6 +252,16 @@ class LayerUI {
   }
 
   renderInitialList() {
+    // Remember the cursor by layer id — the item elements are rebuilt below,
+    // so the old node is detached and an element reference would dangle.
+    // Matching on id also tracks the row through a reorder. Null means the
+    // cursor was never established or Escape cleared it, and either way it
+    // should stay cleared.
+    const idx = this.activeIdx;
+    const cursor =
+      idx === null
+        ? null
+        : (this.getNavigableItems()[idx]?.getAttribute(CONST.DATA.LAYER_ID) ?? null);
     const frag = document.createDocumentFragment();
     let hasBaseMaps = false;
     let hasOverlays = false;
@@ -276,6 +291,16 @@ class LayerUI {
 
     this.uiContainer.innerHTML = "";
     this.uiContainer.appendChild(frag);
+
+    // Re-home the cursor on the rebuilt element. setActiveItem also reattaches
+    // DOM focus, which keeps the visible :focus-visible ring and the cursor on
+    // the same row.
+    if (cursor) {
+      const idx = this.getNavigableItems().findIndex(
+        el => el.getAttribute(CONST.DATA.LAYER_ID) === cursor,
+      );
+      this.setActiveItem(idx);
+    }
   }
 
   insertLayerItem(
@@ -594,18 +619,23 @@ class LayerUI {
     };
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
-      if ((event.target as HTMLElement).closest(CONST.SEL.COLOR_ITEM)) {
+      const el = event.target as HTMLElement;
+      // Record the row the pointer touched. Clicking the label or the checkbox
+      // does not move DOM focus off the previously focused row, so the marker
+      // has to be re-homed here or the next Space/Enter toggles the wrong row.
+      this.clickedRow =
+        el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
+      this.syncActiveItem();
+
+      if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
         this.showColorLayer(this.currentColor);
         this.syncToggleAll(CONST.GROUP.BASE);
         this.m.enforceOrder();
         return;
       }
-      const row = (event.target as HTMLElement).closest(
-        CONST.SEL.TOGGLE_ALL,
-      ) as HTMLElement | null;
-      if (!row || (event.target as HTMLElement).closest('[data-role="toggle-all"]'))
-        return;
+      const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+      if (!row || el.closest('[data-role="toggle-all"]')) return;
       const group = row.dataset.group ?? "";
       if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
       else this.foldedGroups.add(group);
@@ -621,11 +651,19 @@ class LayerUI {
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
     this.onKeyDown = event => this.handleKeyDown(event);
+    // A real focus move supersedes the pointer: once focus lands elsewhere, the
+    // last-clicked row is stale and must not outrank it. Synthetic clicks and
+    // clicks on the non-focusable label don't fire focusin, so clickedRow still
+    // survives the cases that need it.
+    this.onFocusIn = () => {
+      this.clickedRow = null;
+    };
     this.interactionCleanup = registerInteractions(this);
 
     container.addEventListener("change", this.onChange);
     container.addEventListener("input", this.onInput);
     container.addEventListener("click", this.onClick);
+    container.addEventListener("focusin", this.onFocusIn);
     container.addEventListener("dragstart", this.onDragStart);
     container.addEventListener("dragover", this.onDragOver);
     container.addEventListener("dragleave", this.onDragLeave);
@@ -727,6 +765,7 @@ class LayerUI {
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
+    if (this.onFocusIn) container.removeEventListener("focusin", this.onFocusIn);
     if (this.onDragStart) container.removeEventListener("dragstart", this.onDragStart);
     if (this.onDragOver) container.removeEventListener("dragover", this.onDragOver);
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
@@ -740,6 +779,7 @@ class LayerUI {
     this.interactionCleanup?.();
     this.m.persistence.cancelSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
+    this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
@@ -910,23 +950,66 @@ class LayerUI {
       return;
     }
     this.activeIdx = idx;
-    const item = this.getNavigableItems()[idx];
-    if (item) {
-      item.classList.add(CONST.CLASSES.FOCUSED);
-      item.focus();
-    }
+    this.moveActiveMarker(this.getNavigableItems()[idx]);
+    this.getNavigableItems()[idx].focus();
   }
 
-  /** Remove focus styling from the currently active item. */
+  /** Move the focus marker onto an item. The marker lives on the element as
+   *  well as in activeIdx, so it must travel with the cursor — otherwise the
+   *  row that was clicked before keeps the marker and reads as the active row.
+   *  blurActiveItem() scans the DOM rather than following activeIdx, so a
+   *  marker stranded on an old, rebuilt element is picked up too. */
+  private moveActiveMarker(item: HTMLElement | null): void {
+    this.blurActiveItem();
+    this.activeIdx = item === null ? null : this.getNavigableItems().indexOf(item);
+    item?.classList.add(CONST.CLASSES.FOCUSED);
+  }
+
+  /** Remove the focus marker from whichever item carries it.
+   *  Scans the DOM instead of following activeIdx: a re-render rebuilds the
+   *  item elements, leaving the marker on an old, now-detached node. */
   blurActiveItem(): void {
-    const item = this.getActiveLayerItem();
-    if (item) item.classList.remove(CONST.CLASSES.FOCUSED);
+    this.uiContainer
+      .querySelector(`.${CONST.CLASSES.FOCUSED}`)
+      ?.classList.remove(CONST.CLASSES.FOCUSED);
   }
 
   /** Clear the active item state. */
   clearActiveItem(): void {
     this.blurActiveItem();
     this.activeIdx = null;
+    this.clickedRow = null;
+  }
+
+  /** Index of the keyboard cursor, or null if none. DOM focus wins when it
+   *  names a row the pointer has since left; clickedRow wins when focus is
+   *  stale — a click on the label or checkbox does not move focus off the
+   *  previously focused row, which is what made Space/Enter toggle the wrong
+   *  row. The DOM-focus read is the bootstrap: the very first key has no
+   *  clickedRow yet and establishes the cursor. */
+  private resolveActiveIdx(): number | null {
+    const items = this.getNavigableItems();
+    const rows: (HTMLElement | null)[] = [];
+    if (this.clickedRow) rows.push(this.clickedRow);
+    rows.push(
+      document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
+        document.activeElement?.closest(CONST.SEL.TOGGLE_ALL) ??
+        null,
+    );
+    for (const row of rows) {
+      if (!row) continue;
+      const idx = items.indexOf(row);
+      if (idx !== -1) {
+        this.activeIdx = idx;
+        return idx;
+      }
+    }
+    return null;
+  }
+
+  /** Align the cursor marker with whichever row resolveActiveIdx() names. */
+  private syncActiveItem(): void {
+    this.moveActiveMarker(this.getNavigableItems()[this.resolveActiveIdx() ?? -1]);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position. */
@@ -934,12 +1017,13 @@ class LayerUI {
     this.renderInitialList();
     this.initTypesAndVisibility();
     this.refreshAllCounts();
-    if (this.activeIdx !== null) {
-      const items = this.getNavigableItems();
-      if (this.activeIdx < items.length) {
-        items[this.activeIdx].classList.add(CONST.CLASSES.FOCUSED);
-        items[this.activeIdx].focus();
-      }
+    // The list was rebuilt, so restore DOM focus to the row the cursor sat on
+    // — otherwise the Ctrl+Arrow keyboard flow silently loses focus. Checked
+    // against the raw index on purpose: focus is stale until reattached, so the
+    // DOM resolver here would see it and clear the cursor.
+    const items = this.getNavigableItems();
+    if (this.activeIdx !== null && this.activeIdx < items.length) {
+      items[this.activeIdx].focus();
     }
   }
 
@@ -959,22 +1043,15 @@ class LayerUI {
     const items = this.getNavigableItems();
     if (items.length === 0) return;
 
-    if (this.activeIdx === null) {
-      const focused = document.activeElement;
-      if (focused) {
-        const item =
-          focused.closest(CONST.SEL.LAYER_ITEM) ??
-          focused.closest(CONST.SEL.TOGGLE_ALL);
-        if (item) {
-          this.activeIdx = items.indexOf(item as HTMLElement);
-          if (this.activeIdx === -1) return;
-        } else return;
-      } else return;
-    }
+    // Re-resolve the cursor from DOM focus. Clicking the label and a re-render
+    // both move focus, so a stored index could name a row the user has left.
+    // This also establishes the cursor on the very first key.
+    this.syncActiveItem();
+    const idx = this.activeIdx;
+    if (idx === null || !items[idx]) return;
+    const item = items[idx];
 
     if (event.ctrlKey || event.metaKey) {
-      const item = items[this.activeIdx];
-      if (!item) return;
       const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
       if (event.key === "ArrowUp") {
         event.preventDefault();
@@ -1014,14 +1091,14 @@ class LayerUI {
     switch (event.key) {
       case "ArrowUp":
         event.preventDefault();
-        if (this.activeIdx > 0) {
-          this.setActiveItem(this.activeIdx - 1);
+        if (idx > 0) {
+          this.setActiveItem(idx - 1);
         }
         break;
       case "ArrowDown":
         event.preventDefault();
-        if (this.activeIdx < items.length - 1) {
-          this.setActiveItem(this.activeIdx + 1);
+        if (idx < items.length - 1) {
+          this.setActiveItem(idx + 1);
         }
         break;
       case "ArrowLeft":

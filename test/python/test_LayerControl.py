@@ -1692,6 +1692,32 @@ class TestLayerControlBrowser:
                 f"ArrowRight should toggle visibility, got {result}"
             )
 
+    def test_keydown_after_label_click_targets_clicked_row(self, browser, tmp_path):
+        """Mouse-selecting a row moves the keyboard cursor to that row."""
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, overlay1, overlay2
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/keydown_after_label_click_targets_clicked_row")
+            )
+            assert result is not None, (
+                "keydown_after_label_click_targets_clicked_row failed"
+            )
+            assert result["toggled"] is True, (
+                f"Enter after clicking a row label should toggle that row, got {result}"
+            )
+            assert result["focusedRow"] == result["expectedRow"], (
+                f"Clicking a row label should move the keyboard cursor to that row, got {result}"
+            )
+
     def test_keydown_ctrl_up_moves_layer(self, browser, tmp_path):
         """Ctrl+ArrowUp moves the focused layer one position up."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
