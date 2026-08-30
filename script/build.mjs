@@ -30,7 +30,6 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { checkBundleCoverage } from "./bundle-report.mjs";
 import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
@@ -293,9 +292,8 @@ const main = async () => {
       console.error(`  ${FAIL} ${basename(entries[i].outfile)}: ${r.reason.message}`);
   }
 
-  // ── Step 4.5: Combined sonda report + coverage check (--sonda) ──
-  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html) and
-  // warn if any dist bundle is missing from bundle-size-baseline.json.
+  // ── Step 4.5: Combined sonda report (--sonda) ──
+  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
   if (sonda) {
     const metafiles = results
       .filter(r => r.status === "fulfilled")
@@ -314,7 +312,6 @@ const main = async () => {
       { integration: "esbuild" },
     );
     await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
-    checkBundleCoverage(CFG.root);
   }
 
   // ── Step 5: Verification (--check) ────────────────────────────

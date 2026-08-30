@@ -6,13 +6,12 @@ import { brotliCompressSync } from "zlib";
 import {
   buildRows,
   check,
+  emit,
   fmtDelta,
   fmtKB,
   fmtPct,
   parseArgs,
-  resolveThreshold,
   rowCells,
-  save,
   summarize,
 } from "#script/bundle-size-check.mjs";
 
@@ -37,10 +36,17 @@ const mkDist = (root: string, files: Record<string, string>) => {
   }
 };
 
-const writeBaselineJson = (root: string, data: unknown) => {
+// Write a baseline sizes file to `root` and return its path.
+const writeBaseline = (root: string, data: unknown): string => {
   mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, "bundle-size-baseline.json"), JSON.stringify(data), "utf-8");
+  const path = join(root, "base.json");
+  writeFileSync(path, JSON.stringify(data), "utf-8");
+  return path;
 };
+
+// parseArgs wired to compare against a baseline written to `root`.
+const argsWithBaseline = (root: string, data: unknown) =>
+  parseArgs(["--baseline=" + writeBaseline(root, data)]);
 
 afterEach(() => {
   for (const dir of tmpRoots) {
@@ -54,26 +60,26 @@ afterEach(() => {
 describe("parseArgs", () => {
   it("defaults to check mode with threshold 10", () => {
     const a = parseArgs([]);
-    expect(a.save).toBe(false);
+    expect(a.emit).toBeNull();
     expect(a.threshold).toBe(10);
-    expect(a.thresholdSet).toBe(false);
+    expect(a.baseline).toBeNull();
+    expect(a.report).toBeNull();
+    expect(a.root).toBeNull();
     expect(a.unknown).toEqual([]);
   });
 
-  it("parses --save", () => {
-    expect(parseArgs(["--save"]).save).toBe(true);
+  it("parses --emit and --root", () => {
+    const a = parseArgs(["--emit=/tmp/sizes.json", "--root=/tmp/base"]);
+    expect(a.emit).toBe("/tmp/sizes.json");
+    expect(a.root).toBe("/tmp/base");
   });
 
   it("parses --threshold=N", () => {
-    const a = parseArgs(["--threshold=25"]);
-    expect(a.threshold).toBe(25);
-    expect(a.thresholdSet).toBe(true);
+    expect(parseArgs(["--threshold=25"]).threshold).toBe(25);
   });
 
   it("falls back to default for a non-numeric --threshold", () => {
-    const a = parseArgs(["--threshold=abc"]);
-    expect(a.threshold).toBe(10);
-    expect(a.thresholdSet).toBe(true);
+    expect(parseArgs(["--threshold=abc"]).threshold).toBe(10);
   });
 
   it("collects unknown flags", () => {
@@ -87,25 +93,6 @@ describe("parseArgs", () => {
     const a = parseArgs(["--baseline=/tmp/base.json", "--report=/tmp/report.md"]);
     expect(a.baseline).toBe("/tmp/base.json");
     expect(a.report).toBe("/tmp/report.md");
-  });
-});
-
-describe("resolveThreshold", () => {
-  it("explicit threshold wins", () => {
-    expect(
-      resolveThreshold({ thresholdSet: true, threshold: 25 }, { threshold: 10 }),
-    ).toBe(25);
-  });
-
-  it("falls back to the baseline threshold", () => {
-    expect(
-      resolveThreshold({ thresholdSet: false, threshold: 10 }, { threshold: 15 }),
-    ).toBe(15);
-  });
-
-  it("defaults when there is no baseline threshold", () => {
-    expect(resolveThreshold({ thresholdSet: false, threshold: 10 }, null)).toBe(10);
-    expect(resolveThreshold({ thresholdSet: false, threshold: 10 }, {})).toBe(10);
   });
 });
 
@@ -224,8 +211,7 @@ describe("formatters", () => {
   });
 
   it("falls back to · for an unknown status marker", () => {
-    // buildRows only emits the seven known statuses, but the marker lookup is
-    // defensive — an unmapped status must still render as "·" not undefined.
+    // buildRows only emits the known statuses, but the marker lookup is defensive.
     expect(rowCells({ status: "bogus", curr: null, prev: null }).icon).toBe("·");
   });
 });
@@ -236,8 +222,9 @@ describe("check", () => {
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": size }, threshold: 10 });
-    expect(check(parseArgs([]), root)).toBe(0);
+    expect(check(argsWithBaseline(root, { files: { "a.min.js": size } }), root)).toBe(
+      0,
+    );
   });
 
   it("returns 1 when a bundle exceeds the threshold", () => {
@@ -246,11 +233,12 @@ describe("check", () => {
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 20% smaller → 25% growth > 10%
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.8) },
-      threshold: 10,
-    });
-    expect(check(parseArgs([]), root)).toBe(1);
+    expect(
+      check(
+        argsWithBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
+        root,
+      ),
+    ).toBe(1);
   });
 
   it("warns but returns 0 when a bundle is in the low-margin band", () => {
@@ -259,24 +247,26 @@ describe("check", () => {
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 7% smaller → ~7.5% growth, inside the 5% low-margin band (not over)
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.93) },
-      threshold: 10,
-    });
-    expect(check(parseArgs([]), root)).toBe(0);
+    expect(
+      check(
+        argsWithBaseline(root, { files: { "a.min.js": Math.round(size * 0.93) } }),
+        root,
+      ),
+    ).toBe(0);
   });
 
-  it("honors the baseline threshold when --threshold is not given", () => {
+  it("honors an explicit --threshold", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
-    // 25% growth but baseline threshold 30 → not over
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.8) },
-      threshold: 30,
-    });
-    expect(check(parseArgs([]), root)).toBe(0);
+    // 25% growth but --threshold=30 → not over
+    const args = parseArgs([
+      "--threshold=30",
+      "--baseline=" +
+        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
+    ]);
+    expect(check(args, root)).toBe(0);
   });
 
   it("warns but returns 0 when there is no baseline", () => {
@@ -290,13 +280,13 @@ describe("check", () => {
     const summary = join(root, "summary.md");
     const content = "const x = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": brotli(content) }, threshold: 10 });
+    const args = argsWithBaseline(root, { files: { "a.min.js": brotli(content) } });
     const prev = process.env.GITHUB_STEP_SUMMARY;
     process.env.GITHUB_STEP_SUMMARY = summary;
     try {
       // first call: summary file does not exist → catch branch; second: exists → append.
-      expect(check(parseArgs([]), root)).toBe(0);
-      expect(check(parseArgs([]), root)).toBe(0);
+      expect(check(args, root)).toBe(0);
+      expect(check(args, root)).toBe(0);
     } finally {
       if (prev === undefined) delete process.env.GITHUB_STEP_SUMMARY;
       else process.env.GITHUB_STEP_SUMMARY = prev;
@@ -309,14 +299,11 @@ describe("check", () => {
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
-    // custom baseline 20% smaller → 25% growth > 10%; default baseline absent.
+    // custom baseline 20% smaller → 25% growth > 10%.
     const customBaseline = join(root, "base-baseline.json");
     writeFileSync(
       customBaseline,
-      JSON.stringify({
-        files: { "a.min.js": Math.round(size * 0.8) },
-        threshold: 10,
-      }),
+      JSON.stringify({ files: { "a.min.js": Math.round(size * 0.8) } }),
       "utf-8",
     );
     expect(check(parseArgs(["--baseline=" + customBaseline]), root)).toBe(1);
@@ -327,9 +314,12 @@ describe("check", () => {
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
-    writeBaselineJson(root, { files: { "a.min.js": size }, threshold: 10 });
     const report = join(root, "report.md");
-    expect(check(parseArgs(["--report=" + report]), root)).toBe(0);
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
     const md = readFileSync(report, "utf-8");
     expect(md).toContain("Bundle Size Check");
     expect(md).toContain("<details>");
@@ -343,12 +333,13 @@ describe("check", () => {
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 20% smaller → 25% growth > 10%
-    writeBaselineJson(root, {
-      files: { "a.min.js": Math.round(size * 0.8) },
-      threshold: 10,
-    });
     const report = join(root, "report.md");
-    expect(check(parseArgs(["--report=" + report]), root)).toBe(1);
+    const args = parseArgs([
+      "--baseline=" +
+        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(1);
     expect(readFileSync(report, "utf-8")).toContain("over threshold");
   });
 
@@ -358,62 +349,41 @@ describe("check", () => {
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // "gone.min.js" is in the baseline but no longer built.
-    writeBaselineJson(root, {
-      files: { "a.min.js": size, "gone.min.js": 10 },
-      threshold: 10,
-    });
-    expect(check(parseArgs([]), root)).toBe(0);
+    expect(
+      check(
+        argsWithBaseline(root, { files: { "a.min.js": size, "gone.min.js": 10 } }),
+        root,
+      ),
+    ).toBe(0);
   });
 });
 
-describe("save", () => {
-  it("writes a baseline from the current dist and returns 0", () => {
+describe("emit", () => {
+  it("writes the current dist sizes to a file", () => {
     const root = mkTmp();
     const content = "export const a = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
-    expect(save(parseArgs([]), root)).toBe(0);
-    const baseline = JSON.parse(
-      readFileSync(join(root, "bundle-size-baseline.json"), "utf-8"),
+    const path = join(root, "sizes.json");
+    expect(emit(parseArgs(["--emit=" + path]), root)).toBe(0);
+    expect(JSON.parse(readFileSync(path, "utf-8")).files["a.min.js"]).toBe(
+      brotli(content),
     );
-    expect(baseline.files["a.min.js"]).toBe(brotli(content));
-    expect(baseline.threshold).toBe(10);
-    expect(baseline.unit).toBe("brotli bytes");
-    expect(typeof baseline.version).toBe("string");
-    expect(baseline.version.length).toBeGreaterThan(0);
   });
 
   it("returns 1 when the dist directory has no bundles", () => {
     const root = mkTmp();
     mkdirSync(join(root, "foliplus", "dist"), { recursive: true });
-    expect(save(parseArgs([]), root)).toBe(1);
+    expect(emit(parseArgs(["--emit=" + join(root, "sizes.json")]), root)).toBe(1);
   });
 
-  it("skips the write when the sizes are unchanged", () => {
+  it("creates the parent directory when missing", () => {
     const root = mkTmp();
     const content = "export const a = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
-    expect(save(parseArgs([]), root)).toBe(0);
-
-    // Tamper with the version to detect a rewrite: a skipped save must leave it.
-    const path = join(root, "bundle-size-baseline.json");
-    const baseline = JSON.parse(readFileSync(path, "utf-8"));
-    baseline.version = "sentinel";
-    writeFileSync(path, JSON.stringify(baseline, null, 2) + "\n");
-
-    expect(save(parseArgs([]), root)).toBe(0);
-    expect(JSON.parse(readFileSync(path, "utf-8")).version).toBe("sentinel");
-  });
-
-  it("still rewrites when --threshold is explicitly set", () => {
-    const root = mkTmp();
-    const content = "export const a = 1;".repeat(50);
-    mkDist(root, { "a.min.js": content });
-    expect(save(parseArgs([]), root)).toBe(0);
-    // Same sizes, but an explicit --threshold forces the write.
-    expect(save(parseArgs(["--threshold=20"]), root)).toBe(0);
-    const baseline = JSON.parse(
-      readFileSync(join(root, "bundle-size-baseline.json"), "utf-8"),
+    const path = join(root, "deep", "nested", "sizes.json");
+    expect(emit(parseArgs(["--emit=" + path]), root)).toBe(0);
+    expect(JSON.parse(readFileSync(path, "utf-8")).files["a.min.js"]).toBe(
+      brotli(content),
     );
-    expect(baseline.threshold).toBe(20);
   });
 });
