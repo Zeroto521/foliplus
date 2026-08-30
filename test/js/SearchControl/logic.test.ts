@@ -550,6 +550,38 @@ describe("searchCoord — history recording", () => {
     expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
   });
 
+  it("dedupes coordinate variants that parse to the same location", async () => {
+    const tick = () => new Promise(r => setTimeout(r, 0));
+    // "120,32" and its whitespace / full-width-comma variants resolve to the
+    // same lng/lat, so they must collapse into one entry instead of two.
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, "120,32");
+    await tick();
+    await tick();
+    searchCoord(ctrl, "120, 32");
+    await tick();
+    await tick();
+    searchCoord(ctrl, "120，32");
+    await tick();
+    await tick();
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("120,32");
+    expect(ctrl.searchHistory[0].count).toBe(3);
+    expect(ctrl.searchHistory[0].lng).toBe(120);
+    expect(ctrl.searchHistory[0].lat).toBe(32);
+  });
+
+  it("stores a canonical coord key, not the raw input", async () => {
+    const tick = () => new Promise(r => setTimeout(r, 0));
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, " 120 , 32 ");
+    await tick();
+    await tick();
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("120,32");
+    expect(ctrl.searchHistory[0].coordDisplay).toBe("120.000000, 32.000000");
+  });
+
   it("does not record history for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");

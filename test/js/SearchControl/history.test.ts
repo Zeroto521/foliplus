@@ -97,6 +97,181 @@ describe("loadHistory / saveHistory", () => {
     expect(loaded[1].count).toBe(1);
   });
 
+  it("collapses legacy coord duplicates that a raw-input key created", () => {
+    // Before the fix the history key was the raw input, so whitespace or a
+    // full-width comma produced two entries that display identically.
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "120, 32",
+          type: "coord",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "",
+          lng: 120,
+          lat: 32,
+          ts: 111,
+          count: 1,
+        },
+        {
+          query: "120，32",
+          type: "coord",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "",
+          lng: 120,
+          lat: 32,
+          ts: 222,
+          count: 1,
+        },
+        {
+          query: "120,32",
+          type: "coord",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "Hangzhou, China",
+          lng: 120,
+          lat: 32,
+          ts: 333,
+          count: 2,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].query).toBe("120,32");
+    expect(loaded[0].count).toBe(4);
+    // Empty display fields fall back to an older entry's value
+    expect(loaded[0].addrDisplay).toBe("Hangzhou, China");
+    expect(loaded[0].coordDisplay).toBe("120.000000, 32.000000");
+  });
+
+  it("canonicalizes a legacy coord key only when it parses as coordinates", () => {
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "121.47 , 31.23",
+          type: "coord",
+          coordDisplay: "",
+          addrDisplay: "",
+          lng: 121.47,
+          lat: 31.23,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "Paris",
+          type: "addr",
+          coordDisplay: "",
+          addrDisplay: "Paris, France",
+          lng: 2.3,
+          lat: 48.8,
+          ts: 2,
+          count: 1,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    expect(loaded[0].query).toBe("121.47,31.23");
+    // Address queries are never rewritten
+    expect(loaded.find(e => e.type === "addr")?.query).toBe("Paris");
+  });
+
+  it("does not collapse out-of-range coord keys that fail to validate", () => {
+    // Out-of-range values pass parseCoord's shape check but fail range validation,
+    // so their keys stay as typed and distinct entries stay distinct.
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "200,32",
+          type: "coord",
+          coordDisplay: "1.000000, 1.000000",
+          addrDisplay: "",
+          lng: 1,
+          lat: 1,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "999,32",
+          type: "coord",
+          coordDisplay: "2.000000, 2.000000",
+          addrDisplay: "",
+          lng: 2,
+          lat: 2,
+          ts: 2,
+          count: 1,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    // Stored in insertion order, as loadHistory preserves it
+    expect(loaded.map(e => e.lng)).toEqual([1, 2]);
+    // Keys that fail to parse are never rewritten
+    expect(loaded.map(e => e.query)).toEqual(["200,32", "999,32"]);
+  });
+
+  it("does not collapse a coord and an addr entry that share a key string", () => {
+    localStorage.setItem(
+      HISTORY.STORAGE_KEY,
+      JSON.stringify([
+        {
+          query: "120,32",
+          type: "coord",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "",
+          lng: 120,
+          lat: 32,
+          ts: 1,
+          count: 1,
+        },
+        {
+          query: "120,32",
+          type: "addr",
+          coordDisplay: "120.000000, 32.000000",
+          addrDisplay: "Somewhere",
+          lng: 120,
+          lat: 32,
+          ts: 2,
+          count: 1,
+        },
+      ]),
+    );
+    const loaded = loadHistory();
+    expect(loaded).toHaveLength(2);
+    expect(loaded.filter(e => e.type === "coord")).toHaveLength(1);
+    expect(loaded.filter(e => e.type === "addr")).toHaveLength(1);
+  });
+
+  it("keeps the newest-first order for non-duplicate entries", () => {
+    const entries: SearchHistoryEntry[] = [
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "Paris",
+        lng: 0,
+        lat: 0,
+        ts: 1,
+        count: 1,
+      },
+      {
+        query: "Berlin",
+        type: "addr",
+        coordDisplay: "",
+        addrDisplay: "Berlin",
+        lng: 0,
+        lat: 0,
+        ts: 2,
+        count: 1,
+      },
+    ];
+    saveHistory(entries);
+    expect(loadHistory()).toEqual(entries);
+  });
+
   it("saves an empty array when history is cleared", () => {
     const entries: SearchHistoryEntry[] = [
       {
@@ -438,7 +613,7 @@ describe("recordHistorySearch", () => {
     expect(ctrl.searchHistory[0].ts).toBeLessThanOrEqual(after);
   });
 
-  it("stores raw query as key for deduplication", () => {
+  it("keeps the addr query as the dedup key and counts repeats", () => {
     const ctrl: any = { searchHistory: [] };
     recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory[0].query).toBe("Paris");

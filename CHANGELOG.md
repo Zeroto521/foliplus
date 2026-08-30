@@ -4,17 +4,17 @@
 
 ### Added
 
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
+- `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134), [#212](https://github.com/Zeroto521/foliplus/pull/212))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159), [#161](https://github.com/Zeroto521/foliplus/pull/161))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
 - `LayerControl`: keyboard shortcuts for layer panel — `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`/`Space`/`Enter`/`Escape` and `Ctrl+ArrowUp`/`Ctrl+ArrowDown` for reorder. Added `moveLayerUp(id)` and `moveLayerDown(id)` to `LayerAPI` ([#156](https://github.com/Zeroto521/foliplus/pull/156))
+- `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164), [#206](https://github.com/Zeroto521/foliplus/pull/206))
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165), [#188](https://github.com/Zeroto521/foliplus/pull/188))
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
-- `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164))
 - `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196))
 - `HeatmapControl`: persist layer selection and style configuration to localStorage, scoped per map instance — the saved config is restored on page reload, while a fresh `folium.Map()` render starts from the Python-side values again ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 
@@ -31,22 +31,26 @@
   - **Why**: `LayerAPI` used to require `LayerControl`; now the core lives in DOM-free `core/layer/` and `ensureLayerAPI` guarantees a usable API even without the `LayerControl`.
 - `Build artifacts`: prefix built assets with `foliplus-` and inject a version banner ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `Shared bundle`: `foliplus-common.min.js` aggregates all shared code once — core/layer, common helpers, BaseControl, hint, geocode — cutting total JS ~43% (193KB→110KB). Auto-tree-shake unused shared exports in component bundles: shim generation scans component imports and emits only the actually-used names, reducing bundle sizes 5-28% per component. LocateControl -28%, ScaleControl -28%, SearchControl -10%, FullscreenControl -10% ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#177](https://github.com/Zeroto521/foliplus/pull/177))
-- `hint`: made per-map — `window.foliplus.showHint` removed; each map gets its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `geocode`: add forward geocoding alongside reverse; bidirectional FIFO cache with 24h TTL ([#147](https://github.com/Zeroto521/foliplus/pull/147))
 - `Cache`: generic `Cache<K,V>` (FIFO + optional TTL) for bounded caching; optional `onEvict` callback to release resources (e.g. GPU `ImageBitmap`s) on removal ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#154](https://github.com/Zeroto521/foliplus/pull/154))
 - `Build pipeline`: enable esbuild Tree Shaking via auto-scanned import detection; eliminate `.build/` source mirror (transforms at bundle time). `foliplus-common.min.js` tree-shaking disabled on shared entry (esbuild cannot trace `window.foliplus.X = {X}`); component bundles tree-shaken for correctness (~0.2% size reduction). Standalone CLI arg parser + registry generator. 77 new vitest tests (716→785). ([#162](https://github.com/Zeroto521/foliplus/pull/162))
 - `SearchControl`: address search delegates to `foliplus.geocode` (shared bidirectional CRS-aware cache, Nominatim throttle, CRS conversion); suggestion results pre-populate the same cache via `cacheSuggestion` so a follow-up address search reuses cached coordinates ([#166](https://github.com/Zeroto521/foliplus/pull/166))
-- `HeatmapControl`: remove the nested `style` dict parameter; `field`, `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 
+### Removed
+
+- `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
+- `HeatmapControl`: remove the nested `style` dict parameter; `field`, `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
+- `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
+
 ### Fixed
 
-- `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
+- `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
 
 ## [v0.3.0] (2026-08-02)
 
