@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
 import pytest
 from conftest import (
@@ -76,6 +78,19 @@ class TestLocateControlRendering:
         assert ".locate-btn-loading" in css
         assert "&.loading" in css
         assert "pointer-events: none" in css
+
+    def test_does_not_redefine_transform(self):
+        """The hover/active icon scale stays with common.css alone.
+
+        common.css' ":hover svg" rule is a descendant selector, so it already
+        scales the SVG nested inside the wrapper spans. A transform on the
+        wrapper would compound with it — the icon scaled three times on hover.
+        """
+        css = read_css("foliplus/css/LocateControl.css")
+        # Strip comments: the rationale above names "transform" in prose, and
+        # this guard must only see live declarations.
+        decls = [l for l in re.sub(r"/\*.*?\*/", "", css, flags=re.S).splitlines()]
+        assert not [l for l in decls if "transform" in l], "transform redefined locally"
 
     def test_button_ships_both_icons(self):
         """The button markup carries the idle crosshair and the loading spinner."""

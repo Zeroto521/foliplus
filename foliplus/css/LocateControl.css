@@ -1,10 +1,9 @@
 /* ── LocateControl button states ──
   Busy state while the browser geolocation resolves: the crosshair swaps for the
   shared foliplus spinner (Icons.LOADING, spun by common.css' foliplus-spin).
-  Colors/sizing inherit from common.css unified tool-btn rules. Both icons sit in
-  wrapper spans that the .loading class swaps; the hover/active scale below lands
-  on whichever span is visible — common.css scales "button > svg", which misses a
-  nested SVG, so the spans carry the same transform explicitly. */
+  Colors/sizing and the hover/active icon scale all inherit from common.css — its
+  ":hover svg" rule is a descendant selector, so it already reaches the SVG nested
+  inside the wrapper spans below. No transform is redefined here. */
 .foliplus-locate-btn {
   .locate-btn-icon,
   .locate-btn-loading {
@@ -29,15 +28,5 @@
     .locate-btn-loading {
       display: flex;
     }
-  }
-
-  &:hover > .locate-btn-icon,
-  &:hover > .locate-btn-loading {
-    transform: scale(var(--scale-hover));
-  }
-
-  &:active > .locate-btn-icon,
-  &:active > .locate-btn-loading {
-    transform: scale(var(--scale-press));
   }
 }

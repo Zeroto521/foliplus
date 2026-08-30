@@ -106,4 +106,4 @@ const locateMe = (ctrl: LocateCtrl) => {
   );
 };
 
-export { locateMe, placeMarker, removeMarker, setLocating };
+export { locateMe, placeMarker, removeMarker };

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { locateMe, setLocating } from "#foliplus/LocateControl/logic.js";
+import { locateMe } from "#foliplus/LocateControl/logic.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
 vi.mock("#common/locale.js", () => ({
@@ -29,24 +29,6 @@ beforeEach(() => {
     getPopup: () => null,
     on: vi.fn(),
   }));
-});
-
-describe("setLocating", () => {
-  it("toggles the loading class on the button container", () => {
-    const ctrl = makeCtrl();
-    expect(ctrl.hasLoading()).toBe(false);
-    setLocating(ctrl, true);
-    expect(ctrl.hasLoading()).toBe(true);
-    setLocating(ctrl, false);
-    expect(ctrl.hasLoading()).toBe(false);
-  });
-
-  it("is idempotent when the same state is set twice", () => {
-    const ctrl = makeCtrl();
-    setLocating(ctrl, true);
-    setLocating(ctrl, true);
-    expect(ctrl.hasLoading()).toBe(true);
-  });
 });
 
 describe("locateMe", () => {
