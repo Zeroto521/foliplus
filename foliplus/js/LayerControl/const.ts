@@ -44,6 +44,10 @@ export const FOCUS = {
    *  gives it a positive "selected" glow, so it stands out even when it is
    *  grey (a grey layer dimmed against grey ghosts is otherwise invisible). */
   FOCUS_FILTER: "drop-shadow(0 0 4px var(--accent-primary))",
+  /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
+   *  below this (600 + 10·i); the focused layer is temporarily lifted just
+   *  below it (PANE_Z − 10) so dimmed layers above it never cover it. */
+  PANE_Z: 9000,
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */

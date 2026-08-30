@@ -747,6 +747,59 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(el.style.filter).toBe("");
     });
+
+    it("lifts the focused layer's pane above others and restores it on cancel", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+
+      expect(panes.get("custom_pane")?.style.zIndex).toBe(
+        String(CONST.FOCUS.PANE_Z - 10),
+      );
+
+      ui.cancelFocus();
+
+      expect(panes.get("custom_pane")?.style.zIndex).toBe("0");
+    });
+
+    it("lifts a canvas (heatmap) focused layer above others and restores it", () => {
+      const canvas = document.createElement("canvas");
+      canvas.style.zIndex = "5";
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        canvas,
+        onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+
+      ui.focusLayer("heat1");
+      expect(canvas.style.zIndex).toBe(String(CONST.FOCUS.PANE_Z - 10));
+
+      ui.cancelFocus();
+      expect(canvas.style.zIndex).toBe("5");
+    });
   });
 
   // ─────────────────── overflow menu ───────────────────

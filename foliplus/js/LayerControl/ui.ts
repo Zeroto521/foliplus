@@ -68,6 +68,9 @@ class LayerUI {
   private dimmedLayers: Array<() => void>;
   /** Restore callback for the focused layer's boost glow (cleared on cancel). */
   private focusedBoostRestore: (() => void) | null;
+  /** Restore callbacks for pane z-indexes lifted to bring the focused layer
+   *  to the front (cleared on cancel). */
+  private focusedPaneRestores: Array<() => void>;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
@@ -90,6 +93,7 @@ class LayerUI {
     this.focusRenderer = null;
     this.dimmedLayers = [];
     this.focusedBoostRestore = null;
+    this.focusedPaneRestores = [];
   }
 
   /** Alias for convenience */
@@ -1258,8 +1262,10 @@ class LayerUI {
     // Dim every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.dimOtherLayers(layerId);
-    // Positive boost so a grey focused layer still pops against grey ghosts.
+    // Positive boost so a grey focused layer still pops against grey ghosts,
+    // and lift it above the dimmed layers so they can't cover it.
     this.boostFocusedLayer(layer ?? layerInfo.canvas ?? null);
+    this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
 
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
@@ -1325,6 +1331,8 @@ class LayerUI {
     this.restoreDimmedLayers();
     this.focusedBoostRestore?.();
     this.focusedBoostRestore = null;
+    for (const restore of this.focusedPaneRestores) restore();
+    this.focusedPaneRestores = [];
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
@@ -1436,6 +1444,47 @@ class LayerUI {
           : null;
   }
 
+  /**
+   * Temporarily lift the focused layer's pane above every other layer so the
+   * dimmed grey layers stacked on top cannot cover it — a layer at the bottom
+   * of the z-order stays hidden even with the boost glow. Canvas layers
+   * (heatmap) have no pane; their canvas element's z-index is lifted instead.
+   * Restored on cancel via focusedPaneRestores.
+   */
+  private bringFocusedLayerToFront(
+    layer: L.Layer | null,
+    canvas: HTMLCanvasElement | null,
+  ): void {
+    const restores: Array<() => void> = [];
+    const lift = (el: HTMLElement): void => {
+      const orig = el.style.zIndex;
+      el.style.zIndex = String(CONST.FOCUS.PANE_Z - 10);
+      restores.push(() => {
+        el.style.zIndex = orig;
+      });
+    };
+
+    if (canvas) {
+      lift(canvas);
+    } else if (layer) {
+      // Best-effort: some third-party layers expose children without a pane
+      // (getLayerPanes walks options.pane), so skip the lift if discovery
+      // throws — the boost + dim still work without it.
+      let panes: string[] = [];
+      try {
+        panes = this.m.getLayerPanes(layer);
+      } catch {
+        panes = [];
+      }
+      for (const name of panes) {
+        if (this.m.panes.isDefaultPane(name)) continue;
+        const pane = this.m.map.getPane(name);
+        if (pane) lift(pane);
+      }
+    }
+    this.focusedPaneRestores = restores;
+  }
+
   /** Restore all layers dimmed during the current focus. */
   private restoreDimmedLayers(): void {
     for (const restore of this.dimmedLayers) restore();
@@ -1480,7 +1529,7 @@ class LayerUI {
       let pane = map.getPane(CONST.FOCUS_PANE);
       if (!pane) {
         pane = map.createPane(CONST.FOCUS_PANE);
-        pane.style.zIndex = "9000";
+        pane.style.zIndex = String(CONST.FOCUS.PANE_Z);
       }
       this.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
       this.focusRenderer.addTo(map);
