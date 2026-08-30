@@ -217,6 +217,17 @@ const renderConsole = rows => {
   return lines.join("\n");
 };
 
+/** Console listing of just the current sizes — used when there is no baseline
+ *  to diff against (a bare local `bundle-size:check`). */
+const renderSizes = sizes => {
+  const files = Object.keys(sizes).sort();
+  const lines = ["", "Bundle Sizes", "─".repeat(70)];
+  for (const f of files) lines.push(`  ${fmtKB(sizes[f]).padStart(10)}  ${f}`);
+  const total = files.reduce((a, f) => a + sizes[f], 0);
+  lines.push(`  ${fmtKB(total).padStart(10)}  ${files.length} bundles`);
+  return lines.join("\n");
+};
+
 const appendSummary = text => {
   if (!process.env.GITHUB_STEP_SUMMARY) return;
   try {
@@ -248,6 +259,15 @@ const emit = (args, root = ROOT) => {
 const check = (args, root = ROOT) => {
   const current = readSizes(root);
   const baseline = readBaseline(args.baseline);
+  // No baseline: nothing to diff against — list sizes instead of a
+  // misleading all-"new" table.
+  if (!baseline) {
+    console.log(renderSizes(current));
+    console.warn(
+      `\n${WARN}  No baseline provided — pass --baseline=<sizes-file> to diff.`,
+    );
+    return 0;
+  }
   const threshold = args.threshold;
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
@@ -281,9 +301,7 @@ const check = (args, root = ROOT) => {
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
   }
-  if (!baseline) {
-    console.warn(`\n${WARN}  No baseline provided (pass --baseline=<sizes-file>).`);
-  } else console.log(`\n${OK} All bundles within threshold.`);
+  console.log(`\n${OK} All bundles within threshold.`);
   return 0;
 };
 
