@@ -2,7 +2,7 @@
 import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { isLayerInPanes } from "#core/layer/util.js";
+import { isLayerInPanes } from "#core/layer/index.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
