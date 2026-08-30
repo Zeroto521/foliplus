@@ -666,6 +666,31 @@ describe("HeatmapManager — persistence", () => {
       const m = makeManager();
       expect(() => m.clearSavedConfig()).not.toThrow();
     });
+
+    it("swallows removeItem errors and logs a warning", () => {
+      const warn = vi.fn();
+      vi.spyOn(console, "warn").mockImplementation(warn);
+      const m = makeManager();
+      // MockStorage exposes removeItem on its prototype; spy there so the
+      // manager's `window.localStorage.removeItem(...)` call is intercepted.
+      const proto = Object.getPrototypeOf(window.localStorage);
+      const removeItem = vi
+        .spyOn(proto, "removeItem")
+        .mockImplementation(() => {
+          throw new Error("quota");
+        });
+      try {
+        expect(() => m.clearSavedConfig()).not.toThrow();
+        expect(removeItem).toHaveBeenCalledWith(KEY);
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to clear saved data"),
+          expect.any(Error),
+        );
+      } finally {
+        removeItem.mockRestore();
+        vi.restoreAllMocks();
+      }
+    });
   });
 
   describe("applySavedConfig", () => {

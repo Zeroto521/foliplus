@@ -626,8 +626,8 @@ class HeatmapManager {
   clearSavedConfig() {
     try {
       window.localStorage.removeItem(CONST.STORAGE.KEY);
-    } catch {
-      /* ignore */
+    } catch (e) {
+      console.warn(`[${CONF.name}] Failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
     }
   }
 
