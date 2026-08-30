@@ -7,7 +7,7 @@
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
-- `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134))
+- `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134), [#212](https://github.com/Zeroto521/foliplus/pull/212))
 - `HeatmapControl`: auto-select single point layer on panel expand, skipping the manual selection step ([#133](https://github.com/Zeroto521/foliplus/pull/133))
 - `EventBus`: decouple cross-component communication via typed semantic events, replacing direct Leaflet map-event wiring ([#148](https://github.com/Zeroto521/foliplus/pull/148), [#153](https://github.com/Zeroto521/foliplus/pull/153), [#155](https://github.com/Zeroto521/foliplus/pull/155), [#159](https://github.com/Zeroto521/foliplus/pull/159), [#161](https://github.com/Zeroto521/foliplus/pull/161))
 - `ModeManager`: prevent conflicting component actions (e.g. measurement during export) via mode tracking and mutual-exclusion blocking ([#150](https://github.com/Zeroto521/foliplus/pull/150), [#159](https://github.com/Zeroto521/foliplus/pull/159))
@@ -16,7 +16,6 @@
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
 - `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164))
 - `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196))
-- `LocateControl`: the button shows a loading spinner while the browser geolocation request is in flight, and ignores further clicks until it resolves ([#212](https://github.com/Zeroto521/foliplus/pull/212))
 
 ### Changed
 
