@@ -1382,7 +1382,7 @@ class LayerUI {
     const restores: Array<() => void> = [];
     const lift = (el: HTMLElement): void => {
       const orig = el.style.zIndex;
-      el.style.zIndex = String(CONST.FOCUS.PANE_Z - 10);
+      el.style.zIndex = String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP);
       // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
       // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
       el.classList.add(CONST.CLASSES.FOCUS_PANE);

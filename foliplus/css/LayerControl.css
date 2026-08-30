@@ -25,7 +25,7 @@ path.foliplus-focus-rect {
   stroke-width: var(--border-thick);
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
-  animation: foliplus-focus-march 0.8s linear infinite;
+  animation: foliplus-focus-march var(--duration-march) linear infinite;
   pointer-events: none;
 }
 /* Inverse mask that dims everything outside the focused bounds (the hole is
@@ -37,7 +37,7 @@ path.foliplus-focus-mask {
    by bringFocusedLayerToFront, NOT per leaf element — so focusing a dense
    layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
 .foliplus-focus-pane.foliplus-focus-glow {
-  animation: foliplus-focus-glow-in 0.2s ease-out;
+  animation: foliplus-focus-glow-in var(--duration-snappy) ease-out;
   filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
 }
 @keyframes foliplus-focus-glow-in {
