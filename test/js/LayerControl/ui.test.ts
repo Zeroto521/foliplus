@@ -649,9 +649,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       ui.focusLayer("overlay2");
 
-      expect(panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
-        true,
-      );
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(true);
     });
 
     it("marks a canvas (heatmap) focused layer with focus-pane", () => {
