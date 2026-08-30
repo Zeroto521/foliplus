@@ -41,27 +41,6 @@
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
 
-## Quick Start
-
-```bash
-pip install foliplus
-```
-
-```python
-import folium
-import foliplus
-
-m = folium.Map(location=[31.23, 121.47], zoom_start=12)
-
-foliplus.MeasureControl().add_to(m)
-foliplus.ExportControl().add_to(m)
-foliplus.SearchControl().add_to(m)
-foliplus.HeatmapControl().add_to(m)
-foliplus.LayerControl().add_to(m)
-
-m.save("map.html")
-```
-
 ## Beyond Plugins
 
 Traditional map component libraries treat each tool as an independent plugin. foliplus
