@@ -24,7 +24,11 @@ export interface AddressResult {
 
 /** A single entry in the user's search history, persisted to localStorage. */
 export interface SearchHistoryEntry {
-  /** The raw query text the user typed (coord "121.47,31.23" or addr keyword). */
+  /**
+   * Dedup key: the user's address keyword, or a canonical "<lng>,<lat>" for
+   * coordinates (whitespace and full-width commas normalized away, so variant
+   * inputs for the same location share one entry).
+   */
   query: string;
   /** Search type: "coord" for coordinate, "addr" for address keyword. */
   type: "coord" | "addr";
