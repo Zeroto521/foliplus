@@ -31,7 +31,7 @@ jobs:
 
       # Build the base branch in a detached worktree and capture its sizes, then
       # diff the PR build against them.
-      - name: Measure base
+      - name: Measure base branch
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
@@ -52,7 +52,7 @@ jobs:
           name: bundle-treemap
           path: bundle-treemap.html
 
-      - name: Link treemap
+      - name: Link treemap report
         run: |
           {
             echo ""
