@@ -24,8 +24,8 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "size:check": "node script/bundle-size-check.mjs",
-    "size:save": "node script/bundle-size-check.mjs --save"
+    "bundle-size:check": "node script/bundle-size-check.mjs",
+    "bundle-size:save": "node script/bundle-size-check.mjs --save"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",

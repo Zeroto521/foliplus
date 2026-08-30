@@ -2,7 +2,7 @@
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
-.PHONY: size-check size-save
+.PHONY: bundle-size-check bundle-size-save
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 help:
@@ -19,8 +19,8 @@ help:
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
-	@echo "'size-check'   - check bundle sizes vs baseline (flag > 10% growth)"
-	@echo "'size-save'    - update bundle-size-baseline.json from current build"
+	@echo "'bundle-size-check'   - check bundle sizes vs baseline (flag > 10% growth)"
+	@echo "'bundle-size-save'    - update bundle-size-baseline.json from current build"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
@@ -61,11 +61,11 @@ build-js:
 build-js-dev:
 	npm run build:dev
 
-size-check: build-js
-	npm run size:check
+bundle-size-check: build-js
+	npm run bundle-size:check
 
-size-save: build-js
-	npm run size:save
+bundle-size-save: build-js
+	npm run bundle-size:save
 
 build-python:
 	uv build
