@@ -627,7 +627,10 @@ class HeatmapManager {
     try {
       window.localStorage.removeItem(CONST.STORAGE.KEY);
     } catch (e) {
-      console.warn(`[${CONF.name}] Failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
+      console.warn(
+        `[${CONF.name}] Failed to clear saved data (key=${CONST.STORAGE.KEY})`,
+        e,
+      );
     }
   }
 

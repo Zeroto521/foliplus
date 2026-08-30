@@ -674,11 +674,9 @@ describe("HeatmapManager — persistence", () => {
       // MockStorage exposes removeItem on its prototype; spy there so the
       // manager's `window.localStorage.removeItem(...)` call is intercepted.
       const proto = Object.getPrototypeOf(window.localStorage);
-      const removeItem = vi
-        .spyOn(proto, "removeItem")
-        .mockImplementation(() => {
-          throw new Error("quota");
-        });
+      const removeItem = vi.spyOn(proto, "removeItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
       try {
         expect(() => m.clearSavedConfig()).not.toThrow();
         expect(removeItem).toHaveBeenCalledWith(KEY);
