@@ -193,6 +193,16 @@ describe("provider selection", () => {
     const [url] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("photon.komoot.io/reverse");
   });
+
+  it("falls back to Nominatim for an unknown provider id instead of throwing", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lon: "119.3", lat: "26.08", display_name: "Fuzhou" }]),
+    );
+    const r = await geocode(mockMap, "Unknown Provider", "en", "bogus");
+    expect(r).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("nominatim.openstreetmap.org");
+  });
 });
 
 describe("custom provider (declarative dict)", () => {

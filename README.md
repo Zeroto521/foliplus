@@ -39,7 +39,7 @@
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
 | 📏 **MeasureControl**    | Distance measurement, area measurement, circle drawing, and GPS marker with geocoding. |
 | 📐 **ScaleControl**      | Scale bar with metric or imperial units and optional zoom level display.               |
-| 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
+| 🔍 **SearchControl**     | Coordinate and address search via pluggable geocode providers.                           |
 
 ## Quick Start
 

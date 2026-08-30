@@ -24,7 +24,7 @@ class SearchControl(BaseControl):
 
     Shortcuts
     ---------
-    Focus a layer row by clicking it, then use:
+    With the search panel focused, use:
 
     .. list-table::
        :header-rows: 1

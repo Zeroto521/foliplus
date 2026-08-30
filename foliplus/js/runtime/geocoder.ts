@@ -58,6 +58,21 @@ const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =
     headers: provider.headers,
   }).then(r => r.json());
 
+/**
+ * Resolve a provider spec defensively — falls back to Nominatim on an unknown
+ * id so a misconfigured spec degrades gracefully instead of throwing mid-search.
+ */
+const safeResolve = (
+  provider?: string | ProviderConfig,
+  providerConfig?: Record<string, unknown> | null,
+): GeocodeProvider => {
+  try {
+    return resolveProvider(provider, providerConfig);
+  } catch {
+    return resolveProvider();
+  }
+};
+
 /** Reverse geocode coordinates to an address via the given provider (cached, throttled). */
 const reverseGeocode = (
   map: L.Map,
@@ -67,7 +82,7 @@ const reverseGeocode = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ): Promise<string> => {
-  const resolved = resolveProvider(provider, providerConfig);
+  const resolved = safeResolve(provider, providerConfig);
   const key = `reverse:${resolved.id}:${lng},${lat}`;
   const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
@@ -104,7 +119,7 @@ const geocode = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ): Promise<GeocodeResult | null> => {
-  const resolved = resolveProvider(provider, providerConfig);
+  const resolved = safeResolve(provider, providerConfig);
   // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
   // WGS84) — or on different providers — do not share a stale cached result.
   const crs = getMapCrsType(map);
@@ -158,7 +173,7 @@ const cacheSuggestion = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ) => {
-  const resolved = resolveProvider(provider, providerConfig);
+  const resolved = safeResolve(provider, providerConfig);
   const crs = getMapCrsType(map);
   const key = `forward:${resolved.id}:${address}:${crs}`;
   geoCache.set(key, `${lat}${SEP}${lng}${SEP}${displayName}`);
