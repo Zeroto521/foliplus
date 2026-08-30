@@ -16,6 +16,7 @@
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
 - `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164))
 - `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196))
+- `LocateControl`: the button shows a loading spinner while the browser geolocation request is in flight, and ignores further clicks until it resolves ([#212](https://github.com/Zeroto521/foliplus/pull/212))
 
 ### Changed
 
