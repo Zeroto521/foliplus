@@ -1,5 +1,5 @@
-import { help, parseArgs } from "#script/args.mjs";
 import { describe, expect, it } from "vitest";
+import { help, parseArgs } from "#script/args.mjs";
 
 const SPEC = {
   dev: { type: "bool", short: "d" },
