@@ -3,7 +3,7 @@
  *
  * Plain Unicode text symbols (no emoji variation selectors) so console tables
  * stay column-aligned — emoji have ambiguous/variable width — and render in
- * narrow or legacy terminals. Shared by bundle-size-check, bundle-report and build.
+ * narrow or legacy terminals. Shared by bundle-size-check and build.
  */
 
 /** Bundle size status markers (over/low/up/down/same/new/missing). */

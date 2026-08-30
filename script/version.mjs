@@ -1,11 +1,10 @@
 /**
- * Resolve the foliplus version for build banners and the size baseline.
+ * Resolve the foliplus version for build banners.
  *
  * Uses `git describe` (tag + distance + commit) — identical in local dev and
  * CI, so the version string never differs between environments. No `--dirty`:
  * a dirty tree must not change the version, or the banner (and thus bundle
  * size) would drift whenever a developer builds with uncommitted changes.
- * Shared by `build.mjs` and `bundle-size-check.mjs`.
  */
 import { spawnSync } from "child_process";
 
