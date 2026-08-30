@@ -702,6 +702,26 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
     expect(() => manager.clearActiveMode()).not.toThrow();
   });
+
+  it("edit mode suspends data layers but keeps measurement layers interactive", () => {
+    const { manager, map } = makeManager();
+    const { leaf: measureLeaf } = makeLeaf(map);
+    measureLeaf.options.pane = "measure_graph";
+    const { leaf: dataLeaf } = makeLeaf(map);
+    dataLeaf.options.pane = "overlayPane";
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
+      fn({ eachLayer: (c: (l: unknown) => void) => { c(measureLeaf); c(dataLeaf); } }),
+    );
+
+    manager.setEditMode(true);
+    expect(dataLeaf.options.interactive).toBe(false);
+    expect(dataLeaf.removeInteractiveTarget).toHaveBeenCalled();
+    expect(measureLeaf.options.interactive).toBe(true); // kept draggable/clickable
+
+    manager.setEditMode(false);
+    expect(dataLeaf.options.interactive).toBe(true);
+    expect(dataLeaf.addInteractiveTarget).toHaveBeenCalled();
+  });
 });
 
 it("onExportClick triggers the export flow", () => {

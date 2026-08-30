@@ -21,8 +21,12 @@ const BLOCKED_BY: Record<string, string[]> = {
 
 class ModeManager {
   private modes = new Map<string, string | null>();
+  /** Per-component suspend-skip predicates (layers left interactive). */
+  private modeSkips = new Map<string, (leaf: L.Layer) => boolean>();
   /** Restore closure for map layers disabled while a mode is active. */
   private interactionLock: (() => void) | null = null;
+  /** Signature of the skip set that produced the current lock (see syncInteractionLock). */
+  private interactionSkipSignature = "";
 
   constructor(
     private readonly bus: EventBus,
@@ -33,10 +37,16 @@ class ModeManager {
     return this.modes.get(component) ?? null;
   }
 
-  setMode(component: string, mode: string | null): void {
+  setMode(
+    component: string,
+    mode: string | null,
+    suspendSkip?: (leaf: L.Layer) => boolean,
+  ): void {
     assertComponentName(component);
     if (this.modes.get(component) === mode) return;
     this.modes.set(component, mode);
+    if (mode !== null && suspendSkip) this.modeSkips.set(component, suspendSkip);
+    else this.modeSkips.delete(component);
     this.bus.emit(EVENTS.MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
     this.syncInteractionLock();
   }
@@ -45,18 +55,39 @@ class ModeManager {
    * Suppress map-layer interaction while any component owns the map, and
    * restore it once the last mode clears. The policy is "any non-null mode
    * needs exclusive map interaction" — today only measure modes and export
-   * crop/export register modes, and both require it. If a future mode is
-   * added that does NOT need exclusivity, extend this with an explicit
-   * opt-out marker instead of weakening the condition.
+   * crop/export register modes, and both require it.
+   *
+   * A component may opt to keep some of its own layers interactive while its
+   * mode is active (MeasureControl's edit mode keeps measurement layers live)
+   * by passing a `suspendSkip` predicate to setMode. A leaf then stays
+   * interactive only when EVERY active component opts to skip it, so a mode
+   * that suspends everything (drawing / export) always wins over edit mode.
    */
   private syncInteractionLock() {
-    const anyActive = [...this.modes.values()].some(m => m !== null);
-    if (anyActive && !this.interactionLock) {
-      this.interactionLock = suspendMapInteractions(this.map);
-    } else if (!anyActive && this.interactionLock) {
-      this.interactionLock();
-      this.interactionLock = null;
+    const active = [...this.modes.entries()].filter(([, m]) => m !== null);
+    if (active.length === 0) {
+      if (this.interactionLock) {
+        this.interactionLock();
+        this.interactionLock = null;
+      }
+      this.interactionSkipSignature = "";
+      return;
     }
+    // A component without a skip predicate suspends everything, which makes
+    // the intersection skip irrelevant. Encode that regime (and otherwise the
+    // sorted set of skip-carrying components) so we only re-walk when the
+    // effective suspension policy actually changes — a switch between two
+    // all-suspending modes reuses the existing lock.
+    const hasSuspender = active.some(([component]) => !this.modeSkips.has(component));
+    const signature = hasSuspender
+      ? "suspend-all"
+      : active.map(([component]) => component).sort().join(",");
+    if (this.interactionLock && this.interactionSkipSignature === signature) return;
+    if (this.interactionLock) this.interactionLock();
+    const skip = (leaf: L.Layer) =>
+      !hasSuspender && active.every(([component]) => this.modeSkips.get(component)?.(leaf) ?? false);
+    this.interactionLock = suspendMapInteractions(this.map, skip);
+    this.interactionSkipSignature = signature;
   }
 
   /** Check whether a component is blocked by any active mode. */
@@ -75,6 +106,7 @@ class ModeManager {
 
   clear(): void {
     this.modes.clear();
+    this.modeSkips.clear();
     this.syncInteractionLock();
   }
 }

@@ -118,13 +118,22 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
  * disabled, so the restore closure re-enables exactly those and leaves
  * everything else (tiles, labels, non-interactive previews) untouched.
  *
+ * A `skip` predicate lets a caller exempt some leaves (e.g. edit mode keeps
+ * its own measurement layers interactive while suspending everything else).
+ *
  * @param {Object} map - Leaflet map.
+ * @param {Function} [skip] - Optional predicate: leaves it returns true for
+ *   are left interactive.
  * @returns {Function} Restore closure re-enabling the disabled leaves.
  */
-const suspendMapInteractions = (map: L.Map): (() => void) => {
+const suspendMapInteractions = (
+  map: L.Map,
+  skip?: (leaf: L.Layer) => boolean,
+): (() => void) => {
   const disabled: L.Layer[] = [];
   map.eachLayer(top => {
     forEachLeaf(top, leaf => {
+      if (skip?.(leaf)) return;
       const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
       if (opts?.interactive) disabled.push(leaf);
     });
@@ -183,10 +192,27 @@ const countFeatureGeometry = (layer: L.Layer): number => {
   return count;
 };
 
+/**
+ * Build a predicate matching leaves whose `options.pane` is one of `panes`.
+ * Used as a `suspendMapInteractions` skip so a component can keep its own
+ * layers interactive (e.g. edit mode's measurements) while suspending every
+ * other layer. The pane list is supplied by the caller, keeping this helper
+ * component-agnostic.
+ */
+const isLayerInPanes = (
+  panes: readonly string[],
+): ((leaf: L.Layer) => boolean) => {
+  return (leaf: L.Layer) => {
+    const opts = leaf.options as { pane?: string } | undefined;
+    return !!opts?.pane && panes.includes(opts.pane);
+  };
+};
+
 export {
   findLayer,
   forEachLayer,
   forEachLeaf,
+  isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
   getGeometryType,

@@ -2,6 +2,7 @@
 import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { isLayerInPanes } from "#core/layer/util.js";
 import { ensureModes } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -21,6 +22,10 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const foliplus = window.foliplus;
 const T = createScopedTranslator(CONF);
+
+/** In edit mode, suspend every layer except the measurement panes so nodes stay
+ *  draggable and shapes clickable to reveal their ✕ handles. */
+const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
 
 // ==================== Core Manager ====================
 /** Central manager for all measurements. */
@@ -275,6 +280,14 @@ class MeasureManager {
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
+    // Edit mode owns the map like a drawing mode, but it edits the measurement
+    // layers themselves — register it with a skip predicate so data layers are
+    // suspended while the measure panes stay interactive.
+    ensureModes(this.map).setMode(
+      CONF.name,
+      on ? CONST.MODE.EDIT : null,
+      on ? skipMeasureLayers : undefined,
+    );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
       if (btn.dataset.mode === CONST.MODE.EDIT)
