@@ -2,7 +2,8 @@
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
-.PHONY: clean clean-build clean-pyc clean-cov clean-html
+.PHONY: bundle-size-check
+.PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -18,6 +19,7 @@ help:
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
+	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
@@ -42,7 +44,10 @@ clean-html:
 	rm -rf doc/_build
 	rm -rf doc/source/_build
 
-clean: clean-build clean-pyc clean-cov clean-html
+clean-bundle-treemap:
+	rm -f bundle-treemap.html
+
+clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 lint:
 	pre-commit run -a -v
@@ -54,6 +59,9 @@ build-js:
 
 build-js-dev:
 	npm run build:dev
+
+bundle-size-check: build-js
+	npm run bundle-size:check
 
 build-python:
 	uv build

@@ -137,6 +137,85 @@ describe("ModeManager", () => {
       expect(map.eachLayer).not.toHaveBeenCalled();
       expect(leaf.options.interactive).toBe(false);
     });
+
+    it("keeps skipped layers interactive while suspending others", () => {
+      const makeLeafWithPane = (pane: string) => {
+        const el = document.createElement("path");
+        el.classList.add("leaflet-interactive");
+        return {
+          options: { interactive: true, pane },
+          _path: el,
+          _icon: undefined,
+          _container: undefined,
+          addInteractiveTarget: vi.fn(),
+          removeInteractiveTarget: vi.fn(),
+        };
+      };
+      const measureLeaf = makeLeafWithPane("measure_graph");
+      const dataLeaf = makeLeafWithPane("overlayPane");
+      const map = {
+        eachLayer: vi.fn((fn: (l: unknown) => void) =>
+          fn({
+            eachLayer: (c: (l: unknown) => void) => {
+              c(measureLeaf);
+              c(dataLeaf);
+            },
+          }),
+        ),
+        on: vi.fn(),
+      };
+      (measureLeaf as unknown as { _map: unknown })._map = map;
+      (dataLeaf as unknown as { _map: unknown })._map = map;
+      const mm = new ModeManager(makeBus(), map as any);
+
+      mm.setMode(
+        "MeasureControl",
+        "edit",
+        (leaf: L.Layer) => (leaf as any).options.pane === "measure_graph",
+      );
+
+      expect(measureLeaf.options.interactive).toBe(true); // skipped → kept live
+      expect(dataLeaf.options.interactive).toBe(false); // suspended
+
+      mm.setMode("MeasureControl", null);
+      expect(dataLeaf.options.interactive).toBe(true); // restored
+    });
+
+    it("an all-suspending mode overrides a skip (no leaf kept when both active)", () => {
+      const makeLeafWithPane = (pane: string) => {
+        const el = document.createElement("path");
+        el.classList.add("leaflet-interactive");
+        return {
+          options: { interactive: true, pane },
+          _path: el,
+          _icon: undefined,
+          _container: undefined,
+          addInteractiveTarget: vi.fn(),
+          removeInteractiveTarget: vi.fn(),
+        };
+      };
+      const measureLeaf = makeLeafWithPane("measure_graph");
+      const map = {
+        eachLayer: vi.fn((fn: (l: unknown) => void) =>
+          fn({ eachLayer: (c: (l: unknown) => void) => c(measureLeaf) }),
+        ),
+        on: vi.fn(),
+      };
+      (measureLeaf as unknown as { _map: unknown })._map = map;
+      const mm = new ModeManager(makeBus(), map as any);
+
+      // Edit mode keeps measure layers live...
+      mm.setMode("MeasureControl", "edit", () => true);
+      expect(measureLeaf.options.interactive).toBe(true);
+
+      // ...but a component with no skip (export) suspends everything.
+      mm.setMode("ExportControl", "exporting");
+      expect(measureLeaf.options.interactive).toBe(false);
+
+      mm.setMode("MeasureControl", null);
+      mm.setMode("ExportControl", null);
+      expect(measureLeaf.options.interactive).toBe(true);
+    });
   });
 });
 

@@ -1,7 +1,6 @@
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
-  hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
 } from "#common/delicon.js";
@@ -24,6 +23,95 @@ class MarkerMode extends MeasureMode {
   static NAME_LABEL_KEY = "name_marker";
 
   onMarkerClickRef!: (event: L.LeafletMouseEvent) => void;
+
+  /** Bind pin drag (translate) for a finished marker. Returns cleanup. */
+  private static bindPinDrag(
+    manager: MeasureManager,
+    marker: L.Marker,
+    delMarker: L.Marker,
+    measurement: MeasureData,
+  ): () => void {
+    // Guard against overlapping reverse-geocode races: if a new drag starts
+    // before the previous geocode resolves, the stale result must not
+    // overwrite the newer coordinates/address.
+    let generation = 0;
+    let rafId: number | null = null;
+
+    const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
+      onDrag: (latlng: L.LatLng) => {
+        delMarker.setLatLng(latlng);
+        measurement.lng = Util.roundCoord(latlng.lng);
+        measurement.lat = Util.roundCoord(latlng.lat);
+        // Throttle persists: live-update the coords but batch the write so
+        // each mousemove doesn't do its own localStorage round-trip.
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          manager.saveMeasurements();
+        });
+      },
+      onEnd: async (latlng: L.LatLng) => {
+        Util.markDragSyntheticClick();
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        const gen = ++generation;
+        measurement.lng = Util.roundCoord(latlng.lng);
+        measurement.lat = Util.roundCoord(latlng.lat);
+        const code = window.CONF?.locale_code ?? "en";
+        const addr = await Util.geocodeAddress(
+          manager,
+          measurement.lng!,
+          measurement.lat!,
+          code,
+          measurement.address ?? null,
+        );
+        if (gen !== generation) return; // a newer drag superseded us
+        measurement.address = addr;
+        manager.saveMeasurements();
+        if (marker.getPopup()?.isOpen())
+          marker.setPopupContent(
+            Util.buildPopup(measurement.lng!, measurement.lat!, addr),
+          );
+      },
+    });
+    // Drag is gated by edit mode (no popup-first required), matching
+    // distance/polygon/circle nodes.
+    const unregisterDragToggle = manager.registerEditDragToggle(enabled =>
+      drag.setEnabled(enabled),
+    );
+
+    // The pin shares the edit overlay: clicking it in edit mode shows its ✕
+    // and closes every other open overlay (single selection). Outside edit
+    // mode the marker's default popup (address) behavior is untouched.
+    const overlay = Util.buildEditOverlay(manager, {
+      onOpen: () => toggleDelIcon(delMarker, true),
+      onEmpty: () => {
+        toggleDelIcon(delMarker, false);
+        marker.closePopup();
+      },
+    });
+
+    const onPinClick = (ev: L.LeafletMouseEvent) => {
+      if (!manager.isEditMode) return;
+      if (Util.isDragSyntheticClick()) return;
+      overlay.open(ev);
+    };
+    marker.on("click", onPinClick);
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      generation += 1; // invalidate any in-flight geocode
+      drag.cleanup();
+      unregisterDragToggle();
+      overlay.cleanup();
+      marker.off("click", onPinClick);
+    };
+  }
 
   /** Rebuild a persisted marker measurement.
    *  @param manager - MeasureManager instance.
@@ -59,19 +147,23 @@ class MarkerMode extends MeasureMode {
     );
 
     marker.on("popupopen", () => {
-      hideDelIcons();
-      // Use the latest resolved address so a marker whose geocode finished
-      // while the popup was closed still shows the real address on first open
-      // (createLocationMarker only updates an open popup).
       if (data.address !== null)
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
-      toggleDelIcon(delMarker, true);
-    });
-    marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
     });
 
+    // Pass `data` by reference so drag mutations persist to the manager's
+    // measurements (a copy would be discarded by saveMeasurements()).
+    const cleanupPin = MarkerMode.bindPinDrag(
+      manager,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      data,
+    );
+    const unregisterFinalized = manager.registerFinalized(cleanupPin);
+
     const deleteMeasurement = () => {
+      unregisterFinalized();
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
       manager.measurements = manager.measurements.filter(x => x.id !== data.id);
@@ -90,10 +182,8 @@ class MarkerMode extends MeasureMode {
   /** Handle marker click. */
   async handleMarkerClick(event: L.LeafletMouseEvent) {
     if (this.m.currentMode !== this.type) return;
-    const lng = event.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-    const lat = event.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-    const lngNum = parseFloat(lng);
-    const latNum = parseFloat(lat);
+    const lngNum = Util.roundCoord(event.latlng.lng);
+    const latNum = Util.roundCoord(event.latlng.lat);
 
     // Save the measurement IMMEDIATELY (address resolved later) so the
     // marker survives a page reload even while geocoding is in flight.
@@ -144,7 +234,17 @@ class MarkerMode extends MeasureMode {
 
     // Bind delete + popup events BEFORE async geocode so the X works even
     // while the address lookup is still in flight.
+    const cleanupPin = MarkerMode.bindPinDrag(
+      this.m,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      measurement,
+    );
+    const unregisterFinalized = this.m.registerFinalized(cleanupPin);
+
     const deleteMeasurement = () => {
+      unregisterFinalized();
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
       this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
@@ -153,16 +253,9 @@ class MarkerMode extends MeasureMode {
     };
     attachDelClick(delMarker, deleteMeasurement);
 
-    // Bind popup events BEFORE async geocode so X appears on first popup open
     marker.on("popupopen", () => {
-      hideDelIcons();
       if (measurement.address !== null)
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
-      toggleDelIcon(delMarker, true);
-    });
-
-    marker.on("popupclose", () => {
-      toggleDelIcon(delMarker, false);
     });
   }
 

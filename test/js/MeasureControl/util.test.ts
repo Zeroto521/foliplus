@@ -2,8 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
+const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reset the one-shot drag-synthetic-click flag between tests.
+  delete (window as any).__foliplus_measure_drag_click;
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.DomEvent = {
     ...window.L.DomEvent,
@@ -16,6 +20,9 @@ beforeEach(() => {
     midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
+    destination: vi.fn((coord, _, bearing) => ({
+      geometry: { coordinates: [coord[0] + bearing, coord[1] + bearing] },
+    })),
   };
 });
 
@@ -42,6 +49,18 @@ describe("pointsToLatLngs", () => {
   });
 });
 
+describe("roundCoord", () => {
+  it("rounds to the persisted 6-decimal precision", () => {
+    expect(Util.roundCoord(121.987654321)).toBe(121.987654);
+    expect(Util.roundCoord(31.123456789)).toBe(31.123457);
+  });
+
+  it("preserves whole numbers and trailing zeros", () => {
+    expect(Util.roundCoord(122)).toBe(122);
+    expect(Util.roundCoord(121.5)).toBe(121.5);
+  });
+});
+
 describe("formatDistance", () => {
   it("formats meters below the km threshold", () => {
     expect(Util.formatDistance(500)).toBe("500 m");
@@ -62,43 +81,6 @@ describe("formatArea", () => {
   });
 });
 
-describe("nextToggleState", () => {
-  it("defaults to toggling X when showX is undefined", () => {
-    expect(Util.nextToggleState(false, true, undefined, undefined)).toEqual({
-      isXVisible: true,
-      isLabelsVisible: true,
-    });
-  });
-
-  it("honors explicit showX and label toggles", () => {
-    expect(Util.nextToggleState(true, true, false, false)).toEqual({
-      isXVisible: false,
-      isLabelsVisible: false,
-    });
-  });
-
-  it("resets labels when toggleLbl is reset", () => {
-    expect(Util.nextToggleState(true, false, undefined, "reset")).toEqual({
-      isXVisible: false,
-      isLabelsVisible: true,
-    });
-  });
-});
-
-describe("toggleVisibility", () => {
-  it("toggles the hidden class on elements", () => {
-    const el = document.createElement("div");
-    Util.toggleVisibility([el], false);
-    expect(el.classList.contains("foliplus-measure-hidden")).toBe(true);
-    Util.toggleVisibility([el], true);
-    expect(el.classList.contains("foliplus-measure-hidden")).toBe(false);
-  });
-
-  it("skips null elements", () => {
-    expect(() => Util.toggleVisibility([null, undefined], true)).not.toThrow();
-  });
-});
-
 describe("label div icons", () => {
   it("makeLabelDivIcon builds a divIcon with label html", () => {
     Util.makeLabelDivIcon("hi", [0, -10], "extra");
@@ -113,6 +95,12 @@ describe("label div icons", () => {
     Util.makeMidLabelDivIcon("mid");
     const opts = window.L.divIcon.mock.calls[0][0];
     expect(opts.html).toContain("foliplus-measure-label-mid");
+  });
+
+  it("makeLabelDivIcon falls back to the default anchor when none is given", () => {
+    Util.makeLabelDivIcon("hi");
+    const opts = window.L.divIcon.mock.calls[0][0];
+    expect(opts.iconAnchor).toEqual([0, -10]);
   });
 });
 
@@ -137,6 +125,16 @@ describe("setLabelText", () => {
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
     Util.setLabelText(marker, "new text");
     expect(labelEl.textContent).toBe("new text");
+  });
+
+  it("does nothing when the marker has no element", () => {
+    const marker = { getElement: () => null };
+    expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
+  });
+
+  it("does nothing when the label element is absent", () => {
+    const marker = { getElement: () => ({ querySelector: () => null }) };
+    expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
   });
 });
 
@@ -193,31 +191,6 @@ describe("formatSegmentLabel", () => {
     const b = { lng: 0, lat: 1 };
     const label = Util.formatSegmentLabel(a, b, 500);
     expect(label).toBe("45° | 500 m");
-  });
-});
-
-describe("suppressHide", () => {
-  it("sets a delayed flag and clears it after the delay", () => {
-    vi.useFakeTimers();
-    const manager = { isSuppressHideDel: false };
-    Util.suppressHide(manager);
-    expect(manager.isSuppressHideDel).toBe(true);
-    vi.advanceTimersByTime(1000);
-    expect(manager.isSuppressHideDel).toBe(false);
-    vi.useRealTimers();
-  });
-});
-
-describe("applyVisibilityToggle", () => {
-  it("toggles labels and calls onToggle", () => {
-    const labelEl = document.createElement("span");
-    labelEl.classList.add("foliplus-measure-label");
-    const marker = { getElement: () => ({ querySelector: () => labelEl }) };
-    const delMarker = { getElement: () => ({ querySelector: () => null }) };
-    const onToggle = vi.fn();
-    Util.applyVisibilityToggle(delMarker, true, [marker], false, null, onToggle);
-    expect(labelEl.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(onToggle).toHaveBeenCalledWith(true, false);
   });
 });
 
@@ -283,38 +256,6 @@ describe("recalculateSegments edge cases", () => {
   });
 });
 
-describe("applyVisibilityToggle edge cases", () => {
-  it("handles null delMarker gracefully", () => {
-    expect(() =>
-      Util.applyVisibilityToggle(null, true, [], false, null, undefined),
-    ).not.toThrow();
-  });
-
-  it("applies visibility to extra label", () => {
-    const extraEl = document.createElement("span");
-    extraEl.classList.add("foliplus-measure-label");
-    const extraLabel = { getElement: () => ({ querySelector: () => extraEl }) };
-    const onToggle = vi.fn();
-    Util.applyVisibilityToggle(undefined, true, [], false, extraLabel as any, onToggle);
-    expect(extraEl.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(onToggle).toHaveBeenCalledWith(true, false);
-  });
-});
-
-describe("toggleVisibility edge cases", () => {
-  it("handles empty array", () => {
-    expect(() => Util.toggleVisibility([], true)).not.toThrow();
-  });
-
-  it("toggles multiple elements", () => {
-    const el1 = document.createElement("div");
-    const el2 = document.createElement("div");
-    Util.toggleVisibility([el1, el2], false);
-    expect(el1.classList.contains("foliplus-measure-hidden")).toBe(true);
-    expect(el2.classList.contains("foliplus-measure-hidden")).toBe(true);
-  });
-});
-
 describe("getEventTarget", () => {
   it("returns the target from a LeafletMouseEvent", () => {
     const el = document.createElement("div");
@@ -327,5 +268,413 @@ describe("getEventTarget", () => {
   it("returns null when originalEvent is missing", () => {
     const event = {} as L.LeafletMouseEvent;
     expect(Util.getEventTarget(event)).toBeNull();
+  });
+});
+
+describe("buildEditOverlay", () => {
+  function makeMap() {
+    return {
+      on: vi.fn(),
+      off: vi.fn(),
+    } as any;
+  }
+  function makeMgr(overrides: Record<string, unknown> = {}) {
+    return { map: makeMap(), isEditMode: true, ...overrides };
+  }
+
+  it("exposes open and cleanup", () => {
+    const mgr = makeMgr();
+    const overlay = Util.buildEditOverlay(mgr as any, {});
+
+    expect(typeof overlay.open).toBe("function");
+    expect(typeof overlay.cleanup).toBe("function");
+    expect(typeof overlay.close).toBe("function");
+  });
+
+  it("close() is a no-op when the overlay is not open", () => {
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(makeMgr() as any, {
+      onOpen: vi.fn(),
+      onEmpty,
+    });
+
+    overlay.close();
+
+    expect(onEmpty).not.toHaveBeenCalled();
+  });
+
+  it("fires onOpen and stops Leaflet propagation on open", () => {
+    const mgr = makeMgr();
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const ev = { originalEvent: {} } as any;
+
+    overlay.open(ev);
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    // Stops layer→map propagation so the overlay's own map-click handler
+    // (which closes it) doesn't fire right after open.
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
+  });
+
+  it("closes other open overlays on open (single ✕ set at a time)", () => {
+    const closeOtherEditOverlays = vi.fn();
+    const mgr = makeMgr({ closeOtherEditOverlays });
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+
+    overlay.open({ originalEvent: {} } as any);
+
+    expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
+    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("does not open when not in edit mode", () => {
+    const mgr = makeMgr({ isEditMode: false });
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+
+    overlay.open({} as any);
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("does not open on a drag-synthetic click", () => {
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen });
+
+    Util.markDragSyntheticClick();
+    overlay.open({ originalEvent: {} } as any);
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("does not re-open while already open", () => {
+    const mgr = makeMgr();
+    const onOpen = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+
+    overlay.open({} as any);
+    overlay.open({} as any);
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires onEmpty when empty space is clicked", () => {
+    const map = makeMap();
+    const mgr = { map, isEditMode: true };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+
+    // find the map-click handler registered by buildEditOverlay
+    overlay.open({} as any);
+    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    expect(mapClickHandler).toBeDefined();
+    mapClickHandler();
+    expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a drag-synthetic click", () => {
+    const map = makeMap();
+    const mgr = { map, isEditMode: true };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+
+    overlay.open({} as any);
+    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    Util.markDragSyntheticClick();
+    mapClickHandler();
+    expect(onEmpty).not.toHaveBeenCalled();
+  });
+
+  it("registers and cleans up the map-click listener", () => {
+    const map = makeMap();
+    const mgr = { map, isEditMode: true };
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+
+    overlay.open(fakeEv());
+    overlay.cleanup();
+
+    expect(map.off).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+
+  it("registers a closer and close() hides the overlay via onEmpty", () => {
+    const closers: Array<() => void> = [];
+    const mgr = {
+      map: makeMap(),
+      isEditMode: true,
+      registerEditOverlayCloser: (c: () => void) => {
+        closers.push(c);
+        return () => {
+          const i = closers.indexOf(c);
+          if (i !== -1) closers.splice(i, 1);
+        };
+      },
+    };
+    const onEmpty = vi.fn();
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+
+    overlay.open({} as any);
+    expect(closers).toHaveLength(1);
+
+    closers[0]();
+    expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleanup unregisters the closer so deleted measurements drop their entry", () => {
+    const closers: Array<() => void> = [];
+    const mgr = {
+      map: makeMap(),
+      isEditMode: true,
+      registerEditOverlayCloser: (c: () => void) => {
+        closers.push(c);
+        return () => {
+          const i = closers.indexOf(c);
+          if (i !== -1) closers.splice(i, 1);
+        };
+      },
+    };
+    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    expect(closers).toHaveLength(1);
+
+    overlay.cleanup();
+    expect(closers).toHaveLength(0);
+  });
+});
+
+describe("markDragSyntheticClick / isDragSyntheticClick", () => {
+  it("returns true once after markDragSyntheticClick", () => {
+    Util.markDragSyntheticClick();
+    expect(Util.isDragSyntheticClick()).toBe(true);
+    expect(Util.isDragSyntheticClick()).toBe(false); // consumed-on-read
+  });
+
+  it("returns false by default", () => {
+    expect(Util.isDragSyntheticClick()).toBe(false);
+  });
+});
+
+describe("bindNodeDrag", () => {
+  it("re-queries the node element when applying the move cursor (regression)", () => {
+    // resortLayers() re-creates a node's SVG path, so a cursor captured at
+    // bind time would go stale and the "move" cursor would silently stop.
+    let current: { style: { cursor: string } } = { style: { cursor: "" } };
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getElement: vi.fn(() => current),
+      setLatLng: vi.fn(),
+    };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+
+    // Simulate the node's element being replaced (resortLayers re-render).
+    current = { style: { cursor: "" } };
+
+    setEnabled(true);
+    expect(current.style.cursor).toBe("move");
+  });
+
+  it("calls onDrag and onEnd through the drag lifecycle", () => {
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 1, lng: 1 })),
+      setLatLng: vi.fn(),
+    };
+    const del = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const onDrag = vi.fn();
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+
+    const { setEnabled, cleanup } = Util.bindNodeDrag(
+      node as any,
+      del as any,
+      map as any,
+      { onDrag, onEnd },
+    );
+    setEnabled(true);
+
+    // find handlers
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onNodeUp = (node.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
+    expect(map.dragging.disable).toHaveBeenCalled();
+
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(del.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
+    // node-level mouseup delegates to the shared onUp handler
+    onNodeUp({
+      originalEvent: { clientX: 10, clientY: 0 },
+      latlng: { lat: 2, lng: 2 },
+    });
+    expect(onEnd).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+    expect(map.dragging.enable).toHaveBeenCalled();
+
+    cleanup();
+    expect(node.off).toHaveBeenCalledWith("mousedown", expect.any(Function));
+  });
+
+  it("invokes onDrag before moving the node (findPtIdx sees the old latlng)", () => {
+    // Regression: onDrag handlers in distance/polygon locate the point by
+    // node.getLatLng(); if the node is moved first, they can't find it and the
+    // drag silently no-ops.
+    let currentLatLng = { lat: 1, lng: 1 };
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => currentLatLng),
+      setLatLng: vi.fn(l => {
+        currentLatLng = l;
+      }),
+    };
+    const seen: Array<{ lat: number; lng: number }> = [];
+    const onDrag = vi.fn(() => {
+      seen.push(node.getLatLng());
+    });
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+
+    // During onDrag the node still reports its ORIGINAL position.
+    expect(seen).toEqual([{ lat: 1, lng: 1 }]);
+    // After onDrag, the node is moved.
+    expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+  });
+
+  it("does not drag when enabled is false", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    // enabled defaults to false
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    onDown({});
+    expect(map.dragging.disable).not.toHaveBeenCalled();
+    setEnabled(true);
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    expect(map.dragging.disable).toHaveBeenCalled();
+  });
+
+  it("skips onEnd when movement stayed inside the tap threshold", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onEnd });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    // movement of 2px < DRAG_THRESHOLD (4px)
+    onMove({ originalEvent: { clientX: 2, clientY: 0 } });
+    onUp({ originalEvent: { clientX: 2, clientY: 0 } });
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it("gracefully ignores a synthesized mousedown with no originalEvent", () => {
+    const node = { on: vi.fn(), off: vi.fn() };
+    const onDrag = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    onDown({ originalEvent: undefined, latlng: { lat: 1, lng: 1 } });
+    expect(map.dragging.disable).not.toHaveBeenCalled();
+    // No startPt was set, so a later move must not drag
+    onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+    expect(onDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe("geocodeAddress", () => {
+  it("calls reverseGeocode and returns the resolved address", async () => {
+    const resolvedAddr = "123 Main St";
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.resolve(resolvedAddr)),
+    } as any;
+    const mgr = { map: {} };
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", null);
+    expect(window.foliplus.reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
+    expect(result).toBe(resolvedAddr);
+  });
+
+  it("falls back to the previous address on geocode failure", async () => {
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.reject(new Error("offline"))),
+    } as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
+  });
+
+  it("returns previous address when reverseGeocode returns null", async () => {
+    window.foliplus = {
+      reverseGeocode: vi.fn(() => Promise.resolve(null)),
+    } as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
+  });
+
+  it("returns previous when foliplus.reverseGeocode is unavailable", async () => {
+    window.foliplus = undefined as any;
+    const mgr = { map: {} };
+    const prev = "fallback address";
+    const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+    expect(result).toBe(prev);
   });
 });

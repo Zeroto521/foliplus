@@ -55,7 +55,7 @@ class PolygonMode extends PreviewMode {
       });
     }
 
-    const onMapClickActive = attachPolygonUI(manager, {
+    attachPolygonUI(manager, {
       layers: manager.layers,
       finalPoly,
       nodeMarkers,
@@ -83,7 +83,6 @@ class PolygonMode extends PreviewMode {
         manager.saveMeasurements();
       },
     });
-    manager.finalizedClickHandlers.push(onMapClickActive);
   }
 
   start() {
@@ -189,8 +188,9 @@ class PolygonMode extends PreviewMode {
         );
       }
 
-      // Attach toggle/delete UI (shared with restorePolygon)
-      const onPolyMapClick = attachPolygonUI(this.m, {
+      // Attach toggle/delete UI (shared with restorePolygon). It self-registers
+      // its dispose via registerFinalized, so clearAll/destroy can unbind it.
+      attachPolygonUI(this.m, {
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -221,8 +221,9 @@ class PolygonMode extends PreviewMode {
           this.m.saveMeasurements();
         },
       });
-      this._cleanup = () => this.m.map.off("click", onPolyMapClick);
-      this.m.finalizedClickHandlers.push(onPolyMapClick);
+      // Replace the drawing-phase cleanup with a no-op (it would remove the
+      // finalized polygon/nodes).
+      this._cleanup = () => {};
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, polyEvents);

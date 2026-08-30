@@ -4,10 +4,15 @@ import { vi } from "vitest";
 
 export function initMocks() {
   vi.clearAllMocks();
+  // Reset the one-shot drag-synthetic-click flag so a prior test's drag end
+  // doesn't leak into the next test's click handler.
+  delete (window as any).__foliplus_measure_drag_click;
 
   window.L.circleMarker = vi.fn(() => ({
     bringToFront: vi.fn(),
     on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
     getLatLng: vi.fn(() => ({ lat: 31, lng: 121 })),
     getElement: vi.fn(() => null),
   }));
@@ -17,34 +22,44 @@ export function initMocks() {
     setLatLngs: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
   window.L.polygon = vi.fn(() => ({
     setLatLngs: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
   window.L.circle = vi.fn(() => ({
     setRadius: vi.fn(),
+    setLatLng: vi.fn(),
     getElement: vi.fn(() => null),
     on: vi.fn(),
+    off: vi.fn(),
   }));
 
-  window.L.marker = vi.fn(() => ({
-    setLatLng: vi.fn(),
-    setIcon: vi.fn(),
-    on: vi.fn(),
-    bringToFront: vi.fn(),
-    getElement: vi.fn(() => null),
-    setZIndexOffset: vi.fn(),
-    bindPopup: vi.fn(() => ({})),
-    openPopup: vi.fn(),
-    getPopup: vi.fn(() => null),
-    setPopupContent: vi.fn(),
-    addTo: vi.fn(),
-    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
-  }));
+  const markerFactory = vi.fn(() => {
+    const m: any = {
+      setLatLng: vi.fn(),
+      setIcon: vi.fn(),
+      bringToFront: vi.fn(),
+      getElement: vi.fn(() => null),
+      setZIndexOffset: vi.fn(),
+      bindPopup: vi.fn(() => ({})),
+      openPopup: vi.fn(),
+      closePopup: vi.fn(),
+      getPopup: vi.fn(() => null),
+      setPopupContent: vi.fn(),
+      addTo: vi.fn(() => m),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+    };
+    m.on = vi.fn(() => m);
+    m.off = vi.fn(() => m);
+    return m;
+  });
+  window.L.marker = markerFactory;
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
 
@@ -63,6 +78,9 @@ export function initMocks() {
     bearing: vi.fn(() => 45),
     midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
     area: vi.fn(() => 1000),
+    destination: vi.fn((coord, _, bearing) => ({
+      geometry: { coordinates: [coord[0] + bearing, coord[1] + bearing] },
+    })),
     polygon: vi.fn(rings => ({
       type: "Feature",
       geometry: { type: "Polygon", coordinates: rings },
@@ -88,24 +106,43 @@ export function initMocks() {
 }
 
 export function makeManagerMock() {
+  const finalizedClickHandlers: Array<() => void> = [];
   return {
     map: {
       on: vi.fn(),
       off: vi.fn(),
       removeLayer: vi.fn(),
       getContainer: () => document.createElement("div"),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
     },
     layers: {
       addLayer: vi.fn(l => l),
       removeLayer: vi.fn(),
+      unregister: vi.fn(),
       mainLayer: { addLayer: vi.fn(l => l) },
     },
     nextMeasurementId: vi.fn(() => "test-id"),
     saveMeasurements: vi.fn(),
     clearActiveMode: vi.fn(),
     cleanMapEvents: vi.fn(),
+    registerEditOverlayCloser: vi.fn(() => () => {}),
+    registerEditDragToggle: vi.fn(() => () => {}),
+    registerFinalized: vi.fn((cleanup: () => void) => {
+      finalizedClickHandlers.push(cleanup);
+      return () => {
+        const i = finalizedClickHandlers.indexOf(cleanup);
+        if (i !== -1) finalizedClickHandlers.splice(i, 1);
+      };
+    }),
     currentMode: null,
+    isEditMode: false,
     measurements: [],
-    finalizedClickHandlers: [],
+    finalizedClickHandlers,
   };
 }
