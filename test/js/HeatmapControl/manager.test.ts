@@ -587,3 +587,183 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(redrawSpy).toHaveBeenCalled();
   });
 });
+
+describe("HeatmapManager — persistence", () => {
+  const KEY = CONST.STORAGE.KEY;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  describe("saveConfig", () => {
+    it("serialises all current state to localStorage", () => {
+      const m = makeManager();
+      m.selectedLayerId = "layer_abc";
+      m.currentAgg = CONST.AGG.SUM;
+      m.currentMethod = CONST.METHOD.QUANTILE;
+      m.currentScheme = "Blues";
+      m.numClasses = 4;
+      m.borderWeight = 2;
+      m.borderColor = "#ff0000";
+      m.currentLabelShow = true;
+      m.currentField = "properties.price";
+      m.fieldAuto = false;
+
+      m.saveConfig();
+
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.layerId).toBe("layer_abc");
+      expect(stored.agg).toBe("sum");
+      expect(stored.method).toBe("quantile");
+      expect(stored.scheme).toBe("Blues");
+      expect(stored.numClasses).toBe(4);
+      expect(stored.borderWeight).toBe(2);
+      expect(stored.borderColor).toBe("#ff0000");
+      expect(stored.labelShow).toBe(true);
+      expect(stored.field).toBe("properties.price");
+      expect(stored.fieldAuto).toBe(false);
+    });
+
+    it("saves null layerId when no layer selected", () => {
+      const m = makeManager();
+      m.selectedLayerId = null;
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.layerId).toBeNull();
+    });
+  });
+
+  describe("loadSavedConfig", () => {
+    it("returns null when nothing is stored", () => {
+      const m = makeManager();
+      expect(m.loadSavedConfig()).toBeNull();
+    });
+
+    it("returns parsed config from localStorage", () => {
+      const m = makeManager();
+      const cfg = { layerId: "x", agg: "sum", method: "jenks", scheme: "Reds" };
+      window.localStorage.setItem(KEY, JSON.stringify(cfg));
+      expect(m.loadSavedConfig()).toEqual(cfg);
+    });
+
+    it("returns null for corrupted JSON", () => {
+      const m = makeManager();
+      window.localStorage.setItem(KEY, "not-json");
+      expect(m.loadSavedConfig()).toBeNull();
+    });
+  });
+
+  describe("clearSavedConfig", () => {
+    it("removes the storage key", () => {
+      const m = makeManager();
+      window.localStorage.setItem(KEY, JSON.stringify({ agg: "sum" }));
+      expect(window.localStorage.getItem(KEY)).not.toBeNull();
+      m.clearSavedConfig();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it("does not throw when key does not exist", () => {
+      const m = makeManager();
+      expect(() => m.clearSavedConfig()).not.toThrow();
+    });
+  });
+
+  describe("applySavedConfig", () => {
+    it("applies all fields to manager state", () => {
+      const m = makeManager();
+      m.applySavedConfig({
+        layerId: "layer_xyz",
+        agg: "max",
+        method: "equal",
+        scheme: "Greens",
+        numClasses: 5,
+        borderWeight: 3,
+        borderColor: "#00ff00",
+        labelShow: true,
+        field: "properties.qty",
+        fieldAuto: false,
+      });
+      expect(m.selectedLayerId).toBe("layer_xyz");
+      expect(m.currentAgg).toBe("max");
+      expect(m.currentMethod).toBe("equal");
+      expect(m.currentScheme).toBe("Greens");
+      expect(m.numClasses).toBe(5);
+      expect(m.borderWeight).toBe(3);
+      expect(m.borderColor).toBe("#00ff00");
+      expect(m.currentLabelShow).toBe(true);
+      expect(m.currentField).toBe("properties.qty");
+      expect(m.fieldAuto).toBe(false);
+    });
+
+    it("clamps numClasses to valid range", () => {
+      const m = makeManager();
+      m.applySavedConfig({ numClasses: 99 });
+      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+
+      m.applySavedConfig({ numClasses: 0 });
+      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MIN);
+    });
+
+    it("applies only present fields, keeps defaults for missing", () => {
+      const m = makeManager();
+      m.currentAgg = "custom_agg";
+      m.applySavedConfig({ agg: "sum" });
+      expect(m.currentAgg).toBe("sum");
+      expect(m.currentMethod).toBe("jenks");
+      expect(m.currentScheme).toBe("Reds");
+    });
+
+    it("sets selectedLayerId to null when layerId is missing", () => {
+      const m = makeManager();
+      m.selectedLayerId = "old_layer";
+      m.applySavedConfig({});
+      expect(m.selectedLayerId).toBeNull();
+    });
+
+    it("ignores undefined borderWeight, keeps current value", () => {
+      const m = makeManager();
+      m.borderWeight = 2.5;
+      m.applySavedConfig({});
+      expect(m.borderWeight).toBe(2.5);
+    });
+  });
+
+  describe("round-trip (save → load → apply)", () => {
+    it("restores full configuration after clear", () => {
+      const m1 = makeManager();
+      m1.selectedLayerId = "r1";
+      m1.currentAgg = "avg";
+      m1.currentMethod = "heads";
+      m1.currentScheme = "Viridis";
+      m1.numClasses = 3;
+      m1.borderWeight = 0.5;
+      m1.borderColor = "#111111";
+      m1.currentLabelShow = true;
+      m1.currentField = "properties.value";
+      m1.fieldAuto = false;
+      m1.saveConfig();
+
+      const m2 = makeManager();
+      const loaded = m2.loadSavedConfig();
+      expect(loaded).not.toBeNull();
+      m2.applySavedConfig(loaded!);
+
+      expect(m2.selectedLayerId).toBe("r1");
+      expect(m2.currentAgg).toBe("avg");
+      expect(m2.currentMethod).toBe("heads");
+      expect(m2.currentScheme).toBe("Viridis");
+      expect(m2.numClasses).toBe(3);
+      expect(m2.borderWeight).toBe(0.5);
+      expect(m2.borderColor).toBe("#111111");
+      expect(m2.currentLabelShow).toBe(true);
+      expect(m2.currentField).toBe("properties.value");
+      expect(m2.fieldAuto).toBe(false);
+    });
+
+    it("returns defaults when localStorage is empty", () => {
+      const m = makeManager();
+      const loaded = m.loadSavedConfig();
+      expect(loaded).toBeNull();
+    });
+  });
+});

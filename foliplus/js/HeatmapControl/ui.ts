@@ -4,6 +4,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
@@ -40,8 +41,15 @@ export interface HeatmapControlUI {
   toggleSchemeDropdown: () => void;
 }
 
+/** Save the current config after any user-initiated change. */
+const persist = (ctrl: HeatmapControlUI) => ctrl.m.saveConfig();
+
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   panelContent.innerHTML = panelContentHTML(T);
+
+  // Restore saved configuration before setting initial values.
+  const saved = ctrl.m.loadSavedConfig();
+  if (saved) ctrl.m.applySavedConfig(saved);
 
   // Query key elements from the template using DATA_ATTR constants
   ctrl.layerSelect = panelContent.querySelector(
@@ -107,6 +115,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.currentAgg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.fieldSelect.onchange = () => {
@@ -114,11 +123,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.fieldAuto = false;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.methodSelect.onchange = () => {
     ctrl.m.currentMethod = ctrl.methodSelect.value;
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.classSelect.onchange = () => {
@@ -132,6 +143,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     updateSchemeBar(ctrl);
     if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.schemeBar.onclick = event => {
@@ -149,11 +161,15 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.currentScheme = ctrl.schemeSelectHidden.value;
     updateSchemeBar(ctrl);
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.borderColorInput.oninput = () => {
     ctrl.m.borderColor = ctrl.borderColorInput.value;
     ctrl.m.renderHexagons();
+  };
+  ctrl.borderColorInput.onchange = () => {
+    persist(ctrl);
   };
 
   ctrl.borderWeightInput.oninput = () => {
@@ -170,11 +186,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
     ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.labelChk.onchange = () => {
     ctrl.m.currentLabelShow = ctrl.labelChk.checked;
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
@@ -200,6 +218,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
     resetAll(ctrl);
+    ctrl.m.clearSavedConfig();
     syncSelect(ctrl, ctrl.layerSelect, "");
     syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
     syncSelect(
@@ -285,6 +304,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
     if (ctrl.m.selectedLayerId) ctrl.m.renderHexagons();
     else ctrl.m.clearHeatmapCanvas();
+    persist(ctrl);
   };
 
   syncSelect(ctrl, sel, sel.value);
@@ -434,6 +454,7 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   }
   ctrl.m.renderHexagons();
   ctrl.schemeBar.focus();
+  persist(ctrl);
 };
 
 const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
