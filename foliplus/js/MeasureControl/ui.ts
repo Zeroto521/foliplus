@@ -347,10 +347,7 @@ interface PolygonAttachOpts {
   area: number;
 }
 
-const attachPolygonUI = (
-  mgr: MeasureManager,
-  opts: PolygonAttachOpts,
-): void => {
+const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => {
   const {
     layers,
     finalPoly,
