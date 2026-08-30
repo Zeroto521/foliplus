@@ -291,14 +291,21 @@ class HeatmapManager {
   // --- Data Extraction ---
 
   /** Geographic extent of the heatmap, so LayerControl can focus this canvas
-   *  layer (it has no Leaflet layer to derive bounds from). Uses hexagon
-   *  centroids when rendered; falls back to the source point layers. */
+   *  layer (it has no Leaflet layer to derive bounds from). Uses the hexagon
+   *  polygon rings when rendered (exact, includes the hexagon radius that the
+   *  centroid alone would omit); falls back to the source point layers. */
   computeBounds(): L.LatLngBounds | null {
     const acc = L.latLngBounds([]);
     if (this.cachedFeatures?.length) {
       for (const feat of this.cachedFeatures) {
-        const c = feat.properties.centroid;
-        if (c) acc.extend([c[0], c[1]]);
+        const ring = feat.geometry?.coordinates?.[0];
+        if (ring?.length) {
+          // GeoJSON order [lng, lat].
+          for (const [lng, lat] of ring) acc.extend([lat, lng]);
+        } else {
+          const c = feat.properties.centroid;
+          if (c) acc.extend([c[0], c[1]]);
+        }
       }
     } else {
       for (const info of this.pointLayers) {

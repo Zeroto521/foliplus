@@ -1748,3 +1748,27 @@ class TestLayerControlBrowser:
             assert result["focusCleared"] is True, (
                 f"Escape should clear focus, got {result}"
             )
+
+    def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
+        """Double-clicking an overlay draws the dashed rect + inverse mask."""
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(self._make_page, browser, tmp_path, fg, slug="focus_overlay") as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/focus_layer_draws_overlay"))
+            assert result is not None, "focus_layer_draws_overlay failed"
+            assert result["rectDrawn"] is True, f"focus rect missing, got {result}"
+            assert result["maskDrawn"] is True, f"focus mask missing, got {result}"
+            assert result["rowHighlighted"] is True, (
+                f"row not highlighted, got {result}"
+            )
