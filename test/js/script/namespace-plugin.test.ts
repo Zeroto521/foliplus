@@ -4,7 +4,7 @@ import {
   collectSources,
   scanSharedImports,
   sharedGlobalNamespace,
-} from "../../../script/global-namespace-plugin.mjs";
+} from "#script/global-namespace-plugin.mjs";
 
 describe("sharedGlobalNamespace", () => {
   it("maps BaseControl to foliplus.BaseControl", () => {
