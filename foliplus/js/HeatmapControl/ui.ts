@@ -166,6 +166,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.borderColorInput.oninput = () => {
     ctrl.m.borderColor = ctrl.borderColorInput.value;
     ctrl.m.renderHexagons();
+    persist(ctrl);
   };
   ctrl.borderColorInput.onchange = () => {
     persist(ctrl);
@@ -176,6 +177,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
       ctrl.m.borderWeight = v;
       ctrl.m.renderHexagons();
+      // Persist during input (not only onchange) so an uncommitted edit
+      // still survives a reload instead of snapping back to the default.
+      persist(ctrl);
     }
   };
   ctrl.borderWeightInput.onchange = () => {
