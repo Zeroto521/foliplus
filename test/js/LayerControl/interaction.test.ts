@@ -95,6 +95,27 @@ describe("LayerControl registerInteractions", () => {
       expect(d.container).toBe(ui.uiContainer);
     }
   });
+
+  it("each shortcut handler forwards its event to ui.handleKeyDown", () => {
+    const ui = makeUI();
+    registerInteractions(ui);
+
+    const defs = getRegisterSpy().mock.calls[0][1];
+    for (const d of defs) {
+      const event = { key: d.key } as unknown as KeyboardEvent;
+      d.handler(event);
+    }
+
+    // Every handler is a pass-through to ui.handleKeyDown — one call per key.
+    expect(ui.handleKeyDown).toHaveBeenCalledTimes(defs.length);
+    // Spot-check that the event (and thus its key) is forwarded as-is.
+    expect(ui.handleKeyDown).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "ArrowUp" }),
+    );
+    expect(ui.handleKeyDown).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "Escape" }),
+    );
+  });
 });
 
 // ===========================================================================
