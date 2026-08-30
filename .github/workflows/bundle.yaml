@@ -31,7 +31,7 @@ jobs:
 
       # Build the base branch in a detached worktree and capture its sizes, then
       # diff the PR build against them.
-      - name: Build base branch and capture sizes
+      - name: Measure base
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
@@ -43,7 +43,7 @@ jobs:
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
-      - name: Compare PR bundles against base
+      - name: Compare vs base
         run: node script/bundle-size-check.mjs --baseline=base-sizes.json --report=bundle-report.md || true
 
       - uses: actions/upload-artifact@v7
@@ -52,7 +52,7 @@ jobs:
           name: bundle-treemap
           path: bundle-treemap.html
 
-      - name: Link treemap report
+      - name: Link treemap
         run: |
           {
             echo ""
