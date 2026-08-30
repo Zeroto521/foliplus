@@ -40,8 +40,8 @@ class MarkerMode extends MeasureMode {
     const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
-        measurement.lng = latlng.lng;
-        measurement.lat = latlng.lat;
+        measurement.lng = Util.roundCoord(latlng.lng);
+        measurement.lat = Util.roundCoord(latlng.lat);
         // Throttle persists: live-update the coords but batch the write so
         // each mousemove doesn't do its own localStorage round-trip.
         if (rafId) cancelAnimationFrame(rafId);
@@ -57,8 +57,8 @@ class MarkerMode extends MeasureMode {
           rafId = null;
         }
         const gen = ++generation;
-        measurement.lng = latlng.lng;
-        measurement.lat = latlng.lat;
+        measurement.lng = Util.roundCoord(latlng.lng);
+        measurement.lat = Util.roundCoord(latlng.lat);
         const code = window.CONF?.locale_code ?? "en";
         const addr = await Util.geocodeAddress(
           manager,
@@ -182,10 +182,8 @@ class MarkerMode extends MeasureMode {
   /** Handle marker click. */
   async handleMarkerClick(event: L.LeafletMouseEvent) {
     if (this.m.currentMode !== this.type) return;
-    const lng = event.latlng.lng.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-    const lat = event.latlng.lat.toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-    const lngNum = parseFloat(lng);
-    const latNum = parseFloat(lat);
+    const lngNum = Util.roundCoord(event.latlng.lng);
+    const latNum = Util.roundCoord(event.latlng.lat);
 
     // Save the measurement IMMEDIATELY (address resolved later) so the
     // marker survives a page reload even while geocoding is in flight.

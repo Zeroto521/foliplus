@@ -49,6 +49,18 @@ describe("pointsToLatLngs", () => {
   });
 });
 
+describe("roundCoord", () => {
+  it("rounds to the persisted 6-decimal precision", () => {
+    expect(Util.roundCoord(121.987654321)).toBe(121.987654);
+    expect(Util.roundCoord(31.123456789)).toBe(31.123457);
+  });
+
+  it("preserves whole numbers and trailing zeros", () => {
+    expect(Util.roundCoord(122)).toBe(122);
+    expect(Util.roundCoord(121.5)).toBe(121.5);
+  });
+});
+
 describe("formatDistance", () => {
   it("formats meters below the km threshold", () => {
     expect(Util.formatDistance(500)).toBe("500 m");

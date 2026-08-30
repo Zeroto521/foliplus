@@ -222,6 +222,65 @@ describe("MarkerMode — start + click", () => {
     }
   });
 
+  it("rounds dragged coordinates to the persisted precision (matches placement)", async () => {
+    let rafCb: (() => void) | null = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const geocode = vi.fn(() => Promise.resolve("New Address"));
+    const prevFoliplus = (window as any).foliplus;
+    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+
+    try {
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      const data: MeasureData = {
+        id: "m_prec",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
+      MarkerMode.restore(manager, data);
+      const pin = (window.L.marker as any).mock.results[0].value;
+      enableDrag(manager);
+
+      const onDown = pin.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousedown",
+      )?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      const onUp = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mouseup",
+      )?.[1];
+
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 31.123456789, lng: 121.987654321 },
+      });
+      expect(data.lng).toBe(121.987654);
+      expect(data.lat).toBe(31.123457);
+
+      onUp({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 31.123456789, lng: 121.987654321 },
+      });
+      await flushAsync();
+      expect(data.lng).toBe(121.987654);
+      expect(data.lat).toBe(31.123457);
+    } finally {
+      vi.unstubAllGlobals();
+      (window as any).foliplus = prevFoliplus;
+    }
+  });
+
   it("does not drag when edit mode is off (drag stays disabled by default)", () => {
     const manager = makeManagerMock() as any;
     manager.isEditMode = false;

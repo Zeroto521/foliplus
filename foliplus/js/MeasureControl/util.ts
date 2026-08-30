@@ -107,7 +107,7 @@ const buildEditOverlay = (
  */
 const bindNodeDrag = (
   node: L.Layer,
-  delIcon: L.Layer | null,
+  delMarker: L.Layer | null,
   map: L.Map,
   handlers: {
     onDrag?: (latlng: L.LatLng) => void;
@@ -153,7 +153,7 @@ const bindNodeDrag = (
     // find the original point before it moves.
     handlers.onDrag?.(ev.latlng);
     (node as L.Marker).setLatLng(ev.latlng);
-    if (delIcon) (delIcon as L.Marker).setLatLng(ev.latlng);
+    if (delMarker) (delMarker as L.Marker).setLatLng(ev.latlng);
   };
   const onUp = (ev: L.LeafletMouseEvent) => {
     if (!dragging) return;
@@ -319,6 +319,11 @@ const recalculateSegments = (
 const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[] =>
   points.map(p => L.latLng(p.lat, p.lng));
 
+/** Round a coordinate to the persisted precision, so a dragged pin displays
+ *  identically to a freshly placed one (which is rounded on placement). */
+const roundCoord = (n: number): number =>
+  parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
+
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
   ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
@@ -345,5 +350,6 @@ export {
   midpoint,
   pointsToLatLngs,
   recalculateSegments,
+  roundCoord,
   setLabelText,
 };
