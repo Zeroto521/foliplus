@@ -1,28 +1,23 @@
 name: bundle
 
 on:
-  push:
-    branches: [main]
-    # The bot's baseline commit must not re-trigger this workflow.
-    paths-ignore:
-      - bundle-size-baseline.json
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write # post/update the sticky comment
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # PR: build, compare against main's committed baseline, and post the diff as a
-  # sticky comment. Read-only — the baseline is never written on a PR push, so
-  # the "standard" stays anchored to main until the PR actually merges.
+  # Build the PR and the base branch, diff the two, and post the result as a
+  # sticky comment. There is no committed baseline — the base branch's own build
+  # is the reference, so nothing is ever written back to main.
   report:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write # post/update the sticky comment
     steps:
       - uses: actions/checkout@v6
         with:
@@ -34,22 +29,23 @@ jobs:
       - run: npm install
       - run: npm run build:sonda
 
-      - name: Compare bundles vs base
+      # Build the base branch in a detached worktree and capture its sizes, then
+      # diff the PR build against them.
+      - name: Capture base sizes
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
-          # First PR to introduce the baseline: main has nothing to diff against,
-          # so post a note instead of a misleading "all new" table.
-          if git show "origin/${{ github.base_ref }}:bundle-size-baseline.json" > base-baseline.json 2>/dev/null; then
-            node script/bundle-size-check.mjs --baseline=base-baseline.json --report=bundle-report.md || true
-          else
-            {
-              echo "## Bundle Size"
-              echo ""
-              echo "**No baseline on main yet** — this is the first PR to introduce bundle-size tracking. Bundle sizes will be diffed against main from the next PR onward."
-            } > bundle-report.md
-          fi
+          git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
+          (
+            cd /tmp/base
+            npm install
+            npm run build
+          )
+          node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
+          git worktree remove --force /tmp/base
 
-      # Upload the sonda treemap (HTML only) so the comment can link to it.
+      - name: Compare with base
+        run: node script/bundle-size-check.mjs --baseline=base-sizes.json --report=bundle-report.md || true
+
       - uses: actions/upload-artifact@v7
         id: upload
         with:
@@ -70,27 +66,3 @@ jobs:
         with:
           header: bundle-report
           path: bundle-report.md
-
-  # Main: refresh the canonical baseline once per merge so the standard tracks
-  # main's actual bundle sizes. The bot commits straight to main.
-  baseline:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # commit the refreshed baseline to main
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-
-      - run: npm install
-      - run: npm run build
-      - run: npm run bundle-size:save
-
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "chore: update bundle-size-baseline.json"
-          file_pattern: bundle-size-baseline.json
