@@ -66,9 +66,7 @@ const findTemplateEnd = (code, start) => {
       if (ch === "{") depth++;
       else if (ch === "}") depth--;
       i++;
-    } else {
-      i++;
-    }
+    } else i++;
   }
   return -1;
 };

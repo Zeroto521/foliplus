@@ -22,8 +22,11 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts"],
+      include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts", "script/**/*.mjs"],
       exclude: [
+        // Build orchestrator — spawns python/git/esbuild subprocesses and needs
+        // the full build pipeline; not unit-testable in isolation.
+        "script/build.mjs",
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo)
         "foliplus/js/ExportControl/index.ts",
