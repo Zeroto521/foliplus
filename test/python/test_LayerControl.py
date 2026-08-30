@@ -273,18 +273,18 @@ class TestLayerControlRendering:
 
     def test_more_column_width_named_vars(self):
         """More grid column and button both use --more-btn-width (7px),
-        and the count column uses --count-col-width; both keep the track and
+        and the count column uses --count-track-width; both keep the track and
         each element's own width synchronised without magic numbers."""
         css = read_css("foliplus/css/LayerControl.css")
         # Named dimension vars are defined once
-        assert "--count-col-width: 38px" in css
+        assert "--count-track-width: 38px" in css
         assert "--more-btn-width: 7px" in css
         # grid track references the named vars (not literals)
         idx = css.find("--grid-layer-cols:")
         assert idx != -1
         track = css[idx : css.index(";", idx)]
         assert "var(--more-btn-width)" in track
-        assert "var(--count-col-width)" in track
+        assert "var(--count-track-width)" in track
         # more-btn width uses the named var, not icon-size-xs
         blks = [
             css[i : css.index("}", i) + 1]
@@ -392,6 +392,85 @@ class TestLayerControlRendering:
         assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
             "folded label must not override color (label stays text-primary)"
         )
+
+    def test_toggle_all_grid_uses_named_slots_for_three_items(self):
+        """Toggle-all row names only drag/check/label slots; divider is
+        anonymous (dual-declaration trap removed)."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # The toggle-all container's template-areas carries exactly the
+        # three named slots (drag/check/label) plus three anonymous dots.
+        lines = [l.strip() for l in css.splitlines() if "grid-template-areas" in l]
+        toggle_all_areas = [
+            l for l in lines if ". . ." in l and "count icon more" not in l
+        ]
+        assert len(toggle_all_areas) == 1, (
+            f"expected exactly one toggle-all template-areas line, got {toggle_all_areas}"
+        )
+        assert "drag check label . . ." in toggle_all_areas[0]
+        # No template-areas line references 'divider' as a named area —
+        # the dual-declaration coupling (container slot + item grid-area)
+        # only ever applied to divider and is now avoided.
+        assert not any("divider" in l for l in lines)
+
+    def test_toggle_all_divider_uses_explicit_column_range(self):
+        """Divider is placed by grid-column: 4 / -1 (explicit range), not
+        grid-area or grid-column: span — so it never overflows to a new row
+        when anonymous slots change count."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # Find the .foliplus-section-divider rule nested under toggle-all.
+        idx = css.find(".foliplus-section-divider {")
+        assert idx != -1, "no .foliplus-section-divider { rule found"
+        block = css[idx : css.index("}", idx) + 1]
+        assert "grid-column: 4 / -1" in block
+        assert "grid-area" not in block, (
+            "divider must not be positioned by grid-area (the dual-declaration trap)"
+        )
+        assert "grid-column: span" not in block, (
+            "divider must not use span (overflowed to next row on 6-col track)"
+        )
+
+    def test_toggle_all_divider_column_range_bounded_by_track(self):
+        """Divider's grid-column: 4 / -1 stays inside the 6-col track:
+        start (4) = label slot + 1; end (-1) = last column. So the range
+        never overflows past the last track, which would push the divider
+        to a new row."""
+        css = read_css("foliplus/css/LayerControl.css")
+        # The shared track defines exactly 6 columns:
+        #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
+        idx = css.find("--grid-layer-cols:")
+        assert idx != -1
+        track = css[idx : css.index(";", idx)]
+        # Count the track's space tokens — each column is one term separated
+        # by whitespace; the track is built from 6 named/space tokens.
+        col_terms = [
+            t.rstrip(":;")
+            for t in track.split()
+            if t.rstrip(":;") not in ("", "--grid-layer-cols")
+        ]
+        assert len(col_terms) == 6, (
+            f"expected 6-col track, got {len(col_terms)}: {col_terms}"
+        )
+        # Divider rule must sit in the toggle-all container (so 4 / -1 is
+        # evaluated against the same 6-col track).
+        ta_idx = css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
+        assert ta_idx != -1
+        ta_block = css[ta_idx : css.index("}", ta_idx) + 1]
+        assert "var(--grid-layer-cols)" in ta_block
+        div_idx = css[ta_idx:].find(".foliplus-section-divider {")
+        assert div_idx != -1, "divider rule not inside toggle-all container"
+        div_block = css[ta_idx : ta_idx + css[ta_idx:].index("}", div_idx) + 1]
+        assert "grid-column: 4 / -1" in div_block, (
+            "divider must start at col 4 (after label slot 3) and end at -1 (col 6)"
+        )
+
+    def test_toggle_all_align_self_center_removed(self):
+        """Divider no longer declares a redundant align-self: center — the
+        row already aligns items to center via align-items: center."""
+        css = read_css("foliplus/css/LayerControl.css")
+        idx = css.find(".foliplus-section-divider {")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "align-self" not in block
 
     def test_toggle_all_label_semibold_primary(self):
         """Section header label is semibold and text-primary so it reads as a real header."""
@@ -1668,4 +1747,28 @@ class TestLayerControlBrowser:
             assert result["beforeEscape"] is True, "ArrowDown should first set focus"
             assert result["focusCleared"] is True, (
                 f"Escape should clear focus, got {result}"
+            )
+
+    def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
+        """Double-clicking an overlay draws the dashed rect + inverse mask."""
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(self._make_page, browser, tmp_path, fg, slug="focus_overlay") as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/focus_layer_draws_overlay"))
+            assert result is not None, "focus_layer_draws_overlay failed"
+            assert result["rectDrawn"] is True, f"focus rect missing, got {result}"
+            assert result["maskDrawn"] is True, f"focus mask missing, got {result}"
+            assert result["rowHighlighted"] is True, (
+                f"row not highlighted, got {result}"
             )

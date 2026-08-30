@@ -150,6 +150,7 @@ class HeatmapManager {
       name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
+      getBounds: () => this.computeBounds(),
     });
     // Subscribe to export events for full-content capture (ExportControl).
     ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
@@ -303,6 +304,34 @@ class HeatmapManager {
   }
 
   // --- Data Extraction ---
+
+  /** Geographic extent of the heatmap, so LayerControl can focus this canvas
+   *  layer (it has no Leaflet layer to derive bounds from). Uses the hexagon
+   *  polygon rings when rendered (exact, includes the hexagon radius that the
+   *  centroid alone would omit); falls back to the source point layers. */
+  computeBounds(): L.LatLngBounds | null {
+    const acc = L.latLngBounds([]);
+    if (this.cachedFeatures?.length) {
+      for (const feat of this.cachedFeatures) {
+        const ring = feat.geometry?.coordinates?.[0];
+        if (ring?.length) {
+          // GeoJSON order [lng, lat].
+          for (const [lng, lat] of ring) acc.extend([lat, lng]);
+        } else {
+          const c = feat.properties.centroid;
+          if (c) acc.extend([c[0], c[1]]);
+        }
+      }
+    } else {
+      for (const info of this.pointLayers) {
+        const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
+        const b = layer?.getBounds?.();
+        if (b && b.isValid()) acc.extend(b);
+      }
+    }
+    return acc.isValid() ? acc : null;
+  }
+
   scanMapLayers() {
     this.pointLayers = [];
     const pointLayersInfo = map.foliplus!.LayerAPI!.getLayersByType("point");

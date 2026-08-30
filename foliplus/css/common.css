@@ -380,16 +380,18 @@
 
 /* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
-  Floating menus in SearchControl (result panel) and HeatmapControl (scheme
-  picker) share one visual recipe. Position, width, max-height and item
-  layout stay per-component; this block owns the shell + hover/active states.
-  When LayerControl's overflow menu (foliplus-layer-more-menu) lands from
-  the layer/focus branch, add it to these :is() groups and drop its
-  duplicated shell/item-hover properties.
+  Floating menus in SearchControl (result panel), HeatmapControl (scheme
+  picker) and LayerControl (layer overflow menu) share one visual recipe.
+  Position, width, max-height and item layout stay per-component; this
+  block owns the shell + hover/active states.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Shell ── */
-:is(.foliplus-search-result-panel, .foliplus-heatmap-scheme-dropdown) {
+:is(
+  .foliplus-search-result-panel,
+  .foliplus-heatmap-scheme-dropdown,
+  .foliplus-layer-more-menu
+) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
   background: var(--input-bg);
@@ -398,10 +400,38 @@
   box-shadow: var(--shadow-md);
   z-index: var(--z-index-floating);
   overflow-y: auto;
+  /* Entrance: subtle fade + slide-down, plays once when the menu mounts. */
+  animation: foliplus-dropdown-in 0.15s ease-out;
+}
+
+@keyframes foliplus-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-sm)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect reduced motion: drop the entrance animation. */
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .foliplus-search-result-panel,
+    .foliplus-heatmap-scheme-dropdown,
+    .foliplus-layer-more-menu
+  ) {
+    animation: none;
+  }
 }
 
 /* ── Item base ── */
-:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item) {
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item,
+  .foliplus-layer-more-menu li
+) {
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
@@ -412,7 +442,11 @@
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
      language as the LayerControl "more" button hover). ── */
-:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item):hover {
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item,
+  .foliplus-layer-more-menu li
+):hover {
   background: var(--accent-light);
   color: var(--accent-primary);
 }
