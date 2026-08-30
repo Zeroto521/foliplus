@@ -31,7 +31,7 @@ jobs:
 
       # Build the base branch in a detached worktree and capture its sizes, then
       # diff the PR build against them.
-      - name: Capture base bundle sizes
+      - name: Build and measure base branch
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
