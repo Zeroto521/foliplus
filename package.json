@@ -20,9 +20,12 @@
     "build": "node script/build.mjs",
     "build:dev": "node script/build.mjs --dev",
     "build:check": "node script/build.mjs --check",
+    "build:sonda": "node script/build.mjs --sonda",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bundle-size:check": "node script/bundle-size-check.mjs",
+    "bundle-size:save": "node script/bundle-size-check.mjs --save"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
@@ -41,6 +44,7 @@
     "postcss": "^8.5.26",
     "postcss-nesting": "^14.0.1",
     "prettier": "^3.9.5",
+    "sonda": "^0.14.0",
     "svgo": "^4.0.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

@@ -166,17 +166,11 @@ const globalNamespacePlugin = sourceRoot => ({
       // - Named-imported: include only those names (auto-analysis)
       // - Unknown (e.g. dynamic import): fall back to all exports
       let namesToShim;
-      if (starUsed.has(spec)) {
-        namesToShim = [...starUsed.get(spec)];
-      } else if (usedExports.has(spec)) {
-        namesToShim = [...usedExports.get(spec)];
-      } else {
-        namesToShim = collectExports(sourcePath);
-      }
+      if (starUsed.has(spec)) namesToShim = [...starUsed.get(spec)];
+      else if (usedExports.has(spec)) namesToShim = [...usedExports.get(spec)];
+      else namesToShim = collectExports(sourcePath);
 
-      if (namesToShim.length === 0) {
-        return { contents: "", loader: "js" };
-      }
+      if (namesToShim.length === 0) return { contents: "", loader: "js" };
 
       const shimName = ns.replace(/\./g, "_") + "_shim";
       const shimDecl = "var " + shimName + " = globalThis." + ns + ";";
