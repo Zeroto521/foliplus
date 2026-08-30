@@ -688,6 +688,65 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       elSpy.mockRestore();
     });
+
+    it("cancelFocus restores dimmed pane and canvas filters", () => {
+      const canvas = document.createElement("canvas");
+      canvas.style.filter = "";
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        canvas,
+        onToggle: () => {},
+      });
+
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay1");
+      expect(canvas.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+      expect(panes.get("custom_pane")?.style.filter).toBe(CONST.FOCUS.DIM_FILTER);
+
+      ui.cancelFocus();
+
+      expect(canvas.style.filter).toBe("");
+      expect(panes.get("custom_pane")?.style.filter).toBe("");
+    });
+
+    it("cancelFocus restores the focused layer's boost glow", () => {
+      const el = document.createElement("path");
+      el.style.filter = "";
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: {},
+          getElement: () => el,
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+      expect(el.style.filter).toBe(CONST.FOCUS.FOCUS_FILTER);
+
+      ui.cancelFocus();
+
+      expect(el.style.filter).toBe("");
+    });
   });
 
   // ─────────────────── overflow menu ───────────────────
