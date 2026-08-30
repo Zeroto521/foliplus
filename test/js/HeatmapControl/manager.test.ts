@@ -765,5 +765,22 @@ describe("HeatmapManager — persistence", () => {
       const loaded = m.loadSavedConfig();
       expect(loaded).toBeNull();
     });
+
+    it("preserves falsy values (false / 0) through save → load → apply", () => {
+      const m1 = makeManager();
+      m1.currentLabelShow = false;
+      m1.fieldAuto = false;
+      m1.borderWeight = 0;
+      m1.saveConfig();
+
+      const m2 = makeManager();
+      const loaded = m2.loadSavedConfig();
+      expect(loaded).not.toBeNull();
+      m2.applySavedConfig(loaded!);
+
+      expect(m2.currentLabelShow).toBe(false);
+      expect(m2.fieldAuto).toBe(false);
+      expect(m2.borderWeight).toBe(0);
+    });
   });
 });
