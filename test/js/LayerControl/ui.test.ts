@@ -664,7 +664,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       // basemap would grey it inside the hole and kill the spotlight). The
       // focused layer gets the FOCUS boost instead.
       const dims = filterSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.DIM_FILTER);
-      const boosts = filterSpy.mock.calls.filter(c => c[1] === CONST.FOCUS.FOCUS_FILTER);
+      const boosts = filterSpy.mock.calls.filter(
+        c => c[1] === CONST.FOCUS.FOCUS_FILTER,
+      );
       expect(dims).toHaveLength(0);
       expect(boosts).toHaveLength(1);
 

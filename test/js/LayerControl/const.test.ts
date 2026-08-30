@@ -136,9 +136,7 @@ describe("FOCUS", () => {
   });
 
   it("defines the boost filter applied to the focused layer", () => {
-    expect(CONST.FOCUS.FOCUS_FILTER).toBe(
-      "drop-shadow(0 0 4px var(--accent-primary))",
-    );
+    expect(CONST.FOCUS.FOCUS_FILTER).toBe("drop-shadow(0 0 4px var(--accent-primary))");
   });
 });
 

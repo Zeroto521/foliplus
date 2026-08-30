@@ -1379,10 +1379,7 @@ class LayerUI {
    * callback (or null if it has no element). Handles vector paths / markers
    * (getElement), tile/grid layers (getContainer) and groups (eachLayer).
    */
-  private applyLayerFilter(
-    layer: L.Layer,
-    filter: string,
-  ): (() => void) | null {
+  private applyLayerFilter(layer: L.Layer, filter: string): (() => void) | null {
     // Vector path or marker: the SVG path / icon element.
     const el = (
       layer as L.Layer & { getElement?: () => HTMLElement | null }
