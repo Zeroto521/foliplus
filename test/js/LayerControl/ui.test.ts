@@ -579,7 +579,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       polygonSpy.mockRestore();
     });
 
-    it("cancelFocus removes the mask but keeps the shared renderer for reuse", () => {
+    it("cancelFocus removes the mask and the shared renderer", () => {
       ui.focusLayer("overlay1");
       const mask = ui.focusMask!;
       const renderer = ui.focusRenderer!;
@@ -587,12 +587,66 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.cancelFocus();
 
       expect(map.removeLayer).toHaveBeenCalledWith(mask);
-      // The SVG renderer is intentionally kept alive across focuses to avoid
-      // recreating it (L.svg + addTo) on every click — that synchronous DOM
-      // churn is a large part of the perceived click jank.
-      expect(map.removeLayer).not.toHaveBeenCalledWith(renderer);
+      // The SVG renderer is torn down too: reusing it across focuses left the
+      // previous focus's mask/rect paths in the SVG even after removeLayer, so
+      // focusing A then B showed two boxes (stale A mask + new B mask). A fresh
+      // renderer per focus guarantees a clean slate.
+      expect(map.removeLayer).toHaveBeenCalledWith(renderer);
       expect(ui.focusMask).toBeNull();
-      expect(ui.focusRenderer).toBe(renderer);
+      expect(ui.focusRenderer).toBeNull();
+    });
+
+    it("focusing A then B removes A's mask and rect (no stale box)", () => {
+      // Regression: reusing the SVG renderer across focuses left the previous
+      // focus's mask/rect paths in the SVG even after removeLayer, so focusing
+      // A then B showed two boxes (stale A mask + new B mask). Each focus must
+      // tear down the prior mask/rect + renderer.
+      ui.focusLayer("overlay1");
+      const firstMask = ui.focusMask!;
+      const firstRect = ui.focusRect!;
+
+      ui.focusLayer("overlay1"); // same layer — dismissFocus runs first
+
+      expect(map.removeLayer).toHaveBeenCalledWith(firstMask);
+      expect(map.removeLayer).toHaveBeenCalledWith(firstRect);
+      expect(ui.focusMask).not.toBe(firstMask);
+      expect(ui.focusRect).not.toBe(firstRect);
+    });
+
+    it("rapid clicks across different layers leave only the last mask + rect", () => {
+      // Register a second overlay with distinct bounds so the two focuses
+      // produce different mask holes.
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 35, lng: 105 }),
+            getNorthEast: () => ({ lat: 45, lng: 115 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay1");
+      const firstMask = ui.focusMask!;
+      ui.focusLayer("overlay2"); // immediate second focus on a different layer
+
+      // The first mask is removed and the hole is now overlay2's bounds.
+      expect(map.removeLayer).toHaveBeenCalledWith(firstMask);
+      expect(ui.focusMask).not.toBe(firstMask);
+      expect(ui.focusingLayerId).toBe("overlay2");
+      // A single mask exists (fresh renderer each focus), hole = overlay2 SW.
+      const hole = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0][1];
+      expect(hole[0]).toEqual({ lat: 35, lng: 105 });
+
+      // And it still tears down cleanly.
+      ui.cancelFocus();
+      expect(ui.focusMask).toBeNull();
+      expect(ui.focusRect).toBeNull();
+      expect(ui.focusRenderer).toBeNull();
     });
 
     it("does not draw a mask for single-point (flyTo) layers", () => {
@@ -1270,13 +1324,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("removes the reused focus SVG renderer so it does not leak", () => {
+    it("releases the focus SVG renderer so it does not leak", () => {
       ui.focusLayer("overlay1");
-      ui.cancelFocus(); // renderer is kept alive across focuses...
       const renderer = ui.focusRenderer!;
       expect(renderer).not.toBeNull();
 
-      manager.destroy(); // ...but must be released on destroy.
+      manager.destroy();
 
       expect(map.removeLayer).toHaveBeenCalledWith(renderer);
       expect(ui.focusRenderer).toBeNull();

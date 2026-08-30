@@ -1347,10 +1347,15 @@ class LayerUI {
       this.m.map.removeLayer(this.focusMask);
       this.focusMask = null;
     }
-    // Keep the SVG renderer alive across focuses: recreating it (L.svg +
-    // addTo(map)) on every click is synchronous DOM churn and is a large part
-    // of the perceived click jank. The pane persists anyway; the renderer is
-    // just re-used and new mask/rect layers are added into it next focus.
+    // Tear down the SVG renderer too. Reusing it across focuses left the
+    // previous focus's mask/rect paths in the SVG even after removeLayer,
+    // so focusing layer A then B showed two boxes (stale A mask + new B
+    // mask) with inverted dimming. A fresh renderer per focus is cheap and
+    // guarantees a clean slate.
+    if (this.focusRenderer) {
+      this.m.map.removeLayer(this.focusRenderer);
+      this.focusRenderer = null;
+    }
 
     this.focusingLayerId = null;
   }
