@@ -411,7 +411,6 @@ const attachPolygonUI = (
     if (centroidDot) centroidDot.setLatLng(centroid);
     if (centroidLabel) centroidLabel.setLatLng(centroid);
     if (centroidDel) centroidDel.setLatLng(centroid);
-    return area;
   };
 
   const rebuildCentroid = (currentArea?: number) => {

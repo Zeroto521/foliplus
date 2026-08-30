@@ -38,8 +38,8 @@ class MeasureManager {
   currentMode: string | null;
   modeInstance: MeasureMode | null;
   toolBtns: HTMLElement[];
-  /** Cleanup callbacks for finalized measurement overlays (each removes its
-   *   overlay's map-click listener and any associated drag bindings). */
+  /** Per-measurement dispose functions, registered via registerFinalized —
+   *   each unbinds its drag binds, edit overlay, and edit-drag toggle. */
   finalizedClickHandlers: Array<() => void>;
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
    *   hides any open ✕ handles. */
