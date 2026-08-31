@@ -71,6 +71,7 @@ export const CLASSES = {
   ACTIVE: "active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
+  LABELS_HIDDEN: "foliplus-measure-labels-hidden",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
 };

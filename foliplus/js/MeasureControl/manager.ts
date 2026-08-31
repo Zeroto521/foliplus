@@ -368,7 +368,10 @@ class MeasureManager {
    *  per update. */
   private scheduleLabelPlan(): void {
     if (this.labelPlanFrame !== null) return;
-    this.labelPlanFrame = requestAnimationFrame(() => {
+    // Mark in-flight before the rAF call so the guard coalesces even when a
+    // synchronous test stub returns 0 (falsy but not null).
+    this.labelPlanFrame = 1;
+    requestAnimationFrame(() => {
       this.labelPlanFrame = null;
       this.planLabels();
     });
