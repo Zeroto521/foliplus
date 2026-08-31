@@ -305,6 +305,43 @@ describe("toggleFullscreen — native API path", () => {
       await Promise.resolve();
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     });
+
+    it("clears the scrim when the API already reports fullscreen gone (Esc race)", async () => {
+      // Between requestFullscreen resolving and the fullscreenchange event,
+      // Esc can drop the fullscreen state. The reject path must re-drive the
+      // dim from the API rather than from map.isFullscreen, so a lost
+      // fullscreen doesn't leave the basemap darkened.
+      mocks.getFullscreenEl.mockReturnValue(null);
+      mapMock.getContainer().requestFullscreen = vi.fn(() =>
+        Promise.reject(new Error("denied")),
+      );
+      toggleFullscreen(mapMock, fsBtn, container);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    });
+
+    it("clears the scrim on enter-reject when the API reports we are not fullscreen", async () => {
+      // Enter-reject catches must re-drive the dim from the API, not blindly
+      // `setDim(false)`. Set the API to not-fullscreen so we genuinely take the
+      // enter path, then have it stay not-fullscreen by rejection time — the
+      // dim must end up cleared.
+      mocks.getFullscreenEl.mockReturnValue(null);
+      let switchAPI: (() => void) | null;
+      mapMock.getContainer().requestFullscreen = vi.fn(
+        () =>
+          new Promise((_, reject) => {
+            switchAPI = () => mocks.getFullscreenEl.mockReturnValue(null);
+            reject(new Error("denied"));
+          }),
+      );
+      toggleFullscreen(mapMock, fsBtn, container);
+      switchAPI!();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      expect(mapMock.isFullscreen).toBe(false);
+    });
   });
 });
 
@@ -406,5 +443,19 @@ describe("bindFullscreenEvents — native API path", () => {
     mocks.getFullscreenEl.mockReturnValue({});
     handler();
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+  });
+
+  it("drives the dim only from the API in handleFSChange, ignoring map.isFullscreen", () => {
+    // handleFSChange must never trust map.isFullscreen — that flag is set
+    // asynchronously in toggleFullscreen's promise callbacks, but the
+    // fullscreenchange event fires immediately with the true API state.
+    // If the handler read map.isFullscreen instead of getFullscreenEl(), an
+    // Esc exit (which flips the API but not the flag yet) would leave the
+    // scrim stuck.
+    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    mapMock.isFullscreen = true; // stale flag
+    mocks.getFullscreenEl.mockReturnValue(null); // API says we're out
+    handler();
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
   });
 });

@@ -84,8 +84,12 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = true;
         })
         .catch(() => {
-          setDim(map.getContainer(), false);
+          // Enter can be denied (e.g. NotAllowedError) — re-drive the dim from
+          // the actual API state, symmetric with the exit path, so a rejected
+          // enter doesn't blindly clear the scrim when the API still reports
+          // fullscreen.
           map.isFullscreen = !!getFullscreenEl();
+          setDim(map.getContainer(), !!getFullscreenEl());
           updateUI(map, fsBtn, container);
         });
       return;
