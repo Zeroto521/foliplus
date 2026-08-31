@@ -145,8 +145,9 @@ class DistanceMode extends PreviewMode {
         );
       }
 
-      // Attach toggle/delete UI (shared with restoreDistance)
-      const onDistMapClick = attachDistanceUI(this.m, {
+      // Attach toggle/delete UI (shared with restoreDistance). It self-registers
+      // its dispose via registerFinalized, so clearAll/destroy can unbind it.
+      attachDistanceUI(this.m, {
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -166,7 +167,9 @@ class DistanceMode extends PreviewMode {
           this.m.saveMeasurements();
         },
       });
-      this._cleanup = () => this.m.map.off("click", onDistMapClick);
+      // The drawing-phase cleanup (set in start()) would remove the finalized
+      // polyline/nodes, so replace it with a no-op.
+      this._cleanup = () => {};
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);

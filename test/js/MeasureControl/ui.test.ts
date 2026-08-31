@@ -4,11 +4,17 @@ import * as UI from "#foliplus/MeasureControl/ui.js";
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
 // override the function helpers.
-const { attachDelClick, makeDelIcon } = vi.hoisted(() => ({
+const { attachDelClick, makeDelIcon, toggleDelIcon } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+  makeDelIcon: vi.fn(() => ({
+    getElement: vi.fn(() => null),
+    on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
+  })),
+  toggleDelIcon: vi.fn(),
 }));
 
 vi.mock("#common/delicon.js", async importOriginal => {
@@ -17,7 +23,7 @@ vi.mock("#common/delicon.js", async importOriginal => {
     ...actual,
     makeDelIcon,
     attachDelClick,
-    toggleDelIcon: vi.fn(),
+    toggleDelIcon,
     hideDelIcons: vi.fn(),
   };
 });
@@ -25,159 +31,31 @@ vi.mock("#common/delicon.js", async importOriginal => {
 beforeEach(() => {
   vi.clearAllMocks();
   window.L = {
-    marker: vi.fn(() => ({ getElement: vi.fn(() => null), on: vi.fn() })),
+    marker: vi.fn(() => ({
+      getElement: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      setLatLng: vi.fn(),
+    })),
     latLng: vi.fn((lat, lng) => ({ lat, lng })),
     divIcon: vi.fn(() => ({})),
     DomEvent: { stopPropagation: vi.fn() },
+  };
+  globalThis.turf = {
+    point: coords => ({ coords }),
+    distance: vi.fn(() => 100),
+    bearing: vi.fn(() => 45),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
+    area: vi.fn(() => 1000),
+    polygon: vi.fn(rings => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: rings },
+    })),
   };
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-describe("createToggleUI", () => {
-  it("toggles X when called with no args", () => {
-    const state = { isXVisible: false, isLabelsVisible: true };
-    const render = vi.fn();
-    const toggle = UI.createToggleUI(state, render);
-
-    toggle();
-
-    expect(state.isXVisible).toBe(true);
-    expect(render).toHaveBeenCalledWith(state);
-  });
-
-  it("toggles labels when called with undefined, false", () => {
-    const state = { isXVisible: false, isLabelsVisible: true };
-    const render = vi.fn();
-    const toggle = UI.createToggleUI(state, render);
-
-    toggle(undefined, false);
-
-    expect(state.isLabelsVisible).toBe(false);
-    expect(render).toHaveBeenCalled();
-  });
-
-  it("resets labels when toggleLabels is reset", () => {
-    const state = { isXVisible: true, isLabelsVisible: false };
-    const render = vi.fn();
-    const toggle = UI.createToggleUI(state, render);
-
-    toggle(undefined, "reset" as const);
-
-    expect(state.isLabelsVisible).toBe(true);
-  });
-
-  it("renders with current state after every toggle", () => {
-    const state = { isXVisible: false, isLabelsVisible: true };
-    const render = vi.fn();
-    const toggle = UI.createToggleUI(state, render);
-
-    toggle();
-    expect(render).toHaveBeenCalledTimes(1);
-    expect(render).toHaveBeenCalledWith({
-      isXVisible: true,
-      isLabelsVisible: true,
-    });
-
-    toggle(undefined, false);
-    expect(render).toHaveBeenCalledTimes(2);
-    expect(render).toHaveBeenLastCalledWith({
-      isXVisible: false,
-      isLabelsVisible: false,
-    });
-  });
-});
-
-describe("setupMapClickActive", () => {
-  const makeMgr = (suppressHideDel = false) => ({
-    map: { on: vi.fn(), off: vi.fn() },
-    isSuppressHideDel: suppressHideDel,
-  });
-
-  const makeState = (xVisible = false) => ({
-    isXVisible: xVisible,
-    isLabelsVisible: true,
-  });
-
-  it("registers a map click handler", () => {
-    const mgr = makeMgr();
-    const state = makeState(false);
-    const toggleUI = vi.fn();
-
-    UI.setupMapClickActive(mgr, state, toggleUI);
-
-    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
-  });
-
-  it("does nothing when isXVisible is false", () => {
-    const mgr = makeMgr();
-    const state = makeState(false);
-    const toggleUI = vi.fn();
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI);
-
-    handler();
-
-    expect(toggleUI).not.toHaveBeenCalled();
-  });
-
-  it("calls toggle with RESET when isXVisible is true", () => {
-    const mgr = makeMgr();
-    const state = makeState(true);
-    const toggleUI = vi.fn();
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI);
-
-    handler();
-
-    expect(toggleUI).toHaveBeenCalledWith(false, "reset");
-  });
-
-  it("does nothing when suppress-hide is active", () => {
-    const mgr = makeMgr(true);
-    const state = makeState(true);
-    const toggleUI = vi.fn();
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI);
-
-    handler();
-
-    expect(toggleUI).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when extra guard returns true", () => {
-    const mgr = makeMgr();
-    const state = makeState(true);
-    const toggleUI = vi.fn();
-    const guard = vi.fn(() => true);
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI, guard);
-
-    handler();
-
-    expect(toggleUI).not.toHaveBeenCalled();
-    expect(guard).toHaveBeenCalled();
-  });
-
-  it("proceeds when extra guard returns false", () => {
-    const mgr = makeMgr();
-    const state = makeState(true);
-    const toggleUI = vi.fn();
-    const guard = vi.fn(() => false);
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI, guard);
-
-    handler();
-
-    expect(toggleUI).toHaveBeenCalledWith(false, "reset");
-  });
-
-  it("returns the handler for cleanup", () => {
-    const mgr = makeMgr();
-    const state = makeState(false);
-    const toggleUI = vi.fn();
-
-    const handler = UI.setupMapClickActive(mgr, state, toggleUI);
-
-    expect(typeof handler).toBe("function");
-  });
 });
 
 describe("resortLayers", () => {
@@ -228,14 +106,22 @@ describe("resortLayers", () => {
 
 const makeMgr = () => ({
   map: { on: vi.fn(), off: vi.fn() },
-  isSuppressHideDel: false,
+  isEditMode: true,
+  registerEditOverlayCloser: vi.fn(() => () => {}),
+  registerEditDragToggle: vi.fn(() => () => {}),
+  registerFinalized: vi.fn(() => () => {}),
+  closeOtherEditOverlays: vi.fn(),
 });
 
 describe("attachCircleUI — delete flow", () => {
   const makeLayer = (name: string) => ({
     _name: name,
     on: vi.fn(),
+    off: vi.fn(),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
     getElement: vi.fn(() => null),
+    setLatLng: vi.fn(),
+    setRadius: vi.fn(),
     setZIndexOffset: vi.fn(),
   });
 
@@ -284,31 +170,40 @@ describe("attachCircleUI — delete flow", () => {
     expect(layers.unregister).toHaveBeenCalled();
   });
 
-  it("does nothing on map click after deletion (isDeleted guard)", () => {
-    const { layers, delMarker, opts } = makeOpts();
+  it("unbinds the overlay map-click listener on deletion", () => {
+    const { delMarker, opts } = makeOpts();
     const mgr = makeMgr();
-    const onMapClickActive = UI.attachCircleUI(mgr as any, opts as any);
+    UI.attachCircleUI(mgr as any, opts as any);
+    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
 
     (delMarker as any)._delClick();
-    onMapClickActive();
 
-    // state.isXVisible is still false, so toggleUI would hide more layers —
-    // but after deletion the map-click handler must not toggle.
-    expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
+    // Deleting disposes the overlay, unbinding its map-click listener.
+    expect(mgr.map.off).toHaveBeenCalledWith("click", expect.any(Function));
   });
 
-  it("toggling the X icon delegates to applyVisibilityToggle", () => {
-    const { delMarker, opts } = makeOpts();
+  it("attaches click handlers that open the edit overlay on circle parts", () => {
+    const { opts } = makeOpts();
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
-    // Non-X click on the circle toggles visibility
     const clickHandler = (opts.circle.on as any).mock.calls.find(
       (c: any[]) => c[0] === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
+    // Clicking the circle opens the overlay (stops event, no throw).
+    clickHandler({ originalEvent: { target: null } } as any);
+  });
+
+  it("shows the circle delete ✕ when the overlay opens (regression)", () => {
+    const { delMarker, opts } = makeOpts();
+    UI.attachCircleUI(makeMgr() as any, opts as any);
+
+    const clickHandler = (opts.circle.on as any).mock.calls.find(
+      (c: any[]) => c[0] === "click",
+    )?.[1];
     clickHandler({ originalEvent: { target: null } } as any);
 
-    expect(delMarker.setZIndexOffset).toHaveBeenCalled();
+    expect(toggleDelIcon).toHaveBeenCalledWith(delMarker, true);
   });
 });
 
@@ -345,16 +240,27 @@ describe("attachDistanceUI", () => {
 
   it("binds click handlers on the polyline and nodes", () => {
     const opts = makeOpts();
-    const onMapClickActive = UI.attachDistanceUI(makeMgr() as any, opts as any);
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(typeof onMapClickActive).toBe("function");
   });
 
   it("creates a delete icon per node", () => {
     const opts = makeOpts();
     UI.attachDistanceUI(makeMgr() as any, opts as any);
     expect(makeDelIcon).toHaveBeenCalled();
+  });
+
+  it("registers a drag toggle so edit mode enables node drag directly", () => {
+    const mgr = makeMgr();
+    const opts = makeOpts();
+    UI.attachDistanceUI(mgr as any, opts as any);
+
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    // The registered toggle must not throw when fired (setEditMode toggling).
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    expect(() => toggle(true)).not.toThrow();
+    expect(() => toggle(false)).not.toThrow();
   });
 });
 
@@ -373,9 +279,9 @@ describe("attachPolygonUI", () => {
       unregister: vi.fn(),
     };
     const nodeMarkers = [
-      makeLayer("n1") as any,
-      makeLayer("n2") as any,
-      makeLayer("n3") as any,
+      { ...makeLayer("n1"), getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })) } as any,
+      { ...makeLayer("n2"), getLatLng: vi.fn(() => ({ lat: 1, lng: 1 })) } as any,
+      { ...makeLayer("n3"), getLatLng: vi.fn(() => ({ lat: 2, lng: 0 })) } as any,
     ];
     const segLabels = [makeLayer("s1") as any];
     const finalPoly = makeLayer("poly") as any;
@@ -395,11 +301,92 @@ describe("attachPolygonUI", () => {
     };
   };
 
-  it("binds handlers and returns a map-click cleanup", () => {
+  it("binds handlers and registers its dispose with the manager", () => {
     const opts = makeOpts();
-    const onMapClickActive = UI.attachPolygonUI(makeMgr() as any, opts as any);
+    const mgr = makeMgr();
+    UI.attachPolygonUI(mgr as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(typeof onMapClickActive).toBe("function");
+    expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("rebuilds the centroid dot alongside the label and delete icon", () => {
+    const opts = makeOpts();
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // The centroid dot uses the shared center-dot divIcon class (regression:
+    // it was dropped during the edit-mode rewrite).
+    const dotIcons = (window.L.divIcon as any).mock.calls.filter(
+      ([opts]) => opts?.className === "foliplus-measure-center-dot",
+    );
+    expect(dotIcons.length).toBe(1);
+  });
+
+  it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
+    const mgr = makeMgr();
+    const opts = makeOpts();
+    UI.attachPolygonUI(mgr as any, opts as any);
+
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    expect(() => toggle(true)).not.toThrow();
+    expect(() => toggle(false)).not.toThrow();
+  });
+
+  it("deleting a node cleans up only its drag bind and keeps the centroid (regression)", () => {
+    const mgr = makeMgr();
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const mkNode = (lat: number) => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat, lng: 0 })),
+      getElement: vi.fn(() => null),
+      setLatLng: vi.fn(),
+    });
+    const nodeMarkers = [0, 1, 2, 3].map(mkNode);
+    const segLabels = [0, 1, 2].map(() => ({ on: vi.fn() }));
+    const finalPoly = { on: vi.fn(), setLatLngs: vi.fn() };
+    const points = [0, 1, 2, 3].map(lat => ({ lat, lng: 0 }));
+
+    UI.attachPolygonUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        points,
+        area: 5000,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    // makeDelIcon call order: [0]=centroid, [1..4]=one per node.
+    const centroidDel = (makeDelIcon as any).mock.results[0].value;
+    const node0Del = (makeDelIcon as any).mock.results[1].value;
+    // The centroid dot is the first L.marker built (rebuildCentroid).
+    const centroidDot = (window.L.marker as any).mock.results[0].value;
+    const centroidEl = { style: {} };
+    centroidDot.getElement = vi.fn(() => centroidEl);
+
+    const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+    toggle(true);
+    expect(centroidEl.style.cursor).toBe("move");
+
+    // Delete node 0: its drag bind must be spliced AND cleaned up (map off).
+    const offBefore = mgr.map.off.mock.calls.length;
+    node0Del._delClick();
+    expect(mgr.map.off).toHaveBeenCalledTimes(offBefore + 2); // mousemove + mouseup
+
+    // The centroid bind must survive: leaving edit mode still disables it.
+    toggle(false);
+    expect(centroidEl.style.cursor).toBe("");
+    // And the centroid ✕ still deletes the whole measurement.
+    expect(() => centroidDel._delClick()).not.toThrow();
   });
 });

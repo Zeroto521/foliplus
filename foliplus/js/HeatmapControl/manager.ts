@@ -6,6 +6,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
+import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
@@ -69,6 +70,20 @@ interface SelectedPoint {
   lng: number;
   value: number;
   marker: L.Marker;
+}
+
+/** Persisted heatmap configuration (survives page reload). */
+interface SavedConfig {
+  layerId?: string | null;
+  agg?: string;
+  method?: string;
+  scheme?: string;
+  numClasses?: number;
+  borderWeight?: number;
+  borderColor?: string;
+  labelShow?: boolean;
+  field?: string;
+  fieldAuto?: boolean;
 }
 
 // ==================== Core: Data Aggregation & Rendering ====================
@@ -135,6 +150,7 @@ class HeatmapManager {
       name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
+      getBounds: () => this.computeBounds(),
     });
     // Subscribe to export events for full-content capture (ExportControl).
     ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
@@ -288,6 +304,34 @@ class HeatmapManager {
   }
 
   // --- Data Extraction ---
+
+  /** Geographic extent of the heatmap, so LayerControl can focus this canvas
+   *  layer (it has no Leaflet layer to derive bounds from). Uses the hexagon
+   *  polygon rings when rendered (exact, includes the hexagon radius that the
+   *  centroid alone would omit); falls back to the source point layers. */
+  computeBounds(): L.LatLngBounds | null {
+    const acc = L.latLngBounds([]);
+    if (this.cachedFeatures?.length) {
+      for (const feat of this.cachedFeatures) {
+        const ring = feat.geometry?.coordinates?.[0];
+        if (ring?.length) {
+          // GeoJSON order [lng, lat].
+          for (const [lng, lat] of ring) acc.extend([lat, lng]);
+        } else {
+          const c = feat.properties.centroid;
+          if (c) acc.extend([c[0], c[1]]);
+        }
+      }
+    } else {
+      for (const info of this.pointLayers) {
+        const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
+        const b = layer?.getBounds?.();
+        if (b && b.isValid()) acc.extend(b);
+      }
+    }
+    return acc.isValid() ? acc : null;
+  }
+
   scanMapLayers() {
     this.pointLayers = [];
     const pointLayersInfo = map.foliplus!.LayerAPI!.getLayersByType("point");
@@ -579,6 +623,65 @@ class HeatmapManager {
     (this.ui as any)?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+  }
+
+  /** Load saved configuration from localStorage into this manager's state. */
+  loadSavedConfig(): SavedConfig | null {
+    // Storage.load already returns null when the key is missing/unreadable.
+    return Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
+  }
+
+  /** Save the current manager state to localStorage. */
+  saveConfig() {
+    Storage.save(
+      CONST.STORAGE.KEY,
+      {
+        layerId: this.selectedLayerId,
+        agg: this.currentAgg,
+        method: this.currentMethod,
+        scheme: this.currentScheme,
+        numClasses: this.numClasses,
+        borderWeight: this.borderWeight,
+        borderColor: this.borderColor,
+        labelShow: this.currentLabelShow,
+        field: this.currentField,
+        fieldAuto: this.fieldAuto,
+      } satisfies SavedConfig,
+      CONF.name,
+    );
+  }
+
+  /** Remove persisted configuration from localStorage. */
+  clearSavedConfig() {
+    try {
+      window.localStorage.removeItem(CONST.STORAGE.KEY);
+    } catch (e) {
+      console.warn(
+        `[${CONF.name}] Failed to clear saved data (key=${CONST.STORAGE.KEY})`,
+        e,
+      );
+    }
+  }
+
+  /** Apply a loaded config object to the manager's state. */
+  applySavedConfig(saved: SavedConfig) {
+    if (saved.agg) this.currentAgg = saved.agg;
+    if (saved.method) this.currentMethod = saved.method;
+    if (saved.scheme) this.currentScheme = saved.scheme;
+    if (saved.numClasses !== undefined) {
+      this.numClasses = Math.min(
+        CONST.CLASS_COUNT.MAX,
+        Math.max(CONST.CLASS_COUNT.MIN, saved.numClasses),
+      );
+    }
+    if (saved.borderWeight !== undefined) {
+      this.borderWeight = saved.borderWeight;
+    }
+    if (saved.borderColor) this.borderColor = saved.borderColor;
+    if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
+    if (saved.field) this.currentField = saved.field;
+    if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
+    this.selectedLayerId = saved.layerId ?? null;
   }
 }
 

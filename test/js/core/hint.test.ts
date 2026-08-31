@@ -72,6 +72,67 @@ describe("HintManager", () => {
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     vi.useRealTimers();
   });
+
+  it("migrates hints to the fullscreen element on fullscreenchange", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => container,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(el.parentElement).toBe(container);
+
+    // Exit fullscreen → back to body
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("shows a hint inside the fullscreen element and anchors it with relative", () => {
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      position: "static",
+    } as any);
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => container,
+    });
+
+    mgr.showHint("key", "hello", 0);
+
+    expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(container);
+    expect(container.style.position).toBe("relative");
+
+    mgr.destroy();
+    vi.restoreAllMocks();
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+  });
+
+  it("hideHint with a subkey removes only that sub-hint", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "one", 0, false, "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+
+    mgr.hideHint("key", "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+  });
 });
 
 describe("ensureHint", () => {
@@ -87,6 +148,15 @@ describe("ensureHint", () => {
     const a = ensureHint(map);
     const b = ensureHint(map);
     expect(b).toBe(a);
+  });
+
+  it("exposes registerHintIcon on map.foliplus", () => {
+    const map = { foliplus: {} } as any;
+    ensureHint(map);
+    expect(typeof map.foliplus.registerHintIcon).toBe("function");
+    map.foliplus.registerHintIcon("via_map", "<svg></svg>");
+    map.foliplus.showHint("via_map", "text", 0);
+    expect(document.querySelector(".foliplus-hint-icon")).not.toBeNull();
   });
 
   it("is per-map — separate maps get separate instances", () => {

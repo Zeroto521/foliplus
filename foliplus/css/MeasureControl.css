@@ -3,6 +3,26 @@
   cursor: crosshair;
 }
 
+/* ── Edit-mode cursor ──
+   Measurement shapes/nodes (graph pane) and the polygon centroid dot (label
+   pane) are only interactive in edit mode. Outside edit mode, override
+   Leaflet's default pointer cursor so they don't look clickable. In edit mode
+   they read as clickable; draggable nodes get an inline `move` cursor
+   (bindNodeDrag) for the whole edit session. */
+.leaflet-measure_graph-pane .leaflet-interactive,
+.leaflet-measure_label-pane .leaflet-interactive {
+  cursor: default;
+}
+.foliplus-measure-editing .leaflet-measure_graph-pane .leaflet-interactive,
+.foliplus-measure-editing .leaflet-measure_label-pane .leaflet-interactive {
+  cursor: pointer;
+}
+/* Location pin keeps the pointer cursor in every mode — clicking it opens the
+   location popup even outside edit mode. */
+.leaflet-measure_graph-pane .leaflet-marker-icon:has(.foliplus-pin) {
+  cursor: pointer;
+}
+
 /* ── Measurement Labels ── */
 .foliplus-measure-center-dot {
   width: var(--size-12);
@@ -58,12 +78,6 @@ path.foliplus-measure-node-solid {
 /* Drawing-phase polygon (dashed outline) should also use a lighter fill. */
 .foliplus-measure-path-dashed.foliplus-measure-shape-fill {
   fill-opacity: 0.08;
-}
-
-/* ── Visibility toggle for node/line hidden states ── */
-.foliplus-measure-hidden {
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* ── Finish animations ── */

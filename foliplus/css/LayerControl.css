@@ -9,6 +9,68 @@
   pointer-events: auto;
 }
 
+/* ── Focus bounds rectangle (drawn on the map) ──
+   Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
+   needs a top-level selector. Leaflet renders L.rectangle as a <path> with
+   className applied directly (no polygon child).
+   Shares the "selection border" language with ExportControl's crop box:
+   accent dashed outline, --border-thick (2px). The focus rect is transient
+   (marching ants), the crop box is interactive (static), so animation
+   differs. No fill — a thin border only, so it never tints the focused
+   layer underneath. */
+path.foliplus-focus-rect {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-dasharray: var(--size-6) var(--size-4);
+  stroke-width: var(--border-thick);
+  stroke-linejoin: round;
+  /* "Marching ants" selection marquee — the dashes flow along the border. */
+  animation: foliplus-focus-march 0.8s linear infinite;
+  pointer-events: none;
+}
+/* Inverse mask that dims everything outside the focused bounds (the hole is
+   carved by the polygon's fill-rule; the mask must never capture input). */
+path.foliplus-focus-mask {
+  pointer-events: none;
+}
+/* Accent glow on the focused layer. Applied to the focused pane (one element)
+   by bringFocusedLayerToFront, NOT per leaf element — so focusing a dense
+   layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
+.foliplus-focus-pane.foliplus-focus-glow {
+  animation: foliplus-focus-glow-in 0.2s ease-out;
+  filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+}
+@keyframes foliplus-focus-glow-in {
+  from {
+    filter: drop-shadow(0 0 0 rgba(var(--red-rgb), 0));
+  }
+  to {
+    filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+  }
+}
+
+/* ── Focus: hide every non-focused layer, declaratively ──
+   While focusing, the map container gets `.foliplus-focus-active` and every
+   layer pane except the focused one (marked `.foliplus-focus-pane`) is hidden
+   with a single CSS rule — no per-pane JS visibility loop. The basemap lives
+   in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
+   and keeps the spatial context. Heatmap canvases live directly in mapPane,
+   so they need their own selector. */
+.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane),
+.foliplus-focus-active .foliplus-heatmap-canvas:not(.foliplus-focus-pane) {
+  visibility: hidden;
+}
+@keyframes foliplus-focus-march {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  path.foliplus-focus-rect {
+    animation: none;
+  }
+}
+
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
@@ -41,11 +103,13 @@
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid.
     All track dimensions are named so the count / more columns stay
-    synchronised in --grid-layer-cols and each element's own width. */
-  --count-col-width: 38px;
+    synchronised in --grid-layer-cols and each element's own width.
+    Track width includes the count column's 4px right padding, so usable
+    content is ~34px — enough for ~5 chars at font-size-xs (caps at 999). */
+  --count-track-width: 38px;
   --more-btn-width: 7px;
   --grid-layer-gap: 3px;
-  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-col-width)
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-track-width)
     var(--space-xl) var(--more-btn-width);
 
   /* ── Row min-height ──
@@ -153,7 +217,12 @@
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
     grid-template-columns: var(--grid-layer-cols);
-    grid-template-areas: "drag check label divider divider divider";
+    /* Drag/check/label are named slots (placed via item-level grid-area
+       shared with layer-item rows). Divider is 3 anonymous slots —
+       positioned by grid-column: 4 / -1 on the item, not a named area.
+       This avoids the dual-declaration coupling (template-areas + item
+       grid-area) that only the divider originally had. */
+    grid-template-areas: "drag check label . . .";
     column-gap: var(--grid-layer-gap);
     align-items: center;
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
@@ -167,8 +236,7 @@
       border-color var(--transition-fast);
 
     .foliplus-section-divider {
-      grid-area: divider;
-      align-self: center;
+      grid-column: 4 / -1;
     }
   }
   /* Section label: primary color + semibold so it reads as a real header */
@@ -386,6 +454,78 @@
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.active .foliplus-layer-more-btn {
     color: var(--accent-primary);
+  }
+
+  /* ── Overflow dropdown menu ──
+     Shell + item hover/active live in common.css (Unified Dropdown / Menu);
+     this block owns position/size and the action-menu specifics. */
+  .foliplus-layer-more-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 128px;
+    padding: var(--space-xs) 0;
+    display: none;
+    list-style: none;
+  }
+  .foliplus-layer-more-menu.open {
+    display: block;
+  }
+  .foliplus-layer-more-menu li {
+    display: flex;
+    align-items: center;
+    /* Icon stays left, label aligns right (the gap is the minimum spacing). */
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
+    white-space: nowrap;
+  }
+  .foliplus-layer-more-menu li:focus-visible {
+    outline: var(--border-thin) solid var(--accent-primary);
+    outline-offset: calc(-1 * var(--border-thin));
+  }
+  .foliplus-layer-more-menu li svg {
+    flex-shrink: 0;
+    width: var(--icon-size-xs);
+    height: var(--icon-size-xs);
+    color: var(--text-muted);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--stroke-icon);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* Icon answers with accent on hover, matching the search result icon and
+     the "actions accent on hover" language. Disabled stays muted. */
+  .foliplus-layer-more-menu li:not([disabled]):hover svg {
+    color: var(--accent-primary);
+  }
+  /* Disabled menu item (e.g. layer is hidden). */
+  .foliplus-layer-more-menu li[disabled] {
+    cursor: default;
+    opacity: 0.4;
+  }
+  .foliplus-layer-more-menu li[disabled]:hover {
+    background: transparent;
+    /* Keep text muted: the unified hover tints text accent, but a disabled
+       item must not answer with accent. */
+    color: var(--text-primary);
+  }
+
+  /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
+  .foliplus-layer-item.foliplus-layer-focusing {
+    border-left-color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    animation: foliplus-layer-focus-pulse 2.2s ease-in-out 2;
+  }
+  @keyframes foliplus-layer-focus-pulse {
+    0%,
+    100% {
+      background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    }
+    50% {
+      background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+    }
   }
 
   /* ── Color layer item overrides ──

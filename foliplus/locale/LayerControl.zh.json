@@ -29,7 +29,11 @@
   "LayerControl.deselect_tooltip": "隐藏",
   "LayerControl.drag_tooltip": "拖拽排序",
   "LayerControl.more_tooltip": "更多选项",
-  "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI (registerLayer / unregisterLayer / bringLayerToFront)",
+  "LayerControl.focus_layer": "图层聚焦",
+  "LayerControl.focus_layer_tooltip": "聚焦到该图层并高亮显示",
+  "LayerControl.focus_layer_hidden": "图层已隐藏，无法聚焦",
+  "LayerControl.focus_cancelled": "已取消聚焦",
+  "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_del_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI"
 }

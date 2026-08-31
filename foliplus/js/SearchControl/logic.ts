@@ -49,23 +49,91 @@ interface SearchControlState {
 
 // ── Search History CRUD ──────────────────────────────────────────
 
+/**
+ * Parse raw coordinate input into a validated longitude/latitude pair.
+ * Full-width commas and all whitespace are ignored, so "120,32",
+ * "120, 32" and "120\uff0c32" all resolve to the same location.
+ * Returns null when the input is not a valid in-range coordinate pair.
+ */
+const parseCoord = (raw: string): { lng: number; lat: number } | null => {
+  const parts = raw
+    .replace(/\uff0c/g, ",")
+    .replace(/\s+/g, "")
+    .split(",")
+    .map(Number);
+
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+  const lng = parts[0];
+  const lat = parts[1];
+  if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null;
+  return { lng, lat };
+};
+
+/** Canonicalize an entry's history key: coord entries key on the parsed
+ * longitude/latitude, so "120,32" and "120, 32" resolve to one entry. Anything
+ * that does not parse is returned unchanged. */
+const canonicalQuery = (query: string, type: "coord" | "addr"): string => {
+  if (type !== MODE.COORD) return query;
+  const parsed = parseCoord(query);
+  return parsed ? `${parsed.lng},${parsed.lat}` : query;
+};
+
+/** Dedup key. Type is part of it: typing "120,32" in addr mode yields a
+ * geocode result whose key string can collide with a coord entry's, and those
+ * are two distinct searches that must both be kept. */
+const historyKey = (entry: Pick<SearchHistoryEntry, "type" | "query">): string =>
+  `${entry.type}:${entry.query}`;
+
+/**
+ * Merge history entries by key. Repeated searches accumulate into a single
+ * entry: the most recent one wins for timestamp and coordinates, counts are
+ * summed, and an empty display field falls back to an older entry's value.
+ * Map re-set keeps a key's insertion slot, so the result preserves first-seen
+ * order without re-sorting the caller's list.
+ */
+const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[] => {
+  const byKey = new Map<string, SearchHistoryEntry>();
+  for (const entry of entries) {
+    const key = historyKey(entry);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...entry });
+      continue;
+    }
+    const [newer, older] =
+      existing.ts >= entry.ts ? [existing, entry] : [entry, existing];
+    newer.count = existing.count + entry.count;
+    newer.coordDisplay = newer.coordDisplay || older.coordDisplay;
+    newer.addrDisplay = newer.addrDisplay || older.addrDisplay;
+    byKey.set(key, newer);
+  }
+  return Array.from(byKey.values());
+};
+
 const loadHistory = (): SearchHistoryEntry[] => {
   const data = Storage.load<SearchHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
   if (!Array.isArray(data)) return [];
-  // Migrate old entries (pre-refactor with `label` field) to the new format
-  return data.map(e => ({
-    query: e.query ?? "",
-    type: (e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : "addr") as
-      "coord" | "addr",
-    coordDisplay:
-      e.coordDisplay ?? (e.type === MODE.COORD ? ((e as any).label ?? "") : ""),
-    addrDisplay:
-      e.addrDisplay ?? (e.type === MODE.ADDR ? ((e as any).label ?? "") : ""),
-    lng: e.lng ?? 0,
-    lat: e.lat ?? 0,
-    ts: e.ts ?? Date.now(),
-    count: e.count ?? 1,
-  }));
+  // Migrate old entries (pre-refactor with `label` field) to the new format.
+  const migrated = data.map(e => {
+    const type = (e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : "addr") as
+      "coord" | "addr";
+    return {
+      query: canonicalQuery(e.query ?? "", type),
+      type,
+      coordDisplay:
+        e.coordDisplay ?? (type === MODE.COORD ? ((e as any).label ?? "") : ""),
+      addrDisplay:
+        e.addrDisplay ?? (type === MODE.ADDR ? ((e as any).label ?? "") : ""),
+      lng: e.lng ?? 0,
+      lat: e.lat ?? 0,
+      ts: e.ts ?? Date.now(),
+      count: e.count ?? 1,
+    };
+  });
+  // Collapse entries a raw-input key created before this fix (e.g. "120,32" +
+  // "120, 32"). No trimming here — the cap applies when an entry is added, so
+  // stale rows from an older version are shown rather than dropped on load.
+  return mergeHistoryEntries(migrated);
 };
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {
@@ -73,25 +141,10 @@ const saveHistory = (entries: SearchHistoryEntry[]): void => {
 };
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
-  const { query } = entry;
-  const existing = ctrl.searchHistory.find(e => e.query === query);
-  if (existing) {
-    // Increment count and update displays/timestamp, move to front
-    existing.count += 1;
-    existing.ts = entry.ts;
-    existing.coordDisplay = entry.coordDisplay || existing.coordDisplay;
-    existing.addrDisplay = entry.addrDisplay || existing.addrDisplay;
-    existing.lng = entry.lng;
-    existing.lat = entry.lat;
-    const updated = [
-      existing,
-      ...ctrl.searchHistory.filter(e => e.query !== query),
-    ].slice(0, HISTORY.MAX_ENTRIES);
-    ctrl.searchHistory = updated;
-    saveHistory(updated);
-    return;
-  }
-  const updated = [entry, ...ctrl.searchHistory].slice(0, HISTORY.MAX_ENTRIES);
+  const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]).slice(
+    0,
+    HISTORY.MAX_ENTRIES,
+  );
   ctrl.searchHistory = updated;
   saveHistory(updated);
 };
@@ -175,26 +228,16 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
  */
 const searchCoord = (ctrl: SearchControlState, raw: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
-  const parts = raw
-    .replace(/\uff0c/g, ",")
-    .replace(/\s+/g, "")
-    .split(",")
-    .map(Number);
-
-  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+  const parsed = parseCoord(raw);
+  if (!parsed) {
     map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
-
-  const lng = parts[0];
-  const lat = parts[1];
-  if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-    map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
-    ctrl.inp.value = "";
-    return;
-  }
-
+  const { lng, lat } = parsed;
+  // Canonical key, not the raw input: otherwise "120,32" and "120, 32"
+  // would be stored as two entries that display identically.
+  const key = `${lng},${lat}`;
   map.foliplus!.hideHint(CONF.name);
   map.flyTo([lat, lng], CONF.zoom || 16);
   ctrl.marker = createLocationMarker(
@@ -215,13 +258,14 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const coordDisplay = `${lng.toFixed(FORMAT.LAT_LNG_PRECISION)}, ${lat.toFixed(FORMAT.LAT_LNG_PRECISION)}`;
   // Save coord entry immediately, then update address via reverse geocode.
   // NOTE: reverse-geocode updates the existing entry in-place to avoid
-  // incrementing the count (addHistoryEntry treats same-query as a repeat).
-  recordHistorySearch(ctrl, raw, MODE.COORD, coordDisplay, "", lng, lat);
+  // incrementing the count (a later addHistoryEntry for the same type:query
+  // key would treat it as a repeat).
+  recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
     .then(addr => {
       if (addr) {
-        const entry = ctrl.searchHistory.find(e => e.query === raw);
+        const entry = ctrl.searchHistory.find(e => e.query === key);
         if (entry) {
           entry.addrDisplay = addr;
           saveHistory(ctrl.searchHistory);
@@ -266,7 +310,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       recordHistorySearch(
         ctrl,
         query,
-        "addr",
+        MODE.ADDR,
         coordDisplay,
         addrDisplay,
         wgs[0],

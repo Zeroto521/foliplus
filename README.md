@@ -37,30 +37,9 @@
 | 🔥 **HeatmapControl**    | H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.                  |
 | 🗂️ **LayerControl**      | Drag-and-drop layer ordering with geometry icons, color picker, and panes.             |
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
-| 📏 **MeasureControl**    | Distance measurement, area measurement, circle drawing, and GPS marker with geocoding. |
-| 📐 **ScaleControl**      | Scale bar with metric or imperial units and optional zoom level display.               |
+| 📏 **MeasureControl**    | Measure distances, areas, circles, and geocoded markers, then edit them by dragging nodes. |
+| 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
-
-## Quick Start
-
-```bash
-pip install foliplus
-```
-
-```python
-import folium
-import foliplus
-
-m = folium.Map(location=[31.23, 121.47], zoom_start=12)
-
-foliplus.MeasureControl().add_to(m)
-foliplus.ExportControl().add_to(m)
-foliplus.SearchControl().add_to(m)
-foliplus.HeatmapControl().add_to(m)
-foliplus.LayerControl().add_to(m)
-
-m.save("map.html")
-```
 
 ## Beyond Plugins
 
