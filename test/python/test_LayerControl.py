@@ -1718,6 +1718,85 @@ class TestLayerControlBrowser:
                 f"Clicking a row label should move the keyboard cursor to that row, got {result}"
             )
 
+    def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
+        """Folding a group must not kill keyboard navigation.
+
+        Clicking the fold button fires onClick (which moves the cursor to the
+        toggle-all row) and then renderInitialList (which rebuilds the DOM,
+        destroying the focused node and dropping DOM focus to <body>). Without
+        cursor re-homing the document-level keyboard listener's container guard
+        then rejects every subsequent key, so ArrowDown / Enter stop working
+        entirely. This test exercises all three: cursor survives, DOM focus is
+        restored inside the panel, and keys still navigate + toggle.
+
+        It also pins ArrowUp/Down stepping: folded rows are display:none and
+        not focusable, so a plain index ± 1 would strand the cursor on a
+        hidden row.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, overlay1, overlay2
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/keydown_nav_survives_fold_click")
+            )
+            assert result is not None, "keydown_nav_survives_fold_click failed"
+            assert result["afterFold"] is not None, (
+                "Folding a group should not destroy the keyboard cursor, got "
+                f"{result}"
+            )
+            assert result["focusInPanel"] is True, (
+                "Folding a group should keep DOM focus inside the panel, got "
+                f"{result}"
+            )
+            assert result["afterFoldVisible"] is True, (
+                "Re-homing after a fold must not land the cursor on a hidden row, "
+                f"got {result}"
+            )
+            assert result["afterFoldFolded"] is False, (
+                "Re-homing after a fold must skip rows hidden by folding, got "
+                f"{result}"
+            )
+            assert result["afterDown"] is not None, (
+                "ArrowDown should still navigate after folding, got "
+                f"{result}"
+            )
+            assert result["afterDownVisible"] is True, (
+                "ArrowDown must not leave the cursor on a folded-away row, got "
+                f"{result}"
+            )
+            assert result["afterDownFolded"] is False, (
+                "ArrowDown must skip rows hidden by folding, got "
+                f"{result}"
+            )
+            assert result["afterUp"] is not None, (
+                "ArrowUp should still navigate after folding, got "
+                f"{result}"
+            )
+            assert result["afterUpVisible"] is True, (
+                "ArrowUp must not leave the cursor on a folded-away row, got "
+                f"{result}"
+            )
+            assert result["afterUpFolded"] is False, (
+                "ArrowUp must skip rows hidden by folding, got "
+                f"{result}"
+            )
+            assert result["afterUpClamped"] is not None, (
+                "ArrowUp should clamp at the top instead of stepping off the "
+                f"list, got {result}"
+            )
+            assert result["enterToggled"] is True, (
+                "Enter should still toggle after folding, got "
+                f"{result}"
+            )
+
     def test_keydown_ctrl_up_moves_layer(self, browser, tmp_path):
         """Ctrl+ArrowUp moves the focused layer one position up."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
