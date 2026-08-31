@@ -312,7 +312,11 @@ describe("attachDistanceUI", () => {
         layers,
         finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
         nodeMarkers: points.map(mkNode),
-        segLabels: [0, 1].map(() => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() })),
+        segLabels: [0, 1].map(() => ({
+          on: vi.fn(),
+          setLatLng: vi.fn(),
+          setIcon: vi.fn(),
+        })),
         points,
         onDelete,
         onUpdate,
