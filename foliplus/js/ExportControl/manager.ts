@@ -308,12 +308,12 @@ class ExportManager {
     return !!this.cropState && !this.cropState.locked;
   }
 
-  /** Apply a new rect: update state, box style, and the size hint. */
-  private applyRect(r: Rect) {
+  /** Apply a new rect: update state, box style, and (optionally) the size hint. */
+  private applyRect(r: Rect, withHint = true) {
     if (!this.cropState) return;
     this.cropState.rect = r;
     this.updateBoxStyle(this.cropState.box, r);
-    this.showHintWithInfo(r, T("hint_unlocked"));
+    if (withHint) this.showHintWithInfo(r, T("hint_unlocked"));
   }
 
   /** Reset the unlocked crop box to the default centered size. */
@@ -334,7 +334,21 @@ class ExportManager {
     // Clamp within the map bounds (same clamp as mouse-move dragging).
     r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + dx));
     r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + dy));
-    this.applyRect(r);
+    // Keyboard auto-repeat fires several keydowns per second. The box's default
+    // transition would make each nudge chase the input (laggy, and the box only
+    // "settles" once the key is released). Suppress it like mouse dragging does;
+    // restored in onKeyUp.
+    st.box.classList.add(CONST.CLASSES.DRAGGING);
+    // A pure move keeps the size constant, so the hint text is unchanged —
+    // leaving it alone avoids rebuilding the element (and re-running its
+    // entry animation) on every keypress.
+    this.applyRect(r, false);
+  }
+
+  /** Key release: restore the box transition suppressed during arrow-key nudging. */
+  onKeyUp(event: KeyboardEvent) {
+    if (CONST.NUDGE_KEYS.includes(event.key) && this.cropState)
+      this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
   }
 
   /** Default centered crop box (same as the no-history branch of showCropBox). */

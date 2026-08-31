@@ -241,8 +241,8 @@ export class InteractionManager {
         // Match event type
         const sType = s.event ?? "keydown";
         if (sType !== eventType) return false;
-        // Key matching only for keydown
-        if (sType === "keydown" && s.key) {
+        // Key matching for key events (keydown / keyup)
+        if ((sType === "keydown" || sType === "keyup") && s.key) {
           if (s.key !== ke.key) return false;
           if (s.ctrl && !ke.ctrlKey && !ke.metaKey) return false;
           if (s.meta && !ke.metaKey) return false;

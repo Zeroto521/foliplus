@@ -212,6 +212,9 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add("locked");
+  // Drop the editing class if an arrow-key nudge is still in flight — nudging
+  // suppresses the box transition, which a locked box should not keep.
+  mgr.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
   const r = mgr.cropState.rect;
   mgr.cropState.savedGeoBounds = {
     nw: mgr.map.containerPointToLatLng(L.point(r.left, r.top)),

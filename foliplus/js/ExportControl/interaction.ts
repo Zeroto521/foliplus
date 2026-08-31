@@ -23,6 +23,15 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
       container,
       handler: (e: Event) => mgr.onKeyDown(e as KeyboardEvent),
     })),
+    // Arrow keyup: restore the box transition that nudging suppressed (its
+    // default transition makes repeated nudges chase the key instead of
+    // tracking it). Container-bound like the keydown above.
+    ...CONST.NUDGE_KEYS.map(key => ({
+      key,
+      event: "keyup",
+      container,
+      handler: (e: Event) => mgr.onKeyUp(e as KeyboardEvent),
+    })),
   ]);
 };
 
