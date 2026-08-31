@@ -9,6 +9,13 @@ import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import {
+  type CollidableLabel,
+  mapProjector,
+  perpCandidates,
+  placeLabels,
+  segmentDir,
+} from "./collision.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
 import {
@@ -26,6 +33,13 @@ const T = createScopedTranslator(CONF);
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
+
+/** Map events that change pixel geometry and therefore invalidate placements. */
+const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
+  "moveend",
+  "zoomend",
+  "resize",
+];
 
 // ==================== Core Manager ====================
 /** Central manager for all measurements. */
@@ -47,6 +61,13 @@ class MeasureManager {
   /** Toggles for each measurement's node drag binds, so entering/leaving edit
    *   mode enables/disables dragging directly (no click-first required). */
   private editDragToggles: Array<(enabled: boolean) => void> = [];
+  /** Every rendered label chip, so collision detection plans all measurements
+   *   together instead of one measurement at a time. */
+  private collidableLabels: CollidableLabel[] = [];
+  /** Deferred re-plan; coalesces bursts of label updates into one pass. */
+  private labelPlanFrame: number | null = null;
+  /** Bound map-move/zoom/resize listener that invalidates label placements. */
+  private onLabelMapMove: (() => void) | null = null;
   measurements: MeasureData[];
   measurementIdCounter: number;
   ctrl: HTMLElement | null;
@@ -103,6 +124,8 @@ class MeasureManager {
     this.measurementIdCounter = 0;
     this.ctrl = null;
     this.isEditMode = false;
+    if (CONF.show_labels === false)
+      this.map.getContainer().classList.add(CONST.CLASSES.LABELS_HIDDEN);
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -288,6 +311,94 @@ class MeasureManager {
     };
   };
 
+  // ── Label collision detection ─────────────────────────────────
+
+  /** True unless collision detection was switched off by the Python config. */
+  get labelsCollide(): boolean {
+    return CONF.collide_labels !== false;
+  }
+
+  /**
+   * Register a label chip for collision detection. `endpoints` returns the two
+   * points the label sits between — a segment's ends, or two shape vertices for
+   * a centroid label — and the push directions are derived from that segment in
+   * pixel space. `priority` says how much this label matters: the lowest values
+   * drop out first when room runs out.
+   *
+   * Both `endpoints` and the chip are re-read on every plan, so a dragged node
+   * or a `setIcon` during a drag cannot leave a stale element or direction.
+   *
+   * Returns an unregister function; measurements call it when a label is
+   * removed from the map.
+   */
+  registerLabel = (
+    marker: L.Marker,
+    endpoints: () => [L.LatLng, L.LatLng],
+    priority: number,
+  ): (() => void) => {
+    // Labels off: chips are hidden by the container class, so they need no
+    // placement at all — keep them out of the planner.
+    if (CONF.show_labels === false) return () => {};
+
+    const label: CollidableLabel = {
+      marker,
+      candidates: p => perpCandidates(segmentDir(p, ...endpoints())),
+      priority,
+    };
+    this.collidableLabels.push(label);
+    this.bindLabelMapEvents();
+    this.scheduleLabelPlan();
+
+    return () => {
+      this.collidableLabels = this.collidableLabels.filter(l => l !== label);
+      if (this.collidableLabels.length) this.scheduleLabelPlan();
+      else this.unbindLabelMapEvents();
+    };
+  };
+
+  /** Chip lookup shared by every plan: the label div inside the marker's
+   *  icon element, or null when the marker is not on the map. */
+  private chipOf = (marker: L.Marker): HTMLElement | null => {
+    const icon = marker.getElement() as HTMLElement | null;
+    return (icon?.querySelector(CONST.SEL.LABEL) as HTMLElement | null) ?? null;
+  };
+
+  /** Defer a collision re-plan to the next frame so a burst of label updates
+   *  (a drag move, a node delete, a map move) runs one planner pass, not one
+   *  per update. */
+  private scheduleLabelPlan(): void {
+    if (this.labelPlanFrame !== null) return;
+    this.labelPlanFrame = requestAnimationFrame(() => {
+      this.labelPlanFrame = null;
+      this.planLabels();
+    });
+  }
+
+  /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
+   *  last plan stale. Bound lazily on the first label, released when the
+   *  last one is removed. */
+  private bindLabelMapEvents(): void {
+    if (this.onLabelMapMove) return;
+    const handler = () => this.scheduleLabelPlan();
+    this.onLabelMapMove = handler;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.on(ev, handler));
+  }
+
+  private unbindLabelMapEvents(): void {
+    if (!this.onLabelMapMove) return;
+    const handler = this.onLabelMapMove;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.off(ev, handler));
+    this.onLabelMapMove = null;
+  }
+
+  /** Re-plan every label placement. With collision off every chip simply
+   *  returns to its anchor; labels themselves are hidden by the container
+   *  class, which also keeps them out of PNG exports. */
+  private planLabels(): void {
+    if (this.collidableLabels.length === 0) return;
+    placeLabels(this.collidableLabels, mapProjector(this.map), this.labelsCollide, this.chipOf);
+  }
+
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
@@ -372,6 +483,8 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
     this.editDragToggles = [];
+    this.unbindLabelMapEvents();
+    this.collidableLabels = [];
   }
 
   /**

@@ -133,6 +133,8 @@ declare global {
     zoom?: number;
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
+    collide_labels?: boolean;
+    show_labels?: boolean;
     agg?: string;
     method?: string;
     n_classes?: number;
@@ -208,6 +210,7 @@ declare global {
     type LayerEvent = Leaflet.LayerEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
+    type Point = Leaflet.Point;
     type PointExpression = Leaflet.PointExpression;
     type LatLngExpression = Leaflet.LatLngExpression;
     type LatLng = Leaflet.LatLng;

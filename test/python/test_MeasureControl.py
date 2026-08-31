@@ -43,6 +43,22 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
+    def test_default_collide_labels(self):
+        assert MeasureControl().collide_labels is True
+
+    def test_custom_collide_labels(self):
+        assert MeasureControl(collide_labels=False).collide_labels is False
+
+    def test_default_show_labels(self):
+        assert MeasureControl().show_labels is True
+
+    def test_custom_show_labels(self):
+        assert MeasureControl(show_labels=False).show_labels is False
+
+    def test_collide_and_show_labels_in_export_fields(self):
+        assert "collide_labels" in MeasureControl._export_fields
+        assert "show_labels" in MeasureControl._export_fields
+
     def test_default_export_format(self):
         assert MeasureControl().export_format == "geojson"
 
@@ -88,6 +104,26 @@ class TestMeasureControlRendering:
         """show_bearing=False renders false and disables bearing labels."""
         html = render_control(MeasureControl(show_bearing=False))
         assert_config_value(html, "show_bearing", False)
+
+    def test_collide_labels_default_true(self):
+        """collide_labels defaults to true and renders as a JS boolean."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "collide_labels", True)
+
+    def test_collide_labels_false(self):
+        """collide_labels=False renders false and disables collision detection."""
+        html = render_control(MeasureControl(collide_labels=False))
+        assert_config_value(html, "collide_labels", False)
+
+    def test_show_labels_default_true(self):
+        """show_labels defaults to true and renders as a JS boolean."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "show_labels", True)
+
+    def test_show_labels_false(self):
+        """show_labels=False renders false and hides labels."""
+        html = render_control(MeasureControl(show_labels=False))
+        assert_config_value(html, "show_labels", False)
 
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))

@@ -110,6 +110,7 @@ const makeMgr = () => ({
   registerEditOverlayCloser: vi.fn(() => () => {}),
   registerEditDragToggle: vi.fn(() => () => {}),
   registerFinalized: vi.fn(() => () => {}),
+  registerLabel: vi.fn(() => () => {}),
   closeOtherEditOverlays: vi.fn(),
 });
 

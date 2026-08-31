@@ -32,6 +32,16 @@ export const LABEL = {
   CLASS_MID: "foliplus-measure-label-mid",
 };
 
+/** Label collision priority — the lowest values drop out first when a run
+ *  of labels cannot be pushed apart. Segment labels are the most numerous
+ *  (a dense polygon stacks dozens of them), so they give way to the unique
+ *  centroid / radius value first. */
+export const LABEL_PRIORITY = {
+  SEGMENT: 60,
+  CENTROID: 80,
+  RADIUS: 80,
+};
+
 /** Formatting. */
 export const FORMAT = {
   LAT_LNG_PRECISION: 6,

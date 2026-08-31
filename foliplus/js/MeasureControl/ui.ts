@@ -66,6 +66,15 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     opts;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
+  // Segment labels persist as markers — relabel() only restyles them via
+  // setIcon, so one registration per label survives for the measurement's life.
+  const labelBinds: Array<() => void> = segLabels.map((label, i) =>
+    mgr.registerLabel(
+      label,
+      () => [points[i], points[i + 1]],
+      CONST.LABEL_PRIORITY.SEGMENT,
+    ),
+  );
 
   const relabel = () => {
     let cumulative = 0;
@@ -98,6 +107,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    labelBinds.forEach(f => f());
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -240,6 +250,17 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
 
   let unregisterDragToggle: () => void = () => {};
   const dragBinds: DragBind[] = [];
+  // The single radius label persists as a marker (updateLabel() only moves and
+  // restyles it), so one registration survives for the measurement's life. Its
+  // push directions follow the radius line, which changes as the center or the
+  // edge node is dragged.
+  const unregisterRadiusLabel = radiusLabel
+    ? mgr.registerLabel(
+        radiusLabel,
+        () => [circle.getLatLng(), radiusNode!.getLatLng()],
+        CONST.LABEL_PRIORITY.RADIUS,
+      )
+    : () => {};
 
   const onOpen = () => {
     toggleDelIcon(delMarker, true);
@@ -253,6 +274,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterRadiusLabel();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -364,6 +386,28 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   let centroidDot: L.Marker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDelMarker: L.Marker | null = null;
+  // Polygon segment labels are recreated on every relabel, so the registrations
+  // are re-issued there too — a registration left over from a removed marker
+  // would point at a dead element.
+  const labelBinds: Array<() => void> = [];
+  let unregisterCentroid: () => void = () => {};
+  const bindSegLabels = () => {
+    labelBinds.forEach(f => f());
+    labelBinds.length = 0;
+    const n = points.length;
+    segLabels.forEach((label, i) => {
+      labelBinds.push(
+        mgr.registerLabel(
+          label,
+          () => [points[i], points[(i + 1) % n]],
+          CONST.LABEL_PRIORITY.SEGMENT,
+        ),
+      );
+    });
+  };
+  // The initial labels arrive from the drawing mode; relabel() re-issues them
+  // when a drag or node delete recreates the markers.
+  bindSegLabels();
 
   const onOpen = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
@@ -379,6 +423,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    labelBinds.forEach(f => f());
+    if (unregisterCentroid) unregisterCentroid();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -404,6 +450,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       segLabels.push(label);
       label.on("click", openOverlay);
     }
+    bindSegLabels();
     const centroid = Util.centroid(points);
     if (centroidDot) centroidDot.setLatLng(centroid);
     if (centroidLabel) centroidLabel.setLatLng(centroid);
@@ -436,6 +483,13 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       }),
       true,
     ) as L.Marker;
+    // The centroid has no home segment; any two distinct vertices give the
+    // planner a direction to push against when the area fights a segment label.
+    unregisterCentroid = mgr.registerLabel(
+      centroidLabel,
+      () => [points[0], points[1]],
+      CONST.LABEL_PRIORITY.CENTROID,
+    );
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
     ) as L.Marker;
