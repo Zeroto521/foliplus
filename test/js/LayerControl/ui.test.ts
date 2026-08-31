@@ -1362,3 +1362,239 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 });
+
+// ===========================================================================
+describe("LayerUI visibility persistence (hiddenIds)", () => {
+  // Reusable layer stubs at module scope so standalone test blocks don't
+  // depend on initFixture()'s internal scope.
+  const testPolyLayer = {
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({ isValid: () => true })),
+  };
+
+  const makeTestMap = () => {
+    const removeLayer = vi.fn();
+    return {
+      map: {
+        on: vi.fn(),
+        off: vi.fn(),
+        hasLayer: vi.fn(l => l === testPolyLayer),
+        addLayer: vi.fn(),
+        removeLayer,
+        getContainer: vi.fn(() => ({ id: "map" })),
+        getPane: vi.fn(() => ({ style: {} })),
+        createPane: vi.fn(() => ({
+          style: {},
+          classList: { add: vi.fn(), remove: vi.fn() },
+        })),
+        foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      },
+      removeLayer,
+    };
+  };
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  // ─────────────────── load / apply on attach ───────────────────
+
+  describe("loadHiddenIds / applyHiddenState", () => {
+    it("restores a hidden overlay on attach and removes it from the map", () => {
+      const { map, removeLayer } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1"]);
+
+      u.applyHiddenState();
+
+      expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
+      expect(u.hiddenIds).toContain("overlay1");
+      expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
+    });
+
+    it("drops unknown ids from the persisted hidden set", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
+
+      u.applyHiddenState();
+
+      expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
+    });
+
+    it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
+      const { map } = makeTestMap();
+      const onToggle = vi.fn();
+      const m = new LayerManager(map, [
+        {
+          id: "canvas1",
+          name: "Canvas",
+          layer: null,
+          onToggle,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds.add("canvas1");
+
+      u.applyHiddenState();
+
+      expect(onToggle).toHaveBeenCalledWith(false);
+    });
+
+    it("loads hidden ids from localStorage into hiddenIds", () => {
+      const { map } = makeTestMap();
+      window.localStorage.setItem(
+        CONST.STORAGE.VISIBILITY_KEY,
+        JSON.stringify(["overlay1", "base1"]),
+      );
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+
+      u.loadHiddenIds();
+
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+    });
+
+    it("ignores non-array/corrupt storage data", () => {
+      const { map } = makeTestMap();
+      window.localStorage.setItem(CONST.STORAGE.VISIBILITY_KEY, "not-json");
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+
+      u.loadHiddenIds();
+
+      expect(u.hiddenIds).toEqual(new Set());
+    });
+  });
+
+  // ─────────────────── save on toggle ───────────────────
+
+  describe("saveHiddenIds on toggle", () => {
+    it("persists a hidden overlay when the user unchecks it", () => {
+      const { map, removeLayer } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+      ]);
+      map.hasLayer.mockReturnValue(true);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set();
+
+      vi.useFakeTimers();
+      u.syncHiddenId("overlay1", true);
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.useRealTimers();
+
+      const stored = JSON.parse(
+        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
+      );
+      expect(stored).toContain("overlay1");
+    });
+
+    it("removes an overlay from the persisted set when the user re-checks it", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1"]);
+
+      vi.useFakeTimers();
+      u.syncHiddenId("overlay1", false);
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.useRealTimers();
+
+      const stored = JSON.parse(
+        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
+      );
+      expect(stored).toEqual(expect.not.arrayContaining(["overlay1"]));
+    });
+
+    it("debounces rapid saves into one localStorage write", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+
+      vi.useFakeTimers();
+      const originalStorage = window.localStorage;
+      const setItem = vi.fn();
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: () => null,
+          setItem,
+          removeItem: vi.fn(),
+          clear: () => {
+            setItem.mockReset();
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+      try {
+        u.syncHiddenId("overlay1", true);
+        u.syncHiddenId("overlay1", false);
+        u.syncHiddenId("overlay1", true);
+        expect(setItem).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      } finally {
+        Object.defineProperty(window, "localStorage", {
+          value: originalStorage,
+          writable: true,
+          configurable: true,
+        });
+        vi.useRealTimers();
+      }
+
+      expect(setItem).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─────────────────── color-layer is transient ───────────────────
+
+  describe("color layer activation is transient", () => {
+    it("does not pollute hiddenIds when color layer activates", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "base1", name: "OSM", isBase: true, layer: new TileLayer() },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1"]);
+      // Simulate a container + rows so showColorLayer can iterate bases.
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      m.uiContainer = container;
+      map.getPane.mockReturnValue({
+        classList: { add: vi.fn(), remove: vi.fn() },
+      });
+
+      u.showColorLayer("#000000");
+
+      // overlay1 was hidden before the color activation and should stay hidden.
+      expect(u.hiddenIds).toContain("overlay1");
+      // No base-layer id was added even though showColorLayer deselects all bases.
+      expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
+    });
+  });
+});

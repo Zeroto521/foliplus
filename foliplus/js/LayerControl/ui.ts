@@ -1,6 +1,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -24,6 +25,8 @@ const mapContainer = map.getContainer();
 class LayerUI {
   manager: LayerManager;
   foldedGroups: Set<string>;
+  /** Layer ids hidden by the user (checked-off); survives page reload. */
+  hiddenIds: Set<string>;
   isColorActive: boolean;
   currentColor: string;
   dragIdx: number | null;
@@ -31,6 +34,8 @@ class LayerUI {
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
   private interactionCleanup?: () => void;
+  /** Debounced writer for the persisted hidden-id set (lazy-init in saveHiddenIds). */
+  private debouncedSaveHidden: Debounced | undefined;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -71,6 +76,7 @@ class LayerUI {
   constructor(manager: LayerManager) {
     this.manager = manager;
     this.foldedGroups = new Set();
+    this.hiddenIds = new Set();
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.dragIdx = null;
@@ -112,6 +118,7 @@ class LayerUI {
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
     this.loadFoldState();
+    this.loadHiddenIds();
     this.renderInitialList();
     this.bindEvents();
 
@@ -145,6 +152,107 @@ class LayerUI {
   /** Save fold state to localStorage. */
   saveFoldState() {
     Storage.save(CONST.STORAGE.FOLD_KEY, Array.from(this.foldedGroups), CONF.name);
+  }
+
+  /** Load hidden-layer ids from localStorage. */
+  loadHiddenIds() {
+    const data = Storage.load<string[]>(CONST.STORAGE.VISIBILITY_KEY, CONF.name);
+    if (Array.isArray(data))
+      this.hiddenIds = new Set(data.filter(id => typeof id === "string"));
+  }
+
+  /** Save hidden-layer ids to localStorage, coalescing rapid calls (toggle-all). */
+  saveHiddenIds() {
+    if (!this.debouncedSaveHidden) {
+      this.debouncedSaveHidden = debounce(() => {
+        Storage.save(
+          CONST.STORAGE.VISIBILITY_KEY,
+          Array.from(this.hiddenIds),
+          CONF.name,
+        );
+      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
+    }
+    this.debouncedSaveHidden();
+  }
+
+  /**
+   * Apply persisted hidden state after the UI rows are rendered.
+   *
+   * Folium adds every layer to the map before the LayerControl IIFE runs,
+   * so on reload hidden layers are back on the map. This method actively
+   * removes them again so the checkboxes and the map agree.
+   *
+   * Unknown ids (removed layers) are dropped so stale persistence doesn't
+   * accumulate. Fires onToggle(false) for callback-only layers (canvas /
+   * heatmap) which have no Leaflet layer to remove.
+   */
+  applyHiddenState() {
+    const registry = this.m.layerRegistry;
+    // Guard: on attach applyHiddenState runs after renderInitialList, so the
+    // container always exists. Defensive null check keeps standalone calls
+    // (and tests) safe before attach.
+    const container = this.uiContainer;
+    for (const id of this.hiddenIds) {
+      const layerInfo = registry.get(id);
+      if (!layerInfo) continue; // stale id (layer removed) — drop it.
+
+      const item = container
+        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
+        : null;
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      const layer = this.m.findLayer(layerInfo);
+
+      // Callback-only layers (canvas) have no Leaflet layer to remove — fire
+      // the toggle callback so the canvas itself hides.
+      if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
+      else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
+
+      layerInfo.visible = false;
+
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.title = T("select_tooltip");
+      }
+      item?.classList.remove(CONST.CLASSES.ACTIVE);
+    }
+    // Prune ids whose layers no longer exist, keeping persistence tidy.
+    this.hiddenIds = new Set(
+      [...this.hiddenIds].filter(id => registry.get(id) != null),
+    );
+  }
+
+  /** Full re-scan of every row (used on attach/fold-toggle). */
+  initTypesAndVisibility() {
+    let anyBaseVisible = false;
+    for (let i = 0; i < this.m.layers.length; i++) {
+      if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
+    }
+    // Apply persisted hidden state (overrides map.hasLayer: folium adds layers
+    // before the control IIFE runs, so hidden layers are back on the map on
+    // reload). Hidden ids not in the registry are dropped (layer was removed).
+    this.applyHiddenState();
+
+    // Recompute whether any base is visible after hidden state was applied,
+    // so the color-layer fallback respects an explicit "hide all bases".
+    const baseIds = [...this.m.layers].filter(li => li.isBase).map(li => li.id);
+    anyBaseVisible = baseIds.some(id => {
+      const layer = this.m.findLayer(id);
+      return !!layer && this.m.map.hasLayer(layer);
+    });
+    // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
+    // base-less map must not suppress the color-layer background.
+    const allBasesHidden =
+      baseIds.length > 0 && baseIds.every(id => this.hiddenIds.has(id));
+
+    // Only fall back to the color layer when there are no visible base layers
+    // *and* the user never intentionally hid every base. Otherwise the
+    // fallback would undo an explicit "hide all bases" choice.
+    if (!anyBaseVisible && !allBasesHidden) this.showColorLayer(this.currentColor);
+    this.m.enforceOrder();
+    this.syncToggleAll(CONST.GROUP.OVERLAY);
+    this.syncToggleAll(CONST.GROUP.BASE);
   }
 
   renderInitialList() {
@@ -453,19 +561,6 @@ class LayerUI {
     return baseVisible;
   }
 
-  /** Full re-scan of every row (used on attach/fold-toggle). */
-  initTypesAndVisibility() {
-    let anyBaseVisible = false;
-    for (let i = 0; i < this.m.layers.length; i++) {
-      if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
-    }
-
-    if (!anyBaseVisible) this.showColorLayer(this.currentColor);
-    this.m.enforceOrder();
-    this.syncToggleAll(CONST.GROUP.OVERLAY);
-    this.syncToggleAll(CONST.GROUP.BASE);
-  }
-
   reindexItems() {
     const items = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
@@ -652,6 +747,7 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
+    this.debouncedSaveHidden?.cancel();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
@@ -691,7 +787,11 @@ class LayerUI {
       if (newState && layer) layer.options.paneSet = false;
       if (layerInfo.onToggle) layerInfo.onToggle(newState);
       this.syncVisibility(layerInfo, layer, newState);
+      this.syncHiddenId(layerInfo.id, !newState);
     });
+
+    // Persist hidden-set after bulk toggle (single debounced write for the batch).
+    this.saveHiddenIds();
 
     if (group === CONST.GROUP.BASE && !newState) {
       this.hideColorLayer();
@@ -764,6 +864,7 @@ class LayerUI {
 
     if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
     this.syncVisibility(layerInfo, layer, target.checked);
+    this.syncHiddenId(layerInfo.id, !target.checked);
 
     this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
     this.m.debouncedEnforce();
@@ -772,6 +873,13 @@ class LayerUI {
   handleInput(event: Event) {
     if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
       this.showColorLayer((event.target as HTMLInputElement).value);
+  }
+
+  /** Update the persisted hidden set for a single layer toggle. */
+  private syncHiddenId(id: string, hidden: boolean) {
+    if (hidden) this.hiddenIds.add(id);
+    else this.hiddenIds.delete(id);
+    this.saveHiddenIds();
   }
 
   /** Get all navigable layer items (excludes color item and toggle-all rows). */

@@ -10,6 +10,8 @@ export const DRAG = { HINT_COOLDOWN_MS: 800 };
 export const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
+  /** Set of layer ids currently hidden by the user (checked-off). */
+  VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
