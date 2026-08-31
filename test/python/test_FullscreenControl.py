@@ -515,10 +515,13 @@ class TestFullscreenControlBrowser:
             assert page.evaluate(
                 "document.querySelectorAll('.foliplus-dim').length === 0"
             ), "scrim should not exist before the first toggle"
-            assert page.evaluate(
-                "document.querySelector('.leaflet-container')"
-                ".classList.contains('foliplus-dim-active')"
-            ) is False
+            assert (
+                page.evaluate(
+                    "document.querySelector('.leaflet-container')"
+                    ".classList.contains('foliplus-dim-active')"
+                )
+                is False
+            )
 
             self._enter_fullscreen(page, hide_self=False)
             page.wait_for_timeout(400)  # fade is 260ms
@@ -527,9 +530,9 @@ class TestFullscreenControlBrowser:
                 ".opacity"
             )
             assert abs(float(opacity_in) - 0.5) < 0.02, opacity_in
-            assert page.evaluate(
-                "document.querySelectorAll('.foliplus-dim').length"
-            ) == 1, "scrim should be created exactly once"
+            assert (
+                page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
+            ), "scrim should be created exactly once"
 
             self._exit_fullscreen(page)
             page.wait_for_timeout(400)
@@ -540,9 +543,9 @@ class TestFullscreenControlBrowser:
             assert abs(float(opacity_out)) < 0.02, opacity_out
 
             # The scrim persists across the round-trip; only the class toggles.
-            assert page.evaluate(
-                "document.querySelectorAll('.foliplus-dim').length"
-            ) == 1
+            assert (
+                page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
+            )
 
             assert not errors, f"JS errors: {errors}"
 
@@ -579,7 +582,9 @@ class TestFullscreenControlBrowser:
                     };
                 }"""
             )
-            assert mounted["onContainer"], "scrim must be a direct child of the map container"
+            assert mounted["onContainer"], (
+                "scrim must be a direct child of the map container"
+            )
             assert mounted["insideContainer"]
             # Decisive for native mode: only descendants of the fullscreen
             # element paint while it is active.
@@ -666,7 +671,9 @@ class TestFullscreenControlBrowser:
             page.mouse.up()
             page.wait_for_timeout(300)
             got_down = page.evaluate("window.__downSpy")
-            assert got_down > 0, f"map did not receive the pointer through the scrim: {got_down}"
+            assert got_down > 0, (
+                f"map did not receive the pointer through the scrim: {got_down}"
+            )
 
             assert not errors, f"JS errors: {errors}"
 
@@ -727,10 +734,13 @@ class TestFullscreenControlBrowser:
             page.wait_for_function("() => document.fullscreenElement === null")
             page.wait_for_timeout(400)
 
-            assert page.evaluate(
-                "document.querySelector('.leaflet-container')"
-                ".classList.contains('foliplus-dim-active')"
-            ) is False
+            assert (
+                page.evaluate(
+                    "document.querySelector('.leaflet-container')"
+                    ".classList.contains('foliplus-dim-active')"
+                )
+                is False
+            )
             opacity_out = self._scrim_snapshot(page)["opacity"]
             assert abs(float(opacity_out)) < 0.02, opacity_out
             assert not errors, f"JS errors: {errors}"
@@ -785,7 +795,9 @@ class TestFullscreenControlBrowser:
             self._exit_fullscreen(page)
             page.wait_for_timeout(400)
             after = page.evaluate(grab)
-            assert after == before, f"control styling did not restore: {before} -> {after}"
+            assert after == before, (
+                f"control styling did not restore: {before} -> {after}"
+            )
 
             assert not errors, f"JS errors: {errors}"
 

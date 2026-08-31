@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ensureMask, removeMask, setDim } from "#foliplus/FullscreenControl/anim.js";
+import { ensureScrim, removeScrim, setDim } from "#foliplus/FullscreenControl/anim.js";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 
 const makeContainer = () => {
@@ -22,7 +22,7 @@ const clean = () => {
   });
 };
 
-describe("ensureMask", () => {
+describe("ensureScrim", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -31,21 +31,21 @@ describe("ensureMask", () => {
   });
 
   it("creates the scrim once as a child of the map container", () => {
-    expect(ensureMask(container)).not.toBeNull();
-    const mask = dimEl(container);
-    expect(mask).not.toBeNull();
-    expect(mask.parentElement).toBe(container);
+    expect(ensureScrim(container)).not.toBeNull();
+    const scrim = dimEl(container);
+    expect(scrim).not.toBeNull();
+    expect(scrim.parentElement).toBe(container);
     // Mounted inside the container rather than directly on body: in native
     // fullscreen the user agent paints only the fullscreen element and its
     // descendants, so a body-mounted scrim would never paint at all.
-    expect(Array.from(document.body.children)).not.toContain(mask);
-    expect(container.lastElementChild).toBe(mask);
+    expect(Array.from(document.body.children)).not.toContain(scrim);
+    expect(container.lastElementChild).toBe(scrim);
   });
 
   it("returns null on subsequent calls and creates no duplicate", () => {
-    expect(ensureMask(container)).not.toBeNull();
-    expect(ensureMask(container)).toBeNull();
-    expect(ensureMask(container)).toBeNull();
+    expect(ensureScrim(container)).not.toBeNull();
+    expect(ensureScrim(container)).toBeNull();
+    expect(ensureScrim(container)).toBeNull();
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
   });
 
@@ -54,7 +54,7 @@ describe("ensureMask", () => {
     const foreign = document.createElement("div");
     foreign.className = CLASSES.DIM;
     other.appendChild(foreign);
-    expect(ensureMask(container)).not.toBeNull();
+    expect(ensureScrim(container)).not.toBeNull();
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
     expect(dimEl(container)).not.toBe(foreign);
   });
@@ -63,7 +63,7 @@ describe("ensureMask", () => {
     const foreign = document.createElement("div");
     foreign.className = CLASSES.DIM;
     document.body.appendChild(foreign);
-    expect(ensureMask(container)).not.toBeNull();
+    expect(ensureScrim(container)).not.toBeNull();
     expect(dimEl(container)).not.toBe(foreign);
   });
 });
@@ -113,15 +113,13 @@ describe("setDim", () => {
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
   });
 
-  it("returns the mask it created, null when it already exists", () => {
-    const created = setDim(container, true);
-    expect(created).toBe(dimEl(container));
-    expect(setDim(container, false)).toBeNull();
-    expect(dimEl(container)).toBe(created);
+  it("creates the scrim but returns nothing", () => {
+    expect(setDim(container, true)).toBeUndefined();
+    expect(dimEl(container)).not.toBeNull();
   });
 });
 
-describe("removeMask", () => {
+describe("removeScrim", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -131,7 +129,7 @@ describe("removeMask", () => {
 
   it("detaches the scrim and drops the active class from its container", () => {
     setDim(container, true);
-    removeMask(container);
+    removeScrim(container);
     expect(document.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
   });
@@ -140,7 +138,7 @@ describe("removeMask", () => {
     const other = attach(makeContainer());
     setDim(container, true);
     setDim(other, true);
-    removeMask(container);
+    removeScrim(container);
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     // Destroying one control must not strip another map's scrim from under it.
@@ -149,7 +147,7 @@ describe("removeMask", () => {
   });
 
   it("is a no-op when nothing was ever created", () => {
-    expect(() => removeMask(container)).not.toThrow();
+    expect(() => removeScrim(container)).not.toThrow();
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
   });

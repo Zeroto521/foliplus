@@ -16,13 +16,13 @@ import { CLASSES } from "./const.js";
  * Everything else — the fade, the opacity, the z-index — lives in the
  * stylesheet. The JS owns only mount, toggle and teardown.
  */
-const ensureMask = (container: HTMLElement): HTMLElement | null => {
+const ensureScrim = (container: HTMLElement): HTMLElement | null => {
   const existing = container.querySelector(`.${CLASSES.DIM}`);
   if (existing) return null;
-  const mask = document.createElement("div");
-  mask.className = CLASSES.DIM;
-  container.appendChild(mask);
-  return mask;
+  const scrim = document.createElement("div");
+  scrim.className = CLASSES.DIM;
+  container.appendChild(scrim);
+  return scrim;
 };
 
 /**
@@ -32,13 +32,11 @@ const ensureMask = (container: HTMLElement): HTMLElement | null => {
  * API (native) or by `position: fixed` (pseudo), and the browser snaps that
  * jump in both cases — there is nothing to tween there, so the fade is the
  * entire transition. The active class goes on the container so each map's
- * state is scoped to its own map. Returns the mask it created, or `null` when
- * the container already carries one.
+ * state is scoped to its own map.
  */
-const setDim = (container: HTMLElement, active: boolean): HTMLElement | null => {
-  const mask = ensureMask(container);
+const setDim = (container: HTMLElement, active: boolean): void => {
+  ensureScrim(container);
   container.classList.toggle(CLASSES.DIM_ACTIVE, active);
-  return mask;
 };
 
 /**
@@ -47,13 +45,13 @@ const setDim = (container: HTMLElement, active: boolean): HTMLElement | null => 
  * Scoped to the caller's container — a page can carry several maps, and a
  * global sweep here would strip a sibling map's scrim out from under it.
  */
-const removeMask = (container: HTMLElement) => {
-  const mask = container.querySelector(`.${CLASSES.DIM}`);
+const removeScrim = (container: HTMLElement) => {
+  const scrim = container.querySelector(`.${CLASSES.DIM}`);
   // Grab the parent first — `remove()` detaches the node, after which
   // `parentElement` is null and the active class would be left behind.
-  const parent = mask?.parentElement;
-  mask?.remove();
+  const parent = scrim?.parentElement;
+  scrim?.remove();
   parent?.classList.remove(CLASSES.DIM_ACTIVE);
 };
 
-export { ensureMask, removeMask, setDim };
+export { ensureScrim, removeScrim, setDim };

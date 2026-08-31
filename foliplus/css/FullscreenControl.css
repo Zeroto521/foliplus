@@ -6,7 +6,8 @@
 
   Z-index: 99999 is the browser Fullscreen API convention.
   The pseudo-fullscreen container covers the entire viewport.
-  No internal z-index layering needed — single container.
+  The crossfade scrim (z-index 799, below controls at 800) adds the only
+  internal layer below the buttons — the basemap darkens, the controls don't.
   ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Button container ── */

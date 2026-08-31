@@ -267,6 +267,21 @@ describe("toggleFullscreen — native API path", () => {
       toggleFullscreen(mapMock, fsBtn, container);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     });
+
+    it("restores the scrim when exitFullscreen is denied while still fullscreen", async () => {
+      // exitFullscreen() denied → page is still fullscreen → scrim must come
+      // back, or the basemap stays darkened forever. Simulate the denied
+      // state by having getFullscreenEl report we are still fullscreen.
+      mapMock.isFullscreen = true;
+      mocks.getFullscreenEl.mockReturnValue({});
+      document.exitFullscreen = vi.fn(() => Promise.reject(new Error("denied")));
+      container.classList.add(CLASSES.DIM_ACTIVE);
+      toggleFullscreen(mapMock, fsBtn, container);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    });
   });
 
   describe("crossfade scrim", () => {

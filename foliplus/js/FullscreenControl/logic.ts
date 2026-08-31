@@ -61,6 +61,10 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
+          // Exit can be denied (e.g. NotAllowedError) while the scrim is
+          // already fading out — re-drive the dim from the actual API state so
+          // a denied exit doesn't leave the basemap stuck in the darkened state.
+          setDim(map.getContainer(), !!getFullscreenEl());
           updateUI(map, fsBtn, container);
         });
       // Un-dim alongside the exit so the basemap lightens as the view recedes.
