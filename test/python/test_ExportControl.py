@@ -363,6 +363,71 @@ class TestExportControlBrowser:
             assert rect1["t"] == pytest.approx(rect0["t"] + 10)
             assert center1 == center0
 
+    def test_nudge_tracks_key_without_reanimating_hint(self, browser, tmp_path):
+        """Holding an arrow key tracks each press and leaves the size hint alone."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Tag the size-hint element so we can detect if it gets rebuilt.
+            page.evaluate(
+                "() => { document.querySelector('.foliplus-hint-ExportControl-size')"
+                ".setAttribute('data-mark', '1'); }"
+            )
+            before = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+
+            # Hold ArrowRight: keydown then repeated keydowns, no keyup. Headless
+            # Chromium does not emit the OS's key auto-repeat, so the repeats are
+            # dispatched manually — mirroring what the OS sends for a held key.
+            page.keyboard.down("ArrowRight")
+            for _ in range(4):
+                page.evaluate(
+                    "() => document.dispatchEvent(new KeyboardEvent('keydown', "
+                    "{ key: 'ArrowRight', bubbles: true }))"
+                )
+
+            # The box suppresses its transition while nudging, so it tracks the
+            # keystrokes instead of chasing them (a transition would make the
+            # box lag behind and only settle after the key is released).
+            box = page.locator(".foliplus-export-box")
+            assert box.get_attribute("class").endswith("dragging")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+            # 5 nudges of NUDGE_STEP, and a pure move must not change the size.
+            assert after["l"] == pytest.approx(before["l"] + 50)
+            assert after["w"] == pytest.approx(before["w"])
+            assert after["h"] == pytest.approx(before["h"])
+
+            # A pure move keeps the size constant, so the hint is never refreshed —
+            # refreshing would rebuild the element and replay its entry animation.
+            assert page.evaluate(
+                "() => document.querySelector('.foliplus-hint-ExportControl-size')"
+                ".getAttribute('data-mark')"
+            ) == "1"
+
+            # Releasing the key restores the transition.
+            page.keyboard.up("ArrowRight")
+            page.wait_for_timeout(50)
+            assert not box.get_attribute("class").endswith("dragging")
+
+            # R changes the size, so the hint must be refreshed (and rebuilt).
+            page.keyboard.press("r")
+            page.wait_for_timeout(150)
+            assert page.evaluate(
+                "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
+                ".getAttribute('data-mark')"
+            ) != "1"
+
     def test_r_resets_crop_box(self, browser, tmp_path):
         """R resets the unlocked crop box to the default centered size."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):

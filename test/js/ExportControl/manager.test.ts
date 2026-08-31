@@ -168,7 +168,37 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
     manager.nudgeCropBox("ArrowRight");
     expect(manager.cropState.rect.left).toBe(110);
     expect(manager.updateBoxStyle).toHaveBeenCalled();
-    expect(manager.showHintWithInfo).toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox suppresses the box transition and does not refresh the hint", () => {
+    // Keyboard auto-repeat fires several keydowns per second; the box's default
+    // transition would make each nudge chase the input instead of tracking it,
+    // so nudge adds the .dragging class (same suppression as mouse dragging).
+    // And since the size never changes, the hint text is unchanged — refreshing
+    // it would rebuild the element and re-run its entry animation every press.
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(manager.showHintWithInfo).not.toHaveBeenCalled();
+  });
+
+  it("onKeyUp restores the box transition suppressed by nudging", () => {
+    manager.nudgeCropBox("ArrowDown");
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+
+    manager.onKeyUp({ key: "ArrowDown" } as KeyboardEvent);
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      false,
+    );
+  });
+
+  it("onKeyUp ignores non-arrow keys and a missing crop box", () => {
+    manager.onKeyUp({ key: "Enter" } as KeyboardEvent);
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      false,
+    );
+
+    manager.cropState = null;
+    manager.onKeyUp({ key: "ArrowLeft" } as KeyboardEvent);
   });
 
   it("nudgeCropBox moves up and clamps at the map top edge", () => {
