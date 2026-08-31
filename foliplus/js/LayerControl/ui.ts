@@ -218,9 +218,16 @@ class LayerUI {
       item?.classList.remove(CONST.CLASSES.ACTIVE);
     }
     // Prune ids whose layers no longer exist, keeping persistence tidy.
-    this.hiddenIds = new Set(
-      [...this.hiddenIds].filter(id => registry.get(id) != null),
-    );
+    // Stale ids occur when a layer is removed at runtime after being hidden.
+    const staleIds = [...this.hiddenIds].filter(id => registry.get(id) == null);
+    if (staleIds.length > 0) {
+      console.warn(
+        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
+      );
+      this.hiddenIds = new Set(
+        [...this.hiddenIds].filter(id => registry.get(id) != null),
+      );
+    }
   }
 
   /** Full re-scan of every row (used on attach/fold-toggle). */
