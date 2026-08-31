@@ -63,10 +63,14 @@ path.foliplus-measure-node-solid {
   stroke-width: 2.5px;
   stroke-dasharray: 6 4;
 }
+/* Preview uses the same dash rhythm as dashed/solid (6 4); state is
+   distinguished by opacity (0.6) and line weight (2px), not dash rate.
+   This keeps "map operation border" a single visual language across
+   measure, focus rect, and crop box. */
 .foliplus-measure-path-preview {
   stroke-width: var(--size-2);
   opacity: 0.6;
-  stroke-dasharray: 4 4;
+  stroke-dasharray: 6 4;
 }
 .foliplus-measure-shape-fill {
   fill: var(--accent-primary);
