@@ -8,7 +8,6 @@ import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
-import * as CONST from "./const.js";
 import {
   type CollidableLabel,
   mapProjector,
@@ -16,6 +15,7 @@ import {
   placeLabels,
   segmentDir,
 } from "./collision.js";
+import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
 import {
@@ -396,7 +396,12 @@ class MeasureManager {
    *  class, which also keeps them out of PNG exports. */
   private planLabels(): void {
     if (this.collidableLabels.length === 0) return;
-    placeLabels(this.collidableLabels, mapProjector(this.map), this.labelsCollide, this.chipOf);
+    placeLabels(
+      this.collidableLabels,
+      mapProjector(this.map),
+      this.labelsCollide,
+      this.chipOf,
+    );
   }
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */

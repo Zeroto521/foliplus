@@ -76,21 +76,23 @@ describe("segmentDir", () => {
   };
 
   it("returns the unit vector along a horizontal segment", () => {
-    expect(Collision.segmentDir(dirProjector, { lat: 0, lng: 0 }, { lat: 0, lng: 2 })).toEqual([
-      1,
-      0,
-    ]);
+    expect(
+      Collision.segmentDir(dirProjector, { lat: 0, lng: 0 }, { lat: 0, lng: 2 }),
+    ).toEqual([1, 0]);
   });
 
   it("returns the unit vector along a vertical segment", () => {
-    expect(Collision.segmentDir(dirProjector, { lat: 0, lng: 0 }, { lat: 2, lng: 0 })).toEqual([
-      0,
-      1,
-    ]);
+    expect(
+      Collision.segmentDir(dirProjector, { lat: 0, lng: 0 }, { lat: 2, lng: 0 }),
+    ).toEqual([0, 1]);
   });
 
   it("normalizes to unit length", () => {
-    const d = Collision.segmentDir(dirProjector, { lat: 0, lng: 0 }, { lat: 3, lng: 4 });
+    const d = Collision.segmentDir(
+      dirProjector,
+      { lat: 0, lng: 0 },
+      { lat: 3, lng: 4 },
+    );
     expect(Math.hypot(d[0], d[1])).toBeCloseTo(1, 10);
   });
 

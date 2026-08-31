@@ -74,7 +74,11 @@ export const mapProjector = (map: L.Map): Projector => ({
 });
 
 /** Unit pixel-space direction of a segment; `[1, 0]` for a zero-length one. */
-export const segmentDir = (p: Projector, from: L.LatLng, to: L.LatLng): [number, number] => {
+export const segmentDir = (
+  p: Projector,
+  from: L.LatLng,
+  to: L.LatLng,
+): [number, number] => {
   const a = p.px(from);
   const b = p.px(to);
   const dx = b.x - a.x;
@@ -92,14 +96,16 @@ export const perpCandidates = (dir: [number, number]): Array<[number, number]> =
   const [dx, dy] = dir;
   const len = Math.hypot(dx, dy) || 1;
   const base = Math.atan2(dy / len, dx / len);
-  return ([
-    Math.PI / 2,
-    -Math.PI / 2,
-    Math.PI / 4,
-    -Math.PI / 4,
-    (3 * Math.PI) / 4,
-    -(3 * Math.PI) / 4,
-  ] as const).map(off => {
+  return (
+    [
+      Math.PI / 2,
+      -Math.PI / 2,
+      Math.PI / 4,
+      -Math.PI / 4,
+      (3 * Math.PI) / 4,
+      -(3 * Math.PI) / 4,
+    ] as const
+  ).map(off => {
     const a = base + off;
     return [Math.cos(a), Math.sin(a)] as [number, number];
   });
