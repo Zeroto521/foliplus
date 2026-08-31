@@ -384,9 +384,7 @@ class TestSearchControlBrowser:
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("SearchControl/seed_history_entry"))
             page.reload(wait_until="domcontentloaded")
-            page.wait_for_selector(
-                ".foliplus-search", state="attached", timeout=10000
-            )
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             self._expand(page)
             page.wait_for_selector(
                 ".foliplus-search-result-item", state="attached", timeout=5000
