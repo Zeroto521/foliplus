@@ -263,6 +263,75 @@ describe("attachDistanceUI", () => {
     expect(() => toggle(true)).not.toThrow();
     expect(() => toggle(false)).not.toThrow();
   });
+
+  it("re-registers surviving label registrations with fresh endpoints after deleting an inner node (regression)", () => {
+    // A 3-point distance creates 2 segment labels. Deleting the middle node
+    // splices both the points array and the segLabels array, so the survivor's
+    // registration must be re-issued with the new end-to-end endpoints — stale
+    // closures would leave the survivor pointing at the old (now invalid)
+    // segment and drift out of place on the next plan.
+    const registerLabel = vi.fn((marker: any, endpoints: () => any) => {
+      // Return the endpoints in the call record so we can re-read them after
+      // the delete, proving the closure is fresh (reads the mutable points
+      // array) not captured once. The real registerLabel returns an
+      // unregister function, so we do too.
+      (registerLabel as any).savedEndpoints = endpoints();
+      return () => {};
+    });
+    const mgr = {
+      map: { on: vi.fn(), off: vi.fn() },
+      isEditMode: true,
+      registerEditOverlayCloser: vi.fn(() => () => {}),
+      registerEditDragToggle: vi.fn(() => () => {}),
+      registerFinalized: vi.fn(() => () => {}),
+      registerLabel,
+      closeOtherEditOverlays: vi.fn(),
+    };
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const mkNode = (pt: L.LatLng) => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => pt),
+      setLatLng: vi.fn(),
+    });
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ];
+
+    const onDelete = vi.fn();
+    const onUpdate = vi.fn();
+    UI.attachDistanceUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+        nodeMarkers: points.map(mkNode),
+        segLabels: [0, 1].map(() => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() })),
+        points,
+        onDelete,
+        onUpdate,
+      } as any,
+    );
+
+    // Initial: 2 labels registered (one per segment).
+    expect(registerLabel).toHaveBeenCalledTimes(2);
+
+    // Delete the middle node (node index 1 → point index 1).
+    const middleDel = (makeDelIcon as any).mock.results[1].value;
+    const beforeCalls = registerLabel.mock.calls.length;
+
+    (middleDel as any)._delClick();
+
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenCalled();
+    expect(registerLabel.mock.calls.length).toBeGreaterThan(beforeCalls);
+  });
 });
 
 describe("attachPolygonUI", () => {

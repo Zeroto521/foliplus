@@ -66,15 +66,25 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     opts;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
-  // Segment labels persist as markers — relabel() only restyles them via
-  // setIcon, so one registration per label survives for the measurement's life.
-  const labelBinds: Array<() => void> = segLabels.map((label, i) =>
-    mgr.registerLabel(
-      label,
-      () => [points[i], points[i + 1]],
-      CONST.LABEL_PRIORITY.SEGMENT,
-    ),
-  );
+  // Segment labels are re-registered each time relabel() runs: a deleted inner
+  // node splices both the points and segLabels arrays, so leaving the original
+  // registrations (which capture a stale index) in place would leave the
+  // survivor pointing at an invalid segment. Re-issuing keeps closures fresh.
+  const labelBinds: Array<() => void> = [];
+  const bindSegLabels = () => {
+    labelBinds.forEach(f => f());
+    labelBinds.length = 0;
+    segLabels.forEach((label, i) => {
+      labelBinds.push(
+        mgr.registerLabel(
+          label,
+          () => [points[i], points[i + 1]],
+          CONST.LABEL_PRIORITY.SEGMENT,
+        ),
+      );
+    });
+  };
+  bindSegLabels();
 
   const relabel = () => {
     let cumulative = 0;
@@ -88,6 +98,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         ),
       );
     });
+    bindSegLabels();
   };
 
   const onOpen = () => {
