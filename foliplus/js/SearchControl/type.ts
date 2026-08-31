@@ -55,6 +55,14 @@ export interface ResultItem {
   icon: string;
   /** Primary display text (shown in RESULT_TEXT). */
   primaryText: string;
+  /**
+   * Canonical re-entry value for history items (the stored `entry.query`),
+   * written to the item's `data-query` attribute. `primaryText` is the
+   * formatted display (reverse-geocoded address), which must NOT be put back
+   * into a coordinate-mode input — `parseCoord` would fail on it. Absent for
+   * suggestions, whose display text IS the re-searchable value.
+   */
+  query?: string;
   /** Secondary coordinate display (shown in RESULT_COORD, null to hide). */
   coordDisplay: string | null;
   /** Click handler — called after the panel is removed. */

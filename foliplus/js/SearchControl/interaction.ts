@@ -15,6 +15,17 @@ import type { SearchControl } from "./type.js";
 const T = createScopedTranslator(CONF);
 
 /**
+ * The value a keyboard-navigated result item puts into the input. History
+ * items carry their canonical query in `data-query` (restoring the formatted
+ * display would break coord-mode re-parsing); suggestions fall back to their
+ * display text.
+ */
+const resultItemValue = (item: Element): string =>
+  (item as HTMLElement).dataset.query ??
+  item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ??
+  "";
+
+/**
  * Bind all DOM events for the SearchControl.
  */
 const bindEvents = (ctrl: SearchControl): (() => void) => {
@@ -83,9 +94,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
         items.forEach((el: Element, i: number) =>
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
-        ctrl.inp.value =
-          items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-            ?.textContent ?? "";
+        ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
       },
     },
     {
@@ -100,9 +109,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
         );
         if (ctrl.selectedIdx >= 0)
-          ctrl.inp.value =
-            items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-              ?.textContent ?? "";
+          ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
       },
     },
     {

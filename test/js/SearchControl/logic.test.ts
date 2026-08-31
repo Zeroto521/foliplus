@@ -2134,16 +2134,47 @@ describe("SearchControl history", () => {
         ]);
         renderHistory(ctrl, "addr");
         const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
-        const mouseEvent = new MouseEvent("mousedown", {
-          bubbles: true,
-          cancelable: true,
-        });
-        item.dispatchEvent(mouseEvent);
+        item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
         expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
-        expect(ctrl.inp.value).toBe("Paris, France");
+        // The input gets the stored query, not the formatted display (reverse-
+        // geocode output can drift from the original keyword).
+        expect(ctrl.inp.value).toBe("Paris");
       } finally {
         window.CONF = { ...window.CONF, zoom: original };
       }
+    });
+
+    it("clicking a coord entry with an address restores the query, not the address", () => {
+      const ctrl = makeHistoryCtrl([
+        {
+          query: "121.47,31.23",
+          type: "coord",
+          coordDisplay: "121.4700, 31.2300",
+          addrDisplay: "Shanghai, China",
+          lng: 121.47,
+          lat: 31.23,
+          ts: 1000,
+          count: 1,
+        },
+      ]);
+      renderHistory(ctrl, "coord");
+      // The item displays the reverse-geocoded address as its primary text...
+      expect(
+        ctrl.panelWrap.querySelector(".foliplus-search-result-text")?.textContent,
+      ).toBe("Shanghai, China");
+      // ...and the canonical query rides along as data-query for keyboard nav.
+      expect(
+        ctrl.panelWrap.querySelector(".foliplus-search-result-item")?.getAttribute(
+          "data-query",
+        ),
+      ).toBe("121.47,31.23");
+      ctrl.panelWrap
+        .querySelector(".foliplus-search-result-item")!
+        .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      // ...but the input is filled with the canonical coord query so a follow-up
+      // Enter press re-searches the same point instead of failing to parse the
+      // address as coordinates.
+      expect(ctrl.inp.value).toBe("121.47,31.23");
     });
 
     it("renders only coord entries in coord mode", () => {

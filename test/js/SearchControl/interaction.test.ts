@@ -274,6 +274,34 @@ describe("bindEvents", () => {
     expect(ctrl.inp.value).toBe("Paris, France");
   });
 
+  it("keyboard nav fills the canonical query for history items, not the display", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    // A coord history entry whose primary text is its reverse-geocoded address.
+    // Its data-query must win over the display, or Enter would fail parseCoord.
+    const item = dom.el(
+      "div",
+      {
+        class: "foliplus-search-result-item",
+        "data-query": "121.47,31.23",
+        "data-index": "0",
+      },
+      dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
+    );
+    ctrl.panelWrap.append(item);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("121.47,31.23");
+    // ArrowUp past the top clears the selection; the value is left as-is
+    // (the handler only writes when an item is selected).
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+  });
+
   it("keyboard navigation clamps at panel boundaries", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");

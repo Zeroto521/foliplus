@@ -430,6 +430,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       {
         class: CLASSES.RESULT_ITEM,
         "data-index": String(idx),
+        // Keyboard nav writes the canonical query (when present) instead of the
+        // formatted display — the latter would break coord-mode re-parsing.
+        ...(item.query ? { "data-query": item.query } : {}),
         parent: ctrl.panelWrap,
         onmousedown: (event: Event) => {
           event.stopPropagation();
@@ -512,9 +515,14 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
       source: SOURCE.HISTORY,
       primaryText,
+      // Canonical re-entry value (also exposed via data-query for keyboard nav).
+      // Restoring `primaryText` here put the reverse-geocoded address into a
+      // coordinate-mode input, where parseCoord rejects it — the entry became
+      // unreusable by click.
+      query: entry.query,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
-        ctrl.inp.value = primaryText;
+        ctrl.inp.value = entry.query;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];

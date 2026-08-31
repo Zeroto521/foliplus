@@ -354,3 +354,26 @@ class TestSearchControlBrowser:
             assert placeholder and len(placeholder) > 0, (
                 f"Placeholder should not be empty, got: '{placeholder}'"
             )
+
+    def test_coord_history_click_restores_query(self, browser, tmp_path):
+        """Clicking a coord history entry restores the canonical query, not the
+        reverse-geocoded address (the address would fail coord-mode re-parsing)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Seed one coord history entry whose address differs from its query,
+            # then reload so the component picks it up on init.
+            page.evaluate(_js("SearchControl/seed_history_entry"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+
+            # Empty input → history panel shows the seeded coord entry.
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            # The item's primary text is the address (display), but clicking it
+            # must put the canonical query into the input.
+            value = page.evaluate(_js("SearchControl/click_history_entry"))
+            assert value == "121.47,31.23", (
+                f"Input should be the canonical query, got: {value!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
