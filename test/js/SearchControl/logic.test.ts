@@ -2164,13 +2164,15 @@ describe("SearchControl history", () => {
       ).toBe("Shanghai, China");
       // ...and the canonical query rides along as data-query for keyboard nav.
       expect(
-        ctrl.panelWrap.querySelector(".foliplus-search-result-item")?.getAttribute(
-          "data-query",
-        ),
+        ctrl.panelWrap
+          .querySelector(".foliplus-search-result-item")
+          ?.getAttribute("data-query"),
       ).toBe("121.47,31.23");
       ctrl.panelWrap
         .querySelector(".foliplus-search-result-item")!
-        .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+        .dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+        );
       // ...but the input is filled with the canonical coord query so a follow-up
       // Enter press re-searches the same point instead of failing to parse the
       // address as coordinates.
