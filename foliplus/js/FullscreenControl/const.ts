@@ -8,6 +8,10 @@ const CLASSES = {
   ZOOM_OUT: "foliplus-zoom-out",
   TOGGLE: "foliplus-fullscreen-toggle",
   HIDDEN: "foliplus-hidden",
+  // Crossfade scrim, mounted on the map container by anim.ts.
+  DIM: "foliplus-dim",
+  // Toggled on the map container; crossfades the scrim to `--dim-alpha`.
+  DIM_ACTIVE: "foliplus-dim-active",
 };
 
 const containerId = (name: string, position: string) =>

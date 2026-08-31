@@ -6,6 +6,16 @@ import {
   updateUI,
 } from "#foliplus/FullscreenControl/logic.js";
 
+// Clear the scrim between tests so one test's container state never leaks
+// into the next.
+const resetScrim = () => {
+  document.body.className = "";
+  document.querySelectorAll(`.${CLASSES.DIM}`).forEach(el => {
+    el.parentElement?.classList.remove(CLASSES.DIM_ACTIVE);
+    el.remove();
+  });
+};
+
 // Mutable state controlled by each describe's beforeEach to switch between the
 // native API path (isEnabled=true) and the pseudo path (isEnabled=false).
 const mocks = vi.hoisted(() => ({
@@ -54,6 +64,7 @@ describe("updateUI", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetScrim();
     fsBtn = document.createElement("button");
     container = makeContainer();
     mapMock = {
@@ -100,6 +111,7 @@ describe("toggleFullscreen — pseudo path", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetScrim();
     mocks.isEnabled = false;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -137,6 +149,7 @@ describe("bindFullscreenEvents — pseudo path", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetScrim();
     mocks.isEnabled = false;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -173,6 +186,7 @@ describe("toggleFullscreen — native API path", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetScrim();
     mocks.isEnabled = true;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -245,6 +259,78 @@ describe("toggleFullscreen — native API path", () => {
       toggleFullscreen(mapMock, fsBtn, container);
       expect(document.exitFullscreen).toHaveBeenCalled();
     });
+
+    it("clears the scrim as the basemap lightens", async () => {
+      mapMock.isFullscreen = true;
+      document.exitFullscreen = vi.fn(() => Promise.resolve());
+      container.classList.add(CLASSES.DIM_ACTIVE);
+      toggleFullscreen(mapMock, fsBtn, container);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    });
+  });
+
+  describe("crossfade scrim", () => {
+    it("fades the basemap in before requestFullscreen settles", async () => {
+      toggleFullscreen(mapMock, fsBtn, container);
+      // The scrim is toggled synchronously, ahead of the API promise, so there
+      // is no frame between the click and the fade.
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    });
+
+    it("clears the scrim when requestFullscreen is rejected", async () => {
+      mapMock.getContainer().requestFullscreen = vi.fn(() =>
+        Promise.reject(new Error("denied")),
+      );
+      toggleFullscreen(mapMock, fsBtn, container);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    });
+  });
+});
+
+describe("toggleFullscreen — crossfade scrim, pseudo path", () => {
+  let fsBtn, container, mapMock;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetScrim();
+    mocks.isEnabled = false;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeMapMock(container);
+  });
+
+  it("fades the basemap in on enter", () => {
+    toggleFullscreen(mapMock, fsBtn, container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+  });
+
+  it("fades the basemap out on exit", () => {
+    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+  });
+
+  it("ends up dimmed after a third toggle", () => {
+    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+  });
+
+  it("mounts the scrim lazily — nothing is in the DOM before the first toggle", () => {
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
+    toggleFullscreen(mapMock, fsBtn, container);
+    // The scrim is a child of the map container, not of body: in native
+    // fullscreen the user agent paints only the fullscreen element and its
+    // descendants, so a body-mounted scrim would never paint.
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
   });
 });
 
@@ -287,5 +373,23 @@ describe("bindFullscreenEvents — native API path", () => {
     handler();
     expect(mapMock.isFullscreen).toBe(true);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+  });
+
+  it("clears the dim when the API reports fullscreen is gone", () => {
+    // Esc exits fullscreen without touching the button, so the dim has to
+    // follow the API state from here or the basemap stays darkened.
+    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    mocks.getFullscreenEl.mockReturnValue(null);
+    handler();
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+  });
+
+  it("keeps the dim while the API still reports fullscreen", () => {
+    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    mocks.getFullscreenEl.mockReturnValue({});
+    handler();
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
   });
 });

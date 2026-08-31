@@ -2,6 +2,7 @@
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { setDim } from "./anim.js";
 import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -12,8 +13,11 @@ const T = createScopedTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
+// Reached from the toggle, from `fullscreenchange`, and from the rejection
+// paths, so it must be safe to run twice for the same fullscreen state.
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
+
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
@@ -46,7 +50,9 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
-  if (getFullscreenEl() || map.isFullscreen) {
+  const exiting = !!getFullscreenEl() || map.isFullscreen;
+
+  if (exiting) {
     if (isEnabled) {
       document
         .exitFullscreen()
@@ -57,14 +63,16 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
+      // Un-dim alongside the exit so the basemap lightens as the view recedes.
+      setDim(map.getContainer(), false);
       return;
-    } else {
-      map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
-      map.invalidateSize();
     }
-    map.isFullscreen = false;
+    setDim(map.getContainer(), false);
+    map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+    map.invalidateSize();
   } else {
     if (isEnabled) {
+      setDim(map.getContainer(), true);
       map
         .getContainer()
         .requestFullscreen()
@@ -72,16 +80,17 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = true;
         })
         .catch(() => {
+          setDim(map.getContainer(), false);
           map.isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
       return;
-    } else {
-      map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
-      map.invalidateSize();
     }
-    map.isFullscreen = true;
+    setDim(map.getContainer(), true);
+    map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    map.invalidateSize();
   }
+  map.isFullscreen = !exiting;
   updateUI(map, fsBtn, container);
 };
 
@@ -95,6 +104,10 @@ const bindFullscreenEvents = (
 ) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
+    // Exit is also reachable from the keyboard (Esc), not just the button, so
+    // the dim has to be driven from the API state here — otherwise Esc leaves
+    // the basemap darkened until the next toggle.
+    setDim(map.getContainer(), !!getFullscreenEl());
     updateUI(map, fsBtn, container);
   };
 

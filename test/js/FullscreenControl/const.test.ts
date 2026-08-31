@@ -7,6 +7,8 @@ describe("CLASSES", () => {
     expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
     expect(CLASSES.HIDDEN).toBe("foliplus-hidden");
+    expect(CLASSES.DIM).toBe("foliplus-dim");
+    expect(CLASSES.DIM_ACTIVE).toBe("foliplus-dim-active");
   });
 });
 

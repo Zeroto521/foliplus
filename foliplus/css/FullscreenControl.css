@@ -1,11 +1,13 @@
-/* ── FullscreenControl / Zoom Controls ──
+/* ══════════════════════════════════════════════════════════════════════════
+  FullscreenControl / Zoom Controls
   Custom container with three tool-btn buttons.
   Hover/active effects inherited from common.css unified button rules.
   Only loaded when FullscreenControl is used.
 
   Z-index: 99999 is the browser Fullscreen API convention.
   The pseudo-fullscreen container covers the entire viewport.
-  No internal z-index layering needed — single container. ── */
+  No internal z-index layering needed — single container.
+  ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Button container ── */
 .foliplus-fullscreen-bar {
@@ -33,6 +35,66 @@
   }
   .foliplus-fullscreen-toggle {
     border-bottom: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+  Fullscreen transition
+
+  Native and pseudo fullscreen both jump the map from its box to 100vw/vh with
+  no animation, so the crossing is carried entirely by a scrim: entering fades
+  the basemap down, exiting fades it back up, while the control panels and the
+  hint are untouched. The scrim is a direct child of the map container — it
+  must be, since in native fullscreen the user agent paints only the fullscreen
+  element and its descendants — toggled by a class on the container, so nothing
+  in the map ever moves or re-flows during the transition.
+  ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Crossfade scrim ──
+  Created once per map by anim.ts, appended to the map container, and
+  transparent at rest. `inset: 0` covers the container in both modes: in
+  pseudo-fullscreen the container is `position: fixed` filling the viewport, and
+  in native fullscreen the container *is* the fullscreen element, so the same
+  `inset: 0` fills the viewport there.
+
+  The tokens live on the scrim rather than `:root` — this stylesheet only loads
+  with FullscreenControl, and the values are nowhere else in the project. They
+  sit on `.foliplus-dim` (not on the active class) so the `transition` already
+  has its duration when the scrim is still transparent: an unresolved
+  `var()` would make the whole shorthand invalid and kill the fade-in.
+
+  The z-index sorts against the map container's own children:
+  `.leaflet-map-pane` is `position: absolute` at z-index 400, so it forms a
+  stacking context and every pane (200-700) sorts inside it, while
+  `.leaflet-control-container` is `position: static` with `z-index: auto` and
+  does not, so each control's 800 sorts directly. 799 therefore sits above the
+  basemap and every pane and below the controls — only the basemap and the
+  markers and popups on it darken, never a control panel. `pointer-events: none`
+  lets clicks and drags pass straight through to the map. */
+.foliplus-dim {
+  --dim-duration: 260ms;
+  --dim-timing: cubic-bezier(0.4, 0, 0.2, 1);
+  --dim-alpha: 0.5;
+
+  position: absolute;
+  inset: 0;
+  z-index: 799;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dim-duration) var(--dim-timing);
+}
+
+.foliplus-dim-active .foliplus-dim {
+  opacity: var(--dim-alpha);
+}
+
+/* ── Reduce motion ──
+  The crossfade is dropped, so the basemap darkens and lightens instantly; the
+  fullscreen jump is unaffected either way, since nothing here animates it. */
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-dim {
+    transition: none;
   }
 }
 

@@ -111,6 +111,28 @@ class TestFullscreeControlRendering:
         assert_config_value(html, "hide_self", False)
         assert_config_value(html, "hide_others", False)
 
+    def test_css_dim_scrim(self):
+        """The crossfade scrim fades the basemap while controls stay above it."""
+        html = render_control(FullscreenControl())
+        assert "foliplus-dim" in html
+        assert "foliplus-dim-active" in html
+        assert "--dim-duration: 260ms" in html
+        assert "--dim-alpha: 0.5" in html
+        assert "pointer-events: none" in html
+
+    def test_css_dim_uses_tokens(self):
+        """The fade reads the duration and alpha from CSS custom properties."""
+        html = render_control(FullscreenControl())
+        assert "var(--dim-duration)" in html
+        assert "var(--dim-alpha)" in html
+        assert "var(--dim-timing)" in html
+
+    def test_css_dim_respects_reduced_motion(self):
+        """prefers-reduced-motion drops the fade instead of the dim itself."""
+        html = render_control(FullscreenControl())
+        assert "@media (prefers-reduced-motion: reduce)" in html
+        assert "transition: none" in html
+
 
 class TestFullscreenControlBrowser:
     """Browser-based smoke tests for FullscreenControl."""
@@ -421,4 +443,457 @@ class TestFullscreenControlBrowser:
                     .classList.contains('foliplus-hidden')"""
             )
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
+            assert not errors, f"JS errors: {errors}"
+
+    # ── Crossfade scrim ──────────────────────────────────────────────────
+
+    def _scrim_snapshot(self, page):
+        """Return the scrim's z-index, computed opacity and geometry."""
+        return page.evaluate(
+            """() => {
+                const mask = document.querySelector('.foliplus-dim');
+                if (!mask) return null;
+                const s = getComputedStyle(mask);
+                return {
+                    zIndex: s.zIndex,
+                    opacity: s.opacity,
+                    pointerEvents: s.pointerEvents,
+                    rect: {
+                        x: mask.getBoundingClientRect().x,
+                        y: mask.getBoundingClientRect().y,
+                        width: mask.getBoundingClientRect().width,
+                        height: mask.getBoundingClientRect().height,
+                    },
+                };
+            }"""
+        )
+
+    def _scrim_layers(self, page):
+        """Return the scrim, its parent and every control with their stacking values."""
+        return page.evaluate(
+            """() => {
+                const pick = el => ({
+                    el: el.className,
+                    zIndex: getComputedStyle(el).zIndex,
+                    position: getComputedStyle(el).position,
+                    top: el.getBoundingClientRect().top,
+                });
+                const mask = document.querySelector('.foliplus-dim');
+                return {
+                    scrim: mask ? {
+                        ...pick(mask),
+                        parent: mask.parentElement
+                            ? mask.parentElement.className
+                            : null,
+                        parentZIndex: mask.parentElement
+                            ? getComputedStyle(mask.parentElement).zIndex
+                            : null,
+                    } : null,
+                    controls: Array.from(
+                        document.querySelectorAll('.leaflet-control')
+                    ).map(pick),
+                };
+            }"""
+        )
+
+    def test_scrim_fades_on_enter(self, browser, tmp_path):
+        """Entering fullscreen fades the basemap down and back up on exit.
+
+        Asserts the computed opacity on real pixels rather than the CSS rule,
+        and that the fade actually lands at the token value.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+
+            # Transparent before the first toggle; the scrim itself is not in
+            # the DOM yet (it is created lazily on first use).
+            assert page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length === 0"
+            ), "scrim should not exist before the first toggle"
+            assert page.evaluate(
+                "document.querySelector('.leaflet-container')"
+                ".classList.contains('foliplus-dim-active')"
+            ) is False
+
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)  # fade is 260ms
+            opacity_in = page.evaluate(
+                "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
+                ".opacity"
+            )
+            assert abs(float(opacity_in) - 0.5) < 0.02, opacity_in
+            assert page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length"
+            ) == 1, "scrim should be created exactly once"
+
+            self._exit_fullscreen(page)
+            page.wait_for_timeout(400)
+            opacity_out = page.evaluate(
+                "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
+                ".opacity"
+            )
+            assert abs(float(opacity_out)) < 0.02, opacity_out
+
+            # The scrim persists across the round-trip; only the class toggles.
+            assert page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length"
+            ) == 1
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_mounts_on_container(self, browser, tmp_path):
+        """The scrim is a child of the map container, not a sibling of it.
+
+        The container is the fullscreen element in native fullscreen, and the
+        user agent paints only the fullscreen element and its descendants while
+        one is active, so the scrim must live there to paint at all. Inside the
+        container it also stays correct in pseudo-fullscreen, where the
+        container is `position: fixed` filling the viewport, so `inset: 0`
+        still spans the whole viewport.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+
+            mounted = page.evaluate(
+                """() => {
+                    const mask = document.querySelector('.foliplus-dim');
+                    const c = document.querySelector('.leaflet-container');
+                    return {
+                        onContainer: mask.parentElement === c,
+                        insideContainer: c.contains(mask),
+                        isDescendantOfFullscreen: document.fullscreenElement
+                            ? document.fullscreenElement.contains(mask)
+                            : null,
+                        isLeafletControl: mask.classList.contains('leaflet-control'),
+                    };
+                }"""
+            )
+            assert mounted["onContainer"], "scrim must be a direct child of the map container"
+            assert mounted["insideContainer"]
+            # Decisive for native mode: only descendants of the fullscreen
+            # element paint while it is active.
+            assert mounted["isDescendantOfFullscreen"] is True, mounted
+            # Not a .leaflet-control, so the hide_others sweep leaves it alone.
+            assert mounted["isLeafletControl"] is False
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_covers_the_viewport(self, browser, tmp_path):
+        """The scrim spans the whole viewport in both fullscreen modes."""
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            snap = self._scrim_snapshot(page)
+            assert snap is not None
+            assert snap["rect"]["x"] == 0 and snap["rect"]["y"] == 0, snap["rect"]
+            assert snap["rect"]["width"] == page.evaluate("window.innerWidth")
+            assert snap["rect"]["height"] == page.evaluate("window.innerHeight")
+            assert snap["pointerEvents"] == "none"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_passes_through_hits(self, browser, tmp_path):
+        """Nothing but the basemap darkens, and nothing blocks a click.
+
+        A click aimed at the map under the scrim must still reach the map
+        (the scrim is pointer-events: none), so tiles pan and no pointerdown
+        is swallowed.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+
+            # elementFromPoint at the centre of the scrim must NOT be the scrim.
+            # Match the exact class token: the container carries
+            # `.foliplus-dim-active`, so a substring check on the bare
+            # class name would match that and mask a real hit.
+            centre = page.evaluate(
+                """() => {
+                    const r = document.querySelector('.leaflet-container').getBoundingClientRect();
+                    const el = document.elementFromPoint(
+                        r.left + r.width / 2, r.top + r.height / 2);
+                    if (!el) return {isScrim: true, tag: null};
+                    return {
+                        isScrim: el.classList.contains('foliplus-dim'),
+                        tag: el.tagName,
+                    };
+                }"""
+            )
+            assert not centre["isScrim"], f"scrim intercepted the hit: {centre}"
+
+            # The map still receives the click and pans.
+            # Listen on the container directly rather than via `map`, which is
+            # not a page global here.
+            page.evaluate(
+                """() => {
+                    window.__downSpy = 0;
+                    document.querySelector('.leaflet-container')
+                        .addEventListener('pointerdown', () => {
+                            window.__downSpy++;
+                        }, true);
+                }"""
+            )
+            box = page.evaluate(
+                """() => {
+                    const r = document.querySelector('.leaflet-container').getBoundingClientRect();
+                    return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+                }"""
+            )
+            page.mouse.move(box["x"], box["y"])
+            page.mouse.down()
+            page.mouse.move(box["x"] + 120, box["y"], steps=6)
+            page.mouse.up()
+            page.wait_for_timeout(300)
+            got_down = page.evaluate("window.__downSpy")
+            assert got_down > 0, f"map did not receive the pointer through the scrim: {got_down}"
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_below_controls(self, browser, tmp_path):
+        """Only the basemap darkens: controls stay above the scrim and crisp.
+
+        Everything sorts in the map container's stacking context: the container
+        is positioned, `.leaflet-control-container` is `position: static` with
+        `z-index: auto` so it does not create one of its own, and
+        `.leaflet-map-pane` is `absolute` at z-index 400, so every pane sorts
+        inside the pane rather than against the scrim. 799 therefore sits between
+        the map pane (400) and the controls (800) — the basemap and everything
+        on it darken, and no control panel does.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+
+            layers = self._scrim_layers(page)
+            assert layers["scrim"] is not None
+            assert layers["scrim"]["zIndex"] == "799", layers["scrim"]
+            assert layers["scrim"]["position"] == "absolute", layers["scrim"]
+            # The scrim's parent is the map container, not the control
+            # container — 799 is meant to sort against the controls' own 800.
+            assert "leaflet-container" in layers["scrim"]["parent"], layers["scrim"]
+            assert layers["scrim"]["parentZIndex"] != "auto", layers["scrim"]
+            assert layers["controls"], "expected at least one .leaflet-control"
+
+    def test_esc_exit_clears_the_scrim(self, browser, tmp_path):
+        """Exiting via the keyboard undims, not just exiting via the button.
+
+        Esc reaches fullscreenchange directly, bypassing toggleFullscreen
+        entirely. The dim therefore has to be driven from the API state in
+        handleFSChange, or the basemap stays darkened for the next toggle.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+            opacity_in = self._scrim_snapshot(page)["opacity"]
+            assert abs(float(opacity_in) - 0.5) < 0.02, opacity_in
+
+            # The browser ends fullscreen itself; page.keyboard.press("Escape")
+            # does not work here, since a native keydown never reaches the page
+            # while fullscreen. exitFullscreen fires the same fullscreenchange.
+            page.evaluate("document.exitFullscreen()")
+            page.wait_for_function("() => document.fullscreenElement === null")
+            page.wait_for_timeout(400)
+
+            assert page.evaluate(
+                "document.querySelector('.leaflet-container')"
+                ".classList.contains('foliplus-dim-active')"
+            ) is False
+            opacity_out = self._scrim_snapshot(page)["opacity"]
+            assert abs(float(opacity_out)) < 0.02, opacity_out
+            assert not errors, f"JS errors: {errors}"
+
+            for ctrl in layers["controls"]:
+                assert ctrl["position"] != "static", ctrl
+                assert ctrl["zIndex"] == "800", ctrl
+                assert int(ctrl["zIndex"]) > int(layers["scrim"]["zIndex"]), ctrl
+
+            # A control's own box must win over the scrim's pixels at the same
+            # coordinates — the scrim is transparent where the control paints.
+            over_ctrl = page.evaluate(
+                """() => {
+                    const mask = document.querySelector('.foliplus-dim');
+                    const ctrl = document.querySelector('.foliplus-fullscreen-bar');
+                    if (!ctrl) return null;
+                    const r = ctrl.getBoundingClientRect();
+                    return {
+                        maskRect: mask.getBoundingClientRect().toJSON(),
+                        ctrlRect: r.toJSON(),
+                    };
+                }"""
+            )
+            assert over_ctrl is not None
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_does_not_affect_controls(self, browser, tmp_path):
+        """Controls keep their own background and alpha during the crossfade.
+
+        The scrim only darkens the basemap, so a control's computed background
+        colour and opacity must be byte-identical dimmed and undimmed.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+
+            grab = """() => {
+                const b = document.querySelector('.foliplus-fullscreen-bar');
+                const s = getComputedStyle(b);
+                return {bg: s.backgroundColor, color: s.color, opacity: s.opacity};
+            }"""
+            before = page.evaluate(grab)
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+            during = page.evaluate(grab)
+            assert during == before, f"control styling changed: {before} -> {during}"
+            self._exit_fullscreen(page)
+            page.wait_for_timeout(400)
+            after = page.evaluate(grab)
+            assert after == before, f"control styling did not restore: {before} -> {after}"
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_stays_below_hints(self, browser, tmp_path):
+        """Hints float above the scrim, so the fullscreen hint stays readable."""
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+
+            result = page.evaluate(
+                """() => {
+                    const hint = document.querySelector('.foliplus-hint');
+                    if (!hint) return null;
+                    const s = getComputedStyle(hint);
+                    return {zIndex: s.zIndex, found: true};
+                }"""
+            )
+            if result:
+                assert int(result["zIndex"]) > 799, result
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_pseudo_scrim_covers_viewport(self, browser, tmp_path):
+        """In pseudo-fullscreen the scrim still spans the full viewport."""
+        with use_page(self._make_pseudo_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            page.wait_for_timeout(400)
+            snap = self._scrim_snapshot(page)
+            assert snap is not None
+            assert snap["rect"]["width"] == page.evaluate("window.innerWidth"), snap
+            assert snap["rect"]["height"] == page.evaluate("window.innerHeight"), snap
+            assert abs(float(snap["opacity"]) - 0.5) < 0.02, snap["opacity"]
+
+            page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle').click()"
+            )
+            page.wait_for_function(
+                """() => !document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            page.wait_for_timeout(400)
+            snap_out = self._scrim_snapshot(page)
+            assert abs(float(snap_out["opacity"])) < 0.02, snap_out["opacity"]
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_survives_hide_others(self, browser, tmp_path):
+        """hide_others hides sibling controls but never the scrim.
+
+        The scrim shares the container with the controls but carries none of
+        their classes, so the `.leaflet-control` / `.foliplus-scale-wrap` sweep
+        must leave it alone.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, hide_self=False, hide_others=True
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+
+            check = page.evaluate(
+                """() => {
+                    const mask = document.querySelector('.foliplus-dim');
+                    return {
+                        present: !!mask,
+                        hidden: mask.classList.contains('foliplus-hidden'),
+                        opacity: getComputedStyle(mask).opacity,
+                    };
+                }"""
+            )
+            assert check["present"], "scrim missing with hide_others=true"
+            assert not check["hidden"], "hide_others must not hide the scrim"
+            assert abs(float(check["opacity"]) - 0.5) < 0.02, check["opacity"]
+            assert not errors, f"JS errors: {errors}"
+
+    def test_scrim_does_not_break_invalidation(self, browser, tmp_path):
+        """The scrim must not be counted as a map pane by Leaflet.
+
+        The scrim does live inside the container, but Leaflet only treats
+        `.leaflet-pane` children of `.leaflet-map-pane` as panes, so the pane
+        list is unchanged and invalidateSize keeps working.
+        """
+        with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            before = page.evaluate("Object.keys(map.getPanes()).length")
+            self._enter_fullscreen(page, hide_self=False)
+            page.wait_for_timeout(400)
+            after = page.evaluate("Object.keys(map.getPanes()).length")
+            assert after == before, f"pane count changed {before} -> {after}"
             assert not errors, f"JS errors: {errors}"
