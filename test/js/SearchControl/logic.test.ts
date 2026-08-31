@@ -69,6 +69,41 @@ describe("renderResults", () => {
     expect(ctrl.panelWrap).toBeNull();
     expect(ctrl.selectedIdx).toBe(-1);
   });
+
+  it("writes data-query only for items that carry a query", () => {
+    const ctrl: any = {
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+    };
+    renderResults(ctrl, [
+      // History item: carries the canonical query.
+      {
+        source: "history",
+        icon: "",
+        primaryText: "Shanghai, China",
+        query: "121.47,31.23",
+        coordDisplay: "121.4700, 31.2300",
+        onClick: () => {},
+      },
+      // Suggestion: no query — must NOT get the attribute, so keyboard nav
+      // falls back to the display text.
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => {},
+      },
+    ]);
+    const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+    expect(items).toHaveLength(2);
+    expect(items[0].getAttribute("data-query")).toBe("121.47,31.23");
+    expect(items[1].hasAttribute("data-query")).toBe(false);
+  });
 });
 
 describe("initDebouncedFetch", () => {
@@ -2139,6 +2174,8 @@ describe("SearchControl history", () => {
         // The input gets the stored query, not the formatted display (reverse-
         // geocode output can drift from the original keyword).
         expect(ctrl.inp.value).toBe("Paris");
+        // The addr entry also carries its query for keyboard nav.
+        expect(item.getAttribute("data-query")).toBe("Paris");
       } finally {
         window.CONF = { ...window.CONF, zoom: original };
       }

@@ -134,6 +134,48 @@ describe("bindEvents", () => {
     expect(ctrl.selectedIdx).toBe(0);
   });
 
+  it("ArrowUp onto a coord history item fills the canonical query", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    // Item 1 is a coord history entry (address display + data-query); item 0 is
+    // a plain suggestion. ArrowUp from the suggestion must land on the entry's
+    // canonical query, not its address display.
+    const coord = dom.el(
+      "div",
+      {
+        class: "foliplus-search-result-item",
+        "data-query": "121.47,31.23",
+        "data-index": "1",
+      },
+      dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
+    );
+    const plain = dom.el(
+      "div",
+      { class: "foliplus-search-result-item", "data-index": "0" },
+      dom.el("span", { class: "foliplus-search-result-text" }, "Somewhere"),
+    );
+    ctrl.panelWrap.append(plain, coord);
+    bindEvents(ctrl);
+    // ArrowDown twice → land on the coord entry → query fills.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("121.47,31.23");
+    // ArrowUp back to the plain suggestion → display text fills again.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("Somewhere");
+    // ArrowUp again onto the coord entry → canonical query restored.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("121.47,31.23");
+  });
+
   it("Escape with open suggestions removes suggestions", () => {
     const ctrl = makeCtrl();
     ctrl.ctrl.classList.add("expanded");
@@ -300,6 +342,39 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(-1);
+  });
+
+  it("ArrowDown then Enter on a coord history entry runs a coordinate search", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    // Seeded coord history entry: displays the reverse-geocoded address, but
+    // carries the canonical query for re-search.
+    const item = dom.el(
+      "div",
+      {
+        class: "foliplus-search-result-item",
+        "data-query": "121.47,31.23",
+        "data-index": "0",
+      },
+      dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
+    );
+    ctrl.panelWrap.append(item);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("121.47,31.23");
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    // The canonical query is parsed as coordinates and searched — no coord_error.
+    expect(map.flyTo).toHaveBeenCalled();
+    expect(window.foliplus.showHint).not.toHaveBeenCalledWith(
+      "SearchControl",
+      expect.stringContaining("coord"),
+    );
+    // Panel is removed once the search runs.
+    expect(ctrl.panelWrap).toBeNull();
   });
 
   it("keyboard navigation clamps at panel boundaries", () => {
