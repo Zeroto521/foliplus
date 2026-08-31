@@ -94,10 +94,12 @@
   cursor: wait;
 }
 
-/* Crop box: 6/4 dashed border (matches the LayerControl focus rect) + ::before
-   creates 9999px shadow to dim outside. Dashes are drawn with background
-   gradients because CSS `border: dashed` uses a browser-defined pattern that
-   cannot match the SVG stroke-dasharray `6 4` used by the focus rect. */
+/* Crop box: dashed border using --dash-rhythm (matches measure paths and the
+   LayerControl focus rect) + ::before creates 9999px shadow to dim outside.
+   Dashes are drawn with background gradients because CSS `border: dashed`
+   uses a browser-defined pattern that cannot match the SVG stroke-dasharray
+   used by the focus rect. --dash-rhythm is expanded inline here because the
+   gradient syntax needs the dash/gap values as separate stops. */
 .foliplus-export-box {
   position: absolute;
   /* Transparent border reserves the padding box so the ::before dim mask and

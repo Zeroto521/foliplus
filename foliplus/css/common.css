@@ -109,6 +109,16 @@
   --border-thin: 1px;
   --border-thick: var(--size-2);
 
+  /* ── Dashed Rhythm ──
+    Shared stroke-dasharray for every map-operation dashed border: measure
+    paths (dashed + preview), LayerControl focus rect, and ExportControl
+    crop box. Keep them in sync through this single token so a future
+    change to the rhythm updates every surface at once.
+    The icon-level dashed pattern (LayerControl EMPTY/UNKNOWN, 4 3) is
+    intentionally a different token context — it's a small-scale SVG
+    texture, not an operation border. */
+  --dash-rhythm: var(--size-6) var(--size-4);
+
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
   --radius-lg: var(--size-6);
