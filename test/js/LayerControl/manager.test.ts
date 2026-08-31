@@ -360,6 +360,57 @@ describe("LayerManager", () => {
     expect(manager.ui.syncToggleAll).toHaveBeenCalled();
   });
 
+  it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const removeLayer = vi.fn();
+    manager.map.removeLayer = removeLayer;
+    const saveHiddenIds = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["new1"]),
+      saveHiddenIds,
+    } as any;
+    manager.registerLayer({ id: "new1", name: "New", layer } as any);
+
+    // The layer is silently removed so it isn't back on the map.
+    expect(removeLayer).toHaveBeenCalledWith(layer);
+    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
+  });
+
+  it("fires onToggle(false) for a callback-only hidden layer on re-registration", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const removeLayer = vi.fn();
+    manager.map.removeLayer = removeLayer;
+    const onToggle = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["canvas1"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "canvas1", name: "Canvas", layer, onToggle } as any);
+
+    // For a layer with onToggle, the toggle callback must be fired so the
+    // canvas/heatmap hides itself. removeLayer is also called because the
+    // manager unconditionally removes a re-added hidden layer from the map.
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(removeLayer).toHaveBeenCalledWith(layer);
+  });
+
+  it("does not re-apply hidden state when the layer is not in the hidden set", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const removeLayer = vi.fn();
+    manager.map.removeLayer = removeLayer;
+    manager.ui = {
+      hiddenIds: new Set(["other"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "visible1", name: "V", layer } as any);
+
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("visible1")!.visible).toBe(true);
+  });
+
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
     const layer = new window.L.TileLayer();
     map._layers["resolved"] = layer;
@@ -694,6 +745,20 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
     expect(manager.ui.reindexItems).toHaveBeenCalled();
+  });
+
+  it("unregisterLayer removes the layer id from the persisted hidden set", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const saveHiddenIds = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["overlay1", "base1"]),
+      reindexItems: vi.fn(),
+      saveHiddenIds,
+    } as any;
+    manager.unregisterLayer("overlay1");
+
+    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(saveHiddenIds).toHaveBeenCalledTimes(1);
   });
 
   it("attachUI delegates to the UI", () => {
