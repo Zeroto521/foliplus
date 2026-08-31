@@ -21,7 +21,7 @@ const T = createScopedTranslator(CONF);
  * display text.
  */
 const resultItemValue = (item: Element): string =>
-  (item as HTMLElement).dataset.query ??
+  item.getAttribute("data-query") ??
   item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ??
   "";
 

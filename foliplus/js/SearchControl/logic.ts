@@ -48,7 +48,6 @@ interface SearchControlState {
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
-  addrAbortController: AbortController | null;
   suggestSeq: number;
   debouncedFetch: Debounced;
   marker: L.Marker | null;
@@ -432,7 +431,8 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
         "data-index": String(idx),
         // Keyboard nav writes the canonical query (when present) instead of the
         // formatted display — the latter would break coord-mode re-parsing.
-        ...(item.query ? { "data-query": item.query } : {}),
+        // dom.el skips `undefined`, so suggestions (no query) stay attribute-free.
+        "data-query": item.query,
         parent: ctrl.panelWrap,
         onmousedown: (event: Event) => {
           event.stopPropagation();
