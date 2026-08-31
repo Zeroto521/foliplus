@@ -410,10 +410,13 @@ class TestExportControlBrowser:
 
             # A pure move keeps the size constant, so the hint is never refreshed —
             # refreshing would rebuild the element and replay its entry animation.
-            assert page.evaluate(
-                "() => document.querySelector('.foliplus-hint-ExportControl-size')"
-                ".getAttribute('data-mark')"
-            ) == "1"
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')"
+                    ".getAttribute('data-mark')"
+                )
+                == "1"
+            )
 
             # Releasing the key restores the transition.
             page.keyboard.up("ArrowRight")
@@ -423,10 +426,13 @@ class TestExportControlBrowser:
             # R changes the size, so the hint must be refreshed (and rebuilt).
             page.keyboard.press("r")
             page.wait_for_timeout(150)
-            assert page.evaluate(
-                "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
-                ".getAttribute('data-mark')"
-            ) != "1"
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
+                    ".getAttribute('data-mark')"
+                )
+                != "1"
+            )
 
     def test_r_resets_crop_box(self, browser, tmp_path):
         """R resets the unlocked crop box to the default centered size."""
