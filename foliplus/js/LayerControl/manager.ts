@@ -442,9 +442,12 @@ class LayerManager implements LayerAPI {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
       this.clearAllLayers(layer);
     }
-    if (layer) this.panes.reset(L.stamp(layer));
-    if (layer) this.panes.fallbackPaneMap.delete(L.stamp(layer));
-    // Drop label-pane entries that are no longer referenced by any layer.
+    const layerStamp = layer ? L.stamp(layer) : null;
+    if (layerStamp !== null) this.panes.reset(layerStamp);
+    // The layer is off the map first (above), so the pane teardown never
+    // touches a live layer's renderer or path nodes.
+    this.panes.releaseFallbackPane(layerStamp);
+    // Drop label-pane bookkeeping for layers that no longer use it.
     this.panes.sweepLabelPanes(this.layers);
 
     if (this.uiContainer) {
