@@ -340,8 +340,13 @@ class MeasureManager {
 
     return () => {
       this.collidableLabels = this.collidableLabels.filter(l => l !== label);
-      if (this.collidableLabels.length) this.scheduleLabelPlan();
-      else this.unbindLabelMapEvents();
+      if (this.collidableLabels.length) {
+        // A surviving label lost a competitor, so re-plan to possibly restore
+        // a chip that was hidden because of this one.
+        this.scheduleLabelPlan();
+      } else {
+        this.unbindLabelMapEvents();
+      }
     };
   };
 
@@ -460,10 +465,10 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
     this.editDragToggles = [];
-    // Explicitly clear collidable labels and unbind map-move events: the
-    // finalizedClickHandlers.forEach(h => h()) above drains them through each
-    // measurement's dispose, but this is belt-and-suspenders in case a
-    // measurement skips its dispose.
+    // Safety net: each measurement's dispose (run above) drains its labels
+    // through the unregister, but clearing the array here is O(1) insurance
+    // against a measurement that skips its dispose, and unbinding the map
+    // events guarantees no plan fires after clearAll.
     this.collidableLabels = [];
     this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements

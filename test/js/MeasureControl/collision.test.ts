@@ -37,7 +37,10 @@ const label = (
   return { el, lb: { marker: markerFor(el), priority } };
 };
 
-const plan = (labels: Collision.CollidableLabel[], collide = true): number =>
+const plan = (
+  labels: Collision.CollidableLabel[],
+  collide = true,
+): Collision.PlanResult =>
   Collision.placeLabels(labels, projector, collide, chipOf);
 
 const ANCHOR: Box = { x: 0, y: 0, w: 60, h: 20 };
@@ -58,7 +61,7 @@ afterEach(() => {
 describe("placeLabels", () => {
   it("keeps a label on its anchor and visible when nothing overlaps it", () => {
     const { lb, el } = label(ANCHOR, 60);
-    const hidden = plan([lb]);
+    const { hidden } = plan([lb]);
     expect(hidden).toBe(0);
     expect(el.style.visibility).toBe("");
   });
@@ -66,7 +69,7 @@ describe("placeLabels", () => {
   it("hides the lower-priority chip when two labels overlap heavily", () => {
     const { lb: high, el: highEl } = label(ANCHOR, 80);
     const { lb: low, el: lowEl } = label(ANCHOR, 60); // same box, fully overlapping
-    const hidden = plan([high, low]);
+    const { hidden } = plan([high, low]);
     expect(hidden).toBe(1);
     expect(highEl.style.visibility).toBe("");
     expect(lowEl.style.visibility).toBe("hidden");
@@ -75,7 +78,7 @@ describe("placeLabels", () => {
   it("does nothing when two labels only lightly graze each other", () => {
     const { lb: a, el: aEl } = label(ANCHOR, 60);
     const { lb: b, el: bEl } = label(GRAZE, 60); // only 5px of 60px horizontal overlap = 8.3%
-    const hidden = plan([a, b]);
+    const { hidden } = plan([a, b]);
     expect(hidden).toBe(0);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("");
@@ -87,7 +90,7 @@ describe("placeLabels", () => {
     // lookup — and must not count it as a collision participant.
     const { lb: visible } = label(ANCHOR, 60);
     const unrenderedMarker = {} as unknown as L.Marker; // no _el → chipOf → null
-    const hidden = plan([visible, { marker: unrenderedMarker, priority: 90 }]);
+    const { hidden } = plan([visible, { marker: unrenderedMarker, priority: 90 }]);
     expect(hidden).toBe(0);
   });
 
@@ -99,7 +102,7 @@ describe("placeLabels", () => {
     const tinyBox: Box = { x: 40, y: 20, w: 40, h: 20 }; // fully inside big
     const { lb: big, el: bigEl } = label(bigBox, 60);
     const { lb: tiny, el: tinyEl } = label(tinyBox, 60);
-    const hidden = plan([big, tiny]);
+    const { hidden } = plan([big, tiny]);
     expect(hidden).toBe(1);
     expect(bigEl.style.visibility).toBe("");
     expect(tinyEl.style.visibility).toBe("hidden");
@@ -111,7 +114,7 @@ describe("placeLabels", () => {
     const smallBox: Box = { x: 50, y: 0, w: 40, h: 20 };
     const { lb: big, el: bigEl } = label(bigBox, 60);
     const { lb: small, el: smallEl } = label(smallBox, 60);
-    const hidden = plan([big, small]);
+    const { hidden } = plan([big, small]);
     expect(hidden).toBe(1);
     expect(bigEl.style.visibility).toBe("");
     expect(smallEl.style.visibility).toBe("hidden");
@@ -122,7 +125,7 @@ describe("placeLabels", () => {
     const tinyBox: Box = { x: 20, y: 10, w: 60, h: 20 }; // area 1200, priority 90
     const { lb: large, el: largeEl } = label(largeBox, 60);
     const { lb: tiny, el: tinyEl } = label(tinyBox, 90);
-    const hidden2 = plan([large, tiny]);
+    const { hidden: hidden2 } = plan([large, tiny]);
     expect(hidden2).toBe(1);
     expect(largeEl.style.visibility).toBe("hidden");
     expect(tinyEl.style.visibility).toBe("");
@@ -137,7 +140,7 @@ describe("placeLabels", () => {
     const smallBox: Box = { x: 75, y: 0, w: 60, h: 20 }; // overlap 45px = 75% of small width, priority 60
     const { lb: big, el: bigEl } = label(bigBox, 80);
     const { lb: small, el: smallEl } = label(smallBox, 60);
-    const hidden = plan([big, small]);
+    const { hidden } = plan([big, small]);
     expect(hidden).toBe(1);
     expect(bigEl.style.visibility).toBe("");
     expect(smallEl.style.visibility).toBe("hidden");
@@ -151,7 +154,7 @@ describe("placeLabels", () => {
     const b: Box = { x: 16, y: 0, w: 60, h: 20 }; // overlap 44px = 73.3% of width, priority 60
     const { lb: la, el: aEl } = label(a, 80);
     const { lb: lb_, el: bEl } = label(b, 60);
-    const hidden = plan([la, lb_]);
+    const { hidden } = plan([la, lb_]);
     expect(hidden).toBe(0);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("");
@@ -163,7 +166,7 @@ describe("placeLabels", () => {
     // A second plan that moves the chip clear reads the new box.
     boxes.set(el, { x: 300, y: 0, w: 60, h: 20 });
     const { lb: other, el: otherEl } = label(ANCHOR, 60);
-    const hidden = plan([lb, other]);
+    const { hidden } = plan([lb, other]);
     expect(hidden).toBe(0);
     expect(el.style.visibility).toBe("");
     expect(otherEl.style.visibility).toBe("");
@@ -176,7 +179,7 @@ describe("placeLabels", () => {
     plan([high, low], true);
     expect(lowEl.style.visibility).toBe("hidden");
 
-    const hidden = plan([high, low], false);
+    const { hidden } = plan([high, low], false);
     expect(hidden).toBe(0);
     expect(highEl.style.visibility).toBe("");
     expect(lowEl.style.visibility).toBe("");
@@ -189,7 +192,7 @@ describe("placeLabels", () => {
     const { lb: hiddenLabel, el: hiddenEl } = label(ANCHOR, 60);
     hiddenEl.style.visibility = "hidden";
     const { lb: late, el: lateEl } = label(ANCHOR, 50);
-    const hidden = plan([hiddenLabel, late]);
+    const { hidden } = plan([hiddenLabel, late]);
     expect(hidden).toBe(1);
     expect(hiddenEl.style.visibility).toBe("");
     expect(lateEl.style.visibility).toBe("hidden");
@@ -200,7 +203,7 @@ describe("placeLabels", () => {
     const { lb: low, el: lowEl } = label(ANCHOR, 60);
 
     // Zoom level A: boxes fully overlap → low hides.
-    const hidden1 = plan([high, low]);
+    const { hidden: hidden1 } = plan([high, low]);
     expect(hidden1).toBe(1);
     expect(highEl.style.visibility).toBe("");
     expect(lowEl.style.visibility).toBe("hidden");
@@ -208,7 +211,7 @@ describe("placeLabels", () => {
     // Zoom level B: boxes move clear → both show.
     boxes.set(highEl, { x: 0, y: 0, w: 60, h: 20 });
     boxes.set(lowEl, { x: 300, y: 0, w: 60, h: 20 });
-    const hidden2 = plan([high, low]);
+    const { hidden: hidden2 } = plan([high, low]);
     expect(hidden2).toBe(0);
     expect(highEl.style.visibility).toBe("");
     expect(lowEl.style.visibility).toBe("");
@@ -223,7 +226,7 @@ describe("placeLabels", () => {
 
     // Move `b` onto the anchor; the next plan must re-hide it.
     boxes.set(bEl, ANCHOR);
-    const hidden = plan([a, b]);
+    const { hidden } = plan([a, b]);
     expect(hidden).toBe(1);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("hidden");
@@ -237,7 +240,7 @@ describe("placeLabels", () => {
     const b: Box = { x: 10, y: 15, w: 60, h: 20 }; // 50px x-overlap of 60px = 83%
     const { lb: la, el: aEl } = label(a, 60);
     const { lb: lb_, el: bEl } = label(b, 60);
-    const hidden = plan([la, lb_]);
+    const { hidden } = plan([la, lb_]);
     expect(hidden).toBe(1);
     const visible =
       (aEl.style.visibility === "" ? 1 : 0) + (bEl.style.visibility === "" ? 1 : 0);
@@ -254,7 +257,7 @@ describe("placeLabels", () => {
     const b: Box = { x: 10, y: 120, w: 60, h: 20 }; // priority 60, lower edge — same x band, far y
     const { lb: la, el: aEl } = label(a, 60);
     const { lb: lb_, el: bEl } = label(b, 60);
-    const hidden = plan([la, lb_]);
+    const { hidden } = plan([la, lb_]);
     expect(hidden).toBe(0);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("");
@@ -293,7 +296,7 @@ describe("placeLabels", () => {
     // Far away from both → untouched.
     const far: Box = { x: 300, y: 0, w: 60, h: 20 };
     const { lb: farLabel, el: farEl } = label(far, 70);
-    const hidden = plan([a, b, farLabel]);
+    const { hidden } = plan([a, b, farLabel]);
     expect(hidden).toBe(1);
     expect(bEl.style.visibility).toBe("hidden");
     expect(aEl.style.visibility).toBe("");
@@ -331,7 +334,7 @@ describe("placeLabels", () => {
       true,
       missingChipOf,
     );
-    expect(plan2).toBe(0);
+    expect(plan2.hidden).toBe(0);
     expect(anchorEl.style.visibility).toBe("");
 
     // Plan 3: chipOf recovers. Geometry is still clean. The victim must be
@@ -340,7 +343,7 @@ describe("placeLabels", () => {
     boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
     boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
     const plan3 = plan([anchor, victim]);
-    expect(plan3).toBe(0);
+    expect(plan3.hidden).toBe(0);
     expect(anchorEl.style.visibility).toBe("");
     expect(victimEl.style.visibility).toBe("");
   });
@@ -356,7 +359,7 @@ describe("placeLabels", () => {
     const segC = label({ x: 100, y: 250, w: 80, h: 20 }, 60); // bottom edge
     const segD = label({ x: 0, y: 120, w: 80, h: 20 }, 60); // left edge
     const center = label({ x: 160, y: 120, w: 90, h: 20 }, 80); // centroid
-    const hidden = plan([segA.lb, segB.lb, segC.lb, segD.lb, center.lb]);
+    const { hidden } = plan([segA.lb, segB.lb, segC.lb, segD.lb, center.lb]);
     expect(hidden).toBe(0);
     [segA, segB, segC, segD, center].forEach(l =>
       expect(l.el.style.visibility).toBe(""),
@@ -372,10 +375,20 @@ describe("placeLabels", () => {
     const b: Box = { x: 30, y: 0, w: 60, h: 20 };
     const { lb: la, el: aEl } = label(a, 80);
     const { lb: lb_, el: bEl } = label(b, 60);
-    const hidden = plan([la, lb_]);
+    const { hidden } = plan([la, lb_]);
     expect(hidden).toBe(0);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("");
+  });
+
+  it("exposes the set of hidden chips via the PlanResult.elements field", () => {
+    const { lb: high, el: highEl } = label(ANCHOR, 80);
+    const { lb: low, el: lowEl } = label(ANCHOR, 60);
+    const result = plan([high, low]);
+    expect(result.hidden).toBe(1);
+    expect(result.elements.has(highEl)).toBe(false);
+    expect(result.elements.has(lowEl)).toBe(true);
+    expect([...result.elements]).toEqual([lowEl]);
   });
 });
 

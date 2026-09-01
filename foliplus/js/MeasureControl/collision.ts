@@ -42,9 +42,11 @@ interface Box {
   h: number;
 }
 
-/** Fallback chip size while it is not rendered yet. */
-const MIN_W = 64;
-const MIN_H = 18;
+/** Fallback chip size used while a chip is not rendered yet (no DOM box to
+ *  read). Roughly matches the typical rendered label so an early plan does
+ *  not under-estimate its footprint. */
+const FALLBACK_CHIP_W = 64;
+const FALLBACK_CHIP_H = 18;
 
 /**
  * A chip is hidden only when the horizontal overlap covers at least this
@@ -67,8 +69,8 @@ export const mapProjector = (map: L.Map): Projector => {
       return {
         x: r.left - container.left,
         y: r.top - container.top,
-        w: r.width || MIN_W,
-        h: r.height || MIN_H,
+        w: r.width || FALLBACK_CHIP_W,
+        h: r.height || FALLBACK_CHIP_H,
       };
     },
   };
@@ -117,12 +119,19 @@ const hides = (a: Box, b: Box): boolean =>
  * With `collide` false every visible chip is shown untouched and no chip is
  * hidden.
  */
+/** Result of a placement pass — how many chips were hidden and which ones, so
+ *  callers (export, telemetry, other controls) can reason about the outcome. */
+export interface PlanResult {
+  hidden: number;
+  elements: Set<HTMLElement>;
+}
+
 export const placeLabels = (
   labels: CollidableLabel[],
   projector: Projector,
   collide: boolean,
   chipOf: ChipOf,
-): number => {
+): PlanResult => {
   const boxOf = (el: HTMLElement): Box => projector.box(el);
 
   const entries = labels
@@ -149,7 +158,7 @@ export const placeLabels = (
       .forEach(e => {
         e.el.style.visibility = "";
       });
-    return 0;
+    return { hidden: 0, elements: new Set() };
   }
 
   // Sort by strength (priority desc, width desc, then stable index) so the
@@ -181,5 +190,5 @@ export const placeLabels = (
     if (toHide.has(e.el)) continue;
     e.el.style.visibility = "";
   }
-  return toHide.size;
+  return { hidden: toHide.size, elements: toHide };
 };
