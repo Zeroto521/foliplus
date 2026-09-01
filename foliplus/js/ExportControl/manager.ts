@@ -1,7 +1,7 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -327,6 +327,8 @@ class ExportManager {
 
   doExport() {
     if (this.isExporting || !this.cropState) return;
+    // Symmetric lock with the other interactive components (measure / focus).
+    if (guardBlocked(this.map, CONF.name, T("blocked"))) return;
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });

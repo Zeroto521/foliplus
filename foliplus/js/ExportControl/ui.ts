@@ -1,7 +1,7 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -102,6 +102,8 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
 /** Build the crop box DOM and attach events. */
 const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
+  // Symmetric lock with the other interactive components (measure / focus).
+  if (guardBlocked(mgr.map, CONF.name, T("blocked"))) return;
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
   ensureModes(mgr.map).setMode(CONF.name, "selecting");

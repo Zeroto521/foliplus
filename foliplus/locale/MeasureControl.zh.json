@@ -30,5 +30,6 @@
   "MeasureControl.export_paused": "导出中，测量已暂停",
   "MeasureControl.export_no_data": "没有可导出的测量数据",
   "MeasureControl.hint_edit": "点击测量项显示删除点，拖动节点以调整位置",
-  "MeasureControl.hint_edit_empty": "暂无测量可编辑，请先绘制"
+  "MeasureControl.hint_edit_empty": "暂无测量可编辑，请先绘制",
+  "MeasureControl.blocked": "地图暂不可用"
 }

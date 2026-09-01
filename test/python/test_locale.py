@@ -68,6 +68,7 @@ _JS_USED_KEYS = {
     "ExportControl.label_size_prefix",
     "ExportControl.label_size_suffix",
     "ExportControl.no_layercontrol",
+    "ExportControl.blocked",
     # HeatmapControl
     "HeatmapControl.title",
     "HeatmapControl.close_title",
@@ -135,6 +136,7 @@ _JS_USED_KEYS = {
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",
     "MeasureControl.hint_edit_empty",
+    "MeasureControl.blocked",
     # LocateControl
     "LocateControl.title",
     "LocateControl.locating",
