@@ -581,8 +581,11 @@ path.foliplus-focus-mask {
     cursor: pointer;
     transition:
       border-color var(--transition-fast),
-      box-shadow var(--transition-fast),
-      background-color var(--transition-fast);
+      box-shadow var(--transition-fast);
+    /* background-color intentionally NOT animated: the checkbox is destroyed
+       and re-created on every list rebuild (fold click → renderInitialList),
+       so a transition on background-color would cause checked checkboxes to
+       flash red (var(--input-bg) → var(--accent-primary)) on each rebuild. */
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {
