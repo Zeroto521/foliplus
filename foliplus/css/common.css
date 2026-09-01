@@ -66,6 +66,11 @@
 
   /* ── Effects ── */
   --input-focus-shadow: rgba(var(--red-rgb), var(--alpha-50));
+  /* Unified keyboard focus ring: thin accent hairline + soft red glow.
+     Single source of truth for all :focus-visible rules across foliplus. */
+  --focus-ring:
+    0 0 0 var(--border-thin) var(--accent-primary),
+    0 0 0 var(--size-4) var(--input-focus-shadow);
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
@@ -295,9 +300,7 @@
      Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
   &:focus-visible {
     outline: none;
-    box-shadow:
-      0 0 0 var(--border-thin) var(--accent-primary),
-      0 0 0 var(--size-4) var(--input-focus-shadow);
+    box-shadow: var(--focus-ring);
     border-radius: var(--radius-sm);
     transition: box-shadow var(--transition-fast);
   }
@@ -525,9 +528,7 @@
 ):is(:hover, :focus-visible),
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--accent-primary);
-  box-shadow:
-    0 0 0 var(--border-thin) var(--accent-primary),
-    0 0 0 var(--size-4) var(--input-focus-shadow);
+  box-shadow: var(--focus-ring);
 }
 
 .foliplus-popup-content {
