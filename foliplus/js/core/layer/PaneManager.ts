@@ -7,6 +7,7 @@
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / bumpLabelPanes / migrateLayers / reset / destroy
+//     releaseFallbackPane
 import * as CONST from "./const.js";
 import { forEachLayer } from "./util.js";
 
@@ -65,6 +66,45 @@ class PaneManager {
       }
     }
     return { pane, renderer };
+  }
+
+  /** Reclaim the fallback pane that `unregisterLayer` just released.
+   *  Must run after the layer is off the map, so nothing still renders into
+   *  the pane. The caller supplies the stamp, since `fallbackPaneMap` is
+   *  keyed by stamp and the layer is already gone from the registry.
+   *  Clears the two renderer registries plus the pane record. */
+  releaseFallbackPane(stamp: number | null) {
+    if (stamp == null) return;
+    const paneName = this.fallbackPaneMap.get(stamp);
+    if (!paneName) return;
+    const key = CONST.RENDERER_KEY + paneName;
+    const renderer = (this.map as L.Map & PaneRendererMap)[key];
+    if (renderer) {
+      // map.removeLayer unbinds the renderer's map event listeners (zoom,
+      // moveend, viewreset, …) — that listener set is what grew per
+      // add/remove cycle; the DOM teardown below is the cheap half.
+      // Renderer.onRemove detaches the SVG root.
+      if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
+      delete (this.map as L.Map & PaneRendererMap)[key];
+    }
+    // Leaflet's own per-pane registry is separate: getRenderer() fills it
+    // lazily, so it can exist without our key. Clearing it keeps getRenderer()
+    // from re-adding a dead renderer to the removed pane.
+    delete this.map._paneRenderers[paneName];
+    this.map.getPane(paneName)?.remove();
+    // getPane() must not keep returning a detached node.
+    delete this.map._panes[paneName];
+    this.fallbackPaneMap.delete(stamp);
+  }
+
+  /** Clear all pane state. Called by LayerManager.destroy().
+   *  The DOM is left alone: LayerManager.destroy() clears the registry without
+   *  removing the registered layers from the map, so they are still live —
+   *  deleting their panes would drop them off the map. */
+  destroy() {
+    this.paneCache.clear();
+    this.fallbackPaneMap.clear();
+    this.labelPanes.clear();
   }
 
   /** Bump label panes for a layer so labels render above paths. */
@@ -162,19 +202,16 @@ class PaneManager {
   }
 
   /** Drop label-pane entries no longer referenced by any registered layer.
-   *  Called after unregisterLayer so labelPanes does not grow unboundedly. */
+   *  Only the bookkeeping is dropped — the pane div is left in place. Unlike a
+   *  fallback pane it is not keyed to a single layer: its name is user-defined
+   *  and can be reused, and its renderer is still live, its SVG container being
+   *  a child of the pane div. Removing the div would orphan that container, and
+   *  re-creating the pane would not re-parent it. */
   sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
     const used = new Set<string>();
     for (const li of layers) if (li.labelPane) used.add(li.labelPane);
     for (const pane of this.labelPanes)
       if (!used.has(pane)) this.labelPanes.delete(pane);
-  }
-
-  /** Release all pane state. Called by LayerManager.destroy(). */
-  destroy() {
-    this.paneCache.clear();
-    this.fallbackPaneMap.clear();
-    this.labelPanes.clear();
   }
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────
