@@ -1325,6 +1325,21 @@ describe("SearchControl history", () => {
       expect(entry.count).toBe(2);
     });
 
+    it("drops null and non-object rows instead of crashing", () => {
+      store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }]);
+      const [entry] = loadHistory();
+      expect(entry).toEqual({
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "",
+        lng: 0,
+        lat: 0,
+        ts: 1000,
+        count: 1,
+      });
+    });
+
     it("downgrades a row with no usable fields to a defaulted addr entry", () => {
       store([{}]);
       const [entry] = loadHistory();

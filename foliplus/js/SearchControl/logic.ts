@@ -130,9 +130,12 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 const loadHistory = (): SearchHistoryEntry[] => {
   const data = Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
   if (!Array.isArray(data)) return [];
+  // Drop non-object rows ([null], strings, numbers) that a corrupted store
+  // can produce; reading `row.type` on them would throw.
+  const rows = data.filter(row => row != null && typeof row === "object");
   // Migrate stored entries to the current format, supplying the defaults that
   // older versions never wrote.
-  const migrated = data.map(e => {
+  const migrated = rows.map(e => {
     const type = e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : MODE.ADDR;
     return {
       query: canonicalQuery(e.query ?? "", type),
@@ -254,7 +257,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
   map.foliplus!.hideHint(CONF.name);
-  map.flyTo([lat, lng], CONF.zoom || ZOOM.MAX);
+  map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -515,7 +518,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
-        map.flyTo([lat, lng], CONF.zoom || ZOOM.MAX);
+        map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
         ctrl.marker = createLocationMarker(
           map,
           lng,
