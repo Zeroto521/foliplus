@@ -35,5 +35,6 @@
   "LayerControl.focus_cancelled": "已取消聚焦",
   "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_del_error": "layers 为只读属性，请使用 LayerAPI",
-  "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI"
+  "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI",
+  "LayerControl.blocked": "地图暂不可用"
 }
