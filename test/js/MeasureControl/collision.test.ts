@@ -219,6 +219,50 @@ describe("placeLabels", () => {
     expect(bEl.style.visibility).toBe("hidden");
   });
 
+  it("hides chips that overlap by width even when vertically offset (1D rule)", () => {
+    // Two chips offset vertically (small 2D area overlap) but overlapping on
+    // the x-axis by more than half the narrower chip's width. The 1D rule
+    // treats this as a collision because the number text runs into each other;
+    // the old 2D-area rule would miss it (area well under the 50% threshold).
+    const a: Box = { x: 0, y: 0, w: 60, h: 20 }; // priority 60
+    const b: Box = { x: 10, y: 15, w: 60, h: 20 }; // 50px horizontal overlap of 60px = 83%
+    const { lb: la, el: aEl } = label(a, 60);
+    const { lb: lb_, el: bEl } = label(b, 60);
+    const hidden = plan([la, lb_]);
+    expect(hidden).toBe(1);
+    // Equal strength → one claims space, the other hides; exactly one visible.
+    const visible = (aEl.style.visibility === "" ? 1 : 0) +
+      (bEl.style.visibility === "" ? 1 : 0);
+    expect(visible).toBe(1);
+  });
+
+  it("produces the same survivors regardless of input order (order independence)", () => {
+    // Three mutually-overlapping equal-priority chips of differing widths. The
+    // survivor set must depend only on (priority, area, position), not on the
+    // order labels are fed in — the old asymmetric pairwise loop could hide a
+    // different chip depending on registration order.
+    const wideBox: Box = { x: 0, y: 0, w: 120, h: 20 };
+    const midBox: Box = { x: 40, y: 0, w: 80, h: 20 };
+    const narrowBox: Box = { x: 70, y: 0, w: 40, h: 20 };
+    const wide = label(wideBox, 60);
+    const mid = label(midBox, 60);
+    const narrow = label(narrowBox, 60);
+
+    const resultOf = (order: Collision.CollidableLabel[]): boolean[] => {
+      plan(order);
+      return [wide, mid, narrow].map(l => l.el.style.visibility === "");
+    };
+
+    const abc = resultOf([wide.lb, mid.lb, narrow.lb]);
+    const cba = resultOf([narrow.lb, mid.lb, wide.lb]);
+    const bac = resultOf([mid.lb, wide.lb, narrow.lb]);
+
+    expect(cba).toEqual(abc);
+    expect(bac).toEqual(abc);
+    // Widest claims space; the two narrower (mutually overlapping it) hide.
+    expect(abc).toEqual([true, false, false]);
+  });
+
   it("keeps a clear chip on its anchor even in the same run as a collision", () => {
     const { lb: a, el: aEl } = label(ANCHOR, 80);
     const { lb: b, el: bEl } = label(ANCHOR, 60);

@@ -45,10 +45,12 @@ const MIN_W = 64;
 const MIN_H = 18;
 
 /**
- * A chip is hidden only when the overlap covers at least this fraction of the
- * smaller chip's area. Below this threshold the overlap is treated as a light
- * edge graze and left alone — that keeps labels from being flickered out in
- * normal, well-spaced use.
+ * A chip is hidden only when the horizontal overlap covers at least this
+ * fraction of the narrower chip's width. Below this threshold the overlap is
+ * treated as a light edge graze and left alone — that keeps labels from being
+ * flickered out in normal, well-spaced use. Chips are flat horizontal bars, so
+ * readability failure (number text being covered) is a horizontal phenomenon;
+ * we judge on that axis rather than 2D area.
  */
 const HIDE_OVERLAP = 0.5;
 
@@ -69,32 +71,28 @@ export const mapProjector = (map: L.Map): Projector => {
   };
 };
 
-/** Axis-aligned overlap area of two boxes, or 0 when they do not intersect. */
-const overlapArea = (a: Box, b: Box): number => {
-  const x0 = Math.max(a.x, b.x);
-  const x1 = Math.min(a.x + a.w, b.x + b.w);
-  const y0 = Math.max(a.y, b.y);
-  const y1 = Math.min(a.y + a.h, b.y + b.h);
-  return Math.max(0, x1 - x0) * Math.max(0, y1 - y0);
-};
+/** Horizontal overlap width of two boxes, or 0 when they do not overlap on
+ *  the x-axis. */
+const hOverlap = (a: Box, b: Box): number =>
+  Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
 
-/** True when the overlap is heavy enough to warrant hiding a chip. */
-const hides = (a: Box, b: Box): boolean => {
-  const area = overlapArea(a, b);
-  return area >= Math.min(a.w * a.h, b.w * b.h) * HIDE_OVERLAP;
-};
+/** True when the horizontal overlap is heavy enough to warrant hiding a chip.
+ *  Judged against the narrower chip's width. */
+const hides = (a: Box, b: Box): boolean =>
+  hOverlap(a, b) >= Math.min(a.w, b.w) * HIDE_OVERLAP;
 
 /**
- * Hide the least-important chip among every heavily-overlapping pair, leaving
+ * Hide the least-important chip among every heavily-overlapping group, leaving
  * all others on their anchor. Chips that are already `visibility: hidden`
- * (from a previous plan) re-enter the competition when geometry changes,
- * so a chip dropped by collision comes back once the map zooms out.
- * another chip from showing.
+ * (from a previous plan) re-enter the competition when geometry changes, so a
+ * chip dropped by collision comes back once the map zooms out.
  *
- * Two chips decide by priority (lower loses); a tie breaks to the smaller
- * chip's area, so the more compact label gets hidden over the wider one. A
- * chip competes against every other — adjacent segment labels of one polygon
- * must not overlap either.
+ * The planner is order-independent: the survivor set depends only on each chip's
+ * (priority, area, position), not on label registration order. Chips are ranked
+ * by strength (priority desc, area desc) and swept strongest-first — a chip is
+ * hidden iff it heavily overlaps any already-shown chip; otherwise it claims its
+ * space for the rest of the sweep. Two chips decide by priority (lower loses);
+ * a tie breaks to the smaller chip's area, so the wider label keeps its anchor.
  *
  * Chips must be rendered before this runs: the caller defers the call to a
  * `requestAnimationFrame`, which also keeps the forced layout reads off the
@@ -109,15 +107,26 @@ export const placeLabels = (
   collide: boolean,
   chipOf: ChipOf,
 ): number => {
+  const boxOf = (el: HTMLElement): Box => projector.box(el);
+
   const entries = labels
-    .map(lb => ({ lb, el: chipOf(lb.marker) }))
-    .filter((x): x is { lb: CollidableLabel; el: HTMLElement } => x.el !== null);
+    .map((lb, idx) => ({
+      lb,
+      el: chipOf(lb.marker),
+      idx,
+    }))
+    .filter(
+      (x): x is { lb: CollidableLabel; el: HTMLElement; idx: number } =>
+        x.el !== null,
+    )
+    .map(e => ({
+      ...e,
+      box: boxOf(e.el),
+    }));
 
   // Collision off: restore any chip we currently own that is hidden (i.e. ones
-  // we hid in a prior plan). This mirrors the original behaviour and lets
-  // toggling collision off bring dropped labels back. Chips hidden by the
-  // caller (show_labels/destroy) sit outside this function, so restoring
-  // unconditionally here is safe.
+  // we hid in a prior plan). Chips hidden by the caller (show_labels/destroy)
+  // sit outside this function, so restoring unconditionally here is safe.
   if (!collide) {
     entries
       .filter(e => e.el.style.visibility === "hidden")
@@ -127,38 +136,30 @@ export const placeLabels = (
     return 0;
   }
 
+  // Sort by strength (priority desc, area desc, then stable index) so the
+  // survivor set is a function of (priority, area, position) alone — invariant
+  // under any permutation of `labels`.
+  entries.sort((a, b) => {
+    if (b.lb.priority !== a.lb.priority) return b.lb.priority - a.lb.priority;
+    const aArea = a.box.w * a.box.h;
+    const bArea = b.box.w * b.box.h;
+    if (bArea !== aArea) return bArea - aArea;
+    return a.idx - b.idx;
+  });
+
+  // Sweep strongest-first: each chip is hidden iff it heavily overlaps any
+  // already-shown chip; otherwise it is shown and claims its space.
+  const shown: Box[] = [];
   const toHide = new Set<HTMLElement>();
-  const box = (el: HTMLElement): Box => projector.box(el);
-
-  for (let i = 0; i < entries.length; i++) {
-    const { lb: ai, el: ei } = entries[i]!;
-    if (toHide.has(ei)) continue;
-    const bi = box(ei);
-
-    for (let j = i + 1; j < entries.length; j++) {
-      const { lb: aj, el: ej } = entries[j]!;
-      if (toHide.has(ej)) continue;
-      const bj = box(ej);
-
-      if (!hides(bi, bj)) continue;
-
-      // Heavy overlap — hide the lower-priority (tie: smaller area) chip.
-      if (
-        ai.priority > aj.priority ||
-        (ai.priority === aj.priority && bi.w * bi.h >= bj.w * bj.h)
-      ) {
-        toHide.add(ej);
-        ej.style.visibility = "hidden";
-      } else {
-        toHide.add(ei);
-        ei.style.visibility = "hidden";
-        break;
-      }
+  for (const e of entries) {
+    if (shown.some(s => hides(e.box, s))) {
+      toHide.add(e.el);
+      e.el.style.visibility = "hidden";
+    } else {
+      shown.push(e.box);
     }
   }
 
-  // Show any entry that this plan did not hide. A chip hidden by a prior plan
-  // re-enters the competition here: if it survives, it comes back.
   for (const e of entries) {
     if (toHide.has(e.el)) continue;
     e.el.style.visibility = "";
