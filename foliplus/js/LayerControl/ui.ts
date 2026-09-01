@@ -1450,9 +1450,11 @@ class LayerUI {
     // Registered layers: current name comes from the registry.
     // Color basemap: current name comes from persistence (fallback to the
     // hex color value, which is the default label when never renamed).
+    // After the `if (!layerInfo && !isColorLayer) return` guard above, the
+    // `!isColorLayer` branch guarantees layerInfo is defined.
     const currentName = isColorLayer
-      ? (this.renamedNames[layerId] ?? this.currentColor)
-      : layerInfo.name;
+      ? this.renamedNames[layerId] ?? this.currentColor
+      : layerInfo!.name;
 
     const map = this.m.map;
     const input = dom.el("input", {
