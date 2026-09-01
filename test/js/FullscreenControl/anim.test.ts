@@ -164,6 +164,78 @@ describe("startDim", () => {
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
   });
+
+  it("reads the --dim-duration as seconds when the build minifies 260ms to .26s", async () => {
+    // Minified builds render `0.26s` instead of `260ms` (PostCSS trims
+    // leading zeroes and drops units on the number). readDimDuration must
+    // multiply by 1000 for bare seconds — otherwise it treats 0.26 as
+    // milliseconds and the auto-clear fires in ~260µs.
+    const orig = globalThis.getComputedStyle;
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      value: vi.fn(() => ({ getPropertyValue: () => "0.26s" })),
+      configurable: true,
+      writable: true,
+    });
+    startDim(container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    // 260ms (from 0.26s) + 40ms buffer = 300ms — before that it stays active.
+    await vi.advanceTimersByTimeAsync(200);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      value: orig,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("falls back to 260ms when the --dim-duration property is absent", async () => {
+    const orig = globalThis.getComputedStyle;
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      value: vi.fn(() => ({ getPropertyValue: () => "" })),
+      configurable: true,
+      writable: true,
+    });
+    startDim(container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    // 260ms (fallback) + 40ms buffer = 300ms.
+    await vi.advanceTimersByTimeAsync(250);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      value: orig,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("silently no-ops when the scrim query fails after ensureScrim", async () => {
+    // startDim calls ensureScrim (which does its own querySelector), then
+    // falls back to container.querySelector if ensureScrim returns null.
+    // Make the scrim already exist so ensureScrim returns null, then force the
+    // follow-up query to also return null — that's the guard branch at line 32.
+    setDim(container, true); // pre-create scrim + active class
+    const scrim = container.querySelector(`.${CLASSES.DIM}`);
+    const origQS = container.querySelector;
+    let callCount = 0;
+    container.querySelector = vi.fn(() => {
+      callCount++;
+      // First call (from ensureScrim): return the existing scrim → ensureScrim
+      // returns null (nothing to create). Second call (the follow-up query in
+      // startDim): return null → the guard at line 32 returns early.
+      return callCount === 1 ? scrim : null;
+    });
+    startDim(container);
+    // Guard branch returns early — no new timer fires. Clear the active class
+    // that setDim set earlier so we're asserting the flash didn't re-trigger.
+    container.classList.remove(CLASSES.DIM_ACTIVE);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    container.querySelector = origQS;
+  });
 });
 describe("removeScrim", () => {
   let container: HTMLElement;
@@ -196,5 +268,17 @@ describe("removeScrim", () => {
     expect(() => removeScrim(container)).not.toThrow();
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+  });
+
+  it("cancels the pending auto-clear timer when the control is destroyed mid-flash", () => {
+    vi.useFakeTimers();
+    startDim(container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    expect(dimEl(container)).not.toBeNull();
+    removeScrim(container);
+    // Timer is cancelled: advancing past the auto-clear window does nothing.
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    vi.useRealTimers();
   });
 });
