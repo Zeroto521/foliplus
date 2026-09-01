@@ -192,9 +192,7 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
   it("nudgeCropBox moves right by NUDGE_STEP", () => {
     manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
     manager.nudgeCropBox("ArrowRight");
-    expect(manager.cropState.rect.left).toBe(
-      100 + CONST.CROP.NUDGE_STEP,
-    );
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
     expect(manager.updateBoxStyle).toHaveBeenCalled();
   });
 
