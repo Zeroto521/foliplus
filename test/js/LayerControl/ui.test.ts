@@ -1752,8 +1752,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // getNavigableItems() enumerates rows by checkbox DOM order: the "Toggle
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.
-    const indexFor = (id: string) =>
-      ui.getNavigableItems().indexOf(findItem(ui, id));
+    const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
 
     it("setActiveItem adds the FOCUSED class to the target row", () => {
       const overlay = findItem(ui, "overlay1");
@@ -1761,17 +1760,17 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(0);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
 
       ui.setActiveItem(indexFor("overlay1"));
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(1);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
@@ -1787,9 +1786,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       // Only ONE row carries the class at any time.
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(1);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
       expect(ui.activeIdx).toBe(indexFor("base1"));
     });
 
@@ -1802,9 +1801,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       (ui as any).blurActiveItem();
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(0);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
       // activeIdx is preserved by blurActiveItem — only the marker is lifted.
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
@@ -1819,9 +1818,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.clearActiveItem();
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(0);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
       expect(ui.activeIdx).toBeNull();
       expect((ui as any).clickedRow).toBeNull();
     });
@@ -1845,9 +1844,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(
-        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-      ).toHaveLength(0);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
       expect(ui.activeIdx).toBeNull();
     });
 
