@@ -17,7 +17,7 @@
       : null;
   };
 
-  const focusedVisible = row => !!row && row.style.display !== "none";
+  const focusedVisible = row => !!row && getComputedStyle(row).display !== "none";
   const focusedFolded = row =>
     !!row && row.classList.contains("foliplus-layer-group-folded");
 

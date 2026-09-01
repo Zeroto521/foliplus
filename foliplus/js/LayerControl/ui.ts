@@ -1055,7 +1055,8 @@ class LayerUI {
    *  Queries once — resolveActiveIdx and moveActiveMarker both need the list. */
   private syncActiveItem(): void {
     const items = this.getNavigableItems();
-    this.moveActiveMarker(items[this.resolveActiveIdx(items) ?? -1], items);
+    const idx = this.resolveActiveIdx(items);
+    this.moveActiveMarker(idx === null ? null : items[idx], items);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.
