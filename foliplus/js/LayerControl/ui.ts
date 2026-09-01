@@ -3,7 +3,12 @@ import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { dom } from "#common/dom.js";
+import {
+  createInlineEditInput,
+  dom,
+  removeInlineEditInput,
+  updateItemLabel,
+} from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -183,7 +188,6 @@ class LayerUI {
     if (!this.uiContainer) return;
     for (const [id, name] of Object.entries(this.renamedNames)) {
       const layerInfo = this.m.layerRegistry.get(id);
-      // Color basemap is never in the registry — handle it directly.
       const isColorLayer = id === CONST.COLOR.MAP_ID;
       if (!layerInfo && !isColorLayer) continue;
       if (layerInfo && layerInfo.name === name) continue;
@@ -191,24 +195,7 @@ class LayerUI {
       const item = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       ) as HTMLElement | null;
-      if (!item) continue;
-      const label = item.querySelector("label") as HTMLLabelElement | null;
-      if (label) label.textContent = name;
-      const checkbox = item.querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement | null;
-      if (checkbox) {
-        checkbox.setAttribute("aria-label", name);
-        checkbox.title = name;
-      }
-      // Color basemap row uses a color input instead of a checkbox.
-      const colorInput = item.querySelector(
-        'input[type="color"]',
-      ) as HTMLInputElement | null;
-      if (colorInput) {
-        colorInput.setAttribute("aria-label", name);
-        colorInput.title = name;
-      }
+      updateItemLabel(item, name);
     }
   }
 
@@ -390,15 +377,7 @@ class LayerUI {
     const name = this.renamedNames[layerInfo.id];
     if (!name) return;
     if (layerInfo.name !== name) layerInfo.name = name;
-    const label = item.querySelector("label") as HTMLLabelElement | null;
-    if (label) label.textContent = name;
-    const checkbox = item.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-    if (checkbox) {
-      checkbox.setAttribute("aria-label", name);
-      checkbox.title = name;
-    }
+    updateItemLabel(item, name);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -1434,7 +1413,6 @@ class LayerUI {
    */
   renameLayer(layerId: string): void {
     if (!layerId || !this.uiContainer) return;
-    // One rename at a time — finish whatever was in flight first.
     this.finishRename();
 
     const layerInfo = this.m.layerRegistry.get(layerId);
@@ -1447,70 +1425,32 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
-    // Registered layers: current name comes from the registry.
-    // Color basemap: current name comes from persistence (fallback to the
-    // hex color value, which is the default label when never renamed).
-    // After the `if (!layerInfo && !isColorLayer) return` guard above, the
-    // `!isColorLayer` branch guarantees layerInfo is defined.
     const currentName = isColorLayer
       ? (this.renamedNames[layerId] ?? this.currentColor)
       : layerInfo!.name;
 
-    const map = this.m.map;
-    const input = dom.el("input", {
-      type: "text",
-      value: currentName,
-      class: `${CONST.RENAME_INPUT_CLASS} foliplus-input`,
-      "aria-label": T("rename_hint"),
-    }) as HTMLInputElement;
-
-    const commit = (value: string) => {
-      const trimmed = value.trim();
-      // Empty name → show a hint and revert (no persistence, no storage write).
-      if (trimmed.length === 0) {
-        map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
-        return this.finishRename(true);
-      }
-      const changed = trimmed !== currentName;
-      if (changed) {
-        if (layerInfo) layerInfo.name = trimmed;
-        this.renamedNames[layerId] = trimmed;
-        this.saveNamesState();
-      }
-      this.finishRename(true);
-      if (label.isConnected) label.textContent = trimmed;
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        event.stopPropagation();
-        commit(input.value);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        this.finishRename(true);
-      }
-      // Let the browser handle text editing; do NOT call handleKeyDown here
-      // so ArrowLeft/Right move the caret inside the input, not the cursor.
-      // stopPropagation on Enter/Escape prevents the container handler from
-      // toggling the focused layer (Enter) or clearing the active item (Esc).
-    };
-    input.addEventListener("keydown", onKeyDown);
-    // Guard against double-commit: Enter/Escape call finishRename() which
-    // removes the input from DOM → triggers blur → blur would re-commit
-    // (with a stale/empty value). Only commit in blur when the rename is
-    // still active for this layer (i.e. the user clicked away, not Enter/Esc).
-    input.addEventListener(
-      "blur",
-      () => this.activeRenameId === layerId && commit(input.value),
-    );
-
-    label.textContent = "";
-    label.appendChild(input);
     this.activeRenameId = layerId;
-    input.focus();
-    input.select();
+    createInlineEditInput({
+      label,
+      initialValue: currentName,
+      className: `${CONST.RENAME_INPUT_CLASS} foliplus-input`,
+      ariaLabel: T("rename_hint"),
+      onCommit: trimmed => {
+        const changed = trimmed !== currentName;
+        if (changed) {
+          if (layerInfo) layerInfo.name = trimmed;
+          this.renamedNames[layerId] = trimmed;
+          this.saveNamesState();
+        }
+        this.finishRename(true);
+        if (label.isConnected) label.textContent = trimmed;
+      },
+      onCancel: () => {
+        const map = this.m.map;
+        map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        this.finishRename(true);
+      },
+    });
   }
 
   /**
@@ -1533,25 +1473,12 @@ class LayerUI {
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
     ) as HTMLElement | null;
     const label = item?.querySelector("label") as HTMLLabelElement | null;
-    if (!label) return;
-    const input = label.querySelector(
-      `.${CSS.escape(CONST.RENAME_INPUT_CLASS)}`,
-    ) as HTMLInputElement | null;
-    if (input) label.removeChild(input);
+    removeInlineEditInput(label);
     if (restoreText) {
-      // Registered layers: read the name from the registry.
-      // Color basemap: read from persistence, falling back to the hex color.
       const name = layerInfo
         ? layerInfo.name
         : (this.renamedNames[layerId] ?? this.currentColor);
-      label.textContent = name;
-      const checkbox = item?.querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement | null;
-      if (checkbox) {
-        checkbox.setAttribute("aria-label", name);
-        checkbox.title = name;
-      }
+      updateItemLabel(item, name);
     }
   }
 
