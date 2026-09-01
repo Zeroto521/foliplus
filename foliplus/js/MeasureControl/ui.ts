@@ -475,7 +475,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         icon: Util.makeLabelDivIcon(
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
-        }),
+        ),
         // The centroid dot sits at the same latlng with zIndexOffset
         // Z_INDEX.OFFSET (11000). Without a higher offset the opaque dot
         // renders on top of the label and covers it — the label looks like
