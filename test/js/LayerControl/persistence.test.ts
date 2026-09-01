@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import * as Storage from "#common/storage.js";
@@ -104,6 +104,12 @@ describe("LayerPersistence", () => {
   describe("visibility (hidden ids)", () => {
     it("loads hidden ids, filtering non-string entries", () => {
       vi.spyOn(Storage, "load").mockReturnValue(["a", 123, "b", null]);
+      const p = makePersistence(["a", "b", "c"]);
+      expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
+    });
+
+    it("drops unknown ids from the persisted hidden set", () => {
+      vi.spyOn(Storage, "load").mockReturnValue(["a", "ghost", "b", "gone"]);
       const p = makePersistence(["a", "b", "c"]);
       expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
     });

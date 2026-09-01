@@ -93,10 +93,11 @@ class LayerPersistence {
   loadHiddenIds(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.VISIBILITY_KEY, this.persistName);
     if (Array.isArray(data)) {
-      const ids = data.filter(id => typeof id === "string");
+      const layerSet = new Set(this.registry.layers.map(l => l.id));
+      const ids = data.filter(id => typeof id === "string" && layerSet.has(id));
       const dropped = data.length - ids.length;
       console.debug(
-        `[${this.persistName}] Loaded hidden ids: ${ids.length} id(s) restored${dropped > 0 ? `, ${dropped} non-string id(s) dropped` : ""}`,
+        `[${this.persistName}] Loaded hidden ids: ${ids.length} id(s) restored${dropped > 0 ? `, ${dropped} invalid id(s) dropped` : ""}`,
       );
       return new Set(ids);
     }
