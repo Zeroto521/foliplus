@@ -323,10 +323,4 @@ declare global {
   }
 }
 
-declare module "leaflet" {
-  interface Map {
-    foliplus?: MapFoliplus;
-  }
-}
-
 export {};

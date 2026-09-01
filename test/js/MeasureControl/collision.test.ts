@@ -106,6 +106,48 @@ describe("placeLabels", () => {
     expect(smallEl.style.visibility).toBe("hidden");
   });
 
+  it("lets priority dominate area: a large low-priority chip loses to a small high-priority one", () => {
+    // Large chip fully contains the small one (100% overlap of the smaller).
+    // Large chip has lower priority, so it must be hidden despite being wider.
+    const bigBox: Box = { x: 0, y: 0, w: 100, h: 40 }; // area 4000, priority 60
+    const smallBox: Box = { x: 20, y: 10, w: 60, h: 20 }; // area 1200, priority 90
+    const { lb: big, el: bigEl } = label(bigBox, 60);
+    const { lb: small, el: smallEl } = label(smallBox, 90);
+    const hidden = plan([big, small]);
+    expect(hidden).toBe(1);
+    expect(bigEl.style.visibility).toBe("hidden");
+    expect(smallEl.style.visibility).toBe("");
+  });
+
+  it("hides the lower-priority chip at exactly 50% overlap of the smaller box", () => {
+    // bigBox (120×20, area 2400) and smallBox (60×20, area 1200) overlap for
+    // 60×20 = 1200 px² — exactly 50% of smallBox's area. smallBox has lower
+    // priority, so it must be hidden. This pins the >= 0.5 boundary: a
+    // regression to > 0.5 would leave smallBox visible.
+    const bigBox: Box = { x: 0, y: 0, w: 120, h: 20 }; // priority 80
+    const smallBox: Box = { x: 60, y: 0, w: 60, h: 20 }; // area 1200, 1200px² inside big, priority 60
+    const { lb: big, el: bigEl } = label(bigBox, 80);
+    const { lb: small, el: smallEl } = label(smallBox, 60);
+    const hidden = plan([big, small]);
+    expect(hidden).toBe(1);
+    expect(bigEl.style.visibility).toBe("");
+    expect(smallEl.style.visibility).toBe("hidden");
+  });
+
+  it("leaves the chip visible just below the 50% overlap boundary", () => {
+    // Two equal-area chips (60×20, area 1200 each) overlap for 29×20 = 580 px²
+    // — 48.3% of the smaller box's area, just under the 0.5 threshold.
+    // Neither should be hidden.
+    const a: Box = { x: 0, y: 0, w: 60, h: 20 }; // priority 80
+    const b: Box = { x: 31, y: 0, w: 60, h: 20 }; // area 1200, 580px² inside a, priority 60
+    const { lb: la, el: aEl } = label(a, 80);
+    const { lb: lb_, el: bEl } = label(b, 60);
+    const hidden = plan([la, lb_]);
+    expect(hidden).toBe(0);
+    expect(aEl.style.visibility).toBe("");
+    expect(bEl.style.visibility).toBe("");
+  });
+
   it("recomputes boxes per plan from the projector", () => {
     const { lb, el } = label(ANCHOR, 60);
     plan([lb]);

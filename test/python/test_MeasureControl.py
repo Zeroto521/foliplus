@@ -125,6 +125,11 @@ class TestMeasureControlRendering:
         html = render_control(MeasureControl(show_labels=False))
         assert_config_value(html, "show_labels", False)
 
+    def test_show_labels_false_hides_labels_class(self):
+        """show_labels=False applies the labels-hidden container class in HTML."""
+        html = render_control(MeasureControl(show_labels=False))
+        assert "foliplus-measure-labels-hidden" in html
+
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))
         assert "topleft" in html

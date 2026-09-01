@@ -57,17 +57,19 @@ class MeasureControl(BaseControl):
         mode; area and circle modes always show plain distance.
 
     collide_labels : bool, default True
-        Whether to keep finished measurement labels from overlapping on screen.
-        When enabled, each label that would collide with another is pushed aside
-        along its segment's normal, and labels that still cannot fit drop out
-        (least important first) rather than overlap. When disabled, every label
-        stays on its anchor. Only affects the on-screen layout, never exports.
+        Whether to hide measurement labels that overlap heavily on screen. When
+        enabled, labels that overlap most of a neighbour are hidden (least
+        important first); labels never move off their measurement point, so a
+        light edge graze is left alone. When disabled, every label stays
+        visible on its anchor regardless of overlap. Only affects on-screen
+        layout, never exports.
 
     show_labels : bool, default True
         Whether to render measurement labels at all. When ``False``, labels are
-        hidden and also absent from PNG exports (the export rasterizer reads the
-        on-screen boxes). CSV/GeoJSON exports are unaffected — they read the
-        persisted measurements, not the rendered labels.
+        hidden on screen and also absent from PNG exports (the export
+        rasterizer reads the on-screen boxes). CSV/GeoJSON exports are
+        unaffected — they read the persisted measurements, not the rendered
+        labels.
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is

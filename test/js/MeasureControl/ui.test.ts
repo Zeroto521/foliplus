@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
@@ -193,6 +194,17 @@ describe("attachCircleUI — delete flow", () => {
     expect(clickHandler).toBeDefined();
     // Clicking the circle opens the overlay (stops event, no throw).
     clickHandler({ originalEvent: { target: null } } as any);
+  });
+
+  it("registers the radius label with RADIUS priority", () => {
+    const { opts } = makeOpts();
+    const mgr = makeMgr();
+    UI.attachCircleUI(mgr as any, opts as any);
+
+    const labelCall = (mgr.registerLabel as any).mock.calls.find(
+      (c: any[]) => c[1] === CONST.LABEL_PRIORITY.RADIUS,
+    );
+    expect(labelCall).toBeDefined();
   });
 
   it("shows the circle delete ✕ when the overlay opens (regression)", () => {

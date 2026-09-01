@@ -82,7 +82,7 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-50KB)", () => {
+  it("common JS has reasonable size (20-100KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     expect(size).toBeLessThan(100000);
@@ -93,11 +93,11 @@ describe("build artifacts", () => {
   // budgets — the lower bound of >500 B guards against an empty bundle.
   //
   // MeasureControl is heavier because it bundles its own collision-detection
-  // geometry (placeLabels / segmentDir / perpCandidates) inline; the dev
-  // (unminified) bundle sits ~103 KB, so its cap carries headroom for future
-  // growth rather than hugging the current size.
+  // geometry (placeLabels) inline; the minified bundle sits ~40 KB, so its
+  // cap carries ~50% headroom for future growth rather than hugging the
+  // current size.
   const COMPONENT_JS_MAX = new Map<string, number>([
-    ["foliplus-MeasureControl.min.js", 115000],
+    ["foliplus-MeasureControl.min.js", 60000],
   ]);
   const DEFAULT_COMPONENT_JS_MAX = 100000;
 

@@ -109,17 +109,11 @@ export const placeLabels = (
   chipOf: ChipOf,
 ): number => {
   const entries = labels
-    .map(lb => ({ lb, el: chipOf(lb.marker) as HTMLElement | null }))
+    .map(lb => ({ lb, el: chipOf(lb.marker) }))
     .filter((x): x is { lb: CollidableLabel; el: HTMLElement } => x.el !== null);
 
-  // Snapshot which chips are hidden before this call so we can skip them as
-  // competitors (they claim no space).
-  const preHidden = new Set(
-    entries.filter(e => e.el.style.visibility === "hidden").map(e => e.el),
-  );
-
   // Collision off: restore any chip we currently own that is hidden (i.e. ones
-  // we dropped in a prior plan). This mirrors the original behaviour and lets
+  // we hid in a prior plan). This mirrors the original behaviour and lets
   // toggling collision off bring dropped labels back. Chips hidden by the
   // caller (show_labels/destroy) sit outside this function, so restoring
   // unconditionally here is safe.
@@ -131,6 +125,12 @@ export const placeLabels = (
       });
     return 0;
   }
+
+  // Snapshot which chips are hidden before this call so we can skip them as
+  // competitors (they claim no space).
+  const preHidden = new Set(
+    entries.filter(e => e.el.style.visibility === "hidden").map(e => e.el),
+  );
 
   const toHide = new Set<HTMLElement>();
   const box = (el: HTMLElement): Box => projector.box(el);

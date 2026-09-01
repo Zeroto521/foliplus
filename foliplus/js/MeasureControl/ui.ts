@@ -393,7 +393,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const bindSegLabels = () => {
     labelBinds.forEach(f => f());
     labelBinds.length = 0;
-    const n = points.length;
     segLabels.forEach((label, i) => {
       labelBinds.push(mgr.registerLabel(label, CONST.LABEL_PRIORITY.SEGMENT));
     });

@@ -947,6 +947,38 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(placeLabels.mock.calls.length).toBe(initialCalls + 1);
   });
 
+  it("coalesces multiple same-frame registerLabel calls into one plan", () => {
+    const { manager } = makeLabelManager();
+
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+
+    // Two rAF callbacks may be queued (the coalescing guard skips the
+    // schedule work, but requestAnimationFrame is still called), so drain
+    // them; placeLabels must run exactly once with all three labels.
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+    expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(3);
+  });
+
+  it("passes a runtime collide_labels flip through to the next plan", () => {
+    const { manager, map } = makeLabelManager({ collide_labels: true });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+    flushRaf();
+    expect(placeLabels.mock.calls[0][2] as boolean).toBe(true);
+
+    const moveendCall = map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "moveend",
+    )![1];
+
+    window.CONF.collide_labels = false;
+    moveendCall();
+    flushRaf();
+    expect(placeLabels.mock.calls[1][2] as boolean).toBe(false);
+  });
+
   it("re-plans a smaller set when a label is removed mid-measurement", () => {
     const { manager } = makeLabelManager();
     const a = makeLabelMarker();
