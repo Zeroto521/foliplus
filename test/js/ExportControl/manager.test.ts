@@ -1,10 +1,31 @@
-import * as GeoTIFF from "geotiff";
-import * as pako from "pako";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import * as Storage from "#common/storage.js";
+
+// Hoistable mock for guardBlocked — allows per-test override to exercise the
+// blocked-path in doExport() without affecting the real ensureModes/ModeManager
+// that the interaction-lock tests depend on.
+const modeMocks = vi.hoisted(() => ({
+  guardBlocked: vi.fn(() => false),
+}));
+
+vi.mock("#core/mode.js", async () => {
+  const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
+  return {
+    ...real,
+    guardBlocked: modeMocks.guardBlocked,
+  };
+});
+
+// geotiff bundles web-worker which cannot initialize under vitest's --pool=threads.
+// Mock geotiff (never loaded) but pass through pako (no web-worker dependency)
+// via vi.importActual so the compression round-trip test uses the real lib.
+vi.mock("geotiff", () => ({
+  writeArrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
+}));
+vi.mock("pako", async () => vi.importActual("pako"));
 
 // Minimal map mock satisfying ExportManager constructor requirements.
 function makeMapMock() {
@@ -397,6 +418,20 @@ describe("ExportManager — export events", () => {
     });
   });
 
+  it("doExport returns early when another component holds the map (blocked)", () => {
+    modeMocks.guardBlocked.mockReturnValue(true);
+
+    manager.doExport();
+
+    expect(modeMocks.guardBlocked).toHaveBeenCalledWith(
+      manager.map,
+      "ExportControl",
+      expect.any(String),
+    );
+    expect(manager.isExporting).toBe(false);
+    modeMocks.guardBlocked.mockReturnValue(false);
+  });
+
   it("onRenderSuccess emits after:export event", async () => {
     const events = ensureEvents(manager.map);
     vi.spyOn(events, "emit");
@@ -428,11 +463,15 @@ describe("ExportManager — export events", () => {
 describe("ExportManager — download paths", () => {
   let manager;
 
-  beforeAll(() => {
-    // manager.ts uses GeoTIFF and pako as globals (loaded from CDN at runtime);
-    // in the test environment (vitest/jsdom) we inject them from the installed
-    // npm packages so the real compression chain is exercised.
-    (globalThis as any).GeoTIFF = GeoTIFF;
+  beforeAll(async () => {
+    // manager.ts uses GeoTIFF and pako as globals (loaded from CDN at runtime).
+    // In jsdom we inject them so the download-path tests exercise the real
+    // compression chain. geotiff bundles web-worker which cannot initialize
+    // under vitest's --pool=threads, so both packages are vi.mocked at the top
+    // of this file; here we inject those mocks as globals for the tests below.
+    const geotiff = (await import("geotiff")) as any;
+    const pako = (await import("pako")) as any;
+    (globalThis as any).GeoTIFF = geotiff;
     (globalThis as any).pako = pako;
   });
 
@@ -530,10 +569,12 @@ describe("ExportManager — download paths", () => {
     }
   });
 
-  it("downloadGeoTiff uses DEFLATE-compressed RGB (compression round-trips)", () => {
+  it("downloadGeoTiff uses DEFLATE-compressed RGB (compression round-trips)", async () => {
     // Verify the compression primitive works end-to-end: DEFLATE-compressed
     // RGB bytes must decompress back to the original pixel data. This is
-    // exactly what downloadGeoTiff feeds into writeArrayBuffer.
+    // exactly what downloadGeoTiff feeds into writeArrayBuffer. pako is
+    // vi.importActual'd through the top-level vi.mock so the real lib is used.
+    const { deflateRaw, inflateRaw } = (await import("pako")) as any;
     const raw = new Uint8Array(60000); // 100*50*3 RGB
     for (let i = 0; i < raw.length; i += 3) {
       raw[i] = (i * 3) % 255;
@@ -541,11 +582,11 @@ describe("ExportManager — download paths", () => {
       raw[i + 2] = (i * 7) % 255;
     }
     // pako.deflateRaw matches the raw DEFLATE (RFC 1951) used by GeoTIFF code 8.
-    const compressed = pako.deflateRaw(raw);
+    const compressed = deflateRaw(raw);
     expect(compressed.byteLength).toBeGreaterThan(0);
     // Compressed output should be smaller than raw (patterned but not random).
     expect(compressed.byteLength).toBeLessThan(raw.byteLength);
-    const decompressed = pako.inflateRaw(compressed) as Uint8Array;
+    const decompressed = inflateRaw(compressed) as Uint8Array;
     expect(decompressed.length).toBe(raw.length);
     expect(Array.from(decompressed)).toEqual(Array.from(raw));
   });

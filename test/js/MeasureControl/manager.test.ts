@@ -4,6 +4,21 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import * as Storage from "#common/storage.js";
 
+// Hoistable mock for guardBlocked — allows per-test override to exercise the
+// blocked-path in setMode() without affecting the real ensureModes/ModeManager
+// that the interaction-lock tests depend on.
+const modeMocks = vi.hoisted(() => ({
+  guardBlocked: vi.fn(() => false),
+}));
+
+vi.mock("#core/mode.js", async () => {
+  const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
+  return {
+    ...real,
+    guardBlocked: modeMocks.guardBlocked,
+  };
+});
+
 // Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
 function mockLayerAPI() {
   return {
@@ -357,6 +372,21 @@ describe("MeasureManager — setEditMode", () => {
 
     expect(manager.isEditMode).toBe(false);
     expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+  });
+
+  it("setMode drawing returns early when another component holds the map (blocked)", () => {
+    const { manager } = makeManager();
+    modeMocks.guardBlocked.mockReturnValue(true);
+
+    manager.setMode(CONST.MODE.DISTANCE);
+
+    expect(modeMocks.guardBlocked).toHaveBeenCalledWith(
+      manager.map,
+      "MeasureControl",
+      expect.any(String),
+    );
+    expect(manager.currentMode).toBeNull();
+    modeMocks.guardBlocked.mockReturnValue(false);
   });
 });
 
