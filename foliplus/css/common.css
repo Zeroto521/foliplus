@@ -484,10 +484,7 @@
      Shared visual recipe: left accent bar + soft red wash + static glow.
      Replaces the per-component 8% wash + inset hairlines + shadow.
      Uses --accent-soft-bg (5% wash) and --cursor-glow (static, no pulse). */
-:is(
-  .foliplus-layer-focused,
-  .foliplus-search-result-item.active
-) {
+:is(.foliplus-layer-focused, .foliplus-search-result-item.active) {
   border-left-width: var(--cursor-bar-width);
   border-left-color: var(--accent-primary);
   background: var(--accent-soft-bg);
@@ -693,9 +690,7 @@
     transform: translateX(var(--size-20)) scale(1.15);
   }
 }
-.foliplus-toggle-switch:hover
-  input:checked
-  + .foliplus-toggle-slider {
+.foliplus-toggle-switch:hover input:checked + .foliplus-toggle-slider {
   background-color: var(--btn-primary-hover);
 }
 
