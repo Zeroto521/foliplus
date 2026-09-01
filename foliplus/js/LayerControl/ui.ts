@@ -1335,8 +1335,9 @@ class LayerUI {
   /** Internal: tear down focus visuals + state (no hint). */
   private dismissFocus(): void {
     // Release LayerControl's focus mode so other components' primary actions
-    // (export, measure) are unblocked. If no focus was active this is a
-    // no-op (setMode early-returns when mode is already null).
+    // (export, measure) are unblocked. Idempotent: safe to call even when
+    // no focus was active; setMode(null) writes a null entry that the
+    // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
     ensureModes(this.m.map).setMode(CONF.name, null);
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();

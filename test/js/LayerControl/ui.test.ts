@@ -234,9 +234,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     // LayerControl holds "focusing" mode during an in-flight focus; clear it
-    // so a focus-holding test cannot leak and silently fail the next test.
-    const modes = ensureModes(window.map);
-    if (modes.getMode("LayerControl")) modes.setMode("LayerControl", null);
+    // on the FIXTURE map (not window.map) so a focus-holding test cannot leak.
+    const modes = ensureModes(map);
+    if (modes.getMode("LayerControl") === "focusing")
+      modes.setMode("LayerControl", null);
   });
 
   // ─────────────────── focusLayer() ───────────────────

@@ -34,7 +34,10 @@ const modeMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("#foliplus/core/mode.js", () => ({
+// Match the exact specifier LayerControl/ui.ts uses; both "#core/mode.js" and
+// "#foliplus/core/mode.js" resolve to the same file, but mocking the alias
+// specifier prevents future alias changes from silently breaking this test.
+vi.mock("#core/mode.js", () => ({
   ensureModes: modeMocks.ensureModes,
   guardBlocked: modeMocks.guardBlocked,
   ModeManager: modeMocks.ModeManager,
