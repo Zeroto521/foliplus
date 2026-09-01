@@ -361,7 +361,33 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
+    // If the layer has a persisted rename, apply it before reindexing so
+    // the label + checkbox aria reflect the user-assigned name immediately.
+    this.applyPersistedRename(layerInfo, item);
+
     if (reindex) this.reindexItems();
+  }
+
+  /**
+   * Apply a persisted rename to a just-inserted layer item.
+   *
+   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
+   * from the registry — the Python-supplied original name. This mirrors the
+   * logic in applyNamesState so the inline label + checkbox aria match.
+   */
+  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
+    const name = this.renamedNames[layerInfo.id];
+    if (!name) return;
+    if (layerInfo.name !== name) layerInfo.name = name;
+    const label = item.querySelector("label") as HTMLLabelElement | null;
+    if (label) label.textContent = name;
+    const checkbox = item.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
+    if (checkbox) {
+      checkbox.setAttribute("aria-label", escapeHTML(name));
+      checkbox.title = escapeHTML(name);
+    }
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -1091,6 +1117,7 @@ class LayerUI {
         if (menuLi && this.activeMenu) {
           event.preventDefault();
           event.stopPropagation();
+          const action = menuLi.getAttribute("data-action") ?? "";
           if (menuLi.getAttribute("disabled")) {
             this.m.map.foliplus!.showHint(
               CONF.name,
@@ -1099,8 +1126,11 @@ class LayerUI {
             );
             break;
           }
-          this.focusLayer(this.activeMenu.layerId);
-          this.closeMoreMenu(true);
+          if (action === CONST.ACTION.RENAME_LAYER) this.renameLayer(this.activeMenu.layerId);
+          else {
+            this.focusLayer(this.activeMenu.layerId);
+            this.closeMoreMenu(true);
+          }
           break;
         }
         event.preventDefault();
@@ -1389,6 +1419,7 @@ class LayerUI {
     if (!label) return;
 
     const currentName = layerInfo.name;
+    const map = this.m.map;
     const input = dom.el("input", {
       type: "text",
       value: currentName,
@@ -1398,8 +1429,11 @@ class LayerUI {
 
     const commit = (value: string) => {
       const trimmed = value.trim();
-      // Empty name → revert to the pre-edit text (no change, no hint).
-      if (trimmed.length === 0) return this.finishRename(true);
+      // Empty name → show a hint and revert (no persistence, no storage write).
+      if (trimmed.length === 0) {
+        map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        return this.finishRename(true);
+      }
       const changed = trimmed !== currentName;
       layerInfo.name = trimmed;
       if (changed) {
@@ -1418,13 +1452,17 @@ class LayerUI {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Enter") {
         event.preventDefault();
+        event.stopPropagation();
         commit(input.value);
       } else if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         this.finishRename(true);
       }
       // Let the browser handle text editing; do NOT call handleKeyDown here
       // so ArrowLeft/Right move the caret inside the input, not the cursor.
+      // stopPropagation on Enter/Escape prevents the container handler from
+      // toggling the focused layer (Enter) or clearing the active item (Esc).
     };
     input.addEventListener("keydown", onKeyDown);
     input.addEventListener("blur", () => commit(input.value));

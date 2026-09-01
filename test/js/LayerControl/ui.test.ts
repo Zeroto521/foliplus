@@ -1289,6 +1289,61 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.activeRenameId).toBeNull();
     });
+
+    it("Enter on the rename-layer menu item calls renameLayer (not focusLayer)", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      ) as HTMLElement;
+      li.focus();
+      expect(document.activeElement).toBe(li);
+
+      const focusSpy = vi.fn();
+      const renameSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+      ui.renameLayer = renameSpy;
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(renameSpy).toHaveBeenCalledWith("overlay1");
+      expect(focusSpy).not.toHaveBeenCalled();
+      // Menu stays open — renameLayer opens an inline input, not a menu close.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("Enter in the rename input does not bubble to the container handler (no toggle)", () => {
+      // Ensure checkbox is checked so toggleFocusedLayer would flip it off.
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
+
+      ui.renameLayer("overlay1");
+
+      const input = item.querySelector(
+        `label input.${CONST.RENAME_INPUT_CLASS}`,
+      ) as HTMLInputElement;
+      input.value = "New Name";
+
+      const toggleSpy = vi.fn();
+      ui.toggleFocusedLayer = toggleSpy;
+
+      input.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }));
+
+      expect(ui.renamedNames["overlay1"]).toBe("New Name");
+      expect(toggleSpy).not.toHaveBeenCalled();
+      expect(checkbox.checked).toBe(true);
+    });
   });
 
   // ─────────────────── rename persistence ───────────────────
