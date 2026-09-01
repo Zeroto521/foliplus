@@ -147,7 +147,7 @@
   cursor: move;
   z-index: calc(var(--z-export-base) + 1);
   box-sizing: border-box;
-  box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
+  box-shadow: 0 0 var(--size-16) var(--accent-soft-shadow);
   border-radius: var(--size-2);
   transition: var(--export-move-transition);
 
@@ -165,7 +165,7 @@
     border: var(--border-thick) solid var(--accent-primary);
     background-image: none;
     pointer-events: none;
-    box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
+    box-shadow: 0 0 var(--size-16) var(--accent-soft-shadow);
     transition: none;
 
     &::before {
