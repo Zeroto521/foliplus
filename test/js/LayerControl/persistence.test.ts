@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as Storage from "#common/storage.js";
-import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
+import * as Storage from "#common/storage.js";
 
 const makeRegistry = (ids: string[]) =>
   ({
     layers: ids.map(id => ({ id })),
-    get: id => ids.includes(id) ? { id } : null,
+    get: id => (ids.includes(id) ? { id } : null),
   }) as any;
 
 describe("LayerPersistence", () => {
@@ -22,8 +22,7 @@ describe("LayerPersistence", () => {
     window.localStorage.clear();
   });
 
-  const makePersistence = (ids: string[]) =>
-    new LayerPersistence(makeRegistry(ids));
+  const makePersistence = (ids: string[]) => new LayerPersistence(makeRegistry(ids));
 
   // ── Order ────────────────────────────────────────────────────────
 

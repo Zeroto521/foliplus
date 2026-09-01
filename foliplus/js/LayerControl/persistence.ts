@@ -60,9 +60,7 @@ class LayerPersistence {
         if (!this.orderGetter) return;
         const ids = this.orderGetter();
         Storage.save(CONST.STORAGE.ORDER_KEY, ids, this.persistName);
-        console.debug(
-          `[${this.persistName}] Saved order: ${ids.length} layer(s)`,
-        );
+        console.debug(`[${this.persistName}] Saved order: ${ids.length} layer(s)`);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
     this.debouncedSaveOrder();
@@ -77,7 +75,9 @@ class LayerPersistence {
   loadFoldedGroups(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, this.persistName);
     if (Array.isArray(data)) {
-      console.debug(`[${this.persistName}] Loaded fold state: ${data.length} group(s) restored`);
+      console.debug(
+        `[${this.persistName}] Loaded fold state: ${data.length} group(s) restored`,
+      );
       return new Set(data);
     }
     console.debug(`[${this.persistName}] No saved fold state, using default open`);
@@ -100,7 +100,9 @@ class LayerPersistence {
       );
       return new Set(ids);
     }
-    console.debug(`[${this.persistName}] No saved visibility state, all layers visible`);
+    console.debug(
+      `[${this.persistName}] No saved visibility state, all layers visible`,
+    );
     return new Set();
   }
 
