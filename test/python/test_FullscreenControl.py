@@ -116,10 +116,13 @@ class TestFullscreeControlRendering:
         html = render_control(FullscreenControl())
         assert "foliplus-dim" in html
         assert "foliplus-dim-active" in html
-        # PostCSS minifies `260ms` → `.26s` and `0.5` → `.5`, so assert
-        # token names and numeric values rather than the exact string form.
-        assert "--dim-duration" in html and ("260ms" in html or ".26s" in html)
-        assert "--dim-alpha" in html and ("0.5" in html or ".5" in html)
+        # PostCSS minifies `260ms` -> `.26s` and `0.5` -> `.5`, so assert
+        # the property is present with a plausible value rather than one exact
+        # string form. Regex guards against a stray `.26s` elsewhere in the CSS.
+        import re
+
+        assert re.search(r"--dim-duration\s*:\s*(260ms?|\.26s)", html)
+        assert re.search(r"--dim-alpha\s*:\s*0?\.?5", html)
         assert "pointer-events" in html and "none" in html
 
     def test_css_dim_uses_tokens(self):

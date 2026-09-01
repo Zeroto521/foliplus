@@ -3,6 +3,9 @@
 // transparent so the fullscreen view itself stays clean.
 import { CLASSES } from "./const.js";
 
+// Cushion past the CSS transition so the scrim's auto-clear doesn't fire a few
+// frames early and leave a visible half-opacity flicker. Covers both JS timer
+// drift and main-thread stalls that delay the setTimeout callback.
 const DIM_BUFFER_MS = 40;
 
 const dimTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
@@ -28,9 +31,10 @@ const ensureScrim = (container: HTMLElement): HTMLElement | null => {
  * fallback if the value is absent.
  */
 const startDim = (container: HTMLElement): void => {
-  const scrim = ensureScrim(container) ?? container.querySelector(`.${CLASSES.DIM}`);
-  if (!scrim) return;
-  const duration = readDimDuration(scrim);
+  // ensureScrim either returns the newly-created scrim, or null meaning a
+  // scrim already exists in the DOM. The caller never needs the element
+  // itself — the active state is a class on the container.
+  ensureScrim(container);
   const pending = dimTimers.get(container);
   if (pending) clearTimeout(pending);
   container.classList.add(CLASSES.DIM_ACTIVE);
@@ -39,11 +43,13 @@ const startDim = (container: HTMLElement): void => {
     setTimeout(() => {
       container.classList.remove(CLASSES.DIM_ACTIVE);
       dimTimers.delete(container);
-    }, duration + DIM_BUFFER_MS),
+    }, readDimDuration(container) + DIM_BUFFER_MS),
   );
 };
 
-const readDimDuration = (scrim: HTMLElement): number => {
+const readDimDuration = (container: HTMLElement): number => {
+  const scrim = container.querySelector(`.${CLASSES.DIM}`);
+  if (!scrim) return 260;
   const raw = getComputedStyle(scrim).getPropertyValue("--dim-duration").trim();
   const ms = parseFloat(raw);
   // CSS may express the duration as `260ms` (dev build) or `.26s` (minified).
@@ -55,8 +61,9 @@ const readDimDuration = (scrim: HTMLElement): number => {
 };
 
 /**
- * Synchronous toggle of the scrim (no auto-clear). Kept for tests; production
- * uses startDim.
+ * Synchronous toggle of the scrim (no auto-clear). Used by the exit path and
+ * the denied-request catch paths in logic.ts, where the scrim must clear
+ * immediately rather than fading.
  */
 const setDim = (container: HTMLElement, active: boolean): void => {
   ensureScrim(container);
@@ -74,4 +81,4 @@ const removeScrim = (container: HTMLElement) => {
   scrim?.remove();
 };
 
-export { ensureScrim, removeScrim, setDim, startDim };
+export { removeScrim, setDim, startDim };

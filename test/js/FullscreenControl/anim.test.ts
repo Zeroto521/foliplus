@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  ensureScrim,
   removeScrim,
   setDim,
   startDim,
@@ -26,52 +25,6 @@ const clean = () => {
     el.remove();
   });
 };
-
-describe("ensureScrim", () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    clean();
-    container = attach(makeContainer());
-  });
-
-  it("creates the scrim once as a child of the map container", () => {
-    expect(ensureScrim(container)).not.toBeNull();
-    const scrim = dimEl(container);
-    expect(scrim).not.toBeNull();
-    expect(scrim.parentElement).toBe(container);
-    // Mounted inside the container rather than directly on body: in native
-    // fullscreen the user agent paints only the fullscreen element and its
-    // descendants, so a body-mounted scrim would never paint at all.
-    expect(Array.from(document.body.children)).not.toContain(scrim);
-    expect(container.lastElementChild).toBe(scrim);
-  });
-
-  it("returns null on subsequent calls and creates no duplicate", () => {
-    expect(ensureScrim(container)).not.toBeNull();
-    expect(ensureScrim(container)).toBeNull();
-    expect(ensureScrim(container)).toBeNull();
-    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
-  });
-
-  it("does not reuse an element from a different map's container", () => {
-    const other = attach(makeContainer());
-    const foreign = document.createElement("div");
-    foreign.className = CLASSES.DIM;
-    other.appendChild(foreign);
-    expect(ensureScrim(container)).not.toBeNull();
-    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
-    expect(dimEl(container)).not.toBe(foreign);
-  });
-
-  it("does not reuse a scrim mounted outside the container", () => {
-    const foreign = document.createElement("div");
-    foreign.className = CLASSES.DIM;
-    document.body.appendChild(foreign);
-    expect(ensureScrim(container)).not.toBeNull();
-    expect(dimEl(container)).not.toBe(foreign);
-  });
-});
 
 describe("setDim", () => {
   let container: HTMLElement;
@@ -210,33 +163,8 @@ describe("startDim", () => {
       writable: true,
     });
   });
-
-  it("silently no-ops when the scrim query fails after ensureScrim", async () => {
-    // startDim calls ensureScrim (which does its own querySelector), then
-    // falls back to container.querySelector if ensureScrim returns null.
-    // Make the scrim already exist so ensureScrim returns null, then force the
-    // follow-up query to also return null — that's the guard branch at line 32.
-    setDim(container, true); // pre-create scrim + active class
-    const scrim = container.querySelector(`.${CLASSES.DIM}`);
-    const origQS = container.querySelector;
-    let callCount = 0;
-    container.querySelector = vi.fn(() => {
-      callCount++;
-      // First call (from ensureScrim): return the existing scrim → ensureScrim
-      // returns null (nothing to create). Second call (the follow-up query in
-      // startDim): return null → the guard at line 32 returns early.
-      return callCount === 1 ? scrim : null;
-    });
-    startDim(container);
-    // Guard branch returns early — no new timer fires. Clear the active class
-    // that setDim set earlier so we're asserting the flash didn't re-trigger.
-    container.classList.remove(CLASSES.DIM_ACTIVE);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    await vi.advanceTimersByTimeAsync(400);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    container.querySelector = origQS;
-  });
 });
+
 describe("removeScrim", () => {
   let container: HTMLElement;
 
@@ -271,7 +199,6 @@ describe("removeScrim", () => {
   });
 
   it("cancels the pending auto-clear timer when the control is destroyed mid-flash", () => {
-    vi.useFakeTimers();
     startDim(container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     expect(dimEl(container)).not.toBeNull();
@@ -279,6 +206,5 @@ describe("removeScrim", () => {
     // Timer is cancelled: advancing past the auto-clear window does nothing.
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    vi.useRealTimers();
   });
 });
