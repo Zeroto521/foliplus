@@ -21,7 +21,7 @@
 path.foliplus-focus-rect {
   fill: none;
   stroke: var(--accent-primary);
-  stroke-dasharray: var(--size-6) var(--size-4);
+  stroke-dasharray: var(--dash-rhythm);
   stroke-width: var(--border-thick);
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
