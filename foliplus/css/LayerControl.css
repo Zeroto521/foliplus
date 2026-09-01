@@ -409,21 +409,9 @@ path.foliplus-focus-mask {
     &.foliplus-layer-focused:focus-visible {
       outline: none;
     }
-    /* ── Keyboard focus navigation cursor ──
-       Tab / Arrow keys move a `.foliplus-layer-focused` marker up and down.
-       A separate axis from `.active` (checked) and `:hover` (mouse):
-       1 px accent left bar, 8 % wash, hairline separators, shadow. */
-    &.foliplus-layer-focused {
-      border-left-color: var(--accent-primary);
-      background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
-      box-shadow:
-        inset var(--border-thin) 0 0 0 var(--accent-primary),
-        inset 0 var(--border-thin) 0 0
-          color-mix(in srgb, var(--accent-primary) 12%, transparent),
-        inset 0 calc(-1 * var(--border-thin)) 0 0
-          color-mix(in srgb, var(--accent-primary) 12%, transparent),
-        var(--shadow-xs);
-    }
+    /* Keyboard cursor visual is shared in common.css (left accent bar +
+       soft wash + static glow). LayerControl only needs the color language
+       rules for type icon / more button below. */
     /* Keyboard cursor and mouse hover share the same foliplus color language:
        type icon → black (text-primary), more button → red (accent-primary),
        count → gray (text-muted, unchanged). The left bar + wash are the
@@ -565,64 +553,7 @@ path.foliplus-focus-mask {
   .foliplus-color-layer-item {
     cursor: pointer;
   }
-  /* ── Checkbox styles ── */
-  .foliplus-checkbox {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--space-xl);
-    height: var(--space-xl);
-  }
-  input[type="checkbox"] {
-    position: relative;
-    appearance: none;
-    margin: 0;
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
-    cursor: pointer;
-    transition:
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast);
-    /* background-color intentionally NOT animated: the checkbox is destroyed
-       and re-created on every list rebuild (fold click → renderInitialList),
-       so a transition on background-color would cause checked checkboxes to
-       flash red (var(--input-bg) → var(--accent-primary)) on each rebuild. */
-
-    /* ── Checked & indeterminate (partial selection) share active bg ── */
-    &:is(:checked, :indeterminate) {
-      background: var(--accent-primary);
-      border-color: var(--accent-primary);
-
-      /* ── Shared ::after positioning for both states ── */
-      &::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-size: var(--size-12);
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-    }
-    /* Checkmark icon */
-    &:checked::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-    }
-    /* Dash icon (partial selection) */
-    &:indeterminate::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
-    }
-  }
-  :focus-visible {
-    outline: none;
-    box-shadow: var(--focus-ring);
-    border-radius: var(--radius-sm);
-  }
+  /* ── Checkbox styles live in common.css (Shared Checkbox Component) ── */
   /* ── Solid color layer picker ── */
   .foliplus-color-layer-input {
     width: var(--space-xl);
