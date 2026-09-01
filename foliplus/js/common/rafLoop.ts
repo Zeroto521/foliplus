@@ -34,7 +34,10 @@ export type RafLoop = {
  */
 const rafLoop = (
   tick: (key?: string) => void | boolean,
-  { scheduler = setTimeout, interval = 16 }: {
+  {
+    scheduler = setTimeout,
+    interval = 16,
+  }: {
     scheduler?: Scheduler;
     interval?: number;
   } = {},

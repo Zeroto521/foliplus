@@ -448,10 +448,7 @@ class ExportManager {
   nudgeCropBox(key: string) {
     if (!this.isEditing()) return;
     const d = nudgeDirection(key);
-    this.nudgeCropBoxDelta(
-      d.x * CONST.CROP.NUDGE_STEP,
-      d.y * CONST.CROP.NUDGE_STEP,
-    );
+    this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
   }
 
   /** Apply an already-computed (possibly fractional) delta to the crop box.
