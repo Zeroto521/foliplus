@@ -41,7 +41,7 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-extra-body");
 
     // Section headings
-    expect(html).toContain("foliplus-heatmap-section-heading");
+    expect(html).toContain("foliplus-section-heading");
 
     // Form rows
     expect(html).toContain("foliplus-heatmap-form-row");
@@ -146,8 +146,8 @@ describe("panelContentHTML", () => {
 
   it("includes label toggle switch structure", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-toggle-switch");
-    expect(html).toContain("foliplus-heatmap-toggle-slider");
+    expect(html).toContain("foliplus-toggle-switch");
+    expect(html).toContain("foliplus-toggle-slider");
     expect(html).toContain('type="checkbox"');
   });
 

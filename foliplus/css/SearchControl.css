@@ -53,23 +53,11 @@
     }
   }
 
-  /* Keyboard cursor (ArrowUp/ArrowDown): same visual language as the
-     LayerControl .foliplus-layer-focused row — 1 px accent left bar,
-     8 % wash, hairline separators, shadow. This separates the keyboard
-     cursor from hover (5 % wash) and from the persistent "selected"
-     state in the Heatmap scheme picker, where .active means
-     "currently picked scheme" rather than "keyboard cursor is here". */
+  /* Keyboard cursor (ArrowUp/ArrowDown): visual recipe is shared in
+     common.css with the LayerControl .foliplus-layer-focused — left accent
+     bar + soft wash + static glow. SearchControl only keeps the icon color
+     rule here (the icon structure is search-specific). */
   &.active {
-    border-left-color: var(--accent-primary);
-    background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
-    box-shadow:
-      inset var(--border-thin) 0 0 0 var(--accent-primary),
-      inset 0 var(--border-thin) 0 0
-        color-mix(in srgb, var(--accent-primary) 12%, transparent),
-      inset 0 calc(-1 * var(--border-thin)) 0 0
-        color-mix(in srgb, var(--accent-primary) 12%, transparent),
-      var(--shadow-xs);
-
     .foliplus-search-result-icon {
       color: var(--text-primary);
     }

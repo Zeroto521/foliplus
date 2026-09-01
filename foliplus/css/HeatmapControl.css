@@ -11,7 +11,7 @@
 }
 .foliplus-hf-secondary {
   fill: currentColor;
-  opacity: 0.08;
+  opacity: var(--alpha-15);
   stroke: none;
 }
 
@@ -19,6 +19,8 @@
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   --toggle-off-bg: var(--neutral-300);
+  --toggle-width: 40px;
+  --toggle-height: var(--size-20);
   --accent-shadow-sm: 0 var(--size-2) var(--size-8)
     rgba(var(--red-rgb), var(--alpha-30));
   --accent-shadow-md: 0 var(--size-4) var(--size-12)
@@ -27,10 +29,8 @@
   --heatmap-select-pad-right: var(--space-xxl);
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
-  --heatmap-toggle-width: 40px;
-  --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
-  --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
+  --heading-letter-spacing: var(--letter-spacing-tight);
   --heatmap-select-arrow-width: var(--size-8);
   --heatmap-select-arrow-height: var(--size-6);
   /* Label Canvas – CSS-driven parameters for Canvas text rendering */
@@ -38,8 +38,8 @@
   --heatmap-label-font-weight: bold;
   --heatmap-label-font-size: var(--font-size-sm);
   --heatmap-label-color: var(--neutral-0);
-  --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
-  --heatmap-label-stroke-width: 3px;
+  --heatmap-label-stroke-color: rgba(0, 0, 0, var(--alpha-70));
+  --heatmap-label-stroke-width: var(--size-4);
 
   /* ── Sections: Data / Style / Labels ── */
   .foliplus-heatmap-section-block {
@@ -74,7 +74,7 @@
 
   /* Shared select/input styles */
   .foliplus-heatmap-form-select,
-  select {
+  .foliplus-heatmap-ctrl select {
     width: 100%;
     height: var(--ctrl-size);
     font-size: var(--font-size-md);
@@ -189,7 +189,10 @@
 
     &.active {
       border-left-color: var(--accent-primary);
-      background: var(--accent-light);
+      /* Persistent "selected scheme" state: soft 5% wash, same language as
+         the keyboard cursor. --accent-light (#fde8e8) was too saturated —
+         it's a flat brand color, not a subtle persistent-status wash. */
+      background: var(--accent-soft-bg);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {
@@ -247,66 +250,7 @@
     }
   }
 
-  /* ── Label Toggle ── */
-  .foliplus-heatmap-toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: var(--heatmap-toggle-width);
-    height: var(--heatmap-toggle-height);
-    flex-shrink: 0;
-    cursor: pointer;
-
-    input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-  }
-  .foliplus-heatmap-toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    background-color: var(--toggle-off-bg);
-    border-radius: 10px;
-    transition: background-color var(--transition-fast);
-
-    &::before {
-      content: "";
-      position: absolute;
-      height: var(--size-16);
-      width: var(--size-16);
-      left: var(--size-2);
-      bottom: var(--size-2);
-      background-color: var(--neutral-0);
-      border-radius: var(--radius-round);
-      transition:
-        transform var(--transition-fast),
-        box-shadow var(--transition-fast);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
-    }
-  }
-  /* hover + checked states: flat selectors (avoid nested & on combinator RHS,
-     which postcss-nesting edition 2021 compiles to an incorrect :is() form) */
-  .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
-    background-color: var(--neutral-500);
-
-    &::before {
-      box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
-    }
-  }
-  .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
-    background-color: var(--accent-primary);
-
-    &::before {
-      transform: translateX(var(--size-20)) scale(1.15);
-    }
-  }
-  .foliplus-heatmap-toggle-switch:hover
-    input:checked
-    + .foliplus-heatmap-toggle-slider {
-    background-color: var(--btn-primary-hover);
-  }
+  /* ── Label Toggle lives in common.css (Shared Toggle Switch) ── */
 
   /* ── Bottom Buttons ── */
   .foliplus-heatmap-btn-row {
@@ -365,18 +309,6 @@
 
   .foliplus-section-divider {
     margin: var(--space-md) var(--space-lg) var(--space-sm);
-  }
-  /* ── Section Headings ── */
-  .foliplus-heatmap-section-heading {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: var(--heatmap-heading-letter-spacing);
-    padding: var(--space-md) var(--space-xl) var(--space-sm);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
   }
 }
 

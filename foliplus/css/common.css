@@ -74,6 +74,14 @@
     0 0 0 var(--border-thin) var(--accent-primary),
     0 0 0 var(--size-4) var(--accent-soft-shadow);
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
+  /* ── Keyboard Navigation Cursor ──
+     Left accent bar + static soft glow for keyboard nav cursors
+     (.foliplus-layer-focused, .foliplus-search-result-item.active).
+     Light wash + soft glow — no inset hairlines, no animation.
+     Mirrors the drag-over direction glow but without the pulse. */
+  --cursor-bar-width: var(--border-thick);
+  --cursor-glow: 0 0 var(--size-8) calc(-1 * var(--border-thin))
+    var(--accent-soft-shadow);
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
@@ -476,10 +484,40 @@
   color: var(--accent-primary);
 }
 
-/* ── Active states are now per-component:
-     - .foliplus-search-result-item.active  → keyboard cursor (SearchControl.css)
-     - .foliplus-heatmap-scheme-dropdown-item.active → persistent selected
-       scheme (HeatmapControl.css). Each owns its own visual language. ── */
+/* ── Keyboard navigation cursor (LayerControl + SearchControl) ──
+     Shared visual recipe: left accent bar + soft red wash + static glow.
+     Replaces the per-component 8% wash + inset hairlines + shadow.
+     Uses --accent-soft-bg (5% wash) and --cursor-glow (static, no pulse). */
+:is(
+  .foliplus-layer-focused,
+  .foliplus-search-result-item.active
+) {
+  border-left-width: var(--cursor-bar-width);
+  border-left-color: var(--accent-primary);
+  background: var(--accent-soft-bg);
+  box-shadow: var(--cursor-glow);
+}
+
+/* ── Dropdown item :focus-visible ──
+   All dropdown items share one keyboard focus ring: thin accent border +
+   soft glow. The browser default outline would clash with the dropdown shell.
+   Covers the previously-unstyled HeatmapControl scheme dropdown items. */
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item,
+  .foliplus-layer-more-menu li
+):focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--transition-fast);
+}
+
+/* Active states are per-component:
+   - .foliplus-search-result-item.active   → keyboard cursor (above)
+   - .foliplus-heatmap-scheme-dropdown-item.active → persistent selected
+     scheme (HeatmapControl.css). Each owns its own visual language. ── */
 
 .foliplus-ctrl-btn {
   position: absolute;
@@ -531,6 +569,67 @@
   box-shadow: var(--focus-ring);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+  Shared Checkbox Component
+  Custom-styled checkbox with checkmark/dash SVG icons. Used by LayerControl
+  and available for any future foliplus component. Scoped via :is(.foliplus-layer-ctrl)
+  to avoid affecting non-foliplus checkboxes on the page.
+  ══════════════════════════════════════════════════════════════════════ */
+:is(.foliplus-layer-ctrl) .foliplus-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-xl);
+  height: var(--space-xl);
+}
+:is(.foliplus-layer-ctrl) input[type="checkbox"] {
+  position: relative;
+  appearance: none;
+  margin: 0;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  /* background-color intentionally NOT animated: the checkbox is destroyed
+     and re-created on every list rebuild (fold click → renderInitialList),
+     so a transition on background-color would cause checked checkboxes to
+     flash red (var(--input-bg) → var(--accent-primary)) on each rebuild. */
+
+  /* ── Checked & indeterminate (partial selection) share active bg ── */
+  &:is(:checked, :indeterminate) {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-size: var(--size-12);
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+  }
+  &:checked::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  }
+  &:indeterminate::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
+  }
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+  }
+}
+
 .foliplus-popup-content {
   font-size: var(--font-size-md);
   line-height: var(--line-height-popup);
@@ -559,6 +658,87 @@
 .foliplus-input:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Shared Toggle Switch Component
+  CSS-only toggle switch (no JS for visual state). Used by HeatmapControl
+  and available for future foliplus components.
+  Component-scoped tokens (--toggle-width/--toggle-height/--toggle-off-bg)
+  are set here with sensible defaults; consumers override via :root or a
+  parent scope. HeatmapControl already defines --toggle-off-bg in its scope.
+  ══════════════════════════════════════════════════════════════════════ */
+.foliplus-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: var(--toggle-width, 40px);
+  height: var(--toggle-height, var(--size-20));
+  flex-shrink: 0;
+  cursor: pointer;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+}
+.foliplus-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--toggle-off-bg, var(--neutral-300));
+  border-radius: var(--size-8);
+  transition: background-color var(--transition-fast);
+
+  &::before {
+    content: "";
+    position: absolute;
+    height: var(--size-16);
+    width: var(--size-16);
+    left: var(--size-2);
+    bottom: var(--size-2);
+    background-color: var(--neutral-0);
+    border-radius: var(--radius-round);
+    transition:
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast);
+    box-shadow: 0 var(--border-thin) var(--size-4) rgba(0, 0, 0, var(--alpha-30));
+  }
+}
+/* Hover + checked states use flat selectors (avoid nested & on combinator RHS,
+   which postcss-nesting edition 2021 compiles to an incorrect :is() form). */
+.foliplus-toggle-switch:hover .foliplus-toggle-slider {
+  background-color: var(--neutral-500);
+
+  &::before {
+    box-shadow: 0 var(--border-thin) var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+  }
+}
+.foliplus-toggle-switch input:checked + .foliplus-toggle-slider {
+  background-color: var(--accent-primary);
+
+  &::before {
+    transform: translateX(var(--size-20)) scale(1.15);
+  }
+}
+.foliplus-toggle-switch:hover
+  input:checked
+  + .foliplus-toggle-slider {
+  background-color: var(--btn-primary-hover);
+}
+
+/* ── Section Heading (shared uppercase label) ── */
+.foliplus-section-heading {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--heading-letter-spacing, var(--letter-spacing-tight));
+  padding: var(--space-md) var(--space-xl) var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 /* ── Ctrl Fold (Shared Container) ──

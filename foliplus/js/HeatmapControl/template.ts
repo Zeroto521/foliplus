@@ -7,7 +7,7 @@ import * as CONST from "./const.js";
 /** Build the panel-content HTML string (data section + style section). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
-  <div class="foliplus-heatmap-section-heading">
+  <div class="foliplus-section-heading">
     ${T("section_data")}
   </div>
 
@@ -40,7 +40,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-heatmap-section-heading">
+    <div class="foliplus-section-heading">
       ${T("section_style")}
     </div>
 
@@ -88,9 +88,9 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       <div class="foliplus-heatmap-form-row foliplus-heatmap-section-block-last">
         <label class="foliplus-heatmap-form-label">${T("label")}</label>
         <div class="foliplus-heatmap-form-control">
-          <label class="foliplus-heatmap-toggle-switch">
+          <label class="foliplus-toggle-switch">
             <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
-            <span class="foliplus-heatmap-toggle-slider"></span>
+            <span class="foliplus-toggle-slider"></span>
           </label>
         </div>
       </div>
