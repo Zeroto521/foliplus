@@ -1,12 +1,10 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
-import { type Debounced, debounce } from "#common/debounce.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -34,8 +32,6 @@ class LayerUI {
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
   private interactionCleanup?: () => void;
-  /** Debounced writer for the persisted hidden-id set (lazy-init in saveHiddenIds). */
-  private debouncedSaveHidden: Debounced | undefined;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -145,34 +141,22 @@ class LayerUI {
 
   /** Load fold state from localStorage. */
   loadFoldState() {
-    const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, CONF.name);
-    if (Array.isArray(data)) this.foldedGroups = new Set(data);
+    this.foldedGroups = this.m.persistence.loadFoldedGroups();
   }
 
   /** Save fold state to localStorage. */
   saveFoldState() {
-    Storage.save(CONST.STORAGE.FOLD_KEY, Array.from(this.foldedGroups), CONF.name);
+    this.m.persistence.saveFoldedGroups(this.foldedGroups);
   }
 
   /** Load hidden-layer ids from localStorage. */
   loadHiddenIds() {
-    const data = Storage.load<string[]>(CONST.STORAGE.VISIBILITY_KEY, CONF.name);
-    if (Array.isArray(data))
-      this.hiddenIds = new Set(data.filter(id => typeof id === "string"));
+    this.hiddenIds = this.m.persistence.loadHiddenIds();
   }
 
-  /** Save hidden-layer ids to localStorage, coalescing rapid calls (toggle-all). */
+  /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
-    if (!this.debouncedSaveHidden) {
-      this.debouncedSaveHidden = debounce(() => {
-        Storage.save(
-          CONST.STORAGE.VISIBILITY_KEY,
-          Array.from(this.hiddenIds),
-          CONF.name,
-        );
-      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
-    }
-    this.debouncedSaveHidden();
+    this.m.persistence.saveHiddenIds(() => this.hiddenIds);
   }
 
   /**
@@ -752,7 +736,7 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.debouncedSaveHidden?.cancel();
+    this.m.persistence.cancelSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
