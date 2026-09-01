@@ -1453,7 +1453,7 @@ class LayerUI {
     // After the `if (!layerInfo && !isColorLayer) return` guard above, the
     // `!isColorLayer` branch guarantees layerInfo is defined.
     const currentName = isColorLayer
-      ? this.renamedNames[layerId] ?? this.currentColor
+      ? (this.renamedNames[layerId] ?? this.currentColor)
       : layerInfo!.name;
 
     const map = this.m.map;
