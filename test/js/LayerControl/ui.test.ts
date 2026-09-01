@@ -1504,6 +1504,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       );
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "base1", name: "B", isBase: true, layer: new TileLayer() },
       ]);
       const u = new LayerUI(m);
 

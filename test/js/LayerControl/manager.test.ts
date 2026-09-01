@@ -772,7 +772,10 @@ describe("LayerManager", () => {
     row.setAttribute("data-layer-id", "overlay1");
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
-    manager.ui = { reindexItems: vi.fn() } as any;
+    manager.ui = {
+      reindexItems: vi.fn(),
+      saveHiddenIds: vi.fn(),
+    } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
     expect(manager.ui.reindexItems).toHaveBeenCalled();
