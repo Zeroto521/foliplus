@@ -192,14 +192,16 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
   it("nudgeCropBox moves right by NUDGE_STEP", () => {
     manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
     manager.nudgeCropBox("ArrowRight");
-    expect(manager.cropState.rect.left).toBe(110);
+    expect(manager.cropState.rect.left).toBe(
+      100 + CONST.CROP.NUDGE_STEP,
+    );
     expect(manager.updateBoxStyle).toHaveBeenCalled();
   });
 
   it("nudgeCropBox moves left by NUDGE_STEP", () => {
     manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
     manager.nudgeCropBox("ArrowLeft");
-    expect(manager.cropState.rect.left).toBe(90);
+    expect(manager.cropState.rect.left).toBe(100 - CONST.CROP.NUDGE_STEP);
   });
 
   it("applyRect is a no-op without a crop box", () => {
