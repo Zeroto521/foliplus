@@ -356,9 +356,7 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     # (mirroring OS key-repeat) — and the continuation loop never re-arms.
     # This makes the release cleanup (.dragging removal on keyup) happen
     # deterministically with no waits for timer frames.
-    page.add_init_script(
-        "window.__rafScheduler = function(fn) { return 0; };"
-    )
+    page.add_init_script("window.__rafScheduler = function(fn) { return 0; };")
     page.on(
         "console",
         lambda msg: (
