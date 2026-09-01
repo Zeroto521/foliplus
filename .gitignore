@@ -81,6 +81,7 @@ package-lock.json
 .claude/plans/myagents/
 .foliplus/
 memory/
+.myagents/
 myagents_files/
 CLAUDE.md
 HEARTBEAT.md

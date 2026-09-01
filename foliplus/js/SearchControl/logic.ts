@@ -2,7 +2,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
-import { fromWgs84, toWgs84 } from "#common/coord.js";
+import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
@@ -16,7 +16,16 @@ import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
-import { AUTOCOMPLETE, CLASSES, FORMAT, HISTORY, MODE, SOURCE, ZOOM } from "./const.js";
+import {
+  AUTOCOMPLETE,
+  CLASSES,
+  FORMAT,
+  HISTORY,
+  MODE,
+  SOURCE,
+  type SearchType,
+  ZOOM,
+} from "./const.js";
 import type {
   AddressResult,
   NominatimItem,
@@ -30,7 +39,7 @@ const T = createScopedTranslator(CONF);
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
   inp: HTMLInputElement;
-  mode: string;
+  mode: SearchType;
   modeBtn: HTMLElement;
   cachedSuggestions: Cache<string, NominatimItem[]>;
   searchHistory: SearchHistoryEntry[];
@@ -65,14 +74,20 @@ const parseCoord = (raw: string): { lng: number; lat: number } | null => {
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
   const lng = parts[0];
   const lat = parts[1];
-  if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null;
+  if (
+    lng < -COORD_BOUNDS.LON ||
+    lng > COORD_BOUNDS.LON ||
+    lat < -COORD_BOUNDS.LAT ||
+    lat > COORD_BOUNDS.LAT
+  )
+    return null;
   return { lng, lat };
 };
 
 /** Canonicalize an entry's history key: coord entries key on the parsed
  * longitude/latitude, so "120,32" and "120, 32" resolve to one entry. Anything
  * that does not parse is returned unchanged. */
-const canonicalQuery = (query: string, type: "coord" | "addr"): string => {
+const canonicalQuery = (query: string, type: SearchType): string => {
   if (type !== MODE.COORD) return query;
   const parsed = parseCoord(query);
   return parsed ? `${parsed.lng},${parsed.lat}` : query;
@@ -110,20 +125,23 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
   return Array.from(byKey.values());
 };
 
+type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
+
 const loadHistory = (): SearchHistoryEntry[] => {
-  const data = Storage.load<SearchHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
+  const data = Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
   if (!Array.isArray(data)) return [];
-  // Migrate old entries (pre-refactor with `label` field) to the new format.
-  const migrated = data.map(e => {
-    const type = (e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : "addr") as
-      "coord" | "addr";
+  // Drop non-object rows ([null], strings, numbers) that a corrupted store
+  // can produce; reading `row.type` on them would throw.
+  const rows = data.filter(row => row != null && typeof row === "object");
+  // Migrate stored entries to the current format, supplying the defaults that
+  // older versions never wrote.
+  const migrated = rows.map(e => {
+    const type = e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : MODE.ADDR;
     return {
       query: canonicalQuery(e.query ?? "", type),
       type,
-      coordDisplay:
-        e.coordDisplay ?? (type === MODE.COORD ? ((e as any).label ?? "") : ""),
-      addrDisplay:
-        e.addrDisplay ?? (type === MODE.ADDR ? ((e as any).label ?? "") : ""),
+      coordDisplay: e.coordDisplay ?? (type === MODE.COORD ? (e.label ?? "") : ""),
+      addrDisplay: e.addrDisplay ?? (type === MODE.ADDR ? (e.label ?? "") : ""),
       lng: e.lng ?? 0,
       lat: e.lat ?? 0,
       ts: e.ts ?? Date.now(),
@@ -163,7 +181,7 @@ const clearHistory = (ctrl: SearchControlState): void => {
 const recordHistorySearch = (
   ctrl: SearchControlState,
   query: string,
-  type: "coord" | "addr",
+  type: SearchType,
   coordDisplay: string,
   addrDisplay: string,
   lng: number,
@@ -239,7 +257,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
   map.foliplus!.hideHint(CONF.name);
-  map.flyTo([lat, lng], CONF.zoom || 16);
+  map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -472,7 +490,7 @@ const renderSuggestions = (
   renderResults(ctrl, items);
 };
 
-const renderHistory = (ctrl: SearchControlState, mode: string) => {
+const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
   const entries = ctrl.searchHistory;
   const targetType = mode === MODE.ADDR ? MODE.ADDR : MODE.COORD;
   if (entries.length === 0 || !entries.some(e => e.type === targetType)) {
@@ -500,7 +518,7 @@ const renderHistory = (ctrl: SearchControlState, mode: string) => {
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
-        map.flyTo([lat, lng], CONF.zoom || 16);
+        map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
         ctrl.marker = createLocationMarker(
           map,
           lng,

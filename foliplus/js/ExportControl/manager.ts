@@ -1,7 +1,9 @@
 // ExportControl manager — crop box state machine, export orchestration.
+import { COMPONENTS } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
+import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -150,8 +152,16 @@ class ExportManager {
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw,
       se = data.se;
-    const validLat = nw.lat >= -90 && nw.lat <= 90 && se.lat >= -90 && se.lat <= 90;
-    const validLng = nw.lng >= -180 && nw.lng <= 180 && se.lng >= -180 && se.lng <= 180;
+    const validLat =
+      nw.lat >= -COORD_BOUNDS.LAT &&
+      nw.lat <= COORD_BOUNDS.LAT &&
+      se.lat >= -COORD_BOUNDS.LAT &&
+      se.lat <= COORD_BOUNDS.LAT;
+    const validLng =
+      nw.lng >= -COORD_BOUNDS.LON &&
+      nw.lng <= COORD_BOUNDS.LON &&
+      se.lng >= -COORD_BOUNDS.LON &&
+      se.lng <= COORD_BOUNDS.LON;
     if (!validLat || !validLng) return;
     const mapB = this.map.getBounds();
     const overlap =
@@ -327,6 +337,16 @@ class ExportManager {
 
   doExport() {
     if (this.isExporting || !this.cropState) return;
+    // Symmetric lock with the other interactive components (measure / focus).
+    if (
+      guardBlocked(this.map, CONF.name, T("blocked"), [
+        { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
+        { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+        { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+        { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+      ])
+    )
+      return;
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });

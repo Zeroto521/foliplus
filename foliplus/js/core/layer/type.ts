@@ -20,6 +20,9 @@ export interface RegisterLayerOpts {
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
+  /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
+   *  to derive bounds from, so they supply this for layer focus to work. */
+  getBounds?: (() => L.LatLngBounds | null) | null;
   [key: string]: unknown;
 }
 
@@ -44,6 +47,8 @@ export interface LayerInfo {
   onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
+  /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
+  getBounds?: (() => L.LatLngBounds | null) | null;
   [key: string]: unknown;
 }
 
@@ -82,6 +87,9 @@ export interface CreateCanvasOpts {
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
   featureCountProvider?: (() => number) | null;
+  /** Optional callback returning the canvas layer's geographic bounds, so
+   *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
+  getBounds?: (() => L.LatLngBounds | null) | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */

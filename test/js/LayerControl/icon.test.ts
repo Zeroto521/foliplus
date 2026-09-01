@@ -73,3 +73,17 @@ describe("MORE", () => {
     expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="18"/);
   });
 });
+
+describe("FOCUS", () => {
+  it("is an SVG string with corner brackets + center dot", () => {
+    expect(SVGs.FOCUS).toContain("<svg");
+    // Center dot (solid fill)
+    expect(SVGs.FOCUS).toContain('class="solid"');
+    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(1);
+    // Four corner brackets (extent frame)
+    expect(SVGs.FOCUS).toContain("M3 9 V3 H9");
+    expect(SVGs.FOCUS).toContain("M15 3 H21 V9");
+    expect(SVGs.FOCUS).toContain("M21 15 V21 H15");
+    expect(SVGs.FOCUS).toContain("M9 21 H3 V15");
+  });
+});

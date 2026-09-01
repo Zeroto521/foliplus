@@ -25,6 +25,7 @@ describe("STORAGE", () => {
   it("derives keys from map container id", () => {
     expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
     expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
+    expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
   });
 });
 
@@ -103,5 +104,49 @@ describe("GROUP", () => {
   it("defines group names", () => {
     expect(CONST.GROUP.OVERLAY).toBe("overlay");
     expect(CONST.GROUP.BASE).toBe("base");
+  });
+});
+
+describe("FOCUS", () => {
+  it("defines the focus rectangle duration in milliseconds", () => {
+    expect(CONST.FOCUS.RECT_DURATION_MS).toBe(3500);
+  });
+
+  it("defines the fitBounds animation duration", () => {
+    expect(CONST.FOCUS.FIT_DURATION).toBe(0.6);
+  });
+
+  it("defines padding as a [topBottom, leftRight] tuple", () => {
+    expect(CONST.FOCUS.PADDING).toEqual([32, 32]);
+  });
+
+  it("defines the max zoom step cap", () => {
+    expect(CONST.FOCUS.MAX_ZOOM_STEP).toBe(6);
+  });
+
+  it("defines the minimum bounds area threshold for flyTo fallback", () => {
+    expect(CONST.FOCUS.MIN_BOUNDS_AREA).toBe(0.0001);
+  });
+
+  it("defines the opacity of the dim-outside mask", () => {
+    expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
+  });
+
+  it("defines the focus overlay pane z-index", () => {
+    expect(CONST.FOCUS.PANE_Z).toBe(9000);
+  });
+});
+
+describe("CLASSES.FOCUSING", () => {
+  it("defines the focusing row class", () => {
+    expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+  });
+});
+
+describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW", () => {
+  it("defines the container + focused-pane classes for declarative hiding", () => {
+    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-focus-active");
+    expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
+    expect(CONST.CLASSES.FOCUS_GLOW).toBe("foliplus-focus-glow");
   });
 });

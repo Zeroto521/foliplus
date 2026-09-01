@@ -14,7 +14,9 @@
 
 .foliplus-export-mode {
   --z-export-base: 9500;
-  /* Dim mask shadow extent & color */
+  /* Dim mask shadow extent & color. --export-dim-color (0.4) must stay in
+     sync with LayerControl's FOCUS.MASK_OPACITY so both selection boxes
+     dim alike. */
   --export-dim-extent: 9999px;
   --export-dim-color: rgba(0, 0, 0, 0.4);
   --export-dim-color-locked: rgba(0, 0, 0, var(--alpha-50));
@@ -92,11 +94,56 @@
   cursor: wait;
 }
 
-/* Crop box: dashed border + ::before creates 9999px shadow to dim outside */
+/* Crop box: dashed border using --dash-rhythm (matches measure paths and the
+   LayerControl focus rect) + ::before creates 9999px shadow to dim outside.
+   Dashes are drawn with background gradients because CSS `border: dashed`
+   uses a browser-defined pattern that cannot match the SVG stroke-dasharray
+   used by the focus rect. --dash-rhythm is expanded inline here because the
+   gradient syntax needs the dash/gap values as separate stops. */
 .foliplus-export-box {
   position: absolute;
-  border: var(--border-thick) dashed var(--accent-primary);
-  background: transparent;
+  /* Transparent border reserves the padding box so the ::before dim mask and
+     the handles keep their edge offsets (they are inset from the padding box,
+     which a removed border would shift). The visible dashes come from the
+     background gradients below. */
+  border: var(--border-thick) solid transparent;
+  background-color: transparent;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--accent-primary) 0 var(--size-6),
+      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+    );
+  background-size:
+    100% var(--border-thick),
+    100% var(--border-thick),
+    var(--border-thick) 100%,
+    var(--border-thick) 100%;
+  background-position:
+    left top,
+    left bottom,
+    left top,
+    right top;
+  /* Position the dashes against the border box (outer edge), not the default
+     padding box — otherwise the 2px border pushes them inward and leaves a
+     gap between the dashes and the ::before dim boundary. */
+  background-origin: border-box;
+  background-repeat: no-repeat;
   cursor: move;
   z-index: calc(var(--z-export-base) + 1);
   box-sizing: border-box;
@@ -114,9 +161,11 @@
   }
   &.locked {
     cursor: default;
-    border: var(--border-thick) solid var(--input-focus-border);
+    /* Same accent color + thickness as the dashed border, only solid. */
+    border: var(--border-thick) solid var(--accent-primary);
+    background-image: none;
     pointer-events: none;
-    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+    box-shadow: 0 0 var(--size-16) var(--input-focus-shadow);
     transition: none;
 
     &::before {

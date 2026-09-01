@@ -68,6 +68,16 @@ type SimpleStats = {
 declare module "leaflet" {
   interface Map {
     _layers: Record<string, L.Layer>;
+    /**
+     * Pane element registry. `createPane()` writes here and `getPane()` reads
+     * it — pane removal must clear the entry so `createPane()` rebuilds instead
+     * of reusing a detached element.
+     */
+    _panes: Record<string, HTMLElement>;
+    /** Per-pane renderer registry. `getRenderer()` fills this lazily and
+     *  re-adds any renderer it finds that is off the map, so a stale entry
+     *  must be cleared whenever its pane is removed. */
+    _paneRenderers: Record<string, L.Renderer>;
     isFullscreen?: boolean;
     /** Per-map foliplus API namespace, set by ensureHint/ensureLayerAPI/ensureEvents/ensureModes. */
     foliplus?: MapFoliplus;

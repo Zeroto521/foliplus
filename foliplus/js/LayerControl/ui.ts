@@ -1,14 +1,19 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, getGeometryType } from "#core/layer/index.js";
+import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
-import { registerInteractions } from "./interaction.js";
+import {
+  handleMoreClick,
+  handleMoreMenuClick,
+  registerInteractions,
+} from "./interaction.js";
 import type { LayerManager } from "./manager.js";
 import * as Util from "./util.js";
 
@@ -20,6 +25,8 @@ const mapContainer = map.getContainer();
 class LayerUI {
   manager: LayerManager;
   foldedGroups: Set<string>;
+  /** Layer ids hidden by the user (checked-off); survives page reload. */
+  hiddenIds: Set<string>;
   isColorActive: boolean;
   currentColor: string;
   dragIdx: number | null;
@@ -36,12 +43,38 @@ class LayerUI {
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
   declare onKeyDown: ((event: KeyboardEvent) => void) | null;
+  /** Click handler for the "more" (⋮) button. */
+  onMoreClick: ((event: Event) => void) | null;
+  /** Click handler for the dropdown menu items. */
+  onMoreMenuClick: ((event: Event) => void) | null;
+  /** Listen-map handler to detect clicks outside the open menu. */
+  onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
+  /** Currently visible overflow menu (or null). */
+  activeMenu: {
+    item: HTMLElement;
+    menu: HTMLElement;
+    layerId: string;
+  } | null;
+  /** Temporary Rectangle overlay drawn while a focus is in progress. */
+  private focusRect: L.Layer | null;
+  /** Layer id currently being focused, or null. */
+  private focusingLayerId: string | null;
+  /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
+  private onFocusMapMove: (() => void) | null;
+  /** Inverse-mask polygon that dims everything outside the focused bounds. */
+  private focusMask: L.Polygon | null;
+  /** SVG renderer hosting the focus overlay (mask + rectangle). */
+  private focusRenderer: L.SVG | null;
+  /** Restore callbacks for pane z-indexes lifted to bring the focused layer
+   *  to the front (cleared on cancel). */
+  private focusedPaneRestores: Array<() => void>;
 
   constructor(manager: LayerManager) {
     this.manager = manager;
     this.foldedGroups = new Set();
+    this.hiddenIds = new Set();
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.dragIdx = null;
@@ -49,6 +82,16 @@ class LayerUI {
     this.lastDragOverItem = null;
     this.activeIdx = null;
     this.unsubscribeCountChange = null;
+    this.onMoreClick = null;
+    this.onMoreMenuClick = null;
+    this.onMoreMapClick = null;
+    this.activeMenu = null;
+    this.focusRect = null;
+    this.focusingLayerId = null;
+    this.onFocusMapMove = null;
+    this.focusMask = null;
+    this.focusRenderer = null;
+    this.focusedPaneRestores = [];
   }
 
   /** Alias for convenience */
@@ -73,6 +116,7 @@ class LayerUI {
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
     this.loadFoldState();
+    this.loadHiddenIds();
     this.renderInitialList();
     this.bindEvents();
 
@@ -99,13 +143,107 @@ class LayerUI {
 
   /** Load fold state from localStorage. */
   loadFoldState() {
-    const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, CONF.name);
-    if (Array.isArray(data)) this.foldedGroups = new Set(data);
+    this.foldedGroups = this.m.persistence.loadFoldedGroups();
   }
 
   /** Save fold state to localStorage. */
   saveFoldState() {
-    Storage.save(CONST.STORAGE.FOLD_KEY, Array.from(this.foldedGroups), CONF.name);
+    this.m.persistence.saveFoldedGroups(this.foldedGroups);
+  }
+
+  /** Load hidden-layer ids from localStorage. */
+  loadHiddenIds() {
+    this.hiddenIds = this.m.persistence.loadHiddenIds();
+  }
+
+  /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
+  saveHiddenIds() {
+    this.m.persistence.saveHiddenIds(() => this.hiddenIds);
+  }
+
+  /**
+   * Apply persisted hidden state after the UI rows are rendered.
+   *
+   * Folium adds every layer to the map before the LayerControl IIFE runs,
+   * so on reload hidden layers are back on the map. This method actively
+   * removes them again so the checkboxes and the map agree.
+   *
+   * Unknown ids (removed layers) are dropped so stale persistence doesn't
+   * accumulate. Fires onToggle(false) for callback-only layers (canvas /
+   * heatmap) which have no Leaflet layer to remove.
+   */
+  applyHiddenState() {
+    const registry = this.m.layerRegistry;
+    // Guard: on attach applyHiddenState runs after renderInitialList, so the
+    // container always exists. Defensive null check keeps standalone calls
+    // (and tests) safe before attach.
+    const container = this.uiContainer;
+    for (const id of this.hiddenIds) {
+      const layerInfo = registry.get(id);
+      if (!layerInfo) continue; // stale id (layer removed) — drop it.
+
+      const item = container
+        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
+        : null;
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      const layer = this.m.findLayer(layerInfo);
+
+      // Callback-only layers (canvas) have no Leaflet layer to remove — fire
+      // the toggle callback so the canvas itself hides.
+      if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
+      else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
+
+      layerInfo.visible = false;
+
+      if (checkbox) {
+        checkbox.checked = false;
+        checkbox.title = T("select_tooltip");
+      }
+      item?.classList.remove(CONST.CLASSES.ACTIVE);
+    }
+    // Prune ids whose layers no longer exist, keeping persistence tidy.
+    // Stale ids occur when a layer is removed at runtime after being hidden.
+    const staleIds = [...this.hiddenIds].filter(id => registry.get(id) == null);
+    if (staleIds.length > 0) {
+      console.warn(
+        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
+      );
+      this.hiddenIds = new Set(
+        [...this.hiddenIds].filter(id => registry.get(id) != null),
+      );
+      // Persist the cleaned set so the same stale ids don't get re-warned
+      // on the next reload.
+      this.saveHiddenIds();
+    }
+  }
+
+  /** Full re-scan of every row (used on attach/fold-toggle). */
+  initTypesAndVisibility() {
+    // Apply persisted hidden state first so initLayerItem reads the corrected
+    // map state: folium adds every layer before the control IIFE runs, so on
+    // reload hidden layers are back on the map. Hidden ids no longer in the
+    // registry are dropped (their layer was removed).
+    this.applyHiddenState();
+
+    let anyBaseVisible = false;
+    for (let i = 0; i < this.m.layers.length; i++) {
+      if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
+    }
+    // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
+    // base-less map must not suppress the color-layer background.
+    const baseIds = [...this.m.layers].filter(li => li.isBase).map(li => li.id);
+    const allBasesHidden =
+      baseIds.length > 0 && baseIds.every(id => this.hiddenIds.has(id));
+
+    // Only fall back to the color layer when there are no visible base layers
+    // *and* the user never intentionally hid every base. Otherwise the
+    // fallback would undo an explicit "hide all bases" choice.
+    if (!anyBaseVisible && !allBasesHidden) this.showColorLayer(this.currentColor);
+    this.m.enforceOrder();
+    this.syncToggleAll(CONST.GROUP.OVERLAY);
+    this.syncToggleAll(CONST.GROUP.BASE);
   }
 
   renderInitialList() {
@@ -248,16 +386,22 @@ class LayerUI {
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
 
-    return dom.el(
-      "div",
+    const moreBtn = dom.el(
+      "button",
       {
-        class: CONST.CLASSES.LAYER_ITEM,
-        draggable: "true",
-        tabindex: "0",
-        [CONST.DATA.INDEX]: String(idx),
-        [CONST.DATA.LAYER_ID]: layerInfo.id,
-        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+        class: CONST.CLASSES.MORE_BTN,
+        type: "button",
+        title: T("more_tooltip"),
+        "aria-label": T("more_tooltip"),
       },
+      { html: SVGs.MORE },
+    );
+    // Only overlay (data) layers get the "more" button. Base maps cover the
+    // whole world (focusing is a no-op) and solid-color layers have no
+    // meaningful bounds. `hidden="hidden"` removes it from layout + a11y tree.
+    if (layerInfo.isBase) moreBtn.setAttribute("hidden", "hidden");
+
+    const children: HTMLElement[] = [
       dom.el(
         "span",
         { class: CONST.CLASSES.DRAG_CELL, title: T("drag_tooltip") },
@@ -280,16 +424,20 @@ class LayerUI {
         [CONST.DATA.LAYER_ID]: layerInfo.id,
       }),
       typeIconEl,
-      dom.el(
-        "button",
-        {
-          class: CONST.CLASSES.MORE_BTN,
-          type: "button",
-          title: T("more_tooltip"),
-          "aria-label": T("more_tooltip"),
-        },
-        { html: SVGs.MORE },
-      ),
+      moreBtn,
+    ];
+
+    return dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.LAYER_ITEM,
+        draggable: "true",
+        tabindex: "0",
+        [CONST.DATA.INDEX]: String(idx),
+        [CONST.DATA.LAYER_ID]: layerInfo.id,
+        "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+      },
+      ...children,
     );
   }
 
@@ -315,16 +463,7 @@ class LayerUI {
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
-      dom.el(
-        "button",
-        {
-          class: CONST.CLASSES.MORE_BTN,
-          type: "button",
-          title: T("more_tooltip"),
-          "aria-label": T("more_tooltip"),
-        },
-        { html: SVGs.MORE },
-      ),
+      // Solid-color layer has no meaningful bounds — no overflow menu.
     );
   }
 
@@ -413,19 +552,6 @@ class LayerUI {
     return baseVisible;
   }
 
-  /** Full re-scan of every row (used on attach/fold-toggle). */
-  initTypesAndVisibility() {
-    let anyBaseVisible = false;
-    for (let i = 0; i < this.m.layers.length; i++) {
-      if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
-    }
-
-    if (!anyBaseVisible) this.showColorLayer(this.currentColor);
-    this.m.enforceOrder();
-    this.syncToggleAll(CONST.GROUP.OVERLAY);
-    this.syncToggleAll(CONST.GROUP.BASE);
-  }
-
   reindexItems() {
     const items = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
@@ -505,11 +631,26 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
-    // Keyboard dispatch is handled by InteractionManager via registerInteractions()
-    // above — do NOT add a separate container keydown listener, as that would
-    // cause every keydown event to fire handleKeyDown twice (once via the
-    // container listener, once via the document-level InteractionManager),
-    // double-toggling checkboxes and double-moving focus.
+    // Double-click on a layer row → focus the map on that layer.
+    container.addEventListener("dblclick", event =>
+      this.handleDblClick(event as MouseEvent),
+    );
+
+    // Overflow ("more") button → dropdown menu. Uses event delegation so it
+    // works for rows created after bindEvents (registerLayer at runtime).
+    this.onMoreClick = event => handleMoreClick(this, event);
+    this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
+    this.onMoreMapClick = () => this.closeMoreMenu(false);
+    container.addEventListener("click", this.onMoreClick);
+    // Menu click must be on document because the menu is positioned absolute
+    // and may visually overflow the panel bounds.
+    document.addEventListener("click", this.onMoreMenuClick);
+    this.m.map.on("click", this.onMoreMapClick);
+    // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
+    // by InteractionManager via registerInteractions() in interaction.ts,
+    // which routes to handleKeyDown() — that method detects when the
+    // MORE_BTN is focused and opens/closes the menu accordingly. Do NOT
+    // add a separate container keydown listener here.
 
     // Subscribe to feature-count change events so a third-party provider
     // (Canvas layers) can update a single row without a full re-render.
@@ -580,6 +721,9 @@ class LayerUI {
   unbindEvents() {
     const container = this.uiContainer;
     if (!container) return;
+    this.closeMoreMenu(false);
+    // Remove any focus animation still in flight (rect + row highlight).
+    this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
@@ -588,11 +732,18 @@ class LayerUI {
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
+    if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
+    if (this.onMoreMenuClick)
+      document.removeEventListener("click", this.onMoreMenuClick);
+    if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
+    this.m.persistence.cancelSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
+    this.onMoreClick = this.onMoreMenuClick = null;
+    this.onMoreMapClick = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -627,7 +778,13 @@ class LayerUI {
       if (newState && layer) layer.options.paneSet = false;
       if (layerInfo.onToggle) layerInfo.onToggle(newState);
       this.syncVisibility(layerInfo, layer, newState);
+      // No persist per iteration — schedule a single debounced write after the
+      // loop so the debounce timer isn't reset for every layer.
+      this.syncHiddenId(layerInfo.id, !newState, false);
     });
+
+    // Persist hidden-set after bulk toggle (single debounced write for the batch).
+    this.saveHiddenIds();
 
     if (group === CONST.GROUP.BASE && !newState) {
       this.hideColorLayer();
@@ -700,6 +857,7 @@ class LayerUI {
 
     if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
     this.syncVisibility(layerInfo, layer, target.checked);
+    this.syncHiddenId(layerInfo.id, !target.checked);
 
     this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
     this.m.debouncedEnforce();
@@ -708,6 +866,18 @@ class LayerUI {
   handleInput(event: Event) {
     if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
       this.showColorLayer((event.target as HTMLInputElement).value);
+  }
+
+  /**
+   * Update the persisted hidden set for a layer toggle.
+   * @param {boolean} persist - When false (bulk updates like toggleAll), the
+   *   caller schedules a single save after the loop instead of resetting the
+   *   debounce timer for every layer.
+   */
+  private syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
+    if (hidden) this.hiddenIds.add(id);
+    else this.hiddenIds.delete(id);
+    if (persist) this.saveHiddenIds();
   }
 
   /** Get all navigable layer items (excludes color item and toggle-all rows). */
@@ -826,6 +996,21 @@ class LayerUI {
       return;
     }
 
+    // Alt+Enter: focus-layer on the currently navigated layer item. This
+    // is a dedicated keyboard entry point (in addition to the ⋮ menu) so
+    // power users can focus without leaving the keyboard.
+    if (event.altKey && event.key === "Enter" && this.activeIdx !== null) {
+      const item = items[this.activeIdx];
+      if (item) {
+        const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+        if (layerId) {
+          event.preventDefault();
+          this.focusLayer(layerId);
+          return;
+        }
+      }
+    }
+
     switch (event.key) {
       case "ArrowUp":
         event.preventDefault();
@@ -843,13 +1028,60 @@ class LayerUI {
       case "ArrowRight":
       case " ":
       case "Enter":
+        // Do not toggle the checkbox when the more (⋮) button is focused —
+        // that key opens the overflow menu instead.
+        if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const item = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.LAYER_ITEM,
+          ) as HTMLElement | null;
+          if (item) this.openMoreMenu(item);
+          break;
+        }
+        // Menu item (li) is focused — trigger the focus-layer action.
+        // Skip disabled items so the hidden-layer guard applies to keyboard too.
+        const menuLi = (document.activeElement as HTMLElement | null)?.closest?.(
+          ".foliplus-layer-more-menu li",
+        );
+        if (menuLi && this.activeMenu) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (menuLi.getAttribute("disabled")) {
+            this.m.map.foliplus!.showHint(
+              CONF.name,
+              T("focus_layer_hidden"),
+              HINT_DURATION.SHORT,
+            );
+            break;
+          }
+          this.focusLayer(this.activeMenu.layerId);
+          this.closeMoreMenu(true);
+          break;
+        }
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
       case "Escape":
-        this.clearActiveItem();
+        if (this.activeMenu) this.closeMoreMenu(true);
+        else this.clearActiveItem();
         break;
     }
+  }
+
+  /** Double-click on a layer row → focus the map on that layer. */
+  handleDblClick(event: MouseEvent): void {
+    const item = (event.target as HTMLElement).closest(
+      CONST.SEL.LAYER_ITEM,
+    ) as HTMLElement | null;
+    if (!item) return;
+    // Ignore dblclick on the ⋮ button (would open the menu instead).
+    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+      return;
+    }
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    if (!layerId) return;
+    this.focusLayer(layerId);
   }
 
   /** Toggle visibility of the currently focused layer. */
@@ -1023,6 +1255,429 @@ class LayerUI {
     this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.remove(CONST.CLASSES.ACTIVE);
+  }
+
+  /**
+   * Open the "more" overflow dropdown for a given layer row.
+   * Only overlay (data) layers have this button; base/color layers do not.
+   */
+  openMoreMenu(item: HTMLElement) {
+    // Close any previously open menu first.
+    this.closeMoreMenu(true);
+
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
+
+    const isHidden =
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
+        ?.checked === false;
+
+    const itemAttrs = {
+      "data-action": "focus-layer",
+      role: "menuitem",
+      tabindex: "0",
+      title: isHidden ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+      "aria-disabled": isHidden ? "true" : "false",
+    };
+
+    menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
+
+    if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
+
+    item.style.position = "relative";
+    item.appendChild(menu);
+
+    this.activeMenu = { item, menu, layerId };
+
+    // Focus the first menu item so Enter/Space activate it and Escape closes.
+    const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
+    if (firstItem) firstItem.focus();
+  }
+
+  /** Close the overflow menu. setFocus = true returns focus to the layer row. */
+  closeMoreMenu(setFocus: boolean) {
+    if (!this.activeMenu) return;
+    const item = this.activeMenu.item;
+    this.activeMenu.menu.remove();
+    this.activeMenu = null;
+    if (setFocus) item.focus();
+  }
+
+  /**
+   * Focus the map on a registered layer's bounding box.
+   *
+   * Best-effort approach:
+   * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+   *    whose getBounds delegates to children).
+   * 2. If the layer is not on the map, bring it on temporarily so the bounds
+   *    and the visual highlight are consistent with the user's action.
+   * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
+   *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+   *    `fitBounds` on a degenerate box has no effect.
+   * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
+   *    what "this layer" covers.
+   * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
+   *    class so the list ↔ map linkage is visible.
+   * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
+   *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
+   * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
+   *    doesn't linger while the user navigates elsewhere.
+   */
+  focusLayer(layerId: string) {
+    // Guard: any component holding the map (measuring, exporting, searching,
+    // locating) blocks focus. One guard at the entry covers all call sites
+    // (double-click, ⋮ menu, Alt+Enter, Enter) so none of them leak.
+    if (guardBlocked(this.m.map, CONF.name, T("blocked"))) return;
+
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    const layer = this.m.findLayer(layerInfo);
+
+    // Hidden layer: nothing to focus on — show a hint instead.
+    const itemEl = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+    ) as HTMLElement | null;
+    const checkbox = itemEl?.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
+    if (checkbox && !checkbox.checked) {
+      this.m.map.foliplus!.showHint(
+        CONF.name,
+        T("focus_layer_hidden"),
+        HINT_DURATION.SHORT,
+      );
+      return;
+    }
+
+    // Bounds come from the Leaflet layer (with a forEachLeaf fallback), or
+    // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
+    let bounds: L.LatLngBounds | null = null;
+    if (layer) {
+      // Ensure the layer is on the map so the rectangle highlight is visible.
+      if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+      bounds = this.computeLayerBounds(layer);
+    } else if (typeof layerInfo.getBounds === "function") {
+      bounds = layerInfo.getBounds();
+    }
+    if (!bounds || !bounds.isValid()) return;
+
+    // Cancel any in-flight focus first.
+    this.dismissFocus();
+
+    // Hide every other visible layer so the focused one stands out — including
+    // layers that overlap the focused bounds (the mask only dims outside).
+    this.hideOtherLayers();
+    // Lift it above the hidden peers (so it can't be covered) and apply the
+    // accent glow — one O(panes) pass, not a per-leaf-element loop.
+    this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
+
+    // Register LayerControl's own mode for the duration of the focus, BEFORE
+    // the fitBounds/flyTo branching. Both paths draw a focus overlay and
+    // register the same auto-cancel, so both must hold the mode — a missing
+    // setMode on the flyTo path would let export/measure render through a
+    // live focus overlay. Cleared on dismissFocus — called by the auto-timeout,
+    // the manual cancel, and a subsequent focus (dismissFocus runs at the top
+    // of focusLayer).
+    ensureModes(this.m.map).setMode(CONF.name, "focusing");
+
+    // Single-point / tiny bounds → flyTo the center.
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    const area =
+      Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
+    if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
+      const center = bounds.getCenter();
+      const maxZoom = Math.min(
+        this.m.map.getMaxZoom(),
+        this.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      );
+      this.m.map.flyTo(center, maxZoom, {
+        duration: CONST.FOCUS.FIT_DURATION,
+      });
+      this.highlightFocusedRow(itemEl, layerId);
+      this.registerAutoCancel(layerId);
+      return;
+    }
+
+    this.drawFocusMask(bounds);
+    this.drawFocusRect(bounds);
+    this.highlightFocusedRow(itemEl, layerId);
+
+    this.m.map.fitBounds(bounds, {
+      animate: true,
+      duration: CONST.FOCUS.FIT_DURATION,
+      padding: CONST.FOCUS.PADDING,
+      maxZoom: Math.min(
+        this.m.map.getMaxZoom(),
+        this.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      ),
+    });
+
+    // Auto-remove focus visuals after the configured duration.
+    const ref = this.focusRect;
+    setTimeout(() => {
+      if (this.focusRect === ref) {
+        this.dismissFocus();
+      }
+    }, CONST.FOCUS.RECT_DURATION_MS);
+
+    // One-shot map move/zoom handler that auto-cancels focus when the user
+    // starts navigating elsewhere — prevents the rect from lingering.
+    this.registerAutoCancel(layerId);
+  }
+
+  /** Return true if a focus animation is currently active. */
+  isFocusing(): boolean {
+    return this.focusRect != null || this.focusingLayerId != null;
+  }
+
+  /** Cancel an in-flight focus: remove rect + mask + row highlight. */
+  cancelFocus(): void {
+    this.dismissFocus();
+    this.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
+  }
+
+  /** Internal: tear down focus visuals + state (no hint). */
+  private dismissFocus(): void {
+    // Release LayerControl's focus mode so other components' primary actions
+    // (export, measure) are unblocked. Idempotent: safe to call even when
+    // no focus was active; setMode(null) writes a null entry that the
+    // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
+    ensureModes(this.m.map).setMode(CONF.name, null);
+    this.clearAutoCancel();
+    this.clearFocusedRowHighlight();
+    this.restoreHiddenLayers();
+    for (const restore of this.focusedPaneRestores) restore();
+    this.focusedPaneRestores = [];
+
+    if (this.focusRect) {
+      this.m.map.removeLayer(this.focusRect);
+      this.focusRect = null;
+    }
+
+    if (this.focusMask) {
+      this.m.map.removeLayer(this.focusMask);
+      this.focusMask = null;
+    }
+    // Tear down the SVG renderer too. Reusing it across focuses left the
+    // previous focus's mask/rect paths in the SVG even after removeLayer,
+    // so focusing layer A then B showed two boxes (stale A mask + new B
+    // mask) with inverted dimming. A fresh renderer per focus is cheap and
+    // guarantees a clean slate.
+    if (this.focusRenderer) {
+      this.m.map.removeLayer(this.focusRenderer);
+      this.focusRenderer = null;
+    }
+
+    this.focusingLayerId = null;
+  }
+
+  /**
+   * Hide every other visible layer so the focused layer stands out.
+   * Works alongside the inverse mask (which dims the basemap + everything
+   * outside the bounds). The basemap (tilePane) has no `foliplus-layer-pane`
+   * class, so it is naturally excluded and keeps the spatial context.
+   *
+   * Declarative: one class write on the map container. CSS
+   * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
+   * hides every layer pane except the focused one — instead of a JS
+   * visibility loop over N panes. `bringFocusedLayerToFront` marks the
+   * focused pane(s)/canvas with `foliplus-focus-pane` so they stay visible.
+   */
+  private hideOtherLayers(): void {
+    this.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
+  }
+
+  /**
+   * Temporarily lift the focused layer's pane above every other layer so the
+   * hidden layers stacked above it cannot cover it — a layer at the bottom
+   * of the z-order stays hidden even with the boost glow. Canvas layers
+   * (heatmap) have no pane; their canvas element's z-index is lifted instead.
+   *
+   * This is the single O(panes) pass that also applies the focused-layer glow
+   * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
+   * element) the accent drop-shadow is applied once per pane, so focusing a
+   * dense layer (e.g. thousands of CircleMarkers) stays cheap. Restored on
+   * cancel via focusedPaneRestores.
+   */
+  private bringFocusedLayerToFront(
+    layer: L.Layer | null,
+    canvas: HTMLCanvasElement | null,
+  ): void {
+    const restores: Array<() => void> = [];
+    const lift = (el: HTMLElement): void => {
+      const orig = el.style.zIndex;
+      el.style.zIndex = String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP);
+      // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
+      // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
+      el.classList.add(CONST.CLASSES.FOCUS_PANE);
+      // Glow: applied at pane level (one element), fading in via CSS animation.
+      el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+      restores.push(() => {
+        el.style.zIndex = orig;
+        el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+        el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+      });
+    };
+
+    if (canvas) {
+      lift(canvas);
+    } else if (layer) {
+      // Best-effort: some third-party layers expose children without a pane
+      // (getLayerPanes walks options.pane), so skip the lift if discovery
+      // throws — the hide + glow still work without it.
+      let panes: string[] = [];
+      try {
+        panes = this.m.getLayerPanes(layer);
+      } catch {
+        panes = [];
+      }
+      for (const name of panes) {
+        // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
+        // fallback panes are unique and safe to lift — and hideOtherLayers
+        // already hides them, so the two must stay symmetric.
+        if (this.m.panes.defaultPanes.has(name)) continue;
+        const pane = this.m.map.getPane(name);
+        if (pane) lift(pane);
+      }
+    }
+    this.focusedPaneRestores = restores;
+  }
+
+  /** Remove the container class that hides every non-focused layer. */
+  private restoreHiddenLayers(): void {
+    this.m.map.getContainer().classList.remove(CONST.CLASSES.FOCUS_ACTIVE);
+  }
+
+  /**
+   * Compute a layer's geographic bounds. Third-party layers may be custom
+   * L.Layer subclasses without a getBounds() method; fall back to summing the
+   * bounds of the layer's leaf nodes so focus still works for them.
+   */
+  private computeLayerBounds(layer: L.Layer): L.LatLngBounds | null {
+    const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
+    if (typeof withBounds.getBounds === "function") {
+      const b = withBounds.getBounds();
+      if (b && b.isValid()) return b;
+    }
+    const acc = L.latLngBounds([]);
+    let hasLeaf = false;
+    forEachLeaf(layer, leaf => {
+      const lb = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds?.();
+      if (lb && lb.isValid()) {
+        acc.extend(lb);
+        hasLeaf = true;
+      }
+    });
+    return hasLeaf ? acc : null;
+  }
+
+  /**
+   * Draw an inverse mask that dims everything outside the focused bounds —
+   * the same "inside highlighted / outside dimmed" spotlight as the export
+   * crop box. The mask is a polygon of the visible view with the layer bounds
+   * as a hole, rendered in a high-z pane above the layer panes but below the
+   * focus rectangle, so the focused layer inside the hole stays bright.
+   */
+  private drawFocusMask(bounds: L.LatLngBounds): void {
+    const map = this.m.map;
+
+    // Shared SVG renderer + pane for the mask and rectangle.
+    if (!this.focusRenderer) {
+      let pane = map.getPane(CONST.FOCUS_PANE);
+      if (!pane) {
+        pane = map.createPane(CONST.FOCUS_PANE);
+        pane.style.zIndex = String(CONST.FOCUS.PANE_Z);
+      }
+      this.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
+      this.focusRenderer.addTo(map);
+    }
+
+    // Outer ring: the visible view bounds, padded so the dim covers the
+    // viewport (a little pan during the fitBounds animation stays covered).
+    const view = map.getBounds().pad(1);
+    const outer: L.LatLngExpression[] = [
+      view.getSouthWest(),
+      view.getNorthWest(),
+      view.getNorthEast(),
+      view.getSouthEast(),
+    ];
+    // Hole: the layer bounds (the focused layer lives inside it, so it stays
+    // bright while everything else is dimmed by the mask).
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const hole: L.LatLngExpression[] = [
+      sw,
+      L.latLng(ne.lat, sw.lng),
+      ne,
+      L.latLng(sw.lat, ne.lng),
+    ];
+
+    this.focusMask = L.polygon([outer, hole], {
+      className: "foliplus-focus-mask",
+      fillColor: "#000000",
+      fillOpacity: CONST.FOCUS.MASK_OPACITY,
+      stroke: false,
+      interactive: false,
+      renderer: this.focusRenderer,
+    });
+    map.addLayer(this.focusMask);
+  }
+
+  /** Draw the dashed focus rectangle (border only, no fill). */
+  private drawFocusRect(bounds: L.LatLngBounds): void {
+    const map = this.m.map;
+
+    this.focusRect = L.rectangle(bounds, {
+      className: "foliplus-focus-rect",
+      fill: false,
+      interactive: false,
+      renderer: this.focusRenderer ?? undefined,
+    });
+    map.addLayer(this.focusRect);
+  }
+
+  /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
+  private registerAutoCancel(layerId: string): void {
+    this.focusingLayerId = layerId;
+    const self = this;
+    const handler = () => {
+      if (self.focusingLayerId !== layerId) return;
+      // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
+      // completion, which should NOT auto-cancel. Any move/zoom *after* the
+      // grace window is a deliberate user action → cancel.
+      setTimeout(() => {
+        if (self.focusingLayerId === layerId) {
+          self.dismissFocus();
+        }
+      }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
+    };
+    this.onFocusMapMove = () => handler();
+    this.m.map.on("moveend", this.onFocusMapMove);
+    this.m.map.on("zoomend", this.onFocusMapMove);
+  }
+
+  /** Remove the map move/zoom auto-cancel handlers. */
+  private clearAutoCancel(): void {
+    if (this.onFocusMapMove) {
+      this.m.map.off("moveend", this.onFocusMapMove);
+      this.m.map.off("zoomend", this.onFocusMapMove);
+      this.onFocusMapMove = null;
+    }
+  }
+
+  /** Highlight the layer row that is being focused (list ↔ map linkage). */
+  private highlightFocusedRow(itemEl: HTMLElement | null, layerId: string): void {
+    this.clearFocusedRowHighlight();
+    if (!itemEl) return;
+    itemEl.classList.add(CONST.CLASSES.FOCUSING);
+    this.focusingLayerId = layerId;
+  }
+
+  /** Remove the `foliplus-layer-focusing` class from the active row. */
+  private clearFocusedRowHighlight(): void {
+    const prev = this.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
+    prev?.classList.remove(CONST.CLASSES.FOCUSING);
   }
 
   deselectAllBaseMaps(exceptIdx: number) {

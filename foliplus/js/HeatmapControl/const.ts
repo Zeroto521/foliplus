@@ -119,6 +119,9 @@ export const SEL = {
   FORM_LABEL: ".foliplus-heatmap-form-label",
 };
 
+/** Persistent storage key for heatmap configuration. */
+export const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
+
 export const DATA_ATTR = {
   LAYER: "data-hm-layer",
   EXTRA_BODY: "data-hm-extra-body",

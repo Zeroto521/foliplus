@@ -1,7 +1,11 @@
 // SearchControl constants — CSS classes, search parameters, zoom levels.
 
 export const MODE = { COORD: "coord", ADDR: "addr" } as const;
+/** Search type: coordinate pair or address keyword. */
+export type SearchType = (typeof MODE)[keyof typeof MODE];
 export const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
+/** Result source: live geocode hit or saved history entry. */
+export type SearchSource = (typeof SOURCE)[keyof typeof SOURCE];
 export const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
 export const FORMAT = { LAT_LNG_PRECISION: 6 };
 export const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
