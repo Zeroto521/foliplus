@@ -88,11 +88,26 @@ describe("build artifacts", () => {
     expect(size).toBeLessThan(100000);
   });
 
+  // Per-component upper bounds. These are sanity checks against accidental
+  // bloat (e.g. an inline'd shared module or duplicated logic), not hard
+  // budgets — the lower bound of >500 B guards against an empty bundle.
+  //
+  // MeasureControl is heavier because it bundles its own collision-detection
+  // geometry (placeLabels / segmentDir / perpCandidates) inline; the dev
+  // (unminified) bundle sits ~103 KB, so its cap carries headroom for future
+  // growth rather than hugging the current size.
+  const COMPONENT_JS_MAX = new Map<string, number>([
+    ["foliplus-MeasureControl.min.js", 115000],
+  ]);
+  const DEFAULT_COMPONENT_JS_MAX = 100000;
+
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
       const size = readFileSync(resolve(distDir, artifact)).length;
       expect(size, artifact).toBeGreaterThan(500);
-      expect(size, artifact).toBeLessThan(100000);
+      expect(size, artifact).toBeLessThan(
+        COMPONENT_JS_MAX.get(artifact) ?? DEFAULT_COMPONENT_JS_MAX,
+      );
     }
   });
 
