@@ -476,11 +476,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
-        // Defense in depth: the centroid dot sits at the same latlng with
-        // zIndexOffset Z_INDEX.OFFSET (11000). The primary fix is spatial
-        // (CENTROID_ANCHOR lifts the label above the dot); this offset keeps
-        // the label above the dot and delete-handle if they ever overlap.
-        zIndexOffset: CONST.Z_INDEX.OFFSET + 1,
+        // Centroid label is anchored below the dot (DEFAULT_ANCHOR, negative
+        // yAnchor) so it sits under the solid dot like the distance-start and
+        // circle-center labels — no z-index bump needed.
         interactive: false,
       }),
       true,
