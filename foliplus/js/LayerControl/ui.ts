@@ -1,6 +1,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -1218,6 +1219,11 @@ class LayerUI {
    *    doesn't linger while the user navigates elsewhere.
    */
   focusLayer(layerId: string) {
+    // Guard: any component holding the map (measuring, exporting, searching,
+    // locating) blocks focus. One guard at the entry covers all call sites
+    // (double-click, ⋮ menu, Alt+Enter, Enter) so none of them leak.
+    if (guardBlocked(this.m.map, CONF.name, T("blocked"))) return;
+
     const layerInfo = this.m.layerRegistry.get(layerId);
     if (!layerInfo) return;
     const layer = this.m.findLayer(layerInfo);
@@ -1283,6 +1289,15 @@ class LayerUI {
     this.drawFocusRect(bounds);
     this.highlightFocusedRow(itemEl, layerId);
 
+    // Register LayerControl's own mode for the duration of the focus. While
+    // focus is active, other components' primary actions (export, measure)
+    // are blocked so they cannot render/draw through the focus overlay, and
+    // the interaction lock they carry would suppress focus visuals. The mode
+    // is cleared on dismissFocus — called by both the auto-timeout, the
+    // manual cancel, and a subsequent focus (dismissFocus runs at the top of
+    // focusLayer).
+    ensureModes(this.m.map).setMode(CONF.name, "focusing");
+
     this.m.map.fitBounds(bounds, {
       animate: true,
       duration: CONST.FOCUS.FIT_DURATION,
@@ -1319,6 +1334,10 @@ class LayerUI {
 
   /** Internal: tear down focus visuals + state (no hint). */
   private dismissFocus(): void {
+    // Release LayerControl's focus mode so other components' primary actions
+    // (export, measure) are unblocked. If no focus was active this is a
+    // no-op (setMode early-returns when mode is already null).
+    ensureModes(this.m.map).setMode(CONF.name, null);
     this.clearAutoCancel();
     this.clearFocusedRowHighlight();
     this.restoreHiddenLayers();

@@ -14,9 +14,38 @@ interface ModeChangePayload {
 
 // Conflict matrix: when a component is in a non-null mode, which components
 // are blocked from performing their primary actions?
+//
+// The policy is symmetric and exhaustive across the four interactive
+// components — any component that owns the map blocks the other three from
+// their primary action (search / locate / export / focus):
+//   * MeasureControl + ExportControl — mutual lock. Exporting with measurement
+//     geometry active would render a dirty map; drawing while the export pass
+//     runs would read in-flight layers.
+//   * Both block LayerControl focus. Focus draws a highlight mask/rectangle
+//     on top of the map; rendering or drawing through that visual state is
+//     nonsensical, and a focus overlay captured inside an export would
+//     pollute the output.
+//   * All three block each other's map-facing actions for the same reason:
+//     only one component should "own" the visual map at a time.
 const BLOCKED_BY: Record<string, string[]> = {
-  [COMPONENTS.MeasureControl]: [COMPONENTS.SearchControl, COMPONENTS.LocateControl],
-  [COMPONENTS.ExportControl]: [COMPONENTS.SearchControl, COMPONENTS.LocateControl],
+  [COMPONENTS.MeasureControl]: [
+    COMPONENTS.SearchControl,
+    COMPONENTS.LocateControl,
+    COMPONENTS.ExportControl,
+    COMPONENTS.LayerControl,
+  ],
+  [COMPONENTS.ExportControl]: [
+    COMPONENTS.SearchControl,
+    COMPONENTS.LocateControl,
+    COMPONENTS.MeasureControl,
+    COMPONENTS.LayerControl,
+  ],
+  [COMPONENTS.LayerControl]: [
+    COMPONENTS.SearchControl,
+    COMPONENTS.LocateControl,
+    COMPONENTS.MeasureControl,
+    COMPONENTS.ExportControl,
+  ],
 };
 
 class ModeManager {
@@ -54,8 +83,8 @@ class ModeManager {
   /**
    * Suppress map-layer interaction while any component owns the map, and
    * restore it once the last mode clears. The policy is "any non-null mode
-   * needs exclusive map interaction" — today only measure modes and export
-   * crop/export register modes, and both require it.
+   * needs exclusive map interaction" — today measure modes, export crop/export
+   * modes, and LayerControl focus all register a mode and require it.
    *
    * A component may opt to keep some of its own layers interactive while its
    * mode is active (MeasureControl's edit mode keeps measurement layers live)

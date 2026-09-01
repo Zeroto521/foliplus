@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureModes } from "#foliplus/core/mode.js";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/interaction.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { dom } from "#foliplus/common/dom.js";
@@ -48,6 +49,12 @@ afterEach(() => {
   delete globalThis.fetch;
   document.body.innerHTML = "";
   window.history.replaceState(null, "", "/");
+  // Clear active modes so a blocked-mode test cannot leak and silently fail
+  // the next test.
+  const modes = ensureModes(window.map);
+  for (const comp of ["MeasureControl", "ExportControl", "LayerControl"]) {
+    if (modes.getMode(comp)) modes.setMode(comp, null);
+  }
 });
 
 describe("bindEvents", () => {

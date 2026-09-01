@@ -287,24 +287,36 @@ describe("isBlocked", () => {
     expect(mm.isBlocked("LocateControl")).toBe(false);
   });
 
-  it("MeasureControl active blocks SearchControl and LocateControl", () => {
+  it("MeasureControl active blocks SearchControl, LocateControl, ExportControl, LayerControl", () => {
     const mm = new ModeManager(makeBus(), makeMap());
     mm.setMode("MeasureControl", "distance");
     expect(mm.isBlocked("SearchControl")).toBe(true);
     expect(mm.isBlocked("LocateControl")).toBe(true);
+    expect(mm.isBlocked("ExportControl")).toBe(true);
+    expect(mm.isBlocked("LayerControl")).toBe(true);
   });
 
-  it("ExportControl exporting blocks SearchControl and LocateControl", () => {
+  it("ExportControl exporting blocks SearchControl, LocateControl, MeasureControl, LayerControl", () => {
     const mm = new ModeManager(makeBus(), makeMap());
     mm.setMode("ExportControl", "exporting");
     expect(mm.isBlocked("SearchControl")).toBe(true);
     expect(mm.isBlocked("LocateControl")).toBe(true);
+    expect(mm.isBlocked("MeasureControl")).toBe(true);
+    expect(mm.isBlocked("LayerControl")).toBe(true);
+  });
+
+  it("LayerControl focusing blocks SearchControl, LocateControl, MeasureControl, ExportControl", () => {
+    const mm = new ModeManager(makeBus(), makeMap());
+    mm.setMode("LayerControl", "focusing");
+    expect(mm.isBlocked("SearchControl")).toBe(true);
+    expect(mm.isBlocked("LocateControl")).toBe(true);
+    expect(mm.isBlocked("MeasureControl")).toBe(true);
+    expect(mm.isBlocked("ExportControl")).toBe(true);
   });
 
   it("does not block unrelated components", () => {
     const mm = new ModeManager(makeBus(), makeMap());
     mm.setMode("MeasureControl", "distance");
-    expect(mm.isBlocked("ExportControl")).toBe(false);
     expect(mm.isBlocked("FullscreenControl")).toBe(false);
   });
 
