@@ -427,13 +427,13 @@ path.foliplus-focus-mask {
     /* Type icon + more button answer to the keyboard cursor the same way
        they answer to hover (accent color) — the row is "hot", so its
        inline actions wake up too. */
-    &.foliplus-layer-focused .foliplus-type-icon-col,
-    &.foliplus-layer-focused .foliplus-layer-more-btn {
-      color: var(--accent-primary);
-    }
+    /* Type icon + more button do NOT change color under the keyboard cursor —
+       the left bar + wash are the cursor signal. Accent color stays reserved
+       for :hover only, so keyboard cursor and mouse hover remain visually
+       distinct (same principle as the SearchControl result-item fix). */
     /* Identity: gray at rest, wakes to black on hover and when the row is
-       active. Accent stays reserved for actions (more) and status (border),
-       so the type icon reads as focus, not as a call-to-action. */
+       active. Accent stays reserved for status (left border) and hover
+       (more button), never for the keyboard cursor. */
     &:hover .foliplus-type-icon-col,
     &.active .foliplus-type-icon-col {
       color: var(--text-primary);
