@@ -383,7 +383,18 @@ class LayerManager implements LayerAPI {
       opts.layer.options.paneSet = true;
     }
 
-    if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
+    // If the layer was previously hidden by the user, re-apply that state on
+    // re-entry so it isn't silently re-added by runtime re-registration. The
+    // guard runs before addLayer: a hidden layer is kept off the map entirely
+    // (avoiding onAdd side effects), and a callback-only hidden layer
+    // (no Leaflet layer, onToggle only) still gets its callback fired so
+    // canvas/heatmap can hide itself.
+    if (this.ui?.hiddenIds?.has(opts.id)) {
+      layerInfo.visible = false;
+      if (layerInfo.onToggle) layerInfo.onToggle(false);
+    } else if (opts.layer && !this.map.hasLayer(opts.layer)) {
+      this.map.addLayer(opts.layer);
+    }
 
     if (!this.uiContainer) {
       this.pendingRegistrations.push(layerInfo);
@@ -459,6 +470,10 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
+    // Remove the layer's id from the persisted hidden set so a removed layer
+    // doesn't carry stale hidden state into a future session.
+    this.ui?.hiddenIds?.delete(id);
+    if (this.ui && "saveHiddenIds" in this.ui) this.ui.saveHiddenIds();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
