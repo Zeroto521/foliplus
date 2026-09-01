@@ -1,8 +1,8 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
-import { type Debounced, debounce } from "#common/debounce.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { dom, escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
