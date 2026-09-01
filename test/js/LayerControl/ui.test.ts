@@ -1437,7 +1437,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
       expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0][0]).toMatch(/Dropped stale hidden-layer ids.*ghost.*gone/);
+      expect(warnSpy.mock.calls[0][0]).toMatch(
+        /Dropped stale hidden-layer ids.*ghost.*gone/,
+      );
       warnSpy.mockRestore();
     });
 
@@ -1643,7 +1645,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
     // Build a fixture with an explicit set of layers and control the 300ms
     // initTypesAndVisibility timeout so the full attach flow runs deterministically.
-    const attachFixture = (data: Array<{ id: string; name: string; isBase?: boolean; layer?: any }>) => {
+    const attachFixture = (
+      data: Array<{ id: string; name: string; isBase?: boolean; layer?: any }>,
+    ) => {
       window.CONF.name = "LayerControl";
       window.CONF.locale_code = "en";
       const removeLayer = vi.fn();
@@ -1668,7 +1672,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           getSouthEast: () => ({ lat: 20, lng: 120 }),
         })),
         getContainer: vi.fn(() => container),
-        getPane: vi.fn(() => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn() } })),
+        getPane: vi.fn(() => ({
+          style: {},
+          classList: { add: vi.fn(), remove: vi.fn() },
+        })),
         createPane: vi.fn(() => ({
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
@@ -1689,10 +1696,17 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     };
 
     it("does NOT show the color layer when all registered base layers are hidden", () => {
-      const poly = { options: {}, eachLayer: vi.fn(), getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })) };
+      const poly = {
+        options: {},
+        eachLayer: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
+      };
       const base1 = new TileLayer();
       const base2 = new TileLayer();
-      window.localStorage.setItem(CONST.STORAGE.VISIBILITY_KEY, JSON.stringify(["base1", "base2"]));
+      window.localStorage.setItem(
+        CONST.STORAGE.VISIBILITY_KEY,
+        JSON.stringify(["base1", "base2"]),
+      );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
         { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
@@ -1703,7 +1717,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement | null;
+      const colorItem = ui.uiContainer.querySelector(
+        CONST.SEL.COLOR_ITEM,
+      ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(ui.isColorActive).toBe(false);
       // The hidden set is preserved after the attach pass.
@@ -1711,23 +1727,36 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     });
 
     it("DOES show the color layer when no base layers are registered at all", () => {
-      const poly = { options: {}, eachLayer: vi.fn(), getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })) };
+      const poly = {
+        options: {},
+        eachLayer: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
+      };
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
       ]);
 
       // No bases exist → fallback paints the map so it isn't blank.
       expect(ui.isColorActive).toBe(true);
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement | null;
+      const colorItem = ui.uiContainer.querySelector(
+        CONST.SEL.COLOR_ITEM,
+      ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
       expect(map.removeLayer).not.toHaveBeenCalled();
       expect(ui.hiddenIds).toEqual(new Set());
     });
 
     it("keeps the color layer off when at least one base layer remains visible", () => {
-      const poly = { options: {}, eachLayer: vi.fn(), getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })) };
+      const poly = {
+        options: {},
+        eachLayer: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
+      };
       const base1 = new TileLayer();
-      window.localStorage.setItem(CONST.STORAGE.VISIBILITY_KEY, JSON.stringify(["base1"]));
+      window.localStorage.setItem(
+        CONST.STORAGE.VISIBILITY_KEY,
+        JSON.stringify(["base1"]),
+      );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
         { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
@@ -1737,7 +1766,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       // However, only base1 is hidden (not "all bases"), so the color fallback
       // must NOT activate — the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement | null;
+      const colorItem = ui.uiContainer.querySelector(
+        CONST.SEL.COLOR_ITEM,
+      ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(ui.isColorActive).toBe(false);
     });
@@ -1747,7 +1778,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   describe("applyHiddenState with multiple hidden layers", () => {
     it("handles overlay, base, and callback-only layers in one pass", () => {
-      const poly = { options: {}, eachLayer: vi.fn(), getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })) };
+      const poly = {
+        options: {},
+        eachLayer: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
+      };
       const baseLayer = new TileLayer();
       const onToggle = vi.fn();
       const { map, removeLayer } = (() => {
@@ -1759,9 +1794,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
             hasLayer: vi.fn(() => true),
             addLayer: vi.fn(),
             removeLayer: rl,
-            getContainer: vi.fn(() => ({} as HTMLElement)),
+            getContainer: vi.fn(() => ({}) as HTMLElement),
             getPane: vi.fn(() => ({ style: {} })),
-            createPane: vi.fn(() => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn() } })),
+            createPane: vi.fn(() => ({
+              style: {},
+              classList: { add: vi.fn(), remove: vi.fn() },
+            })),
             foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
           },
           removeLayer: rl,
