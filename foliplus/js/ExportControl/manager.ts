@@ -89,6 +89,14 @@ class ExportManager {
   savedBounds: SavedBounds | null;
   dragState: DragState;
   nudgeLoop?: RafLoop;
+  private nudgeMapRect?: DOMRect;
+  /**
+   * Overridable timer function for the smooth-nudge rafLoop. Defaults to
+   * setTimeout (production). Browser tests inject a no-op so each rafLoop
+   * runs exactly one synchronous tick, making the one-step-per-keydown
+   * behavior deterministic without touching global state.
+   */
+  private scheduler: (fn: () => void, ms: number) => unknown;
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -104,9 +112,13 @@ class ExportManager {
     withLoadingIcon?: boolean,
   ) => void;
 
-  constructor(mapInstance: L.Map) {
+  constructor(
+    mapInstance: L.Map,
+    scheduler: (fn: () => void, ms: number) => unknown = setTimeout,
+  ) {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
+    this.scheduler = scheduler;
 
     this.cropState = null;
     this.exportCtrl = null;
@@ -313,25 +325,41 @@ class ExportManager {
     // Stop any loop running for a previous direction first, so holding Right
     // then pressing Up doesn't leave a stale loop nudging right for ~500ms.
     this.nudgeStop();
+    // Cache the map container rect once at loop start. The map can't move
+    // while the loop runs (map keyboard drag/zoom are disabled via
+    // ModeManager), so getBoundingClientRect() is stable — avoids calling it
+    // 60 times per second inside the rafLoop.
+    this.nudgeMapRect = this.mapContainer.getBoundingClientRect();
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         this.nudgeCropBox(k ?? key);
         // If the box was locked or removed (e.g. Enter, Escape) the nudge
         // returns early, but it doesn't return true — detect it explicitly
         // and stop the loop so we never write to a gone/locked box.
-        return !this.isEditing();
+        if (!this.isEditing()) {
+          // Clean up the suppressed-transition class on auto-stop. Explicit
+          // nudgeStop() (from keyup) also clears it, so this covers the Enter/
+          // Escape path where keyup never fires for the arrow key.
+          this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
+          return true;
+        }
+        return false;
       },
       // Inject a no-op scheduler from browser tests to freeze the loop while
       // still asserting the one-step-per-keydown response.
-      { scheduler: (window as any).__rafScheduler ?? setTimeout },
+      { scheduler: this.scheduler },
     );
     this.nudgeLoop.start(key);
   }
 
-  /** Stop the smooth-nudge loop when the arrow key is released. */
+  /** Stop the smooth-nudge loop. Also clears the suppressed-transition
+   * class; when nudgeStart() re-creates a loop (direction switch) the very
+   * next sync tick re-adds it, so there is no visible flicker. */
   private nudgeStop() {
     const loop = this.nudgeLoop;
     this.nudgeLoop = undefined;
+    this.nudgeMapRect = undefined;
+    this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
     loop?.stop();
   }
 
@@ -358,7 +386,11 @@ class ExportManager {
   nudgeCropBox(key: string) {
     const st = this.cropState;
     if (!st || st.locked) return;
-    const mapRect = this.mapContainer.getBoundingClientRect();
+    // Use the rect cached at loop start (nudgeStart). Falls back to a live
+    // getBoundingClientRect() for the one-off call path (e.g. a manual
+    // nudgeCropBox from a test or non-loop context) where nudgeMapRect is
+    // unset.
+    const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
     const step = CONST.CROP.NUDGE_STEP;
     const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
     const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;

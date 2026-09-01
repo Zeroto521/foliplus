@@ -349,14 +349,6 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     html_path.write_text(_inject_window_map(html), encoding="utf-8")
     page = browser.new_page()
     errors: list[str] = []
-    # Freeze the ExportControl smooth-nudge rafLoop: the manager reads
-    # window.__rafScheduler on each rafLoop creation to drive its timer. In
-    # production it is setTimeout (~60Hz); here we inject a no-op so only the
-    # rafLoop's *synchronous* first frame fires — one nudge per keydown
-    # (mirroring OS key-repeat) — and the continuation loop never re-arms.
-    # This makes the release cleanup (.dragging removal on keyup) happen
-    # deterministically with no waits for timer frames.
-    page.add_init_script("window.__rafScheduler = function(fn) { return 0; };")
     page.on(
         "console",
         lambda msg: (

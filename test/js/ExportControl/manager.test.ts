@@ -228,7 +228,7 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
 
     // Simulate the loop the manager would create on a real keydown.
     const loopStop = vi.fn();
-    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop, cancel: vi.fn() };
+    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop };
 
     manager.onKeyUp({ key: "ArrowRight" } as KeyboardEvent);
     expect(loopStop).toHaveBeenCalledTimes(1);

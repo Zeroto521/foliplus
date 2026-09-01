@@ -214,7 +214,7 @@ class TestExportControlBrowser:
         # Inject test hooks right after the manager is created (dev bundle).
         html, n = re.subn(
             r"var exportManager = new ExportManager\(map\);",
-            r"var exportManager = new ExportManager(map); window.__map = map; window.__exportManager = exportManager;",
+            r"var exportManager = new ExportManager(map, function(fn){return 0;}); window.__map = map; window.__exportManager = exportManager;",
             html,
             count=1,
         )
