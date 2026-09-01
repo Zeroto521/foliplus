@@ -23,6 +23,18 @@ import {
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
+/** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
+const nudgeDirection = (key: string): { x: number; y: number } =>
+  key === "ArrowLeft"
+    ? { x: -1, y: 0 }
+    : key === "ArrowRight"
+      ? { x: 1, y: 0 }
+      : key === "ArrowUp"
+        ? { x: 0, y: -1 }
+        : key === "ArrowDown"
+          ? { x: 0, y: 1 }
+          : { x: 0, y: 0 };
+
 /** A screen-space rectangle. */
 export interface Rect {
   left: number;
@@ -97,7 +109,7 @@ class ExportManager {
    * runs exactly one synchronous tick, making the one-step-per-keydown
    * behavior deterministic without touching global state.
    */
-  private scheduler: (fn: () => void, ms: number) => unknown;
+  private scheduler: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -115,7 +127,7 @@ class ExportManager {
 
   constructor(
     mapInstance: L.Map,
-    scheduler: (fn: () => void, ms: number) => unknown = setTimeout,
+    scheduler: (fn: () => void, ms: number) => ReturnType<typeof setTimeout> = setTimeout,
   ) {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
@@ -339,9 +351,27 @@ class ExportManager {
     // ModeManager), so getBoundingClientRect() is stable — avoids calling it
     // 60 times per second inside the rafLoop.
     this.nudgeMapRect = this.mapContainer.getBoundingClientRect();
+    // Fractional accumulator so held-key motion is smooth at 60fps: each
+    // scheduled frame adds perFrame px, the floored integer is applied, and
+    // the remainder carries forward. Running at the loop's native 16ms keeps
+    // updates frame-aligned (setTimeout at coarse intervals lands between
+    // frames and janks). The sync first frame (the tap) is handled separately
+    // so a quick tap still yields exactly NUDGE_STEP.
+    const perFrame = CONST.CROP.NUDGE_SPEED / 60;
+    let accX = 0;
+    let accY = 0;
+    let syncFrame = true;
     this.nudgeLoop = rafLoop(
       (k?: string) => {
-        this.nudgeCropBox(k ?? key);
+        const d = nudgeDirection(k ?? key);
+        if (syncFrame) {
+          syncFrame = false;
+          this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
+        } else {
+          this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
+          accX = (accX + perFrame) % 1;
+          accY = (accY + perFrame) % 1;
+        }
         // If the box was locked or removed (e.g. Enter, Escape) the nudge
         // returns early, but it doesn't return true — detect it explicitly
         // and stop the loop so we never write to a gone/locked box.
@@ -354,13 +384,7 @@ class ExportManager {
         }
         return false;
       },
-      // Wrap the injected scheduler to fix the cadence at NUDGE_INTERVAL
-      // (~20 nudge/s) instead of the loop's default 16ms (~60/s). At 60Hz a
-      // 10px step produces 600px/s — overshoots and reads as jittery. The
-      // wrapped scheduler is also compatible with the browser test's no-op
-      // injection (which ignores the interval and never fires, so only the
-      // sync frame runs → one step per keydown).
-      { scheduler: fn => this.scheduler(fn, CONST.CROP.NUDGE_INTERVAL) },
+      { scheduler: this.scheduler },
     );
     this.nudgeLoop.start(key);
   }
@@ -419,6 +443,22 @@ class ExportManager {
     // A pure move keeps the size constant, so the hint text is unchanged —
     // leaving it alone avoids rebuilding the element (and re-running its
     // entry animation) on every keypress.
+    this.applyRect(r, false);
+  }
+
+  /** Apply an already-computed (possibly fractional) delta to the crop box.
+   * Used by the frame-aligned nudge loop: it floors the delta so the DOM
+   * position stays integral while the caller carries the decimal remainder in
+   * an accumulator — giving smooth continuous motion at a controlled speed.
+   * Clamps within the same map bounds as nudgeCropBox(). */
+  private nudgeCropBoxDelta(dx: number, dy: number) {
+    const st = this.cropState;
+    if (!st) return;
+    const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
+    const r = Object.assign({}, st.rect);
+    r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + Math.floor(dx)));
+    r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + Math.floor(dy)));
+    st.box.classList.add(CONST.CLASSES.DRAGGING);
     this.applyRect(r, false);
   }
 

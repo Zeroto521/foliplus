@@ -3,11 +3,12 @@ export const CROP = {
   MIN_SIZE: 40,
   PADDING_RATIO: 0.25,
   CONTAINER_PADDING: 200,
-  /** Pixels the crop box moves per arrow-key nudge (unlocked state). */
+  /** Pixels the crop box moves per arrow-key nudge on a single tap. */
   NUDGE_STEP: 10,
-  /** Milliseconds between nudge steps while a key is held (~20/s).
-   * Matches OS key-repeat feel; faster (60Hz) overshoots and reads as jittery. */
-  NUDGE_INTERVAL: 50,
+  /** Pixels/second while a key is held. Applied as a fractional per-frame
+   * increment at 60fps so motion is frame-aligned and smooth; a tap yields
+   * exactly NUDGE_STEP (the sync frame) before the stream begins. */
+  NUDGE_SPEED: 200,
 };
 
 /** Arrow keys that nudge the crop box position (unlocked state). */

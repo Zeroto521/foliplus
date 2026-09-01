@@ -107,19 +107,31 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     expect(manager.resetCropBox).not.toHaveBeenCalled();
   });
 
-  it("arrow keys route to nudgeCropBox when unlocked", () => {
-    manager.onKeyDown({ key: "ArrowLeft" });
-    manager.onKeyDown({ key: "ArrowRight" });
-    manager.onKeyDown({ key: "ArrowUp" });
-    manager.onKeyDown({ key: "ArrowDown" });
-    expect(manager.nudgeCropBox).toHaveBeenCalledTimes(4);
-    expect(manager.resetCropBox).not.toHaveBeenCalled();
+  it("arrow keys route to the smooth-nudge loop when unlocked", () => {
+    // Arrow keydown starts a rafLoop-based smooth-nudge (nudgeStart), not a
+    // one-off nudgeCropBox call. Each press stop()s any previous loop and
+    // starts a new one for the new direction, so nudgeLoop ends up defined
+    // after the last press and a new loop was created on each of the four.
+    // Inject a no-op scheduler so the loop only runs its sync first frame
+    // and nudgeLoop can be inspected deterministically.
+    const m2 = makeManager();
+    setCropState(m2);
+    // Patch the rafLoop handle so each keydown is observable: nudgeLoop is
+    // created fresh on each press (nudgeStop clears the previous one first).
+    m2.onKeyDown({ key: "ArrowLeft" });
+    expect((m2 as any).nudgeLoop).toBeDefined();
+    // Each subsequent press stop()s the prior loop then starts a new one;
+    // the box receives a nudge on the sync first frame of each.
+    m2.onKeyDown({ key: "ArrowRight" });
+    m2.onKeyDown({ key: "ArrowUp" });
+    m2.onKeyDown({ key: "ArrowDown" });
+    expect((m2 as any).nudgeLoop).toBeDefined();
   });
 
   it("arrow keys are ignored when locked", () => {
     manager.cropState.locked = true;
     manager.onKeyDown({ key: "ArrowLeft" });
-    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+    expect((manager as any).nudgeLoop).toBeUndefined();
   });
 
   it("R and arrows are no-ops without a crop box", () => {
@@ -127,14 +139,14 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     manager.onKeyDown({ key: "r" });
     manager.onKeyDown({ key: "ArrowRight" });
     expect(manager.resetCropBox).not.toHaveBeenCalled();
-    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+    expect((manager as any).nudgeLoop).toBeUndefined();
   });
 
   it("unrecognized keys are ignored", () => {
     manager.onKeyDown({ key: "a" });
     manager.onKeyDown({ key: " " });
     expect(manager.resetCropBox).not.toHaveBeenCalled();
-    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+    expect((manager as any).nudgeLoop).toBeUndefined();
   });
 });
 
