@@ -38,8 +38,38 @@
   align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
+  border-left: var(--border-thin) solid transparent;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 
-  &:is(:hover, .active) {
+  /* Hover (mouse): 5% wash — the item is "under cursor", but not the
+     keyboard focus target. Same language as .active in common.css. */
+  &:hover {
+    background: var(--accent-light);
+
+    .foliplus-search-result-icon {
+      color: var(--accent-primary);
+    }
+  }
+
+  /* Keyboard cursor (ArrowUp/ArrowDown): same visual language as the
+     LayerControl .foliplus-layer-focused row — 1 px accent left bar,
+     8 % wash, hairline separators, shadow. This separates the keyboard
+     cursor from hover (5 % wash) and from the persistent "selected"
+     state in the Heatmap scheme picker, where .active means
+     "currently picked scheme" rather than "keyboard cursor is here". */
+  &.active {
+    border-left-color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+    box-shadow:
+      inset var(--border-thin) 0 0 0 var(--accent-primary),
+      inset 0 var(--border-thin) 0 0
+        color-mix(in srgb, var(--accent-primary) 12%, transparent),
+      inset 0 calc(-1 * var(--border-thin)) 0 0
+        color-mix(in srgb, var(--accent-primary) 12%, transparent),
+      var(--shadow-xs);
+
     .foliplus-search-result-icon {
       color: var(--accent-primary);
     }

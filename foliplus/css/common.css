@@ -474,12 +474,10 @@
   color: var(--accent-primary);
 }
 
-/* ── Active: the layer-item "selected" language — accent light background,
-     text stays text-primary (the accent left border is added per-component
-     where a persistent selection exists, e.g. the Heatmap scheme picker). ── */
-:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item).active {
-  background: var(--accent-light);
-}
+/* ── Active states are now per-component:
+     - .foliplus-search-result-item.active  → keyboard cursor (SearchControl.css)
+     - .foliplus-heatmap-scheme-dropdown-item.active → persistent selected
+       scheme (HeatmapControl.css). Each owns its own visual language. ── */
 
 .foliplus-ctrl-btn {
   position: absolute;
