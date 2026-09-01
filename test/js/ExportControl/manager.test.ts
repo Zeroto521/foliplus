@@ -279,7 +279,12 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
   });
 
   it("nudgeCropBox moves up and clamps at the map top edge", () => {
-    manager.cropState.rect = { left: 100, top: 5, width: 100, height: 100 };
+    manager.cropState.rect = {
+      left: 100,
+      top: 2,
+      width: 100,
+      height: 100,
+    };
     manager.nudgeCropBox("ArrowUp");
     expect(manager.cropState.rect.top).toBe(0);
   });

@@ -359,8 +359,8 @@ class TestExportControlBrowser:
             )
             # Box moved by NUDGE_STEP in both axes; the map must NOT pan
             # (Leaflet's built-in arrow-key handler is disabled while editing).
-            assert rect1["l"] == pytest.approx(rect0["l"] + 5)
-            assert rect1["t"] == pytest.approx(rect0["t"] + 5)
+            assert rect1["l"] == pytest.approx(rect0["l"] + 3)
+            assert rect1["t"] == pytest.approx(rect0["t"] + 3)
             assert center1 == center0
 
     def test_nudge_tracks_key_without_reanimating_hint(self, browser, tmp_path):
@@ -404,7 +404,7 @@ class TestExportControlBrowser:
                 "return { l: r.left, w: r.width, h: r.height }; }"
             )
             # 5 nudges of NUDGE_STEP, and a pure move must not change the size.
-            assert after["l"] == pytest.approx(before["l"] + 25)
+            assert after["l"] == pytest.approx(before["l"] + 15)
             assert after["w"] == pytest.approx(before["w"])
             assert after["h"] == pytest.approx(before["h"])
 
