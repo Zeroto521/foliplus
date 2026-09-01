@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui.js";
+import { ensureModes } from "#foliplus/core/mode.js";
 
 class TileLayer {
   options = { attribution: "© OpenStreetMap" };
@@ -147,6 +148,10 @@ const initFixture = (
   const map: any = {
     on: vi.fn(),
     off: vi.fn(),
+    // suspendMapInteractions (called by core/mode syncInteractionLock when
+    // LayerControl registers "focusing") iterates layers; the ui.test mock
+    // has no real layer tree, so a no-op is sufficient.
+    eachLayer: vi.fn(),
     invalidateSize: vi.fn(),
     hasLayer: vi.fn(() => true),
     addLayer: vi.fn(),
@@ -228,6 +233,11 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.useRealTimers();
+    // LayerControl holds "focusing" mode during an in-flight focus; clear it
+    // on the FIXTURE map (not window.map) so a focus-holding test cannot leak.
+    const modes = ensureModes(map);
+    if (modes.getMode("LayerControl") === "focusing")
+      modes.setMode("LayerControl", null);
   });
 
   // ─────────────────── focusLayer() ───────────────────
