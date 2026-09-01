@@ -75,7 +75,7 @@
 .foliplus-dim {
   --dim-duration: 260ms;
   --dim-timing: cubic-bezier(0.4, 0, 0.2, 1);
-  --dim-alpha: 0.5;
+  --dim-alpha: var(--alpha-50);
 
   position: absolute;
   inset: 0;
