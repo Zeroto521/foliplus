@@ -360,7 +360,7 @@ class ExportManager {
       // wrapped scheduler is also compatible with the browser test's no-op
       // injection (which ignores the interval and never fires, so only the
       // sync frame runs → one step per keydown).
-      { scheduler: (fn) => this.scheduler(fn, CONST.CROP.NUDGE_INTERVAL) },
+      { scheduler: fn => this.scheduler(fn, CONST.CROP.NUDGE_INTERVAL) },
     );
     this.nudgeLoop.start(key);
   }

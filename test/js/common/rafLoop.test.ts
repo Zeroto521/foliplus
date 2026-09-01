@@ -173,5 +173,4 @@ describe("rafLoop", () => {
     vi.advanceTimersByTime(16 * 2);
     expect(tick).toHaveBeenCalledTimes(4);
   });
-
 });
