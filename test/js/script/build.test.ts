@@ -93,11 +93,13 @@ describe("build artifacts", () => {
   // budgets — the lower bound of >500 B guards against an empty bundle.
   //
   // MeasureControl is heavier because it bundles its own collision-detection
-  // geometry (placeLabels) inline; the minified bundle sits ~40 KB, so its
-  // cap carries ~50% headroom for future growth rather than hugging the
-  // current size.
+  // geometry (placeLabels) inline. NOTE: CI runs make test -> npm run
+  // build:dev, which writes UNMINIFIED output to the .min.js artifacts
+  // (the production minified build overwrites them later). So this cap
+  // must accommodate the unminified dev size (~101 KB), not the ~40 KB
+  // minified size — carries ~20% headroom for future growth.
   const COMPONENT_JS_MAX = new Map<string, number>([
-    ["foliplus-MeasureControl.min.js", 60000],
+    ["foliplus-MeasureControl.min.js", 120000],
   ]);
   const DEFAULT_COMPONENT_JS_MAX = 100000;
 

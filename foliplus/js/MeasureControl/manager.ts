@@ -70,10 +70,10 @@ class MeasureManager {
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
-  offLayerRemoved!: () => void;
-  onMapClick!: (event: L.LeafletMouseEvent) => void;
-  onKeyDown!: (event: KeyboardEvent) => void;
-  onUnload!: () => void;
+  private offLayerRemoved!: () => void;
+  private onMapClick!: (event: L.LeafletMouseEvent) => void;
+  private onKeyDown!: (event: KeyboardEvent) => void;
+  private onUnload!: () => void;
 
   /** Handle export button click — delegates to the export module. */
   onExportClick(event: Event) {

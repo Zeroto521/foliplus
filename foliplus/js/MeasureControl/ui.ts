@@ -161,8 +161,13 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         if (points.length === 2 && nodeDelMarkers.length === 2) {
           const lastDelMarker = nodeDelMarkers[1];
           if (lastDelMarker) {
+            // The last endpoint's ✕ previously delegated to "delete a single
+            // node" + "open the overlay". After collapsing to 2 points it must
+            // switch to "delete the whole distance" while keeping the overlay
+            // opener — mirroring how polygon rebinds both in the 3pt case.
             lastDelMarker.off("click");
             attachDelClick(lastDelMarker, deleteMeasurement);
+            bindOpenOverlay(lastDelMarker, openOverlay);
             const iconEl = lastDelMarker.getElement();
             if (iconEl) iconEl.title = T("del_all");
           }

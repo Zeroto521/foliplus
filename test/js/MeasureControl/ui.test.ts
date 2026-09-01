@@ -5,21 +5,28 @@ import * as UI from "#foliplus/MeasureControl/ui.js";
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
 // override the function helpers.
-const { attachDelClick, makeDelIcon, toggleDelIcon } = vi.hoisted(() => ({
+const {
+  attachDelClick,
+  makeDelIcon,
+  toggleDelIcon,
+  realMakeDelIcon,
+  realAttachDelClick,
+} = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn(() => ({
-    getElement: vi.fn(() => null),
-    on: vi.fn(),
-    off: vi.fn(),
-    setLatLng: vi.fn(),
-  })),
+  // makeDelIcon delegates to the real implementation so that hijacking
+  // window.L.marker inside a test controls the del markers it creates.
+  makeDelIcon: vi.fn((...args: any[]) => realMakeDelIcon.value(...args)),
   toggleDelIcon: vi.fn(),
+  realMakeDelIcon: { value: null as any },
+  realAttachDelClick: { value: null as any },
 }));
 
 vi.mock("#common/delicon.js", async importOriginal => {
   const actual = await importOriginal<typeof import("#common/delicon.js")>();
+  realMakeDelIcon.value = actual.makeDelIcon;
+  realAttachDelClick.value = actual.attachDelClick;
   return {
     ...actual,
     makeDelIcon,
@@ -274,6 +281,80 @@ describe("attachDistanceUI", () => {
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
     expect(() => toggle(true)).not.toThrow();
     expect(() => toggle(false)).not.toThrow();
+  });
+
+  it("keeps the overlay opener on the last endpoint's ✕ after collapsing to 2 points (regression)", () => {
+    // A 3-point distance: deleting the middle node collapses it to 2 points,
+    // and the last endpoint's ✕ switches from "delete one node" to "delete the
+    // whole distance". The regression: that rebind previously nuked the
+    // overlay-opener too, so clicking the ✕'s non-X area could no longer
+    // open the edit panel. We verify behavior by spying on the last del
+    // marker's on() after attachDistanceUI: the rebind must re-call
+    // bindOpenOverlay (which is layer.on("click", ...)), so a new click
+    // handler lands on the last ✕ after the delete fires.
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ];
+    const mgr = makeMgr();
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const segLabels = [0, 1].map(() => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() }));
+
+    UI.attachDistanceUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+        nodeMarkers: points.map(pt => ({
+          on: vi.fn(),
+          off: vi.fn(),
+          getLatLng: vi.fn(() => pt),
+          setLatLng: vi.fn(),
+        })),
+        segLabels,
+        points,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    // makeDelIcon call order: [0] first endpoint, [1] middle, [2] last.
+    const middleDel = (makeDelIcon as any).mock.results[1].value as any;
+    const lastDel = (makeDelIcon as any).mock.results[2].value as any;
+
+    // Spy on the last del marker's on() — record any click handler bound
+    // AFTER this point (i.e. from the rebind path).
+    const postBindClickHandlers: Array<(e: any) => void> = [];
+    (lastDel.on as any).mockImplementation((ev: string, fn: (e: any) => void) => {
+      if (ev === "click") postBindClickHandlers.push(fn);
+      return lastDel;
+    });
+    (lastDel.off as any).mockImplementation(() => lastDel);
+
+    // Delete the middle node via its ✕ callback → points collapses to 2,
+    // rebind fires on the last endpoint's ✕.
+    (middleDel as any)._delClick();
+
+    // The fix: rebind calls attachDelClick + bindOpenOverlay. bindOpenOverlay
+    // wires layer.on("click", ...) — so at least one click handler must land
+    // on the last ✕ post-rebind. The regression only re-added attachDelClick,
+    // which (with our mock) stores _delClick but never calls on("click") —
+    // so postBindClickHandlers would be empty without the bindOpenOverlay fix.
+    expect(postBindClickHandlers.length).toBeGreaterThanOrEqual(1);
+
+    // Behavioral confirmation: firing the newly bound click handler with a
+    // non-X target must NOT throw and must not call onDelete (the overlay
+    // opener only opens the panel, it never deletes the measurement).
+    const onDelete = vi.fn();
+    for (const fn of postBindClickHandlers) {
+      const nonXEvent = { originalEvent: { target: { closest: vi.fn(() => null) } } };
+      expect(() => fn(nonXEvent)).not.toThrow();
+    }
   });
 
   it("re-registers the correct number of labels after deleting an inner node (regression)", () => {

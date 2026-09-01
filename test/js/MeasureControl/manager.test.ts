@@ -419,9 +419,18 @@ describe("MeasureManager — global events", () => {
     const { manager, map, layers } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
     manager.currentMode = CONST.MODE.DISTANCE;
-    manager.onUnload();
+    // onUnload is bound via this.map.on("unload", ...). Leaflet fires all
+    // bound handlers on unload, so invoke every "unload" handler the manager
+    // registered (InteractionManager's own unload cleanup runs first).
+    const unloadHandlers = (map as any).on.mock.calls
+      .filter(([ev]: [string]) => ev === "unload")
+      .map((c: any[]) => c[1]);
+    expect(unloadHandlers.length).toBeGreaterThanOrEqual(1);
+    unloadHandlers.forEach((h: () => void) => h());
     expect(manager.currentMode).toBeNull();
     expect(layers.clearLayers).toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+    expect(layers.removeLayer).not.toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(1);
   });
 
@@ -429,7 +438,12 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = CONST.MODE.DISTANCE;
-    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    // The Escape shortcut is registered via registerInteractions →
+    // InteractionManager, which listens on document. Dispatch a real keydown
+    // so the handler reaches onKeyDown through the real routing path.
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).toHaveBeenCalled();
   });
 
@@ -437,7 +451,9 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = null;
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -446,7 +462,9 @@ describe("MeasureManager — global events", () => {
     const spy = vi.spyOn(manager, "setEditMode");
     manager.setEditMode(true);
     manager.currentMode = null;
-    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).toHaveBeenCalledWith(false);
   });
 });

@@ -95,28 +95,27 @@ describe("placeLabels", () => {
     expect(tinyEl.style.visibility).toBe("hidden");
   });
 
-  it("breaks an equal-priority tie in favour of the wider chip", () => {
+  it("breaks an equal-priority tie by width, and lets priority dominate width", () => {
+    // Equal priority: the wider chip keeps its anchor, the narrower one hides.
     const bigBox: Box = { x: 0, y: 0, w: 120, h: 20 };
-    const smallBox: Box = { x: 50, y: 0, w: 40, h: 20 }; // fully overlapping, narrower
+    const smallBox: Box = { x: 50, y: 0, w: 40, h: 20 };
     const { lb: big, el: bigEl } = label(bigBox, 60);
     const { lb: small, el: smallEl } = label(smallBox, 60);
     const hidden = plan([big, small]);
     expect(hidden).toBe(1);
     expect(bigEl.style.visibility).toBe("");
     expect(smallEl.style.visibility).toBe("hidden");
-  });
 
-  it("lets priority dominate area: a large low-priority chip loses to a small high-priority one", () => {
-    // Large chip fully contains the small one (100% overlap of the smaller).
-    // Large chip has lower priority, so it must be hidden despite being wider.
-    const bigBox: Box = { x: 0, y: 0, w: 100, h: 40 }; // area 4000, priority 60
-    const smallBox: Box = { x: 20, y: 10, w: 60, h: 20 }; // area 1200, priority 90
-    const { lb: big, el: bigEl } = label(bigBox, 60);
-    const { lb: small, el: smallEl } = label(smallBox, 90);
-    const hidden = plan([big, small]);
-    expect(hidden).toBe(1);
-    expect(bigEl.style.visibility).toBe("hidden");
-    expect(smallEl.style.visibility).toBe("");
+    // Priority trumps width: a small high-priority chip beats a large
+    // low-priority one even when the large chip fully contains it.
+    const largeBox: Box = { x: 0, y: 0, w: 100, h: 40 }; // area 4000, priority 60
+    const tinyBox: Box = { x: 20, y: 10, w: 60, h: 20 }; // area 1200, priority 90
+    const { lb: large, el: largeEl } = label(largeBox, 60);
+    const { lb: tiny, el: tinyEl } = label(tinyBox, 90);
+    const hidden2 = plan([large, tiny]);
+    expect(hidden2).toBe(1);
+    expect(largeEl.style.visibility).toBe("hidden");
+    expect(tinyEl.style.visibility).toBe("");
   });
 
   it("hides the lower-priority chip at exactly 50% overlap of the smaller box", () => {
