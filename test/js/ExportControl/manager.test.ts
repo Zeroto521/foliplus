@@ -74,6 +74,13 @@ describe("ExportManager — onKeyDown", () => {
     manager.onKeyDown({ key: "Enter" });
     expect(manager.lockCropBox).toHaveBeenCalled();
   });
+
+  it("Enter with locked crop box calls doExport", () => {
+    manager.cropState.locked = true;
+    manager.doExport = vi.fn();
+    manager.onKeyDown({ key: "Enter" });
+    expect(manager.doExport).toHaveBeenCalled();
+  });
 });
 
 describe("ExportManager — shortcut routing (R + arrows)", () => {
@@ -119,6 +126,13 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     manager.cropState = null;
     manager.onKeyDown({ key: "r" });
     manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+  });
+
+  it("unrecognized keys are ignored", () => {
+    manager.onKeyDown({ key: "a" });
+    manager.onKeyDown({ key: " " });
     expect(manager.resetCropBox).not.toHaveBeenCalled();
     expect(manager.nudgeCropBox).not.toHaveBeenCalled();
   });
@@ -168,6 +182,20 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
     manager.nudgeCropBox("ArrowRight");
     expect(manager.cropState.rect.left).toBe(110);
     expect(manager.updateBoxStyle).toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox moves left by NUDGE_STEP", () => {
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowLeft");
+    expect(manager.cropState.rect.left).toBe(90);
+  });
+
+  it("applyRect is a no-op without a crop box", () => {
+    manager.cropState = null;
+    // applyRect guards against a missing crop box; call it directly (private).
+    (manager as any).applyRect({ left: 0, top: 0, width: 50, height: 50 });
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+    expect(manager.showHintWithInfo).not.toHaveBeenCalled();
   });
 
   it("nudgeCropBox suppresses the box transition and does not refresh the hint", () => {

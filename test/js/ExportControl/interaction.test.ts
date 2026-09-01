@@ -16,6 +16,7 @@ function makeMgr(): any {
   return {
     map,
     onKeyDown: vi.fn(),
+    onKeyUp: vi.fn(),
     onMouseDown: vi.fn(),
     onMouseMove: vi.fn(),
     onMouseUp: vi.fn(),
@@ -75,6 +76,36 @@ describe("ExportControl interaction", () => {
       container.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     }
     expect(mgr.onKeyDown).toHaveBeenCalledTimes(6);
+    cleanup();
+  });
+
+  it("arrow keyup reaches onKeyUp when the container is focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyUp).toHaveBeenCalledTimes(4);
+    cleanup();
+  });
+
+  it("arrow keyup does not fire when the container is not focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    document.body.focus();
+
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyUp).not.toHaveBeenCalled();
     cleanup();
   });
 
