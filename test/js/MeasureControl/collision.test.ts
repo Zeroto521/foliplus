@@ -300,6 +300,73 @@ describe("placeLabels", () => {
     expect(farEl.style.visibility).toBe("");
   });
 
+  it("keeps a chip permanently visible once chipOf returns null, even after chipOf recovers (regression)", () => {
+    // Reproduction for "one polygon edge label never appears regardless of
+    // zoom": a chip is hidden by collision, then the geometry moves clear
+    // (zoom out), but the planner's chipOf briefly returns null for that chip
+    // (e.g. during an icon swap / removeLayer window). Even after chipOf
+    // recovers, the chip must be restored — the planner is stateless and the
+    // chip re-enters the competition on any plan where it is present.
+    const { lb: anchor, el: anchorEl } = label(ANCHOR, 60);
+    const { lb: victim, el: victimEl } = label(OVERLAP, 50);
+
+    const anchorMarker = (anchor as unknown as { marker: L.Marker }).marker;
+    const victimMarker = (victim as unknown as { marker: L.Marker }).marker;
+
+    // Plan 1: chips overlap heavily → victim hides.
+    plan([anchor, victim]);
+    expect(victimEl.style.visibility).toBe("hidden");
+
+    // Plan 2: geometry moved clear (zoom out). But chipOf for the victim
+    // returns null this frame — model a marker whose element was just
+    // detached (removeLayer / setIcon window). The planner must not crash,
+    // and must leave the anchor visible.
+    const missingChipOf: Collision.ChipOf = marker =>
+      marker === victimMarker
+        ? null
+        : marker === anchorMarker
+          ? anchorEl
+          : null;
+    boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
+    boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
+    const plan2 = Collision.placeLabels(
+      [anchor, victim],
+      projector,
+      true,
+      missingChipOf,
+    );
+    expect(plan2).toBe(0);
+    expect(anchorEl.style.visibility).toBe("");
+
+    // Plan 3: chipOf recovers. Geometry is still clean. The victim must be
+    // restored — if the planner leaks the hidden state across a chipOf-null
+    // plan, this is the "one edge never shows" bug.
+    boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
+    boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
+    const plan3 = plan([anchor, victim]);
+    expect(plan3).toBe(0);
+    expect(anchorEl.style.visibility).toBe("");
+    expect(victimEl.style.visibility).toBe("");
+  });
+
+  it("keeps every label visible on a well-spaced polygon including the centroid (regression)", () => {
+    // Realistic polygon: four segment labels (priority 60) at the edge
+    // midpoints and one area label at the centroid (priority 80). At a zoom
+    // where the chips are well separated nothing overlaps — every label must
+    // stay on its anchor. This catches any rule that permanently drops the
+    // weakest chip even when the geometry is clean.
+    const segA = label({ x: 0, y: 0, w: 80, h: 20 }, 60);      // top edge
+    const segB = label({ x: 300, y: 40, w: 80, h: 20 }, 60);   // right edge
+    const segC = label({ x: 100, y: 250, w: 80, h: 20 }, 60);  // bottom edge
+    const segD = label({ x: 0, y: 120, w: 80, h: 20 }, 60);    // left edge
+    const center = label({ x: 160, y: 120, w: 90, h: 20 }, 80); // centroid
+    const hidden = plan([segA.lb, segB.lb, segC.lb, segD.lb, center.lb]);
+    expect(hidden).toBe(0);
+    [segA, segB, segC, segD, center].forEach(l =>
+      expect(l.el.style.visibility).toBe(""),
+    );
+  });
+
   it("leaves two chips visible when they merely graze on the edge (regression)", () => {
     // Two 60px chips whose centers are 30px apart: horizontal overlap is 30px,
     // exactly 50% of each chip's width — well below the 0.75 threshold. Both
