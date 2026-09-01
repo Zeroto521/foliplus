@@ -363,37 +363,68 @@ describe("LayerManager", () => {
   it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
     const layer = { options: {} };
     manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
     const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    const saveHiddenIds = vi.fn();
     manager.ui = {
       hiddenIds: new Set(["new1"]),
-      saveHiddenIds,
+      saveHiddenIds: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
-    // The layer is silently removed so it isn't back on the map.
-    expect(removeLayer).toHaveBeenCalledWith(layer);
+    // Hidden layer is kept off the map entirely (no add, no remove) so
+    // onAdd side effects never fire, and visible is set to false.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
     expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
-  it("fires onToggle(false) for a callback-only hidden layer on re-registration", () => {
-    const layer = { options: {} };
+  it("fires onToggle(false) for a callback-only hidden layer on re-registration without adding it to the map", () => {
     manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
     const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     const onToggle = vi.fn();
     manager.ui = {
       hiddenIds: new Set(["canvas1"]),
       saveHiddenIds: vi.fn(),
     } as any;
-    manager.registerLayer({ id: "canvas1", name: "Canvas", layer, onToggle } as any);
+    manager.registerLayer({
+      id: "canvas1",
+      name: "Canvas",
+      layer: null,
+      onToggle,
+    } as any);
 
-    // For a layer with onToggle, the toggle callback must be fired so the
-    // canvas/heatmap hides itself. removeLayer is also called because the
-    // manager unconditionally removes a re-added hidden layer from the map.
+    // Callback-only layer has no Leaflet layer to add/remove — the guard
+    // skips addLayer and removeLayer, and fires onToggle so the canvas/heatmap
+    // hides itself.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
     expect(onToggle).toHaveBeenCalledWith(false);
-    expect(removeLayer).toHaveBeenCalledWith(layer);
+    expect(manager.layerRegistry.get("canvas1")!.visible).toBe(false);
+  });
+
+  it("does not add a hidden layer to the map before removing it", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
+    const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
+    manager.map.removeLayer = removeLayer;
+    manager.ui = {
+      hiddenIds: new Set(["new1"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "new1", name: "New", layer } as any);
+
+    // Hidden layers must be kept off the map entirely (skip addLayer) so
+    // onAdd side effects never fire.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
   it("does not re-apply hidden state when the layer is not in the hidden set", () => {

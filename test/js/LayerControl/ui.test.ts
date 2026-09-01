@@ -1441,6 +1441,30 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       warnSpy.mockRestore();
     });
 
+    it("persists the pruned hidden set after dropping stale ids", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
+
+      vi.useFakeTimers();
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      u.applyHiddenState();
+      warnSpy.mockRestore();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.useRealTimers();
+
+      const stored = JSON.parse(
+        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
+      );
+      // Only the live id survives in storage — ghost/gone are gone for good.
+      expect(stored).toEqual(expect.not.arrayContaining(["ghost", "gone"]));
+      expect(stored).toContain("overlay1");
+    });
+
     it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
       const { map } = makeTestMap();
       const onToggle = vi.fn();

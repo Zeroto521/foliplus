@@ -227,29 +227,27 @@ class LayerUI {
       this.hiddenIds = new Set(
         [...this.hiddenIds].filter(id => registry.get(id) != null),
       );
+      // Persist the cleaned set so the same stale ids don't get re-warned
+      // on the next reload.
+      this.saveHiddenIds();
     }
   }
 
   /** Full re-scan of every row (used on attach/fold-toggle). */
   initTypesAndVisibility() {
+    // Apply persisted hidden state first so initLayerItem reads the corrected
+    // map state: folium adds every layer before the control IIFE runs, so on
+    // reload hidden layers are back on the map. Hidden ids no longer in the
+    // registry are dropped (their layer was removed).
+    this.applyHiddenState();
+
     let anyBaseVisible = false;
     for (let i = 0; i < this.m.layers.length; i++) {
       if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
     }
-    // Apply persisted hidden state (overrides map.hasLayer: folium adds layers
-    // before the control IIFE runs, so hidden layers are back on the map on
-    // reload). Hidden ids not in the registry are dropped (layer was removed).
-    this.applyHiddenState();
-
-    // Recompute whether any base is visible after hidden state was applied,
-    // so the color-layer fallback respects an explicit "hide all bases".
-    const baseIds = [...this.m.layers].filter(li => li.isBase).map(li => li.id);
-    anyBaseVisible = baseIds.some(id => {
-      const layer = this.m.findLayer(id);
-      return !!layer && this.m.map.hasLayer(layer);
-    });
     // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
     // base-less map must not suppress the color-layer background.
+    const baseIds = [...this.m.layers].filter(li => li.isBase).map(li => li.id);
     const allBasesHidden =
       baseIds.length > 0 && baseIds.every(id => this.hiddenIds.has(id));
 
@@ -794,7 +792,9 @@ class LayerUI {
       if (newState && layer) layer.options.paneSet = false;
       if (layerInfo.onToggle) layerInfo.onToggle(newState);
       this.syncVisibility(layerInfo, layer, newState);
-      this.syncHiddenId(layerInfo.id, !newState);
+      // No persist per iteration — schedule a single debounced write after the
+      // loop so the debounce timer isn't reset for every layer.
+      this.syncHiddenId(layerInfo.id, !newState, false);
     });
 
     // Persist hidden-set after bulk toggle (single debounced write for the batch).
@@ -882,11 +882,16 @@ class LayerUI {
       this.showColorLayer((event.target as HTMLInputElement).value);
   }
 
-  /** Update the persisted hidden set for a single layer toggle. */
-  private syncHiddenId(id: string, hidden: boolean) {
+  /**
+   * Update the persisted hidden set for a layer toggle.
+   * @param {boolean} persist - When false (bulk updates like toggleAll), the
+   *   caller schedules a single save after the loop instead of resetting the
+   *   debounce timer for every layer.
+   */
+  private syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
     if (hidden) this.hiddenIds.add(id);
     else this.hiddenIds.delete(id);
-    this.saveHiddenIds();
+    if (persist) this.saveHiddenIds();
   }
 
   /** Get all navigable layer items (excludes color item and toggle-all rows). */

@@ -383,13 +383,17 @@ class LayerManager implements LayerAPI {
       opts.layer.options.paneSet = true;
     }
 
-    if (opts.layer && !this.map.hasLayer(opts.layer)) this.map.addLayer(opts.layer);
     // If the layer was previously hidden by the user, re-apply that state on
-    // re-entry so it isn't silently re-added by runtime re-registration.
-    if (opts.layer && this.ui?.hiddenIds?.has(opts.id)) {
-      this.map.removeLayer(opts.layer);
+    // re-entry so it isn't silently re-added by runtime re-registration. The
+    // guard runs before addLayer: a hidden layer is kept off the map entirely
+    // (avoiding onAdd side effects), and a callback-only hidden layer
+    // (no Leaflet layer, onToggle only) still gets its callback fired so
+    // canvas/heatmap can hide itself.
+    if (this.ui?.hiddenIds?.has(opts.id)) {
       layerInfo.visible = false;
       if (layerInfo.onToggle) layerInfo.onToggle(false);
+    } else if (opts.layer && !this.map.hasLayer(opts.layer)) {
+      this.map.addLayer(opts.layer);
     }
 
     if (!this.uiContainer) {
