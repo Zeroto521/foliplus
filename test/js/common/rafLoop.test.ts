@@ -31,7 +31,6 @@ describe("rafLoop", () => {
     expect(tick).toHaveBeenCalledTimes(3);
   });
 
-
   it("stop() cancels the pending frame so it does not fire after stop", () => {
     const tick = vi.fn(() => false);
     const loop = rafLoop(tick);
