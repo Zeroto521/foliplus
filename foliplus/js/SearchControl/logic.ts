@@ -517,8 +517,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
     // are parseable (coordDisplay is the formatted coordinate string, addr
     // goes through geocode again and resolves to the same point). Fall back
     // to the stored query only if the entry's own display is missing.
-    const reEntry =
-      (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
+    const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
       source: SOURCE.HISTORY,
