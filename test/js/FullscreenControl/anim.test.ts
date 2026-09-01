@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { removeScrim, setDim, startDim, startDimExit } from "#foliplus/FullscreenControl/anim.js";
+import {
+  removeScrim,
+  setDim,
+  startDim,
+  startDimExit,
+} from "#foliplus/FullscreenControl/anim.js";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 
 const makeContainer = () => {
