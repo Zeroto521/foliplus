@@ -547,7 +547,7 @@ class TestFullscreenControlBrowser:
             ), "scrim should be created exactly once"
 
             self._exit_fullscreen(page)
-            page.wait_for_timeout(600)
+            page.wait_for_timeout(800)
             opacity_out = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
@@ -744,7 +744,7 @@ class TestFullscreenControlBrowser:
             # while fullscreen. exitFullscreen fires the same fullscreenchange.
             page.evaluate("document.exitFullscreen()")
             page.wait_for_function("() => document.fullscreenElement === null")
-            page.wait_for_timeout(600)
+            page.wait_for_timeout(800)
 
             assert (
                 page.evaluate(
@@ -842,7 +842,7 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(600)
+            page.wait_for_timeout(800)
             snap_out = self._scrim_snapshot(page)
             assert abs(float(snap_out["opacity"])) < 0.05, snap_out["opacity"]
             assert not errors, f"JS errors: {errors}"

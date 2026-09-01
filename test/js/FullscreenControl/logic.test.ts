@@ -371,24 +371,21 @@ describe("toggleFullscreen — crossfade scrim, pseudo path", () => {
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
   });
 
-  it("enter flashes then exit re-flashes for fade-out", async () => {
-    vi.useFakeTimers();
+  it("enter flashes then exit removes active for CSS fade-out", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     toggleFullscreen(mapMock, fsBtn, container);
-    // Exit now uses startDim: re-adds active (fade-out), auto-clears after ~300ms.
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    await vi.advanceTimersByTimeAsync(340);
+    // Exit uses startDimExit: scrim is dark, so it removes active immediately;
+    // the CSS transition carries opacity from --dim-alpha back to 0.
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    vi.useRealTimers();
   });
 
-  it("rapid enter/exit/enter: exit re-flashes, final enter leaves a flash", async () => {
+  it("rapid enter/exit/enter: exit removes active, final enter leaves a flash", async () => {
     vi.useFakeTimers();
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     await vi.advanceTimersByTimeAsync(340);

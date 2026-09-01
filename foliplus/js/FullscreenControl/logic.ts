@@ -2,7 +2,7 @@
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { setDim, startDim } from "./anim.js";
+import { setDim, startDim, startDimExit } from "./anim.js";
 import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -66,14 +66,14 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           setDim(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
-      // Exit re-flashes the scrim: ensure it's dark (re-adds the active class if
-      // enter's auto-clear already ran), then startDim's timer auto-clears it
-      // after --dim-duration + buffer. This guarantees a visible fade-out on
-      // exit regardless of how long the user stayed in fullscreen.
-      startDim(map.getContainer());
+      // Exit fades the scrim out: setDim(false) removes the active class, letting
+      // the CSS transition carry opacity from --dim-alpha back to 0 over
+      // --dim-duration. If enter's auto-clear already ran and the scrim is
+      // transparent, re-flash it dark first so the fade-out is visible.
+      startDimExit(map.getContainer());
       return;
     }
-    startDim(map.getContainer());
+    startDimExit(map.getContainer());
     map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   } else {
