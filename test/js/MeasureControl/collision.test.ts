@@ -40,8 +40,7 @@ const label = (
 const plan = (
   labels: Collision.CollidableLabel[],
   collide = true,
-): Collision.PlanResult =>
-  Collision.placeLabels(labels, projector, collide, chipOf);
+): Collision.PlanResult => Collision.placeLabels(labels, projector, collide, chipOf);
 
 const ANCHOR: Box = { x: 0, y: 0, w: 60, h: 20 };
 /** A second chip whose own box overlaps ANCHOR by most of its area. */
