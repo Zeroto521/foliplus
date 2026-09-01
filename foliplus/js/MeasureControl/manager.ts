@@ -49,6 +49,9 @@ class MeasureManager {
   /** Per-measurement dispose functions, registered via registerFinalized —
    *   each unbinds its drag binds, edit overlay, and edit-drag toggle. */
   finalizedClickHandlers: Array<() => void>;
+  /** Next measurement id counter; increments per session so persisted ids are
+   *   unique even when two measurements are created in the same millisecond. */
+  private measurementIdCounter: number;
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
    *   hides any open ✕ handles. */
   private editOverlayClosers: Array<() => void> = [];
@@ -63,7 +66,6 @@ class MeasureManager {
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
   measurements: MeasureData[];
-  measurementIdCounter: number;
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
