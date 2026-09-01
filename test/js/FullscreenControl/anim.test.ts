@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureScrim, removeScrim, setDim, startDim } from "#foliplus/FullscreenControl/anim.js";
+import {
+  ensureScrim,
+  removeScrim,
+  setDim,
+  startDim,
+} from "#foliplus/FullscreenControl/anim.js";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 
 const makeContainer = () => {
@@ -119,7 +124,6 @@ describe("setDim", () => {
   });
 });
 
-
 describe("startDim", () => {
   let container: HTMLElement;
 
@@ -160,7 +164,6 @@ describe("startDim", () => {
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
   });
-
 });
 describe("removeScrim", () => {
   let container: HTMLElement;

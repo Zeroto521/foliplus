@@ -44,10 +44,10 @@ const startDim = (container: HTMLElement): void => {
 };
 
 const readDimDuration = (scrim: HTMLElement): number => {
-  const raw = getComputedStyle(scrim).getPropertyValue('--dim-duration').trim();
+  const raw = getComputedStyle(scrim).getPropertyValue("--dim-duration").trim();
   const ms = parseFloat(raw);
   // CSS may express the duration as `260ms` or `.26s` (bundler minification).
-  return isNaN(ms) ? 260 : (raw.endsWith('s') ? ms * 1000 : ms);
+  return isNaN(ms) ? 260 : raw.endsWith("s") ? ms * 1000 : ms;
 };
 
 /**
@@ -61,7 +61,10 @@ const setDim = (container: HTMLElement, active: boolean): void => {
 
 const removeScrim = (container: HTMLElement) => {
   const pending = dimTimers.get(container);
-  if (pending) { clearTimeout(pending); dimTimers.delete(container); }
+  if (pending) {
+    clearTimeout(pending);
+    dimTimers.delete(container);
+  }
   container.classList.remove(CLASSES.DIM_ACTIVE);
   const scrim = container.querySelector(`.${CLASSES.DIM}`);
   scrim?.remove();
