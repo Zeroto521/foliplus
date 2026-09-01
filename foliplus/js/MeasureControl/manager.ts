@@ -3,7 +3,7 @@ import { COMPONENTS, generateId } from "#core/component.js";
 import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
-import { ensureModes } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
@@ -213,6 +213,17 @@ class MeasureManager {
     // Starting a drawing mode exits edit mode so node handles / drag don't
     // coexist with the drawing cursor.
     if (this.isEditMode) this.setEditMode(false);
+
+    // Symmetric lock with the other interactive components (focus / export).
+    if (
+      guardBlocked(this.map, CONF.name, T("blocked"), [
+        { blockedBy: COMPONENTS.ExportControl, text: T("blocked_export") },
+        { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+        { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+        { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+      ])
+    )
+      return;
 
     this.layers.register();
 
