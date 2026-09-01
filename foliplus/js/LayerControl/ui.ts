@@ -1266,6 +1266,15 @@ class LayerUI {
     // accent glow — one O(panes) pass, not a per-leaf-element loop.
     this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
 
+    // Register LayerControl's own mode for the duration of the focus, BEFORE
+    // the fitBounds/flyTo branching. Both paths draw a focus overlay and
+    // register the same auto-cancel, so both must hold the mode — a missing
+    // setMode on the flyTo path would let export/measure render through a
+    // live focus overlay. Cleared on dismissFocus — called by the auto-timeout,
+    // the manual cancel, and a subsequent focus (dismissFocus runs at the top
+    // of focusLayer).
+    ensureModes(this.m.map).setMode(CONF.name, "focusing");
+
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
@@ -1288,15 +1297,6 @@ class LayerUI {
     this.drawFocusMask(bounds);
     this.drawFocusRect(bounds);
     this.highlightFocusedRow(itemEl, layerId);
-
-    // Register LayerControl's own mode for the duration of the focus. While
-    // focus is active, other components' primary actions (export, measure)
-    // are blocked so they cannot render/draw through the focus overlay, and
-    // the interaction lock they carry would suppress focus visuals. The mode
-    // is cleared on dismissFocus — called by both the auto-timeout, the
-    // manual cancel, and a subsequent focus (dismissFocus runs at the top of
-    // focusLayer).
-    ensureModes(this.m.map).setMode(CONF.name, "focusing");
 
     this.m.map.fitBounds(bounds, {
       animate: true,

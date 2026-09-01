@@ -244,15 +244,60 @@ describe("LayerUI focusLayer() — interaction lock", () => {
   it("clears the focusing mode in dismissFocus()", () => {
     ui.focusLayer("overlay1");
 
-    vi.runOnlyPendingTimers(); // fires the 3500ms auto-dismiss
+    vi.runAllTimers(); // fires the 3500ms auto-dismiss
 
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
     expect(getModeSpy("LayerControl")).toBeNull();
   });
 
+  it("cancelFocus() releases the focusing mode (manual cancel path)", () => {
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    ui.cancelFocus();
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    expect(getModeSpy("LayerControl")).toBeNull();
+  });
+
+  it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
+    let { manager, ui, map } = initFixture();
+
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    manager.destroy();
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    expect(getModeSpy("LayerControl")).toBeNull();
+  });
+
+  it("keeps the focusing mode active throughout the focus window", () => {
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    // Advance to well inside the 3500ms window; mode must still be held.
+    vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS - 1000);
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+  });
+
+  it("passes LayerControl as the component key in setMode calls", () => {
+    ui.focusLayer("overlay1");
+    vi.runAllTimers();
+
+    // Every setMode call must identify itself as LayerControl — the mode
+    // system keys modes per-component, so the wrong key would mean focus
+    // never clears or never blocks.
+    for (const call of setModeSpy.mock.calls as Array<[string, string | null]>) {
+      expect(call[0]).toBe("LayerControl");
+    }
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+  });
+
   it("re-registers the mode on a successive focus", () => {
     ui.focusLayer("overlay1");
-    vi.runOnlyPendingTimers();
+    vi.runAllTimers();
 
     ui.focusLayer("overlay1");
 
@@ -260,5 +305,25 @@ describe("LayerUI focusLayer() — interaction lock", () => {
       (c: [string, string | null]) => c[1] === "focusing",
     );
     expect(focusingCalls).toHaveLength(2);
+  });
+
+  it("registers focusing mode on the flyTo path (tiny-bounds focus)", () => {
+    // The overlay1 leaf is a Polygon-style layer; spy on its getBounds to
+    // force a tiny area so focusLayer takes the flyTo branch. Regression
+    // test for the missing setMode on this path.
+    const tinyBounds = {
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 30.00001, lng: 100.00001 }),
+      getCenter: () => ({ lat: 30, lng: 100 }),
+    };
+    const layer = ui.m.findLayer(ui.m.layerRegistry.get("overlay1")!);
+    vi.spyOn(layer, "getBounds").mockReturnValue(tinyBounds);
+
+    ui.focusLayer("overlay1");
+
+    expect(map.flyTo).toHaveBeenCalled();
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
   });
 });
