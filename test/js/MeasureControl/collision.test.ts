@@ -322,11 +322,7 @@ describe("placeLabels", () => {
     // detached (removeLayer / setIcon window). The planner must not crash,
     // and must leave the anchor visible.
     const missingChipOf: Collision.ChipOf = marker =>
-      marker === victimMarker
-        ? null
-        : marker === anchorMarker
-          ? anchorEl
-          : null;
+      marker === victimMarker ? null : marker === anchorMarker ? anchorEl : null;
     boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
     boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
     const plan2 = Collision.placeLabels(
@@ -355,10 +351,10 @@ describe("placeLabels", () => {
     // where the chips are well separated nothing overlaps — every label must
     // stay on its anchor. This catches any rule that permanently drops the
     // weakest chip even when the geometry is clean.
-    const segA = label({ x: 0, y: 0, w: 80, h: 20 }, 60);      // top edge
-    const segB = label({ x: 300, y: 40, w: 80, h: 20 }, 60);   // right edge
-    const segC = label({ x: 100, y: 250, w: 80, h: 20 }, 60);  // bottom edge
-    const segD = label({ x: 0, y: 120, w: 80, h: 20 }, 60);    // left edge
+    const segA = label({ x: 0, y: 0, w: 80, h: 20 }, 60); // top edge
+    const segB = label({ x: 300, y: 40, w: 80, h: 20 }, 60); // right edge
+    const segC = label({ x: 100, y: 250, w: 80, h: 20 }, 60); // bottom edge
+    const segD = label({ x: 0, y: 120, w: 80, h: 20 }, 60); // left edge
     const center = label({ x: 160, y: 120, w: 90, h: 20 }, 80); // centroid
     const hidden = plan([segA.lb, segB.lb, segC.lb, segD.lb, center.lb]);
     expect(hidden).toBe(0);
