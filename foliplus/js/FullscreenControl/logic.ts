@@ -20,6 +20,10 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
+  fsBtn.setAttribute(
+    "aria-label",
+    isFull ? T("title_cancel") : T("title"),
+  );
 
   if (CONF.hide_others) {
     const controls = map

@@ -125,44 +125,48 @@ describe("startDim", () => {
     // multiply by 1000 for bare seconds — otherwise it treats 0.26 as
     // milliseconds and the auto-clear fires in ~260µs.
     const orig = globalThis.getComputedStyle;
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      value: vi.fn(() => ({ getPropertyValue: () => "0.26s" })),
-      configurable: true,
-      writable: true,
-    });
-    startDim(container);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    // 260ms (from 0.26s) + 40ms buffer = 300ms — before that it stays active.
-    await vi.advanceTimersByTimeAsync(200);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    await vi.advanceTimersByTimeAsync(150);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      value: orig,
-      configurable: true,
-      writable: true,
-    });
+    try {
+      Object.defineProperty(globalThis, "getComputedStyle", {
+        value: vi.fn(() => ({ getPropertyValue: () => "0.26s" })),
+        configurable: true,
+        writable: true,
+      });
+      startDim(container);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, "getComputedStyle", {
+        value: orig,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 
   it("falls back to 260ms when the --dim-duration property is absent", async () => {
     const orig = globalThis.getComputedStyle;
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      value: vi.fn(() => ({ getPropertyValue: () => "" })),
-      configurable: true,
-      writable: true,
-    });
-    startDim(container);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    // 260ms (fallback) + 40ms buffer = 300ms.
-    await vi.advanceTimersByTimeAsync(250);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    await vi.advanceTimersByTimeAsync(100);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      value: orig,
-      configurable: true,
-      writable: true,
-    });
+    try {
+      Object.defineProperty(globalThis, "getComputedStyle", {
+        value: vi.fn(() => ({ getPropertyValue: () => "" })),
+        configurable: true,
+        writable: true,
+      });
+      startDim(container);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(250);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, "getComputedStyle", {
+        value: orig,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });
 

@@ -15,12 +15,18 @@ ensureHint(map);
 
 class FullscreenControl extends BaseControl {
   declare fsHandler: () => void;
+  private _zoomControlRemoved = false;
 
   buildDOM() {
-    if (map.zoomControl) map.removeControl(map.zoomControl);
-    else {
+    if (map.zoomControl) {
+      map.removeControl(map.zoomControl);
+      this._zoomControlRemoved = true;
+    } else {
       const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
-      if (zoomEl) zoomEl.remove();
+      if (zoomEl) {
+        zoomEl.remove();
+        this._zoomControlRemoved = true;
+      }
     }
 
     const outer = dom.el("div", {
@@ -80,6 +86,9 @@ class FullscreenControl extends BaseControl {
       document.removeEventListener(FULLSCREEN_CHANGE, this.fsHandler);
     }
     removeScrim(map.getContainer());
+    if (this._zoomControlRemoved && !map.zoomControl) {
+      map.addControl(new L.Control.Zoom());
+    }
   }
 }
 

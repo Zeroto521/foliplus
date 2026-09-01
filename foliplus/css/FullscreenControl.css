@@ -76,14 +76,17 @@
   --dim-duration: 260ms;
   --dim-timing: cubic-bezier(0.4, 0, 0.2, 1);
   --dim-alpha: var(--alpha-50);
-  /* Soft radial gradient: darkest at the edges, slightly lighter at the
-     center — a subtle vignette that focuses the eye on the map while the
-     basemap darkens. Blends from a 70%-alpha navy-black at the corners to
-     a 30%-alpha one in the middle, so the scrim reads as depth rather than
-     a flat wash. Uses explicit rgba so the gradient is self-contained and
-     doesn't depend on cascade from common.css custom-property tokens. */
-  --dim-grad-edge: rgba(10, 14, 20, 0.7);
-  --dim-grad-mid: rgba(10, 14, 20, 0.3);
+  /* Soft radial gradient: darkest at the edges, lighter at the center —
+     a vignette that focuses the eye on the map while the basemap darkens.
+     The scrim's opacity (var(--dim-alpha) = 0.5) multiplies these alphas at
+     blend time, so the gradient is authored at 2× the intended strength:
+     0.90 at the corners × 0.5 opacity = ~0.45 effective, 0.60 in the
+     middle × 0.5 = ~0.30 effective. The comment's "70%/30%" was describing
+     the effective result, but the alphas here had to compensate for the
+     scrim's own opacity. Uses explicit rgba so the gradient is self-contained
+     and doesn't depend on cascade from common.css custom-property tokens. */
+  --dim-grad-edge: rgba(10, 14, 20, 0.9);
+  --dim-grad-mid: rgba(10, 14, 20, 0.6);
 
   position: absolute;
   inset: 0;

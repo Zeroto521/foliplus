@@ -39,7 +39,7 @@ class TestFullscreenControlPython:
         assert FullscreenControl(locale="zh")._locale_code == "zh"
 
 
-class TestFullscreeControlRendering:
+class TestFullscreenControlRendering:
     def test_default_params(self):
         html = render_control(FullscreenControl())
         assert "foliplus-fullscreen-toggle" in html

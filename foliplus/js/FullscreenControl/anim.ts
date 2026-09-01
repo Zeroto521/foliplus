@@ -10,13 +10,11 @@ const DIM_BUFFER_MS = 40;
 
 const dimTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 
-const ensureScrim = (container: HTMLElement): HTMLElement | null => {
-  const existing = container.querySelector(`.${CLASSES.DIM}`);
-  if (existing) return null;
+const ensureScrim = (container: HTMLElement): void => {
+  if (container.querySelector(`.${CLASSES.DIM}`)) return;
   const scrim = document.createElement("div");
   scrim.className = CLASSES.DIM;
   container.appendChild(scrim);
-  return scrim;
 };
 
 /**
@@ -31,9 +29,6 @@ const ensureScrim = (container: HTMLElement): HTMLElement | null => {
  * fallback if the value is absent.
  */
 const startDim = (container: HTMLElement): void => {
-  // ensureScrim either returns the newly-created scrim, or null meaning a
-  // scrim already exists in the DOM. The caller never needs the element
-  // itself — the active state is a class on the container.
   ensureScrim(container);
   const pending = dimTimers.get(container);
   if (pending) clearTimeout(pending);
