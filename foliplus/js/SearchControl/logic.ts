@@ -509,8 +509,8 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === MODE.ADDR;
-    // Unified display: primary=address (fallback to coord), secondary=coord
-    const primaryText = entry.addrDisplay || entry.coordDisplay || "";
+    // Unified panel/popup display: address first, coordinates as fallback.
+    const display = entry.addrDisplay || entry.coordDisplay || "";
     // Re-entry value written into the input on click / keyboard select.
     // Use the panel's display so the input matches what the user clicked —
     // addrDisplay for address entries, coordDisplay for coord entries. Both
@@ -522,7 +522,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
       source: SOURCE.HISTORY,
-      primaryText,
+      primaryText: display,
       query: reEntry,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
@@ -535,7 +535,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
           map,
           lng,
           lat,
-          entry.addrDisplay || entry.coordDisplay,
+          display,
           isAddr ? T("popup_title_addr") : T("popup_title_coord"),
           T("popup_loading"),
           T("popup_loc_label"),

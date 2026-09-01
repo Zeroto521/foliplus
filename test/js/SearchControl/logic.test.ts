@@ -2183,7 +2183,7 @@ describe("SearchControl history", () => {
       }
     });
 
-    it("clicking a coord entry with an address restores the query, not the address", () => {
+    it("clicking a coord entry with an address restores the coord display, not the address", () => {
       const ctrl = makeHistoryCtrl([
         {
           query: "121.47,31.23",
@@ -2215,6 +2215,34 @@ describe("SearchControl history", () => {
       // The input is filled with the coord display so it matches the panel
       // and a follow-up Enter re-searches the same point.
       expect(ctrl.inp.value).toBe("121.4700, 31.2300");
+    });
+
+    it("clicking an entry with no display falls back to the stored query", () => {
+      const ctrl = makeHistoryCtrl([
+        {
+          query: "121.47,31.23",
+          type: "coord",
+          coordDisplay: "",
+          addrDisplay: "",
+          lng: 121.47,
+          lat: 31.23,
+          ts: 1000,
+          count: 1,
+        },
+      ]);
+      renderHistory(ctrl, "coord");
+      // With both displays empty, data-query falls back to entry.query.
+      expect(
+        ctrl.panelWrap
+          .querySelector(".foliplus-search-result-item")
+          ?.getAttribute("data-query"),
+      ).toBe("121.47,31.23");
+      ctrl.panelWrap
+        .querySelector(".foliplus-search-result-item")!
+        .dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+        );
+      expect(ctrl.inp.value).toBe("121.47,31.23");
     });
 
     it("renders only coord entries in coord mode", () => {

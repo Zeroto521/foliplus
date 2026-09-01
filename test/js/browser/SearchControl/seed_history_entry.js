@@ -1,6 +1,6 @@
 () => {
   // Seed one coordinate-mode history entry whose reverse-geocoded address
-  // ("Shanghai, China") differs from its canonical query ("121.47,31.23").
+  // ("Shanghai, China") differs from its stored key ("121.47,31.23").
   // Reload the page afterwards so the component picks it up on init.
   const KEY = "foliplus.search_history";
   localStorage.setItem(
