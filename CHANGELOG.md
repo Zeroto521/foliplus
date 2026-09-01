@@ -53,7 +53,6 @@
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
 - `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
-- `SearchControl`: history re-entry writes the panel display into the input on click and keyboard selection — address history entries restore their full `addrDisplay`, coordinate entries restore their `coordDisplay` — so the input visually matches the panel in both modes; the original `entry.query` remains the storage dedup key and falls back as the input value only when the entry's display is missing ([#218](https://github.com/Zeroto521/foliplus/pull/218))
 
 ## [v0.3.0] (2026-08-02)
 

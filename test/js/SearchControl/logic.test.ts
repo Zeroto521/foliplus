@@ -1355,6 +1355,107 @@ describe("fetchSuggestions: render behavior", () => {
   });
 });
 
+describe("mode-lock guards in renderAddressResult and renderHistory", () => {
+  it("suggestion click is blocked and panel stays open when a mode is held", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([
+            {
+              lat: "30.0",
+              lon: "120.0",
+              display_name: "Blocked Place",
+            },
+          ]),
+      }),
+    ) as unknown as typeof fetch;
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+      marker: null,
+      searchHistory: [],
+    };
+    // Render the panel first without a held mode.
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 0));
+    const item = ctrl.panelWrap.querySelector("[data-index='0']");
+    expect(item).not.toBeNull();
+
+    // Now hold a mode and click — the click should be blocked.
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    (item as HTMLElement).onmousedown!(evt);
+    // Panel stays open — blocked click must not remove it.
+    expect(ctrl.panelWrap).not.toBeNull();
+    // No marker placed, no history recorded.
+    expect(ctrl.marker).toBeNull();
+    expect(ctrl.searchHistory).toHaveLength(0);
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.blocked",
+      expect.any(Number),
+    );
+    ensureModes(window.map).setMode("MeasureControl", null);
+    vi.restoreAllMocks();
+  });
+
+  it("history entry click is blocked and panel stays open when a mode is held", () => {
+    const ctrl: any = {
+      mode: "coord",
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      inp: { value: "" },
+      marker: null,
+      searchHistory: [
+        {
+          query: "121.47,31.23",
+          type: MODE.COORD,
+          coordDisplay: "121.4700, 31.2300",
+          addrDisplay: "",
+          lng: 121.47,
+          lat: 31.23,
+          ts: 1000,
+          count: 1,
+        },
+      ],
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+    };
+    // Render the history panel first without a held mode.
+    fetchSuggestions(ctrl, "");
+    const item = ctrl.panelWrap.querySelector("[data-index='0']");
+    expect(item).not.toBeNull();
+
+    // Now hold a mode and click — the click should be blocked.
+    ensureModes(window.map).setMode("MeasureControl", "distance");
+    const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+    (item as HTMLElement).onmousedown!(evt);
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(map.flyTo).not.toHaveBeenCalled();
+    expect(ctrl.marker).toBeNull();
+    expect(ctrl.inp.value).toBe("");
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.blocked",
+      expect.any(Number),
+    );
+    ensureModes(window.map).setMode("MeasureControl", null);
+  });
+});
+
 describe("fetchSuggestions — empty input renders history", () => {
   it("renders search history when input is empty and history exists", () => {
     const ctrl: any = {
