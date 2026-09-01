@@ -116,8 +116,7 @@ export const placeLabels = (
       idx,
     }))
     .filter(
-      (x): x is { lb: CollidableLabel; el: HTMLElement; idx: number } =>
-        x.el !== null,
+      (x): x is { lb: CollidableLabel; el: HTMLElement; idx: number } => x.el !== null,
     )
     .map(e => ({
       ...e,
