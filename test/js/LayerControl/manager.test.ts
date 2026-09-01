@@ -63,6 +63,11 @@ describe("bringToFront patch refcounting", () => {
   });
 });
 
+// Identity-stable stamp: the shared mock in beforeEach is a counter, which
+// would shift a layer's stamp between the sweep and the assertion.
+const stableStamp = vi.fn(obj => obj.__id ?? (obj.__id = ++stableStampId));
+let stableStampId = 1000;
+
 describe("LayerManager", () => {
   let manager, map;
 
@@ -131,6 +136,7 @@ describe("LayerManager", () => {
       }),
       _container: document.createElement("div"),
       _layers: {},
+      _paneRenderers: {},
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
 
@@ -215,6 +221,41 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
     expect(result).toBe(true);
+  });
+
+  it("unregisterLayer reclaims only the unregistered layer's fallback pane", () => {
+    // A full sweep on every unregister would also delete another
+    // registered layer's pane. The map fixture needs the Leaflet pane
+    // registry for the teardown to run.
+    const paneA = document.createElement("div");
+    const paneB = document.createElement("div");
+    const paneRegistry = { foliplus_pane_a: paneA, foliplus_pane_b: paneB };
+    map._panes = paneRegistry;
+    // Stable fallback so a debounced enforceOrder firing after this test's
+    // teardown does not read a deleted registry.
+    map.getPane = vi.fn(name => paneRegistry[name] ?? document.createElement("div"));
+    const layerA = { options: {} };
+    const layerB = { options: {} };
+    window["fb_a"] = layerA;
+    window["fb_b"] = layerB;
+    manager.registerLayer({ id: "fb_a", name: "A", layer: layerA });
+    manager.registerLayer({ id: "fb_b", name: "B", layer: layerB });
+    // The shared stamp mock is a counter, so stamps would shift between the
+    // sweep and the assertion. Use an identity-stable stamp like Leaflet's.
+    window.L.stamp = stableStamp;
+    const stampA = window.L.stamp(layerA);
+    const stampB = window.L.stamp(layerB);
+    manager.panes.fallbackPaneMap.set(stampA, "foliplus_pane_a");
+    manager.panes.fallbackPaneMap.set(stampB, "foliplus_pane_b");
+    expect(manager.unregisterLayer("fb_a")).toBe(true);
+    // A is gone from both the records and the map DOM.
+    expect(manager.panes.fallbackPaneMap.size).toBe(1);
+    expect(paneRegistry.foliplus_pane_a).toBeUndefined();
+    // B is still registered, so its pane survives the sweep.
+    expect(paneRegistry.foliplus_pane_b).toBe(paneB);
+    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus_pane_b"]);
+    delete window["fb_a"];
+    delete window["fb_b"];
   });
 
   it("unregisterLayer emits EVENTS.LAYER_REMOVED event with the layer id", () => {
@@ -317,6 +358,88 @@ describe("LayerManager", () => {
     expect(manager.ui.initLayerItem).toHaveBeenCalled();
     expect(manager.ui.initTypesAndVisibility).not.toHaveBeenCalled();
     expect(manager.ui.syncToggleAll).toHaveBeenCalled();
+  });
+
+  it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
+    const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
+    manager.map.removeLayer = removeLayer;
+    manager.ui = {
+      hiddenIds: new Set(["new1"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "new1", name: "New", layer } as any);
+
+    // Hidden layer is kept off the map entirely (no add, no remove) so
+    // onAdd side effects never fire, and visible is set to false.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
+  });
+
+  it("fires onToggle(false) for a callback-only hidden layer on re-registration without adding it to the map", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
+    const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
+    manager.map.removeLayer = removeLayer;
+    const onToggle = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["canvas1"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({
+      id: "canvas1",
+      name: "Canvas",
+      layer: null,
+      onToggle,
+    } as any);
+
+    // Callback-only layer has no Leaflet layer to add/remove — the guard
+    // skips addLayer and removeLayer, and fires onToggle so the canvas/heatmap
+    // hides itself.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(manager.layerRegistry.get("canvas1")!.visible).toBe(false);
+  });
+
+  it("does not add a hidden layer to the map before removing it", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const addLayer = vi.fn();
+    const removeLayer = vi.fn();
+    manager.map.addLayer = addLayer;
+    manager.map.removeLayer = removeLayer;
+    manager.ui = {
+      hiddenIds: new Set(["new1"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "new1", name: "New", layer } as any);
+
+    // Hidden layers must be kept off the map entirely (skip addLayer) so
+    // onAdd side effects never fire.
+    expect(addLayer).not.toHaveBeenCalled();
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
+  });
+
+  it("does not re-apply hidden state when the layer is not in the hidden set", () => {
+    const layer = { options: {} };
+    manager.map.hasLayer.mockReturnValue(false);
+    const removeLayer = vi.fn();
+    manager.map.removeLayer = removeLayer;
+    manager.ui = {
+      hiddenIds: new Set(["other"]),
+      saveHiddenIds: vi.fn(),
+    } as any;
+    manager.registerLayer({ id: "visible1", name: "V", layer } as any);
+
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("visible1")!.visible).toBe(true);
   });
 
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
@@ -653,6 +776,20 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
     expect(manager.ui.reindexItems).toHaveBeenCalled();
+  });
+
+  it("unregisterLayer removes the layer id from the persisted hidden set", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const saveHiddenIds = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["overlay1", "base1"]),
+      reindexItems: vi.fn(),
+      saveHiddenIds,
+    } as any;
+    manager.unregisterLayer("overlay1");
+
+    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(saveHiddenIds).toHaveBeenCalledTimes(1);
   });
 
   it("attachUI delegates to the UI", () => {
