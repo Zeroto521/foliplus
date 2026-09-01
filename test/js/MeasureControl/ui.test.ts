@@ -264,20 +264,11 @@ describe("attachDistanceUI", () => {
     expect(() => toggle(false)).not.toThrow();
   });
 
-  it("re-registers surviving label registrations with fresh endpoints after deleting an inner node (regression)", () => {
+  it("re-registers the correct number of labels after deleting an inner node (regression)", () => {
     // A 3-point distance creates 2 segment labels. Deleting the middle node
-    // splices both the points array and the segLabels array, so the survivor's
-    // registration must be re-issued with the new end-to-end endpoints — stale
-    // closures would leave the survivor pointing at the old (now invalid)
-    // segment and drift out of place on the next plan.
-    const registerLabel = vi.fn((marker: any, endpoints: () => any) => {
-      // Return the endpoints in the call record so we can re-read them after
-      // the delete, proving the closure is fresh (reads the mutable points
-      // array) not captured once. The real registerLabel returns an
-      // unregister function, so we do too.
-      (registerLabel as any).savedEndpoints = endpoints();
-      return () => {};
-    });
+    // collapses it to a single segment, so bindSegLabels() must unregister the
+    // two old registrations and register exactly one.
+    const registerLabel = vi.fn(() => () => {});
     const mgr = {
       map: { on: vi.fn(), off: vi.fn() },
       isEditMode: true,

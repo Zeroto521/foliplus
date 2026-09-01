@@ -8,13 +8,7 @@ import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
-import {
-  type CollidableLabel,
-  mapProjector,
-  perpCandidates,
-  placeLabels,
-  segmentDir,
-} from "./collision.js";
+import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
@@ -319,32 +313,20 @@ class MeasureManager {
   }
 
   /**
-   * Register a label chip for collision detection. `endpoints` returns the two
-   * points the label sits between — a segment's ends, or two shape vertices for
-   * a centroid label — and the push directions are derived from that segment in
-   * pixel space. `priority` says how much this label matters: the lowest values
-   * drop out first when room runs out.
-   *
-   * Both `endpoints` and the chip are re-read on every plan, so a dragged node
-   * or a `setIcon` during a drag cannot leave a stale element or direction.
+   * Register a label chip for collision detection. `priority` says how much
+   * this label matters: the lowest values drop out first when two chips
+   * overlap heavily. The chip is re-read on every plan, so a `setIcon` during
+   * a drag cannot leave a stale element reference.
    *
    * Returns an unregister function; measurements call it when a label is
    * removed from the map.
    */
-  registerLabel = (
-    marker: L.Marker,
-    endpoints: () => [L.LatLng, L.LatLng],
-    priority: number,
-  ): (() => void) => {
+  registerLabel = (marker: L.Marker, priority: number): (() => void) => {
     // Labels off: chips are hidden by the container class, so they need no
     // placement at all — keep them out of the planner.
     if (CONF.show_labels === false) return () => {};
 
-    const label: CollidableLabel = {
-      marker,
-      candidates: p => perpCandidates(segmentDir(p, ...endpoints())),
-      priority,
-    };
+    const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
     this.bindLabelMapEvents();
     this.scheduleLabelPlan();

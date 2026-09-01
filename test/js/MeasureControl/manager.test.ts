@@ -7,25 +7,11 @@ import * as Storage from "#common/storage.js";
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
 // imports collision.js synchronously at module load.
-const { placeLabels, segmentDir, perpCandidates } = vi.hoisted(() => ({
-  placeLabels: vi.fn(() => 0),
-  segmentDir: vi.fn(() => [1, 0]),
-  perpCandidates: (dir: [number, number]) => {
-    const [dx, dy] = dir;
-    const len = Math.hypot(dx, dy) || 1;
-    return [
-      [-dy / len, dx / len],
-      [dy / len, -dx / len],
-    ] as Array<[number, number]>;
-  },
-}));
+const placeLabels = vi.hoisted(() => vi.fn(() => 0));
 
 vi.mock("#foliplus/MeasureControl/collision.js", () => ({
   placeLabels,
-  segmentDir,
-  perpCandidates,
   mapProjector: () => ({
-    px: () => ({ x: 0, y: 0 }),
     box: () => ({ x: 0, y: 0, w: 64, h: 18 }),
   }),
 }));
@@ -824,7 +810,6 @@ describe("MeasureManager — onMapClick handler", () => {
 // this file) and only exercise the manager.
 type CollidableLabel = {
   marker: L.Marker;
-  candidates: (p: unknown) => Array<[number, number]>;
   priority: number;
 };
 
@@ -893,14 +878,6 @@ beforeEach(() => {
     return 1;
   });
   placeLabels.mockReset();
-  segmentDir.mockReset();
-});
-
-beforeEach(() => {
-  placeLabels.mockImplementation(
-    (labels: Array<{ candidates?: (p: unknown) => unknown }>) =>
-      labels.forEach(lb => lb.candidates?.({} as unknown as Projector)),
-  );
 });
 
 describe("MeasureManager — registerLabel lifecycle", () => {
@@ -908,14 +885,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     const { manager } = makeLabelManager();
     const marker = makeLabelMarker();
 
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
 
     flushRaf();
     expect(placeLabels).toHaveBeenCalledTimes(1);
@@ -925,14 +895,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   it("passes the collide flag through to placeLabels", () => {
     const { manager } = makeLabelManager({ collide_labels: true });
     const marker = makeLabelMarker();
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
 
     flushRaf();
     expect(placeLabels.mock.calls[0][2] as boolean).toBe(true);
@@ -941,14 +904,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   it("passes collide=false through when detection is off", () => {
     const { manager } = makeLabelManager({ collide_labels: false });
     const marker = makeLabelMarker();
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
 
     flushRaf();
     expect(placeLabels.mock.calls[0][2] as boolean).toBe(false);
@@ -962,53 +918,23 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(manager.labelsCollide).toBe(false);
   });
 
-  it("carries the endpoint closure as a callable on the label and re-evaluates it on each plan", () => {
+  it("forwards the marker and priority to the label passed into placeLabels", () => {
     const { manager } = makeLabelManager();
     const marker = makeLabelMarker();
-    const endpointSpy = vi.fn(() => [
-      { lat: 0, lng: 0 },
-      { lat: 0, lng: 2 },
-    ]);
 
-    manager.registerLabel(marker, endpointSpy, 60);
+    manager.registerLabel(marker, 60);
 
     flushRaf();
     const label = (placeLabels.mock.calls[0][0] as CollidableLabel[])[0]!;
     expect(label.marker).toBe(marker);
     expect(label.priority).toBe(60);
-    expect(typeof label.candidates).toBe("function");
-
-    // Snapshot the call count after the first plan (the plan itself invokes
-    // candidates via segmentDir), then confirm the closure is re-evaluated —
-    // not a stale constant — on each subsequent ask.
-    const callsAfterFirstPlan = endpointSpy.mock.calls.length;
-
-    const dirs = label.candidates({
-      px: (ll: L.LatLng) => ({ x: ll.lng, y: ll.lat }) as L.Point,
-      box: () => ({ x: 0, y: 0, w: 64, h: 18 }),
-    });
-    expect(endpointSpy.mock.calls.length).toBe(callsAfterFirstPlan + 1);
-    const dirs2 = label.candidates({
-      px: (ll: L.LatLng) => ({ x: ll.lng, y: ll.lat }) as L.Point,
-      box: () => ({ x: 0, y: 0, w: 64, h: 18 }),
-    });
-    expect(endpointSpy.mock.calls.length).toBe(callsAfterFirstPlan + 2);
-    expect(dirs.length).toBeGreaterThanOrEqual(2);
-    expect(dirs2.length).toBeGreaterThanOrEqual(2);
   });
 
   it("re-plans the live label set when a map-move event fires", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
 
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
     flushRaf();
     const initialCalls = placeLabels.mock.calls.length;
 
@@ -1026,25 +952,11 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     const a = makeLabelMarker();
     const b = makeLabelMarker();
 
-    const unregisterA = manager.registerLabel(
-      a,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    const unregisterA = manager.registerLabel(a, 60);
     flushRaf();
     expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(1);
 
-    manager.registerLabel(
-      b,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(b, 60);
     flushRaf();
     expect((placeLabels.mock.calls[1][0] as CollidableLabel[]).length).toBe(2);
 
@@ -1064,14 +976,7 @@ describe("MeasureManager — map event binding", () => {
 
     expect(map.on).not.toHaveBeenCalledWith("moveend", expect.any(Function));
 
-    manager.registerLabel(
-      makeLabelMarker(),
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(makeLabelMarker(), 60);
 
     expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
     expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
@@ -1082,14 +987,7 @@ describe("MeasureManager — map event binding", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
 
-    const unregister = manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    const unregister = manager.registerLabel(marker, 60);
     flushRaf();
 
     unregister();
@@ -1105,23 +1003,9 @@ describe("MeasureManager — map event binding", () => {
     const a = makeLabelMarker();
     const b = makeLabelMarker();
 
-    const unregisterA = manager.registerLabel(
-      a,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    const unregisterA = manager.registerLabel(a, 60);
     flushRaf();
-    manager.registerLabel(
-      b,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(b, 60);
     flushRaf();
 
     unregisterA();
@@ -1135,28 +1019,14 @@ describe("MeasureManager — map event binding", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
 
-    const unregister = manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    const unregister = manager.registerLabel(marker, 60);
     flushRaf();
     unregister();
     flushRaf();
 
     const offBefore = map.off.mock.calls.length;
 
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
     flushRaf();
 
     expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
@@ -1171,14 +1041,7 @@ describe("MeasureManager — show_labels gate", () => {
     const { manager, map } = makeLabelManager({ show_labels: false });
     const marker = makeLabelMarker();
 
-    const unregister = manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    const unregister = manager.registerLabel(marker, 60);
 
     expect(placeLabels).not.toHaveBeenCalled();
     expect(map.on).not.toHaveBeenCalledWith("moveend", expect.any(Function));
@@ -1201,14 +1064,7 @@ describe("MeasureManager — label cleanup", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
 
-    manager.registerLabel(
-      marker,
-      () => [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 0 },
-      ],
-      60,
-    );
+    manager.registerLabel(marker, 60);
     flushRaf();
 
     manager.destroy();

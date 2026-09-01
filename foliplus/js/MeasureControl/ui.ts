@@ -75,13 +75,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     labelBinds.forEach(f => f());
     labelBinds.length = 0;
     segLabels.forEach((label, i) => {
-      labelBinds.push(
-        mgr.registerLabel(
-          label,
-          () => [points[i], points[i + 1]],
-          CONST.LABEL_PRIORITY.SEGMENT,
-        ),
-      );
+      labelBinds.push(mgr.registerLabel(label, CONST.LABEL_PRIORITY.SEGMENT));
     });
   };
   bindSegLabels();
@@ -262,15 +256,9 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   let unregisterDragToggle: () => void = () => {};
   const dragBinds: DragBind[] = [];
   // The single radius label persists as a marker (updateLabel() only moves and
-  // restyles it), so one registration survives for the measurement's life. Its
-  // push directions follow the radius line, which changes as the center or the
-  // edge node is dragged.
+  // restyles it), so one registration survives for the measurement's life.
   const unregisterRadiusLabel = radiusLabel
-    ? mgr.registerLabel(
-        radiusLabel,
-        () => [circle.getLatLng(), radiusNode!.getLatLng()],
-        CONST.LABEL_PRIORITY.RADIUS,
-      )
+    ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY.RADIUS)
     : () => {};
 
   const onOpen = () => {
@@ -407,13 +395,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     labelBinds.length = 0;
     const n = points.length;
     segLabels.forEach((label, i) => {
-      labelBinds.push(
-        mgr.registerLabel(
-          label,
-          () => [points[i], points[(i + 1) % n]],
-          CONST.LABEL_PRIORITY.SEGMENT,
-        ),
-      );
+      labelBinds.push(mgr.registerLabel(label, CONST.LABEL_PRIORITY.SEGMENT));
     });
   };
   // The initial labels arrive from the drawing mode; relabel() re-issues them
@@ -435,7 +417,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
     labelBinds.forEach(f => f());
-    if (unregisterCentroid) unregisterCentroid();
+    unregisterCentroid();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -494,11 +476,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       }),
       true,
     ) as L.Marker;
-    // The centroid has no home segment; any two distinct vertices give the
-    // planner a direction to push against when the area fights a segment label.
     unregisterCentroid = mgr.registerLabel(
       centroidLabel,
-      () => [points[0], points[1]],
       CONST.LABEL_PRIORITY.CENTROID,
     );
     centroidDelMarker = layers.addLayer(
