@@ -474,7 +474,10 @@ path.foliplus-focus-mask {
     }
   }
   /* ── More options button (reserved slot, always visible) ──
-    Black at rest; tints accent on hover AND when the row is active. As the
+    Black at rest; tints accent on hover only. The .active state (layer
+    selected) is a status, not an action — the more button is an action, so
+    it should only wake up when the pointer hovers it, not when the layer is
+    merely selected. As the
     row's only in-line action, it answers to the action color immediately on
     hover, not only when selected. */
   .foliplus-layer-more-btn {
@@ -498,8 +501,7 @@ path.foliplus-focus-mask {
       display: block;
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
+  .foliplus-layer-item:hover .foliplus-layer-more-btn {
     color: var(--accent-primary);
   }
 
