@@ -44,8 +44,7 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
   items.forEach((el: Element, i: number) =>
     el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
   );
-  if (ctrl.selectedIdx >= 0)
-    ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
+  if (ctrl.selectedIdx >= 0) ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
 };
 
 /**

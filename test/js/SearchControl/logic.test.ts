@@ -119,9 +119,27 @@ describe("renderResults", () => {
       },
     };
     renderResults(ctrl, [
-      { source: "suggestion", icon: "", primaryText: "One", coordDisplay: null, onClick: () => true },
-      { source: "suggestion", icon: "", primaryText: "Two", coordDisplay: null, onClick: () => true },
-      { source: "suggestion", icon: "", primaryText: "Three", coordDisplay: null, onClick: () => true },
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "One",
+        coordDisplay: null,
+        onClick: () => true,
+      },
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "Two",
+        coordDisplay: null,
+        onClick: () => true,
+      },
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "Three",
+        coordDisplay: null,
+        onClick: () => true,
+      },
     ]);
     const domItems = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
     expect(domItems).toHaveLength(3);
