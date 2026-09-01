@@ -51,6 +51,9 @@ afterEach(() => {
   delete globalThis.fetch;
   document.body.innerHTML = "";
   window.history.replaceState(null, "", "/");
+  // Clear search history so a test that runs a real geocode (searchCoord /
+  // searchAddress) cannot pollute a later test that asserts on an empty store.
+  delete window.localStorage[HISTORY_STORAGE_KEY];
   // window.map is shared across tests; clear active modes so a blocked-mode
   // test cannot leak and silently fail the next test.
   const modes = ensureModes(window.map);

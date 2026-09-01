@@ -322,7 +322,10 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       }
       // result is already in map CRS — render directly; convert back to
       // WGS84 for history storage (history entries are stored in WGS84).
-      renderAddressResult(ctrl, result);
+      // renderAddressResult refuses (returns false) if another control now
+      // holds a mode while the geocode request was in flight; gate the
+      // history write on success so we don't record a marker that was never placed.
+      if (!renderAddressResult(ctrl, result)) return;
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
       const addrDisplay =
