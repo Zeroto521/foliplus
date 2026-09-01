@@ -65,8 +65,9 @@ export interface ResultItem {
   query?: string;
   /** Secondary coordinate display (shown in RESULT_COORD, null to hide). */
   coordDisplay: string | null;
-  /** Click handler — called after the panel is removed. */
-  onClick: () => void;
+  /** Click handler — returns true on success (panel should close), false if
+   * blocked by an active mode (panel stays open, hint shown). */
+  onClick: () => boolean;
 }
 
 /** Public shape of the SearchControl instance, shared across sub-modules. */

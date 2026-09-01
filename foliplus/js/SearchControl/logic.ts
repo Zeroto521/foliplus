@@ -119,6 +119,8 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
     newer.count = existing.count + entry.count;
     newer.coordDisplay = newer.coordDisplay || older.coordDisplay;
     newer.addrDisplay = newer.addrDisplay || older.addrDisplay;
+    // newer may be the incoming entry (not the one in the map) when
+    // existing.ts < entry.ts, so we must update the map reference.
     byKey.set(key, newer);
   }
   return Array.from(byKey.values());
@@ -343,7 +345,8 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
 const renderAddressResult = (
   ctrl: SearchControlState,
   result: AddressResult | { lat: number; lng: number; display_name: string },
-) => {
+): boolean => {
+  if (guardBlocked(map, CONF.name, T("blocked"))) return false;
   let displayName: string;
   let lng: number;
   let lat: number;
@@ -379,6 +382,7 @@ const renderAddressResult = (
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
+  return true;
 };
 
 // ── Suggestions / History Panel ──────────────────────────────────
@@ -437,8 +441,10 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
         onmousedown: (event: Event) => {
           event.stopPropagation();
           event.preventDefault();
-          removePanel(ctrl);
-          item.onClick();
+          // Panel closes only if the click actually places a marker. A
+          // mode-lock refusal leaves the panel open so the user sees the
+          // hint and can retry once the blocking mode clears.
+          if (item.onClick()) removePanel(ctrl);
         },
       },
       dom.el("span", { class: CLASSES.RESULT_ICON }, { html: item.icon }),
@@ -476,7 +482,7 @@ const renderSuggestions = (
       primaryText: displayName,
       coordDisplay,
       onClick: () => {
-        renderAddressResult(ctrl, { item, displayName });
+        if (!renderAddressResult(ctrl, { item, displayName })) return false;
         recordHistorySearch(
           ctrl,
           query,
@@ -486,6 +492,7 @@ const renderSuggestions = (
           parseFloat(item.lng),
           parseFloat(item.lat),
         );
+        return true;
       },
     };
   });
@@ -512,11 +519,11 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
     // Unified panel/popup display: address first, coordinates as fallback.
     const display = entry.addrDisplay || entry.coordDisplay || "";
     // Re-entry value written into the input on click / keyboard select.
-    // Use the panel's display so the input matches what the user clicked —
-    // addrDisplay for address entries, coordDisplay for coord entries. Both
-    // are parseable (coordDisplay is the formatted coordinate string, addr
-    // goes through geocode again and resolves to the same point). Fall back
-    // to the stored query only if the entry's own display is missing.
+    // Type-aware: addr entries use addrDisplay, coord entries use coordDisplay,
+    // so the input always gets the parseable value matching the entry's type.
+    // Both are parseable — coordDisplay is the formatted coordinate string,
+    // addrDisplay goes through geocode again and resolves to the same point.
+    // Fall back to the stored query only if the entry's own display is missing.
     const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
@@ -525,6 +532,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
       query: reEntry,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
+        if (guardBlocked(map, CONF.name, T("blocked"))) return false;
         ctrl.inp.value = reEntry;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
@@ -544,6 +552,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
           ctrl.marker,
         );
         attachSearchDelIcon(ctrl, [lat, lng]);
+        return true;
       },
     };
   });
