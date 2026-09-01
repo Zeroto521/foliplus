@@ -753,7 +753,6 @@ class TestFullscreenControlBrowser:
             assert abs(float(opacity_out)) < 0.02, opacity_out
             assert not errors, f"JS errors: {errors}"
 
-
     def test_scrim_does_not_affect_controls(self, browser, tmp_path):
         """Controls keep their own background and alpha during the crossfade.
 
