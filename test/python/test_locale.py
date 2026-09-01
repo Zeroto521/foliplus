@@ -131,6 +131,7 @@ _JS_USED_KEYS = {
     "LayerControl.readonly_error",
     "LayerControl.readonly_del_error",
     "LayerControl.readonly_method_error",
+    "LayerControl.blocked",
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",
     "MeasureControl.hint_edit_empty",
