@@ -118,8 +118,8 @@ class TestFullscreeControlRendering:
         assert "foliplus-dim-active" in html
         # PostCSS minifies `260ms` → `.26s` and `0.5` → `.5`, so assert
         # token names and numeric values rather than the exact string form.
-        assert "--dim-duration" in html and ".26s" in html
-        assert "--dim-alpha" in html and ".5" in html
+        assert "--dim-duration" in html and ("260ms" in html or ".26s" in html)
+        assert "--dim-alpha" in html and ("0.5" in html or ".5" in html)
         assert "pointer-events" in html and "none" in html
 
     def test_css_dim_uses_tokens(self):
@@ -530,7 +530,7 @@ class TestFullscreenControlBrowser:
             )
 
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(400)  # fade is 260ms
+            page.wait_for_timeout(250)  # sample within the 260ms flash, before auto-clear
             opacity_in = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
@@ -548,7 +548,7 @@ class TestFullscreenControlBrowser:
             )
             assert abs(float(opacity_out)) < 0.02, opacity_out
 
-            # The scrim persists across the round-trip; only the class toggles.
+            # The scrim element is created once per map and kept in the DOM;
             assert (
                 page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
             )
@@ -729,7 +729,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(250)  # sample during the flash
             opacity_in = self._scrim_snapshot(page)["opacity"]
             assert abs(float(opacity_in) - 0.5) < 0.02, opacity_in
 
@@ -844,7 +844,7 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(250)  # sample during the flash
             snap = self._scrim_snapshot(page)
             assert snap is not None
             assert snap["rect"]["width"] == page.evaluate("window.innerWidth"), snap
@@ -878,7 +878,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(250)  # sample during the flash
 
             check = page.evaluate(
                 """() => {
