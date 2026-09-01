@@ -385,8 +385,7 @@ class ExportManager {
       // keeps ticking at ~60Hz until stopped, so without this the box would
       // drift forever after a single press.
       this.nudgeStop();
-      if (this.cropState)
-        this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+      if (this.cropState) this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     }
   }
 

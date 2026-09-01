@@ -123,15 +123,18 @@ describe("rafLoop", () => {
     let tickCount = 0;
     let shouldStop = false;
     let fireCallback!: () => void;
-    const loop = rafLoop(() => {
-      tickCount++;
-      return shouldStop;
-    }, {
-      scheduler: fn => {
-        fireCallback = fn;
-        return 0;
+    const loop = rafLoop(
+      () => {
+        tickCount++;
+        return shouldStop;
       },
-    });
+      {
+        scheduler: fn => {
+          fireCallback = fn;
+          return 0;
+        },
+      },
+    );
     loop.start();
     expect(tickCount).toBe(1); // sync first frame
 
@@ -156,15 +159,18 @@ describe("rafLoop", () => {
     // scheduled callback (not the sync first frame).
     let tickCount = 0;
     let fireCallback!: () => void;
-    const loop = rafLoop(() => {
-      tickCount++;
-      return false;
-    }, {
-      scheduler: fn => {
-        fireCallback = fn;
-        return 0;
+    const loop = rafLoop(
+      () => {
+        tickCount++;
+        return false;
       },
-    });
+      {
+        scheduler: fn => {
+          fireCallback = fn;
+          return 0;
+        },
+      },
+    );
     loop.start();
     expect(tickCount).toBe(1); // sync first frame
 
