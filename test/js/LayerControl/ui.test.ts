@@ -1218,6 +1218,133 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  // ─────────────────── keyboard focus cursor visual class ───────────────────
+
+  describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
+    // getNavigableItems() enumerates rows by checkbox DOM order: the "Toggle
+    // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
+    // up indices dynamically so a re-order doesn't silently break these tests.
+    const indexFor = (id: string) =>
+      ui.getNavigableItems().indexOf(findItem(ui, id));
+
+    it("setActiveItem adds the FOCUSED class to the target row", () => {
+      const overlay = findItem(ui, "overlay1");
+      const base = findItem(ui, "base1");
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(0);
+
+      ui.setActiveItem(indexFor("overlay1"));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(1);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
+    it("moving the cursor removes FOCUSED from the previous row (mutual exclusivity)", () => {
+      const overlay = findItem(ui, "overlay1");
+      const base = findItem(ui, "base1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+
+      ui.setActiveItem(indexFor("base1"));
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      // Only ONE row carries the class at any time.
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(1);
+      expect(ui.activeIdx).toBe(indexFor("base1"));
+    });
+
+    it("blurActiveItem removes the FOCUSED class from the current row", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      (ui as any).blurActiveItem();
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(0);
+      // activeIdx is preserved by blurActiveItem — only the marker is lifted.
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
+    it("clearActiveItem removes the FOCUSED class and resets activeIdx/clickedRow", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+
+      ui.clearActiveItem();
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(0);
+      expect(ui.activeIdx).toBeNull();
+      expect((ui as any).clickedRow).toBeNull();
+    });
+
+    it("Escape keydown clears the FOCUSED class", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.focus();
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Escape",
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+      ).toHaveLength(0);
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      // Check the checkbox (adds .active via the toggle path) then set cursor
+      // onto the same row — both classes must be present simultaneously so the
+      // visual distinction between "checked" (5% wash) and "cursor-on" (8%
+      // wash + accent bar) is preserved.
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.checked = true;
+      overlay.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
+      ui.setActiveItem(indexFor("overlay1"));
+
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    });
+  });
+
   // ─────────────────── auto-cancel on map move/zoom ───────────────────
 
   describe("focusLayer auto-cancel on map navigation", () => {
