@@ -231,8 +231,8 @@ describe("placeLabels", () => {
     const hidden = plan([la, lb_]);
     expect(hidden).toBe(1);
     // Equal strength → one claims space, the other hides; exactly one visible.
-    const visible = (aEl.style.visibility === "" ? 1 : 0) +
-      (bEl.style.visibility === "" ? 1 : 0);
+    const visible =
+      (aEl.style.visibility === "" ? 1 : 0) + (bEl.style.visibility === "" ? 1 : 0);
     expect(visible).toBe(1);
   });
 
