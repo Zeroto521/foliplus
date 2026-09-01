@@ -88,11 +88,11 @@ const hides = (a: Box, b: Box): boolean =>
  * chip dropped by collision comes back once the map zooms out.
  *
  * The planner is order-independent: the survivor set depends only on each chip's
- * (priority, area, position), not on label registration order. Chips are ranked
- * by strength (priority desc, area desc) and swept strongest-first — a chip is
+ * (priority, width, position), not on label registration order. Chips are ranked
+ * by strength (priority desc, width desc) and swept strongest-first — a chip is
  * hidden iff it heavily overlaps any already-shown chip; otherwise it claims its
  * space for the rest of the sweep. Two chips decide by priority (lower loses);
- * a tie breaks to the smaller chip's area, so the wider label keeps its anchor.
+ * a tie breaks to the narrower chip's width, so the wider label keeps its anchor.
  *
  * Chips must be rendered before this runs: the caller defers the call to a
  * `requestAnimationFrame`, which also keeps the forced layout reads off the
@@ -136,14 +136,15 @@ export const placeLabels = (
     return 0;
   }
 
-  // Sort by strength (priority desc, area desc, then stable index) so the
-  // survivor set is a function of (priority, area, position) alone — invariant
-  // under any permutation of `labels`.
+  // Sort by strength (priority desc, width desc, then stable index) so the
+  // survivor set is a function of (priority, width, position) alone — invariant
+  // under any permutation of `labels`. Width, not area, because the hide
+  // criterion (hides) is a 1D horizontal rule that never looks at height; the
+  // sort winner must match the hide-rules winner.
+  // O(n^2) overall (shown.some per chip) — acceptable for n <= ~200 labels.
   entries.sort((a, b) => {
     if (b.lb.priority !== a.lb.priority) return b.lb.priority - a.lb.priority;
-    const aArea = a.box.w * a.box.h;
-    const bArea = b.box.w * b.box.h;
-    if (bArea !== aArea) return bArea - aArea;
+    if (b.box.w !== a.box.w) return b.box.w - a.box.w;
     return a.idx - b.idx;
   });
 
