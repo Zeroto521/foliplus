@@ -264,10 +264,18 @@
   transform: translate(0, 0);
 }
 
-.foliplus-dim-bracket-active .foliplus-dim-bracket-tl { transform: translate(0, 0); }
-.foliplus-dim-bracket-active .foliplus-dim-bracket-tr { transform: translate(0, 0); }
-.foliplus-dim-bracket-active .foliplus-dim-bracket-bl { transform: translate(0, 0); }
-.foliplus-dim-bracket-active .foliplus-dim-bracket-br { transform: translate(0, 0); }
+.foliplus-dim-bracket-active .foliplus-dim-bracket-tl {
+  transform: translate(0, 0);
+}
+.foliplus-dim-bracket-active .foliplus-dim-bracket-tr {
+  transform: translate(0, 0);
+}
+.foliplus-dim-bracket-active .foliplus-dim-bracket-bl {
+  transform: translate(0, 0);
+}
+.foliplus-dim-bracket-active .foliplus-dim-bracket-br {
+  transform: translate(0, 0);
+}
 
 /* ── Reduce motion: brackets still appear (the spatial cue is valuable), but
   they snap to position without sliding. */

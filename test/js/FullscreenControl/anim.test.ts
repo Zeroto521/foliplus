@@ -23,9 +23,8 @@ const attach = (el: HTMLElement) => {
 };
 
 const dimEl = (container: HTMLElement) => container.querySelector(`.${CLASSES.DIM}`);
-const bracketEl = (
-  container: HTMLElement,
-) => container.querySelector(`.${CLASSES.BRACKET}`);
+const bracketEl = (container: HTMLElement) =>
+  container.querySelector(`.${CLASSES.BRACKET}`);
 
 const clean = () => {
   document.querySelectorAll(`.${CLASSES.DIM}`).forEach(el => {
