@@ -197,6 +197,36 @@ describe("MeasureManager — mode switching", () => {
     const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
     expect(showOrder).toBeGreaterThan(hideOrder);
   });
+
+  it("leaves modeInstance null when setMode is given an unknown mode name", () => {
+    // An unknown mode string passes the guard but has no entry in MODE_MAP, so
+    // setMode must not throw and modeInstance stays null instead of a runtime
+    // error on modeInstance.start().
+    const { manager } = makeManager();
+    expect(() => manager.setMode("nonexistent-mode")).not.toThrow();
+    expect(manager.modeInstance).toBeNull();
+  });
+
+  it("clears an active drawing mode when leaving edit mode via clearActiveMode", () => {
+    // Regression surface: clearActiveMode (called by the LAYER_REMOVED handler)
+    // must exit edit mode before clearing the drawing mode, otherwise edit
+    // handles linger while the drawing mode is deactivated.
+    // Note: setMode(DISTANCE) exits edit mode on its own (line 232) before
+    // entering the drawing mode, so that normal flow never leaves us in the
+    // (isEditMode=true, currentMode=distance) state; we synthesize that state
+    // here to exercise the clearActiveMode branch.
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    manager.currentMode = CONST.MODE.DISTANCE;
+
+    const spy = vi.spyOn(manager, "setEditMode");
+
+    manager.clearActiveMode();
+
+    expect(spy).toHaveBeenCalledWith(false);
+    expect(manager.currentMode).toBeNull();
+    expect(manager.isEditMode).toBe(false);
+  });
 });
 
 describe("MeasureManager — setEditMode", () => {
@@ -496,6 +526,20 @@ describe("MeasureManager — global events", () => {
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("non-Escape keydown is ignored by the manager's keydown handler", () => {
+    // The manager's onKeyDown only acts on Escape; every other key returns
+    // early and must not clear mode or edit state.
+    const { manager } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    const editSpy = vi.spyOn(manager, "setEditMode");
+    manager.currentMode = CONST.MODE.DISTANCE;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(editSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -1047,6 +1091,22 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     const last = placeLabels.mock.calls[2] as [CollidableLabel[]];
     expect(last[0].length).toBe(1);
     expect(last[0][0]!.marker).toBe(b);
+  });
+
+  it("skips the planner when the label set is empty after unregistering the last label", () => {
+    // planLabels returns early when collidableLabels is empty; unregistering
+    // the final label must not pass an empty array into the planner.
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+
+    unregister();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(1);
   });
 });
 

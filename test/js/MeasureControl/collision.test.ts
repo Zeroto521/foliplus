@@ -276,3 +276,23 @@ describe("placeLabels", () => {
     expect(farEl.style.visibility).toBe("");
   });
 });
+
+describe("mapProjector", () => {
+  it("falls back to minimum chip size when a chip is not yet rendered", () => {
+    // A chip that has not entered the DOM reports width/height 0 from
+    // getBoundingClientRect; mapProjector must return sensible minimums so
+    // the planner never treats an unrendered chip as sizeless.
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const map = { getContainer: () => container } as unknown as L.Map;
+
+    const unrendered = document.createElement("div");
+    // Not appended to the document — getBoundingClientRect returns zeros.
+
+    const proj = Collision.mapProjector(map);
+    const box = proj.box(unrendered);
+
+    expect(box.w).toBe(64);
+    expect(box.h).toBe(18);
+  });
+});
