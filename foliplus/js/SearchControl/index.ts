@@ -7,7 +7,7 @@ import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
-import { CLASSES, MODE } from "./const.js";
+import { CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
@@ -31,11 +31,12 @@ export class SearchControl extends BaseControl {
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
+  declare interactionCleanup: (() => void) | null;
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
   declare marker: L.Marker | null;
   declare delIcon: L.Marker | null;
-  declare mode: string;
+  declare mode: SearchType;
   declare panelWrap: HTMLElement | null;
   declare selectedIdx: number;
   declare lastSuggestFetch: number;
@@ -46,14 +47,14 @@ export class SearchControl extends BaseControl {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
-    (this as any).interactionCleanup = bindEvents(this);
+    this.interactionCleanup = bindEvents(this);
     initFromUrl(this);
     bindOutsideCollapse({ container: this.ctrl });
     return this.container;
   }
 
   destroy() {
-    (this as any).interactionCleanup?.();
+    this.interactionCleanup?.();
     removePanel(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
@@ -108,8 +109,8 @@ export class SearchControl extends BaseControl {
   initState() {
     this.marker = null;
     this.delIcon = null;
-    this.mode = CONF.mode ?? "";
-    if (this.mode !== MODE.COORD && this.mode !== MODE.ADDR) this.mode = MODE.COORD;
+    this.mode =
+      CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
@@ -127,7 +128,7 @@ export class SearchControl extends BaseControl {
   }
 
   // ── Mode Switching ──
-  setMode(newMode: string) {
+  setMode(newMode: SearchType) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.GLOBE;

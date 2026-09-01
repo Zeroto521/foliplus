@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTOCOMPLETE, HISTORY } from "#foliplus/SearchControl/const.js";
+import { AUTOCOMPLETE, HISTORY, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
   attachSearchDelIcon,
@@ -754,6 +754,22 @@ describe("searchCoord edge cases", () => {
     }
   });
 
+  it("falls back to ZOOM.MAX when CONF.zoom is unset", () => {
+    const original = window.CONF.zoom;
+    try {
+      window.CONF = { ...window.CONF, zoom: undefined };
+      const ctrl: any = {
+        inp: { value: "121.47,31.23" },
+        marker: null,
+        searchHistory: [],
+      };
+      searchCoord(ctrl, "121.47,31.23");
+      expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], ZOOM.MAX);
+    } finally {
+      window.CONF = { ...window.CONF, zoom: original };
+    }
+  });
+
   it("is blocked when MeasureControl is active", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const ctrl: any = {
@@ -1264,6 +1280,81 @@ describe("SearchControl history", () => {
   });
 
   describe("loadHistory / saveHistory", () => {
+    /** Write partial entries as an older version would have stored them. */
+    const store = (entries: object[]): void => {
+      localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify(entries));
+    };
+
+    it("fills defaults for fields older versions never wrote", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1234567);
+      store([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]);
+      const [entry] = loadHistory();
+      expect(entry).toEqual({
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "Paris",
+        lng: 0,
+        lat: 0,
+        ts: 1234567,
+        count: 1,
+      });
+    });
+
+    it("leaves the display fields empty when a coord entry has no label", () => {
+      store([{ query: "120, 32", type: MODE.COORD, ts: 1000 }]);
+      const [entry] = loadHistory();
+      expect(entry.query).toBe("120,32");
+      expect(entry.coordDisplay).toBe("");
+      expect(entry.addrDisplay).toBe("");
+    });
+
+    it("falls back to the older entry's display when the newest one is empty", () => {
+      store([
+        {
+          query: "120,32",
+          type: MODE.COORD,
+          coordDisplay: "120.000000, 32.000000",
+          ts: 500,
+        },
+        { query: "120,32", type: MODE.COORD, coordDisplay: "", ts: 900 },
+      ]);
+      const [entry] = loadHistory();
+      expect(entry.coordDisplay).toBe("120.000000, 32.000000");
+      expect(entry.count).toBe(2);
+    });
+
+    it("drops null and non-object rows instead of crashing", () => {
+      store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }]);
+      const [entry] = loadHistory();
+      expect(entry).toEqual({
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "",
+        lng: 0,
+        lat: 0,
+        ts: 1000,
+        count: 1,
+      });
+    });
+
+    it("downgrades a row with no usable fields to a defaulted addr entry", () => {
+      store([{}]);
+      const [entry] = loadHistory();
+      expect(entry).toEqual({
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "",
+        lng: 0,
+        lat: 0,
+        ts: expect.any(Number),
+        count: 1,
+      });
+    });
+
     it("loads empty array when nothing is stored", () => {
       const entries = loadHistory();
       expect(entries).toEqual([]);
@@ -2025,27 +2116,34 @@ describe("SearchControl history", () => {
     });
 
     it("clicking a history entry navigates to the saved coordinates", () => {
-      const ctrl = makeHistoryCtrl([
-        {
-          query: "Paris",
-          type: "addr",
-          coordDisplay: "2.3, 48.8",
-          addrDisplay: "Paris, France",
-          lng: 2.3,
-          lat: 48.8,
-          ts: 1000,
-          count: 1,
-        },
-      ]);
-      renderHistory(ctrl, "addr");
-      const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
-      const mouseEvent = new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-      });
-      item.dispatchEvent(mouseEvent);
-      expect(map.flyTo).toHaveBeenCalled();
-      expect(ctrl.inp.value).toBe("Paris, France");
+      // CONF.zoom is unset so the flyTo target exercises the ZOOM.MAX fallback.
+      const original = window.CONF.zoom;
+      try {
+        window.CONF = { ...window.CONF, zoom: undefined };
+        const ctrl = makeHistoryCtrl([
+          {
+            query: "Paris",
+            type: "addr",
+            coordDisplay: "2.3, 48.8",
+            addrDisplay: "Paris, France",
+            lng: 2.3,
+            lat: 48.8,
+            ts: 1000,
+            count: 1,
+          },
+        ]);
+        renderHistory(ctrl, "addr");
+        const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
+        const mouseEvent = new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+        });
+        item.dispatchEvent(mouseEvent);
+        expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
+        expect(ctrl.inp.value).toBe("Paris, France");
+      } finally {
+        window.CONF = { ...window.CONF, zoom: original };
+      }
     });
 
     it("renders only coord entries in coord mode", () => {
