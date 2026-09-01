@@ -127,7 +127,10 @@ class ExportManager {
 
   constructor(
     mapInstance: L.Map,
-    scheduler: (fn: () => void, ms: number) => ReturnType<typeof setTimeout> = setTimeout,
+    scheduler: (
+      fn: () => void,
+      ms: number,
+    ) => ReturnType<typeof setTimeout> = setTimeout,
   ) {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
@@ -366,7 +369,10 @@ class ExportManager {
         const d = nudgeDirection(k ?? key);
         if (syncFrame) {
           syncFrame = false;
-          this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
+          this.nudgeCropBoxDelta(
+            d.x * CONST.CROP.NUDGE_STEP,
+            d.y * CONST.CROP.NUDGE_STEP,
+          );
         } else {
           this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
           accX = (accX + perFrame) % 1;
