@@ -1214,6 +1214,22 @@ describe("MeasureManager — label cleanup", () => {
     expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
   });
 
+  it("destroy tolerates an unflushed rAF — the pending plan runs against an empty set", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+    placeLabels.mockClear();
+
+    manager.registerLabel(marker, 60);
+    // Do not flush rAF — leave a plan in flight.
+    manager.destroy();
+
+    // Now drain the pending rAF; it must not throw even though the manager
+    // has cleared collidableLabels. planLabels() returns early (empty set) so
+    // placeLabels is never reached.
+    expect(() => flushRaf()).not.toThrow();
+    expect(placeLabels).not.toHaveBeenCalled();
+  });
+
   it("destroy unbinds map events safely even when no label was ever registered", () => {
     const { manager, map } = makeLabelManager();
 

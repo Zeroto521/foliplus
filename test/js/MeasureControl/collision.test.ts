@@ -74,11 +74,21 @@ describe("placeLabels", () => {
 
   it("does nothing when two labels only lightly graze each other", () => {
     const { lb: a, el: aEl } = label(ANCHOR, 60);
-    const { lb: b, el: bEl } = label(GRAZE, 60); // only 5px of 1200px² overlap
+    const { lb: b, el: bEl } = label(GRAZE, 60); // only 5px of 60px horizontal overlap = 8.3%
     const hidden = plan([a, b]);
     expect(hidden).toBe(0);
     expect(aEl.style.visibility).toBe("");
     expect(bEl.style.visibility).toBe("");
+  });
+
+  it("skips labels whose chip is not on the map (chipOf returns null)", () => {
+    // A marker that is not on the map (hidden layer, destroyed, etc.) has no
+    // chip. The planner must silently skip it rather than throwing on the box
+    // lookup — and must not count it as a collision participant.
+    const { lb: visible } = label(ANCHOR, 60);
+    const unrenderedMarker = {} as unknown as L.Marker; // no _el → chipOf → null
+    const hidden = plan([visible, { marker: unrenderedMarker, priority: 90 }]);
+    expect(hidden).toBe(0);
   });
 
   it("uses the smaller chip's area as the threshold for the overlap fraction", () => {
@@ -309,5 +319,48 @@ describe("mapProjector", () => {
 
     expect(box.w).toBe(64);
     expect(box.h).toBe(18);
+  });
+
+  it("returns the container-relative box for a rendered chip", () => {
+    // A rendered chip inside an offset container: the projected box must report
+    // the chip's position relative to the container (not the viewport) and its
+    // real dimensions. jsdom reports 0 from getBoundingClientRect, so we stub
+    // it to exercise the real offset math.
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 500,
+      height: 300,
+      right: 600,
+      bottom: 350,
+      x: 100,
+      y: 50,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const chip = document.createElement("div");
+    container.appendChild(chip);
+    vi.spyOn(chip, "getBoundingClientRect").mockReturnValue({
+      left: 110,
+      top: 70,
+      width: 60,
+      height: 20,
+      right: 170,
+      bottom: 90,
+      x: 110,
+      y: 70,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const map = { getContainer: () => container } as unknown as L.Map;
+    const proj = Collision.mapProjector(map);
+    const box = proj.box(chip);
+
+    expect(box.x).toBe(10);
+    expect(box.y).toBe(20);
+    expect(box.w).toBe(60);
+    expect(box.h).toBe(20);
   });
 });
