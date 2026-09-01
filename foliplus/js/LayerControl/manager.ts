@@ -129,7 +129,7 @@ class LayerManager implements LayerAPI {
     };
     this.map.on("layeradd", this.onLayerAdd);
 
-    this.persistence = new LayerPersistence(this.map.getContainer().id, this.layerRegistry);
+    this.persistence = new LayerPersistence(this.layerRegistry);
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -449,7 +449,7 @@ class LayerManager implements LayerAPI {
     // Remove the layer's id from the persisted hidden set so a removed layer
     // doesn't carry stale hidden state into a future session.
     this.ui?.hiddenIds?.delete(id);
-    if (this.ui && "saveHiddenIds" in this.ui) this.ui.saveHiddenIds();
+    this.ui?.saveHiddenIds();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.

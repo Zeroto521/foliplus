@@ -8,13 +8,13 @@ import * as CONST from "./const.js";
 /**
  * Single entry point for all LayerControl persistence (localStorage).
  *
- * Three dimensions persist independently — order, fold, visibility — so each
- * can debounce its own write without interfering with the others, and a
- * corrupt read of one dimension doesn't cascade into the others. Adding a
+ * Three dimensions persist independently -- order, fold, visibility -- so
+ * each can debounce its own write without interfering with the others, and
+ * a corrupt read of one dimension doesn't cascade into the others. Adding a
  * new dimension is a one-line addition to STORAGE + a pair of methods here;
  * call sites never touch Storage directly.
  *
- * Storage key pattern: <prefix>_<mapContainerId> — map-scoped so multi-map
+ * Storage key pattern: <prefix>_<mapContainerId> -- map-scoped so multi-map
  * pages keep their per-map state separate. Keys live in const.ts so they
  * can be asserted by tests without importing this module.
  */
@@ -22,11 +22,11 @@ class LayerPersistence {
   private readonly persistName: string;
   private readonly registry: LayerRegistry;
   private debouncedSaveOrder: Debounced | undefined;
-  private debouncedSaveHidden: Debounced | undefined;
+  private debouncedSaveHiddenIds: Debounced | undefined;
   private orderGetter: (() => string[]) | null = null;
   private hiddenGetter: (() => Set<string>) | null = null;
 
-  constructor(mapId: string, registry: LayerRegistry) {
+  constructor(registry: LayerRegistry) {
     this.persistName = CONF.name;
     this.registry = registry;
   }
@@ -36,9 +36,16 @@ class LayerPersistence {
   /** Load persisted order, dropping ids not currently registered. */
   loadOrder(): string[] | null {
     const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, this.persistName);
-    if (!data || !Array.isArray(data)) return null;
+    if (!data || !Array.isArray(data)) {
+      console.debug(`[${this.persistName}] No saved order found, using initial order`);
+      return null;
+    }
     const layerSet = new Set(this.registry.layers.map(l => l.id));
-    return data.filter(id => layerSet.has(id));
+    const filtered = data.filter(id => layerSet.has(id));
+    console.debug(
+      `[${this.persistName}] Loaded order: ${filtered.length} id(s) restored`,
+    );
+    return filtered;
   }
 
   /**
@@ -64,7 +71,11 @@ class LayerPersistence {
 
   loadFoldedGroups(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, this.persistName);
-    if (Array.isArray(data)) return new Set(data);
+    if (Array.isArray(data)) {
+      console.debug(`[${this.persistName}] Loaded fold state: ${data.length} group(s) restored`);
+      return new Set(data);
+    }
+    console.debug(`[${this.persistName}] No saved fold state, using default open`);
     return new Set();
   }
 
@@ -76,8 +87,12 @@ class LayerPersistence {
 
   loadHiddenIds(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.VISIBILITY_KEY, this.persistName);
-    if (Array.isArray(data))
-      return new Set(data.filter(id => typeof id === "string"));
+    if (Array.isArray(data)) {
+      const ids = data.filter(id => typeof id === "string");
+      console.debug(`[${this.persistName}] Loaded hidden ids: ${ids.length} id(s) restored`);
+      return new Set(ids);
+    }
+    console.debug(`[${this.persistName}] No saved visibility state, all layers visible`);
     return new Set();
   }
 
@@ -86,10 +101,10 @@ class LayerPersistence {
    * debounced callback reads the latest set after bulk updates (toggleAll,
    * stale-id prune).
    */
-  saveHidden(hiddenGetter: () => Set<string>) {
+  saveHiddenIds(hiddenGetter: () => Set<string>) {
     this.hiddenGetter = hiddenGetter;
-    if (!this.debouncedSaveHidden) {
-      this.debouncedSaveHidden = debounce(() => {
+    if (!this.debouncedSaveHiddenIds) {
+      this.debouncedSaveHiddenIds = debounce(() => {
         if (!this.hiddenGetter) return;
         Storage.save(
           CONST.STORAGE.VISIBILITY_KEY,
@@ -98,16 +113,16 @@ class LayerPersistence {
         );
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
-    this.debouncedSaveHidden();
+    this.debouncedSaveHiddenIds();
   }
 
-  cancelSaveHidden() {
-    this.debouncedSaveHidden?.cancel();
+  cancelSaveHiddenIds() {
+    this.debouncedSaveHiddenIds?.cancel();
   }
 
   destroy() {
     this.debouncedSaveOrder?.cancel();
-    this.debouncedSaveHidden?.cancel();
+    this.debouncedSaveHiddenIds?.cancel();
   }
 }
 

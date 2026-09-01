@@ -156,7 +156,7 @@ class LayerUI {
 
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
-    this.m.persistence.saveHidden(() => this.hiddenIds);
+    this.m.persistence.saveHiddenIds(() => this.hiddenIds);
   }
 
   /**
@@ -736,7 +736,7 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHidden();
+    this.m.persistence.cancelSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;

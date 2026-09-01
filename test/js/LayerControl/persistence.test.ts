@@ -23,7 +23,7 @@ describe("LayerPersistence", () => {
   });
 
   const makePersistence = (ids: string[]) =>
-    new LayerPersistence("test-map", makeRegistry(ids));
+    new LayerPersistence(makeRegistry(ids));
 
   // ── Order ────────────────────────────────────────────────────────
 
@@ -115,12 +115,12 @@ describe("LayerPersistence", () => {
       expect(p.loadHiddenIds()).toEqual(new Set());
     });
 
-    it("debounces rapid saveHidden calls into one write", () => {
+    it("debounces rapid saveHiddenIds calls into one write", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
-      p.saveHidden(() => new Set(["a"]));
-      p.saveHidden(() => new Set(["a", "b"]));
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.saveHiddenIds(() => new Set(["a", "b"]));
       expect(save).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
@@ -129,12 +129,12 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("cancelSaveHidden suppresses a pending write", () => {
+    it("cancelSaveHiddenIds suppresses a pending write", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
-      p.saveHidden(() => new Set(["a"]));
-      p.cancelSaveHidden();
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.cancelSaveHiddenIds();
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
       expect(save).not.toHaveBeenCalled();
       save.mockRestore();
