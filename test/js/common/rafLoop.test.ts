@@ -173,4 +173,52 @@ describe("rafLoop", () => {
     vi.advanceTimersByTime(16 * 2);
     expect(tick).toHaveBeenCalledTimes(4);
   });
+
+  it("ramp delays the first scheduled frame so a brief tap yields only the sync step", () => {
+    // A tap shorter than the ramp produces only the sync frame — one step —
+    // matching the pre-loop feel. A held key past the ramp then enters the
+    // normal 16ms stream.
+    const tick = vi.fn(() => false);
+    const loop = rafLoop(tick, { ramp: 200 });
+    loop.start();
+    expect(tick).toHaveBeenCalledTimes(1); // sync frame
+
+    // Before the ramp elapses: no further frames.
+    vi.advanceTimersByTime(100);
+    expect(tick).toHaveBeenCalledTimes(1);
+
+    // Ramp elapses: the first scheduled frame fires.
+    vi.advanceTimersByTime(101);
+    expect(tick).toHaveBeenCalledTimes(2);
+
+    // Then the stream runs at 16ms.
+    vi.advanceTimersByTime(16 * 2);
+    expect(tick).toHaveBeenCalledTimes(4); // + 2 frames at normal cadence
+    loop.stop();
+    vi.advanceTimersByTime(16 * 100);
+    expect(tick).toHaveBeenCalledTimes(4);
+  });
+
+  it("ramp applies only to the first frame — subsequent starts reuse the 16ms cadence", () => {
+    // The ramp is a per-start first-frame delay, not a permanent slow-down.
+    // After the first frame, the loop re-arms at 16ms even if the same loop
+    // instance is re-started after stopping.
+    const tick = vi.fn(() => false);
+    const loop = rafLoop(tick, { ramp: 200 });
+    loop.start();
+    expect(tick).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(201); // ramp → first scheduled frame
+    expect(tick).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(16); // normal cadence after the first frame
+    expect(tick).toHaveBeenCalledTimes(3);
+    loop.stop();
+
+    tick.mockReset();
+    loop.start();
+    expect(tick).toHaveBeenCalledTimes(1); // new sync frame
+    vi.advanceTimersByTime(201); // ramp applies again on a fresh start
+    expect(tick).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(16);
+    expect(tick).toHaveBeenCalledTimes(3);
+  });
 });
