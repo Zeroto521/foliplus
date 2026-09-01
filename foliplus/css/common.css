@@ -491,7 +491,10 @@
 :is(.foliplus-layer-focused, .foliplus-search-result-item.active) {
   border-left-width: var(--cursor-bar-width);
   border-left-color: var(--accent-primary);
-  background: var(--accent-soft-bg);
+  /* No background wash: the row already has its own bg. The left bar +
+     soft glow are enough to signal "cursor is here" without muddying
+     the surface. Keeps the cursor visually lighter than hover (which uses
+     --accent-light as an action-state background). */
   box-shadow: var(--cursor-glow);
 }
 
