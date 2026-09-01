@@ -604,8 +604,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
       }));
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
-      // Cache first result so searchAddress can serve it from geoCache
-      const first = Array.isArray(results) ? results[0] : null;
+      // Cache first result so searchAddress can serve it from geoCache.
+      // results is always an array (it comes from raw.map), so index 0 is
+      // either an item or undefined.
+      const first = results[0];
       if (first) {
         window.foliplus.cacheSuggestion(
           map,

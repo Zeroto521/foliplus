@@ -883,7 +883,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     delete globalThis.fetch;
   });
 
-  it("throttles rapid requests and retries after delay", async () => {
+  it("fires the throttled fetch when the throttle timer elapses", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
     const ctrl: any = {
@@ -900,12 +900,48 @@ describe("fetchSuggestions: throttle and abort", () => {
       },
       inp: { value: "abc" },
     };
+    // First call — immediate fetch.
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    // Second call — throttled, schedules a timer.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.throttleTimer).toBeDefined();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    // Advance time past throttle window → callback fires and re-invokes
+    // fetchSuggestions. Cache hit → no second fetch.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    // lastSuggestFetch updated by the callback's re-invocation.
+    expect(ctrl.lastSuggestFetch).toBeGreaterThan(0);
+  });
+
+  it("clears the pending throttle timer when a third rapid call arrives", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    // First call — immediate fetch.
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTime(1000);
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    // Second call — throttled, schedules a timer.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.throttleTimer).toBeDefined();
+    const timerBefore = ctrl.throttleTimer;
+    // Third call before the timer fires — must clear the previous timer.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.throttleTimer).not.toBe(timerBefore);
   });
 
   it("aborts previous request when new query arrives", () => {
@@ -1060,6 +1096,103 @@ describe("fetchSuggestions: render behavior", () => {
     expect(ctrl.panelWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
   });
 
+  it("does not cache a suggestion when the result list is empty", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.resolve([]) }),
+    ) as unknown as typeof fetch;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    // No first result → cacheSuggestion is not called.
+    expect(window.foliplus.cacheSuggestion).not.toHaveBeenCalled();
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("accepts lng-based suggestion payloads as well as lon", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{ lat: "48.8", lng: "2.3", display_name: "Paris" }]),
+      }),
+    ) as unknown as typeof fetch;
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "paris" },
+    };
+    fetchSuggestions(ctrl, "paris");
+    await new Promise(r => setTimeout(r, 50));
+    // The lng fallback was used and the suggestion was cached with lng=2.3.
+    expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
+      map,
+      "paris",
+      48.8,
+      2.3,
+      expect.any(String),
+    );
+    expect(ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item")).toHaveLength(1);
+  });
+
+  it("falls back to the raw query when the suggestion address is unformattable", async () => {
+    // A purely numeric display_name gets filtered to "" by formatAddress, so
+    // the fetch handler's cacheSuggestion call uses the query fallback.
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "12345" }]),
+      }),
+    ) as unknown as typeof fetch;
+    const cacheSuggestionSpy = vi.spyOn(window.foliplus, "cacheSuggestion");
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    expect(cacheSuggestionSpy).toHaveBeenCalledWith(
+      map,
+      "abc",
+      30,
+      120,
+      "abc", // formatAddress("12345") returns "" → falls back to the query
+    );
+    cacheSuggestionSpy.mockRestore();
+  });
+
   it("onmousedown on suggestion item triggers renderAddressResult and records history", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
@@ -1126,8 +1259,38 @@ describe("fetchSuggestions: render behavior", () => {
       inp: { value: "abc" },
     };
     fetchSuggestions(ctrl, "abc");
-    await new Promise(r => setTimeout(r, 0));
+    // Wait for the promise chain (fetch → then → catch) to settle so the
+    // removePanel call in the non-abort catch handler actually executes.
+    await new Promise(r => setTimeout(r, 50));
     expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("silently ignores AbortError fetch errors without clearing the panel", async () => {
+    const abortErr = new Error("Aborted");
+    abortErr.name = "AbortError";
+    globalThis.fetch = vi.fn(() =>
+      Promise.reject(abortErr),
+    ) as unknown as typeof fetch;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    // AbortError is expected (user typed faster) — do not remove the panel.
+    expect(ctrl.panelWrap).toBe(el);
   });
 
   it("clears panelWrap when results are empty", async () => {

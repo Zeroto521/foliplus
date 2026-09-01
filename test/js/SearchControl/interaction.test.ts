@@ -92,6 +92,18 @@ describe("bindEvents", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 
+  it("does not remove the panel on unrelated class changes while expanded", async () => {
+    const ctrl = makeCtrl();
+    ctrl.ctrl.classList.remove("collapsed");
+    ctrl.ctrl.classList.add("expanded");
+    ctrl.panelWrap = dom.el("div");
+    bindEvents(ctrl);
+    // A class change while expanded must not trigger removePanel.
+    ctrl.ctrl.classList.add("some-other-class");
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.panelWrap).not.toBeNull();
+  });
+
   it("navigates suggestions with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
@@ -108,6 +120,29 @@ describe("bindEvents", () => {
     );
     expect(ctrl.selectedIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
+  });
+
+  it("ArrowDown on an empty panel does not change selection", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "unchanged";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("unchanged");
+  });
+
+  it("ArrowDown with no panel leaves the input unchanged", () => {
+    const ctrl = makeCtrl();
+    ctrl.inp.value = "unchanged";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("unchanged");
   });
 
   it("navigates suggestions with ArrowUp", () => {
@@ -132,6 +167,61 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(0);
+  });
+
+  it("ArrowUp on an empty panel leaves the input unchanged", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "unchanged";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("unchanged");
+  });
+
+  it("ArrowUp with no panel leaves the input unchanged", () => {
+    const ctrl = makeCtrl();
+    ctrl.inp.value = "unchanged";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.inp.value).toBe("unchanged");
+  });
+
+  it("Enter with empty input removes the panel but does not search", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "   ";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(ctrl.panelWrap).toBeNull();
+    expect(map.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("Enter in addr mode triggers an address search", () => {
+    window.foliplus.geocode = vi.fn(() =>
+      Promise.resolve({ lat: 48.8, lng: 2.3, displayName: "Paris" }),
+    ) as unknown as typeof window.foliplus.geocode;
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "Paris";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(ctrl.panelWrap).toBeNull();
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(
+      map,
+      "Paris",
+      CONF.locale_code,
+    );
   });
 
   it("ArrowDown onto a coord history item fills the coord display", () => {
@@ -217,6 +307,31 @@ describe("bindEvents", () => {
     expect(ctrl.delIcon).toBeNull();
   });
 
+  it("clears input and removes only the marker when delIcon is absent", () => {
+    const ctrl = makeCtrl();
+    ctrl.inp.value = "abc";
+    const marker = { id: 1 };
+    ctrl.marker = marker;
+    ctrl.delIcon = null;
+    bindEvents(ctrl);
+    ctrl.clearBtn.click();
+    expect(ctrl.inp.value).toBe("");
+    expect(map.removeLayer).toHaveBeenCalledWith(marker);
+    expect(map.removeLayer).toHaveBeenCalledTimes(1);
+    expect(ctrl.marker).toBeNull();
+  });
+
+  it("clears the input when neither marker nor delIcon is present", () => {
+    const ctrl = makeCtrl();
+    ctrl.inp.value = "abc";
+    ctrl.marker = null;
+    ctrl.delIcon = null;
+    bindEvents(ctrl);
+    ctrl.clearBtn.click();
+    expect(ctrl.inp.value).toBe("");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
   it("debounce-fetches on addr input with non-empty value", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
@@ -284,7 +399,27 @@ describe("bindEvents", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 
-  it("cancels fetch and shows history on input when cleared", () => {
+  it("does not fetch suggestions on focus in coord mode with non-empty input", () => {
+    globalThis.fetch = vi.fn();
+    const ctrl = makeCtrl();
+    ctrl.mode = "coord";
+    ctrl.inp.value = "abc";
+    bindEvents(ctrl);
+    ctrl._handlers.focus();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("includes the leaflet-container in scroll targets when present", () => {
+    const container = document.createElement("div");
+    container.className = "leaflet-container";
+    document.body.appendChild(container);
+    const ctrl = makeCtrl();
+    bindEvents(ctrl);
+    expect(ctrl.scrollTargets).toContain(container);
+    container.remove();
+  });
+
+  it("uses window-only scroll targets when no leaflet-container exists", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
     ctrl.inp.value = "abc";
@@ -436,6 +571,20 @@ describe("bindEvents", () => {
     expect(ctrl.inp.value).toBe("Two");
   });
 
+  it("fills empty string when a result item has no data-query nor text span", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    // Bare item: no data-query attribute and no RESULT_TEXT child —
+    // resultItemValue must fall through to the empty-string default.
+    const bare = dom.el("div", { class: "foliplus-search-result-item" });
+    ctrl.panelWrap.append(bare);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.inp.value).toBe("");
+  });
+
   it("uses window-only scroll target when no leaflet-container exists", () => {
     document.querySelectorAll(".leaflet-container").forEach(el => el.remove());
     const ctrl = makeCtrl();
@@ -477,6 +626,15 @@ describe("initFromUrl", () => {
     initFromUrl(ctrl);
     expect(ctrl.setMode).toHaveBeenCalledWith("addr");
     expect(ctrl.inp.value).toBe("hello");
+  });
+
+  it("does nothing when lat/lng URL params are non-numeric", () => {
+    window.history.replaceState(null, "", "?lat=foo&lng=bar");
+    const ctrl = makeCtrl();
+    ctrl.setMode = vi.fn();
+    initFromUrl(ctrl);
+    expect(ctrl.setMode).not.toHaveBeenCalled();
+    expect(map.flyTo).not.toHaveBeenCalled();
   });
 
   it("silently ignores URL parsing errors", () => {
