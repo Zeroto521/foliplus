@@ -189,6 +189,7 @@
 
     &.active {
       border-left-color: var(--accent-primary);
+      background: var(--accent-light);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {
