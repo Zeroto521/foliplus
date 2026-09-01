@@ -105,7 +105,6 @@ class ExportManager {
   nudgeLoop?: RafLoop;
   private nudgeMapRect?: DOMRect;
   private nudgeActiveKey?: string;
-  private nudgeHoldTimer?: ReturnType<typeof setTimeout>;
   /**
    * Overridable timer function for the smooth-nudge rafLoop. Defaults to
    * setTimeout (production). Browser tests inject a no-op so each rafLoop
@@ -377,10 +376,11 @@ class ExportManager {
     // keyup. Only once the hold passes NUDGE_HOLD_DELAY does per-frame motion
     // begin. This keeps "tap once" = exactly one NUDGE_STEP, independent of
     // OS auto-repeat rate or how quickly the user releases.
-    let holdFired = false;
-    this.nudgeHoldTimer = this.scheduler(() => {
-      holdFired = true;
-    }, CONST.CROP.NUDGE_HOLD_DELAY);
+    // Capture press time once at entry; the elapsed check lives inside the
+    // rafLoop tick so we don't need a separate setTimeout call (which would
+    // require calling this.scheduler as a method and throw Illegal invocation
+    // in production).
+    const pressTime = performance.now();
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         const d = nudgeDirection(k ?? key);
@@ -390,7 +390,7 @@ class ExportManager {
             d.x * CONST.CROP.NUDGE_STEP,
             d.y * CONST.CROP.NUDGE_STEP,
           );
-        } else if (holdFired) {
+        } else if (performance.now() - pressTime > CONST.CROP.NUDGE_HOLD_DELAY) {
           this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
           accX = (accX + perFrame) % 1;
           accY = (accY + perFrame) % 1;
@@ -420,8 +420,6 @@ class ExportManager {
   private nudgeStop() {
     const loop = this.nudgeLoop;
     this.nudgeLoop = undefined;
-    clearTimeout(this.nudgeHoldTimer);
-    this.nudgeHoldTimer = undefined;
     this.nudgeMapRect = undefined;
     this.nudgeActiveKey = undefined;
     this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
