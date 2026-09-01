@@ -429,18 +429,11 @@ path.foliplus-focus-mask {
       border-left-color: var(--accent-primary);
       background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
       box-shadow:
-        inset calc(var(--border-thick) + var(--border-thin)) 0 0 0
-          var(--accent-primary),
-        inset 0 var(--border-thin) 0 0 color-mix(
-          in srgb,
-          var(--accent-primary) 12%,
-          transparent
-        ),
-        inset 0 calc(-1 * var(--border-thin)) 0 0 color-mix(
-          in srgb,
-          var(--accent-primary) 12%,
-          transparent
-        ),
+        inset calc(var(--border-thick) + var(--border-thin)) 0 0 0 var(--accent-primary),
+        inset 0 var(--border-thin) 0 0
+          color-mix(in srgb, var(--accent-primary) 12%, transparent),
+        inset 0 calc(-1 * var(--border-thin)) 0 0
+          color-mix(in srgb, var(--accent-primary) 12%, transparent),
         var(--shadow-xs);
       animation: foliplus-keyboard-focus-in 0.18s ease-out;
     }
