@@ -46,8 +46,10 @@ const startDim = (container: HTMLElement): void => {
 const readDimDuration = (scrim: HTMLElement): number => {
   const raw = getComputedStyle(scrim).getPropertyValue("--dim-duration").trim();
   const ms = parseFloat(raw);
-  // CSS may express the duration as `260ms` or `.26s` (bundler minification).
-  return isNaN(ms) ? 260 : raw.endsWith("s") ? ms * 1000 : ms;
+  // CSS may express the duration as `260ms` (dev build) or `.26s` (minified).
+  // Milliseconds are already the right unit; only bare seconds need ×1000.
+  // Check "ms" before "s" — a literal endswith("s") would match "260ms" too.
+  return isNaN(ms) ? 260 : raw.endsWith("ms") ? ms : ms * 1000;
 };
 
 /**

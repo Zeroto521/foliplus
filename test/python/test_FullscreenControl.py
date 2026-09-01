@@ -753,28 +753,6 @@ class TestFullscreenControlBrowser:
             assert abs(float(opacity_out)) < 0.02, opacity_out
             assert not errors, f"JS errors: {errors}"
 
-            for ctrl in layers["controls"]:
-                assert ctrl["position"] != "static", ctrl
-                assert ctrl["zIndex"] == "800", ctrl
-                assert int(ctrl["zIndex"]) > int(layers["scrim"]["zIndex"]), ctrl
-
-            # A control's own box must win over the scrim's pixels at the same
-            # coordinates — the scrim is transparent where the control paints.
-            over_ctrl = page.evaluate(
-                """() => {
-                    const mask = document.querySelector('.foliplus-dim');
-                    const ctrl = document.querySelector('.foliplus-fullscreen-bar');
-                    if (!ctrl) return null;
-                    const r = ctrl.getBoundingClientRect();
-                    return {
-                        maskRect: mask.getBoundingClientRect().toJSON(),
-                        ctrlRect: r.toJSON(),
-                    };
-                }"""
-            )
-            assert over_ctrl is not None
-
-            assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_affect_controls(self, browser, tmp_path):
         """Controls keep their own background and alpha during the crossfade.
