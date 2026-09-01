@@ -118,7 +118,9 @@ class LayerPersistence {
     const layerSet = new Set(this.registry.layers.map(l => l.id));
     // Drop stale ids so removed layers don't accumulate in persistence.
     return Object.fromEntries(
-      Object.entries(data).filter(([id]) => layerSet.has(id) && typeof data[id] === "string"),
+      Object.entries(data).filter(
+        ([id]) => layerSet.has(id) && typeof data[id] === "string",
+      ),
     );
   }
 

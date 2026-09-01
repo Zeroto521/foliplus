@@ -1321,9 +1321,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const item = findItem(ui, "overlay1");
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
-      const checkbox = item.querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement;
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");
       expect(checkbox.title).toBe("Persisted Name");
     });
@@ -1362,9 +1360,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("saveNamesState persists a committed rename into localStorage", () => {
-      const label = findItem(ui, "overlay1").querySelector(
-        "label",
-      ) as HTMLLabelElement;
+      const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
       ui.renameLayer("overlay1");
       const input = label.querySelector("input") as HTMLInputElement;
 
@@ -1374,9 +1370,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(
-        window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)!,
-      );
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)!);
       expect(stored).toEqual({ overlay1: "Persisted" });
     });
 
@@ -1395,9 +1389,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
 
       vi.useFakeTimers();
-      const label = findItem(ui, "overlay1").querySelector(
-        "label",
-      ) as HTMLLabelElement;
+      const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
 
       ui.renameLayer("overlay1");
       let input = label.querySelector("input") as HTMLInputElement;
@@ -1446,9 +1438,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
 
       vi.useFakeTimers();
-      const label = findItem(ui, "overlay1").querySelector(
-        "label",
-      ) as HTMLLabelElement;
+      const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
 
       ui.renameLayer("overlay1");
       const input = label.querySelector("input") as HTMLInputElement;
