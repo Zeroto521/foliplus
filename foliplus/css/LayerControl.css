@@ -404,6 +404,17 @@ path.foliplus-focus-mask {
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
+    /* ── Suppress the browser default focus ring on the row itself ──
+       The row uses tabindex=0 to accept keyboard focus, which would otherwise
+       paint a default blue outline ring *around* the row. That doubles up
+       with the keyboard cursor below (.foliplus-layer-focused), producing a
+       "red highlight + blue outline" double frame. The cursor carries all the
+       focus feedback, so the row's own outline is suppressed. Child inputs
+       (checkbox, more button) keep their own :focus-visible rings below —
+       those are independent per-control affordances. */
+    &:focus-visible {
+      outline: none;
+    }
     /* ── Keyboard focus navigation cursor ──
        Tab / Arrow keys move a `.foliplus-layer-focused` marker up and down
        the layer list. This is a *separate* visual axis from `.active`
