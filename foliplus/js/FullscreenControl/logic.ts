@@ -66,11 +66,14 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           setDim(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
-      // Momentary flash on exit — auto-fades back to transparent.
-      startDim(map.getContainer());
+      // Exit clears the scrim immediately rather than fading: fading relies on
+      // a JS timer racing the CSS transition, which can leave ~0.15 opacity
+      // when sampled on a slow runner. Instant clear is deterministic, and the
+      // momentary darkening already happens on the *enter* transition.
+      setDim(map.getContainer(), false);
       return;
     }
-    startDim(map.getContainer());
+    setDim(map.getContainer(), false);
     map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   } else {
