@@ -80,12 +80,12 @@ describe("renderResults", () => {
       },
     };
     renderResults(ctrl, [
-      // History item: carries the canonical query.
+      // History item: carries its panel display as the re-entry value.
       {
         source: "history",
         icon: "",
         primaryText: "Shanghai, China",
-        query: "121.47,31.23",
+        query: "121.4700, 31.2300",
         coordDisplay: "121.4700, 31.2300",
         onClick: () => {},
       },
@@ -101,7 +101,7 @@ describe("renderResults", () => {
     ]);
     const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
     expect(items).toHaveLength(2);
-    expect(items[0].getAttribute("data-query")).toBe("121.47,31.23");
+    expect(items[0].getAttribute("data-query")).toBe("121.4700, 31.2300");
     expect(items[1].hasAttribute("data-query")).toBe(false);
   });
 });
@@ -2173,11 +2173,11 @@ describe("SearchControl history", () => {
           new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
         );
         expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
-        // The input gets the stored query, not the formatted display (reverse-
-        // geocode output can drift from the original keyword).
-        expect(ctrl.inp.value).toBe("Paris");
-        // The addr entry also carries its query for keyboard nav.
-        expect(item.getAttribute("data-query")).toBe("Paris");
+        // The input gets the panel's display so the input matches the entry
+        // the user clicked (addrDisplay), not the original keyword.
+        expect(ctrl.inp.value).toBe("Paris, France");
+        // The addr entry carries its display for keyboard nav too.
+        expect(item.getAttribute("data-query")).toBe("Paris, France");
       } finally {
         window.CONF = { ...window.CONF, zoom: original };
       }
@@ -2201,21 +2201,20 @@ describe("SearchControl history", () => {
       expect(
         ctrl.panelWrap.querySelector(".foliplus-search-result-text")?.textContent,
       ).toBe("Shanghai, China");
-      // ...and the canonical query rides along as data-query for keyboard nav.
+      // ...and the coord display rides along as data-query for keyboard nav.
       expect(
         ctrl.panelWrap
           .querySelector(".foliplus-search-result-item")
           ?.getAttribute("data-query"),
-      ).toBe("121.47,31.23");
+      ).toBe("121.4700, 31.2300");
       ctrl.panelWrap
         .querySelector(".foliplus-search-result-item")!
         .dispatchEvent(
           new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
         );
-      // ...but the input is filled with the canonical coord query so a follow-up
-      // Enter press re-searches the same point instead of failing to parse the
-      // address as coordinates.
-      expect(ctrl.inp.value).toBe("121.47,31.23");
+      // The input is filled with the coord display so it matches the panel
+      // and a follow-up Enter re-searches the same point.
+      expect(ctrl.inp.value).toBe("121.4700, 31.2300");
     });
 
     it("renders only coord entries in coord mode", () => {

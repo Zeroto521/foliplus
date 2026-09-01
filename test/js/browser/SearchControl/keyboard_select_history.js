@@ -1,7 +1,7 @@
 () => {
   // Expand, ArrowDown onto the seeded coord history entry, then return the
-  // input value — must be the canonical query, not the reverse-geocoded
-  // address. The panel must show history on focus (empty input).
+  // input value — must be the coord display, not the raw query. The panel
+  // must show history on focus (empty input).
   const inp = document.querySelector(".foliplus-search input");
   if (!inp) return { value: null, error: "no input" };
   inp.focus();

@@ -16,9 +16,8 @@ const T = createScopedTranslator(CONF);
 
 /**
  * The value a keyboard-navigated result item puts into the input. History
- * items carry their canonical query in `data-query` (restoring the formatted
- * display would break coord-mode re-parsing); suggestions fall back to their
- * display text.
+ * items carry their panel display in `data-query` (addrDisplay / coordDisplay);
+ * suggestions omit it and fall back to their display text.
  */
 const resultItemValue = (item: Element): string =>
   item.getAttribute("data-query") ??

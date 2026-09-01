@@ -134,17 +134,17 @@ describe("bindEvents", () => {
     expect(ctrl.selectedIdx).toBe(0);
   });
 
-  it("ArrowDown onto a coord history item fills the canonical query", () => {
+  it("ArrowDown onto a coord history item fills the coord display", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
     // Item 1 is a coord history entry (address display + data-query); item 0 is
-    // a plain suggestion. ArrowDown from the suggestion must land on the entry's
-    // canonical query, not its address display.
+    // a plain suggestion. ArrowDown from the suggestion must land on the
+    // entry's coord display, not its address display.
     const coord = dom.el(
       "div",
       {
         class: "foliplus-search-result-item",
-        "data-query": "121.47,31.23",
+        "data-query": "121.4700, 31.2300",
         "data-index": "1",
       },
       dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
@@ -156,24 +156,24 @@ describe("bindEvents", () => {
     );
     ctrl.panelWrap.append(plain, coord);
     bindEvents(ctrl);
-    // ArrowDown twice → land on the coord entry → query fills.
+    // ArrowDown twice → land on the coord entry → coord display fills.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
-    expect(ctrl.inp.value).toBe("121.47,31.23");
+    expect(ctrl.inp.value).toBe("121.4700, 31.2300");
     // ArrowUp back to the plain suggestion → display text fills again.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("Somewhere");
-    // ArrowDown again onto the coord entry → canonical query restored.
+    // ArrowDown again onto the coord entry → coord display restored.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
-    expect(ctrl.inp.value).toBe("121.47,31.23");
+    expect(ctrl.inp.value).toBe("121.4700, 31.2300");
   });
 
   it("Escape with open suggestions removes suggestions", () => {
@@ -342,16 +342,16 @@ describe("bindEvents", () => {
     expect(ctrl.inp.value).toBe("Paris, France");
   });
 
-  it("keyboard nav fills the canonical query for history items, not the display", () => {
+  it("keyboard nav fills the panel display for history items", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    // A coord history entry whose primary text is its reverse-geocoded address.
-    // Its data-query must win over the display, or Enter would fail parseCoord.
+    // A coord history entry whose primary text is its reverse-geocoded address;
+    // its data-query is the coord display so the input matches the panel.
     const item = dom.el(
       "div",
       {
         class: "foliplus-search-result-item",
-        "data-query": "121.47,31.23",
+        "data-query": "121.4700, 31.2300",
         "data-index": "0",
       },
       dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
@@ -361,7 +361,7 @@ describe("bindEvents", () => {
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
-    expect(ctrl.inp.value).toBe("121.47,31.23");
+    expect(ctrl.inp.value).toBe("121.4700, 31.2300");
     // ArrowUp past the top clears the selection; the value is left as-is
     // (the handler only writes when an item is selected).
     ctrl.inp.dispatchEvent(
@@ -374,12 +374,12 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
     // Seeded coord history entry: displays the reverse-geocoded address, but
-    // carries the canonical query for re-search.
+    // carries the coord display for re-search.
     const item = dom.el(
       "div",
       {
         class: "foliplus-search-result-item",
-        "data-query": "121.47,31.23",
+        "data-query": "121.4700, 31.2300",
         "data-index": "0",
       },
       dom.el("span", { class: "foliplus-search-result-text" }, "Shanghai, China"),
@@ -389,11 +389,11 @@ describe("bindEvents", () => {
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
-    expect(ctrl.inp.value).toBe("121.47,31.23");
+    expect(ctrl.inp.value).toBe("121.4700, 31.2300");
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    // The canonical query is parsed as coordinates and searched — no coord_error.
+    // The coord display is parsed as coordinates and searched — no coord_error.
     expect(map.flyTo).toHaveBeenCalled();
     expect(window.foliplus.showHint).not.toHaveBeenCalledWith(
       "SearchControl",
