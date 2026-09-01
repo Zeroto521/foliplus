@@ -53,13 +53,13 @@
     background-color var(--transition-fast),
     border-color var(--transition-fast);
 
-  /* Hover (mouse): 5% wash — the item is "under cursor", but not the
-     keyboard focus target. Same language as .active in common.css. */
+  /* Hover (mouse): 5% wash — the item is "under cursor".
+     Icon wakes to black, matching the LayerControl type-icon language. */
   &:hover {
     background: var(--accent-light);
 
     .foliplus-search-result-icon {
-      color: var(--accent-primary);
+      color: var(--text-primary);
     }
   }
 
@@ -81,7 +81,7 @@
       var(--shadow-xs);
 
     .foliplus-search-result-icon {
-      color: var(--accent-primary);
+      color: var(--text-primary);
     }
   }
 }
@@ -90,6 +90,9 @@
   display: flex;
   align-items: center;
   color: var(--text-muted);
+  /* Identity icon: gray at rest, wakes to black on hover and keyboard cursor,
+     matching the LayerControl type-icon language. */
+  transition: color var(--transition-fast);
 
   svg {
     width: var(--icon-size-xs);
