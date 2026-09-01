@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { ensureScrim, removeScrim, setDim } from "#foliplus/FullscreenControl/anim.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureScrim, removeScrim, setDim, startDim } from "#foliplus/FullscreenControl/anim.js";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 
 const makeContainer = () => {
@@ -119,6 +119,49 @@ describe("setDim", () => {
   });
 });
 
+
+describe("startDim", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    clean();
+    vi.useFakeTimers();
+    container = attach(makeContainer());
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("flashes the scrim on and auto-clears it after the transition plus buffer", async () => {
+    startDim(container);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    expect(dimEl(container)).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(340);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+  });
+
+  it("rapid flashes restart the auto-clear timer, never piling up overlays", async () => {
+    for (let i = 0; i < 5; i++) {
+      startDim(container);
+      await vi.advanceTimersByTimeAsync(50);
+    }
+    // Each new flash cancels the previous pending auto-clear, so only one
+    // timer survives the loop. A single 340ms advance clears it.
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    await vi.advanceTimersByTimeAsync(340);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+  });
+
+  it("leaves exactly one scrim after many flashes", async () => {
+    for (let i = 0; i < 5; i++) startDim(container);
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
+    await vi.advanceTimersByTimeAsync(340);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
+  });
+
+});
 describe("removeScrim", () => {
   let container: HTMLElement;
 

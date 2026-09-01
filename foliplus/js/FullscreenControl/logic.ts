@@ -2,7 +2,7 @@
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { setDim } from "./anim.js";
+import { setDim, startDim } from "./anim.js";
 import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -61,22 +61,21 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
-          // Exit can be denied (e.g. NotAllowedError) while the scrim is
-          // already fading out — re-drive the dim from the actual API state so
-          // a denied exit doesn't leave the basemap stuck in the darkened state.
-          setDim(map.getContainer(), !!getFullscreenEl());
+          // Exit can be denied (e.g. NotAllowedError) — clear the momentary
+          // flash explicitly so the basemap is never left darkened.
+          setDim(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
-      // Un-dim alongside the exit so the basemap lightens as the view recedes.
-      setDim(map.getContainer(), false);
+      // Momentary flash on exit — auto-fades back to transparent.
+      startDim(map.getContainer());
       return;
     }
-    setDim(map.getContainer(), false);
+    startDim(map.getContainer());
     map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   } else {
     if (isEnabled) {
-      setDim(map.getContainer(), true);
+      startDim(map.getContainer());
       map
         .getContainer()
         .requestFullscreen()
@@ -84,17 +83,15 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = true;
         })
         .catch(() => {
-          // Enter can be denied (e.g. NotAllowedError) — re-drive the dim from
-          // the actual API state, symmetric with the exit path, so a rejected
-          // enter doesn't blindly clear the scrim when the API still reports
-          // fullscreen.
+          // Enter can be denied (e.g. NotAllowedError) — clear the momentary
+          // flash so a rejected enter doesn't leave the basemap darkened.
+          setDim(map.getContainer(), false);
           map.isFullscreen = !!getFullscreenEl();
-          setDim(map.getContainer(), !!getFullscreenEl());
           updateUI(map, fsBtn, container);
         });
       return;
     }
-    setDim(map.getContainer(), true);
+    startDim(map.getContainer());
     map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   }
@@ -112,10 +109,8 @@ const bindFullscreenEvents = (
 ) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
-    // Exit is also reachable from the keyboard (Esc), not just the button, so
-    // the dim has to be driven from the API state here — otherwise Esc leaves
-    // the basemap darkened until the next toggle.
-    setDim(map.getContainer(), !!getFullscreenEl());
+    // Scrim is a momentary auto-clearing flash, not a persistent overlay, so
+    // the handler only needs to sync UI state; the flash cleans itself up.
     updateUI(map, fsBtn, container);
   };
 

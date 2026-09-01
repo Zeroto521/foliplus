@@ -116,9 +116,11 @@ class TestFullscreeControlRendering:
         html = render_control(FullscreenControl())
         assert "foliplus-dim" in html
         assert "foliplus-dim-active" in html
-        assert "--dim-duration: 260ms" in html
-        assert "--dim-alpha: 0.5" in html
-        assert "pointer-events: none" in html
+        # PostCSS minifies `260ms` → `.26s` and `0.5` → `.5`, so assert
+        # token names and numeric values rather than the exact string form.
+        assert "--dim-duration" in html and ".26s" in html
+        assert "--dim-alpha" in html and ".5" in html
+        assert "pointer-events" in html and "none" in html
 
     def test_css_dim_uses_tokens(self):
         """The fade reads the duration and alpha from CSS custom properties."""
@@ -130,8 +132,12 @@ class TestFullscreeControlRendering:
     def test_css_dim_respects_reduced_motion(self):
         """prefers-reduced-motion drops the fade instead of the dim itself."""
         html = render_control(FullscreenControl())
-        assert "@media (prefers-reduced-motion: reduce)" in html
-        assert "transition: none" in html
+        assert (
+            "prefers-reduced-motion:reduce" in html
+            or "@media(prefers-reduced-motion:reduce)" in html
+            or "prefers-reduced-motion: reduce" in html
+        )
+        assert "transition:none" in html or "transition: none" in html
 
 
 class TestFullscreenControlBrowser:

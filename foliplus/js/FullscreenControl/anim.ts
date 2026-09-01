@@ -1,21 +1,12 @@
-// FullscreenControl crossfade — the dark scrim the basemap fades under when
-// entering fullscreen, and back to full brightness when leaving it.
+// FullscreenControl crossfade — a momentary dark scrim that flashes over the
+// basemap at the instant of a fullscreen transition, then fades back to
+// transparent so the fullscreen view itself stays clean.
 import { CLASSES } from "./const.js";
 
-/**
- * Build (once, per map) the scrim and mount it as a direct child of the map
- * container.
- *
- * The container is the mount point because it *is* the fullscreen element in
- * native mode — while a fullscreen element exists the user agent paints only it
- * and its descendants, so the scrim must live there to paint at all. In
- * pseudo-fullscreen the container is `position: fixed` covering the viewport,
- * so `inset: 0` on the scrim still covers the whole viewport. One element,
- * correct in both modes, and one per map instead of one per page.
- *
- * Everything else — the fade, the opacity, the z-index — lives in the
- * stylesheet. The JS owns only mount, toggle and teardown.
- */
+const DIM_BUFFER_MS = 40;
+
+const dimTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
 const ensureScrim = (container: HTMLElement): HTMLElement | null => {
   const existing = container.querySelector(`.${CLASSES.DIM}`);
   if (existing) return null;
@@ -26,32 +17,54 @@ const ensureScrim = (container: HTMLElement): HTMLElement | null => {
 };
 
 /**
- * Fade the basemap down (`active=true`) or back up (`active=false`).
+ * Flash the basemap dark and automatically fade it back to transparent once
+ * the scrim's transition completes — momentary, never a persistent overlay.
  *
- * Pure opacity on the scrim. The container itself is resized by the Fullscreen
- * API (native) or by `position: fixed` (pseudo), and the browser snaps that
- * jump in both cases — there is nothing to tween there, so the fade is the
- * entire transition. The active class goes on the container so each map's
- * state is scoped to its own map.
+ * The scrim element is created once (ensureScrim); subsequent calls only
+ * restart the flash, cancelling any in-flight auto-clear so rapid
+ * enter/exit/enter toggles stay consistent. The duration is read from the
+ * `--dim-duration` CSS custom property on the scrim so JS and CSS stay in
+ * sync automatically (survives bundler minification like `.26s`); 260ms is the
+ * fallback if the value is absent.
+ */
+const startDim = (container: HTMLElement): void => {
+  const scrim = ensureScrim(container) ?? container.querySelector(`.${CLASSES.DIM}`);
+  if (!scrim) return;
+  const duration = readDimDuration(scrim);
+  const pending = dimTimers.get(container);
+  if (pending) clearTimeout(pending);
+  container.classList.add(CLASSES.DIM_ACTIVE);
+  dimTimers.set(
+    container,
+    setTimeout(() => {
+      container.classList.remove(CLASSES.DIM_ACTIVE);
+      dimTimers.delete(container);
+    }, duration + DIM_BUFFER_MS),
+  );
+};
+
+const readDimDuration = (scrim: HTMLElement): number => {
+  const raw = getComputedStyle(scrim).getPropertyValue('--dim-duration').trim();
+  const ms = parseFloat(raw);
+  // CSS may express the duration as `260ms` or `.26s` (bundler minification).
+  return isNaN(ms) ? 260 : (raw.endsWith('s') ? ms * 1000 : ms);
+};
+
+/**
+ * Synchronous toggle of the scrim (no auto-clear). Kept for tests; production
+ * uses startDim.
  */
 const setDim = (container: HTMLElement, active: boolean): void => {
   ensureScrim(container);
   container.classList.toggle(CLASSES.DIM_ACTIVE, active);
 };
 
-/**
- * Detach the scrim and drop the active class. Called from the control's destroy.
- *
- * Scoped to the caller's container — a page can carry several maps, and a
- * global sweep here would strip a sibling map's scrim out from under it.
- */
 const removeScrim = (container: HTMLElement) => {
+  const pending = dimTimers.get(container);
+  if (pending) { clearTimeout(pending); dimTimers.delete(container); }
+  container.classList.remove(CLASSES.DIM_ACTIVE);
   const scrim = container.querySelector(`.${CLASSES.DIM}`);
-  // Grab the parent first — `remove()` detaches the node, after which
-  // `parentElement` is null and the active class would be left behind.
-  const parent = scrim?.parentElement;
   scrim?.remove();
-  parent?.classList.remove(CLASSES.DIM_ACTIVE);
 };
 
-export { ensureScrim, removeScrim, setDim };
+export { ensureScrim, removeScrim, setDim, startDim };
