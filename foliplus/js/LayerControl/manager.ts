@@ -21,8 +21,8 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -72,7 +72,7 @@ class LayerManager implements LayerAPI {
   lastAttribution: string | null;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
-  debouncedSaveOrder: Debounced | undefined; // lazy-init in saveOrder()
+  persistence: LayerPersistence;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -117,18 +117,6 @@ class LayerManager implements LayerAPI {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
-    // Respond to layer-level adds. The initial enforceOrder runs before the
-    // folium layer scripts, so registered layers may not be resolvable yet
-    // (layerInfo.layer === null → skipped). When those layers are later added to the
-    // map (GeoJSON/FeatureGroup containers included), a layeradd fires and
-    // debouncedEnforce re-runs enforceOrder — by then the window globals exist
-    // and every managed layer gets its pane/z-index. isEnforcing guards
-    // re-entrancy; debounce coalesces a batch of adds into one pass.
-    //
-    // Once every registered layer is resolved, unrelated layeradds (e.g.
-    // ExportControl's crossOrigin re-adds or user-added layers) must NOT
-    // trigger a full enforceOrder — hasUnresolvedLayers() being false
-    // naturally stops scheduling new passes.
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -141,6 +129,7 @@ class LayerManager implements LayerAPI {
     };
     this.map.on("layeradd", this.onLayerAdd);
 
+    this.persistence = new LayerPersistence(this.layerRegistry);
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -181,8 +170,8 @@ class LayerManager implements LayerAPI {
   }
 
   loadSavedOrder() {
-    const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, CONF.name);
-    if (!data || !Array.isArray(data)) return;
+    const data = this.persistence.loadOrder();
+    if (!data) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];
     for (const id of data) {
@@ -191,25 +180,12 @@ class LayerManager implements LayerAPI {
         layerMap.delete(id);
       }
     }
-    // byId values are always LayerInfo — no nulls to filter.
     this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
-  /** Persist layer order, coalescing rapid calls (drag/drop, batch
-   *  registration) into one localStorage write. The debounced writer is
-   *  created lazily on first use. */
+  /** Persist layer order — delegates to LayerPersistence for centralized I/O. */
   saveOrder() {
-    if (!this.debouncedSaveOrder) {
-      this.debouncedSaveOrder = debounce(() => {
-        if (this.isDestroyed) return;
-        Storage.save(
-          CONST.STORAGE.ORDER_KEY,
-          this.layers.map(l => l.id),
-          CONF.name,
-        );
-      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
-    }
-    this.debouncedSaveOrder();
+    this.persistence.saveOrder(() => this.layers.map(l => l.id));
   }
 
   // ==================== Public API Methods ====================
@@ -473,7 +449,7 @@ class LayerManager implements LayerAPI {
     // Remove the layer's id from the persisted hidden set so a removed layer
     // doesn't carry stale hidden state into a future session.
     this.ui?.hiddenIds?.delete(id);
-    if (this.ui && "saveHiddenIds" in this.ui) this.ui.saveHiddenIds();
+    this.ui?.saveHiddenIds();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
@@ -706,7 +682,7 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    if (this.debouncedSaveOrder) this.debouncedSaveOrder.cancel();
+    this.persistence.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
