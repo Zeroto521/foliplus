@@ -104,12 +104,15 @@ const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => 
 const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
-  if (guardBlocked(mgr.map, CONF.name, T("blocked"), [
-    { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
-    { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
-    { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
-    { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
-  ])) return;
+  if (
+    guardBlocked(mgr.map, CONF.name, T("blocked"), [
+      { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
+      { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+      { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+      { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+    ])
+  )
+    return;
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
   ensureModes(mgr.map).setMode(CONF.name, "selecting");

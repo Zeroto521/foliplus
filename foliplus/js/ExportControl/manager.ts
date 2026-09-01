@@ -338,12 +338,15 @@ class ExportManager {
   doExport() {
     if (this.isExporting || !this.cropState) return;
     // Symmetric lock with the other interactive components (measure / focus).
-    if (guardBlocked(this.map, CONF.name, T("blocked"), [
-      { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
-      { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
-      { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
-      { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
-    ])) return;
+    if (
+      guardBlocked(this.map, CONF.name, T("blocked"), [
+        { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
+        { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+        { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+        { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+      ])
+    )
+      return;
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
