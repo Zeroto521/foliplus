@@ -1291,6 +1291,186 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  // ─────────────────── rename persistence ───────────────────
+
+  describe("rename persistence (loadNames / saveNames / applyNames)", () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("loadNamesState reads renamed names from localStorage", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Over1", base1: "Over2" }),
+      );
+
+      ui.loadNamesState();
+
+      expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
+    });
+
+    it("applyNamesState overwrites the registry name, label text, and checkbox", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Persisted Name" }),
+      );
+
+      ui.loadNamesState();
+      ui.applyNamesState();
+
+      const item = findItem(ui, "overlay1");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");
+      expect(checkbox.title).toBe("Persisted Name");
+    });
+
+    it("tolerates corrupt / non-object / empty names storage", () => {
+      // Reset the fixture label/registry to the pristine name — sibling tests
+      // may have renamed this layer before this case runs.
+      const label = findItem(ui, "overlay1").querySelector(
+        "label",
+      )! as HTMLLabelElement;
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      layerInfo.name = "Polygons";
+      label.textContent = "Polygons";
+      checkbox.setAttribute("aria-label", "Polygons");
+      checkbox.title = "Polygons";
+      ui.renamedNames = {};
+
+      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "not-json");
+      ui.loadNamesState();
+      expect(ui.renamedNames).toEqual({});
+
+      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "[]");
+      ui.loadNamesState();
+      expect(ui.renamedNames).toEqual({});
+
+      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "null");
+      ui.loadNamesState();
+      expect(ui.renamedNames).toEqual({});
+
+      // The label must stay at the pristine name — no crash, no empty text.
+      expect(label.textContent).toBe("Polygons");
+      expect(layerInfo.name).toBe("Polygons");
+    });
+
+    it("saveNamesState persists a committed rename into localStorage", () => {
+      const label = findItem(ui, "overlay1").querySelector(
+        "label",
+      ) as HTMLLabelElement;
+      ui.renameLayer("overlay1");
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      vi.useFakeTimers();
+      input.value = "Persisted";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.useRealTimers();
+
+      const stored = JSON.parse(
+        window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)!,
+      );
+      expect(stored).toEqual({ overlay1: "Persisted" });
+    });
+
+    it("debounces rapid renames into a single localStorage write", () => {
+      const originalStorage = window.localStorage;
+      const setItem = vi.fn();
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: () => null,
+          setItem,
+          removeItem: vi.fn(),
+          clear: () => setItem.mockReset(),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      vi.useFakeTimers();
+      const label = findItem(ui, "overlay1").querySelector(
+        "label",
+      ) as HTMLLabelElement;
+
+      ui.renameLayer("overlay1");
+      let input = label.querySelector("input") as HTMLInputElement;
+      input.value = "First";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      ui.renameLayer("overlay1");
+      input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Second";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      ui.renameLayer("overlay1");
+      input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Third";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(setItem).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      const namesCall = setItem.mock.calls.find(
+        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
+      );
+      expect(namesCall).toBeDefined();
+      expect(JSON.parse(namesCall![1])).toEqual({ overlay1: "Third" });
+
+      vi.useRealTimers();
+      Object.defineProperty(window, "localStorage", {
+        value: originalStorage,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("does NOT write to localStorage when the committed name is unchanged", () => {
+      const originalStorage = window.localStorage;
+      const setItem = vi.fn();
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: () => null,
+          setItem,
+          removeItem: vi.fn(),
+          clear: () => setItem.mockReset(),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      vi.useFakeTimers();
+      const label = findItem(ui, "overlay1").querySelector(
+        "label",
+      ) as HTMLLabelElement;
+
+      ui.renameLayer("overlay1");
+      const input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Polygons"; // unchanged
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      const namesCall = setItem.mock.calls.find(
+        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
+      );
+      expect(namesCall).toBeUndefined();
+
+      vi.useRealTimers();
+      Object.defineProperty(window, "localStorage", {
+        value: originalStorage,
+        writable: true,
+        configurable: true,
+      });
+    });
+  });
+
   // ─────────────────── keyboard on more button ───────────────────
 
   describe("more button keyboard shortcut", () => {
