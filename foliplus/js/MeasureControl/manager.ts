@@ -466,6 +466,12 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
     this.editDragToggles = [];
+    // Explicitly clear collidable labels and unbind map-move events: the
+    // finalizedClickHandlers.forEach(h => h()) above drains them through each
+    // measurement's dispose, but this is belt-and-suspenders in case a
+    // measurement skips its dispose.
+    this.collidableLabels = [];
+    this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);

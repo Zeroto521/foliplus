@@ -78,7 +78,8 @@ const hOverlap = (a: Box, b: Box): number =>
   Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
 
 /** True when the horizontal overlap is heavy enough to warrant hiding a chip.
- *  Judged against the narrower chip's width. */
+ *  Judged against the narrower chip's width. `hides(a, b) ≡ hides(b, a)` —
+ *  symmetric by `Math.min`, so argument order in the sweep is irrelevant. */
 const hides = (a: Box, b: Box): boolean =>
   hOverlap(a, b) >= Math.min(a.w, b.w) * HIDE_OVERLAP;
 
@@ -125,8 +126,9 @@ export const placeLabels = (
     }));
 
   // Collision off: restore any chip we currently own that is hidden (i.e. ones
-  // we hid in a prior plan). Chips hidden by the caller (show_labels/destroy)
-  // sit outside this function, so restoring unconditionally here is safe.
+  // we hid in a prior plan). Only chips present in the current plan (i.e. on the
+  // map and registered) are restored; chips hidden by the caller (show_labels/
+  // destroy) sit outside this function and are untouched.
   if (!collide) {
     entries
       .filter(e => e.el.style.visibility === "hidden")
