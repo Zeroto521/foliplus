@@ -71,12 +71,12 @@ const readDimDuration = (container: HTMLElement): number => {
  * remove the active class and let the CSS transition carry opacity back to
  * 0 over --dim-duration.
  *
- * If enter's auto-clear already ran and the scrim is transparent, re-add the
- * active class for one frame so the browser paints the dark state, then
- * remove it on the next frame to trigger the fade-out. Without the re-flash,
- * a transparent scrim has nothing to fade from and the exit is instant.
- * The re-flash is imperceptible (one painted frame) and only happens when
- * the user lingered long enough for the enter flash to complete.
+ * If enter's auto-clear already ran and the scrim is transparent, replay the
+ * full startDim sequence: add the active class, let the CSS transition fade
+ * the basemap in to dark, then auto-clear to fade it back out. The enter side
+ * works because startDim lets the 260ms fade-in complete before clearing —
+ * a brief re-flash of the active class cannot, since the transition needs the
+ * full duration to reach --dim-alpha before there is anything to fade from.
  */
 const startDimExit = (container: HTMLElement): void => {
   ensureScrim(container);
@@ -89,13 +89,19 @@ const startDimExit = (container: HTMLElement): void => {
     // Scrim is dark — just remove active, CSS transition does the fade-out.
     container.classList.remove(CLASSES.DIM_ACTIVE);
   } else {
-    // Scrim is transparent — re-flash dark for one frame, then fade out.
+    // Scrim is transparent — fade in to dark, then auto-clear to fade out,
+    // exactly as startDim does on enter, so the exit mirrors the enter flash.
     container.classList.add(CLASSES.DIM_ACTIVE);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        container.classList.remove(CLASSES.DIM_ACTIVE);
-      });
-    });
+    dimTimers.set(
+      container,
+      setTimeout(
+        () => {
+          container.classList.remove(CLASSES.DIM_ACTIVE);
+          dimTimers.delete(container);
+        },
+        readDimDuration(container) + DIM_BUFFER_MS,
+      ),
+    );
   }
 };
 

@@ -234,17 +234,18 @@ describe("startDimExit", () => {
       expect(dimEl(container)).not.toBeNull();
     });
 
-    it("cancels enter's pending auto-clear timer", () => {
+    it("cancels enter's pending auto-clear timer", async () => {
       startDimExit(container);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       // No timer left: advancing past the original auto-clear window does nothing.
-      void vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(400);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     });
   });
 
   describe("scrim is transparent (enter's auto-clear already ran)", () => {
     beforeEach(() => {
+      vi.useFakeTimers();
       // Manually set the scrim to transparent state — scrim exists but
       // active class is absent. This simulates the state after enter's
       // auto-clear timer has already fired.
@@ -254,32 +255,27 @@ describe("startDimExit", () => {
       expect(dimEl(container)).not.toBeNull();
     });
 
-    it("re-flashes the scrim dark synchronously so the browser paints the dark state", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("replays startDim: fades the scrim in to dark, then auto-clears to fade out", () => {
       startDimExit(container);
-      // Active is added immediately for the re-flash — the browser will paint
-      // one dark frame before the double-rAF removes it.
+      // Active is added immediately, triggering the CSS fade-in to --dim-alpha.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     });
 
-    it("removes the active class after two frames for the CSS fade-out", async () => {
-      let done: () => void;
-      const promise = new Promise<void>(resolve => {
-        done = resolve;
-      });
-
+    it("auto-clears after the full dim duration so the fade-out is visible", async () => {
       startDimExit(container);
-      // After the double-rAF in startDimExit, schedule one more rAF to
-      // observe the result — by then the active class has been removed and
-      // the CSS transition is carrying opacity from --dim-alpha back to 0.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-            done();
-          });
-        });
-      });
-      return promise;
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      // 260ms (dim duration) + 40ms (buffer) = 300ms before auto-clear.
+      // Before that, the scrim stays dark (fading in).
+      await vi.advanceTimersByTimeAsync(200);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(200);
+      // After the timer fires, active is removed and the CSS transition
+      // carries opacity from --dim-alpha back to 0 over --dim-duration.
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
     });
   });
 });
