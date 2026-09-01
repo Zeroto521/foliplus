@@ -1150,7 +1150,8 @@ class LayerUI {
             );
             break;
           }
-          if (action === CONST.ACTION.RENAME_LAYER) this.renameLayer(this.activeMenu.layerId);
+          if (action === CONST.ACTION.RENAME_LAYER)
+            this.renameLayer(this.activeMenu.layerId);
           else {
             this.focusLayer(this.activeMenu.layerId);
             this.closeMoreMenu(true);
@@ -1384,9 +1385,7 @@ class LayerUI {
         "aria-disabled": isHidden ? "true" : "false",
       };
 
-      menu.appendChild(
-        dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")),
-      );
+      menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
       if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
     }
@@ -1452,7 +1451,7 @@ class LayerUI {
     // Color basemap: current name comes from persistence (fallback to the
     // hex color value, which is the default label when never renamed).
     const currentName = isColorLayer
-      ? this.renamedNames[layerId] ?? this.currentColor
+      ? (this.renamedNames[layerId] ?? this.currentColor)
       : layerInfo.name;
 
     const map = this.m.map;
@@ -1542,7 +1541,7 @@ class LayerUI {
       // Color basemap: read from persistence, falling back to the hex color.
       const name = layerInfo
         ? layerInfo.name
-        : this.renamedNames[layerId] ?? this.currentColor;
+        : (this.renamedNames[layerId] ?? this.currentColor);
       label.textContent = name;
       const checkbox = item?.querySelector(
         'input[type="checkbox"]',

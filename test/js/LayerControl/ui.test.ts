@@ -1334,11 +1334,13 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const toggleSpy = vi.fn();
       ui.toggleFocusedLayer = toggleSpy;
 
-      input.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      }));
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
 
       expect(ui.renamedNames["overlay1"]).toBe("New Name");
       expect(toggleSpy).not.toHaveBeenCalled();
@@ -1348,9 +1350,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // ─────────── color basemap (outside layerRegistry) ───────────
 
     it("color layer more menu contains only rename-layer (no focus-layer)", () => {
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.openMoreMenu(colorItem);
 
       const focusLi = colorItem.querySelector(
@@ -1364,9 +1364,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the color value", () => {
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.renameLayer(CONST.COLOR.MAP_ID);
 
       expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
@@ -1378,9 +1376,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.renameLayer(CONST.COLOR.MAP_ID);
 
       const label = colorItem.querySelector("label") as HTMLLabelElement;
@@ -1393,9 +1389,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames[CONST.COLOR.MAP_ID]).toBe("My Base");
       // The color basemap is not in the registry, so the registry should be
       // untouched.
-      expect(
-        manager.layerRegistry.get(CONST.COLOR.MAP_ID),
-      ).toBeUndefined();
+      expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
     });
 
     it("applying persisted rename restores the color-layer label text", () => {
@@ -1406,12 +1400,8 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.loadNamesState();
       ui.applyNamesState();
 
-      const colorItem = ui.uiContainer.querySelector(
-        `${CONST.SEL.COLOR_ITEM}`,
-      )!;
-      expect(
-        colorItem.querySelector("label")!.textContent,
-      ).toBe("Custom Color");
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
       const colorInput = colorItem.querySelector(
         'input[type="color"]',
       ) as HTMLInputElement;
