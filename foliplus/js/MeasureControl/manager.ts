@@ -72,7 +72,7 @@ class MeasureManager {
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   private offLayerRemoved!: () => void;
   private onMapClick!: (event: L.LeafletMouseEvent) => void;
-  private onKeyDown!: (event: KeyboardEvent) => void;
+  onKeyDown!: (event: KeyboardEvent) => void;
   private onUnload!: () => void;
 
   /** Handle export button click — delegates to the export module. */
