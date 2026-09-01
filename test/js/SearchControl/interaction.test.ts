@@ -134,11 +134,11 @@ describe("bindEvents", () => {
     expect(ctrl.selectedIdx).toBe(0);
   });
 
-  it("ArrowUp onto a coord history item fills the canonical query", () => {
+  it("ArrowDown onto a coord history item fills the canonical query", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
     // Item 1 is a coord history entry (address display + data-query); item 0 is
-    // a plain suggestion. ArrowUp from the suggestion must land on the entry's
+    // a plain suggestion. ArrowDown from the suggestion must land on the entry's
     // canonical query, not its address display.
     const coord = dom.el(
       "div",
@@ -169,7 +169,7 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("Somewhere");
-    // ArrowUp again onto the coord entry → canonical query restored.
+    // ArrowDown again onto the coord entry → canonical query restored.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );

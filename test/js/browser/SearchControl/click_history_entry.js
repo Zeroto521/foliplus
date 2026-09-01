@@ -4,5 +4,6 @@
   const item = document.querySelector(".foliplus-search-result-item");
   if (!item) return null;
   item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-  return document.querySelector(".foliplus-search input").value;
+  const inp = document.querySelector(".foliplus-search input");
+  return inp?.value ?? null;
 };
