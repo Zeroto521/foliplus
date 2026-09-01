@@ -80,6 +80,21 @@ describe("rafLoop", () => {
     expect(tick).toHaveBeenCalledTimes(4);
   });
 
+  it("new start() while running is a no-op (caller must stop first to switch direction)", () => {
+    // This mirrors the key-direction-switch case in ExportControl: holding one
+    // arrow then pressing another must stop the old loop first, otherwise a
+    // stale loop keeps nudging the old direction for ~500ms. rafLoop itself
+    // does not auto-stop on a second start() — it coalesces — so the caller
+    // owns the stop-before-start contract.
+    const tick = vi.fn(() => false);
+    const loop = rafLoop(tick);
+    loop.start("ArrowRight");
+    expect(tick).toHaveBeenCalledTimes(1);
+    loop.start("ArrowUp"); // coalesced: no-op, original loop still runs
+    vi.advanceTimersByTime(16 * 3);
+    expect(tick).toHaveBeenCalledTimes(4); // ticks on the original, rightward loop
+  });
+
   it("starts on the next start() after it stopped", () => {
     const tick = vi.fn(() => true); // first call stops it
     const loop = rafLoop(tick);

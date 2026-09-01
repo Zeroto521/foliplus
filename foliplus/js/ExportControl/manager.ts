@@ -310,6 +310,9 @@ class ExportManager {
   /** Start the smooth-nudge loop for a held arrow key. */
   private nudgeStart(key: string) {
     if (!this.isEditing()) return;
+    // Stop any loop running for a previous direction first, so holding Right
+    // then pressing Up doesn't leave a stale loop nudging right for ~500ms.
+    this.nudgeStop();
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         this.nudgeCropBox(k ?? key);
