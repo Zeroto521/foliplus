@@ -400,6 +400,46 @@ path.foliplus-focus-mask {
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
+    /* ── Keyboard focus navigation cursor ──
+       Tab / Arrow keys move a `.foliplus-layer-focused` marker up and down
+       the layer list. This is a *separate* visual axis from `.active`
+       (checkbox-checked) and `:hover` (mouse), so it must be readable at
+       a glance on its own:
+       - Left accent border, thicker (3px via shadow inset) so it reads as
+         a "current row" indicator, not a status.
+       - Soft accent wash background (8% red) — distinct from .active's
+         5% red wash, so a keyboard cursor sitting on an active row is
+         still distinguishable from the row's own "checked" tint.
+       - Top/bottom subtle hairlines + a light glow (shadow-xs) lift the
+         row visually as "the one we're looking at right now".
+       - Entrance: brief fade + nudge from above, plays once via animation.
+         Respects prefers-reduced-motion by dropping the animation. */
+    &.foliplus-layer-focused {
+      border-left-color: var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+      box-shadow:
+        inset calc(var(--border-thick) + var(--border-thin)) 0 0 0
+          var(--accent-primary),
+        inset 0 var(--border-thin) 0 0 color-mix(
+          in srgb,
+          var(--accent-primary) 12%,
+          transparent
+        ),
+        inset 0 calc(-1 * var(--border-thin)) 0 0 color-mix(
+          in srgb,
+          var(--accent-primary) 12%,
+          transparent
+        ),
+        var(--shadow-xs);
+      animation: foliplus-keyboard-focus-in 0.18s ease-out;
+    }
+    /* Type icon + more button answer to the keyboard cursor the same way
+       they answer to hover (accent color) — the row is "hot", so its
+       inline actions wake up too. */
+    &.foliplus-layer-focused .foliplus-type-icon-col,
+    &.foliplus-layer-focused .foliplus-layer-more-btn {
+      color: var(--accent-primary);
+    }
     /* Identity: gray at rest, wakes to black on hover and when the row is
        active. Accent stays reserved for actions (more) and status (border),
        so the type icon reads as focus, not as a call-to-action. */
@@ -622,6 +662,24 @@ path.foliplus-focus-mask {
 .foliplus-layer-tile-hidden {
   visibility: hidden;
   opacity: 0;
+}
+
+/* ── Drag-over pulse animation ── */
+/* ── Keyboard focus entrance ── */
+@keyframes foliplus-keyboard-focus-in {
+  from {
+    opacity: 0.6;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-layer-item.foliplus-layer-focused {
+    animation: none;
+  }
 }
 
 /* ── Drag-over pulse animation ── */
