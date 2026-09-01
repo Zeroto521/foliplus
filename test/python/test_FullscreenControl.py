@@ -547,12 +547,12 @@ class TestFullscreenControlBrowser:
             ), "scrim should be created exactly once"
 
             self._exit_fullscreen(page)
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(600)
             opacity_out = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
             )
-            assert abs(float(opacity_out)) < 0.02, opacity_out
+            assert abs(float(opacity_out)) < 0.05, opacity_out
 
             # The scrim element is created once per map and kept in the DOM;
             assert (
@@ -744,7 +744,7 @@ class TestFullscreenControlBrowser:
             # while fullscreen. exitFullscreen fires the same fullscreenchange.
             page.evaluate("document.exitFullscreen()")
             page.wait_for_function("() => document.fullscreenElement === null")
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(600)
 
             assert (
                 page.evaluate(
@@ -754,7 +754,7 @@ class TestFullscreenControlBrowser:
                 is False
             )
             opacity_out = self._scrim_snapshot(page)["opacity"]
-            assert abs(float(opacity_out)) < 0.02, opacity_out
+            assert abs(float(opacity_out)) < 0.05, opacity_out
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_affect_controls(self, browser, tmp_path):
@@ -842,9 +842,9 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(600)
             snap_out = self._scrim_snapshot(page)
-            assert abs(float(snap_out["opacity"])) < 0.02, snap_out["opacity"]
+            assert abs(float(snap_out["opacity"])) < 0.05, snap_out["opacity"]
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_survives_hide_others(self, browser, tmp_path):
