@@ -4,6 +4,7 @@
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
+import type { SearchSource, SearchType } from "./const.js";
 
 /**
  * Nominatim search result element.
@@ -30,8 +31,8 @@ export interface SearchHistoryEntry {
    * inputs for the same location share one entry).
    */
   query: string;
-  /** Search type: "coord" for coordinate, "addr" for address keyword. */
-  type: "coord" | "addr";
+  /** Search type: coordinate pair or address keyword. */
+  type: SearchType;
   /** Formatted coordinate display, e.g. "121.4700, 31.2300". */
   coordDisplay: string;
   /** Formatted address display, e.g. "Paris, France". */
@@ -48,8 +49,8 @@ export interface SearchHistoryEntry {
 
 /** A rendered result item in the suggestions/history panel, shared by both sources. */
 export interface ResultItem {
-  /** Source: "suggestion" for live Nominatim results, "history" for saved entries. */
-  source: "suggestion" | "history";
+  /** Source: live geocode result or saved history entry. */
+  source: SearchSource;
   /** Icon SVG to display. */
   icon: string;
   /** Primary display text (shown in RESULT_TEXT). */
@@ -78,11 +79,11 @@ export interface SearchControl extends BaseControl {
   suggestAbortController: AbortController | null;
   marker: L.Marker | null;
   delIcon: L.Marker | null;
-  mode: string;
+  mode: SearchType;
   panelWrap: HTMLElement | null;
   selectedIdx: number;
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;
-  setMode(newMode: string): void;
+  setMode(newMode: SearchType): void;
 }

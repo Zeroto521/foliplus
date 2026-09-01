@@ -8,6 +8,9 @@
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
+/** WGS84 longitude/latitude limits, shared by coordinate validation. */
+export const COORD_BOUNDS = { LON: 180, LAT: 90 };
+
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
 const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
   try {
