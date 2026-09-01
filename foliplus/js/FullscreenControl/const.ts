@@ -12,6 +12,9 @@ const CLASSES = {
   DIM: "foliplus-dim",
   // Toggled on the map container; crossfades the scrim to `--dim-alpha`.
   DIM_ACTIVE: "foliplus-dim-active",
+  // Four L-shaped corner brackets that slide in on enter and out on exit.
+  BRACKET: "foliplus-dim-bracket",
+  BRACKET_ACTIVE: "foliplus-dim-bracket-active",
 };
 
 const containerId = (name: string, position: string) =>

@@ -2,7 +2,14 @@
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { setDim, startDim, startDimExit } from "./anim.js";
+import {
+  setBracket,
+  setDim,
+  startBracket,
+  startBracketExit,
+  startDim,
+  startDimExit,
+} from "./anim.js";
 import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -66,22 +73,24 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           // fade-in runs in normal flow ahead of requestFullscreen, which is why
           // enter animates but an eager exit never did.
           startDimExit(map.getContainer());
+          startBracketExit(map.getContainer());
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
-          // Exit can be denied (e.g. NotAllowedError) — clear the momentary
-          // flash explicitly so the basemap is never left darkened.
           setDim(map.getContainer(), false);
+          setBracket(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
       return;
     }
     startDimExit(map.getContainer());
+    startBracketExit(map.getContainer());
     map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   } else {
     if (isEnabled) {
       startDim(map.getContainer());
+      startBracket(map.getContainer());
       map
         .getContainer()
         .requestFullscreen()
@@ -89,15 +98,15 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = true;
         })
         .catch(() => {
-          // Enter can be denied (e.g. NotAllowedError) — clear the momentary
-          // flash so a rejected enter doesn't leave the basemap darkened.
           setDim(map.getContainer(), false);
+          setBracket(map.getContainer(), false);
           map.isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
       return;
     }
     startDim(map.getContainer());
+    startBracket(map.getContainer());
     map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   }

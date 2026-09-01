@@ -121,4 +121,102 @@ const removeScrim = (container: HTMLElement) => {
   scrim?.remove();
 };
 
-export { removeScrim, setDim, startDim, startDimExit };
+// ══════════════════════════════════════════════════════════════════════════════
+// Corner brackets  —  four L-shaped corner marks that slide in on enter and
+// out on exit, making the fullscreen state change visually explicit.
+//
+// The scrim alone is too subtle: it darkens the basemap but gives no spatial
+// cue about the transition itself. The brackets add that: on enter they fly
+// in from outside the viewport edges to frame the map (a "focus" gesture),
+// on exit they fly back out. They read as a viewfinder closing/opening, which
+// maps cleanly onto "zoom in to fullscreen / back out".
+//
+// The animation is entirely CSS-driven (opacity + translate on four L-shapes).
+// JS only creates the elements once and toggles the active class, using the
+// same WeakMap timer pattern as the scrim so they auto-clear and rapid
+// toggles stay consistent. Duration reads from --dim-duration so the brackets
+// stay in sync with the scrim even after minification.
+// ══════════════════════════════════════════════════════════════════════════════
+const bracketTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+const BRACKET_POSITIONS = ["tl", "tr", "bl", "br"] as const;
+
+const ensureBracket = (container: HTMLElement): void => {
+  if (container.querySelector(`.${CLASSES.BRACKET}`)) return;
+  const bracket = document.createElement("div");
+  bracket.className = CLASSES.BRACKET;
+  for (const pos of BRACKET_POSITIONS) {
+    const arm = document.createElement("span");
+    arm.className = `${CLASSES.BRACKET}-${pos}`;
+    bracket.appendChild(arm);
+  }
+  container.appendChild(bracket);
+};
+
+const startBracket = (container: HTMLElement): void => {
+  ensureBracket(container);
+  const pending = bracketTimers.get(container);
+  if (pending) clearTimeout(pending);
+  container.classList.add(CLASSES.BRACKET_ACTIVE);
+  bracketTimers.set(
+    container,
+    setTimeout(
+      () => {
+        container.classList.remove(CLASSES.BRACKET_ACTIVE);
+        bracketTimers.delete(container);
+      },
+      readDimDuration(container) + DIM_BUFFER_MS,
+    ),
+  );
+};
+
+const startBracketExit = (container: HTMLElement): void => {
+  ensureBracket(container);
+  const pending = bracketTimers.get(container);
+  if (pending) clearTimeout(pending);
+  bracketTimers.delete(container);
+
+  const isShowing = container.classList.contains(CLASSES.BRACKET_ACTIVE);
+  if (isShowing) {
+    container.classList.remove(CLASSES.BRACKET_ACTIVE);
+  } else {
+    container.classList.add(CLASSES.BRACKET_ACTIVE);
+    bracketTimers.set(
+      container,
+      setTimeout(
+        () => {
+          container.classList.remove(CLASSES.BRACKET_ACTIVE);
+          bracketTimers.delete(container);
+        },
+        readDimDuration(container) + DIM_BUFFER_MS,
+      ),
+    );
+  }
+};
+
+const setBracket = (container: HTMLElement, active: boolean): void => {
+  ensureBracket(container);
+  container.classList.toggle(CLASSES.BRACKET_ACTIVE, active);
+};
+
+const removeBracket = (container: HTMLElement) => {
+  const pending = bracketTimers.get(container);
+  if (pending) {
+    clearTimeout(pending);
+    bracketTimers.delete(container);
+  }
+  container.classList.remove(CLASSES.BRACKET_ACTIVE);
+  const bracket = container.querySelector(`.${CLASSES.BRACKET}`);
+  bracket?.remove();
+};
+
+export {
+  removeBracket,
+  removeScrim,
+  setBracket,
+  setDim,
+  startBracket,
+  startBracketExit,
+  startDim,
+  startDimExit,
+};
