@@ -333,7 +333,6 @@ class ExportManager {
     const loop = this.nudgeLoop;
     this.nudgeLoop = undefined;
     loop?.stop();
-    loop?.cancel();
   }
 
   /** True while the crop box is open and being edited (not locked). */

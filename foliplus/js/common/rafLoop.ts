@@ -14,7 +14,6 @@ type Scheduler = (fn: () => void, ms: number) => Handle;
 export type RafLoop = {
   start(key?: string): void;
   stop(): void;
-  cancel(): void;
 };
 
 /**
@@ -66,12 +65,6 @@ const rafLoop = (
       schedule();
     },
     stop,
-    cancel() {
-      if (pending) {
-        clearTimeout(pending as ReturnType<typeof setTimeout>);
-        pending = null;
-      }
-    },
   };
 };
 
