@@ -8,7 +8,10 @@
 // useFakeTimers() advances the inner timer, and headless browser tests can
 // wait for the final loop's frame to settle after rapid repeated keydowns.
 
-type Handle = unknown;
+// The handle a scheduler returns — must be clearTimeout-compatible so stop()
+// can cancel the pending frame. Injected schedulers (tests) already satisfy
+// this by returning a number; no separate canceller needed.
+type Handle = ReturnType<typeof setTimeout>;
 type Scheduler = (fn: () => void, ms: number) => Handle;
 
 export type RafLoop = {
@@ -42,7 +45,7 @@ const rafLoop = (
   const stop = () => {
     running = false;
     if (pending) {
-      clearTimeout(pending as ReturnType<typeof setTimeout>);
+      clearTimeout(pending);
       pending = null;
     }
   };
