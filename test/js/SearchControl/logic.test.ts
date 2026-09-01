@@ -104,6 +104,32 @@ describe("renderResults", () => {
     expect(items[0].getAttribute("data-query")).toBe("121.4700, 31.2300");
     expect(items[1].hasAttribute("data-query")).toBe(false);
   });
+
+  it("keeps the retained array in lockstep with the DOM so Enter adopts the highlighted item", () => {
+    // renderResults stores the same ResultItem[] it renders into ctrl.currentItems,
+    // so the DOM RESULT_ITEM count and currentItems.length are always equal. The
+    // Enter handler indexes currentItems by selectedIdx; any drift here would make
+    // it adopt a different entry than the one the arrow keys highlighted.
+    const ctrl: any = {
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+    };
+    renderResults(ctrl, [
+      { source: "suggestion", icon: "", primaryText: "One", coordDisplay: null, onClick: () => true },
+      { source: "suggestion", icon: "", primaryText: "Two", coordDisplay: null, onClick: () => true },
+      { source: "suggestion", icon: "", primaryText: "Three", coordDisplay: null, onClick: () => true },
+    ]);
+    const domItems = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+    expect(domItems).toHaveLength(3);
+    expect(ctrl.currentItems).toHaveLength(3);
+    expect(ctrl.currentItems[1].primaryText).toBe("Two");
+    // The dev-mode assertion in renderResults would throw on any mismatch; a
+    // successful render with equal counts is the positive proof it holds.
+  });
 });
 
 describe("initDebouncedFetch", () => {

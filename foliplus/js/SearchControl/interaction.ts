@@ -26,6 +26,29 @@ const resultItemValue = (item: Element): string =>
   "";
 
 /**
+ * Move the keyboard cursor by one step and echo the landed item's value into
+ * the input. selectedIdx indexes ctrl.currentItems; both derive from the same
+ * results array in renderResults, so the DOM RESULT_ITEM count and
+ * currentItems.length are guaranteed equal. Querying RESULT_ITEM here also
+ * correctly skips the non-selectable history group header.
+ *
+ * Invariant (defended by the assertion in renderResults):
+ *   ctrl.currentItems.length === DOM RESULT_ITEM count
+ *   ctrl.selectedIdx in [-1, currentItems.length - 1]
+ */
+const moveSelection = (ctrl: SearchControl, dir: number) => {
+  if (!ctrl.panelWrap) return;
+  const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
+  if (items.length === 0) return;
+  ctrl.selectedIdx = Math.max(-1, Math.min(ctrl.selectedIdx + dir, items.length - 1));
+  items.forEach((el: Element, i: number) =>
+    el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
+  );
+  if (ctrl.selectedIdx >= 0)
+    ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
+};
+
+/**
  * Bind all DOM events for the SearchControl.
  */
 const bindEvents = (ctrl: SearchControl): (() => void) => {
@@ -86,31 +109,12 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     {
       key: "ArrowDown",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
-      },
+      handler: () => moveSelection(ctrl, 1),
     },
     {
       key: "ArrowUp",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        if (ctrl.selectedIdx >= 0)
-          ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
-      },
+      handler: () => moveSelection(ctrl, -1),
     },
     {
       key: "Enter",
@@ -118,7 +122,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       handler: () => {
         // Adopt the keyboard-highlighted entry when one is selected: re-geocoding
         // the display name can resolve to a different place on ambiguous queries.
-        const selected = ctrl.currentItems[ctrl.selectedIdx];
+        const selected =
+          ctrl.selectedIdx >= 0 ? ctrl.currentItems[ctrl.selectedIdx] : undefined;
         const raw = ctrl.inp.value.trim();
         if (!raw) {
           removePanel(ctrl);

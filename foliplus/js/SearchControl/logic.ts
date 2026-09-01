@@ -467,6 +467,17 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       ),
     );
   });
+
+  // Post-render sanity: DOM RESULT_ITEM count must equal the retained array
+  // so keyboard navigation (DOM-indexed) and Enter adoption (array-indexed)
+  // never drift. Cheap on a tiny panel; fails loudly if a future edit breaks
+  // the lockstep that the Enter handler depends on.
+  const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
+  if (domCount !== results.length) {
+    throw new Error(
+      `[${CONF.name}] result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+    );
+  }
 };
 
 const renderSuggestions = (
