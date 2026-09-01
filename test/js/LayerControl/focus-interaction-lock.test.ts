@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerUI } from "#foliplus/LayerControl/ui.js";
 
 // ── Hoistable mock state ──────────────────────────────────────────────
 // vi.hoisted() declares state that exists BEFORE the module body runs, so
@@ -12,9 +15,7 @@ const modeMocks = vi.hoisted(() => {
     if (mode === null) states.delete(component);
     else states.set(component, mode);
   });
-  const getMode = vi.fn(
-    (component: string) => states.get(component) ?? null,
-  );
+  const getMode = vi.fn((component: string) => states.get(component) ?? null);
   const guardBlocked = vi.fn(() => false);
   const clear = vi.fn(() => states.clear());
   const ensureModes = vi.fn(() => ({
@@ -39,10 +40,6 @@ vi.mock("#foliplus/core/mode.js", () => ({
   ModeManager: modeMocks.ModeManager,
 }));
 
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
-import { LayerUI } from "#foliplus/LayerControl/ui.js";
-
 class TileLayer {
   options = { attribution: "© OpenStreetMap" };
   setZIndex = vi.fn();
@@ -65,9 +62,15 @@ const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
   window.L.TileLayer = TileLayer;
   window.L.GridLayer = GridLayer;
   window.L.Renderer = class {};
-  window.L.Path = class { options = {} };
-  window.L.Polygon = class { options = {} };
-  window.L.Polyline = class { options = {} };
+  window.L.Path = class {
+    options = {};
+  };
+  window.L.Polygon = class {
+    options = {};
+  };
+  window.L.Polyline = class {
+    options = {};
+  };
   window.L.Marker = class {};
   window.L.CircleMarker = class CircleMarker {
     constructor(_latlng: any, _opts: any) {}
