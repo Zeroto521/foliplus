@@ -424,19 +424,17 @@ path.foliplus-focus-mask {
           color-mix(in srgb, var(--accent-primary) 12%, transparent),
         var(--shadow-xs);
     }
-    /* Type icon + more button answer to the keyboard cursor the same way
-       they answer to hover (accent color) — the row is "hot", so its
-       inline actions wake up too. */
-    /* Type icon + more button do NOT change color under the keyboard cursor —
-       the left bar + wash are the cursor signal. Accent color stays reserved
-       for :hover only, so keyboard cursor and mouse hover remain visually
-       distinct (same principle as the SearchControl result-item fix). */
-    /* Identity: gray at rest, wakes to black on hover and when the row is
-       active. Accent stays reserved for status (left border) and hover
-       (more button), never for the keyboard cursor. */
+    /* Keyboard cursor and mouse hover share the same foliplus color language:
+       type icon → black (text-primary), more button → red (accent-primary),
+       count → gray (text-muted, unchanged). The left bar + wash are the
+       *additional* cursor-only signal that separates keyboard from mouse. */
+    &.foliplus-layer-focused .foliplus-type-icon-col,
     &:hover .foliplus-type-icon-col,
     &.active .foliplus-type-icon-col {
       color: var(--text-primary);
+    }
+    &.foliplus-layer-focused .foliplus-layer-more-btn {
+      color: var(--accent-primary);
     }
     &.foliplus-layer-dragging {
       background: var(--accent-light);
