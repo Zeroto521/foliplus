@@ -46,13 +46,14 @@ const MIN_H = 18;
 
 /**
  * A chip is hidden only when the horizontal overlap covers at least this
- * fraction of the narrower chip's width. Below this threshold the overlap is
- * treated as a light edge graze and left alone — that keeps labels from being
- * flickered out in normal, well-spaced use. Chips are flat horizontal bars, so
- * readability failure (number text being covered) is a horizontal phenomenon;
- * we judge on that axis rather than 2D area.
+ * fraction of the narrower chip's width. 0.75 keeps labels from being
+ * flickered out when they merely graze on the edge or overlap lightly —
+ * only chips that are nearly stacked on top of each other are hidden. Chips
+ * are flat horizontal bars, so readability failure (number text being
+ * covered) is a horizontal phenomenon; we judge on that axis rather than 2D
+ * area.
  */
-const HIDE_OVERLAP = 0.5;
+const HIDE_OVERLAP = 0.75;
 
 export const mapProjector = (map: L.Map): Projector => {
   // Cache the container rect once per plan: it does not change between chips,

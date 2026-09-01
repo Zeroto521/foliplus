@@ -118,13 +118,13 @@ describe("placeLabels", () => {
     expect(tinyEl.style.visibility).toBe("");
   });
 
-  it("hides the lower-priority chip at exactly 50% overlap of the smaller box", () => {
-    // bigBox (120×20, area 2400) and smallBox (60×20, area 1200) overlap for
-    // 60×20 = 1200 px² — exactly 50% of smallBox's area. smallBox has lower
-    // priority, so it must be hidden. This pins the >= 0.5 boundary: a
-    // regression to > 0.5 would leave smallBox visible.
+  it("hides the lower-priority chip at exactly 75% overlap of the smaller box", () => {
+    // bigBox (120×20) and smallBox (60×20) overlap for 45×20 = 900 px² —
+    // exactly 75% of smallBox's width. smallBox has lower priority, so it
+    // must be hidden. This pins the >= 0.75 boundary: a regression to
+    // > 0.75 would leave smallBox visible.
     const bigBox: Box = { x: 0, y: 0, w: 120, h: 20 }; // priority 80
-    const smallBox: Box = { x: 60, y: 0, w: 60, h: 20 }; // area 1200, 1200px² inside big, priority 60
+    const smallBox: Box = { x: 75, y: 0, w: 60, h: 20 }; // overlap 45px = 75% of small width, priority 60
     const { lb: big, el: bigEl } = label(bigBox, 80);
     const { lb: small, el: smallEl } = label(smallBox, 60);
     const hidden = plan([big, small]);
@@ -133,12 +133,12 @@ describe("placeLabels", () => {
     expect(smallEl.style.visibility).toBe("hidden");
   });
 
-  it("leaves the chip visible just below the 50% overlap boundary", () => {
-    // Two equal-area chips (60×20, area 1200 each) overlap for 29×20 = 580 px²
-    // — 48.3% of the smaller box's area, just under the 0.5 threshold.
-    // Neither should be hidden.
+  it("leaves the chip visible just below the 75% overlap boundary", () => {
+    // Two equal-area chips (60×20) overlap for 44×20 = 880 px² — 73.3% of
+    // each box's width, just under the 0.75 threshold. Neither should be
+    // hidden.
     const a: Box = { x: 0, y: 0, w: 60, h: 20 }; // priority 80
-    const b: Box = { x: 31, y: 0, w: 60, h: 20 }; // area 1200, 580px² inside a, priority 60
+    const b: Box = { x: 16, y: 0, w: 60, h: 20 }; // overlap 44px = 73.3% of width, priority 60
     const { lb: la, el: aEl } = label(a, 80);
     const { lb: lb_, el: bEl } = label(b, 60);
     const hidden = plan([la, lb_]);
@@ -274,6 +274,21 @@ describe("placeLabels", () => {
     expect(bEl.style.visibility).toBe("hidden");
     expect(aEl.style.visibility).toBe("");
     expect(farEl.style.visibility).toBe("");
+  });
+
+  it("leaves two chips visible when they merely graze on the edge (regression)", () => {
+    // Two 60px chips whose centers are 30px apart: horizontal overlap is 30px,
+    // exactly 50% of each chip's width — well below the 0.75 threshold. Both
+    // must stay visible. This catches any regression that lowers the threshold
+    // to a value that hides chips which are merely touching on the edge.
+    const a: Box = { x: 0, y: 0, w: 60, h: 20 };
+    const b: Box = { x: 30, y: 0, w: 60, h: 20 };
+    const { lb: la, el: aEl } = label(a, 80);
+    const { lb: lb_, el: bEl } = label(b, 60);
+    const hidden = plan([la, lb_]);
+    expect(hidden).toBe(0);
+    expect(aEl.style.visibility).toBe("");
+    expect(bEl.style.visibility).toBe("");
   });
 });
 
