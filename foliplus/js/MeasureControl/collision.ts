@@ -4,8 +4,10 @@
 // Every measure label sits on its segment midpoint (or the shape centroid).
 // When two chips overlap heavily they are unreadable, so the least important
 // one drops out instead of drifting away from its measurement point — labels
-// never move off their anchor. Chips are only hidden when the overlap covers
-// most of a chip (>= half of the smaller box's area); a light edge graze
+// never move off their anchor. Chips are only hidden when they intersect on
+// the y-axis AND overlap most of the narrower chip's width on the x-axis;
+// chips that are merely stacked vertically (same x band, different y) are
+// left alone — they share screen column but never touch. A light edge graze
 // does nothing, so labels are not flickered out in normal, well-spaced use.
 //
 // Boxes are read from the live DOM, so the per-type icon anchor and centering
@@ -77,11 +79,23 @@ export const mapProjector = (map: L.Map): Projector => {
 const hOverlap = (a: Box, b: Box): number =>
   Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
 
-/** True when the horizontal overlap is heavy enough to warrant hiding a chip.
- *  Judged against the narrower chip's width. `hides(a, b) ≡ hides(b, a)` —
- *  symmetric by `Math.min`, so argument order in the sweep is irrelevant. */
+/** Vertical overlap height of two boxes, or 0 when they do not overlap on the
+ *  y-axis. */
+const vOverlap = (a: Box, b: Box): number =>
+  Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/** True when two chips overlap enough on screen to warrant hiding one. Two
+ *  conditions must both hold:
+ *  (1) the chips intersect on the y-axis (vOverlap > 0) — chips that are
+ *      fully separated vertically can never visually collide, no matter how
+ *      much their x ranges coincide (e.g. labels on two near-vertical polygon
+ *      edges at very different y share an x band but are perfectly readable).
+ *  (2) the horizontal overlap covers at least HIDE_OVERLAP of the narrower
+ *      chip's width — the actual text-collision criterion.
+ *  `hides(a, b) ≡ hides(b, a)` — symmetric by Math.min and the symmetric
+ *  y-overlap test, so argument order in the sweep is irrelevant. */
 const hides = (a: Box, b: Box): boolean =>
-  hOverlap(a, b) >= Math.min(a.w, b.w) * HIDE_OVERLAP;
+  vOverlap(a, b) > 0 && hOverlap(a, b) >= Math.min(a.w, b.w) * HIDE_OVERLAP;
 
 /**
  * Hide the least-important chip among every heavily-overlapping group, leaving

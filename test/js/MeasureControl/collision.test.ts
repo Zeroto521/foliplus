@@ -229,21 +229,35 @@ describe("placeLabels", () => {
     expect(bEl.style.visibility).toBe("hidden");
   });
 
-  it("hides chips that overlap by width even when vertically offset (1D rule)", () => {
-    // Two chips offset vertically (small 2D area overlap) but overlapping on
-    // the x-axis by more than half the narrower chip's width. The 1D rule
-    // treats this as a collision because the number text runs into each other;
-    // the old 2D-area rule would miss it (area well under the 50% threshold).
+  it("hides chips that overlap by width even when slightly vertically offset", () => {
+    // Two chips with nearly the same vertical position (y centers 15px apart,
+    // chip height 20px → they still overlap on y by 5px) and heavy x-overlap.
+    // Visually they sit on top of each other — must hide the weaker one.
     const a: Box = { x: 0, y: 0, w: 60, h: 20 }; // priority 60
-    const b: Box = { x: 10, y: 15, w: 60, h: 20 }; // 50px horizontal overlap of 60px = 83%
+    const b: Box = { x: 10, y: 15, w: 60, h: 20 }; // 50px x-overlap of 60px = 83%
     const { lb: la, el: aEl } = label(a, 60);
     const { lb: lb_, el: bEl } = label(b, 60);
     const hidden = plan([la, lb_]);
     expect(hidden).toBe(1);
-    // Equal strength → one claims space, the other hides; exactly one visible.
     const visible =
       (aEl.style.visibility === "" ? 1 : 0) + (bEl.style.visibility === "" ? 1 : 0);
     expect(visible).toBe(1);
+  });
+
+  it("keeps both chips visible when fully stacked vertically with no y overlap (regression)", () => {
+    // Two chips share an x band (one directly above the other, like labels on
+    // two near-vertical polygon edges at very different y). They overlap on x
+    // by nearly 100% but are completely separated vertically — visually they
+    // never touch and both are perfectly readable. The planner must NOT hide
+    // either one just because their x ranges coincide.
+    const a: Box = { x: 0, y: 0, w: 60, h: 20 }; // priority 60, upper edge
+    const b: Box = { x: 10, y: 120, w: 60, h: 20 }; // priority 60, lower edge — same x band, far y
+    const { lb: la, el: aEl } = label(a, 60);
+    const { lb: lb_, el: bEl } = label(b, 60);
+    const hidden = plan([la, lb_]);
+    expect(hidden).toBe(0);
+    expect(aEl.style.visibility).toBe("");
+    expect(bEl.style.visibility).toBe("");
   });
 
   it("produces the same survivors regardless of input order (order independence)", () => {
