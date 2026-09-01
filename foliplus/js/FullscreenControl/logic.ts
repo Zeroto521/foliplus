@@ -58,6 +58,13 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         .exitFullscreen()
         .then(() => {
           map.isFullscreen = false;
+          // Fade the scrim out only once the browser has fully left fullscreen.
+          // Starting the transition while the fullscreen teardown is still
+          // running gets it cancelled by the rendering-context change, so the
+          // basemap would snap back instead of fading — on the enter side the
+          // fade-in runs in normal flow ahead of requestFullscreen, which is why
+          // enter animates but an eager exit never did.
+          startDimExit(map.getContainer());
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
@@ -66,11 +73,6 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           setDim(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
-      // Exit fades the scrim out: setDim(false) removes the active class, letting
-      // the CSS transition carry opacity from --dim-alpha back to 0 over
-      // --dim-duration. If enter's auto-clear already ran and the scrim is
-      // transparent, re-flash it dark first so the fade-out is visible.
-      startDimExit(map.getContainer());
       return;
     }
     startDimExit(map.getContainer());

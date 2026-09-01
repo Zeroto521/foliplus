@@ -260,33 +260,41 @@ describe("toggleFullscreen — native API path", () => {
       expect(document.exitFullscreen).toHaveBeenCalled();
     });
 
-    it("flashes the scrim on exit for a fade-out (symmetric with enter)", async () => {
+    it("fades the scrim out only after the browser has fully left fullscreen", async () => {
+      // The fade-out is deferred to exitFullscreen().then(): starting it while
+      // the fullscreen teardown is still running would let the rendering-context
+      // change cancel the CSS transition, so the basemap would snap back instead
+      // of fading. Deferring means the scrim re-flashes dark once fullscreen is
+      // gone, then fades — the visible symmetric counterpart to enter.
       vi.useFakeTimers();
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.resolve());
       toggleFullscreen(mapMock, fsBtn, container);
-      // startDim adds the active class; the auto-clear timer fires after
-      // --dim-duration + buffer (~300ms), fading the scrim out.
+      // Scrim not touched yet — exitFullscreen() hasn't settled.
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      await Promise.resolve();
+      await Promise.resolve();
+      // startDimExit ran after the resolve: scrim was transparent, so it
+      // re-flashed dark for one frame (active on now).
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-      await vi.advanceTimersByTimeAsync(340);
+      await vi.advanceTimersByTimeAsync(40); // double-rAF removes active
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       vi.useRealTimers();
     });
 
     it("clears the scrim on denied exit (no flash, instant clear wins)", async () => {
-      // exitFullscreen() denied → page is still fullscreen. startDim adds the
-      // active class synchronously, but the .catch() immediately removes it,
-      // so the basemap never visibly darkens.
+      // exitFullscreen() denied → page is still fullscreen. The deferred
+      // startDimExit never runs (rejection path), and .catch() clears any
+      // transient dim immediately, so the basemap never visibly darkens.
       vi.useFakeTimers();
       mapMock.isFullscreen = true;
       mocks.getFullscreenEl.mockReturnValue({});
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("denied")));
       toggleFullscreen(mapMock, fsBtn, container);
-      // startDim added active before the promise settled — scrim is briefly active.
-      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       await Promise.resolve();
       await Promise.resolve();
-      // .catch() removed it — scrim is cleared after rejection settles.
+      // .catch() cleared it — scrim is transparent after rejection settles.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       vi.useRealTimers();
     });
