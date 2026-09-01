@@ -112,26 +112,31 @@ class TestFullscreenControlRendering:
         assert_config_value(html, "hide_others", False)
 
     def test_css_dim_scrim(self):
-        """The crossfade scrim fades the basemap while controls stay above it."""
+        """The scrim fades the basemap while controls stay above it."""
         html = render_control(FullscreenControl())
         assert "foliplus-dim" in html
         assert "foliplus-dim-active" in html
-        # PostCSS minifies `260ms` -> `.26s`, so assert the property is present with
-        # a plausible value rather than one exact string form. --dim-alpha now
-        # references --alpha-50 from common.css (resolved by the browser, not
-        # the bundler), so it appears as a var() call, not a literal.
+        # PostCSS minifies `180ms` -> `.18s`, so assert the property is present
+        # with a plausible value. --dim-color embeds var(--alpha-50) from
+        # common.css (resolved by the browser, not the bundler). The easing is
+        # ease-out (the project standard); the duration is read from
+        # --dim-duration via var().
         import re
 
-        assert re.search(r"--dim-duration\s*:\s*(260ms?|\.26s)", html)
-        assert re.search(r"--dim-alpha\s*:\s*var\(--alpha-50\)", html)
+        assert re.search(r"--dim-duration\s*:\s*(180ms?|\.18s)", html)
+        assert re.search(
+            r"--dim-color\s*:\s*rgba\(0,\s*0,\s*0,\s*var\(--alpha-50\)\)", html
+        )
         assert "pointer-events" in html and "none" in html
 
     def test_css_dim_uses_tokens(self):
-        """The fade reads the duration and alpha from CSS custom properties."""
+        """The fade reads the duration from a CSS custom property."""
         html = render_control(FullscreenControl())
         assert "var(--dim-duration)" in html
-        assert "var(--dim-alpha)" in html
-        assert "var(--dim-timing)" in html
+        # Easing is the project-standard ease-out, used directly rather than
+        # through a token. --dim-color carries the alpha via var(--alpha-50).
+        assert "var(--alpha-50)" in html
+        assert "ease-out" in html
 
     def test_css_dim_respects_reduced_motion(self):
         """prefers-reduced-motion drops the fade instead of the dim itself."""
@@ -536,12 +541,12 @@ class TestFullscreenControlBrowser:
             self._enter_fullscreen(page, hide_self=False)
             page.wait_for_timeout(
                 250
-            )  # sample within the 260ms flash, before auto-clear
+            )  # past the 180ms fade-in; scrim is state-bound, stays at full opacity
             opacity_in = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
             )
-            assert abs(float(opacity_in) - 0.5) < 0.05, opacity_in
+            assert abs(float(opacity_in) - 1.0) < 0.05, opacity_in
             assert (
                 page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
             ), "scrim should be created exactly once"
