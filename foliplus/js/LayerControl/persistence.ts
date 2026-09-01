@@ -36,17 +36,9 @@ class LayerPersistence {
   /** Load persisted order, dropping ids not currently registered. */
   loadOrder(): string[] | null {
     const data = Storage.load<string[]>(CONST.STORAGE.ORDER_KEY, this.persistName);
-    if (!data || !Array.isArray(data)) {
-      console.debug(`[${this.persistName}] No saved order found, using initial order`);
-      return null;
-    }
+    if (!data || !Array.isArray(data)) return null;
     const layerSet = new Set(this.registry.layers.map(l => l.id));
-    const filtered = data.filter(id => layerSet.has(id));
-    const dropped = data.length - filtered.length;
-    console.debug(
-      `[${this.persistName}] Loaded order: ${filtered.length} id(s) restored${dropped > 0 ? `, ${dropped} unknown id(s) dropped` : ""}`,
-    );
-    return filtered;
+    return data.filter(id => layerSet.has(id));
   }
 
   /**
@@ -58,9 +50,7 @@ class LayerPersistence {
     if (!this.debouncedSaveOrder) {
       this.debouncedSaveOrder = debounce(() => {
         if (!this.orderGetter) return;
-        const ids = this.orderGetter();
-        Storage.save(CONST.STORAGE.ORDER_KEY, ids, this.persistName);
-        console.debug(`[${this.persistName}] Saved order: ${ids.length} layer(s)`);
+        Storage.save(CONST.STORAGE.ORDER_KEY, this.orderGetter(), this.persistName);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
     this.debouncedSaveOrder();
@@ -74,13 +64,7 @@ class LayerPersistence {
 
   loadFoldedGroups(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.FOLD_KEY, this.persistName);
-    if (Array.isArray(data)) {
-      console.debug(
-        `[${this.persistName}] Loaded fold state: ${data.length} group(s) restored`,
-      );
-      return new Set(data);
-    }
-    console.debug(`[${this.persistName}] No saved fold state, using default open`);
+    if (Array.isArray(data)) return new Set(data);
     return new Set();
   }
 
@@ -92,19 +76,9 @@ class LayerPersistence {
 
   loadHiddenIds(): Set<string> {
     const data = Storage.load<string[]>(CONST.STORAGE.VISIBILITY_KEY, this.persistName);
-    if (Array.isArray(data)) {
-      const layerSet = new Set(this.registry.layers.map(l => l.id));
-      const ids = data.filter(id => typeof id === "string" && layerSet.has(id));
-      const dropped = data.length - ids.length;
-      console.debug(
-        `[${this.persistName}] Loaded hidden ids: ${ids.length} id(s) restored${dropped > 0 ? `, ${dropped} invalid id(s) dropped` : ""}`,
-      );
-      return new Set(ids);
-    }
-    console.debug(
-      `[${this.persistName}] No saved visibility state, all layers visible`,
-    );
-    return new Set();
+    if (!Array.isArray(data)) return new Set();
+    const layerSet = new Set(this.registry.layers.map(l => l.id));
+    return new Set(data.filter(id => typeof id === "string" && layerSet.has(id)));
   }
 
   /**
@@ -117,10 +91,10 @@ class LayerPersistence {
     if (!this.debouncedSaveHiddenIds) {
       this.debouncedSaveHiddenIds = debounce(() => {
         if (!this.hiddenGetter) return;
-        const ids = Array.from(this.hiddenGetter());
-        Storage.save(CONST.STORAGE.VISIBILITY_KEY, ids, this.persistName);
-        console.debug(
-          `[${this.persistName}] Saved hidden ids: ${ids.length} layer(s) hidden`,
+        Storage.save(
+          CONST.STORAGE.VISIBILITY_KEY,
+          Array.from(this.hiddenGetter()),
+          this.persistName,
         );
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
