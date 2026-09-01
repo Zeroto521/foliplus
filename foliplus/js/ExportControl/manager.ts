@@ -105,6 +105,7 @@ class ExportManager {
   nudgeLoop?: RafLoop;
   private nudgeMapRect?: DOMRect;
   private nudgeActiveKey?: string;
+  private nudgeHoldTimer?: ReturnType<typeof setTimeout>;
   /**
    * Overridable timer function for the smooth-nudge rafLoop. Defaults to
    * setTimeout (production). Browser tests inject a no-op so each rafLoop
@@ -371,6 +372,13 @@ class ExportManager {
     let accX = 0;
     let accY = 0;
     let syncFrame = true;
+    // Gate the continuous stream behind a hold delay: a quick tap must stop
+    // after the single sync step, even though the rafLoop keeps ticking until
+    // keyup. Only once the hold passes NUDGE_HOLD_DELAY does per-frame motion
+    // begin. This keeps "tap once" = exactly one NUDGE_STEP, independent of
+    // OS auto-repeat rate or how quickly the user releases.
+    let holdFired = false;
+    this.nudgeHoldTimer = this.scheduler(() => { holdFired = true; }, CONST.CROP.NUDGE_HOLD_DELAY);
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         const d = nudgeDirection(k ?? key);
@@ -380,11 +388,13 @@ class ExportManager {
             d.x * CONST.CROP.NUDGE_STEP,
             d.y * CONST.CROP.NUDGE_STEP,
           );
-        } else {
+        } else if (holdFired) {
           this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
           accX = (accX + perFrame) % 1;
           accY = (accY + perFrame) % 1;
         }
+        // Holding but the gate has not yet passed -> stay put (no per-frame
+        // motion). A quick tap therefore yields exactly the single sync step.
         // If the box was locked or removed (e.g. Enter, Escape) the nudge
         // returns early, but it doesn't return true — detect it explicitly
         // and stop the loop so we never write to a gone/locked box.
@@ -408,6 +418,8 @@ class ExportManager {
   private nudgeStop() {
     const loop = this.nudgeLoop;
     this.nudgeLoop = undefined;
+    clearTimeout(this.nudgeHoldTimer);
+    this.nudgeHoldTimer = undefined;
     this.nudgeMapRect = undefined;
     this.nudgeActiveKey = undefined;
     this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
