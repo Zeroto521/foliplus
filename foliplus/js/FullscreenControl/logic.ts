@@ -2,14 +2,7 @@
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
-import {
-  setBracket,
-  setDim,
-  startBracket,
-  startBracketExit,
-  startDim,
-  startDimExit,
-} from "./anim.js";
+import { setDim, startDim, startDimExit } from "./anim.js";
 import { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -73,24 +66,20 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           // fade-in runs in normal flow ahead of requestFullscreen, which is why
           // enter animates but an eager exit never did.
           startDimExit(map.getContainer());
-          startBracketExit(map.getContainer());
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
           setDim(map.getContainer(), false);
-          setBracket(map.getContainer(), false);
           updateUI(map, fsBtn, container);
         });
       return;
     }
     startDimExit(map.getContainer());
-    startBracketExit(map.getContainer());
     map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   } else {
     if (isEnabled) {
       startDim(map.getContainer());
-      startBracket(map.getContainer());
       map
         .getContainer()
         .requestFullscreen()
@@ -99,14 +88,12 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           setDim(map.getContainer(), false);
-          setBracket(map.getContainer(), false);
           map.isFullscreen = !!getFullscreenEl();
           updateUI(map, fsBtn, container);
         });
       return;
     }
     startDim(map.getContainer());
-    startBracket(map.getContainer());
     map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
     map.invalidateSize();
   }
@@ -123,9 +110,14 @@ const bindFullscreenEvents = (
   container: HTMLElement,
 ) => {
   const handleFSChange = () => {
-    map.isFullscreen = !!getFullscreenEl();
-    // Scrim is a momentary auto-clearing flash, not a persistent overlay, so
-    // the handler only needs to sync UI state; the flash cleans itself up.
+    const isFull = !!getFullscreenEl();
+    map.isFullscreen = isFull;
+    // The scrim is state-bound to fullscreen, so the handler must sync it
+    // directly from the API. Without this, an Esc exit would leave the
+    // basemap dimmed: the exit path's startDimExit runs in the
+    // exitFullscreen() promise callback, but the fullscreenchange event
+    // fires synchronously with the API already reporting not-fullscreen.
+    setDim(map.getContainer(), isFull);
     updateUI(map, fsBtn, container);
   };
 

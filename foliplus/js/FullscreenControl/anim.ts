@@ -1,14 +1,7 @@
-// FullscreenControl crossfade — a momentary dark scrim that flashes over the
-// basemap at the instant of a fullscreen transition, then fades back to
-// transparent so the fullscreen view itself stays clean.
+// FullscreenControl crossfade — a flat black scrim that dims the basemap
+// while fullscreen is active, fading in on enter and out on exit. Controls
+// stay fully visible; the scrim lives at z-index 799, below them.
 import { CLASSES } from "./const.js";
-
-// Cushion past the CSS transition so the scrim's auto-clear doesn't fire a few
-// frames early and leave a visible half-opacity flicker. Covers both JS timer
-// drift and main-thread stalls that delay the setTimeout callback.
-const DIM_BUFFER_MS = 40;
-
-const dimTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 
 const ensureScrim = (container: HTMLElement): void => {
   if (container.querySelector(`.${CLASSES.DIM}`)) return;
@@ -18,92 +11,33 @@ const ensureScrim = (container: HTMLElement): void => {
 };
 
 /**
- * Flash the basemap dark and automatically fade it back to transparent once
- * the scrim's transition completes — momentary, never a persistent overlay.
+ * Fade the scrim in for a fullscreen enter. The scrim stays dimmed while
+ * fullscreen is active — it is state-bound, not a flash — so the user gets a
+ * quiet, persistent signal that they're in a distinct mode, matching the
+ * pattern ExportControl uses while in crop mode.
  *
- * The scrim element is created once (ensureScrim); subsequent calls only
- * restart the flash, cancelling any in-flight auto-clear so rapid
- * enter/exit/enter toggles stay consistent. The duration is read from the
- * `--dim-duration` CSS custom property on the scrim so JS and CSS stay in
- * sync automatically (survives bundler minification like `.26s`); 260ms is the
- * fallback if the value is absent.
+ * The scrim element is created once (ensureScrim); subsequent calls are
+ * idempotent. CSS carries the opacity transition.
  */
 const startDim = (container: HTMLElement): void => {
   ensureScrim(container);
-  const pending = dimTimers.get(container);
-  if (pending) clearTimeout(pending);
   container.classList.add(CLASSES.DIM_ACTIVE);
-  dimTimers.set(
-    container,
-    setTimeout(
-      () => {
-        container.classList.remove(CLASSES.DIM_ACTIVE);
-        dimTimers.delete(container);
-      },
-      readDimDuration(container) + DIM_BUFFER_MS,
-    ),
-  );
-};
-
-const readDimDuration = (container: HTMLElement): number => {
-  const scrim = container.querySelector(`.${CLASSES.DIM}`);
-  if (!scrim) return 260;
-  const raw = getComputedStyle(scrim).getPropertyValue("--dim-duration").trim();
-  const ms = parseFloat(raw);
-  // CSS may express the duration as `260ms` (dev build) or `.26s` (minified).
-  // Milliseconds are already the right unit; only bare seconds need ×1000.
-  // Check "ms" before "s" — a literal endswith("s") would match "260ms" too.
-  if (isNaN(ms)) return 260;
-  if (raw.endsWith("ms")) return ms;
-  return ms * 1000;
 };
 
 /**
  * Fade the scrim out for a fullscreen exit — symmetric with startDim's
- * fade-in on enter.
- *
- * If the scrim is still dark (enter's auto-clear hasn't fired yet), simply
- * remove the active class and let the CSS transition carry opacity back to
- * 0 over --dim-duration.
- *
- * If enter's auto-clear already ran and the scrim is transparent, replay the
- * full startDim sequence: add the active class, let the CSS transition fade
- * the basemap in to dark, then auto-clear to fade it back out. The enter side
- * works because startDim lets the 260ms fade-in complete before clearing —
- * a brief re-flash of the active class cannot, since the transition needs the
- * full duration to reach --dim-alpha before there is anything to fade from.
+ * fade-in on enter. Removes the active class so the CSS transition carries
+ * opacity from 1 back to 0 over --dim-duration (180ms ease-out).
  */
 const startDimExit = (container: HTMLElement): void => {
   ensureScrim(container);
-  const pending = dimTimers.get(container);
-  if (pending) clearTimeout(pending);
-  dimTimers.delete(container);
-
-  const isDark = container.classList.contains(CLASSES.DIM_ACTIVE);
-  if (isDark) {
-    // Scrim is dark — just remove active, CSS transition does the fade-out.
-    container.classList.remove(CLASSES.DIM_ACTIVE);
-  } else {
-    // Scrim is transparent — fade in to dark, then auto-clear to fade out,
-    // exactly as startDim does on enter, so the exit mirrors the enter flash.
-    container.classList.add(CLASSES.DIM_ACTIVE);
-    dimTimers.set(
-      container,
-      setTimeout(
-        () => {
-          container.classList.remove(CLASSES.DIM_ACTIVE);
-          dimTimers.delete(container);
-        },
-        readDimDuration(container) + DIM_BUFFER_MS,
-      ),
-    );
-  }
+  container.classList.remove(CLASSES.DIM_ACTIVE);
 };
 
 /**
- * Synchronous toggle of the scrim (no auto-clear). Used by the denied-request
- * catch paths in logic.ts, where the scrim must clear immediately rather than
- * fading.
+ * Synchronous toggle of the scrim (no fade). Used by the denied-request
+ * catch paths in logic.ts, where the scrim must clear immediately rather
+ * than fading.
  */
 const setDim = (container: HTMLElement, active: boolean): void => {
   ensureScrim(container);
@@ -111,112 +45,8 @@ const setDim = (container: HTMLElement, active: boolean): void => {
 };
 
 const removeScrim = (container: HTMLElement) => {
-  const pending = dimTimers.get(container);
-  if (pending) {
-    clearTimeout(pending);
-    dimTimers.delete(container);
-  }
   container.classList.remove(CLASSES.DIM_ACTIVE);
-  const scrim = container.querySelector(`.${CLASSES.DIM}`);
-  scrim?.remove();
+  container.querySelector(`.${CLASSES.DIM}`)?.remove();
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Corner brackets  —  four L-shaped corner marks that slide in on enter and
-// out on exit, making the fullscreen state change visually explicit.
-//
-// The scrim alone is too subtle: it darkens the basemap but gives no spatial
-// cue about the transition itself. The brackets add that: on enter they fly
-// in from outside the viewport edges to frame the map (a "focus" gesture),
-// on exit they fly back out. They read as a viewfinder closing/opening, which
-// maps cleanly onto "zoom in to fullscreen / back out".
-//
-// The animation is entirely CSS-driven (opacity + translate on four L-shapes).
-// JS only creates the elements once and toggles the active class, using the
-// same WeakMap timer pattern as the scrim so they auto-clear and rapid
-// toggles stay consistent. Duration reads from --dim-duration so the brackets
-// stay in sync with the scrim even after minification.
-// ══════════════════════════════════════════════════════════════════════════════
-const bracketTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-
-const BRACKET_POSITIONS = ["tl", "tr", "bl", "br"] as const;
-
-const ensureBracket = (container: HTMLElement): void => {
-  if (container.querySelector(`.${CLASSES.BRACKET}`)) return;
-  const bracket = document.createElement("div");
-  bracket.className = CLASSES.BRACKET;
-  for (const pos of BRACKET_POSITIONS) {
-    const arm = document.createElement("span");
-    arm.className = `${CLASSES.BRACKET}-${pos}`;
-    bracket.appendChild(arm);
-  }
-  container.appendChild(bracket);
-};
-
-const startBracket = (container: HTMLElement): void => {
-  ensureBracket(container);
-  const pending = bracketTimers.get(container);
-  if (pending) clearTimeout(pending);
-  container.classList.add(CLASSES.BRACKET_ACTIVE);
-  bracketTimers.set(
-    container,
-    setTimeout(
-      () => {
-        container.classList.remove(CLASSES.BRACKET_ACTIVE);
-        bracketTimers.delete(container);
-      },
-      readDimDuration(container) + DIM_BUFFER_MS,
-    ),
-  );
-};
-
-const startBracketExit = (container: HTMLElement): void => {
-  ensureBracket(container);
-  const pending = bracketTimers.get(container);
-  if (pending) clearTimeout(pending);
-  bracketTimers.delete(container);
-
-  const isShowing = container.classList.contains(CLASSES.BRACKET_ACTIVE);
-  if (isShowing) {
-    container.classList.remove(CLASSES.BRACKET_ACTIVE);
-  } else {
-    container.classList.add(CLASSES.BRACKET_ACTIVE);
-    bracketTimers.set(
-      container,
-      setTimeout(
-        () => {
-          container.classList.remove(CLASSES.BRACKET_ACTIVE);
-          bracketTimers.delete(container);
-        },
-        readDimDuration(container) + DIM_BUFFER_MS,
-      ),
-    );
-  }
-};
-
-const setBracket = (container: HTMLElement, active: boolean): void => {
-  ensureBracket(container);
-  container.classList.toggle(CLASSES.BRACKET_ACTIVE, active);
-};
-
-const removeBracket = (container: HTMLElement) => {
-  const pending = bracketTimers.get(container);
-  if (pending) {
-    clearTimeout(pending);
-    bracketTimers.delete(container);
-  }
-  container.classList.remove(CLASSES.BRACKET_ACTIVE);
-  const bracket = container.querySelector(`.${CLASSES.BRACKET}`);
-  bracket?.remove();
-};
-
-export {
-  removeBracket,
-  removeScrim,
-  setBracket,
-  setDim,
-  startBracket,
-  startBracketExit,
-  startDim,
-  startDimExit,
-};
+export { removeScrim, setDim, startDim, startDimExit };

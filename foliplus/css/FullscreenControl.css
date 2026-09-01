@@ -58,6 +58,16 @@
   in native fullscreen the container *is* the fullscreen element, so the same
   `inset: 0` fills the viewport there.
 
+  Flat overlay — no gradient vignette, matching ExportControl's
+  --export-dim-color-locked (rgba(0,0,0, var(--alpha-50))) so all foliplus
+  overlay dims look the same. 180ms ease-out matches the project's entrance-
+  animation window (hint-in 200ms, dropdown-in 150ms, measure-label-in 200ms).
+
+  The scrim is state-bound, not a flash: it fades in on enter and stays dimmed
+  while fullscreen is active, then fades out on exit. This gives the user a
+  quiet, persistent signal that they're in a distinct mode — the same pattern
+  ExportControl uses while in crop mode.
+
   The tokens live on the scrim rather than `:root` — this stylesheet only loads
   with FullscreenControl, and the values are nowhere else in the project. They
   sit on `.foliplus-dim` (not on the active class) so the `transition` already
@@ -73,35 +83,20 @@
   markers and popups on it darken, never a control panel. `pointer-events: none`
   lets clicks and drags pass straight through to the map. */
 .foliplus-dim {
-  --dim-duration: 260ms;
-  --dim-timing: cubic-bezier(0.4, 0, 0.2, 1);
-  --dim-alpha: var(--alpha-50);
-  /* Soft radial gradient: darkest at the edges, lighter at the center —
-     a vignette that focuses the eye on the map while the basemap darkens.
-     The scrim's opacity (var(--dim-alpha) = 0.5) multiplies these alphas at
-     blend time, so the gradient is authored at 2× the intended strength:
-     0.90 at the corners × 0.5 opacity = ~0.45 effective, 0.60 in the
-     middle × 0.5 = ~0.30 effective. Uses pure black (0,0,0) so the
-     scrim matches the common.css overlay convention and never tints the
-     basemap with a color foliplus doesn't use. */
-  --dim-grad-edge: rgba(0, 0, 0, 0.9);
-  --dim-grad-mid: rgba(0, 0, 0, 0.6);
+  --dim-duration: 180ms;
+  --dim-color: rgba(0, 0, 0, var(--alpha-50));
 
   position: absolute;
   inset: 0;
   z-index: 799;
-  background: radial-gradient(
-    ellipse at center,
-    var(--dim-grad-mid) 0%,
-    var(--dim-grad-edge) 100%
-  );
+  background: var(--dim-color);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--dim-duration) var(--dim-timing);
+  transition: opacity var(--dim-duration) ease-out;
 }
 
 .foliplus-dim-active .foliplus-dim {
-  opacity: var(--dim-alpha);
+  opacity: 1;
 }
 
 /* ── Reduce motion ──
@@ -110,178 +105,6 @@
 @media (prefers-reduced-motion: reduce) {
   .foliplus-dim {
     transition: none;
-  }
-}
-
-/* ── Corner brackets ──
-  Four L-shaped marks at the viewport corners. On enter they slide in from
-  outside the edges and fade in to full opacity; on exit they fade out and
-  slide back out. Reads as a viewfinder closing/opening, giving the fullscreen
-  transition a spatial cue the scrim alone lacks.
-
-  Each arm (span) is a thin red bar. The container is absolutely positioned
-  over the entire map (inset: 0, z-index 799 — same layer as the scrim,
-  DOM-appended after so it paints on top of the vignette's dark corners).
-  pointer-events: none so clicks pass through.
-
-  The container holds four spans positioned at tl/tr/bl/br corners. Each span
-  uses ::before and ::after to draw the two legs of the L. The active class
-  toggles opacity and translate to animate in/out.
-
-  Tokens: --bracket-size is the length of each leg (40px), --bracket-thickness
-  is the stroke width (2px), --bracket-offset pushes the L away from the very
-  edge (16px) so it never clips and reads as a framed corner rather than a
-  cut-off line. --bracket-color uses --accent-primary (brand red) so the
-  bracket is unmistakably a foliplus affordance, not a neutral UI chrome. */
-.foliplus-dim-bracket {
-  --bracket-size: 40px;
-  --bracket-thickness: 2px;
-  --bracket-offset: 16px;
-  --bracket-color: var(--accent-primary);
-  --bracket-duration: var(--dim-duration);
-
-  position: absolute;
-  inset: 0;
-  z-index: 799;
-  pointer-events: none;
-}
-
-.foliplus-dim-bracket > span {
-  position: absolute;
-  width: var(--bracket-size);
-  height: var(--bracket-size);
-  opacity: 0;
-  transition:
-    opacity var(--bracket-duration) var(--dim-timing),
-    transform var(--bracket-duration) var(--dim-timing);
-}
-
-/* ── Top-left ── */
-.foliplus-dim-bracket-tl {
-  top: var(--bracket-offset);
-  left: var(--bracket-offset);
-  transform: translate(-8px, -8px);
-}
-.foliplus-dim-bracket-tl::before,
-.foliplus-dim-bracket-tl::after {
-  content: "";
-  position: absolute;
-  background: var(--bracket-color);
-}
-.foliplus-dim-bracket-tl::before {
-  /* horizontal leg */
-  top: 0;
-  left: 0;
-  width: var(--bracket-size);
-  height: var(--bracket-thickness);
-}
-.foliplus-dim-bracket-tl::after {
-  /* vertical leg */
-  top: 0;
-  left: 0;
-  width: var(--bracket-thickness);
-  height: var(--bracket-size);
-}
-
-/* ── Top-right ── */
-.foliplus-dim-bracket-tr {
-  top: var(--bracket-offset);
-  right: var(--bracket-offset);
-  transform: translate(8px, -8px);
-}
-.foliplus-dim-bracket-tr::before,
-.foliplus-dim-bracket-tr::after {
-  content: "";
-  position: absolute;
-  background: var(--bracket-color);
-}
-.foliplus-dim-bracket-tr::before {
-  top: 0;
-  right: 0;
-  width: var(--bracket-size);
-  height: var(--bracket-thickness);
-}
-.foliplus-dim-bracket-tr::after {
-  top: 0;
-  right: 0;
-  width: var(--bracket-thickness);
-  height: var(--bracket-size);
-}
-
-/* ── Bottom-left ── */
-.foliplus-dim-bracket-bl {
-  bottom: var(--bracket-offset);
-  left: var(--bracket-offset);
-  transform: translate(-8px, 8px);
-}
-.foliplus-dim-bracket-bl::before,
-.foliplus-dim-bracket-bl::after {
-  content: "";
-  position: absolute;
-  background: var(--bracket-color);
-}
-.foliplus-dim-bracket-bl::before {
-  bottom: 0;
-  left: 0;
-  width: var(--bracket-size);
-  height: var(--bracket-thickness);
-}
-.foliplus-dim-bracket-bl::after {
-  bottom: 0;
-  left: 0;
-  width: var(--bracket-thickness);
-  height: var(--bracket-size);
-}
-
-/* ── Bottom-right ── */
-.foliplus-dim-bracket-br {
-  bottom: var(--bracket-offset);
-  right: var(--bracket-offset);
-  transform: translate(8px, 8px);
-}
-.foliplus-dim-bracket-br::before,
-.foliplus-dim-bracket-br::after {
-  content: "";
-  position: absolute;
-  background: var(--bracket-color);
-}
-.foliplus-dim-bracket-br::before {
-  bottom: 0;
-  right: 0;
-  width: var(--bracket-size);
-  height: var(--bracket-thickness);
-}
-.foliplus-dim-bracket-br::after {
-  bottom: 0;
-  right: 0;
-  width: var(--bracket-thickness);
-  height: var(--bracket-size);
-}
-
-/* ── Active state: slide in to (0,0) offset and full opacity ── */
-.foliplus-dim-bracket-active .foliplus-dim-bracket > span {
-  opacity: 1;
-  transform: translate(0, 0);
-}
-
-.foliplus-dim-bracket-active .foliplus-dim-bracket-tl {
-  transform: translate(0, 0);
-}
-.foliplus-dim-bracket-active .foliplus-dim-bracket-tr {
-  transform: translate(0, 0);
-}
-.foliplus-dim-bracket-active .foliplus-dim-bracket-bl {
-  transform: translate(0, 0);
-}
-.foliplus-dim-bracket-active .foliplus-dim-bracket-br {
-  transform: translate(0, 0);
-}
-
-/* ── Reduce motion: brackets still appear (the spatial cue is valuable), but
-  they snap to position without sliding. */
-@media (prefers-reduced-motion: reduce) {
-  .foliplus-dim-bracket > span {
-    transition: opacity var(--bracket-duration) var(--dim-timing);
   }
 }
 
