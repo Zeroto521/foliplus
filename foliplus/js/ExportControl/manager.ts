@@ -380,8 +380,14 @@ class ExportManager {
 
   /** Key release: restore the box transition suppressed during arrow-key nudging. */
   onKeyUp(event: KeyboardEvent) {
-    if (CONST.NUDGE_KEYS.includes(event.key) && this.cropState)
-      this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+    if (CONST.NUDGE_KEYS.includes(event.key)) {
+      // Stop the smooth-nudge loop — keyup is the release signal. The rafLoop
+      // keeps ticking at ~60Hz until stopped, so without this the box would
+      // drift forever after a single press.
+      this.nudgeStop();
+      if (this.cropState)
+        this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+    }
   }
 
   /** Default centered crop box (same as the no-history branch of showCropBox). */

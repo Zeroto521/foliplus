@@ -95,6 +95,90 @@ describe("rafLoop", () => {
     expect(tick).toHaveBeenCalledTimes(4); // ticks on the original, rightward loop
   });
 
+  it("the continuation callback is skipped after stop() so a pending frame never fires", () => {
+    // Covers the `if (!running) return;` guard inside the scheduled callback.
+    // stop() sets running=false AND clears pending, so the pending callback
+    // never fires at all. This test verifies the guard still works when a
+    // callback fires after running is set to false through some other path —
+    // here we inject a scheduler that lets us observe the callback body.
+    const tick = vi.fn(() => false);
+    let fireCallback!: () => void;
+    const loop = rafLoop(tick, {
+      scheduler: fn => {
+        fireCallback = fn;
+        return 0;
+      },
+    });
+    loop.start();
+    expect(tick).toHaveBeenCalledTimes(1); // sync first frame
+    loop.stop(); // running = false
+    fireCallback!(); // callback body runs, but `!running` bails it out
+    expect(tick).toHaveBeenCalledTimes(1);
+  });
+
+  it("a scheduled frame whose tick returns true stops the loop", () => {
+    // Covers the `if (tick(key)) return stop();` branch inside the scheduled
+    // callback — distinct from the sync first-frame path which is already
+    // tested separately.
+    let tickCount = 0;
+    let shouldStop = false;
+    let fireCallback!: () => void;
+    const loop = rafLoop(() => {
+      tickCount++;
+      return shouldStop;
+    }, {
+      scheduler: fn => {
+        fireCallback = fn;
+        return 0;
+      },
+    });
+    loop.start();
+    expect(tickCount).toBe(1); // sync first frame
+
+    // First scheduled frame: tick returns false → callback re-arms.
+    fireCallback!();
+    expect(tickCount).toBe(2);
+
+    // Second scheduled frame: tick returns true → callback stops the loop.
+    shouldStop = true;
+    fireCallback!();
+    expect(tickCount).toBe(3);
+
+    // Loop is now stopped: calling the callback again hits `!running` guard.
+    shouldStop = false;
+    fireCallback!();
+    expect(tickCount).toBe(3);
+  });
+
+  it("a scheduled frame whose tick returns false re-arms the next frame", () => {
+    // Covers the `if (running) schedule();` branch — the continuation path
+    // that re-schedules the next frame when tick returns falsy during a
+    // scheduled callback (not the sync first frame).
+    let tickCount = 0;
+    let fireCallback!: () => void;
+    const loop = rafLoop(() => {
+      tickCount++;
+      return false;
+    }, {
+      scheduler: fn => {
+        fireCallback = fn;
+        return 0;
+      },
+    });
+    loop.start();
+    expect(tickCount).toBe(1); // sync first frame
+
+    // Scheduled frame re-arms: calling it again should tick once more.
+    fireCallback!();
+    expect(tickCount).toBe(2);
+    fireCallback!();
+    expect(tickCount).toBe(3);
+
+    loop.stop();
+    fireCallback!();
+    expect(tickCount).toBe(3); // !running guard
+  });
+
   it("starts on the next start() after it stopped", () => {
     const tick = vi.fn(() => true); // first call stops it
     const loop = rafLoop(tick);

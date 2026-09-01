@@ -219,6 +219,22 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
     );
   });
 
+  it("onKeyUp for an arrow key stops the smooth-nudge loop", () => {
+    // keyup is the release signal that must stop the rafLoop — without it the
+    // loop keeps ticking at ~60Hz and the box drifts forever after a single
+    // press. The loop is stored on manager.nudgeLoop (via the private
+    // nudgeStart/nudgeStop pair) so we can assert it's cleared after keyup.
+    manager.nudgeCropBox("ArrowRight");
+
+    // Simulate the loop the manager would create on a real keydown.
+    const loopStop = vi.fn();
+    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop, cancel: vi.fn() };
+
+    manager.onKeyUp({ key: "ArrowRight" } as KeyboardEvent);
+    expect(loopStop).toHaveBeenCalledTimes(1);
+    expect((manager as any).nudgeLoop).toBeUndefined();
+  });
+
   it("onKeyUp ignores non-arrow keys and a missing crop box", () => {
     manager.onKeyUp({ key: "Enter" } as KeyboardEvent);
     expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
@@ -276,6 +292,14 @@ describe("ExportManager — shortcut lifecycle", () => {
   });
 
   it("starts with no interactionCleanup", () => {
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("unregisterShortcuts is a no-op when no shortcuts were registered", () => {
+    // Covers the `this.interactionCleanup?.()` branch where interactionCleanup
+    // is undefined — calling unregister without a prior register must not throw.
+    expect(manager.interactionCleanup).toBeUndefined();
+    expect(() => manager.unregisterShortcuts()).not.toThrow();
     expect(manager.interactionCleanup).toBeUndefined();
   });
 
