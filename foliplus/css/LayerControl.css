@@ -641,3 +641,21 @@ path.foliplus-focus-mask {
 .leaflet-container.active {
   background: var(--color-layer-bg, #cccccc);
 }
+
+/* ── Inline rename input (swaps the layer label's text node) ── */
+.foliplus-layer-rename-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  font: inherit;
+  color: inherit;
+  background: var(--input-bg, #fff);
+  border: var(--border-thin) solid var(--border-strong, #999);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.foliplus-layer-rename-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}

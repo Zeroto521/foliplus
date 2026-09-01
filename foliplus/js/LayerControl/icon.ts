@@ -73,3 +73,9 @@ export const FOCUS = `
     <path d="M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15"/>
     <circle cx="12" cy="12" r="2.2" class="solid"/>
   </svg>`;
+
+/** "Rename layer" icon — pencil. */
+export const RENAME = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 21 H21 M16.5 3.5 L20.5 7.5 L10 18 L6 18 L6 14 Z"/>
+  </svg>`;

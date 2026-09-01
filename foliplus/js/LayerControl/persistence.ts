@@ -23,8 +23,10 @@ class LayerPersistence {
   private readonly registry: LayerRegistry;
   private debouncedSaveOrder: Debounced | undefined;
   private debouncedSaveHiddenIds: Debounced | undefined;
+  private debouncedSaveNames: Debounced | undefined;
   private orderGetter: (() => string[]) | null = null;
   private hiddenGetter: (() => Set<string>) | null = null;
+  private namesGetter: (() => Record<string, string>) | null = null;
 
   constructor(registry: LayerRegistry) {
     this.persistName = CONF.name;
@@ -105,9 +107,40 @@ class LayerPersistence {
     this.debouncedSaveHiddenIds?.cancel();
   }
 
+  // ── Names (user-assigned display names) ──────────────────────────
+
+  loadNames(): Record<string, string> {
+    const data = Storage.load<Record<string, string>>(
+      CONST.STORAGE.NAMES_KEY,
+      this.persistName,
+    );
+    if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+    const layerSet = new Set(this.registry.layers.map(l => l.id));
+    // Drop stale ids so removed layers don't accumulate in persistence.
+    return Object.fromEntries(
+      Object.entries(data).filter(([id]) => layerSet.has(id) && typeof data[id] === "string"),
+    );
+  }
+
+  saveNames(namesGetter: () => Record<string, string>) {
+    this.namesGetter = namesGetter;
+    if (!this.debouncedSaveNames) {
+      this.debouncedSaveNames = debounce(() => {
+        if (!this.namesGetter) return;
+        Storage.save(CONST.STORAGE.NAMES_KEY, this.namesGetter(), this.persistName);
+      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
+    }
+    this.debouncedSaveNames();
+  }
+
+  cancelSaveNames() {
+    this.debouncedSaveNames?.cancel();
+  }
+
   destroy() {
     this.debouncedSaveOrder?.cancel();
     this.debouncedSaveHiddenIds?.cancel();
+    this.debouncedSaveNames?.cancel();
   }
 }
 

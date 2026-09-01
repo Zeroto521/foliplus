@@ -29,6 +29,10 @@ class LayerUI {
   hiddenIds: Set<string>;
   isColorActive: boolean;
   currentColor: string;
+  /** Map of layer id → user-assigned display name (survives reload). */
+  renamedNames: Record<string, string>;
+  /** Layer id whose label is currently an inline rename input, or null. */
+  activeRenameId: string | null;
   dragIdx: number | null;
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
@@ -77,6 +81,8 @@ class LayerUI {
     this.hiddenIds = new Set();
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
+    this.renamedNames = {};
+    this.activeRenameId = null;
     this.dragIdx = null;
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
@@ -117,6 +123,7 @@ class LayerUI {
     this.m.uiContainer = containerDiv;
     this.loadFoldState();
     this.loadHiddenIds();
+    this.loadNamesState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -124,6 +131,7 @@ class LayerUI {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
+    this.applyNamesState();
     this.reindexItems();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
@@ -159,6 +167,43 @@ class LayerUI {
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
+  }
+
+  /** Load user-assigned display names from localStorage. */
+  loadNamesState() {
+    this.renamedNames = this.m.persistence.loadNames();
+  }
+
+  /**
+   * Overwrite each registered layer's display name with the user-assigned
+   * value and refresh the affected label in the UI. Called once from
+   * attachUI() after the initial list + pending registrations are rendered.
+   */
+  applyNamesState() {
+    if (!this.uiContainer) return;
+    for (const [id, name] of Object.entries(this.renamedNames)) {
+      const layerInfo = this.m.layerRegistry.get(id);
+      if (!layerInfo || layerInfo.name === name) continue;
+      layerInfo.name = name;
+      const item = this.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+      ) as HTMLElement | null;
+      if (!item) continue;
+      const label = item.querySelector("label") as HTMLLabelElement | null;
+      if (label) label.textContent = name;
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) {
+        checkbox.setAttribute("aria-label", escapeHTML(name));
+        checkbox.title = escapeHTML(name);
+      }
+    }
+  }
+
+  /** Save user-assigned names, coalescing rapid calls. */
+  saveNamesState() {
+    this.m.persistence.saveNames(() => this.renamedNames);
   }
 
   /**
@@ -396,10 +441,8 @@ class LayerUI {
       },
       { html: SVGs.MORE },
     );
-    // Only overlay (data) layers get the "more" button. Base maps cover the
-    // whole world (focusing is a no-op) and solid-color layers have no
-    // meaningful bounds. `hidden="hidden"` removes it from layout + a11y tree.
-    if (layerInfo.isBase) moreBtn.setAttribute("hidden", "hidden");
+    // All layers get the "more" button — data layers can focus + rename, base
+    // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
     const children: HTMLElement[] = [
       dom.el(
@@ -722,6 +765,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
+    this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
     this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
@@ -1259,10 +1303,12 @@ class LayerUI {
 
   /**
    * Open the "more" overflow dropdown for a given layer row.
-   * Only overlay (data) layers have this button; base/color layers do not.
+   * Every layer (data + base) has this button; it exposes focus + rename.
    */
   openMoreMenu(item: HTMLElement) {
-    // Close any previously open menu first.
+    // Close any previously open menu first, and commit/cancel a rename so
+    // the label text is fresh before we read the row.
+    this.finishRename();
     this.closeMoreMenu(true);
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
@@ -1284,6 +1330,23 @@ class LayerUI {
 
     if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
+    // Rename is always available (the layer exists in the registry regardless
+    // of visibility), so the itemAttrs clone below reuses the non-disabled
+    // defaults without the isHidden gate.
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": CONST.ACTION.RENAME_LAYER,
+          role: "menuitem",
+          tabindex: "0",
+          title: T("rename_layer_tooltip"),
+        },
+        { html: SVGs.RENAME },
+        T("rename_layer"),
+      ),
+    );
+
     item.style.position = "relative";
     item.appendChild(menu);
 
@@ -1301,6 +1364,108 @@ class LayerUI {
     this.activeMenu.menu.remove();
     this.activeMenu = null;
     if (setFocus) item.focus();
+  }
+
+  /**
+   * Turn the layer's label into an inline editable input so the user can
+   * rename it. Enter/blur commits (non-empty), Escape cancels.
+   *
+   * The input replaces only the label's text node (the `<label>` element
+   * stays in place), so layout / keyboard cursor focus is preserved. A
+   * trailing space in the committed name would otherwise render as a zero-width
+   * gap, so the value is trimmed on commit.
+   */
+  renameLayer(layerId: string): void {
+    if (!layerId || !this.uiContainer) return;
+    // One rename at a time — finish whatever was in flight first.
+    this.finishRename();
+
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    const item = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+    ) as HTMLElement | null;
+    const label = item?.querySelector("label") as HTMLLabelElement | null;
+    if (!label) return;
+
+    const currentName = layerInfo.name;
+    const input = dom.el("input", {
+      type: "text",
+      value: currentName,
+      class: CONST.RENAME_INPUT_CLASS,
+      "aria-label": T("rename_hint"),
+    }) as HTMLInputElement;
+
+    const commit = (value: string) => {
+      const trimmed = value.trim();
+      // Empty name → revert to the pre-edit text (no change, no hint).
+      if (trimmed.length === 0) return this.finishRename(true);
+      const changed = trimmed !== currentName;
+      layerInfo.name = trimmed;
+      if (changed) {
+        this.renamedNames[layerId] = trimmed;
+        this.saveNamesState();
+      }
+      this.finishRename(true);
+      // Restore the final text so the label reflects the committed name even
+      // if it differed from the pre-edit value captured above (re-entrant
+      // finishRename resets from registry, but currentName is authoritative
+      // for the "no-op on empty" branch).
+      const current = this.m.layerRegistry.get(layerId);
+      if (current && label.isConnected) label.textContent = current.name;
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commit(input.value);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        this.finishRename(true);
+      }
+      // Let the browser handle text editing; do NOT call handleKeyDown here
+      // so ArrowLeft/Right move the caret inside the input, not the cursor.
+    };
+    input.addEventListener("keydown", onKeyDown);
+    input.addEventListener("blur", () => commit(input.value));
+
+    label.textContent = "";
+    label.appendChild(input);
+    this.activeRenameId = layerId;
+    input.focus();
+    input.select();
+  }
+
+  /**
+   * Tear down an in-flight rename input, restoring the label text.
+   * @param {boolean} [restoreText=true] Re-set the label text from the
+   *   registry. When false, the caller will write its own text immediately
+   *   after (used internally to avoid a double write).
+   */
+  private finishRename(restoreText = true): void {
+    if (!this.activeRenameId) return;
+    const layerInfo = this.m.layerRegistry.get(this.activeRenameId);
+    this.activeRenameId = null;
+    if (!this.uiContainer || !layerInfo) return;
+    const item = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
+    ) as HTMLElement | null;
+    const label = item?.querySelector("label") as HTMLLabelElement | null;
+    if (!label) return;
+    const input = label.querySelector(
+      `.${CSS.escape(CONST.RENAME_INPUT_CLASS)}`,
+    ) as HTMLInputElement | null;
+    if (input) label.removeChild(input);
+    if (restoreText) {
+      label.textContent = layerInfo.name;
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) {
+        checkbox.setAttribute("aria-label", escapeHTML(layerInfo.name));
+        checkbox.title = escapeHTML(layerInfo.name);
+      }
+    }
   }
 
   /**

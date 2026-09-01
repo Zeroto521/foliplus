@@ -12,6 +12,8 @@ export const STORAGE = {
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
   /** Set of layer ids currently hidden by the user (checked-off). */
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
+  /** Map of layer id → user-assigned display name. */
+  NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
@@ -90,6 +92,12 @@ export const DATA = {
   COUNT: "data-item-count",
   TITLE: "data-item-title",
 };
+
+/** Overflow-menu action values (data-action). */
+export const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+
+/** CSS class for the inline rename input shown inside a layer label. */
+export const RENAME_INPUT_CLASS = "foliplus-layer-rename-input";
 
 /** DOM selectors. */
 export const SEL = {

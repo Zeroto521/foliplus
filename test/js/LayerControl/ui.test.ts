@@ -969,11 +969,13 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   // ─────────────────── more button visibility ───────────────────
 
   describe("more button visibility", () => {
-    it("base layer more button is hidden", () => {
+    // All layers (data + base) expose the "more" button: data layers can
+    // focus + rename, base maps can rename. The ⋮ button is never hidden.
+    it("base layer more button is visible (rename is available)", () => {
       const baseItem = findItem(ui, "base1");
       const btn = baseItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).not.toBeNull();
-      expect(btn?.getAttribute("hidden")).toBe("hidden");
+      expect(btn?.getAttribute("hidden")).toBeNull();
     });
 
     it("overlay layer more button is visible", () => {
@@ -1101,6 +1103,191 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       );
       // Menu stays open — user sees why focus is unavailable.
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+  });
+
+  // ─────────────────── rename ───────────────────
+
+  describe("rename menu item / renameLayer()", () => {
+    it("openMoreMenu includes a rename-layer menu item for an overlay layer", () => {
+      const item = findItem(ui, "overlay1");
+
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      ) as HTMLElement | null;
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("role")).toBe("menuitem");
+      expect(li?.getAttribute("disabled")).toBeNull();
+    });
+
+    it("openMoreMenu includes a rename-layer item for a base layer too", () => {
+      const item = findItem(ui, "base1");
+
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      );
+      expect(li).not.toBeNull();
+    });
+
+    it("rename-layer item is not disabled even when the layer is hidden", () => {
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      if (checkbox) checkbox.checked = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const renameLi = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      ) as HTMLElement | null;
+      expect(renameLi?.getAttribute("disabled")).toBeNull();
+      // (focus-layer item in the same menu IS disabled.)
+      const focusLi = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+      );
+      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
+    });
+
+    it("clicking rename-layer opens an inline input inside the label", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      ) as HTMLElement;
+      li.click();
+
+      expect(ui.activeMenu).toBeNull();
+      expect(ui.activeRenameId).toBe("overlay1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement | null;
+      expect(input).not.toBeNull();
+      expect(input?.className).toBe(CONST.RENAME_INPUT_CLASS);
+      expect(input?.value).toBe("Polygons");
+    });
+
+    it("Enter commits a new name and restores the label text", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "New Name";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(ui.activeRenameId).toBeNull();
+      expect(label.textContent).toBe("New Name");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("New Name");
+    });
+
+    it("blur commits the current value", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "Via Blur";
+      input.dispatchEvent(new Event("blur"));
+
+      expect(label.textContent).toBe("Via Blur");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Via Blur");
+    });
+
+    it("Escape cancels and restores the original label text", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "abandon";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+      expect(ui.activeRenameId).toBeNull();
+      expect(label.textContent).toBe("Polygons");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
+    });
+
+    it("committing an empty name is a no-op (label reverts, registry unchanged)", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "   ";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(label.textContent).toBe("Polygons");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
+    });
+
+    it("committing whitespace-only trims and updates the label", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "  Trimmed  ";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(label.textContent).toBe("Trimmed");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Trimmed");
+    });
+
+    it("committing an unchanged name does not write to renamedNames", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "Polygons"; // unchanged
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(ui.renamedNames["overlay1"]).toBeUndefined();
+    });
+
+    it("committing a changed name records it in renamedNames", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "Changed";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(ui.renamedNames["overlay1"]).toBe("Changed");
+    });
+
+    it("committing a rename updates the checkbox aria-label and title", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+      input.value = "Renamed";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
+      expect(checkbox.title).toBe("Renamed");
+    });
+
+    it("renameLayer(no-op) for an unknown layer id does nothing", () => {
+      ui.renameLayer("no-such-layer");
+
+      expect(ui.activeRenameId).toBeNull();
     });
   });
 
