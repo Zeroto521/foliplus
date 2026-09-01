@@ -530,7 +530,9 @@ class TestFullscreenControlBrowser:
             )
 
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(250)  # sample within the 260ms flash, before auto-clear
+            page.wait_for_timeout(
+                250
+            )  # sample within the 260ms flash, before auto-clear
             opacity_in = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
