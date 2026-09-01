@@ -384,6 +384,9 @@ describe("MeasureManager — setEditMode", () => {
       manager.map,
       "MeasureControl",
       expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({ blockedBy: "ExportControl" }),
+      ]),
     );
     expect(manager.currentMode).toBeNull();
     modeMocks.guardBlocked.mockReturnValue(false);

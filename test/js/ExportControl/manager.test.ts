@@ -427,6 +427,9 @@ describe("ExportManager — export events", () => {
       manager.map,
       "ExportControl",
       expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({ blockedBy: "MeasureControl" }),
+      ]),
     );
     expect(manager.isExporting).toBe(false);
     modeMocks.guardBlocked.mockReturnValue(false);

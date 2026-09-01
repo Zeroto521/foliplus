@@ -215,7 +215,12 @@ class MeasureManager {
     if (this.isEditMode) this.setEditMode(false);
 
     // Symmetric lock with the other interactive components (focus / export).
-    if (guardBlocked(this.map, CONF.name, T("blocked"))) return;
+    if (guardBlocked(this.map, CONF.name, T("blocked"), [
+      { blockedBy: COMPONENTS.ExportControl, text: T("blocked_export") },
+      { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+      { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+      { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+    ])) return;
 
     this.layers.register();
 

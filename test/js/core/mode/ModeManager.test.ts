@@ -278,6 +278,51 @@ describe("guardBlocked", () => {
     expect(guardBlocked(map as any, "FullscreenControl", "hint")).toBe(false);
     expect(showHint).not.toHaveBeenCalled();
   });
+
+  it("uses the specific hint from candidates when a blocking component matches", () => {
+    const { map, showHint } = makeGuardedMap();
+    ensureModes(map as any).setMode("ExportControl", "exporting");
+
+    expect(
+      guardBlocked(map as any, "MeasureControl", "generic blocked", [
+        { blockedBy: "ExportControl", text: "Export is active" },
+        { blockedBy: "LayerControl", text: "Layer focus is active" },
+      ]),
+    ).toBe(true);
+    expect(showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      "Export is active",
+      expect.any(Number),
+    );
+  });
+
+  it("falls back to the generic hint when no candidate matches the blocker", () => {
+    const { map, showHint } = makeGuardedMap();
+    ensureModes(map as any).setMode("LayerControl", "focusing");
+
+    expect(
+      guardBlocked(map as any, "ExportControl", "generic blocked", [
+        { blockedBy: "MeasureControl", text: "Measure is active" },
+      ]),
+    ).toBe(true);
+    expect(showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "generic blocked",
+      expect.any(Number),
+    );
+  });
+
+  it("uses the generic hint when candidates is not provided", () => {
+    const { map, showHint } = makeGuardedMap();
+    ensureModes(map as any).setMode("MeasureControl", "distance");
+
+    expect(guardBlocked(map as any, "ExportControl", "generic blocked")).toBe(true);
+    expect(showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "generic blocked",
+      expect.any(Number),
+    );
+  });
 });
 
 describe("isBlocked", () => {

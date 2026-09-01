@@ -125,12 +125,19 @@ class ModeManager {
 
   /** Check whether a component is blocked by any active mode. */
   isBlocked(component: string): boolean {
+    return this.findBlocking(component) !== null;
+  }
+
+  /** Find the component currently blocking the given component, or null.
+   *  Used by guardBlocked to pick a specific hint text describing *why*
+   *  the action is blocked (e.g. "Measurement in progress" vs generic). */
+  findBlocking(component: string): string | null {
     for (const [otherComp, otherMode] of this.modes) {
       if (otherMode === null) continue;
       const blocked = BLOCKED_BY[otherComp];
-      if (blocked?.includes(component)) return true;
+      if (blocked?.includes(component)) return otherComp;
     }
-    return false;
+    return null;
   }
 
   keys(): string[] {
@@ -165,12 +172,27 @@ const ensureModes = (map: L.Map): ModeManager => {
 /** Check whether a component is blocked by an active mode and show a hint.
  *  Caller provides the translated hint text (e.g. `T("blocked")`).
  *  Returns `true` when blocked (caller should return early). */
-export const guardBlocked = (map: L.Map, name: string, hintText: string): boolean => {
-  if (map.foliplus?.modes?.isBlocked(name)) {
-    map.foliplus?.showHint?.(name, hintText, HINT_DURATION.SHORT);
-    return true;
+export const guardBlocked = (
+  map: L.Map,
+  name: string,
+  hintFallback: string,
+  candidates?: { blockedBy: string; text: string }[],
+): boolean => {
+  const modes = map.foliplus?.modes;
+  if (!modes?.isBlocked(name)) return false;
+  // Find the blocking component and pick a specific hint text describing
+  // *why* the action is blocked (e.g. "Measurement in progress — finish
+  // before exporting" instead of the generic "Map is temporarily unavailable").
+  let text = hintFallback;
+  if (candidates?.length) {
+    const blocker = modes.findBlocking(name);
+    if (blocker) {
+      const candidate = candidates.find(c => c.blockedBy === blocker);
+      if (candidate) text = candidate.text;
+    }
   }
-  return false;
+  map.foliplus?.showHint?.(name, text, HINT_DURATION.SHORT);
+  return true;
 };
 
 export type { ModeChangePayload };

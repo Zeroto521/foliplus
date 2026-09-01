@@ -26,5 +26,9 @@
   "ExportControl.label_size_prefix": "Map size: ",
   "ExportControl.label_size_suffix": "px",
   "ExportControl.no_layercontrol": "ExportControl requires LayerControl — please add LayerControl to the map first",
-  "ExportControl.blocked": "Map is temporarily unavailable"
+  "ExportControl.blocked": "Map is temporarily unavailable",
+  "ExportControl.blocked_measure": "Measurement in progress — finish measuring before exporting",
+  "ExportControl.blocked_layer": "Layer focus active — cancel focus before exporting",
+  "ExportControl.blocked_search": "Search in progress — close the search before exporting",
+  "ExportControl.blocked_locate": "Locating — wait for the location to resolve before exporting"
 }
