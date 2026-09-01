@@ -742,7 +742,7 @@ class TestFullscreenControlBrowser:
             self._enter_fullscreen(page, hide_self=False)
             page.wait_for_timeout(250)  # sample during the flash
             opacity_in = self._scrim_snapshot(page)["opacity"]
-            assert abs(float(opacity_in) - 0.5) < 0.05, opacity_in
+            assert abs(float(opacity_in) - 1.0) < 0.05, opacity_in
 
             # The browser ends fullscreen itself; page.keyboard.press("Escape")
             # does not work here, since a native keydown never reaches the page
@@ -837,7 +837,7 @@ class TestFullscreenControlBrowser:
             assert snap is not None
             assert snap["rect"]["width"] == page.evaluate("window.innerWidth"), snap
             assert snap["rect"]["height"] == page.evaluate("window.innerHeight"), snap
-            assert abs(float(snap["opacity"]) - 0.5) < 0.05, snap["opacity"]
+            assert abs(float(snap["opacity"]) - 1.0) < 0.05, snap["opacity"]
 
             page.evaluate(
                 "document.querySelector('.foliplus-fullscreen-toggle').click()"
@@ -880,7 +880,7 @@ class TestFullscreenControlBrowser:
             )
             assert check["present"], "scrim missing with hide_others=true"
             assert not check["hidden"], "hide_others must not hide the scrim"
-            assert abs(float(check["opacity"]) - 0.5) < 0.05, check["opacity"]
+            assert abs(float(check["opacity"]) - 1.0) < 0.05, check["opacity"]
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_break_invalidation(self, browser, tmp_path):
