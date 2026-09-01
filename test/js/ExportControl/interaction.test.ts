@@ -94,18 +94,25 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
-  it("arrow keyup does not fire when the container is not focused", () => {
+  it("arrow keyup fires globally even when container is not focused", () => {
+    // The keyup must fire globally, not container-bound, because focus can
+    // leave the map between keydown and keyup (click elsewhere, Tab). If the
+    // matching keyup were container-bound it'd be filtered out and the
+    // rafLoop would drift forever. onKeyUp only acts on arrow keys and
+    // stops the loop, so firing globally is safe.
     const mgr = makeMgr();
     const cleanup = registerInteractions(mgr);
     const container = mgr.map.getContainer();
     container.setAttribute("tabindex", "-1");
     document.body.appendChild(container);
+    // Focus body, NOT the container — the old behavior silently dropped
+    // keyup here; the new behavior catches it.
     document.body.focus();
 
     for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
       document.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
     }
-    expect(mgr.onKeyUp).not.toHaveBeenCalled();
+    expect(mgr.onKeyUp).toHaveBeenCalledTimes(4);
     cleanup();
   });
 

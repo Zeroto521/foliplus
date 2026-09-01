@@ -23,13 +23,15 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
       container,
       handler: (e: Event) => mgr.onKeyDown(e as KeyboardEvent),
     })),
-    // Arrow keyup: restore the box transition that nudging suppressed (its
-    // default transition makes repeated nudges chase the key instead of
-    // tracking it). Container-bound like the keydown above.
+    // Arrow keyup: stop the smooth-nudge loop on release. Document-bound
+    // (not container-bound) because the keydown is container-bound but
+    // focus can leave the map between down and up (click elsewhere, Tab);
+    // if the matching keyup were container-bound it'd be filtered out and
+    // the rafLoop would drift forever. onKeyUp only acts on arrow keys and
+    // stops the loop, so firing globally is safe.
     ...CONST.NUDGE_KEYS.map(key => ({
       key,
       event: "keyup",
-      container,
       handler: (e: Event) => mgr.onKeyUp(e as KeyboardEvent),
     })),
   ]);

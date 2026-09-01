@@ -6,7 +6,7 @@
 export interface InteractionDef {
   /** Event type: "keydown" (default), "mousedown", "mousemove", "mouseup", etc. */
   event?: string;
-  /** Key to match (event.key), only for keydown. If omitted, matches any key. */
+  /** Key to match (event.key) for keydown/keyup. If omitted, matches any key. */
   key?: string;
   /** Require Ctrl (or Cmd on macOS) */
   ctrl?: boolean;
@@ -117,8 +117,7 @@ export class InteractionManager {
       if (def.element) {
         const eventType = def.event ?? "keydown";
         const handler = (event: Event) => {
-          // Key matching only for keydown events
-          if (eventType === "keydown" && def.key) {
+          if ((eventType === "keydown" || eventType === "keyup") && def.key) {
             const ke = event as KeyboardEvent;
             if (def.key !== ke.key) return;
             if (def.ctrl && !ke.ctrlKey && !ke.metaKey) return;

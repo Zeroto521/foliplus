@@ -363,10 +363,9 @@ class ExportManager {
     this.nudgeActiveKey = key;
     // Fractional accumulator so held-key motion is smooth at 60fps: each
     // scheduled frame adds perFrame px, the floored integer is applied, and
-    // the remainder carries forward. Running at the loop's native 16ms keeps
-    // updates frame-aligned (setTimeout at coarse intervals lands between
-    // frames and janks). The sync first frame (the tap) is handled separately
-    // so a quick tap still yields exactly NUDGE_STEP.
+    // the remainder carries forward. Running at the loop's native 16ms cadence
+    // keeps updates on a steady beat. The sync first frame (the tap) is
+    // handled separately so a quick tap still yields exactly NUDGE_STEP.
     const perFrame = CONST.CROP.NUDGE_SPEED / 60;
     let accX = 0;
     let accY = 0;
@@ -404,7 +403,7 @@ class ExportManager {
           // Clean up the suppressed-transition class on auto-stop. Explicit
           // nudgeStop() (from keyup) also clears it, so this covers the Enter/
           // Escape path where keyup never fires for the arrow key.
-          this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
+          this.cropState?.box?.classList.remove(CONST.CLASSES.DRAGGING);
           return true;
         }
         return false;
@@ -447,29 +446,12 @@ class ExportManager {
 
   /** Nudge the unlocked crop box by NUDGE_STEP px in an arrow direction. */
   nudgeCropBox(key: string) {
-    const st = this.cropState;
-    if (!st || st.locked) return;
-    // Use the rect cached at loop start (nudgeStart). Falls back to a live
-    // getBoundingClientRect() for the one-off call path (e.g. a manual
-    // nudgeCropBox from a test or non-loop context) where nudgeMapRect is
-    // unset.
-    const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
-    const step = CONST.CROP.NUDGE_STEP;
-    const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
-    const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
-    const r = Object.assign({}, st.rect);
-    // Clamp within the map bounds (same clamp as mouse-move dragging).
-    r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + dx));
-    r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + dy));
-    // Keyboard auto-repeat fires several keydowns per second. The box's default
-    // transition would make each nudge chase the input (laggy, and the box only
-    // "settles" once the key is released). Suppress it like mouse dragging does;
-    // restored in onKeyUp.
-    st.box.classList.add(CONST.CLASSES.DRAGGING);
-    // A pure move keeps the size constant, so the hint text is unchanged —
-    // leaving it alone avoids rebuilding the element (and re-running its
-    // entry animation) on every keypress.
-    this.applyRect(r, false);
+    if (!this.isEditing()) return;
+    const d = nudgeDirection(key);
+    this.nudgeCropBoxDelta(
+      d.x * CONST.CROP.NUDGE_STEP,
+      d.y * CONST.CROP.NUDGE_STEP,
+    );
   }
 
   /** Apply an already-computed (possibly fractional) delta to the crop box.
@@ -493,9 +475,9 @@ class ExportManager {
     if (CONST.NUDGE_KEYS.includes(event.key)) {
       // Stop the smooth-nudge loop — keyup is the release signal. The rafLoop
       // keeps ticking at ~60Hz until stopped, so without this the box would
-      // drift forever after a single press.
+      // drift forever after a single press. nudgeStop() clears the
+      // suppressed-transition class, so there's nothing left to do here.
       this.nudgeStop();
-      if (this.cropState) this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     }
   }
 

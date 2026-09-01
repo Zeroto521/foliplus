@@ -302,6 +302,21 @@ describe("ExportManager — resetCropBox / nudgeCropBox", () => {
     expect(manager.cropState.rect.left).toBe(100);
     expect(manager.updateBoxStyle).not.toHaveBeenCalled();
   });
+
+  it("nudgeStop does not throw when the box is removed mid-nudge", () => {
+    // Regression: the rafLoop tick's auto-stop branch runs when isEditing()
+    // returns false (box locked or removed). If the box was removed
+    // (cropState = null) while an arrow key was held, the tick must clean up
+    // without dereferencing a null box. nudgeStop() shares this cleanup path,
+    // so exercising it here guards the pattern.
+    const loopStop = vi.fn();
+    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop };
+    manager.cropState.box.classList.add(CONST.CLASSES.DRAGGING);
+    manager.cropState = null;
+
+    expect(() => (manager as any).nudgeStop()).not.toThrow();
+    expect(loopStop).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ExportManager — shortcut lifecycle", () => {

@@ -173,4 +173,20 @@ describe("rafLoop", () => {
     vi.advanceTimersByTime(16 * 2);
     expect(tick).toHaveBeenCalledTimes(4);
   });
+
+  it("honors the interval option for cadence", () => {
+    // The interval option lets a caller tune how often ticks fire (e.g. a
+    // nudge loop can slow the cadence without wrapping the scheduler).
+    const tick = vi.fn(() => false);
+    const loop = rafLoop(tick, { interval: 50 });
+    loop.start();
+    expect(tick).toHaveBeenCalledTimes(1); // sync frame
+    vi.advanceTimersByTime(50);
+    expect(tick).toHaveBeenCalledTimes(2); // one frame at 50ms
+    vi.advanceTimersByTime(49);
+    expect(tick).toHaveBeenCalledTimes(2); // not yet at the next 50ms tick
+    vi.advanceTimersByTime(1);
+    expect(tick).toHaveBeenCalledTimes(3); // crosses the next boundary
+    loop.stop();
+  });
 });
