@@ -523,6 +523,31 @@
   line-height: var(--line-height-popup);
 }
 
+/* ── Shared text input base (used by SearchControl + LayerControl rename) ──
+   Component-specific padding / placeholder color live in the component's own
+   CSS; the shared class covers all the visual chrome that must look identical. */
+.foliplus-input {
+  font: inherit;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  box-shadow: none;
+  outline: none;
+  transition: var(--transition-input);
+  margin: 0;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+.foliplus-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}
+
 /* ── Ctrl Fold (Shared Container) ──
   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
   Expanded: defined by component or shared extension rules */

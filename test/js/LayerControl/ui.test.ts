@@ -985,10 +985,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(btn?.getAttribute("hidden")).toBeNull();
     });
 
-    it("color layer has no more button", () => {
+    it("color layer has more button (rename entry point)", () => {
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
-      expect(btn).toBeNull();
+      expect(btn).not.toBeNull();
     });
   });
 
@@ -1167,7 +1167,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
-      expect(input?.className).toBe(CONST.RENAME_INPUT_CLASS);
+      expect(input?.classList.contains(CONST.RENAME_INPUT_CLASS)).toBe(true);
       expect(input?.value).toBe("Polygons");
     });
 
@@ -1343,6 +1343,80 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames["overlay1"]).toBe("New Name");
       expect(toggleSpy).not.toHaveBeenCalled();
       expect(checkbox.checked).toBe(true);
+    });
+
+    // ─────────── color basemap (outside layerRegistry) ───────────
+
+    it("color layer more menu contains only rename-layer (no focus-layer)", () => {
+      const colorItem = ui.uiContainer.querySelector(
+        `${CONST.SEL.COLOR_ITEM}`,
+      )!;
+      ui.openMoreMenu(colorItem);
+
+      const focusLi = colorItem.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+      );
+      const renameLi = colorItem.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+      );
+      expect(focusLi).toBeNull();
+      expect(renameLi).not.toBeNull();
+    });
+
+    it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the color value", () => {
+      const colorItem = ui.uiContainer.querySelector(
+        `${CONST.SEL.COLOR_ITEM}`,
+      )!;
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+
+      expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
+      const label = colorItem.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement | null;
+      expect(input).not.toBeNull();
+      expect(input?.classList.contains(CONST.RENAME_INPUT_CLASS)).toBe(true);
+      expect(input?.value).toBe(ui.currentColor);
+    });
+
+    it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
+      const colorItem = ui.uiContainer.querySelector(
+        `${CONST.SEL.COLOR_ITEM}`,
+      )!;
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+
+      const label = colorItem.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+      input.value = "My Base";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(ui.activeRenameId).toBeNull();
+      expect(label.textContent).toBe("My Base");
+      expect(ui.renamedNames[CONST.COLOR.MAP_ID]).toBe("My Base");
+      // The color basemap is not in the registry, so the registry should be
+      // untouched.
+      expect(
+        manager.layerRegistry.get(CONST.COLOR.MAP_ID),
+      ).toBeUndefined();
+    });
+
+    it("applying persisted rename restores the color-layer label text", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
+      );
+      ui.loadNamesState();
+      ui.applyNamesState();
+
+      const colorItem = ui.uiContainer.querySelector(
+        `${CONST.SEL.COLOR_ITEM}`,
+      )!;
+      expect(
+        colorItem.querySelector("label")!.textContent,
+      ).toBe("Custom Color");
+      const colorInput = colorItem.querySelector(
+        'input[type="color"]',
+      ) as HTMLInputElement;
+      expect(colorInput.getAttribute("aria-label")).toBe("Custom Color");
+      expect(colorInput.title).toBe("Custom Color");
     });
   });
 

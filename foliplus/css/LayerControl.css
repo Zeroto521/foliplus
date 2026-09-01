@@ -642,20 +642,13 @@ path.foliplus-focus-mask {
   background: var(--color-layer-bg, #cccccc);
 }
 
-/* ── Inline rename input (swaps the layer label's text node) ── */
+/* ── Inline rename input (swaps the layer label's text node) ──
+   Visual chrome comes from the shared .foliplus-input base (common.css);
+   only the component-specific padding / color inherit live here — the
+   input lives inside the layer label, so it must inherit the row's text
+   color to stay legible on active/hover rows. */
 .foliplus-layer-rename-input {
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
   padding: var(--space-xs) var(--space-sm);
-  font: inherit;
   color: inherit;
-  background: var(--input-bg, #fff);
-  border: var(--border-thin) solid var(--border-strong, #999);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.foliplus-layer-rename-input:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  width: 100%;
 }

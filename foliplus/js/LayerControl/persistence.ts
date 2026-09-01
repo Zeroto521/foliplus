@@ -116,6 +116,9 @@ class LayerPersistence {
     );
     if (!data || typeof data !== "object" || Array.isArray(data)) return {};
     const layerSet = new Set(this.registry.layers.map(l => l.id));
+    // Color basemap is a virtual layer — never in the registry — but can be
+    // renamed and persisted. Include it in the valid-id set.
+    layerSet.add(CONST.COLOR.MAP_ID);
     // Drop stale ids so removed layers don't accumulate in persistence.
     return Object.fromEntries(
       Object.entries(data).filter(
