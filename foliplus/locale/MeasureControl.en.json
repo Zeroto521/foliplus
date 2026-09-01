@@ -30,5 +30,10 @@
   "MeasureControl.export_paused": "Export in progress — measurement paused",
   "MeasureControl.export_no_data": "No data to export",
   "MeasureControl.hint_edit": "Click a measurement to show delete handles — drag nodes to reposition",
-  "MeasureControl.hint_edit_empty": "No measurements to edit — draw one first"
+  "MeasureControl.hint_edit_empty": "No measurements to edit — draw one first",
+  "MeasureControl.blocked": "Map is temporarily unavailable",
+  "MeasureControl.blocked_export": "Export in progress — finish exporting before measuring",
+  "MeasureControl.blocked_layer": "Layer focus active — cancel focus before measuring",
+  "MeasureControl.blocked_search": "Search in progress — close the search before measuring",
+  "MeasureControl.blocked_locate": "Locating — wait for the location to resolve before measuring"
 }
