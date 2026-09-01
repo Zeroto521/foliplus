@@ -476,10 +476,10 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
-        // The centroid dot sits at the same latlng with zIndexOffset
-        // Z_INDEX.OFFSET (11000). Without a higher offset the opaque dot
-        // renders on top of the label and covers it — the label looks like
-        // it is sitting under the solid dot. Push the label above.
+        // Defense in depth: the centroid dot sits at the same latlng with
+        // zIndexOffset Z_INDEX.OFFSET (11000). The primary fix is spatial
+        // (CENTROID_ANCHOR lifts the label above the dot); this offset keeps
+        // the label above the dot and delete-handle if they ever overlap.
         zIndexOffset: CONST.Z_INDEX.OFFSET + 1,
         interactive: false,
       }),

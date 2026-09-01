@@ -25,15 +25,13 @@ export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid/circle-center dot is a 12×12 filled circle centered on the
-  // point. The label is anchored at the dot's center; lift it ~22px so its
-  // bottom edge clears the dot's top edge (6px dot radius above center) and
-  // the label never visually overlaps the solid dot. This spatial separation
-  // is preferred over z-index tricks, which do not reliably beat the dot.
-  // With iconAnchor [0, +22]: the anchor point sits 22px below the label's
-  // top-left, so the label renders above the point. Use 30px so the label's
-  // bottom edge clears the dot's top edge (6px dot radius) plus the label
-  // height (~20px) plus a small visual gap.
+  // The centroid label and the 12×12 center dot share the same latlng. To keep
+  // them from painting on top of each other the label is lifted above the dot
+  // via its divIcon anchor (positive yAnchor → anchor reference below the
+  // label's top-left → label renders above the point). 30px clears the dot's
+  // top edge (6px radius above center) plus the label height (~20px) plus a
+  // small visual gap. The centroid label also carries Z_INDEX.OFFSET + 1 as a
+  // defense in depth (spatial separation is the primary fix).
   CENTROID_ANCHOR: [0, 30],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",

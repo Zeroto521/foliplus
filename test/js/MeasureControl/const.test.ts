@@ -19,6 +19,20 @@ describe("DEL_ICON", () => {
   });
 });
 
+describe("LABEL anchors", () => {
+  it("lifts the centroid label above the 12×12 center dot (spatial separation)", () => {
+    // The centroid label and center dot share the same latlng. A positive
+    // yAnchor lifts the label so its bottom edge clears the dot; this spatial
+    // separation is the primary defense against the dot painting over the
+    // label (zIndex +1 is defense in depth only). Pin the invariant so a
+    // revert to [0,0] or a negative lift fails loudly.
+    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThan(0);
+    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThan(
+      CONST.CENTER_DOT.SIZE[1] / 2,
+    );
+  });
+});
+
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.ACTIVE).toBe("active");
