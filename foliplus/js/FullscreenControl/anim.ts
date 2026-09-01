@@ -40,10 +40,13 @@ const startDim = (container: HTMLElement): void => {
   container.classList.add(CLASSES.DIM_ACTIVE);
   dimTimers.set(
     container,
-    setTimeout(() => {
-      container.classList.remove(CLASSES.DIM_ACTIVE);
-      dimTimers.delete(container);
-    }, readDimDuration(container) + DIM_BUFFER_MS),
+    setTimeout(
+      () => {
+        container.classList.remove(CLASSES.DIM_ACTIVE);
+        dimTimers.delete(container);
+      },
+      readDimDuration(container) + DIM_BUFFER_MS,
+    ),
   );
 };
 
