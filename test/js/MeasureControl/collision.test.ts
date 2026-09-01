@@ -172,17 +172,36 @@ describe("placeLabels", () => {
     expect(lowEl.style.visibility).toBe("");
   });
 
-  it("leaves already-hidden chips out of the competition and lets a later label show", () => {
-    // `low` is hidden before the plan (simulating show_labels/destroy). It must
-    // not claim space, so `late` — which would otherwise overlap the anchor —
-    // stays visible on its anchor.
+  it("restores a previously-collision-hidden chip and resolves fresh collisions (regression)", () => {
+    // `hiddenLabel` was hidden by a prior plan (the zoom scenario). It must
+    // re-enter the competition. Here it overlaps `late`, so the lower-priority
+    // `late` is hidden and `hiddenLabel` comes back.
     const { lb: hiddenLabel, el: hiddenEl } = label(ANCHOR, 60);
     hiddenEl.style.visibility = "hidden";
     const { lb: late, el: lateEl } = label(ANCHOR, 50);
     const hidden = plan([hiddenLabel, late]);
-    expect(hidden).toBe(0);
-    expect(hiddenEl.style.visibility).toBe("hidden");
-    expect(lateEl.style.visibility).toBe("");
+    expect(hidden).toBe(1);
+    expect(hiddenEl.style.visibility).toBe("");
+    expect(lateEl.style.visibility).toBe("hidden");
+  });
+
+  it("brings a previously-collapsed chip back when it no longer overlaps (regression)", () => {
+    const { lb: high, el: highEl } = label(ANCHOR, 80);
+    const { lb: low, el: lowEl } = label(ANCHOR, 60);
+
+    // Zoom level A: boxes fully overlap → low hides.
+    const hidden1 = plan([high, low]);
+    expect(hidden1).toBe(1);
+    expect(highEl.style.visibility).toBe("");
+    expect(lowEl.style.visibility).toBe("hidden");
+
+    // Zoom level B: boxes move clear → both show.
+    boxes.set(highEl, { x: 0, y: 0, w: 60, h: 20 });
+    boxes.set(lowEl, { x: 300, y: 0, w: 60, h: 20 });
+    const hidden2 = plan([high, low]);
+    expect(hidden2).toBe(0);
+    expect(highEl.style.visibility).toBe("");
+    expect(lowEl.style.visibility).toBe("");
   });
 
   it("re-hides a chip whose box now overlaps instead of leaving it permanently shown", () => {

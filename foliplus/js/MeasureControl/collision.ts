@@ -87,7 +87,8 @@ const hides = (a: Box, b: Box): boolean => {
 /**
  * Hide the least-important chip among every heavily-overlapping pair, leaving
  * all others on their anchor. Chips that are already `visibility: hidden`
- * (from a previous plan or `show_labels`) are skipped, so they never block
+ * (from a previous plan) re-enter the competition when geometry changes,
+ * so a chip dropped by collision comes back once the map zooms out.
  * another chip from showing.
  *
  * Two chips decide by priority (lower loses); a tie breaks to the smaller
@@ -126,23 +127,17 @@ export const placeLabels = (
     return 0;
   }
 
-  // Snapshot which chips are hidden before this call so we can skip them as
-  // competitors (they claim no space).
-  const preHidden = new Set(
-    entries.filter(e => e.el.style.visibility === "hidden").map(e => e.el),
-  );
-
   const toHide = new Set<HTMLElement>();
   const box = (el: HTMLElement): Box => projector.box(el);
 
   for (let i = 0; i < entries.length; i++) {
     const { lb: ai, el: ei } = entries[i]!;
-    if (preHidden.has(ei) || toHide.has(ei)) continue;
+    if (toHide.has(ei)) continue;
     const bi = box(ei);
 
     for (let j = i + 1; j < entries.length; j++) {
       const { lb: aj, el: ej } = entries[j]!;
-      if (preHidden.has(ej) || toHide.has(ej)) continue;
+      if (toHide.has(ej)) continue;
       const bj = box(ej);
 
       if (!hides(bi, bj)) continue;
@@ -162,9 +157,10 @@ export const placeLabels = (
     }
   }
 
-  // Show any entry that survives and was not externally hidden.
+  // Show any entry that this plan did not hide. A chip hidden by a prior plan
+  // re-enters the competition here: if it survives, it comes back.
   for (const e of entries) {
-    if (preHidden.has(e.el) || toHide.has(e.el)) continue;
+    if (toHide.has(e.el)) continue;
     e.el.style.visibility = "";
   }
   return toHide.size;
