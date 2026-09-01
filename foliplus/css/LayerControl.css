@@ -529,8 +529,11 @@ path.foliplus-focus-mask {
     white-space: nowrap;
   }
   .foliplus-layer-more-menu li:focus-visible {
-    outline: var(--border-thin) solid var(--accent-primary);
-    outline-offset: calc(-1 * var(--border-thin));
+    outline: none;
+    box-shadow:
+      0 0 0 var(--border-thin) var(--accent-primary),
+      0 0 0 var(--size-4) var(--input-focus-shadow);
+    border-radius: var(--radius-sm);
   }
   .foliplus-layer-more-menu li svg {
     flex-shrink: 0;
@@ -632,8 +635,10 @@ path.foliplus-focus-mask {
     }
   }
   :focus-visible {
-    outline: var(--border-thick) solid var(--accent-primary);
-    outline-offset: var(--border-thin);
+    outline: none;
+    box-shadow:
+      0 0 0 var(--border-thin) var(--accent-primary),
+      0 0 0 var(--size-4) var(--input-focus-shadow);
     border-radius: var(--radius-sm);
   }
   /* ── Solid color layer picker ── */

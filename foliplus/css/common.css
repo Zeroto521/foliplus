@@ -284,12 +284,18 @@
   }
 
   /* ── Focus-visible ──
-     Red outline ring on keyboard focus (Tab).
+     Unified keyboard focus ring across all foliplus controls.
+     Replaces the old harsh red outline with a soft double-ring:
+       - Inner: thin accent-primary hairline
+       - Outer: semi-transparent red glow (var(--shadow-sm) feel)
      Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
   &:focus-visible {
-    outline: var(--border-thick) solid var(--accent-primary);
-    outline-offset: var(--border-thin);
+    outline: none;
+    box-shadow:
+      0 0 0 var(--border-thin) var(--accent-primary),
+      0 0 0 var(--size-4) var(--input-focus-shadow);
     border-radius: var(--radius-sm);
+    transition: box-shadow var(--transition-fast);
   }
 
   /* ── Disabled ──
@@ -514,8 +520,10 @@
   .foliplus-layer-ctrl .foliplus-color-layer-input
 ):is(:hover, :focus-visible),
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 0 0 var(--border-thin) var(--accent-primary),
+    0 0 0 var(--size-4) var(--input-focus-shadow);
 }
 
 .foliplus-popup-content {
