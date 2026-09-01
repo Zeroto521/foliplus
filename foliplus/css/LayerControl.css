@@ -339,7 +339,11 @@ path.foliplus-focus-mask {
     opacity: 0;
     transition: opacity var(--transition-fast);
   }
-  .foliplus-layer-item:hover .drag-handle {
+  /* Drag handle appears on hover AND when the keyboard cursor is on the row,
+     matching the "keyboard cursor = mouse hover" language. Hidden on color
+     rows regardless of cursor (color rows are not draggable). */
+  .foliplus-layer-item:hover .drag-handle,
+  .foliplus-layer-item.foliplus-layer-focused .drag-handle {
     opacity: 1;
   }
   .foliplus-color-layer-item .drag-handle {
