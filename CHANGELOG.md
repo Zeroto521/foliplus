@@ -19,7 +19,7 @@
 - `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196))
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
-- `MeasureControl`: label collision detection — heavily-overlapping chips are hidden (`visibility:hidden`) instead of nudged, so labels stay on their measurement anchor; priority-ordered placement (segment 60 / radius 80 / centroid 80), order-independent survivor set, and re-plan on every zoom/move/resize ([#221](https://github.com/Zeroto521/foliplus/pull/221))
+- `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; order-independent priority-ordered placement ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 
 ### Changed
 
@@ -46,7 +46,6 @@
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `HeatmapControl`: remove the nested `style` dict parameter; `field`, `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
-- `MeasureControl`: drop the `show_labels` parameter — global label visibility is now a runtime click interaction (idle-mode single-chip toggle), not a Python-side config ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 
 ### Fixed
 
@@ -55,7 +54,6 @@
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
 - `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
-- `MeasureControl`: fix label collision over-hiding — the 1D x-only rule falsely hid chips on near-vertical polygon edges that shared an x band but were fully separated in y; the planner now requires y-axis intersection before judging x-overlap, so vertically-stacked chips stay visible ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 
 ## [v0.3.0] (2026-08-02)
 
