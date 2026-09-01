@@ -1154,7 +1154,9 @@ describe("fetchSuggestions: render behavior", () => {
       2.3,
       expect.any(String),
     );
-    expect(ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item")).toHaveLength(1);
+    expect(
+      ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item"),
+    ).toHaveLength(1);
   });
 
   it("falls back to the raw query when the suggestion address is unformattable", async () => {
@@ -1268,9 +1270,7 @@ describe("fetchSuggestions: render behavior", () => {
   it("silently ignores AbortError fetch errors without clearing the panel", async () => {
     const abortErr = new Error("Aborted");
     abortErr.name = "AbortError";
-    globalThis.fetch = vi.fn(() =>
-      Promise.reject(abortErr),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = vi.fn(() => Promise.reject(abortErr)) as unknown as typeof fetch;
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
