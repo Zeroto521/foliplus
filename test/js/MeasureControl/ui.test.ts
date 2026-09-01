@@ -303,7 +303,11 @@ describe("attachDistanceUI", () => {
       addLayer: vi.fn(l => l),
       unregister: vi.fn(),
     };
-    const segLabels = [0, 1].map(() => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() }));
+    const segLabels = [0, 1].map(() => ({
+      on: vi.fn(),
+      setLatLng: vi.fn(),
+      setIcon: vi.fn(),
+    }));
 
     UI.attachDistanceUI(
       mgr as any,
