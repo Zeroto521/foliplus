@@ -20,17 +20,21 @@ export const CENTER_DOT = {
   CLASS: "foliplus-measure-center-dot",
 };
 
+/** Approximate rendered label chip height in px — used to space anchors that
+ *  must clear other markers sitting on the same latlng. */
+const LABEL_CHIP_H = 18;
+
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. It is
-  // anchored below the point (label yAnchor -10, same as DEFAULT_ANCHOR) so it
-  // sits under the solid dot and visually matches the distance-start and
-  // circle-center labels. Negative yAnchor pushes the label down; no z-index
-  // trick is needed because the label no longer paints over the dot.
-  CENTROID_ANCHOR: [0, -10],
+  // The centroid label shares the same latlng as the 12×12 center dot. L.divIcon
+  // treats iconAnchor as an offset *of the div's top-left corner* (y-down), so
+  // to push the label *below* the point the y value must be *positive*.
+  // CENTER_DOT.SIZE[1]/2 (6) clears the dot; LABEL_CHIP_H/2 centers the chip's
+  // text on the cleared line; +2 gives breathing room.
+  CENTROID_ANCHOR: [0, CENTER_DOT.SIZE[1] / 2 + LABEL_CHIP_H / 2 + 2],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",

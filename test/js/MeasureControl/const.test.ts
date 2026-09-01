@@ -20,15 +20,16 @@ describe("DEL_ICON", () => {
 });
 
 describe("LABEL anchors", () => {
-  it("anchors the centroid label below the center dot, matching start/circle labels", () => {
+  it("anchors the centroid label below the center dot (positive yAnchor)", () => {
     // The centroid label shares the same latlng as the 12×12 center dot and
-    // must sit *under* it — visually consistent with the distance-start and
-    // circle-center labels. A negative yAnchor pushes the label down; pin the
-    // invariant so it clears at least half the dot's size (label below the dot,
-    // not tucked right under its edge). A positive lift or a near-zero value
-    // fails loudly.
-    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeLessThanOrEqual(
-      -CONST.CENTER_DOT.SIZE[1] / 2,
+    // must sit *below* it. L.divIcon.iconAnchor is an offset of the *div's
+    // top-left corner* (y-down), so pushing the label below the point requires
+    // a *positive* y value — a negative y would paint the chip on top of the
+    // dot. Pin the invariant: clear at least half the dot's size plus half the
+    // chip's height so the label body sits entirely under the dot with room to
+    // spare.
+    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThan(
+      CONST.CENTER_DOT.SIZE[1] / 2,
     );
   });
 });
