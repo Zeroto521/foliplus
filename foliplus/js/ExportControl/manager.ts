@@ -378,7 +378,9 @@ class ExportManager {
     // begin. This keeps "tap once" = exactly one NUDGE_STEP, independent of
     // OS auto-repeat rate or how quickly the user releases.
     let holdFired = false;
-    this.nudgeHoldTimer = this.scheduler(() => { holdFired = true; }, CONST.CROP.NUDGE_HOLD_DELAY);
+    this.nudgeHoldTimer = this.scheduler(() => {
+      holdFired = true;
+    }, CONST.CROP.NUDGE_HOLD_DELAY);
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         const d = nudgeDirection(k ?? key);
