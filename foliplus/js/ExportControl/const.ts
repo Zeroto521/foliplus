@@ -5,6 +5,9 @@ export const CROP = {
   CONTAINER_PADDING: 200,
   /** Pixels the crop box moves per arrow-key nudge (unlocked state). */
   NUDGE_STEP: 10,
+  /** Milliseconds between nudge steps while a key is held (~20/s).
+   * Matches OS key-repeat feel; faster (60Hz) overshoots and reads as jittery. */
+  NUDGE_INTERVAL: 50,
 };
 
 /** Arrow keys that nudge the crop box position (unlocked state). */

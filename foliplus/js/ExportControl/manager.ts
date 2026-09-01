@@ -354,12 +354,13 @@ class ExportManager {
         }
         return false;
       },
-      // Inject a no-op scheduler from browser tests to freeze the loop while
-      // still asserting the one-step-per-keydown response. Ramp the first
-      // scheduled frame so a quick tap (<300ms) yields only the sync step
-      // (matches the pre-rafLoop 10px-per-tap feel) while a held key ramps
-      // into a smooth ~60Hz stream.
-      { scheduler: this.scheduler, ramp: 300 },
+      // Wrap the injected scheduler to fix the cadence at NUDGE_INTERVAL
+      // (~20 nudge/s) instead of the loop's default 16ms (~60/s). At 60Hz a
+      // 10px step produces 600px/s — overshoots and reads as jittery. The
+      // wrapped scheduler is also compatible with the browser test's no-op
+      // injection (which ignores the interval and never fires, so only the
+      // sync frame runs → one step per keydown).
+      { scheduler: (fn) => this.scheduler(fn, CONST.CROP.NUDGE_INTERVAL) },
     );
     this.nudgeLoop.start(key);
   }

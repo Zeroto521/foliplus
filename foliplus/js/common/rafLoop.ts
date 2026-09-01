@@ -16,8 +16,6 @@ export type RafLoop = {
   stop(): void;
 };
 
-const FRAME = 16;
-
 /**
  * Create a self-scheduling loop.
  *
@@ -25,24 +23,21 @@ const FRAME = 16;
  *   returning truthy stops it (e.g. a guard detects a locked/removed box).
  *   The key, if any, is passed through so the tick can branch on direction.
  * - `scheduler` defaults to setTimeout, so ticks fire once per frame in
- *   production; inject a no-op or vi-advancable scheduler in tests.
- * - `ramp` sets the delay for the *first scheduled frame* only (after the
- *   sync first frame). Subsequent frames use `FRAME` (16ms). Use a ramp so
- *   a brief tap produces only the sync frame (one step) while a held key
- *   ramps into a smooth ~60Hz stream — matching OS key-repeat feel without
- *   a runaway step on every tap.
+ *   production; inject a no-op or vi-advancable scheduler in tests. The
+ *   consumer controls cadence by wrapping setTimeout — e.g. a nudge loop
+ *   passes setTimeout with a 50ms interval for ~20 steps/s rather than the
+ *   default 16ms (~60/s), matching OS key-repeat feel.
  *
  * @param tick  per-frame callback; returning truthy stops the loop.
- * @param options injectable timer for test determinism and ramp control.
+ * @param options injectable timer for test determinism.
  */
 const rafLoop = (
   tick: (key?: string) => void | boolean,
-  { scheduler = setTimeout, ramp = 0 }: { scheduler?: Scheduler; ramp?: number } = {},
+  { scheduler = setTimeout }: { scheduler?: Scheduler } = {},
 ): RafLoop => {
   let running = false;
   let key: string | undefined;
   let pending: Handle | null = null;
-  let firstFrame = false;
 
   const stop = () => {
     running = false;
@@ -52,13 +47,13 @@ const rafLoop = (
     }
   };
 
-  const schedule = (initialDelay?: number) => {
+  const schedule = () => {
     pending = scheduler(() => {
       pending = null;
       if (!running) return;
       if (tick(key)) return stop();
       if (running) schedule();
-    }, initialDelay ?? FRAME);
+    }, 16);
   };
 
   return {
@@ -66,19 +61,10 @@ const rafLoop = (
       if (newKey) key = newKey;
       if (running) return;
       running = true;
-      firstFrame = true;
       // Synchronous first frame: immediate response to the press, no wait
-      // for the first timer tick (~16ms) that would make the first step
-      // feel delayed.
+      // for the first timer tick that would make the first step feel delayed.
       if (tick(key)) return stop();
-      // Apply the ramp to the first scheduled frame only — a tap (<ramp ms)
-      // yields only the sync step; a hold ramps into the 60Hz stream.
-      if (firstFrame && ramp > 0) {
-        firstFrame = false;
-        schedule(ramp);
-      } else {
-        schedule();
-      }
+      schedule();
     },
     stop,
   };
