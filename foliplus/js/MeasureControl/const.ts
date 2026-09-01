@@ -20,21 +20,25 @@ export const CENTER_DOT = {
   CLASS: "foliplus-measure-center-dot",
 };
 
-/** Approximate rendered label chip height in px — used to space anchors that
- *  must clear other markers sitting on the same latlng. */
-const LABEL_CHIP_H = 18;
+/** Rendered label chip height in px — font-size-sm (12) + 2×space-xs padding (4)
+ *  + line-height slack. Drives anchors for labels that share a latlng with
+ *  another marker (centroid) and must clear it. */
+const LABEL_CHIP_H = 24;
 
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. L.divIcon
-  // treats iconAnchor as an offset *of the div's top-left corner* (y-down), so
-  // to push the label *below* the point the y value must be *positive*.
-  // CENTER_DOT.SIZE[1]/2 (6) clears the dot; LABEL_CHIP_H/2 centers the chip's
-  // text on the cleared line; +2 gives breathing room.
-  CENTROID_ANCHOR: [0, CENTER_DOT.SIZE[1] / 2 + LABEL_CHIP_H / 2 + 2],
+  // The centroid label shares the same latlng as the 12×12 center dot.
+  // L.divIcon.iconAnchor places the icon so that the anchor pixel sits on the
+  // marker point. A positive y therefore puts the chip *above* the point
+  // (the anchor pixel is inside the chip, below its top edge). To clear the
+  // dot: chip bottom must sit above the dot's top.
+  //   chip bottom = pointY − A + LABEL_CHIP_H  ;  dot top = pointY − SIZE[1]/2
+  //   clear ⟺ A ≥ LABEL_CHIP_H + SIZE[1]/2 + gap
+  // With chip ≈24px, dot radius 6, gap 4 → A = 34.
+  CENTROID_ANCHOR: [0, LABEL_CHIP_H + CENTER_DOT.SIZE[1] / 2 + 4],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",
