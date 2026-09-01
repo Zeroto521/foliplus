@@ -2169,7 +2169,9 @@ describe("SearchControl history", () => {
         ]);
         renderHistory(ctrl, "addr");
         const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
-        item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+        item.dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+        );
         expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
         // The input gets the stored query, not the formatted display (reverse-
         // geocode output can drift from the original keyword).
