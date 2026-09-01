@@ -284,6 +284,32 @@ describe("bindEvents", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 
+  it("cancels fetch and shows history on input when cleared", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.inp.value = "abc";
+    ctrl.searchHistory = [
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lat: 48.8,
+        lng: 2.3,
+        ts: 1000,
+        count: 1,
+      },
+    ];
+    ctrl.debouncedFetch = { cancel: vi.fn() };
+    bindEvents(ctrl);
+    // Type then clear — the input handler fires on each keystroke
+    ctrl.inp.value = "";
+    ctrl._handlers.input();
+    expect(ctrl.debouncedFetch.cancel).toHaveBeenCalled();
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
+  });
+
   it("skips the history group header when navigating with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
