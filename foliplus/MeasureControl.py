@@ -64,13 +64,6 @@ class MeasureControl(BaseControl):
         visible on its anchor regardless of overlap. Only affects on-screen
         layout, never exports.
 
-    show_labels : bool, default True
-        Whether to render measurement labels at all. When ``False``, labels are
-        hidden on screen and also absent from PNG exports (the export
-        rasterizer reads the on-screen boxes). CSV/GeoJSON exports are
-        unaffected — they read the persisted measurements, not the rendered
-        labels.
-
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
         appended automatically: ``measurements.geojson`` or ``measurements.csv``.
@@ -120,7 +113,6 @@ class MeasureControl(BaseControl):
     _export_fields = (
         "show_bearing",
         "collide_labels",
-        "show_labels",
         "filename",
         "export_format",
     )
@@ -133,7 +125,6 @@ class MeasureControl(BaseControl):
         position: Position = "bottomright",
         show_bearing: bool = True,
         collide_labels: bool = True,
-        show_labels: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
@@ -146,7 +137,6 @@ class MeasureControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self.collide_labels = collide_labels
-        self.show_labels = show_labels
         self.filename = filename
         self.export_format = export_format
         self._template = self._get_template()

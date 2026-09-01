@@ -174,8 +174,3 @@ path.foliplus-measure-node-solid {
   }
 }
 
-/* Labels switched off by `show_labels=False`: `display: none` also zeroes the
-   boxes the PNG exporter reads, so hidden labels are absent from exports. */
-.foliplus-measure-labels-hidden .foliplus-measure-label {
-  display: none;
-}

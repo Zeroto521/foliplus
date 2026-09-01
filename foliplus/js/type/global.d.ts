@@ -144,7 +144,6 @@ declare global {
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
     collide_labels?: boolean;
-    show_labels?: boolean;
     agg?: string;
     method?: string;
     n_classes?: number;

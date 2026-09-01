@@ -120,8 +120,6 @@ class MeasureManager {
     this.measurementIdCounter = 0;
     this.ctrl = null;
     this.isEditMode = false;
-    if (CONF.show_labels === false)
-      this.map.getContainer().classList.add(CONST.CLASSES.LABELS_HIDDEN);
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -335,10 +333,6 @@ class MeasureManager {
    * removed from the map.
    */
   registerLabel = (marker: L.Marker, priority: number): (() => void) => {
-    // Labels off: chips are hidden by the container class, so they need no
-    // placement at all — keep them out of the planner.
-    if (CONF.show_labels === false) return () => {};
-
     const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
     this.bindLabelMapEvents();

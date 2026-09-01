@@ -963,7 +963,6 @@ beforeEach(() => {
     setLatLng: vi.fn(),
   }));
   window.CONF.collide_labels = undefined;
-  window.CONF.show_labels = undefined;
   labelRafQueue = [];
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
     labelRafQueue.push(cb);
@@ -1173,29 +1172,6 @@ describe("MeasureManager — map event binding", () => {
     expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
     expect(map.on).toHaveBeenCalledWith("resize", expect.any(Function));
     expect(map.off.mock.calls.length).toBe(offBefore);
-  });
-});
-
-describe("MeasureManager — show_labels gate", () => {
-  it("registerLabel is a no-op when show_labels is off (no plan, no map events)", () => {
-    const { manager, map } = makeLabelManager({ show_labels: false });
-    const marker = makeLabelMarker();
-
-    const unregister = manager.registerLabel(marker, 60);
-
-    expect(placeLabels).not.toHaveBeenCalled();
-    expect(map.on).not.toHaveBeenCalledWith("moveend", expect.any(Function));
-    expect(() => unregister()).not.toThrow();
-  });
-
-  it("adds the labels-hidden class on construction when show_labels is false", () => {
-    const { container } = makeLabelManager({ show_labels: false });
-    expect(container.classList.contains(CONST.CLASSES.LABELS_HIDDEN)).toBe(true);
-  });
-
-  it("leaves the labels-hidden class absent when show_labels is true", () => {
-    const { container } = makeLabelManager({ show_labels: true });
-    expect(container.classList.contains(CONST.CLASSES.LABELS_HIDDEN)).toBe(false);
   });
 });
 

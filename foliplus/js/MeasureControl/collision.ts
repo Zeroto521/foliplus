@@ -127,8 +127,8 @@ export const placeLabels = (
 
   // Collision off: restore any chip we currently own that is hidden (i.e. ones
   // we hid in a prior plan). Only chips present in the current plan (i.e. on the
-  // map and registered) are restored; chips hidden by the caller (show_labels/
-  // destroy) sit outside this function and are untouched.
+  // map and registered) are restored; chips hidden by the caller (destroy)
+  // sit outside this function and are untouched.
   if (!collide) {
     entries
       .filter(e => e.el.style.visibility === "hidden")
