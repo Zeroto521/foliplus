@@ -1,5 +1,6 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
+import { guardBlocked } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
@@ -115,9 +116,24 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
       key: "Enter",
       element: ctrl.inp,
       handler: () => {
+        // Adopt the keyboard-highlighted entry when one is selected: re-geocoding
+        // the display name can resolve to a different place on ambiguous queries.
+        const selected = ctrl.currentItems[ctrl.selectedIdx];
         const raw = ctrl.inp.value.trim();
+        if (!raw) {
+          removePanel(ctrl);
+          return;
+        }
+        if (selected) {
+          // Guarded in renderAddressResult — refuses to fly while another
+          // control holds a mode (showing the "blocked" hint). Only close
+          // the panel on success so a mode-lock refusal keeps it open with
+          // the hint visible, matching the mouse-click path.
+          if (selected.onClick()) removePanel(ctrl);
+          return;
+        }
+        if (guardBlocked(map, CONF.name, T("blocked"))) return;
         removePanel(ctrl);
-        if (!raw) return;
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },

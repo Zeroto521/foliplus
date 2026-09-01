@@ -45,6 +45,7 @@ interface SearchControlState {
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
   selectedIdx: number;
+  currentItems: ResultItem[];
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
@@ -346,6 +347,10 @@ const renderAddressResult = (
   ctrl: SearchControlState,
   result: AddressResult | { lat: number; lng: number; display_name: string },
 ): boolean => {
+  // The panel can stay open while another control holds a mode, so a picked
+  // suggestion must not fly the map. Suggestion picks, history entry clicks,
+  // and the Enter fallback all converge here; returning false lets the caller
+  // skip recording history and keep the panel open with the "blocked" hint.
   if (guardBlocked(map, CONF.name, T("blocked"))) return false;
   let displayName: string;
   let lng: number;
@@ -397,6 +402,7 @@ const removePanel = (ctrl: SearchControlState) => {
     ctrl.panelWrap = null;
   }
   ctrl.selectedIdx = -1;
+  ctrl.currentItems = [];
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
@@ -426,6 +432,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
   positionPanel(ctrl);
+
+  // Retained so Enter reuses the keyboard selection instead of re-geocoding.
+  ctrl.currentItems = results;
 
   results.forEach((item: ResultItem, idx: number) => {
     dom.el(

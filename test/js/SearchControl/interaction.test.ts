@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HISTORY_STORAGE_KEY } from "#foliplus/SearchControl/const.js";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/interaction.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { dom } from "#foliplus/common/dom.js";
@@ -31,6 +32,7 @@ function makeCtrl(): any {
     panelWrap: null,
     throttleTimer: null,
     selectedIdx: -1,
+    currentItems: [],
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
     searchHistory: [],
@@ -49,8 +51,8 @@ afterEach(() => {
   delete globalThis.fetch;
   document.body.innerHTML = "";
   window.history.replaceState(null, "", "/");
-  // Clear active modes so a blocked-mode test cannot leak and silently fail
-  // the next test.
+  // window.map is shared across tests; clear active modes so a blocked-mode
+  // test cannot leak and silently fail the next test.
   const modes = ensureModes(window.map);
   for (const comp of ["MeasureControl", "ExportControl", "LayerControl"]) {
     if (modes.getMode(comp)) modes.setMode(comp, null);
@@ -289,6 +291,101 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
     expect(map.flyTo).toHaveBeenCalled();
+  });
+
+  it("adopts the keyboard-highlighted entry on Enter", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    const mk = text =>
+      dom.el(
+        "div",
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
+      );
+    ctrl.panelWrap = dom.el("div");
+    ctrl.panelWrap.append(mk("One"), mk("Two"));
+    const one = vi.fn(() => true);
+    const two = vi.fn(() => true);
+    ctrl.currentItems = [
+      { primaryText: "One", coordDisplay: null, onClick: one },
+      { primaryText: "Two", coordDisplay: null, onClick: two },
+    ];
+    ctrl.inp.value = "Two";
+    bindEvents(ctrl);
+    // ArrowDown + ArrowDown highlights the second entry and writes its
+    // display name into the input. Enter must adopt that entry, not re-geocode
+    // and silently pick up result #1.
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(two).toHaveBeenCalledTimes(1);
+    expect(one).not.toHaveBeenCalled();
+    expect(window.foliplus.geocode).not.toHaveBeenCalled();
+    // Panel state is reset either way.
+    expect(ctrl.selectedIdx).toBe(-1);
+    expect(ctrl.currentItems).toHaveLength(0);
+  });
+
+  it("keeps the panel when Enter is pressed while another control holds a mode", () => {
+    // The panel stays open while measuring, so Enter must not swallow the
+    // selection or fly the map.
+    ensureModes(map).setMode("MeasureControl", "distance");
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    const click = vi.fn(() => false);
+    ctrl.currentItems = [{ primaryText: "One", coordDisplay: null, onClick: click }];
+    ctrl.selectedIdx = 0;
+    ctrl.inp.value = "One";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    // The handler forwards to onClick; the guard in renderAddressResult then
+    // refuses the mode switch, so no marker, no history, no fly. A blocked
+    // pick returns false, so the panel stays open with the hint visible
+    // (matching the mouse-click path).
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(map.flyTo).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(HISTORY_STORAGE_KEY)).toBeNull();
+    // Panel stays open so the user sees why they were refused.
+    expect(ctrl.selectedIdx).toBe(0);
+    expect(ctrl.currentItems).toHaveLength(1);
+  });
+
+  it("falls back to a normal search on Enter with no highlighted entry", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    const click = vi.fn();
+    ctrl.currentItems = [{ primaryText: "One", coordDisplay: null, onClick: click }];
+    ctrl.selectedIdx = -1;
+    ctrl.inp.value = "Paris";
+    window.foliplus.geocode.mockResolvedValue(null);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(window.foliplus.geocode).toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on Enter when the input is empty", () => {
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    const click = vi.fn();
+    ctrl.currentItems = [{ primaryText: "One", coordDisplay: null, onClick: click }];
+    ctrl.selectedIdx = 0;
+    ctrl.inp.value = "   ";
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(click).not.toHaveBeenCalled();
   });
 
   it("clears input and removes marker + del icon on clear", () => {
