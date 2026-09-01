@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import { dom } from "#common/dom.js";
+import { rafLoop, type RafLoop } from "#common/rafLoop.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -87,6 +88,7 @@ class ExportManager {
   lastScreenRect: Rect | null;
   savedBounds: SavedBounds | null;
   dragState: DragState;
+  nudgeLoop?: RafLoop;
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -297,10 +299,38 @@ class ExportManager {
       // R: reset the crop box to the default centered size.
       if (this.isEditing()) this.resetCropBox();
     } else if (CONST.NUDGE_KEYS.includes(event.key)) {
-      // Arrow keys: nudge the crop box by a fixed step (unlocked only, so it
-      // cannot fight the geo-anchored locked box).
-      if (this.isEditing()) this.nudgeCropBox(event.key);
+      // Arrow keys: start continuous smooth nudging while the key is held.
+      // On initial press the loop nudges one step synchronously (so the box
+      // moves the moment the key is pressed), then keeps nudging at ~60Hz
+      // so holding the key feels continuous. Stop on keyup.
+      if (this.isEditing()) this.nudgeStart(event.key);
     }
+  }
+
+  /** Start the smooth-nudge loop for a held arrow key. */
+  private nudgeStart(key: string) {
+    if (!this.isEditing()) return;
+    this.nudgeLoop = rafLoop(
+      (k?: string) => {
+        this.nudgeCropBox(k ?? key);
+        // If the box was locked or removed (e.g. Enter, Escape) the nudge
+        // returns early, but it doesn't return true — detect it explicitly
+        // and stop the loop so we never write to a gone/locked box.
+        return !this.isEditing();
+      },
+      // Inject a no-op scheduler from browser tests to freeze the loop while
+      // still asserting the one-step-per-keydown response.
+      { scheduler: (window as any).__rafScheduler ?? setTimeout },
+    );
+    this.nudgeLoop.start(key);
+  }
+
+  /** Stop the smooth-nudge loop when the arrow key is released. */
+  private nudgeStop() {
+    const loop = this.nudgeLoop;
+    this.nudgeLoop = undefined;
+    loop?.stop();
+    loop?.cancel();
   }
 
   /** True while the crop box is open and being edited (not locked). */
