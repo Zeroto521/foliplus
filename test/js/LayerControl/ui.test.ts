@@ -1798,7 +1798,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.setActiveItem(indexFor("overlay1"));
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
 
-      (ui as any).blurActiveItem();
+      ui.blurActiveItem();
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(

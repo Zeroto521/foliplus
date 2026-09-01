@@ -412,7 +412,11 @@ path.foliplus-focus-mask {
        focus feedback, so the row's own outline is suppressed. Child inputs
        (checkbox, more button) keep their own :focus-visible rings below —
        those are independent per-control affordances. */
-    &:focus-visible {
+    /* When the keyboard cursor class is present, suppress the browser
+       outline (the cursor carries the focus feedback). Without the class
+       (e.g. programmatic focus, aria-live announcement) the default
+       outline remains visible — accessible fallback. */
+    &.foliplus-layer-focused:focus-visible {
       outline: none;
     }
     /* ── Keyboard focus navigation cursor ──
