@@ -384,9 +384,13 @@ class TestExportControlBrowser:
                 "return { l: r.left, w: r.width, h: r.height }; }"
             )
 
-            # Hold ArrowRight: keydown then repeated keydowns, no keyup. Headless
-            # Chromium does not emit the OS's key auto-repeat, so the repeats are
-            # dispatched manually — mirroring what the OS sends for a held key.
+            # Simulate a held key: one keydown starts the smooth-nudge loop,
+            # then OS auto-repeat fires repeated keydowns for the same key.
+            # With the loop running the repeats are intentionally ignored, so
+            # a held key nudges exactly once (the loop's sync frame) plus the
+            # continuous stream handled by the loop — here the test injects a
+            # no-op scheduler so the loop only ever runs its sync frame, i.e.
+            # one NUDGE_STEP regardless of how many repeats follow.
             page.keyboard.down("ArrowRight")
             for _ in range(4):
                 page.evaluate(
@@ -403,8 +407,8 @@ class TestExportControlBrowser:
                 "() => { const r = window.__exportManager.cropState.rect; "
                 "return { l: r.left, w: r.width, h: r.height }; }"
             )
-            # 5 nudges of NUDGE_STEP, and a pure move must not change the size.
-            assert after["l"] == pytest.approx(before["l"] + 15)
+            # Repeats are ignored while the loop runs -> exactly one NUDGE_STEP.
+            assert after["l"] == pytest.approx(before["l"] + 3)
             assert after["w"] == pytest.approx(before["w"])
             assert after["h"] == pytest.approx(before["h"])
 

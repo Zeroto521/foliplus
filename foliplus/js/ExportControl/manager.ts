@@ -104,6 +104,7 @@ class ExportManager {
   dragState: DragState;
   nudgeLoop?: RafLoop;
   private nudgeMapRect?: DOMRect;
+  private nudgeActiveKey?: string;
   /**
    * Overridable timer function for the smooth-nudge rafLoop. Defaults to
    * setTimeout (production). Browser tests inject a no-op so each rafLoop
@@ -340,7 +341,8 @@ class ExportManager {
       // On initial press the loop nudges one step synchronously (so the box
       // moves the moment the key is pressed), then keeps nudging at ~60Hz
       // so holding the key feels continuous. Stop on keyup.
-      if (this.isEditing()) this.nudgeStart(event.key);
+      if (this.isEditing() && event.key !== this.nudgeActiveKey)
+        this.nudgeStart(event.key);
     }
   }
 
@@ -355,6 +357,10 @@ class ExportManager {
     // ModeManager), so getBoundingClientRect() is stable — avoids calling it
     // 60 times per second inside the rafLoop.
     this.nudgeMapRect = this.mapContainer.getBoundingClientRect();
+    // Remember which arrow key this loop is for so a fresh press of a
+    // different direction re-starts, while OS auto-repeat of the same key is
+    // ignored (one tap = exactly one sync frame regardless of repeat rate).
+    this.nudgeActiveKey = key;
     // Fractional accumulator so held-key motion is smooth at 60fps: each
     // scheduled frame adds perFrame px, the floored integer is applied, and
     // the remainder carries forward. Running at the loop's native 16ms keeps
@@ -403,6 +409,7 @@ class ExportManager {
     const loop = this.nudgeLoop;
     this.nudgeLoop = undefined;
     this.nudgeMapRect = undefined;
+    this.nudgeActiveKey = undefined;
     this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
     loop?.stop();
   }
