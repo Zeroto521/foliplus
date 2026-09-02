@@ -500,6 +500,13 @@ class LayerUI {
     );
   }
 
+  /** Current display name for the virtual color basemap: persisted rename
+   *  if present, else the locale label. The color layer has no registry
+   *  entry, so this is its only source of truth. */
+  private colorLayerName(): string {
+    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
+  }
+
   renderColorLayerItem() {
     const colorInput = dom.el("input", {
       type: "color",
@@ -527,11 +534,11 @@ class LayerUI {
         class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
         draggable: "false",
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-        title: T("color_map_label"),
+        title: this.colorLayerName(),
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, T("color_map_label")),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, this.colorLayerName()),
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
@@ -1427,9 +1434,7 @@ class LayerUI {
 
     // Color layer has no registry entry — default the input to the name the
     // UI already shows (locale label), not the color hex.
-    const currentName = isColorLayer
-      ? (this.renamedNames[layerId] ?? T("color_map_label"))
-      : layerInfo!.name;
+    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
 
     this.activeRenameId = layerId;
     // Flag the row so CSS can stretch the input across the label+count area
@@ -1454,9 +1459,12 @@ class LayerUI {
         this.finishRename(true);
         if (label.isConnected) label.textContent = trimmed;
       },
-      onCancel: () => {
-        const map = this.m.map;
-        map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+      onCancel: reason => {
+        // Only an empty-name commit is a user mistake worth flagging;
+        // Escape is an intentional abandon — stay silent.
+        if (reason === "empty") {
+          map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        }
         this.finishRename(true);
       },
     });
@@ -1485,9 +1493,7 @@ class LayerUI {
     item?.classList.remove(CONST.CLASSES.RENAMING);
     removeInlineEditInput(label);
     if (restoreText) {
-      const name = layerInfo
-        ? layerInfo.name
-        : (this.renamedNames[layerId] ?? T("color_map_label"));
+      const name = layerInfo ? layerInfo.name : this.colorLayerName();
       updateItemLabel(item, name);
     }
   }

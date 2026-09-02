@@ -342,7 +342,10 @@ const createInlineEditInput = (opts: {
   className: string;
   ariaLabel: string;
   onCommit: (value: string) => void;
-  onCancel: () => void;
+  /** Called when the edit ends without committing — Escape (reason "escape")
+   *  or an empty/whitespace Enter (reason "empty"). Callers can distinguish
+   *  silent abandon from a rejected empty value (e.g. to show a hint). */
+  onCancel: (reason: "escape" | "empty") => void;
   /** Gate blur-commit: only true while the edit is still the active one.
    *  Guards against a double-commit when Enter/Escape tear the input down
    *  (removing the focused element fires blur, which would re-commit stale
@@ -360,7 +363,7 @@ const createInlineEditInput = (opts: {
     if (opts.isActive && !opts.isActive()) return;
     const trimmed = value.trim();
     if (trimmed.length > 0) opts.onCommit(trimmed);
-    else opts.onCancel();
+    else opts.onCancel("empty");
   };
 
   input.addEventListener("keydown", (event: KeyboardEvent) => {
@@ -375,7 +378,7 @@ const createInlineEditInput = (opts: {
     } else if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      opts.onCancel();
+      opts.onCancel("escape");
     } else {
       event.stopPropagation();
     }

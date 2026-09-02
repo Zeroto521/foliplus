@@ -1203,6 +1203,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("Escape cancels and restores the original label text", () => {
+      // map.foliplus.showHint may be bound to the real HintManager on init;
+      // spy on it to observe calls.
+      const showHint = vi.spyOn(map.foliplus!, "showHint");
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
 
@@ -1215,6 +1218,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("Polygons");
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
+      // Escape is an intentional abandon — no empty-name hint.
+      expect(showHint).not.toHaveBeenCalled();
+      showHint.mockRestore();
     });
 
     it("blur after the input is torn down does not re-commit", () => {
@@ -1431,6 +1437,24 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ) as HTMLInputElement;
       expect(colorInput.getAttribute("aria-label")).toBe("Custom Color");
       expect(colorInput.title).toBe("Custom Color");
+    });
+
+    it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+      const firstLabel = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM} label`)!;
+      // The rename input lives inside the label; the first bare `input` in the
+      // item is the color swatch, so scope to the label.
+      const firstInput = firstLabel.querySelector("input") as HTMLInputElement;
+      firstInput.value = "My Base";
+      firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      expect(firstLabel.textContent).toBe("My Base");
+
+      // Fold toggle / reorder rebuild the list via renderInitialList.
+      ui.renderInitialList();
+
+      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      expect(colorItem.querySelector("label")!.textContent).toBe("My Base");
+      expect(colorItem.getAttribute("title")).toBe("My Base");
     });
   });
 
