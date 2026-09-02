@@ -654,17 +654,22 @@ path.foliplus-focus-mask {
    While editing (.foliplus-layer-renaming) the label column stretches
    across label+count and the input fills its full height, so the field
    looks like the SearchControl box rather than a shrunken inline edit. */
-.foliplus-layer-renaming .foliplus-layer-label {
-  /* Stretch the label cell across the row's full height (including its
-     vertical padding) so the inline field reads as a full-size input like
-     SearchControl, not a shrunken single line. */
+/* While renaming, drop the row's vertical padding so the label can stretch
+   to the full row height and the input reads as a full-size field. These
+   must outrank the scoped `.foliplus-layer-ctrl .foliplus-layer-item` rules,
+   so they carry the full prefix. */
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-renaming {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.foliplus-layer-ctrl
+  .foliplus-layer-item.foliplus-layer-renaming
+  .foliplus-layer-label {
   align-self: stretch;
-  margin-top: calc(-1 * var(--space-md));
-  margin-bottom: calc(-1 * var(--space-md));
   display: flex;
   align-items: center;
 }
-.foliplus-layer-rename-input {
+.foliplus-layer-ctrl .foliplus-layer-rename-input {
   padding: 0 var(--space-sm);
   height: 100%;
   color: inherit;
