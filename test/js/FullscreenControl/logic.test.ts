@@ -260,43 +260,47 @@ describe("toggleFullscreen — native API path", () => {
       expect(document.exitFullscreen).toHaveBeenCalled();
     });
 
-    it("fades the scrim out on exit, no replay or auto-clear", async () => {
-      // startDimExit is deferred to exitFullscreen().then() — after the
+    it("flashes the scrim on exit (one-shot, auto-clears)", async () => {
+      // flashScrim is deferred to exitFullscreen().then() — after the
       // browser has fully torn down fullscreen — so the CSS transition is
-      // not cancelled by a rendering-context change. On exit it simply
-      // removes DIM_ACTIVE; the scrim stays transparent thereafter. No
-      // timer, no replay — the scrim is state-bound to fullscreen.
+      // not cancelled by a rendering-context change. The flash adds
+      // DIM_ACTIVE immediately and schedules its own auto-clear.
+      vi.useFakeTimers();
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.resolve());
       toggleFullscreen(mapMock, fsBtn, container);
-      // toggleFullscreen returns before the .then() fires — scrim is not yet
-      // changed by exit. Resolve the deferred microtasks.
+      // toggleFullscreen returns before the .then() fires.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       await Promise.resolve();
       await Promise.resolve();
-      // startDimExit removed active — scrim fades out and stays transparent.
+      // .then() fired — flash added DIM_ACTIVE.
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+
+      // Advance through the fade-in + fade-out windows; the scrim auto-clears.
+      await vi.advanceTimersByTimeAsync(360);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-      // No auto-clear timer exists; scrim state is stable regardless of time.
-      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      expect(
+        container.querySelectorAll(`.${CLASSES.DIM}`).length,
+      ).toBe(0);
+      vi.useRealTimers();
     });
 
-    it("clears the scrim on denied exit (no flash, instant clear wins)", async () => {
-      // exitFullscreen() rejected → .catch() clears via setDim(false).
-      // startDimExit never runs (it's in the .then() path), so the scrim is
-      // never darkened.
+    it("skips the flash on denied exit and syncs UI", async () => {
+      // exitFullscreen() rejected → .catch() never calls flashScrim, so the
+      // scrim is never created. updateUI still runs to reflect the real API
+      // state (still fullscreen → MINIMIZE icon).
+      vi.useFakeTimers();
       mapMock.isFullscreen = true;
       mocks.getFullscreenEl.mockReturnValue({});
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("denied")));
       toggleFullscreen(mapMock, fsBtn, container);
-      // Nothing happened yet — toggleFullscreen returned, exitFullscreen pending.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       await Promise.resolve();
       await Promise.resolve();
-      // .catch() resolved — isFullscreen synced back from API (still fullscreen),
-      // scrim stays clear, updateUI called with MINIMIZE.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       expect(mapMock.isFullscreen).toBe(true);
       expect(fsBtn.innerHTML).toContain("M8 3v3");
+      vi.useRealTimers();
     });
   });
 
@@ -311,22 +315,28 @@ describe("toggleFullscreen — native API path", () => {
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     });
 
-    it("clears the scrim when requestFullscreen is rejected", async () => {
+    it("flashes on enter even if requestFullscreen is rejected (auto-clears)", async () => {
+      vi.useFakeTimers();
       mapMock.getContainer().requestFullscreen = vi.fn(() =>
         Promise.reject(new Error("denied")),
       );
       toggleFullscreen(mapMock, fsBtn, container);
+      // flashScrim runs synchronously ahead of the API promise.
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
       await Promise.resolve();
       await Promise.resolve();
+      // Rejection is caught; scrim is not cleared synchronously — the flash
+      // auto-clears on its own timer.
+      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+      await vi.advanceTimersByTimeAsync(360);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
+      vi.useRealTimers();
     });
 
-    it("clears the scrim when the API already reports fullscreen gone (Esc race)", async () => {
-      // Between requestFullscreen resolving and the fullscreenchange event,
-      // Esc can drop the fullscreen state. The reject path must re-drive the
-      // dim from the API rather than from map.isFullscreen, so a lost
-      // fullscreen doesn't leave the basemap darkened.
+    it("syncs isFullscreen to false on enter-reject when API reports not-fullscreen", async () => {
+      // Rejection must sync map.isFullscreen from the API, not leave it at the
+      // pre-flash optimistic value.
       mocks.getFullscreenEl.mockReturnValue(null);
       mapMock.getContainer().requestFullscreen = vi.fn(() =>
         Promise.reject(new Error("denied")),
@@ -334,14 +344,12 @@ describe("toggleFullscreen — native API path", () => {
       toggleFullscreen(mapMock, fsBtn, container);
       await Promise.resolve();
       await Promise.resolve();
-      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+      expect(mapMock.isFullscreen).toBe(false);
     });
 
-    it("clears the scrim on enter-reject when the API reports we are not fullscreen", async () => {
-      // Enter-reject catches must re-drive the dim from the API, not blindly
-      // `setDim(false)`. Set the API to not-fullscreen so we genuinely take the
-      // enter path, then have it stay not-fullscreen by rejection time — the
-      // dim must end up cleared.
+    it("syncs isFullscreen from API during the request-to-reject window", async () => {
+      // If the API state flips between the flash and the rejection, the catch
+      // must reflect the real API state rather than a stale local value.
       mocks.getFullscreenEl.mockReturnValue(null);
       let switchAPI: (() => void) | null;
       mapMock.getContainer().requestFullscreen = vi.fn(
@@ -355,7 +363,6 @@ describe("toggleFullscreen — native API path", () => {
       switchAPI!();
       await Promise.resolve();
       await Promise.resolve();
-      expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
       expect(mapMock.isFullscreen).toBe(false);
     });
   });
@@ -379,24 +386,23 @@ describe("toggleFullscreen — crossfade scrim, pseudo path", () => {
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
   });
 
-  it("enter flashes then exit removes active for CSS fade-out", () => {
+  it("enter flashes then exit also flashes (both add DIM_ACTIVE)", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    // Exit also flashes — DIM_ACTIVE stays added; the auto-clear timer is
+    // re-scheduled rather than firing early.
     toggleFullscreen(mapMock, fsBtn, container);
-    // Exit uses startDimExit: scrim is dark, so it removes active immediately;
-    // the CSS transition carries opacity from --dim-alpha back to 0.
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
   });
 
-  it("rapid enter/exit/enter: scrim tracks state, no auto-clear", () => {
+  it("rapid enter/exit/enter: each toggle flashes, single scrim element", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     toggleFullscreen(mapMock, fsBtn, container);
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
     toggleFullscreen(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
-    // Scrim stays dimmed while fullscreen — no timer fires to clear it.
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
+    expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(1);
   });
 
   it("mounts the scrim lazily — nothing is in the DOM before the first toggle", () => {
@@ -450,7 +456,7 @@ describe("bindFullscreenEvents — native API path", () => {
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
   });
 
-  it("handler syncs UI state and clears the scrim from API state", () => {
+  it("handler syncs UI state regardless of scrim (flash auto-clears)", () => {
     toggleFullscreen(mapMock, fsBtn, container);
     const handler = bindFullscreenEvents(mapMock, fsBtn, container);
     expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
@@ -458,10 +464,10 @@ describe("bindFullscreenEvents — native API path", () => {
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
-    // handleFSChange drives the scrim directly from the API — when the API
-    // reports not-fullscreen, the scrim is cleared synchronously. No timer
-    // needed; the scrim is state-bound, not a flash.
-    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
+    // handleFSChange no longer drives the scrim — it is a one-shot flash
+    // that auto-clears on its own timer. The handler only syncs isFullscreen
+    // and the UI (icon, title, hide_others/self).
+    expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(true);
   });
 
   it("handler syncs the icon from API state regardless of scrim", () => {

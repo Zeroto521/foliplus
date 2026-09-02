@@ -512,10 +512,11 @@ class TestFullscreenControlBrowser:
         )
 
     def test_scrim_fades_on_enter(self, browser, tmp_path):
-        """Entering fullscreen fades the basemap down and back up on exit.
+        """Entering fullscreen flashes the basemap: fade-in then auto fade-out.
 
-        Asserts the computed opacity on real pixels rather than the CSS rule,
-        and that the fade actually lands at the token value.
+        Asserts the computed opacity on real pixels and that the scrim
+        auto-clears after the fade-out completes. The flash is one-shot —
+        the scrim is not kept in the DOM after it fades out.
         """
         with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
             page,
@@ -539,29 +540,27 @@ class TestFullscreenControlBrowser:
             )
 
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(
-                250
-            )  # past the 180ms fade-in; scrim is state-bound, stays at full opacity
-            opacity_in = page.evaluate(
+
+            # Sample during the fade-in window (180ms). At 100ms the opacity
+            # should be rising through ~0.56 — neither 0 nor 1.
+            page.wait_for_timeout(100)
+            opacity_mid = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
             )
-            assert abs(float(opacity_in) - 1.0) < 0.05, opacity_in
+            assert 0.3 < float(opacity_mid) < 0.8, opacity_mid
             assert (
                 page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
             ), "scrim should be created exactly once"
 
+            # After fade-in + fade-out (180 + 180 = 360ms) the scrim auto-clears.
             self._exit_fullscreen(page)
-            page.wait_for_timeout(800)
-            opacity_out = page.evaluate(
-                "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
-                ".opacity"
+            page.wait_for_timeout(500)
+            scrim_count = page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length"
             )
-            assert abs(float(opacity_out)) < 0.05, opacity_out
-
-            # The scrim element is created once per map and kept in the DOM;
-            assert (
-                page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
+            assert scrim_count == 0, (
+                f"scrim should auto-detach after flash, got {scrim_count}"
             )
 
             assert not errors, f"JS errors: {errors}"
@@ -713,7 +712,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(100)  # sample during the fade-in (scrim present)
 
             layers = self._scrim_layers(page)
             assert layers["scrim"] is not None
@@ -726,11 +725,11 @@ class TestFullscreenControlBrowser:
             assert layers["controls"], "expected at least one .leaflet-control"
 
     def test_esc_exit_clears_the_scrim(self, browser, tmp_path):
-        """Exiting via the keyboard undims, not just exiting via the button.
+        """Exiting via the keyboard flashes the scrim once then clears it.
 
         Esc reaches fullscreenchange directly, bypassing toggleFullscreen
-        entirely. The dim therefore has to be driven from the API state in
-        handleFSChange, or the basemap stays darkened for the next toggle.
+        entirely. With the one-shot flash model, the scrim is not state-bound
+        — it auto-clears regardless of which code path triggered the exit.
         """
         with use_page(self._make_page, browser, tmp_path, hide_self=False) as (
             page,
@@ -740,26 +739,23 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(250)  # sample during the flash
+            page.wait_for_timeout(100)  # sample during the fade-in
             opacity_in = self._scrim_snapshot(page)["opacity"]
-            assert abs(float(opacity_in) - 1.0) < 0.05, opacity_in
+            assert 0.3 < float(opacity_in) < 0.8, opacity_in
 
             # The browser ends fullscreen itself; page.keyboard.press("Escape")
             # does not work here, since a native keydown never reaches the page
             # while fullscreen. exitFullscreen fires the same fullscreenchange.
             page.evaluate("document.exitFullscreen()")
             page.wait_for_function("() => document.fullscreenElement === null")
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(500)  # past the 360ms flash window
 
-            assert (
-                page.evaluate(
-                    "document.querySelector('.leaflet-container')"
-                    ".classList.contains('foliplus-dim-active')"
-                )
-                is False
+            scrim_count = page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length"
             )
-            opacity_out = self._scrim_snapshot(page)["opacity"]
-            assert abs(float(opacity_out)) < 0.05, opacity_out
+            assert scrim_count == 0, (
+                f"scrim should auto-detach after flash, got {scrim_count}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_affect_controls(self, browser, tmp_path):
@@ -832,12 +828,13 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(250)  # sample during the flash
+            page.wait_for_timeout(100)  # sample during the fade-in
             snap = self._scrim_snapshot(page)
             assert snap is not None
             assert snap["rect"]["width"] == page.evaluate("window.innerWidth"), snap
             assert snap["rect"]["height"] == page.evaluate("window.innerHeight"), snap
-            assert abs(float(snap["opacity"]) - 1.0) < 0.05, snap["opacity"]
+            # During fade-in the opacity is rising; it should be between 0 and 1.
+            assert 0.0 < float(snap["opacity"]) < 1.0, snap["opacity"]
 
             page.evaluate(
                 "document.querySelector('.foliplus-fullscreen-toggle').click()"
@@ -847,9 +844,13 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(800)
-            snap_out = self._scrim_snapshot(page)
-            assert abs(float(snap_out["opacity"])) < 0.05, snap_out["opacity"]
+            page.wait_for_timeout(500)  # past the 360ms flash window
+            scrim_count = page.evaluate(
+                "document.querySelectorAll('.foliplus-dim').length"
+            )
+            assert scrim_count == 0, (
+                f"scrim should auto-detach after flash, got {scrim_count}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_survives_hide_others(self, browser, tmp_path):
@@ -866,7 +867,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(250)  # sample during the flash
+            page.wait_for_timeout(100)  # sample during the fade-in
 
             check = page.evaluate(
                 """() => {
@@ -880,7 +881,7 @@ class TestFullscreenControlBrowser:
             )
             assert check["present"], "scrim missing with hide_others=true"
             assert not check["hidden"], "hide_others must not hide the scrim"
-            assert abs(float(check["opacity"]) - 1.0) < 0.05, check["opacity"]
+            assert 0.0 < float(check["opacity"]) < 1.0, check["opacity"]
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_break_invalidation(self, browser, tmp_path):

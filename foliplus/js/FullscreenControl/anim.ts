@@ -1,52 +1,59 @@
-// FullscreenControl crossfade — a flat black scrim that dims the basemap
-// while fullscreen is active, fading in on enter and out on exit. Controls
-// stay fully visible; the scrim lives at z-index 799, below them.
+// FullscreenControl crossfade — a flat black scrim that briefly dims the
+// basemap on fullscreen enter and exit, then auto-fades out so the basemap
+// returns to full brightness. Controls stay fully visible; the scrim lives at
+// z-index 799, below them.
 import { CLASSES } from "./const.js";
 
-const ensureScrim = (container: HTMLElement): void => {
-  if (container.querySelector(`.${CLASSES.DIM}`)) return;
-  const scrim = document.createElement("div");
+const ensureScrim = (container: HTMLElement): HTMLElement => {
+  let scrim = container.querySelector(`.${CLASSES.DIM}`);
+  if (scrim) return scrim as HTMLElement;
+  scrim = document.createElement("div");
   scrim.className = CLASSES.DIM;
   container.appendChild(scrim);
+  return scrim;
 };
 
-/**
- * Fade the scrim in for a fullscreen enter. The scrim stays dimmed while
- * fullscreen is active — it is state-bound, not a flash — so the user gets a
- * quiet, persistent signal that they're in a distinct mode, matching the
- * pattern ExportControl uses while in crop mode.
- *
- * The scrim element is created once (ensureScrim); subsequent calls are
- * idempotent. CSS carries the opacity transition.
- */
-const startDim = (container: HTMLElement): void => {
-  ensureScrim(container);
-  container.classList.add(CLASSES.DIM_ACTIVE);
-};
-
-/**
- * Fade the scrim out for a fullscreen exit — symmetric with startDim's
- * fade-in on enter. Removes the active class so the CSS transition carries
- * opacity from 1 back to 0 over --dim-duration (180ms ease-out).
- */
-const startDimExit = (container: HTMLElement): void => {
-  ensureScrim(container);
-  container.classList.remove(CLASSES.DIM_ACTIVE);
-};
-
-/**
- * Synchronous toggle of the scrim (no fade). Used by the denied-request
- * catch paths in logic.ts, where the scrim must clear immediately rather
- * than fading.
- */
-const setDim = (container: HTMLElement, active: boolean): void => {
-  ensureScrim(container);
-  container.classList.toggle(CLASSES.DIM_ACTIVE, active);
-};
-
-const removeScrim = (container: HTMLElement) => {
+const removeScrim = (container: HTMLElement): void => {
   container.classList.remove(CLASSES.DIM_ACTIVE);
   container.querySelector(`.${CLASSES.DIM}`)?.remove();
 };
 
-export { removeScrim, setDim, startDim, startDimExit };
+/**
+ * Flash the scrim: fade in over 180ms, then auto-fade out and detach after
+ * another 180ms. Used on both fullscreen enter and exit — the scrim is a
+ * one-shot transition signal, not a persistent overlay.
+ *
+ * Each container may have at most one in-flight flash; a second call while
+ * one is still running replaces the pending clear timer so the scrim is not
+ * detached mid-flash.
+ */
+const flashScrim = (container: HTMLElement): void => {
+  const scrim = ensureScrim(container);
+
+  // Cancel a previously scheduled clear so overlapping flashes don't detach
+  // the scrim while the second one is still visible.
+  const prev = (scrim as { _clear?: ReturnType<typeof setTimeout> })._clear;
+  if (prev) clearTimeout(prev);
+
+  // Kick the transition: add active class so CSS carries opacity 0 → 1.
+  container.classList.add(CLASSES.DIM_ACTIVE);
+
+  // Schedule the auto-clear: after the fade-in has settled, remove the active
+  // class so CSS carries opacity 1 → 0, then detach the element after the
+  // fade-out completes. The two durations match --dim-duration (180ms) in
+  // FullscreenControl.css; if the CSS value changes these constants must
+  // follow.
+  const fadeInMs = 180;
+  const fadeOutMs = 180;
+
+  const timer = setTimeout(() => {
+    container.classList.remove(CLASSES.DIM_ACTIVE);
+    setTimeout(() => {
+      scrim.remove();
+    }, fadeOutMs);
+  }, fadeInMs);
+
+  (scrim as { _clear: ReturnType<typeof setTimeout> })._clear = timer;
+};
+
+export { flashScrim, removeScrim };
