@@ -28,4 +28,3 @@ describe("TRASH", () => {
     expect(SVGs.TRASH).toContain("</svg>");
   });
 });
-
