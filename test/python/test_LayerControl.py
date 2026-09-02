@@ -671,7 +671,9 @@ class TestLayerControlBrowser:
         collapses back to a single line.
         """
         layer = folium.FeatureGroup(name="My Layer")
-        with use_page(self._make_page, browser, tmp_path, layer, slug="rename_visual") as (
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="rename_visual"
+        ) as (
             page,
             _,
         ):
