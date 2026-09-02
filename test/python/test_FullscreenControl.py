@@ -541,14 +541,13 @@ class TestFullscreenControlBrowser:
 
             self._enter_fullscreen(page, hide_self=False)
 
-            # Sample during the fade-in window (180ms). At 100ms the opacity
-            # should be rising through ~0.56 — neither 0 nor 1.
-            page.wait_for_timeout(100)
+            # Sample early in the fade-in window (180ms).
+            page.wait_for_timeout(50)
             opacity_mid = page.evaluate(
                 "() => getComputedStyle(document.querySelector('.foliplus-dim'))"
                 ".opacity"
             )
-            assert 0.3 < float(opacity_mid) < 0.8, opacity_mid
+            assert 0.0 < float(opacity_mid) < 0.7, opacity_mid
             assert (
                 page.evaluate("document.querySelectorAll('.foliplus-dim').length") == 1
             ), "scrim should be created exactly once"
@@ -712,7 +711,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(100)  # sample during the fade-in (scrim present)
+            page.wait_for_timeout(50)  # sample early in the fade-in (scrim present)
 
             layers = self._scrim_layers(page)
             assert layers["scrim"] is not None
@@ -739,9 +738,9 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(100)  # sample during the fade-in
+            page.wait_for_timeout(50)  # sample early in the fade-in
             opacity_in = self._scrim_snapshot(page)["opacity"]
-            assert 0.3 < float(opacity_in) < 0.8, opacity_in
+            assert 0.0 < float(opacity_in) < 0.7, opacity_in
 
             # The browser ends fullscreen itself; page.keyboard.press("Escape")
             # does not work here, since a native keydown never reaches the page
@@ -828,13 +827,13 @@ class TestFullscreenControlBrowser:
                     .querySelector('.leaflet-container')
                     .classList.contains('leaflet-pseudo-fullscreen')"""
             )
-            page.wait_for_timeout(100)  # sample during the fade-in
+            page.wait_for_timeout(50)  # sample early in the fade-in
             snap = self._scrim_snapshot(page)
             assert snap is not None
             assert snap["rect"]["width"] == page.evaluate("window.innerWidth"), snap
             assert snap["rect"]["height"] == page.evaluate("window.innerHeight"), snap
             # During fade-in the opacity is rising; it should be between 0 and 1.
-            assert 0.0 < float(snap["opacity"]) < 1.0, snap["opacity"]
+            assert 0.0 < float(snap["opacity"]) < 0.7, snap["opacity"]
 
             page.evaluate(
                 "document.querySelector('.foliplus-fullscreen-toggle').click()"
@@ -867,7 +866,7 @@ class TestFullscreenControlBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             self._enter_fullscreen(page, hide_self=False)
-            page.wait_for_timeout(100)  # sample during the fade-in
+            page.wait_for_timeout(50)  # sample early in the fade-in
 
             check = page.evaluate(
                 """() => {
@@ -881,7 +880,7 @@ class TestFullscreenControlBrowser:
             )
             assert check["present"], "scrim missing with hide_others=true"
             assert not check["hidden"], "hide_others must not hide the scrim"
-            assert 0.0 < float(check["opacity"]) < 1.0, check["opacity"]
+            assert 0.0 < float(check["opacity"]) < 0.7, check["opacity"]
             assert not errors, f"JS errors: {errors}"
 
     def test_scrim_does_not_break_invalidation(self, browser, tmp_path):
