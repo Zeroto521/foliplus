@@ -279,9 +279,7 @@ describe("toggleFullscreen — native API path", () => {
       // Advance through the fade-in + fade-out windows; the scrim auto-clears.
       await vi.advanceTimersByTimeAsync(360);
       expect(container.classList.contains(CLASSES.DIM_ACTIVE)).toBe(false);
-      expect(
-        container.querySelectorAll(`.${CLASSES.DIM}`).length,
-      ).toBe(0);
+      expect(container.querySelectorAll(`.${CLASSES.DIM}`).length).toBe(0);
       vi.useRealTimers();
     });
 
