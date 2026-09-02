@@ -477,7 +477,6 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     // full registry methods).  The error is harmless — we just
     // treat it as "no layers found" and continue to the hint logic.
   }
-  ctrl.m.hasScanned = true;
   if (ctrl.m.pointLayers.length === 0 && attempt > 0)
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
   else if (ctrl.m.pointLayers.length === 0) {
@@ -491,8 +490,13 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
       T(missingLayerControl ? "no_layercontrol" : "no_layer"),
       HINT_DURATION.LONG,
     );
+    ctrl.m.hasScanned = true;
   } else {
     rebuildLayerDropdown(ctrl);
+    // Mark scanned only after the first rebuild completes, so the
+    // one-shot single-layer auto-select inside buildLayerListItems can
+    // still fire for the initial map load but never again afterwards.
+    ctrl.m.hasScanned = true;
     // Restore path: rebuild only syncs the dropdown value — refresh the
     // field selector and draw the saved layer so a reload shows the saved
     // configuration without waiting for user input.

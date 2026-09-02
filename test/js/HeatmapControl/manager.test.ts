@@ -906,4 +906,132 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
 
     expect(m.selectedLayerId).toBe("b");
   });
+
+  it("stays cleared across repeated rebuilds (zoom + layer-churn)", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "lonely", name: "Lonely", layer: {}, count: 1 }];
+    m.hasScanned = true;
+    m.selectedLayerId = null;
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+
+    // Simulate a session of zoom + layer-add/remove rebuilds after the clear.
+    for (let i = 0; i < 5; i++) rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+
+  it("zoomend re-render does not resurrect a cleared single layer", () => {
+    const m = makeManager();
+    m.selectedLayerId = null;
+    m.pointLayers = [{ id: "lonely", name: "Lonely", layer: {}, count: 1 }];
+    m.map = { _container: {}, getZoom: () => 6 } as any;
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+
+    // Zoomend debounced handler: with nothing selected it must stay cleared.
+    m.renderHexagons();
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("initScan — single-layer auto-select on first scan only", () => {
+  beforeEach(() => {
+    window.map.foliplus.LayerAPI = {
+      ...window.map.foliplus.LayerAPI,
+      getLayersByType: vi.fn(() => []),
+      extractPoints: vi.fn(() => []),
+      createCanvas: vi.fn(() => ({
+        register: vi.fn(),
+        unregister: vi.fn(),
+        setVisible: vi.fn(),
+        hooks: { before: [], after: [] },
+        canvas: null,
+        ctx: null,
+      })),
+    };
+  });
+
+  const makeCtrl = (m: HeatmapManager) => {
+    const sel = document.createElement("select");
+    return {
+      m,
+      ctrl: document.createElement("div"),
+      schemeDropdown: null,
+      expandHookDone: false,
+      observer: null,
+      layerSelect: sel,
+      extraBody: document.createElement("div"),
+      fieldSelect: document.createElement("select"),
+      fieldWrap: document.createElement("div"),
+      aggSelect: document.createElement("select"),
+      methodSelect: document.createElement("select"),
+      classSelect: document.createElement("select"),
+      schemeSelectHidden: document.createElement("select"),
+    };
+  };
+
+  it("auto-selects and renders a single layer on first initScan", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "lonely", name: "Lonely", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+    ]);
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+
+    initScan(ctrl, 3);
+
+    expect(m.hasScanned).toBe(true);
+    expect(m.selectedLayerId).toBe("lonely");
+    expect(renderSpy).toHaveBeenCalled();
+  });
+
+  it("auto-selects a single layer that appears on the init retry", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    // First scan finds nothing; a single layer appears on the retry.  This is
+    // still the initial scan phase (hasScanned not yet set), so it auto-selects.
+    window.map.foliplus.LayerAPI.isLayerControl = true;
+    let calls = 0;
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => {
+      calls++;
+      return calls === 1 ? [] : [{ id: "late", name: "Late", layer: {} }];
+    });
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+    ]);
+    const ctrl = makeCtrl(m);
+
+    vi.useFakeTimers();
+    initScan(ctrl, 2);
+    await vi.runOnlyPendingTimersAsync();
+    await vi.advanceTimersByTimeAsync(CONST.TIMING.INIT_SCAN_INTERVAL);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.hasScanned).toBe(true);
+    expect(m.selectedLayerId).toBe("late");
+  });
+
+  it("sets hasScanned in the terminal no-layer path", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    window.map.foliplus.showHint = vi.fn();
+    window.map.foliplus.LayerAPI.isLayerControl = false;
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
+    const ctrl = makeCtrl(m);
+
+    vi.useFakeTimers();
+    initScan(ctrl, 0); // attempt 0 = no retries, goes straight to the terminal hint
+    vi.useRealTimers();
+
+    expect(m.hasScanned).toBe(true);
+    expect(m.selectedLayerId).toBeNull();
+  });
 });

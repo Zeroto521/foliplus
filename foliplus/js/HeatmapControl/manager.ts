@@ -109,6 +109,15 @@ class HeatmapManager {
   cachedAgg: { key: string; data: AggregatedData } | null;
   cachedLabelStyle: LabelStyle | null;
   renderAll: boolean;
+  /**
+   * One-shot guard: true after the first successful initScan rebuild (or the
+   * terminal no-layer hint).  Prevents the single-layer auto-select in
+   * buildLayerListItems from re-firing on later rebuilds (zoomend,
+   * layeradd/layerremove), which would override a user's manual clear.
+   * Set once in initScan and never reset — a runtime flag, not persisted state
+   * (reload re-enters initScan fresh, so the initial single-layer auto-select
+   * still fires on every page load).
+   */
   hasScanned: boolean;
   declare mapCleanup: () => void;
   declare onLayerChange: Debounced;
