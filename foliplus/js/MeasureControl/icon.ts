@@ -1,5 +1,3 @@
-import { EDIT as EDIT_ICON } from "#common/icon.js";
-
 export const RULER = `
   <svg viewBox="0 0 24 24">
     <g transform="rotate(-45 12 12)">
@@ -32,5 +30,3 @@ export const TRASH = `
     <line x1="10" y1="11" x2="10" y2="17"/>
     <line x1="14" y1="11" x2="14" y2="17"/>
   </svg>`;
-
-export { EDIT_ICON as EDIT };

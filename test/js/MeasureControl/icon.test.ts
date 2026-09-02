@@ -29,9 +29,3 @@ describe("TRASH", () => {
   });
 });
 
-describe("EDIT", () => {
-  it("is an SVG string", () => {
-    expect(SVGs.EDIT).toContain("<svg");
-    expect(SVGs.EDIT).toContain("</svg>");
-  });
-});
