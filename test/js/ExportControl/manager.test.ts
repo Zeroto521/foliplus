@@ -1136,9 +1136,7 @@ describe("ExportManager — nudge continuous stream", () => {
     // frame ~19; from frame 20 onward per-frame motion begins.
     const startLeft = manager.cropState.rect.left;
     for (let i = 0; i < 30; i++) {
-      vi.setSystemTime(
-        new Date(2000, 0, 1, 0, 0, 0, 16 + i * 16),
-      );
+      vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 16 + i * 16));
       await vi.advanceTimersByTimeAsync(16);
     }
 
