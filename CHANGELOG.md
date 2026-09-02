@@ -54,6 +54,7 @@
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
 - `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `SearchControl`: `Enter` now adopts the keyboard-highlighted suggestion (previously it always re-geocoded and took the first Nominatim result) ([#216](https://github.com/Zeroto521/foliplus/pull/216))
+- `LayerControl`: suppress flash on fold rebuild — remove `background-color` from `transition` on `input[type=checkbox]`, `.foliplus-layer-item`, and `.foliplus-layer-toggle-all`; also remove `border-color` from `input[type=checkbox]` transition (same rebuild flash mechanism) ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 
 ## [v0.3.0] (2026-08-02)
 
