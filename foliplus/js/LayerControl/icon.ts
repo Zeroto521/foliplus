@@ -1,8 +1,3 @@
-import { EDIT } from "#common/icon.js";
-
-/** "Rename layer" icon — shared with MeasureControl's edit tool. */
-export const RENAME = EDIT;
-
 /** Layer Control SVG icons. */
 export const LAYERS = `
   <svg viewBox="0 0 24 24">

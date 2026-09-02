@@ -1378,7 +1378,7 @@ class LayerUI {
           tabindex: "0",
           title: T("rename_layer_tooltip"),
         },
-        { html: SVGs.RENAME },
+        { html: Icons.EDIT },
         T("rename_layer"),
       ),
     );
