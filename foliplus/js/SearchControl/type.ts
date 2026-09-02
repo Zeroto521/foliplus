@@ -55,10 +55,19 @@ export interface ResultItem {
   icon: string;
   /** Primary display text (shown in RESULT_TEXT). */
   primaryText: string;
+  /**
+   * Value written into the input on click / keyboard select, also exposed
+   * via the item's `data-query` attribute. For history entries this is the
+   * panel display (`addrDisplay` for address, `coordDisplay` for coordinate)
+   * so the input matches what the user clicked; for suggestions it is
+   * absent, and the display text (`primaryText`) is used instead.
+   */
+  query?: string;
   /** Secondary coordinate display (shown in RESULT_COORD, null to hide). */
   coordDisplay: string | null;
-  /** Click handler — called after the panel is removed. */
-  onClick: () => void;
+  /** Click handler — returns true on success (panel should close), false if
+   * blocked by an active mode (panel stays open, hint shown). */
+  onClick: () => boolean;
 }
 
 /** Public shape of the SearchControl instance, shared across sub-modules. */
@@ -85,5 +94,6 @@ export interface SearchControl extends BaseControl {
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;
-  setMode(newMode: SearchType): void;
+  currentItems: ResultItem[];
+  setMode(newMode: string): void;
 }
