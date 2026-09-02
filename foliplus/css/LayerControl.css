@@ -651,12 +651,22 @@ path.foliplus-focus-mask {
    only the component-specific padding / color inherit live here — the
    input lives inside the layer label, so it must inherit the row's text
    color to stay legible on active/hover rows.
-   Height is pinned to the label's single line-box (font-size-md ×
-   line-height-hint) so the input does not inflate the row beyond its
-   --layer-row-min-height. */
+   While editing (.foliplus-layer-renaming) the label column stretches
+   across label+count and the input fills its full height, so the field
+   looks like the SearchControl box rather than a shrunken inline edit. */
+.foliplus-layer-renaming .foliplus-layer-label {
+  /* Stretch the label cell across the row's full height (including its
+     vertical padding) so the inline field reads as a full-size input like
+     SearchControl, not a shrunken single line. */
+  align-self: stretch;
+  margin-top: calc(-1 * var(--space-md));
+  margin-bottom: calc(-1 * var(--space-md));
+  display: flex;
+  align-items: center;
+}
 .foliplus-layer-rename-input {
   padding: 0 var(--space-sm);
-  height: calc(var(--font-size-md) * var(--line-height-hint));
+  height: 100%;
   color: inherit;
   width: 100%;
 }

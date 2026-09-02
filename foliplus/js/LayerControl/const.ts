@@ -85,6 +85,8 @@ export const CLASSES = {
   FOCUS_GLOW: "foliplus-focus-glow",
   /** Inline rename input shown inside a layer label. */
   RENAME_INPUT: "foliplus-layer-rename-input",
+  /** Set on a layer row while its inline rename input is open. */
+  RENAMING: "foliplus-layer-renaming",
 };
 
 /** Data attribute names. */

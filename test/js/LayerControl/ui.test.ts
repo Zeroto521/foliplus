@@ -1174,6 +1174,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     it("Enter commits a new name and restores the label text", () => {
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
+      expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(true);
 
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
@@ -1184,6 +1185,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("New Name");
+      expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
     });
 
     it("blur commits the current value", () => {

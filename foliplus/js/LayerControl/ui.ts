@@ -1432,6 +1432,9 @@ class LayerUI {
       : layerInfo!.name;
 
     this.activeRenameId = layerId;
+    // Flag the row so CSS can stretch the input across the label+count area
+    // (matching the SearchControl field's full extent) while editing.
+    item?.classList.add(CONST.CLASSES.RENAMING);
     createInlineEditInput({
       label,
       initialValue: currentName,
@@ -1479,6 +1482,7 @@ class LayerUI {
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
     ) as HTMLElement | null;
     const label = item?.querySelector("label") as HTMLLabelElement | null;
+    item?.classList.remove(CONST.CLASSES.RENAMING);
     removeInlineEditInput(label);
     if (restoreText) {
       const name = layerInfo
