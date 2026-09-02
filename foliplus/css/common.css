@@ -188,7 +188,10 @@
   triggers on both mouse click and keyboard Tab — important for color inputs
   and scheme bars which have no visible cursor.
   Checkbox intentionally excluded: its :focus would persist after mouse click,
-  causing the animation to run indefinitely. */
+  causing the animation to run indefinitely.
+  NOTE: this :is() list is the single source of "breathing" focus controls.
+  Add any new text/color input / scheme bar here — it must be added to BOTH
+  the animation rule and the reduced-motion override below. */
 :is(
   .foliplus-search input,
   .foliplus-layer-rename-input,
