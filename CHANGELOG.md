@@ -48,6 +48,7 @@
 
 ### Fixed
 
+- `MeasureControl`: polygon centroid label was painted over by the center dot after a zoom — the label and dot share the same latlng in `labelPane`, so the dot's `zIndexOffset` wins on any pixel overlap. Lift `CENTROID_ANCHOR` ([0, chipH + dotRadius + gap] = [0, 34]) so the chip clears the dot entirely, with regression tests for the anchor invariant and the dot's `zIndexOffset` ([tree](https://github.com/Zeroto521/foliplus/tree/worktree-measure-centroid-zoom))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
