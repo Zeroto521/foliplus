@@ -581,7 +581,9 @@ class TestLayerControlRendering:
 
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
-        css = read_css("foliplus/css/LayerControl.css")
+        # Checkbox (including :indeterminate) lives in common.css
+        # as the Shared Checkbox Component, scoped to .foliplus-layer-ctrl.
+        css = read_css("foliplus/css/common.css")
         assert ":indeterminate" in css
         assert ":indeterminate::after" in css
         # Should use a dash/minus icon (not a checkmark)
