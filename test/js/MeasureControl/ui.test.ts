@@ -323,6 +323,20 @@ describe("attachPolygonUI", () => {
     expect(dotIcons.length).toBe(1);
   });
 
+  it("keeps zIndexOffset on the center dot so the delete icon still renders above it", () => {
+    const opts = makeOpts();
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // The wrong fix would be to drop the dot's zIndexOffset. That is needed to
+    // keep the ✕ delete icon (DEL_ICON_Z_OFFSET) above the pin/dot, so it must
+    // survive this change.
+    const dotMarkerCalls = (window.L.marker as any).mock.calls.filter(
+      ([, opts_]: [any, any]) => opts_?.iconAnchor === undefined && opts_?.zIndexOffset,
+    );
+    expect(dotMarkerCalls.length).toBe(1);
+    expect(dotMarkerCalls[0][1].zIndexOffset).toBe(CONST.Z_INDEX.OFFSET);
+  });
+
   it("uses CENTROID_ANCHOR on the area label so the center dot cannot paint over it", () => {
     const opts = makeOpts();
     UI.attachPolygonUI(makeMgr() as any, opts as any);
@@ -331,13 +345,14 @@ describe("attachPolygonUI", () => {
     // zIndexOffset 11000, so any pixel overlap lets the dot paint on top. The
     // label's iconAnchor y must be positive and large enough to clear the dot
     // (regression: [0,-10] let the dot cover the label after zoom).
-    const labelAnchors = (window.L.divIcon as any).mock.calls
-      .filter(([opts]) => opts?.html?.includes("foliplus-measure-label"))
-      .map(([opts]) => opts.iconAnchor);
-    const centroidAnchor = labelAnchors.find(
-      (a: number[]) => a[0] === 0 && a[1] > CONST.CENTER_DOT.SIZE[1] / 2,
+    const labelDivIcons = (window.L.divIcon as any).mock.calls.filter(([opts_]) =>
+      opts_?.html?.includes("foliplus-measure-label"),
     );
-    expect(centroidAnchor).toEqual(CONST.LABEL.CENTROID_ANCHOR);
+    const centroidIcon = labelDivIcons.find(
+      ([opts_]: [any]) => opts_.iconAnchor?.[1] > CONST.CENTER_DOT.SIZE[1] / 2,
+    );
+    expect(centroidIcon).toBeDefined();
+    expect(centroidIcon[0].iconAnchor).toEqual(CONST.LABEL.CENTROID_ANCHOR);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {

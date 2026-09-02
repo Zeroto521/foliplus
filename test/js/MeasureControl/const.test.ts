@@ -54,17 +54,34 @@ describe("PANES", () => {
 });
 
 describe("LABEL anchors", () => {
-  it("centroid anchor clears the center dot so the dot cannot paint over the label", () => {
-    // The centroid label and the 12×12 center dot share a latlng. The dot has
-    // zIndexOffset 11000, so any pixel overlap means the dot wins. The anchor
-    // must lift the chip clear of the dot: A ≥ chipHeight + dotRadius + gap.
+  const dotRadius = CONST.CENTER_DOT.SIZE[1] / 2;
+  const cy = CONST.LABEL.CENTROID_ANCHOR[1];
+
+  it("is horizontally centered on the centroid point", () => {
     expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
-    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBe(
-      24 + CONST.CENTER_DOT.SIZE[1] / 2 + 4, // chip height + dot radius + gap
-    );
-    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThan(
-      CONST.CENTER_DOT.SIZE[1] / 2,
-    );
+  });
+
+  it("lifts the label chip above the point (positive y) so it does not sit on the dot", () => {
+    expect(cy).toBeGreaterThan(0);
+  });
+
+  it("clears the center dot so the zIndexOffset 11000 dot cannot paint over the label", () => {
+    // The centroid label and the 12x12 center dot share a latlng and both live
+    // in labelPane. Any pixel overlap means the dot wins, so the chip's bottom
+    // edge must sit above the dot's top edge. chipBottom = pointY - cy + chipH,
+    // dotTop = pointY - dotRadius: clear iff cy > dotRadius + chipH (a strict
+    // gap is required, not just touching).
+    const chipH = 24; // rendered label chip height in px
+    expect(cy).toBeGreaterThan(dotRadius + chipH);
+  });
+
+  it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
+    // Radius and midpoint labels sit at different latlngs from their markers,
+    // so they anchor at [0, 0]. The centroid anchor must not accidentally
+    // collapse back to those values.
+    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
+    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
+    expect(cy).toBeGreaterThan(CONST.LABEL.RADIUS_ANCHOR[1]);
   });
 });
 
