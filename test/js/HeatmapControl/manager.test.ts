@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
+import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
 
 /** Build a minimal HeatmapManager with all external deps stubbed out. */
 function makeManager() {
@@ -825,5 +826,84 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.fieldAuto).toBe(false);
       expect(m2.borderWeight).toBe(0);
     });
+  });
+});
+
+describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
+  // buildLayerListItems calls scanMapLayers internally; stub it so the
+  // pre-seeded pointLayers state used by these tests survives the rebuild.
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(
+      function (this: HeatmapManager) {
+        // no-op: keep the manually seeded pointLayers
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const makeCtrl = (m: HeatmapManager) => {
+    const sel = document.createElement("select");
+    return {
+      m,
+      ctrl: document.createElement("div"),
+      schemeDropdown: null,
+      expandHookDone: false,
+      observer: null,
+      layerSelect: sel,
+      extraBody: document.createElement("div"),
+      fieldSelect: document.createElement("select"),
+      fieldWrap: document.createElement("div"),
+      aggSelect: document.createElement("select"),
+      methodSelect: document.createElement("select"),
+      classSelect: document.createElement("select"),
+      schemeSelectHidden: document.createElement("select"),
+    };
+  };
+
+  it("auto-selects the only point layer on the first scan", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "lonely", name: "Lonely", layer: {}, count: 1 }];
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("lonely");
+    expect(renderSpy).toHaveBeenCalled();
+  });
+
+  it("does not re-auto-select after a user clears the selection", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "lonely", name: "Lonely", layer: {}, count: 1 }];
+    m.hasScanned = true;
+    // Simulate the post-init state: the single layer was auto-selected
+    // during initScan, then the user cleared the heatmap.
+    m.selectedLayerId = null;
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+
+    // Subsequent rebuilds (zoomend, layeradd/layerremove) must not re-fire
+    // the auto-select and must not draw the heatmap again.
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps a user-selected layer stable across rebuilds", () => {
+    const m = makeManager();
+    m.pointLayers = [
+      { id: "a", name: "A", layer: {}, count: 2 },
+      { id: "b", name: "B", layer: {}, count: 3 },
+    ];
+    const ctrl = makeCtrl(m);
+    m.selectedLayerId = "b";
+
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("b");
   });
 });

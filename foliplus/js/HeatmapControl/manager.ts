@@ -109,6 +109,7 @@ class HeatmapManager {
   cachedAgg: { key: string; data: AggregatedData } | null;
   cachedLabelStyle: LabelStyle | null;
   renderAll: boolean;
+  hasScanned: boolean;
   declare mapCleanup: () => void;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
@@ -167,6 +168,7 @@ class HeatmapManager {
     this.cachedAgg = null;
     this.cachedLabelStyle = null;
     this.renderAll = false;
+    this.hasScanned = false;
 
     this.bindMapEvents();
   }
