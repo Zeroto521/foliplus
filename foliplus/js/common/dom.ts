@@ -309,21 +309,19 @@ const updateItemLabel = (
 };
 
 /**
- * Remove an inline edit input from its label element and optionally restore
- * the label's text content. Used to tear down a rename input after commit/cancel.
+ * Remove an inline edit input from its label element. Used to tear down a
+ * rename input after commit/cancel. The caller owns restoring the label text
+ * (via updateItemLabel) — this only detaches the input.
  *
  * @param label The label element containing the inline edit input.
- * @param restoreText If true, sets label.textContent to this value.
  * @returns The removed input element, or null if not found.
  */
 const removeInlineEditInput = (
   label: HTMLLabelElement | null,
-  restoreText?: string,
 ): HTMLInputElement | null => {
   if (!label) return null;
   const input = label.querySelector("input") as HTMLInputElement | null;
   if (input) label.removeChild(input);
-  if (restoreText !== undefined) label.textContent = restoreText;
   return input;
 };
 

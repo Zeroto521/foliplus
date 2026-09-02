@@ -1576,7 +1576,6 @@ class LayerUI {
           this.saveNamesState();
         }
         this.finishRename(true);
-        if (label.isConnected) label.textContent = trimmed;
       },
       onCancel: reason => {
         // Only an empty-name commit is a user mistake worth flagging;
@@ -1614,6 +1613,9 @@ class LayerUI {
     if (restoreText) {
       const name = layerInfo ? layerInfo.name : this.colorLayerName();
       updateItemLabel(item, name);
+      // The color row's tooltip (item.title) is only written at render time;
+      // refresh it on a live rename so hovering shows the new name.
+      if (isColorLayer && item) item.title = name;
     }
   }
 

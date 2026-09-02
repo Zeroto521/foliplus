@@ -443,16 +443,6 @@ describe("removeInlineEditInput", () => {
     expect(label.textContent).toBe("trailing");
   });
 
-  it("restores the label text when restoreText is provided", () => {
-    const label = dom.el("label");
-    label.appendChild(dom.el("input", { type: "text" }));
-    label.appendChild(document.createTextNode("stale"));
-
-    removeInlineEditInput(label as HTMLLabelElement, "Restored");
-    expect(label.textContent).toBe("Restored");
-    expect(label.querySelector("input")).toBeNull();
-  });
-
   it("returns null for a null label", () => {
     expect(removeInlineEditInput(null)).toBeNull();
   });
