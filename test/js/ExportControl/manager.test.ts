@@ -169,6 +169,21 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     expect(manager.resetCropBox).not.toHaveBeenCalled();
     expect((manager as any).nudgeLoop).toBeUndefined();
   });
+
+  it("R stops a running nudge loop and resets the box", () => {
+    const m3 = makeManager();
+    setCropState(m3);
+    const resetSpy = vi.fn();
+    m3.resetCropBox = resetSpy;
+    m3.onKeyDown({ key: "ArrowRight" });
+    expect((m3 as any).nudgeLoop).toBeDefined();
+    // Press R while the loop is still running. The loop must be killed so
+    // the box stays at the reset position instead of being shoved off by a
+    // still-ticking rafLoop.
+    m3.onKeyDown({ key: "R" });
+    expect((m3 as any).nudgeLoop).toBeUndefined();
+    expect(resetSpy).toHaveBeenCalled();
+  });
 });
 
 describe("ExportManager — resetCropBox / nudgeCropBox", () => {

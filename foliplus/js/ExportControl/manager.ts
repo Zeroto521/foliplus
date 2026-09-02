@@ -334,7 +334,10 @@ class ExportManager {
       if (this.isEditing()) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
     } else if (event.key === "r" || event.key === "R") {
-      // R: reset the crop box to the default centered size.
+      // R: reset the crop box to the default centered size. Stop any
+      // running nudge loop first so the box stays put after reset instead
+      // of being shoved off by an ongoing rafLoop.
+      this.nudgeStop();
       if (this.isEditing()) this.resetCropBox();
     } else if (CONST.NUDGE_KEYS.includes(event.key)) {
       // Arrow keys: start continuous smooth nudging while the key is held.
