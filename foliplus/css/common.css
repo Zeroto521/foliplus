@@ -189,12 +189,12 @@
   and scheme bars which have no visible cursor.
   Checkbox intentionally excluded: its :focus would persist after mouse click,
   causing the animation to run indefinitely.
-  NOTE: this :is() list is the single source of "breathing" focus controls.
-  Add any new text/color input / scheme bar here — it must be added to BOTH
-  the animation rule and the reduced-motion override below. */
+  `.foliplus-input` is the shared text-input class (SearchControl + LayerControl
+  rename); heatmap controls keep their own classes. Add any new focusable text
+  input / scheme bar here — it must be added to BOTH the animation rule and the
+  reduced-motion override below. */
 :is(
-  .foliplus-search input,
-  .foliplus-layer-rename-input,
+  .foliplus-input,
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
@@ -207,8 +207,7 @@
 /* Respect reduced motion: disable breathing animation for all inputs */
 @media (prefers-reduced-motion: reduce) {
   :is(
-    .foliplus-search input,
-    .foliplus-layer-rename-input,
+    .foliplus-input,
     .foliplus-heatmap-ctrl select,
     .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
@@ -509,7 +508,7 @@
   trigger :focus-visible, avoiding a persistent highlight on checkbox and
   color inputs after click. */
 :is(
-  .foliplus-search input,
+  .foliplus-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
