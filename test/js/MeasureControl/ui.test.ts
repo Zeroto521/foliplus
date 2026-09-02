@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
@@ -320,6 +321,23 @@ describe("attachPolygonUI", () => {
       ([opts]) => opts?.className === "foliplus-measure-center-dot",
     );
     expect(dotIcons.length).toBe(1);
+  });
+
+  it("uses CENTROID_ANCHOR on the area label so the center dot cannot paint over it", () => {
+    const opts = makeOpts();
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // The centroid label and center dot share a latlng; the dot carries
+    // zIndexOffset 11000, so any pixel overlap lets the dot paint on top. The
+    // label's iconAnchor y must be positive and large enough to clear the dot
+    // (regression: [0,-10] let the dot cover the label after zoom).
+    const labelAnchors = (window.L.divIcon as any).mock.calls
+      .filter(([opts]) => opts?.html?.includes("foliplus-measure-label"))
+      .map(([opts]) => opts.iconAnchor);
+    const centroidAnchor = labelAnchors.find(
+      (a: number[]) => a[0] === 0 && a[1] > CONST.CENTER_DOT.SIZE[1] / 2,
+    );
+    expect(centroidAnchor).toEqual(CONST.LABEL.CENTROID_ANCHOR);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {

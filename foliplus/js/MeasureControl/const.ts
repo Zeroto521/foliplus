@@ -20,12 +20,29 @@ export const CENTER_DOT = {
   CLASS: "foliplus-measure-center-dot",
 };
 
+/** Rendered label chip height in px — font-size-sm (12) + 2×space-xs padding (4)
+ *  + line-height slack. Drives anchors for labels that share a latlng with
+ *  another marker (centroid) and must clear it. */
+const LABEL_CHIP_H = 24;
+
+/** Gap in px between the centroid chip and the center dot. */
+const CENTROID_GAP = 4;
+
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  CENTROID_ANCHOR: [0, -10],
+  // The centroid label shares the same latlng as the 12×12 center dot, which
+  // carries zIndexOffset 11000 — so if the two overlap at all the dot paints
+  // on top, even though both live in labelPane. The fix is to lift the chip
+  // clear of the dot: L.divIcon.iconAnchor places the chip so the anchor
+  // pixel sits on the marker point; a positive y puts the chip *above* the
+  // point. Clearance requires
+  //   chip bottom = pointY − A + LABEL_CHIP_H  ;  dot top = pointY − dotRadius
+  //   clear ⟺ A ≥ LABEL_CHIP_H + dotRadius + gap
+  // = 24 + 6 + 4 = 34.
+  CENTROID_ANCHOR: [0, LABEL_CHIP_H + CENTER_DOT.SIZE[1] / 2 + CENTROID_GAP],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",

@@ -53,6 +53,21 @@ describe("PANES", () => {
   });
 });
 
+describe("LABEL anchors", () => {
+  it("centroid anchor clears the center dot so the dot cannot paint over the label", () => {
+    // The centroid label and the 12×12 center dot share a latlng. The dot has
+    // zIndexOffset 11000, so any pixel overlap means the dot wins. The anchor
+    // must lift the chip clear of the dot: A ≥ chipHeight + dotRadius + gap.
+    expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
+    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBe(
+      24 + CONST.CENTER_DOT.SIZE[1] / 2 + 4, // chip height + dot radius + gap
+    );
+    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThan(
+      CONST.CENTER_DOT.SIZE[1] / 2,
+    );
+  });
+});
+
 describe("FORMAT", () => {
   it("defines formatting", () => {
     expect(CONST.FORMAT.KM_THRESHOLD).toBe(1000);
