@@ -39,10 +39,11 @@ export const LABEL = {
   // clear of the dot: L.divIcon.iconAnchor places the chip so the anchor
   // pixel sits on the marker point; a positive y puts the chip *above* the
   // point. Clearance requires
-  //   chip bottom = pointY − A + LABEL_CHIP_H  ;  dot top = pointY − dotRadius
-  //   clear ⟺ A ≥ LABEL_CHIP_H + dotRadius + gap
-  // = 24 + 6 + 4 = 34.
-  CENTROID_ANCHOR: [0, LABEL_CHIP_H + CENTER_DOT.SIZE[1] / 2 + CENTROID_GAP],
+  //   chip bottom = pointY − A + LABEL_CHIP_H  ;  dot top = pointY − dotAnchorY
+  //   clear ⟺ A ≥ LABEL_CHIP_H + dotAnchorY + gap
+  // where dotAnchorY = CENTER_DOT.ANCHOR[1] (the dot's top edge relative to
+  // the marker point). = 24 + 6 + 4 = 34.
+  CENTROID_ANCHOR: [0, LABEL_CHIP_H + CENTER_DOT.ANCHOR[1] + CENTROID_GAP],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",

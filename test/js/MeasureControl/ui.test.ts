@@ -349,7 +349,7 @@ describe("attachPolygonUI", () => {
       opts_?.html?.includes("foliplus-measure-label"),
     );
     const centroidIcon = labelDivIcons.find(
-      ([opts_]: [any]) => opts_.iconAnchor?.[1] > CONST.CENTER_DOT.SIZE[1] / 2,
+      ([opts_]: [any]) => opts_.iconAnchor?.[1] > CONST.CENTER_DOT.ANCHOR[1],
     );
     expect(centroidIcon).toBeDefined();
     expect(centroidIcon[0].iconAnchor).toEqual(CONST.LABEL.CENTROID_ANCHOR);

@@ -54,7 +54,10 @@ describe("PANES", () => {
 });
 
 describe("LABEL anchors", () => {
-  const dotRadius = CONST.CENTER_DOT.SIZE[1] / 2;
+  // The dot's top edge relative to the marker point is its anchor y (the dot
+  // is centered on its marker, so ANCHOR[1] == SIZE[1]/2 today; using the
+  // anchor keeps this consistent if size/anchor ever change independently).
+  const dotAnchorY = CONST.CENTER_DOT.ANCHOR[1];
   const cy = CONST.LABEL.CENTROID_ANCHOR[1];
 
   it("is horizontally centered on the centroid point", () => {
@@ -69,10 +72,10 @@ describe("LABEL anchors", () => {
     // The centroid label and the 12x12 center dot share a latlng and both live
     // in labelPane. Any pixel overlap means the dot wins, so the chip's bottom
     // edge must sit above the dot's top edge. chipBottom = pointY - cy + chipH,
-    // dotTop = pointY - dotRadius: clear iff cy > dotRadius + chipH (a strict
-    // gap is required, not just touching).
+    // dotTop = pointY - dotAnchorY: clear iff cy > dotAnchorY + chipH (a
+    // strict gap is required, not just touching).
     const chipH = 24; // rendered label chip height in px
-    expect(cy).toBeGreaterThan(dotRadius + chipH);
+    expect(cy).toBeGreaterThan(dotAnchorY + chipH);
   });
 
   it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
