@@ -408,6 +408,19 @@ path.foliplus-focus-mask {
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
+    /* Keyboard cursor (foliplus-layer-focused) on a layer row: left accent bar
+       + static glow, NO background wash. Defined here (after the base
+       .foliplus-layer-item rule and .active) so source order guarantees the
+       cursor's bar color wins over the base "border-left: ... transparent".
+       The cursor is the strongest signal on the row; it replaces the .active
+       layer-visible wash so the two don't stack into a muddy dark-red row
+       (layer-visible is already signaled by the checked checkbox). */
+    &.foliplus-layer-focused {
+      border-left-width: var(--cursor-bar-width);
+      border-left-color: var(--accent-primary);
+      background: transparent;
+      box-shadow: var(--cursor-glow);
+    }
     /* Suppress browser outline only when the keyboard cursor class is present.
        Without the class the default outline remains — accessible fallback. */
     &.foliplus-layer-focused:focus-visible {

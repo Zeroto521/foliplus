@@ -484,17 +484,17 @@
   color: var(--accent-primary);
 }
 
-/* ── Keyboard navigation cursor (LayerControl + SearchControl) ──
-     Shared visual recipe: left accent bar + soft red wash + static glow.
-     Replaces the per-component 8% wash + inset hairlines + shadow.
-     Uses --accent-soft-bg (5% wash) and --cursor-glow (static, no pulse). */
-:is(.foliplus-layer-focused, .foliplus-search-result-item.active) {
+/* ── Keyboard navigation cursor ──
+     Shared token-driven recipe: left accent bar (--cursor-bar-width) +
+     static glow (--cursor-glow). No background wash.
+     LayerControl defines its cursor appearance in LayerControl.css (so source
+     order lets the cursor win over its own .active wash / base border), so
+     this shared rule only covers SearchControl here. The cursor is the
+     strongest signal on the item: it replaces any "selected/active" wash so
+     the two don't stack into a muddy row. */
+.foliplus-search-result-item.active {
   border-left-width: var(--cursor-bar-width);
   border-left-color: var(--accent-primary);
-  /* No background wash: the row already has its own bg. The left bar +
-     soft glow are enough to signal "cursor is here" without muddying
-     the surface. Keeps the cursor visually lighter than hover (which uses
-     --accent-light as an action-state background). */
   box-shadow: var(--cursor-glow);
 }
 
