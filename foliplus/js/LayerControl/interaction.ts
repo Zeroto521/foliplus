@@ -47,7 +47,10 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   // Skip disabled items (hidden layer). Keep menu open so user sees why.
   if (li.getAttribute("disabled")) return;
   if (action === "focus-layer") ui.focusLayer(ui.activeMenu?.layerId ?? "");
-  ui.closeMoreMenu(true);
+  if (action === "rename-layer") ui.renameLayer(ui.activeMenu?.layerId ?? "");
+  // rename-layer keeps focus on the inline input, so do not return focus to
+  // the row (that blur would immediately commit the pre-edit value).
+  ui.closeMoreMenu(action !== "rename-layer");
 };
 
 export { registerInteractions, handleMoreClick, handleMoreMenuClick };
