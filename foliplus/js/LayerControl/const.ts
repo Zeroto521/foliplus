@@ -83,6 +83,8 @@ export const CLASSES = {
   /** Added to the focused layer's element(s) so its accent drop-shadow glow
    *  fades in (CSS animation) — a single element, not a per-layer loop. */
   FOCUS_GLOW: "foliplus-focus-glow",
+  /** Inline rename input shown inside a layer label. */
+  RENAME_INPUT: "foliplus-layer-rename-input",
 };
 
 /** Data attribute names. */
@@ -95,9 +97,6 @@ export const DATA = {
 
 /** Overflow-menu action values (data-action). */
 export const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
-
-/** CSS class for the inline rename input shown inside a layer label. */
-export const RENAME_INPUT_CLASS = "foliplus-layer-rename-input";
 
 /** DOM selectors. */
 export const SEL = {

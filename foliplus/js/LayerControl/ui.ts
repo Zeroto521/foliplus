@@ -1425,16 +1425,22 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
+    // Color layer has no registry entry — default the input to the name the
+    // UI already shows (locale label), not the color hex.
     const currentName = isColorLayer
-      ? (this.renamedNames[layerId] ?? this.currentColor)
+      ? (this.renamedNames[layerId] ?? T("color_map_label"))
       : layerInfo!.name;
 
     this.activeRenameId = layerId;
     createInlineEditInput({
       label,
       initialValue: currentName,
-      className: `${CONST.RENAME_INPUT_CLASS} foliplus-input`,
+      className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
       ariaLabel: T("rename_hint"),
+      // Only commit on blur while this is still the active rename. Enter/Escape
+      // call finishRename() which sets activeRenameId=null and removes the
+      // focused input → that removal fires a blur that must not re-commit.
+      isActive: () => this.activeRenameId === layerId,
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
@@ -1477,7 +1483,7 @@ class LayerUI {
     if (restoreText) {
       const name = layerInfo
         ? layerInfo.name
-        : (this.renamedNames[layerId] ?? this.currentColor);
+        : (this.renamedNames[layerId] ?? T("color_map_label"));
       updateItemLabel(item, name);
     }
   }

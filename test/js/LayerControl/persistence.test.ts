@@ -208,4 +208,27 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
   });
+
+  describe("destroy", () => {
+    it("cancels every in-flight debounced write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+
+      p.saveOrder(() => ["a", "b"]);
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.saveNames(() => ({ a: "A" }));
+      p.destroy();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).not.toHaveBeenCalled();
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("is a no-op when no writes are pending", () => {
+      const p = makePersistence(["a"]);
+      expect(() => p.destroy()).not.toThrow();
+    });
+  });
 });

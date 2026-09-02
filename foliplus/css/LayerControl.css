@@ -646,9 +646,13 @@ path.foliplus-focus-mask {
    Visual chrome comes from the shared .foliplus-input base (common.css);
    only the component-specific padding / color inherit live here — the
    input lives inside the layer label, so it must inherit the row's text
-   color to stay legible on active/hover rows. */
+   color to stay legible on active/hover rows.
+   Height is pinned to the label's single line-box (font-size-md ×
+   line-height-hint) so the input does not inflate the row beyond its
+   --layer-row-min-height. */
 .foliplus-layer-rename-input {
-  padding: var(--space-xs) var(--space-sm);
+  padding: 0 var(--space-sm);
+  height: calc(var(--font-size-md) * var(--line-height-hint));
   color: inherit;
   width: 100%;
 }

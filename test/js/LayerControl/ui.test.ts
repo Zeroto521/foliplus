@@ -1167,7 +1167,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
-      expect(input?.classList.contains(CONST.RENAME_INPUT_CLASS)).toBe(true);
+      expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
       expect(input?.value).toBe("Polygons");
     });
 
@@ -1209,6 +1209,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       input.value = "abandon";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+      expect(ui.activeRenameId).toBeNull();
+      expect(label.textContent).toBe("Polygons");
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
+    });
+
+    it("blur after the input is torn down does not re-commit", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      // Escape tears the input down (finishRename removes it → triggers blur).
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      // Simulate the blur that removing the focused element fires.
+      input.dispatchEvent(new Event("blur"));
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("Polygons");
@@ -1327,7 +1344,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.renameLayer("overlay1");
 
       const input = item.querySelector(
-        `label input.${CONST.RENAME_INPUT_CLASS}`,
+        `label input.${CONST.CLASSES.RENAME_INPUT}`,
       ) as HTMLInputElement;
       input.value = "New Name";
 
@@ -1363,16 +1380,21 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(renameLi).not.toBeNull();
     });
 
-    it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the color value", () => {
+    it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the displayed name", () => {
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      // Capture the label the UI already shows (locale "Solid Color") BEFORE
+      // renaming — createInlineEditInput clears the label's text node.
+      const displayed = colorItem.querySelector("label")!.textContent;
       ui.renameLayer(CONST.COLOR.MAP_ID);
 
       expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
-      expect(input?.classList.contains(CONST.RENAME_INPUT_CLASS)).toBe(true);
-      expect(input?.value).toBe(ui.currentColor);
+      expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
+      // Default is the locale label, NOT the color hex (regression guard).
+      expect(input?.value).toBe(displayed);
+      expect(input?.value).not.toBe(ui.currentColor);
     });
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {

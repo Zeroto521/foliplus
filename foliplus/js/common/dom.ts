@@ -343,6 +343,11 @@ const createInlineEditInput = (opts: {
   ariaLabel: string;
   onCommit: (value: string) => void;
   onCancel: () => void;
+  /** Gate blur-commit: only true while the edit is still the active one.
+   *  Guards against a double-commit when Enter/Escape tear the input down
+   *  (removing the focused element fires blur, which would re-commit stale
+   *  value). Defaults to "always active". */
+  isActive?: () => boolean;
 }): HTMLInputElement => {
   const input = dom.el("input", {
     type: "text",
@@ -352,6 +357,7 @@ const createInlineEditInput = (opts: {
   }) as HTMLInputElement;
 
   const commit = (value: string) => {
+    if (opts.isActive && !opts.isActive()) return;
     const trimmed = value.trim();
     if (trimmed.length > 0) opts.onCommit(trimmed);
     else opts.onCancel();
