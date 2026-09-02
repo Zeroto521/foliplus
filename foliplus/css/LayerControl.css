@@ -668,6 +668,10 @@ path.foliplus-focus-mask {
   align-self: stretch;
   display: flex;
   align-items: center;
+  /* The non-renaming label relies on overflow:hidden for its ellipsis; while
+     renaming the input takes over and that would clip the focus glow, so let
+     the breathing box-shadow spill out like the SearchControl field. */
+  overflow: visible;
 }
 .foliplus-layer-ctrl .foliplus-layer-rename-input {
   /* The scoped `.foliplus-layer-ctrl :focus-visible` rule (hover/active row
