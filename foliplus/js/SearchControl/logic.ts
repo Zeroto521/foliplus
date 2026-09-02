@@ -45,6 +45,7 @@ interface SearchControlState {
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
   selectedIdx: number;
+  currentItems: ResultItem[];
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
@@ -321,7 +322,10 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       }
       // result is already in map CRS — render directly; convert back to
       // WGS84 for history storage (history entries are stored in WGS84).
-      renderAddressResult(ctrl, result);
+      // renderAddressResult refuses (returns false) if another control now
+      // holds a mode while the geocode request was in flight; gate the
+      // history write on success so we don't record a marker that was never placed.
+      if (!renderAddressResult(ctrl, result)) return;
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
       const addrDisplay =
@@ -346,6 +350,10 @@ const renderAddressResult = (
   ctrl: SearchControlState,
   result: AddressResult | { lat: number; lng: number; display_name: string },
 ): boolean => {
+  // The panel can stay open while another control holds a mode, so a picked
+  // suggestion must not fly the map. Suggestion picks, history entry clicks,
+  // and the Enter fallback all converge here; returning false lets the caller
+  // skip recording history and keep the panel open with the "blocked" hint.
   if (guardBlocked(map, CONF.name, T("blocked"))) return false;
   let displayName: string;
   let lng: number;
@@ -397,6 +405,7 @@ const removePanel = (ctrl: SearchControlState) => {
     ctrl.panelWrap = null;
   }
   ctrl.selectedIdx = -1;
+  ctrl.currentItems = [];
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
@@ -426,6 +435,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
   positionPanel(ctrl);
+
+  // Retained so Enter reuses the keyboard selection instead of re-geocoding.
+  ctrl.currentItems = results;
 
   results.forEach((item: ResultItem, idx: number) => {
     dom.el(
@@ -458,6 +470,17 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       ),
     );
   });
+
+  // Post-render sanity: DOM RESULT_ITEM count must equal the retained array
+  // so keyboard navigation (DOM-indexed) and Enter adoption (array-indexed)
+  // never drift. Cheap on a tiny panel; fails loudly if a future edit breaks
+  // the lockstep that the Enter handler depends on.
+  const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
+  if (domCount !== results.length) {
+    throw new Error(
+      `[${CONF.name}] result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+    );
+  }
 };
 
 const renderSuggestions = (
