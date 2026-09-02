@@ -554,6 +554,17 @@ class TestMeasureControlBrowser:
     def test_restore_marker_address_backfilled(self, browser, tmp_path):
         """Regression: marker restored with address:null resolves and persists address."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Intercept Nominatim so the reverse geocode resolves deterministically
+            # with a known address instead of hitting the network (CORS-blocked in
+            # headless, flaky on slow CI networks).
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"display_name":"Resolved Address, Test City"}',
+                ),
+            )
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
             page.reload()
             page.wait_for_timeout(3000)

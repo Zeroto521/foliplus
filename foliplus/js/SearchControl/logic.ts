@@ -45,10 +45,10 @@ interface SearchControlState {
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
   selectedIdx: number;
+  currentItems: ResultItem[];
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
-  addrAbortController: AbortController | null;
   suggestSeq: number;
   debouncedFetch: Debounced;
   marker: L.Marker | null;
@@ -120,6 +120,8 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
     newer.count = existing.count + entry.count;
     newer.coordDisplay = newer.coordDisplay || older.coordDisplay;
     newer.addrDisplay = newer.addrDisplay || older.addrDisplay;
+    // newer may be the incoming entry (not the one in the map) when
+    // existing.ts < entry.ts, so we must update the map reference.
     byKey.set(key, newer);
   }
   return Array.from(byKey.values());
@@ -320,7 +322,10 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       }
       // result is already in map CRS — render directly; convert back to
       // WGS84 for history storage (history entries are stored in WGS84).
-      renderAddressResult(ctrl, result);
+      // renderAddressResult refuses (returns false) if another control now
+      // holds a mode while the geocode request was in flight; gate the
+      // history write on success so we don't record a marker that was never placed.
+      if (!renderAddressResult(ctrl, result)) return;
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
       const addrDisplay =
@@ -344,7 +349,12 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
 const renderAddressResult = (
   ctrl: SearchControlState,
   result: AddressResult | { lat: number; lng: number; display_name: string },
-) => {
+): boolean => {
+  // The panel can stay open while another control holds a mode, so a picked
+  // suggestion must not fly the map. Suggestion picks, history entry clicks,
+  // and the Enter fallback all converge here; returning false lets the caller
+  // skip recording history and keep the panel open with the "blocked" hint.
+  if (guardBlocked(map, CONF.name, T("blocked"))) return false;
   let displayName: string;
   let lng: number;
   let lat: number;
@@ -380,6 +390,7 @@ const renderAddressResult = (
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
+  return true;
 };
 
 // ── Suggestions / History Panel ──────────────────────────────────
@@ -394,6 +405,7 @@ const removePanel = (ctrl: SearchControlState) => {
     ctrl.panelWrap = null;
   }
   ctrl.selectedIdx = -1;
+  ctrl.currentItems = [];
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
@@ -424,18 +436,27 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   ctrl.selectedIdx = -1;
   positionPanel(ctrl);
 
+  // Retained so Enter reuses the keyboard selection instead of re-geocoding.
+  ctrl.currentItems = results;
+
   results.forEach((item: ResultItem, idx: number) => {
     dom.el(
       "div",
       {
         class: CLASSES.RESULT_ITEM,
         "data-index": String(idx),
+        // Keyboard nav reads `data-query` to fill the input. History items
+        // carry their panel display (addrDisplay / coordDisplay); suggestions
+        // omit it and fall back to RESULT_TEXT in interaction.ts.
+        "data-query": item.query,
         parent: ctrl.panelWrap,
         onmousedown: (event: Event) => {
           event.stopPropagation();
           event.preventDefault();
-          removePanel(ctrl);
-          item.onClick();
+          // Panel closes only if the click actually places a marker. A
+          // mode-lock refusal leaves the panel open so the user sees the
+          // hint and can retry once the blocking mode clears.
+          if (item.onClick()) removePanel(ctrl);
         },
       },
       dom.el("span", { class: CLASSES.RESULT_ICON }, { html: item.icon }),
@@ -449,6 +470,17 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       ),
     );
   });
+
+  // Post-render sanity: DOM RESULT_ITEM count must equal the retained array
+  // so keyboard navigation (DOM-indexed) and Enter adoption (array-indexed)
+  // never drift. Cheap on a tiny panel; fails loudly if a future edit breaks
+  // the lockstep that the Enter handler depends on.
+  const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
+  if (domCount !== results.length) {
+    throw new Error(
+      `[${CONF.name}] result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+    );
+  }
 };
 
 const renderSuggestions = (
@@ -473,7 +505,7 @@ const renderSuggestions = (
       primaryText: displayName,
       coordDisplay,
       onClick: () => {
-        renderAddressResult(ctrl, { item, displayName });
+        if (!renderAddressResult(ctrl, { item, displayName })) return false;
         recordHistorySearch(
           ctrl,
           query,
@@ -483,6 +515,7 @@ const renderSuggestions = (
           parseFloat(item.lng),
           parseFloat(item.lat),
         );
+        return true;
       },
     };
   });
@@ -506,15 +539,24 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
 
   const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === MODE.ADDR;
-    // Unified display: primary=address (fallback to coord), secondary=coord
-    const primaryText = entry.addrDisplay || entry.coordDisplay || "";
+    // Unified panel/popup display: address first, coordinates as fallback.
+    const display = entry.addrDisplay || entry.coordDisplay || "";
+    // Re-entry value written into the input on click / keyboard select.
+    // Type-aware: addr entries use addrDisplay, coord entries use coordDisplay,
+    // so the input always gets the parseable value matching the entry's type.
+    // Both are parseable — coordDisplay is the formatted coordinate string,
+    // addrDisplay goes through geocode again and resolves to the same point.
+    // Fall back to the stored query only if the entry's own display is missing.
+    const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
     return {
       icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
       source: SOURCE.HISTORY,
-      primaryText,
+      primaryText: display,
+      query: reEntry,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
-        ctrl.inp.value = primaryText;
+        if (guardBlocked(map, CONF.name, T("blocked"))) return false;
+        ctrl.inp.value = reEntry;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
@@ -523,7 +565,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
           map,
           lng,
           lat,
-          entry.addrDisplay || entry.coordDisplay,
+          display,
           isAddr ? T("popup_title_addr") : T("popup_title_coord"),
           T("popup_loading"),
           T("popup_loc_label"),
@@ -533,6 +575,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
           ctrl.marker,
         );
         attachSearchDelIcon(ctrl, [lat, lng]);
+        return true;
       },
     };
   });
@@ -593,8 +636,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
       }));
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
-      // Cache first result so searchAddress can serve it from geoCache
-      const first = Array.isArray(results) ? results[0] : null;
+      // Cache first result so searchAddress can serve it from geoCache.
+      // results is always an array (it comes from raw.map), so index 0 is
+      // either an item or undefined.
+      const first = results[0];
       if (first) {
         window.foliplus.cacheSuggestion(
           map,

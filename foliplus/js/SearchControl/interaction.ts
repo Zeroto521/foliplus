@@ -1,5 +1,6 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
+import { guardBlocked } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
@@ -13,6 +14,38 @@ import {
 import type { SearchControl } from "./type.js";
 
 const T = createScopedTranslator(CONF);
+
+/**
+ * The value a keyboard-navigated result item puts into the input. History
+ * items carry their panel display in `data-query` (addrDisplay / coordDisplay);
+ * suggestions omit it and fall back to their display text.
+ */
+const resultItemValue = (item: Element): string =>
+  item.getAttribute("data-query") ??
+  item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ??
+  "";
+
+/**
+ * Move the keyboard cursor by one step and echo the landed item's value into
+ * the input. selectedIdx indexes ctrl.currentItems; both derive from the same
+ * results array in renderResults, so the DOM RESULT_ITEM count and
+ * currentItems.length are guaranteed equal. Querying RESULT_ITEM here also
+ * correctly skips the non-selectable history group header.
+ *
+ * Invariant (defended by the assertion in renderResults):
+ *   ctrl.currentItems.length === DOM RESULT_ITEM count
+ *   ctrl.selectedIdx in [-1, currentItems.length - 1]
+ */
+const moveSelection = (ctrl: SearchControl, dir: number) => {
+  if (!ctrl.panelWrap) return;
+  const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
+  if (items.length === 0) return;
+  ctrl.selectedIdx = Math.max(-1, Math.min(ctrl.selectedIdx + dir, items.length - 1));
+  items.forEach((el: Element, i: number) =>
+    el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
+  );
+  if (ctrl.selectedIdx >= 0) ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
+};
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -75,43 +108,36 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     {
       key: "ArrowDown",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        ctrl.inp.value =
-          items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-            ?.textContent ?? "";
-      },
+      handler: () => moveSelection(ctrl, 1),
     },
     {
       key: "ArrowUp",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        if (ctrl.selectedIdx >= 0)
-          ctrl.inp.value =
-            items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-              ?.textContent ?? "";
-      },
+      handler: () => moveSelection(ctrl, -1),
     },
     {
       key: "Enter",
       element: ctrl.inp,
       handler: () => {
+        // Adopt the keyboard-highlighted entry when one is selected: re-geocoding
+        // the display name can resolve to a different place on ambiguous queries.
+        const selected =
+          ctrl.selectedIdx >= 0 ? ctrl.currentItems[ctrl.selectedIdx] : undefined;
         const raw = ctrl.inp.value.trim();
+        if (!raw) {
+          removePanel(ctrl);
+          return;
+        }
+        if (selected) {
+          // Guarded in renderAddressResult — refuses to fly while another
+          // control holds a mode (showing the "blocked" hint). Only close
+          // the panel on success so a mode-lock refusal keeps it open with
+          // the hint visible, matching the mouse-click path.
+          if (selected.onClick()) removePanel(ctrl);
+          return;
+        }
+        if (guardBlocked(map, CONF.name, T("blocked"))) return;
         removePanel(ctrl);
-        if (!raw) return;
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },

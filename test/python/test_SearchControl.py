@@ -354,3 +354,46 @@ class TestSearchControlBrowser:
             assert placeholder and len(placeholder) > 0, (
                 f"Placeholder should not be empty, got: '{placeholder}'"
             )
+
+    def test_coord_history_click_restores_coord_display(self, browser, tmp_path):
+        """Clicking a coord history entry puts the coord display into the
+        input so it matches what the panel shows (the reverse-geocoded
+        address is display-only)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Seed one coord history entry whose address differs from its
+            # query, then reload so the component picks it up on init.
+            page.evaluate(_js("SearchControl/seed_history_entry"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+
+            # Empty input → history panel shows the seeded coord entry.
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            # The item displays the reverse-geocoded address; clicking it puts
+            # the coord display into the input so the input matches the panel.
+            value = page.evaluate(_js("SearchControl/click_history_entry"))
+            assert value == "121.4700, 31.2300", (
+                f"Input should be the coord display, got: {value!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_coord_history_keyboard_restores_coord_display(self, browser, tmp_path):
+        """ArrowDown onto a coord history entry puts the coord display into
+        the input (real fromWgs84, keyboard path)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("SearchControl/seed_history_entry"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            state = page.evaluate(_js("SearchControl/keyboard_select_history"))
+            assert state["error"] is None, state["error"]
+            assert state["value"] == "121.4700, 31.2300", (
+                f"Input should be the coord display, got: {state['value']!r}"
+            )
+            assert state["dataQuery"] == "121.4700, 31.2300"
+            assert not errors, f"JS errors: {errors}"
