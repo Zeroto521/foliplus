@@ -609,4 +609,38 @@ describe("createInlineEditInput", () => {
     expect(labelText).toBe("");
     expect(label.contains(input)).toBe(true);
   });
+
+  it("stops every key from bubbling so arrow keys keep the caret", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "SomeName",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+
+    // A document-level listener stands in for the InteractionManager; it must
+    // NOT receive the ArrowLeft keydown, otherwise it would preventDefault and
+    // swallow the caret move.
+    const docListener = vi.fn();
+    document.addEventListener("keydown", docListener);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    document.removeEventListener("keydown", docListener);
+
+    expect(docListener).not.toHaveBeenCalled();
+    // Arrow keys must not commit or cancel — only Enter/Escape do.
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

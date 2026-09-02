@@ -364,6 +364,10 @@ const createInlineEditInput = (opts: {
   };
 
   input.addEventListener("keydown", (event: KeyboardEvent) => {
+    // Stop every key from reaching the document-level InteractionManager —
+    // otherwise ArrowLeft/Right (registered as layer shortcuts) preventDefault
+    // and swallow the caret move, and Ctrl+Arrow would reorder the layer while
+    // the user edits the name. The browser keeps its default caret/typing.
     if (event.key === "Enter") {
       event.preventDefault();
       event.stopPropagation();
@@ -372,6 +376,8 @@ const createInlineEditInput = (opts: {
       event.preventDefault();
       event.stopPropagation();
       opts.onCancel();
+    } else {
+      event.stopPropagation();
     }
   });
   input.addEventListener("blur", () => commit(input.value));
