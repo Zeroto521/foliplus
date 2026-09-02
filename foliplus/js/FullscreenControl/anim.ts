@@ -4,10 +4,12 @@
 // z-index 799, below them.
 import { CLASSES } from "./const.js";
 
+const CLEAR_TIMER = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
 const ensureScrim = (container: HTMLElement): HTMLElement => {
-  let scrim = container.querySelector(`.${CLASSES.DIM}`);
-  if (scrim) return scrim as HTMLElement;
-  scrim = document.createElement("div");
+  const existing = container.querySelector(`.${CLASSES.DIM}`);
+  if (existing) return existing as HTMLElement;
+  const scrim = document.createElement("div");
   scrim.className = CLASSES.DIM;
   container.appendChild(scrim);
   return scrim;
@@ -32,7 +34,7 @@ const flashScrim = (container: HTMLElement): void => {
 
   // Cancel a previously scheduled clear so overlapping flashes don't detach
   // the scrim while the second one is still visible.
-  const prev = (scrim as { _clear?: ReturnType<typeof setTimeout> })._clear;
+  const prev = CLEAR_TIMER.get(scrim);
   if (prev) clearTimeout(prev);
 
   // Kick the transition: add active class so CSS carries opacity 0 → 1.
@@ -53,7 +55,7 @@ const flashScrim = (container: HTMLElement): void => {
     }, fadeOutMs);
   }, fadeInMs);
 
-  (scrim as { _clear: ReturnType<typeof setTimeout> })._clear = timer;
+  CLEAR_TIMER.set(scrim, timer);
 };
 
 export { flashScrim, removeScrim };
