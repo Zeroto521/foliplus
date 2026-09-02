@@ -16,6 +16,7 @@
   "LayerControl.type_point": "Point Layer",
   "LayerControl.type_empty": "Empty Layer",
   "LayerControl.type_unknown": "Unknown Layer",
+  "LayerControl.type_color_map": "Solid Color",
   "LayerControl.id_required": "opts.id is required",
   "LayerControl.invalid_id": "Skipping window[{id}]: not a valid identifier",
   "LayerControl.require_canvas_id": "createCanvas requires an id",

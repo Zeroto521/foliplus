@@ -582,13 +582,19 @@ class LayerUI {
       { html: SVGs.MORE },
     );
 
+    // The color basemap's hover tooltip is its TYPE label (like every other
+    // row, which shows "count · type"); the layer name lives in the label
+    // cell, not the tooltip. Persist the type label in data-item-title so a
+    // rebuild can restore it without re-running type detection.
+    const colorType = T("type_color_map");
     return dom.el(
       "div",
       {
         class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
         draggable: "false",
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-        title: this.colorLayerName(),
+        [CONST.DATA.TITLE]: colorType,
+        title: colorType,
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
@@ -1613,9 +1619,6 @@ class LayerUI {
     if (restoreText) {
       const name = layerInfo ? layerInfo.name : this.colorLayerName();
       updateItemLabel(item, name);
-      // The color row's tooltip (item.title) is only written at render time;
-      // refresh it on a live rename so hovering shows the new name.
-      if (isColorLayer && item) item.title = name;
     }
   }
 

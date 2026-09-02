@@ -116,6 +116,7 @@ _JS_USED_KEYS = {
     "LayerControl.type_point",
     "LayerControl.type_empty",
     "LayerControl.type_unknown",
+    "LayerControl.type_color_map",
     "LayerControl.id_required",
     "LayerControl.invalid_id",
     "LayerControl.require_canvas_id",

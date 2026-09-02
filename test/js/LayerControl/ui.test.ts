@@ -1420,8 +1420,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       // The color basemap is not in the registry, so the registry should be
       // untouched.
       expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
-      // Live rename must refresh the row tooltip too (not just on re-render).
-      expect(colorItem.getAttribute("title")).toBe("My Base");
     });
 
     it("applying persisted rename restores the color-layer label text", () => {
@@ -1456,7 +1454,11 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       expect(colorItem.querySelector("label")!.textContent).toBe("My Base");
-      expect(colorItem.getAttribute("title")).toBe("My Base");
+      // The tooltip is the TYPE label, not the layer name — a rename must not
+      // change it, and it survives a re-render.
+      const tooltip = colorItem.getAttribute("title");
+      expect(tooltip).not.toBe("My Base");
+      expect(tooltip).not.toBeNull();
     });
   });
 
