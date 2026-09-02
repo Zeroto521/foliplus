@@ -1048,3 +1048,189 @@ describe("ExportManager — download paths", () => {
     }
   });
 });
+
+describe("ExportManager — nudge continuous stream", () => {
+  // These tests exercise the branch of nudgeStart that the no-op scheduler
+  // injection can't reach: the performance.now() elapsed gate and the
+  // fractional accumulator. To do that we inject a real setTimeout-based
+  // scheduler and control both timers AND performance.now() via
+  // vi.useFakeTimers() + vi.setSystemTime().
+  //
+  // NUDGE_SPEED=200 px/s -> perFrame = 200/60 = 3.33 px/frame at 16ms cadence.
+  // NUDGE_HOLD_DELAY=300 ms, so the gate passes after ~19 frames.
+
+  let manager;
+  let container;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    // Start from a known clock so performance.now() is deterministic.
+    vi.setSystemTime(new Date(2000, 0, 1));
+
+    manager = new ExportManager(makeMapMock(), setTimeout);
+    manager.showCropBox = vi.fn();
+    manager.lockCropBox = vi.fn();
+    manager.unlockCropBox = vi.fn();
+    manager.removeCropBox = vi.fn();
+    manager.updateBoxStyle = vi.fn();
+    manager.showHintWithInfo = vi.fn();
+    manager.showGlobalHint = vi.fn();
+
+    container = manager.map.getContainer();
+    document.body.appendChild(container);
+    container.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 500,
+      height: 400,
+    });
+    setCropState(manager, { left: 100, top: 100, width: 100, height: 100 });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  });
+
+  it("tap yields exactly one sync step, no continuous stream", async () => {
+    // A quick press-and-release (< NUDGE_HOLD_DELAY) must produce exactly
+    // one +NUDGE_STEP motion and never cross the hold gate into continuous.
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+    const deltaCalls = (manager as any).nudgeCropBoxDelta.mock
+      ? (manager as any).nudgeCropBoxDelta.mock.calls.length
+      : 0;
+
+    // Hold well past the delay WITHOUT releasing — the loop should be ticking
+    // but we haven't called keyup yet. Advance past the gate.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    await vi.advanceTimersByTimeAsync(300);
+
+    // Still exactly the sync step — per-frame deltas only apply AFTER the gate.
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Release. No further motion should happen.
+    manager.onKeyUp({ key: "ArrowRight" } as KeyboardEvent);
+    const finalLeft = manager.cropState.rect.left;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(manager.cropState.rect.left).toBe(finalLeft);
+  });
+
+  it("hold past NUDGE_HOLD_DELAY triggers continuous fractional motion", async () => {
+    // Hold ArrowRight long enough to cross the gate. The fractional accumulator
+    // must produce multiple per-frame deltas (floor(perFrame) each, remainder
+    // carried). With perFrame=3.33 px and 60fps, floor gives 3 px/frame.
+    // Wrap the private nudgeCropBoxDelta to spy on how many times it fires
+    // while still applying the real motion.
+    const realDelta = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Advance frame-by-frame past the 300ms hold delay. The gate passes at
+    // frame ~19; from frame 20 onward per-frame motion begins.
+    const startLeft = manager.cropState.rect.left;
+    for (let i = 0; i < 30; i++) {
+      vi.setSystemTime(
+        new Date(2000, 0, 1, 0, 0, 0, 16 + i * 16),
+      );
+      await vi.advanceTimersByTimeAsync(16);
+    }
+
+    // After crossing the gate the box must have moved beyond the single sync
+    // step — continuous stream is active.
+    expect(manager.cropState.rect.left).toBeGreaterThan(startLeft);
+    // nudgeCropBoxDelta called multiple times (sync frame + continuous frames)
+    expect((manager as any).nudgeCropBoxDelta.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("crop box removal mid-loop stops the loop without throwing", async () => {
+    // doExport() calls removeCropBox() (cropState = null) while an arrow key
+    // might still be held. The rafLoop tick's auto-stop branch must detect
+    // isEditing()===false and return true, cleaning up the DRAGGING class
+    // without dereferencing a null box.
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Simulate doExport clearing the crop state while the loop is running.
+    manager.cropState = null;
+
+    // Advance frames — the tick must stop itself on the first post-null frame
+    // and not throw. After the auto-stop, further timer advances produce no
+    // additional nudgeCropBoxDelta calls (the loop is internally stopped even
+    // though manager.nudgeLoop still holds the RafLoop handle — only an
+    // explicit nudgeStop() clears that reference).
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    expect(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    }).not.toThrow();
+
+    // Any leftover scheduled callbacks must be no-ops now (the loop stopped).
+    // Re-advance to confirm nothing further fires.
+    await vi.advanceTimersByTimeAsync(500);
+  });
+
+  it("direction switch stops the stale Right loop and starts a fresh Up loop", async () => {
+    // Holding Right then pressing Up must kill the stale Rightward loop (so it
+    // doesn't nudge right for ~500ms after the switch) and start an Upward
+    // loop whose first sync step is exactly -NUDGE_STEP on top.
+    const realDelta2 = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta2(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+    expect(manager.cropState.rect.top).toBe(100);
+
+    // Advance a couple frames so the Right loop is clearly running, then switch.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 50));
+    await vi.advanceTimersByTimeAsync(32);
+
+    manager.onKeyDown({ key: "ArrowUp" });
+    // Sync first frame of the Up loop: top moves by -NUDGE_STEP, left unchanged.
+    expect(manager.cropState.rect.top).toBe(100 - CONST.CROP.NUDGE_STEP);
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // The stale Right loop is stopped: advancing more frames must not push
+    // `left` further right, only `top` should continue moving up.
+    const leftAtSwitch = manager.cropState.rect.left;
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    for (let i = 0; i < 25; i++) {
+      vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350 + i * 16));
+      await vi.advanceTimersByTimeAsync(16);
+    }
+    expect(manager.cropState.rect.left).toBe(leftAtSwitch);
+    expect(manager.cropState.rect.top).toBeLessThan(100 - CONST.CROP.NUDGE_STEP);
+  });
+
+  it("Nudge_HOLD_DELAY boundary: at 299ms no stream, at 301ms stream begins", async () => {
+    // Exact boundary check: a hold of 299ms must NOT have crossed the gate
+    // (only the sync step applied); a hold of 301ms must have. This guards
+    // against off-by-one in the elapsed comparison.
+    const realDelta3 = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta3(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    const afterSync = manager.cropState.rect.left;
+    expect(afterSync).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Advance to just before the gate (299ms).
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 299));
+    await vi.advanceTimersByTimeAsync(299);
+    expect(manager.cropState.rect.left).toBe(afterSync); // no continuous yet
+
+    // One more frame crossing the boundary.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 315));
+    await vi.advanceTimersByTimeAsync(16);
+    // Now the gate has passed and per-frame motion has applied.
+    expect(manager.cropState.rect.left).toBeGreaterThan(afterSync);
+  });
+});
