@@ -463,7 +463,11 @@ path.foliplus-focus-mask {
     position: absolute;
     top: 100%;
     right: 0;
-    min-width: 128px;
+    /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
+       little slack, without the dead gap the verb-only labels left at 128px.
+       Min-width — not fixed — so a future longer label widens it instead of
+       clipping. */
+    min-width: 112px;
     padding: var(--space-xs) 0;
     display: none;
     list-style: none;
