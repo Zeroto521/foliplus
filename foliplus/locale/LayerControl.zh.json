@@ -33,7 +33,7 @@
   "LayerControl.focus_layer_tooltip": "聚焦到该图层并高亮显示",
   "LayerControl.focus_layer_hidden": "图层已隐藏，无法聚焦",
   "LayerControl.focus_cancelled": "已取消聚焦",
-  "LayerControl.rename_layer": "重命名",
+  "LayerControl.rename_layer": "图层命名",
   "LayerControl.rename_layer_tooltip": "重命名该图层",
   "LayerControl.rename_hint": "Enter 确认，Escape 取消",
   "LayerControl.rename_empty": "图层名称不能为空",

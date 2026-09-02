@@ -29,7 +29,7 @@
   "LayerControl.deselect_tooltip": "Deselect",
   "LayerControl.drag_tooltip": "Drag to reorder",
   "LayerControl.more_tooltip": "More options",
-  "LayerControl.focus_layer": "Zoom to Layer",
+  "LayerControl.focus_layer": "Focus",
   "LayerControl.focus_layer_tooltip": "Zoom to this layer and highlight it",
   "LayerControl.focus_layer_hidden": "Layer is hidden — cannot focus",
   "LayerControl.focus_cancelled": "Focus cancelled",
