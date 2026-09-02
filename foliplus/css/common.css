@@ -191,6 +191,7 @@
   causing the animation to run indefinitely. */
 :is(
   .foliplus-search input,
+  .foliplus-layer-rename-input,
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
@@ -204,6 +205,7 @@
 @media (prefers-reduced-motion: reduce) {
   :is(
     .foliplus-search input,
+    .foliplus-layer-rename-input,
     .foliplus-heatmap-ctrl select,
     .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
     .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,

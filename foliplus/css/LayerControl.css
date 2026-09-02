@@ -670,7 +670,11 @@ path.foliplus-focus-mask {
   align-items: center;
 }
 .foliplus-layer-ctrl .foliplus-layer-rename-input {
-  padding: 0 var(--space-sm);
+  /* The scoped `.foliplus-layer-ctrl :focus-visible` rule (hover/active row
+     chrome) would paint a red outline over this field; suppress it so the
+     input keeps the shared `.foliplus-input:focus` glow, matching Search. */
+  outline: none;
+  padding: 0 var(--space-md);
   height: 100%;
   color: inherit;
   width: 100%;
