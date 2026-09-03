@@ -17,6 +17,10 @@ describe("core/layer util", () => {
       window.L.Marker = class Marker {
         feature: unknown = null;
       };
+    if (!window.L.CircleMarker)
+      window.L.CircleMarker = class CircleMarker {
+        feature: unknown = null;
+      };
   });
 
   describe("findLayer", () => {
@@ -161,9 +165,20 @@ describe("core/layer util", () => {
       expect(getGeometryType(group as never)).toBe("unknown");
     });
 
-    it("returns point for L.CircleMarker leaves", () => {
-      const group = wrap(new window.L.CircleMarker());
+    it("returns point for CircleMarker leaves with feature", () => {
+      const cm = new window.L.CircleMarker();
+      cm.feature = {};
+      const group = wrap(cm);
       expect(getGeometryType(group as never)).toBe("point");
+    });
+
+    it("returns unknown for a CircleMarker without a .feature property", () => {
+      // Same consumable-data contract as Marker: extractPoints gates on
+      // .feature for CircleMarker too, so the icon must not promise "point"
+      // for data downstream cannot consume.
+      const cm = new window.L.CircleMarker();
+      const group = wrap(cm);
+      expect(getGeometryType(group as never)).toBe("unknown");
     });
 
     it("returns unknown for a Marker without a .feature property", () => {
