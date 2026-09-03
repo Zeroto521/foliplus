@@ -231,10 +231,11 @@ path.foliplus-focus-mask {
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: border-color var(--transition-fast);
-    /* background-color intentionally NOT animated: the toggle-all row is
-       destroyed and re-created on every list rebuild, so a background-color
-       transition would flash on each rebuild. */
+    transition: none;
+    /* border-color and background-color intentionally NOT animated: the
+       toggle-all row is destroyed and re-created on every list rebuild, and
+       its folded state (border-left-color: var(--accent-primary)) is re-applied
+       on rebuild, so a transition on either would flash on each rebuild. */
 
     .foliplus-section-divider {
       grid-column: 4 / -1;

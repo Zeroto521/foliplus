@@ -611,8 +611,8 @@ class TestLayerControlRendering:
             ),
             (
                 ".foliplus-layer-sep.foliplus-layer-toggle-all",
-                ["background-color"],
-                ["border-color"],
+                ["background-color", "border-color"],
+                [],
             ),
             (
                 ".foliplus-layer-item",
