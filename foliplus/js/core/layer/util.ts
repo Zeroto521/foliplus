@@ -161,10 +161,13 @@ const getGeometryType = (layer: L.Layer): string => {
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
     else if (leaf instanceof L.CircleMarker) hasPoint = true;
-    // A plain L.Marker (e.g. from folium.Marker(), which does not set
-    // .feature) is still a point feature — detect its type accordingly.
-    // leaf.feature is only needed by extractPoints / Heatmap property lookup.
-    else if (leaf instanceof L.Marker) hasPoint = true;
+    // Type icon reflects "structured, downstream-consumable point data" —
+    // the same contract as extractPoints / Heatmap, which require .feature to
+    // pull coordinates + properties.  A plain L.Marker from folium.Marker()
+    // is a geometric point (countFeatureGeometry counts it), but it carries no
+    // GeoJSON envelope, so it is not "consumable point data" and shows
+    // unknown rather than misleading the user into expecting Heatmap/export.
+    else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
   }
   // Empty container or all-label layer → no data geometry.
   if (!hasData) return CONST.GEOM_TYPE.EMPTY;

@@ -166,11 +166,15 @@ describe("core/layer util", () => {
       expect(getGeometryType(group as never)).toBe("point");
     });
 
-    it("returns point for a Marker without a .feature property", () => {
-      // A plain folium.Marker() has no .feature; it is still point geometry.
+    it("returns unknown for a Marker without a .feature property", () => {
+      // The type icon reflects "structured, consumable point data" (the
+      // extractPoints / Heatmap contract), not raw geometry.  A plain
+      // folium.Marker() is a geometric point — countFeatureGeometry counts it
+      // — but without a GeoJSON envelope it is not consumable point data, so
+      // the icon stays unknown to avoid promising Heatmap/export support.
       const marker = new window.L.Marker();
       const group = wrap(marker);
-      expect(getGeometryType(group as never)).toBe("point");
+      expect(getGeometryType(group as never)).toBe("unknown");
     });
 
     it("returns unknown for a mix of Point + LineString + Polygon", () => {
@@ -273,6 +277,31 @@ describe("core/layer util", () => {
     it("returns 0 for an empty container", () => {
       const emptyGroup = { eachLayer: () => {} };
       expect(countFeatureGeometry(emptyGroup as never)).toBe(0);
+    });
+  });
+
+  describe("plain Marker count-vs-icon divergence", () => {
+    const wrap = (...leaves: L.Layer[]) => ({
+      eachLayer: (fn: (l: L.Layer) => void) => leaves.forEach(fn),
+    });
+
+    // A plain folium.Marker() (no .feature) is a geometric point but not
+    // "structured, consumable point data".  countFeatureGeometry and
+    // getGeometryType intentionally use different contracts so the layer
+    // panel shows an honest count without implying Heatmap/export support.
+    it("counts it as a point but its type icon is unknown", () => {
+      const marker = new window.L.Marker();
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(1);
+      expect(getGeometryType(group as never)).toBe("unknown");
+    });
+
+    it("a Marker with .feature counts as a point and its type is point", () => {
+      const marker = new window.L.Marker();
+      marker.feature = {};
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(1);
+      expect(getGeometryType(group as never)).toBe("point");
     });
   });
 

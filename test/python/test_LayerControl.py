@@ -1953,6 +1953,9 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
+            # initTypesAndVisibility (which paints the count columns) runs on a
+            # 300ms INIT_DELAY_MS timer after attach, so settle before reading.
+            page.wait_for_timeout(500)
 
             counts = page.evaluate(_js("LayerControl/read_count_columns"))
             assert counts is not None, "read_count_columns failed"
