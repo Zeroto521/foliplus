@@ -1928,3 +1928,59 @@ class TestLayerControlBrowser:
             assert result["rowHighlighted"] is True, (
                 f"row not highlighted, got {result}"
             )
+
+    def test_plain_marker_layers_count_and_stay_stable(self, browser, tmp_path):
+        """A plain folium.Marker (no GeoJSON .feature) counts as a point feature.
+
+        Regression: countFeatureGeometry / getGeometryType gated on
+        ``marker.feature``, so layers built from ``folium.Marker()`` reported a
+        count of 0 and showed no type icon.  Counting must not require
+        .feature (that only matters for extractPoints / Heatmap properties),
+        and toggling an unrelated layer's checkbox must not reset the count.
+        """
+        layers = []
+        for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
+            fg = folium.FeatureGroup(name=name, overlay=True, show=True)
+            folium.Marker(
+                [26.08 + i * 0.01, 119.30 + i * 0.01], popup=name
+            ).add_to(fg)
+            layers.append(fg)
+
+        with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+
+            counts = page.evaluate(_js("LayerControl/read_count_columns"))
+            assert counts is not None, "read_count_columns failed"
+            assert len(counts) == 4, f"expected 4 overlay layers, got {len(counts)}"
+            for info in counts.values():
+                assert info["apiCount"] == 1, (
+                    f"{info['name']!r}: plain folium.Marker should count as 1, "
+                    f"got {info['apiCount']}"
+                )
+                assert info["countText"] == "1", (
+                    f"{info['name']!r}: count column should read '1', "
+                    f"got {info['countText']!r}"
+                )
+
+            # Toggling another layer's checkbox must not zero out the counts.
+            page.evaluate("window.__test_layer_name = 'Beta'")
+            page.evaluate(_js("LayerControl/click_checkbox_by_name"))
+            page.wait_for_timeout(300)
+
+            after = page.evaluate(_js("LayerControl/read_count_columns"))
+            assert after is not None, "read_count_columns failed after toggle"
+            for info in after.values():
+                assert info["apiCount"] == 1, (
+                    f"{info['name']!r}: count changed to {info['apiCount']} "
+                    f"after an unrelated checkbox click"
+                )
+                assert info["countText"] == "1", (
+                    f"{info['name']!r}: count column changed to {info['countText']!r} "
+                    f"after an unrelated checkbox click"
+                )
+

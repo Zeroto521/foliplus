@@ -166,10 +166,11 @@ describe("core/layer util", () => {
       expect(getGeometryType(group as never)).toBe("point");
     });
 
-    it("returns unknown for a Marker without a .feature property", () => {
+    it("returns point for a Marker without a .feature property", () => {
+      // A plain folium.Marker() has no .feature; it is still point geometry.
       const marker = new window.L.Marker();
       const group = wrap(marker);
-      expect(getGeometryType(group as never)).toBe("unknown");
+      expect(getGeometryType(group as never)).toBe("point");
     });
 
     it("returns unknown for a mix of Point + LineString + Polygon", () => {
@@ -216,10 +217,13 @@ describe("core/layer util", () => {
       expect(countFeatureGeometry(group as never)).toBe(1);
     });
 
-    it("ignores Markers without feature", () => {
+    it("counts Markers without feature as points", () => {
+      // A plain folium.Marker() renders as L.Marker() with no .feature; it is
+      // still a data point feature and must be counted.  .feature is only
+      // required by extractPoints / Heatmap property lookup.
       const marker = new window.L.Marker();
       const group = wrap(marker);
-      expect(countFeatureGeometry(group as never)).toBe(0);
+      expect(countFeatureGeometry(group as never)).toBe(1);
     });
 
     it("excludes label layers", () => {

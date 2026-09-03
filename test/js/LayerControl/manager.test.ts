@@ -984,12 +984,13 @@ describe("LayerManager", () => {
       expect(manager.getFeatureCount("poly")).toBe(2);
     });
 
-    it("counts markers with feature and ignores markers without feature", () => {
+    it("counts all markers, including markers without feature", () => {
+      // A plain folium.Marker() has no .feature; both markers are data points.
       const m1 = makeLeaf(window.L.Marker, { feature: {} });
       const m2 = makeLeaf(window.L.Marker);
       const layer = wrap(m1, m2);
       manager.registerLayer({ id: "mk", name: "Mk", layer });
-      expect(manager.getFeatureCount("mk")).toBe(1);
+      expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
     it("returns null for a container layer that is not present (findLayer null)", () => {

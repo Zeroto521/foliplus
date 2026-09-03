@@ -161,7 +161,10 @@ const getGeometryType = (layer: L.Layer): string => {
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
     else if (leaf instanceof L.CircleMarker) hasPoint = true;
-    else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
+    // A plain L.Marker (e.g. from folium.Marker(), which does not set
+    // .feature) is still a point feature — detect its type accordingly.
+    // leaf.feature is only needed by extractPoints / Heatmap property lookup.
+    else if (leaf instanceof L.Marker) hasPoint = true;
   }
   // Empty container or all-label layer → no data geometry.
   if (!hasData) return CONST.GEOM_TYPE.EMPTY;
@@ -176,8 +179,9 @@ const getGeometryType = (layer: L.Layer): string => {
 };
 
 /** Count geometric features in a layer tree.
- *  Only counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Markers with feature).
- *  Excludes label layers and non-geometric nodes.
+ *  Counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Marker).
+ *  A plain L.Marker without .feature (e.g. folium.Marker()) still counts as a
+ *  point feature.  Excludes label layers and non-geometric nodes.
  *  @param {Object} layer - Leaflet layer (container or leaf).
  *  @returns {number} Number of geometric features. */
 const countFeatureGeometry = (layer: L.Layer): number => {
@@ -187,7 +191,7 @@ const countFeatureGeometry = (layer: L.Layer): number => {
     if (leaf instanceof L.Polygon) count++;
     else if (leaf instanceof L.Polyline) count++;
     else if (leaf instanceof L.CircleMarker) count++;
-    else if (leaf instanceof L.Marker && leaf.feature) count++;
+    else if (leaf instanceof L.Marker) count++;
   });
   return count;
 };
