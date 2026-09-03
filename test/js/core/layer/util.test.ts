@@ -6,6 +6,7 @@ import {
   forEachLayer,
   forEachLeaf,
   getGeometryType,
+  isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
@@ -457,6 +458,36 @@ describe("core/layer util", () => {
       const map = { eachLayer: vi.fn() };
       suspendMapInteractions(map as never);
       expect(map.eachLayer).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("isLayerInPanes", () => {
+    const leafWithPane = (pane?: string) =>
+      ({ options: { pane } } as unknown as L.Layer);
+
+    it("matches a leaf whose options.pane is in the list", () => {
+      const match = isLayerInPanes(["overlayPane", "measure"]);
+      expect(match(leafWithPane("overlayPane"))).toBe(true);
+    });
+
+    it("rejects a leaf whose options.pane is not in the list", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match(leafWithPane("measure"))).toBe(false);
+    });
+
+    it("rejects a leaf with no options.pane", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match(leafWithPane())).toBe(false);
+    });
+
+    it("rejects a leaf with no options at all", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match({} as unknown as L.Layer)).toBe(false);
+    });
+
+    it("matches nothing against an empty pane list", () => {
+      const match = isLayerInPanes([]);
+      expect(match(leafWithPane("overlayPane"))).toBe(false);
     });
   });
 });
