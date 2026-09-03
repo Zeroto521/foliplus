@@ -432,6 +432,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
+        // After a zoom-out Leaflet zoom animation the label marker-icon lands
+        // at z = Y (same as the fill's parent SVG), so the label paints at the
+        // same level as the fill and appears washed out through backdrop-filter.
+        // A high zIndexOffset forces the marker-icon into its own stacking
+        // context above the fill, keeping the label crisp regardless of zoom.
+        zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: false,
       }),
       true,

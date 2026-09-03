@@ -54,37 +54,35 @@ describe("PANES", () => {
 });
 
 describe("LABEL anchors", () => {
-  // The dot's top edge relative to the marker point is its anchor y (the dot
-  // is centered on its marker, so ANCHOR[1] == SIZE[1]/2 today; using the
-  // anchor keeps this consistent if size/anchor ever change independently).
-  const dotAnchorY = CONST.CENTER_DOT.ANCHOR[1];
   const cy = CONST.LABEL.CENTROID_ANCHOR[1];
 
   it("is horizontally centered on the centroid point", () => {
     expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
   });
 
-  it("lifts the label chip above the point (positive y) so it does not sit on the dot", () => {
-    expect(cy).toBeGreaterThan(0);
-  });
-
-  it("clears the center dot so the zIndexOffset 11000 dot cannot paint over the label", () => {
-    // The centroid label and the 12x12 center dot share a latlng and both live
-    // in labelPane. Any pixel overlap means the dot wins, so the chip's bottom
-    // edge must sit above the dot's top edge. chipBottom = pointY - cy + chipH,
-    // dotTop = pointY - dotAnchorY: clear iff cy > dotAnchorY + chipH (a
-    // strict gap is required, not just touching).
-    const chipH = 24; // rendered label chip height in px
-    expect(cy).toBeGreaterThan(dotAnchorY + chipH);
+  it("anchors the label chip above the point (negative y) so it covers the center dot", () => {
+    // The centroid label and the 12×12 center dot share a latlng and both live
+    // in labelPane with equal zIndexOffset (11000). Leaflet ties equal z-index
+    // by DOM order — rebuildCentroid() builds dot then label then del-marker,
+    // so the label paints on top of the dot. The default anchor [0, -10] sits
+    // the chip *above* the point (negative y = above in Leaflet's anchor
+    // convention), which both covers the dot and clears the polygon fill's
+    // inner area. A positive-y anchor was the wrong fix: it pushed the label
+    // *down* past the dot into the fill, where a zoom-out animation reparents
+    // the marker-icon to z = Y (equal to the fill's parent SVG) and the
+    // label washes out through backdrop-filter.
+    expect(cy).toBeLessThan(0);
   });
 
   it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values.
+    // collapse back to those values — or to a positive-y "clear the dot via
+    // vertical offset" fix, which hides the real (z-index) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
-    expect(cy).toBeGreaterThan(CONST.LABEL.RADIUS_ANCHOR[1]);
+    expect(cy).not.toBe(CONST.LABEL.RADIUS_ANCHOR[1]);
+    expect(cy).toBeLessThan(0);
   });
 });
 

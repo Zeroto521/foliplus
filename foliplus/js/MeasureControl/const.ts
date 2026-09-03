@@ -20,14 +20,6 @@ export const CENTER_DOT = {
   CLASS: "foliplus-measure-center-dot",
 };
 
-/** Rendered label chip height in px — font-size-sm (12) + 2×space-xs padding (4)
- *  + line-height slack. Drives anchors for labels that share a latlng with
- *  another marker (centroid) and must clear it. */
-const LABEL_CHIP_H = 24;
-
-/** Gap in px between the centroid chip and the center dot. */
-const CENTROID_GAP = 4;
-
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
@@ -35,15 +27,13 @@ export const LABEL = {
   MID_ANCHOR: [0, 0],
   // The centroid label shares the same latlng as the 12×12 center dot, which
   // carries zIndexOffset 11000 — so if the two overlap at all the dot paints
-  // on top, even though both live in labelPane. The fix is to lift the chip
-  // clear of the dot: L.divIcon.iconAnchor places the chip so the anchor
-  // pixel sits on the marker point; a positive y puts the chip *above* the
-  // point. Clearance requires
-  //   chip bottom = pointY − A + LABEL_CHIP_H  ;  dot top = pointY − dotAnchorY
-  //   clear ⟺ A ≥ LABEL_CHIP_H + dotAnchorY + gap
-  // where dotAnchorY = CENTER_DOT.ANCHOR[1] (the dot's top edge relative to
-  // the marker point). = 24 + 6 + 4 = 34.
-  CENTROID_ANCHOR: [0, LABEL_CHIP_H + CENTER_DOT.ANCHOR[1] + CENTROID_GAP],
+  // on top, even though both live in labelPane. The label uses the default
+  // [0, -10] anchor (sits above its point), so the dot (centered on the point)
+  // clears the chip vertically. After zoom-out the real failure was not the
+  // dot but the *fill* painting over the label: the marker-icon landed at
+  // z = Y (same as the fill's parent SVG). rebuildCentroid() in ui.ts gives
+  // the label a matching zIndexOffset to lift it above the fill.
+  CENTROID_ANCHOR: [0, -10],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",
