@@ -587,6 +587,77 @@ class TestLayerControlRendering:
         # Should use a dash/minus icon (not a checkmark)
         assert "x1='6' y1='12' x2='18' y2='12'" in css
 
+    def test_no_background_color_transition_on_rebuilt_elements(self):
+        """renderInitialList() destroys and re-creates every panel element on a
+        fold click. Any element whose rebuild changes background-color MUST NOT
+        transition that property — otherwise it animates from its initial state
+        to the target state, producing a flash:
+
+          - checkbox: var(--input-bg) -> var(--accent-primary) (red flash)
+          - layer item (.active): var(--panel-bg) -> var(--accent-light)
+          - toggle-all row: same mechanism if its bg ever changes on rebuild
+
+        Background-color transitions are kept only where the element survives
+        the rebuild (hover, drag-over, :focus-visible)."""
+        css = read_css("foliplus/css/LayerControl.css")
+        targets = [
+            # (base selector before " {", must_not, may)
+            ('input[type="checkbox"]', ["background-color", "border-color"], ["box-shadow"]),
+            (".foliplus-layer-sep.foliplus-layer-toggle-all", ["background-color"], ["border-color"]),
+            (".foliplus-layer-item", ["background-color"], ["border-color"]),
+        ]
+        for sel, must_not, may in targets:
+            self._assert_no_bg_transition(css, sel, must_not, may)
+
+    @staticmethod
+    def _assert_no_bg_transition(css, selector_fragment, must_not, may):
+        """Assert the CSS rule whose *selector_fragment* is the base selector
+        (i.e. selector_fragment + whitespace + ``{``) does not transition
+        background-color.
+
+        Handles both single-line (``transition: x;``) and multi-line
+        (``transition:\\n  x,\\n  y;``) transition declarations. Uses a
+        brace-depth scanner to correctly locate the matching closing ``}``
+        for rules that contain CSS nesting (e.g. ``&:is(...) { ... }``).
+        """
+        needle = selector_fragment + " {"
+        idx = css.find(needle)
+        assert idx != -1, f"rule for {selector_fragment!r} not found"
+        brace = idx + len(selector_fragment) + 1
+        depth, block_end = 1, brace
+        while block_end < len(css) and depth > 0:
+            ch = css[block_end]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+            block_end += 1
+        block = css[brace:block_end - 1]
+        declarations = []
+        buf = []
+        for ch in block:
+            if ch == ";":
+                declarations.append("".join(buf).strip())
+                buf.clear()
+            elif ch == "/" and buf and buf[-1] == "*":
+                declarations.append("".join(buf).strip())
+                buf.clear()
+            else:
+                buf.append(ch)
+        trans_decl = next((d for d in declarations if d.startswith("transition")), None)
+        assert trans_decl is not None, f"{selector_fragment} rule has no transition declaration"
+        t_value = trans_decl.split(":", 1)[1]
+        for prop in must_not:
+            assert prop not in t_value, (
+                f"{selector_fragment} must not transition {prop} — "
+                "element is destroyed+recreated on list rebuild (fold click)"
+            )
+        for prop in may:
+            assert prop in t_value, (
+                f"{selector_fragment} should still transition {prop} — "
+                "it is pointer/state-driven, not rebuild-driven"
+            )
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""

@@ -231,9 +231,10 @@ path.foliplus-focus-mask {
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: border-color var(--transition-fast);
+    /* background-color intentionally NOT animated: the toggle-all row is
+       destroyed and re-created on every list rebuild, so a background-color
+       transition would flash on each rebuild. */
 
     .foliplus-section-divider {
       grid-column: 4 / -1;
@@ -365,9 +366,11 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     border-left: var(--border-thick) solid transparent;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: border-color var(--transition-fast);
+    /* background-color intentionally NOT animated on this row: the item is
+       destroyed and re-created on every list rebuild (fold click ->
+       renderInitialList), so a background-color transition would cause .active
+       rows (checked layers) to flash var(--accent-light) on each rebuild. */
 
     .foliplus-layer-label {
       cursor: inherit;
@@ -551,10 +554,11 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     background: var(--input-bg);
     cursor: pointer;
-    transition:
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast),
-      background-color var(--transition-fast);
+    transition: box-shadow var(--transition-fast);
+    /* background-color and border-color intentionally NOT animated: the
+       checkbox is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause checked checkboxes to flash on each rebuild. */
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {
