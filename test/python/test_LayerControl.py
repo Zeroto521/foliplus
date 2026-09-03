@@ -587,18 +587,20 @@ class TestLayerControlRendering:
         # Should use a dash/minus icon (not a checkmark)
         assert "x1='6' y1='12' x2='18' y2='12'" in css
 
-    def test_no_background_color_transition_on_rebuilt_elements(self):
+    def test_no_rebuild_flash_transitions_on_rebuilt_elements(self):
         """renderInitialList() destroys and re-creates every panel element on a
-        fold click. Any element whose rebuild changes background-color MUST NOT
-        transition that property — otherwise it animates from its initial state
-        to the target state, producing a flash:
+        fold click. Any element whose rebuild changes a transitioned property
+        MUST NOT transition that property — otherwise it animates from its
+        initial state to the target state, producing a flash:
 
-          - checkbox: var(--input-bg) -> var(--accent-primary) (red flash)
-          - layer item (.active): var(--panel-bg) -> var(--accent-light)
+          - checkbox: bg var(--input-bg) -> var(--accent-primary);
+                      border var(--input-border) -> var(--accent-primary)
+          - layer item (.active): bg var(--panel-bg) -> var(--accent-light)
           - toggle-all row: same mechanism if its bg ever changes on rebuild
 
-        Background-color transitions are kept only where the element survives
-        the rebuild (hover, drag-over, :focus-visible)."""
+        Transitions are kept only on properties that do not change on rebuild
+        (box-shadow) or where the element survives the rebuild (hover,
+        drag-over, :focus-visible)."""
         css = read_css("foliplus/css/LayerControl.css")
         targets = [
             # (base selector before " {", must_not, may)
@@ -620,8 +622,8 @@ class TestLayerControlRendering:
     @staticmethod
     def _assert_no_bg_transition(css, selector_fragment, must_not, may):
         """Assert the CSS rule whose *selector_fragment* is the base selector
-        (i.e. selector_fragment + whitespace + ``{``) does not transition
-        background-color.
+        (i.e. selector_fragment + whitespace + ``{``) does not transition any
+        property in *must_not*.
 
         Handles both single-line (``transition: x;``) and multi-line
         (``transition:\\n  x,\\n  y;``) transition declarations. Uses a
