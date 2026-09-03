@@ -466,7 +466,11 @@ path.foliplus-focus-mask {
     position: absolute;
     top: 100%;
     right: 0;
-    min-width: 128px;
+    /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
+       little slack, without the dead gap the verb-only labels left at 128px.
+       Min-width — not fixed — so a future longer label widens it instead of
+       clipping. */
+    min-width: 112px;
     padding: var(--space-xs) 0;
     display: none;
     list-style: none;
@@ -644,4 +648,42 @@ path.foliplus-focus-mask {
 /* ── Color layer background on map container (via Leaflet container) ── */
 .leaflet-container.active {
   background: var(--color-layer-bg, #cccccc);
+}
+
+/* ── Inline rename input (swaps the layer label's text node) ──
+   Visual chrome comes from the shared .foliplus-input base (common.css);
+   only the component-specific padding / color inherit live here — the
+   input lives inside the layer label, so it must inherit the row's text
+   color to stay legible on active/hover rows.
+   While editing (.foliplus-layer-renaming) the label column stretches
+   across label+count and the input fills its full height, so the field
+   looks like the SearchControl box rather than a shrunken inline edit. */
+/* While renaming, drop the row's vertical padding so the label can stretch
+   to the full row height and the input reads as a full-size field. These
+   must outrank the scoped `.foliplus-layer-ctrl .foliplus-layer-item` rules,
+   so they carry the full prefix. */
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-renaming {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.foliplus-layer-ctrl
+  .foliplus-layer-item.foliplus-layer-renaming
+  .foliplus-layer-label {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  /* The non-renaming label relies on overflow:hidden for its ellipsis; while
+     renaming the input takes over and that would clip the focus glow, so let
+     the breathing box-shadow spill out like the SearchControl field. */
+  overflow: visible;
+}
+.foliplus-layer-ctrl .foliplus-layer-rename-input {
+  /* The scoped `.foliplus-layer-ctrl :focus-visible` rule (hover/active row
+     chrome) would paint a red outline over this field; suppress it so the
+     input keeps the shared `.foliplus-input:focus` glow, matching Search. */
+  outline: none;
+  padding: 0 var(--space-md);
+  height: 100%;
+  color: inherit;
+  width: 100%;
 }

@@ -97,6 +97,7 @@ export class SearchControl extends BaseControl {
     });
     const inp = dom.el("input", {
       type: "text",
+      class: "foliplus-input",
       placeholder: T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = createIconButton({

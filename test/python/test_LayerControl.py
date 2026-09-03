@@ -743,6 +743,66 @@ class TestLayerControlBrowser:
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
 
+    def test_rename_input_fills_row_height(self, browser, tmp_path):
+        """The inline rename input spans the full row height (not a 19.6px line).
+
+        Regression guard for the scoped `.foliplus-layer-ctrl .foliplus-layer-item`
+        padding rule outranking a bare `.foliplus-layer-renaming` rule — if that
+        priority regresses, the row keeps its 8px vertical padding and the input
+        collapses back to a single line.
+        """
+        layer = folium.FeatureGroup(name="My Layer")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="rename_visual"
+        ) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                state="attached",
+                timeout=5000,
+            )
+
+            ok = page.evaluate(_js("LayerControl/rename_first_layer"))
+            assert ok, "failed to open the inline rename input"
+            page.wait_for_selector(
+                ".foliplus-layer-rename-input", state="attached", timeout=5000
+            )
+
+            m = page.evaluate(
+                """() => {
+                  const row = [...document.querySelectorAll('.foliplus-layer-item')]
+                    .find(r => r.querySelector('.foliplus-layer-rename-input'));
+                  const input = row?.querySelector('.foliplus-layer-rename-input');
+                  if (!row || !input) return null;
+                  const rr = row.getBoundingClientRect();
+                  const ir = input.getBoundingClientRect();
+                  return {
+                    rowH: Math.round(rr.height),
+                    inputH: Math.round(ir.height),
+                    inputX: Math.round(ir.x),
+                    labelX: Math.round(row.querySelector('.foliplus-layer-label').getBoundingClientRect().x),
+                    padTop: getComputedStyle(row).paddingTop,
+                    padBottom: getComputedStyle(row).paddingBottom,
+                  };
+                }"""
+            )
+            assert m is not None, "no renaming row found"
+            # Row's vertical padding is dropped while renaming…
+            assert m["padTop"] == "0px", f"row padTop={m['padTop']}"
+            assert m["padBottom"] == "0px", f"row padBottom={m['padBottom']}"
+            # …so the input fills the whole row, not a 19.6px line-box.
+            assert abs(m["inputH"] - m["rowH"]) <= 1, (
+                f"input height {m['inputH']} != row height {m['rowH']}"
+            )
+
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
