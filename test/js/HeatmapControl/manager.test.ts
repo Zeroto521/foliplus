@@ -833,11 +833,11 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
   // buildLayerListItems calls scanMapLayers internally; stub it so the
   // pre-seeded pointLayers state used by these tests survives the rebuild.
   beforeEach(() => {
-    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(
-      function (this: HeatmapManager) {
-        // no-op: keep the manually seeded pointLayers
-      },
-    );
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function (
+      this: HeatmapManager,
+    ) {
+      // no-op: keep the manually seeded pointLayers
+    });
   });
 
   afterEach(() => {
