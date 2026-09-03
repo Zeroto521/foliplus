@@ -686,7 +686,9 @@ class TestLayerControlRendering:
         # Transition value is "prop timing, prop timing, ..." — split on
         # commas, then take the first token of each segment (the property).
         transitioned_props = {
-            seg.split()[0] for seg in trans_decl.split(":", 1)[1].split(",") if seg.split()
+            seg.split()[0]
+            for seg in trans_decl.split(":", 1)[1].split(",")
+            if seg.split()
         }
         for prop in must_not:
             assert prop not in transitioned_props, (
