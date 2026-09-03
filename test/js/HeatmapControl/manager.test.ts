@@ -844,8 +844,13 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
     vi.restoreAllMocks();
   });
 
+  /** Build a HeatmapControlUI-shaped stub with all required fields present.
+   * These tests exercise buildLayerListItems/initScan, which only touch
+   * m/layerSelect/extraBody; the remaining fields exist so the stub satisfies
+   * the exported interface and stays resilient to future type-checking. */
   const makeCtrl = (m: HeatmapManager) => {
     const sel = document.createElement("select");
+    const emptyInput = document.createElement("input");
     return {
       m,
       ctrl: document.createElement("div"),
@@ -859,7 +864,15 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
       aggSelect: document.createElement("select"),
       methodSelect: document.createElement("select"),
       classSelect: document.createElement("select"),
+      schemeControlWrap: document.createElement("div"),
+      schemeBar: document.createElement("div"),
+      schemeBarInner: document.createElement("div"),
       schemeSelectHidden: document.createElement("select"),
+      borderColorInput: emptyInput,
+      borderWeightInput: emptyInput,
+      labelChk: emptyInput,
+      closeSchemeDropdown: () => undefined,
+      toggleSchemeDropdown: () => undefined,
     };
   };
 
@@ -956,6 +969,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
 
   const makeCtrl = (m: HeatmapManager) => {
     const sel = document.createElement("select");
+    const emptyInput = document.createElement("input");
     return {
       m,
       ctrl: document.createElement("div"),
@@ -969,7 +983,15 @@ describe("initScan — single-layer auto-select on first scan only", () => {
       aggSelect: document.createElement("select"),
       methodSelect: document.createElement("select"),
       classSelect: document.createElement("select"),
+      schemeControlWrap: document.createElement("div"),
+      schemeBar: document.createElement("div"),
+      schemeBarInner: document.createElement("div"),
       schemeSelectHidden: document.createElement("select"),
+      borderColorInput: emptyInput,
+      borderWeightInput: emptyInput,
+      labelChk: emptyInput,
+      closeSchemeDropdown: () => undefined,
+      toggleSchemeDropdown: () => undefined,
     };
   };
 
