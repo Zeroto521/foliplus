@@ -133,7 +133,7 @@ describe("CircleMode — start drawing flow", () => {
 
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.add).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

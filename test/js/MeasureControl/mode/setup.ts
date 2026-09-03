@@ -107,6 +107,9 @@ export function initMocks() {
 
 export function makeManagerMock() {
   const finalizedClickHandlers: Array<() => void> = [];
+  // Backing array so add/remove/update mutate the same live list the tests
+  // assert against via manager.measurements (compatibility getter path).
+  const measurements: any[] = [];
   return {
     map: {
       on: vi.fn(),
@@ -140,9 +143,40 @@ export function makeManagerMock() {
         if (i !== -1) finalizedClickHandlers.splice(i, 1);
       };
     }),
+    store: {
+      all: () => measurements,
+      count: () => measurements.length,
+      add: vi.fn((data: any) => measurements.push(data)),
+      remove: vi.fn((id: string) => {
+        const i = measurements.findIndex((m: any) => m.id === id);
+        if (i !== -1) measurements.splice(i, 1);
+      }),
+      update: vi.fn((id: string, patch: any) => {
+        const m = measurements.find((x: any) => x.id === id);
+        if (m) Object.assign(m, patch);
+        return m;
+      }),
+      load: vi.fn(() => measurements),
+      hydrate: vi.fn((data: any[]) => {
+        measurements.length = 0;
+        measurements.push(...data);
+      }),
+      persist: vi.fn(),
+      emitCount: vi.fn(),
+      nextId: vi.fn(() => "test-id"),
+      clear: vi.fn(() => {
+        measurements.length = 0;
+      }),
+    },
     currentMode: null,
     isEditMode: false,
-    measurements: [],
+    get measurements() {
+      return measurements;
+    },
+    set measurements(v: any[]) {
+      measurements.length = 0;
+      measurements.push(...v);
+    },
     finalizedClickHandlers,
   };
 }

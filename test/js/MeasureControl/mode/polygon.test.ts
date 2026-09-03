@@ -150,7 +150,7 @@ describe("PolygonMode — finish saves centroid", () => {
     )?.[1];
     dblHandler({ latlng: { lat: 32, lng: 120 } });
 
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.add).toHaveBeenCalled();
     const saved = manager.measurements[0] as MeasureData;
     expect(saved.center).toBeDefined();
     expect(typeof saved.center!.lng).toBe("number");

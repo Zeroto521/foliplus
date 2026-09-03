@@ -210,7 +210,7 @@ const exportMeasurements = (
  */
 const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
-  const measurements = mgr.measurements;
+  const measurements = mgr.store.all();
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
     mgr.map.foliplus?.showHint?.(CONF.name, T("export_no_data"), HINT_DURATION.LONG);

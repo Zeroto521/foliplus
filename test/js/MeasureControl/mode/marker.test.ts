@@ -118,7 +118,7 @@ describe("MarkerMode — start + click", () => {
 
     expect(manager.measurements.length).toBe(1);
     expect(manager.measurements[0].type).toBe("marker");
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.add).toHaveBeenCalled();
     expect(window.L.marker).toHaveBeenCalled();
   });
 
