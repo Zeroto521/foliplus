@@ -5,7 +5,7 @@
   "ExportControl.btn_confirm": "确定区域",
   "ExportControl.btn_export": "导出地图",
   "ExportControl.btn_cancel": "取消",
-  "ExportControl.hint_unlocked": "拖拽选定导出区域，点击 ✓ 确认",
+  "ExportControl.hint_unlocked": "拖拽选定导出区域，方向键微调，R 重置，点击 ✓ 确认",
   "ExportControl.hint_locked": "使用滚轮或 +/- 缩放地图，点击 ↓ 导出",
   "ExportControl.hint_restore": "已恢复上次导出区域，点击 ✕ 重选",
   "ExportControl.status_exporting": "正在导出地图...",

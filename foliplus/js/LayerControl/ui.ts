@@ -3,7 +3,12 @@ import { HINT_DURATION } from "#core/hint.js";
 import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { dom, escapeHTML } from "#common/dom.js";
+import {
+  createInlineEditInput,
+  dom,
+  removeInlineEditInput,
+  updateItemLabel,
+} from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -29,6 +34,10 @@ class LayerUI {
   hiddenIds: Set<string>;
   isColorActive: boolean;
   currentColor: string;
+  /** Map of layer id → user-assigned display name (survives reload). */
+  renamedNames: Record<string, string>;
+  /** Layer id whose label is currently an inline rename input, or null. */
+  activeRenameId: string | null;
   dragIdx: number | null;
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
@@ -81,6 +90,8 @@ class LayerUI {
     this.hiddenIds = new Set();
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
+    this.renamedNames = {};
+    this.activeRenameId = null;
     this.dragIdx = null;
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
@@ -122,6 +133,7 @@ class LayerUI {
     this.m.uiContainer = containerDiv;
     this.loadFoldState();
     this.loadHiddenIds();
+    this.loadNamesState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -129,6 +141,7 @@ class LayerUI {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
+    this.applyNamesState();
     this.reindexItems();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
@@ -164,6 +177,36 @@ class LayerUI {
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
+  }
+
+  /** Load user-assigned display names from localStorage. */
+  loadNamesState() {
+    this.renamedNames = this.m.persistence.loadNames();
+  }
+
+  /**
+   * Overwrite each registered layer's display name with the user-assigned
+   * value and refresh the affected label in the UI. Called once from
+   * attachUI() after the initial list + pending registrations are rendered.
+   */
+  applyNamesState() {
+    if (!this.uiContainer) return;
+    for (const [id, name] of Object.entries(this.renamedNames)) {
+      const layerInfo = this.m.layerRegistry.get(id);
+      const isColorLayer = id === CONST.COLOR.MAP_ID;
+      if (!layerInfo && !isColorLayer) continue;
+      if (layerInfo && layerInfo.name === name) continue;
+      if (layerInfo) layerInfo.name = name;
+      const item = this.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+      ) as HTMLElement | null;
+      updateItemLabel(item, name);
+    }
+  }
+
+  /** Save user-assigned names, coalescing rapid calls. */
+  saveNamesState() {
+    this.m.persistence.saveNames(() => this.renamedNames);
   }
 
   /**
@@ -370,7 +413,25 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
+    // If the layer has a persisted rename, apply it before reindexing so
+    // the label + checkbox aria reflect the user-assigned name immediately.
+    this.applyPersistedRename(layerInfo, item);
+
     if (reindex) this.reindexItems();
+  }
+
+  /**
+   * Apply a persisted rename to a just-inserted layer item.
+   *
+   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
+   * from the registry — the Python-supplied original name. This mirrors the
+   * logic in applyNamesState so the inline label + checkbox aria match.
+   */
+  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
+    const name = this.renamedNames[layerInfo.id];
+    if (!name) return;
+    if (layerInfo.name !== name) layerInfo.name = name;
+    updateItemLabel(item, name);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -386,8 +447,8 @@ class LayerUI {
     ) as HTMLInputElement | null;
     if (checkbox) {
       checkbox.dataset.index = String(idx);
-      checkbox.setAttribute("aria-label", escapeHTML(layerInfo.name));
-      checkbox.title = escapeHTML(layerInfo.name);
+      checkbox.setAttribute("aria-label", layerInfo.name);
+      checkbox.title = layerInfo.name;
     }
   }
 
@@ -435,7 +496,7 @@ class LayerUI {
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    const en = escapeHTML(layerInfo.name);
+    const name = layerInfo.name;
 
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -450,10 +511,8 @@ class LayerUI {
       },
       { html: SVGs.MORE },
     );
-    // Only overlay (data) layers get the "more" button. Base maps cover the
-    // whole world (focusing is a no-op) and solid-color layers have no
-    // meaningful bounds. `hidden="hidden"` removes it from layout + a11y tree.
-    if (layerInfo.isBase) moreBtn.setAttribute("hidden", "hidden");
+    // All layers get the "more" button — data layers can focus + rename, base
+    // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
     const children: HTMLElement[] = [
       dom.el(
@@ -468,11 +527,11 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
-          "aria-label": en,
-          title: en,
+          "aria-label": name,
+          title: name,
         }),
       ),
-      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, en),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
       dom.el("span", {
         class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.LAYER_ID]: layerInfo.id,
@@ -495,6 +554,13 @@ class LayerUI {
     );
   }
 
+  /** Current display name for the virtual color basemap: persisted rename
+   *  if present, else the locale label. The color layer has no registry
+   *  entry, so this is its only source of truth. */
+  private colorLayerName(): string {
+    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
+  }
+
   renderColorLayerItem() {
     const colorInput = dom.el("input", {
       type: "color",
@@ -503,21 +569,41 @@ class LayerUI {
       "aria-label": T("color_map_label"),
     });
 
+    // Color layer lives outside layerRegistry — rename is the only overflow
+    // action (no focus on a basemap without bounds).
+    const moreBtn = dom.el(
+      "button",
+      {
+        class: CONST.CLASSES.MORE_BTN,
+        type: "button",
+        title: T("more_tooltip"),
+        "aria-label": T("more_tooltip"),
+      },
+      { html: SVGs.MORE },
+    );
+
+    // The color basemap's hover tooltip is its TYPE label (like every other
+    // row, which shows "count · type"); the layer name lives in the label
+    // cell, not the tooltip. Persist the type label in data-item-title so a
+    // rebuild can restore it; this must be the constant T("type_color_map"),
+    // NOT colorLayerName() — a rename must not change the tooltip.
+    const colorType = T("type_color_map");
     return dom.el(
       "div",
       {
         class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
         draggable: "false",
         [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-        title: T("color_map_label"),
+        [CONST.DATA.TITLE]: colorType,
+        title: colorType,
       },
       dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
       dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, T("color_map_label")),
+      dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, this.colorLayerName()),
       // count column is empty (color layers have no feature count).
       dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
       dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
-      // Solid-color layer has no meaningful bounds — no overflow menu.
+      moreBtn,
     );
   }
 
@@ -789,6 +875,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
+    this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
     this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
@@ -1166,6 +1253,7 @@ class LayerUI {
         if (menuLi && this.activeMenu) {
           event.preventDefault();
           event.stopPropagation();
+          const action = menuLi.getAttribute("data-action") ?? "";
           if (menuLi.getAttribute("disabled")) {
             this.m.map.foliplus!.showHint(
               CONF.name,
@@ -1174,8 +1262,12 @@ class LayerUI {
             );
             break;
           }
-          this.focusLayer(this.activeMenu.layerId);
-          this.closeMoreMenu(true);
+          if (action === CONST.ACTION.RENAME_LAYER)
+            this.renameLayer(this.activeMenu.layerId);
+          else {
+            this.focusLayer(this.activeMenu.layerId);
+            this.closeMoreMenu(true);
+          }
           break;
         }
         event.preventDefault();
@@ -1378,30 +1470,51 @@ class LayerUI {
 
   /**
    * Open the "more" overflow dropdown for a given layer row.
-   * Only overlay (data) layers have this button; base/color layers do not.
+   * Every layer (data + base) has this button; it exposes focus + rename.
    */
   openMoreMenu(item: HTMLElement) {
-    // Close any previously open menu first.
+    // Close any previously open menu first, and commit/cancel a rename so
+    // the label text is fresh before we read the row.
+    this.finishRename();
     this.closeMoreMenu(true);
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
+    // Color basemap has no bounds — focus is not meaningful, so skip the
+    // focus-layer menu item. Rename is still available (persistence only).
+    const skipFocus = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
 
-    const isHidden =
-      (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
-        ?.checked === false;
+    if (!skipFocus) {
+      const isHidden =
+        (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
+          ?.checked === false;
 
-    const itemAttrs = {
-      "data-action": "focus-layer",
-      role: "menuitem",
-      tabindex: "0",
-      title: isHidden ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
-      "aria-disabled": isHidden ? "true" : "false",
-    };
+      const itemAttrs = {
+        "data-action": "focus-layer",
+        role: "menuitem",
+        tabindex: "0",
+        title: isHidden ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+        "aria-disabled": isHidden ? "true" : "false",
+      };
 
-    menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
+      menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
-    if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
+      if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
+    }
+
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": CONST.ACTION.RENAME_LAYER,
+          role: "menuitem",
+          tabindex: "0",
+          title: T("rename_layer_tooltip"),
+        },
+        { html: Icons.EDIT },
+        T("rename_layer"),
+      ),
+    );
 
     item.style.position = "relative";
     item.appendChild(menu);
@@ -1420,6 +1533,94 @@ class LayerUI {
     this.activeMenu.menu.remove();
     this.activeMenu = null;
     if (setFocus) item.focus();
+  }
+
+  /**
+   * Turn the layer's label into an inline editable input so the user can
+   * rename it. Enter/blur commits (non-empty), Escape cancels.
+   *
+   * The input replaces only the label's text node (the `<label>` element
+   * stays in place), so layout / keyboard cursor focus is preserved. A
+   * trailing space in the committed name would otherwise render as a zero-width
+   * gap, so the value is trimmed on commit.
+   */
+  renameLayer(layerId: string): void {
+    if (!layerId || !this.uiContainer) return;
+    this.finishRename();
+
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    const isColorLayer = layerId === CONST.COLOR.MAP_ID;
+    if (!layerInfo && !isColorLayer) return;
+
+    const item = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+    ) as HTMLElement | null;
+    const label = item?.querySelector("label") as HTMLLabelElement | null;
+    if (!label) return;
+
+    // Color layer has no registry entry — default the input to the name the
+    // UI already shows (locale label), not the color hex.
+    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
+
+    this.activeRenameId = layerId;
+    // Flag the row so CSS can stretch the input across the label+count area
+    // (matching the SearchControl field's full extent) while editing.
+    item?.classList.add(CONST.CLASSES.RENAMING);
+    createInlineEditInput({
+      label,
+      initialValue: currentName,
+      className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
+      ariaLabel: T("rename_hint"),
+      // Only commit on blur while this is still the active rename. Enter/Escape
+      // call finishRename() which sets activeRenameId=null and removes the
+      // focused input → that removal fires a blur that must not re-commit.
+      isActive: () => this.activeRenameId === layerId,
+      onCommit: trimmed => {
+        const changed = trimmed !== currentName;
+        if (changed) {
+          if (layerInfo) layerInfo.name = trimmed;
+          this.renamedNames[layerId] = trimmed;
+          this.saveNamesState();
+        }
+        this.finishRename(true);
+      },
+      onCancel: reason => {
+        // Only an empty-name commit is a user mistake worth flagging;
+        // Escape is an intentional abandon — stay silent.
+        if (reason === "empty") {
+          map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        }
+        this.finishRename(true);
+      },
+    });
+  }
+
+  /**
+   * Tear down an in-flight rename input, restoring the label text.
+   * @param {boolean} [restoreText=true] Re-set the label text from the
+   *   registry. When false, the caller will write its own text immediately
+   *   after (used internally to avoid a double write).
+   */
+  private finishRename(restoreText = true): void {
+    if (!this.activeRenameId) return;
+    const layerId = this.activeRenameId;
+    this.activeRenameId = null;
+    if (!this.uiContainer) return;
+
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    const isColorLayer = layerId === CONST.COLOR.MAP_ID;
+    if (!layerInfo && !isColorLayer) return;
+
+    const item = this.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+    ) as HTMLElement | null;
+    const label = item?.querySelector("label") as HTMLLabelElement | null;
+    item?.classList.remove(CONST.CLASSES.RENAMING);
+    removeInlineEditInput(label);
+    if (restoreText) {
+      const name = layerInfo ? layerInfo.name : this.colorLayerName();
+      updateItemLabel(item, name);
+    }
   }
 
   /**

@@ -94,5 +94,6 @@ export interface SearchControl extends BaseControl {
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;
-  setMode(newMode: SearchType): void;
+  currentItems: ResultItem[];
+  setMode(newMode: string): void;
 }

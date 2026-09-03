@@ -16,6 +16,7 @@ function makeMgr(): any {
   return {
     map,
     onKeyDown: vi.fn(),
+    onKeyUp: vi.fn(),
     onMouseDown: vi.fn(),
     onMouseMove: vi.fn(),
     onMouseUp: vi.fn(),
@@ -60,6 +61,88 @@ describe("ExportControl interaction", () => {
     container.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+  });
+
+  it("R and arrow keys reach onKeyDown when container is focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyDown).toHaveBeenCalledTimes(6);
+    cleanup();
+  });
+
+  it("arrow keyup reaches onKeyUp when the container is focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyUp).toHaveBeenCalledTimes(4);
+    cleanup();
+  });
+
+  it("arrow keyup fires globally even when container is not focused", () => {
+    // The keyup must fire globally, not container-bound, because focus can
+    // leave the map between keydown and keyup (click elsewhere, Tab). If the
+    // matching keyup were container-bound it'd be filtered out and the
+    // rafLoop would drift forever. onKeyUp only acts on arrow keys and
+    // stops the loop, so firing globally is safe.
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    // Focus body, NOT the container — the old behavior silently dropped
+    // keyup here; the new behavior catches it.
+    document.body.focus();
+
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyUp).toHaveBeenCalledTimes(4);
+    cleanup();
+  });
+
+  it("R and arrow keys do not fire when the container is not focused", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    document.body.focus();
+
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
+    expect(mgr.onKeyDown).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("cleanup suppresses R and arrow keys", () => {
+    const mgr = makeMgr();
+    const cleanup = registerInteractions(mgr);
+    const container = mgr.map.getContainer();
+    container.setAttribute("tabindex", "-1");
+    document.body.appendChild(container);
+    container.focus();
+
+    cleanup();
+    for (const key of ["r", "R", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+      container.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    }
     expect(mgr.onKeyDown).not.toHaveBeenCalled();
   });
 

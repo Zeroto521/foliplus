@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildPopupHtml,
   createIconButton,
+  createInlineEditInput,
   createLocationMarker,
   dom,
   escapeHTML,
+  removeInlineEditInput,
   stopEvent,
+  updateItemLabel,
 } from "#common/dom.js";
 
 describe("dom.el", () => {
@@ -56,6 +59,11 @@ describe("dom.el", () => {
   it("appends multiple children", () => {
     const el = dom.el("div", null, "A", "B", "C");
     expect(el.textContent).toBe("ABC");
+  });
+
+  it("appends a numeric child as text", () => {
+    const el = dom.el("div", null, 42);
+    expect(el.textContent).toBe("42");
   });
 
   it("inserts HTML via { html: ... }", () => {
@@ -381,5 +389,248 @@ describe("escapeHTML", () => {
 
   it("coerces non-strings", () => {
     expect(escapeHTML(5)).toBe("5");
+  });
+});
+
+describe("updateItemLabel", () => {
+  it("updates the label text and its checkbox/color-input aria-labels", () => {
+    const item = dom.el("div", { "data-layer-id": "a" });
+    item.appendChild(dom.el("label", null, "Old"));
+    const checkbox = dom.el("input", { type: "checkbox" }) as HTMLInputElement;
+    const colorInput = dom.el("input", { type: "color" }) as HTMLInputElement;
+    item.appendChild(checkbox);
+    item.appendChild(colorInput);
+    document.body.appendChild(item);
+
+    const label = updateItemLabel(item, "New");
+    expect(label?.textContent).toBe("New");
+    expect(checkbox.getAttribute("aria-label")).toBe("New");
+    expect(checkbox.title).toBe("New");
+    expect(colorInput.getAttribute("aria-label")).toBe("New");
+    expect(colorInput.title).toBe("New");
+  });
+
+  it("returns the label and tolerates missing inputs", () => {
+    const item = dom.el("div", null);
+    item.appendChild(dom.el("label", null, "OnlyLabel"));
+    const label = updateItemLabel(item, "Renamed");
+    expect(label?.textContent).toBe("Renamed");
+  });
+
+  it("returns null for a null item or a label-less item", () => {
+    expect(updateItemLabel(null, "x")).toBeNull();
+    expect(updateItemLabel(dom.el("div"), "x")).toBeNull();
+  });
+
+  it("returns null when the label itself is absent", () => {
+    const item = dom.el("div", { "data-layer-id": "b" });
+    item.appendChild(dom.el("input", { type: "checkbox" }));
+    expect(updateItemLabel(item, "x")).toBeNull();
+  });
+});
+
+describe("removeInlineEditInput", () => {
+  it("removes the first input from a label", () => {
+    const label = dom.el("label");
+    const input = dom.el("input", { type: "text" });
+    label.appendChild(input);
+    label.appendChild(dom.el("span", null, "trailing"));
+
+    const removed = removeInlineEditInput(label as HTMLLabelElement);
+    expect(removed).toBe(input);
+    expect(label.querySelector("input")).toBeNull();
+    // trailing content preserved
+    expect(label.textContent).toBe("trailing");
+  });
+
+  it("returns null for a null label", () => {
+    expect(removeInlineEditInput(null)).toBeNull();
+  });
+});
+
+describe("createInlineEditInput", () => {
+  it("creates a focused, selected input seeded with the initial value", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "Start",
+      className: "editing",
+      ariaLabel: "Rename",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    });
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect(input.value).toBe("Start");
+    expect(input.className).toContain("editing");
+    expect(input.getAttribute("aria-label")).toBe("Rename");
+    expect(label.querySelector("input")).toBe(input);
+  });
+
+  it("commits a trimmed non-empty value on Enter", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "  Trimmed  ";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCommit).toHaveBeenCalledWith("Trimmed");
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it("cancels on Escape without committing", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "abandon";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("shows the cancel path for an empty/whitespace Enter", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "   ";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits on blur with the current value", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+    });
+    input.value = "BlurValue";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).toHaveBeenCalledWith("BlurValue");
+  });
+
+  it("skips blur-commit while isActive returns false (double-commit guard)", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+      isActive: () => false, // e.g. Enter/Escape already tore the input down
+    });
+    input.value = "stale";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits on blur when isActive returns true", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+      isActive: () => true,
+    });
+    input.value = "StillActive";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).toHaveBeenCalledWith("StillActive");
+  });
+
+  it("clears the label text and appends the input", () => {
+    const label = dom.el("label");
+    label.appendChild(document.createTextNode("Original"));
+    document.body.appendChild(label);
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    });
+    const labelText = label.textContent;
+    expect(labelText).toBe("");
+    expect(label.contains(input)).toBe(true);
+  });
+
+  it("stops every key from bubbling so arrow keys keep the caret", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "SomeName",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+
+    // A document-level listener stands in for the InteractionManager; it must
+    // NOT receive the ArrowLeft keydown, otherwise it would preventDefault and
+    // swallow the caret move.
+    const docListener = vi.fn();
+    document.addEventListener("keydown", docListener);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    document.removeEventListener("keydown", docListener);
+
+    expect(docListener).not.toHaveBeenCalled();
+    // Arrow keys must not commit or cancel — only Enter/Escape do.
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
   });
 });

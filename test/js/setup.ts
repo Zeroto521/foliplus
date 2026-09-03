@@ -69,6 +69,7 @@ window.L = {
   },
   Control: class {},
   latLng: (lat, lng) => ({ lat, lng }),
+  point: (x, y) => ({ x, y }),
   marker: vi.fn(() => ({
     bindPopup: vi.fn(),
     openPopup: vi.fn(),
