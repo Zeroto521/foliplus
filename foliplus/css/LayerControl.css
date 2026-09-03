@@ -231,9 +231,11 @@ path.foliplus-focus-mask {
     border-left: var(--border-thick) solid transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: none;
+    /* border-color and background-color intentionally NOT animated: the
+       toggle-all row is destroyed and re-created on every list rebuild, and
+       its folded state (border-left-color: var(--accent-primary)) is re-applied
+       on rebuild, so a transition on either would flash on each rebuild. */
 
     .foliplus-section-divider {
       grid-column: 4 / -1;
@@ -365,9 +367,11 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     border-left: var(--border-thick) solid transparent;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: none;
+    /* border-color and background-color intentionally NOT animated on this
+       row: the item is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause .active rows (checked layers) to flash on each rebuild. */
 
     .foliplus-layer-label {
       cursor: inherit;
@@ -443,7 +447,11 @@ path.foliplus-focus-mask {
     margin: 0;
     color: var(--text-primary);
     cursor: pointer;
-    transition: color var(--transition-fast);
+    transition: none;
+    /* color intentionally NOT animated: the more button is destroyed and
+       re-created on every list rebuild, so a color transition would cause
+       .active rows' more buttons to flash var(--accent-primary) on each
+       rebuild. */
 
     svg {
       width: 100%;
@@ -555,10 +563,11 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     background: var(--input-bg);
     cursor: pointer;
-    transition:
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast),
-      background-color var(--transition-fast);
+    transition: box-shadow var(--transition-fast);
+    /* background-color and border-color intentionally NOT animated: the
+       checkbox is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause checked checkboxes to flash on each rebuild. */
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {

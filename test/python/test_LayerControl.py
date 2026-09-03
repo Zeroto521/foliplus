@@ -587,6 +587,120 @@ class TestLayerControlRendering:
         # Should use a dash/minus icon (not a checkmark)
         assert "x1='6' y1='12' x2='18' y2='12'" in css
 
+    def test_no_rebuild_flash_transitions_on_rebuilt_elements(self):
+        """renderInitialList() destroys and re-creates every panel element on a
+        fold click. Any element whose rebuild changes a transitioned property
+        MUST NOT transition that property — otherwise it animates from its
+        initial state to the target state, producing a flash:
+
+          - checkbox: bg var(--input-bg) -> var(--accent-primary);
+                      border var(--input-border) -> var(--accent-primary)
+          - layer item (.active): bg var(--panel-bg) -> var(--accent-light)
+          - toggle-all row: same mechanism if its bg ever changes on rebuild
+
+        Transitions are kept only on properties that do not change on rebuild
+        (box-shadow) or where the element survives the rebuild (hover,
+        drag-over, :focus-visible)."""
+        css = read_css("foliplus/css/LayerControl.css")
+        targets = [
+            # (base selector before " {", must_not, may)
+            (
+                'input[type="checkbox"]',
+                ["background-color", "border-color"],
+                ["box-shadow"],
+            ),
+            (
+                ".foliplus-layer-sep.foliplus-layer-toggle-all",
+                ["background-color", "border-color"],
+                [],
+            ),
+            (
+                ".foliplus-layer-item",
+                ["background-color", "border-color"],
+                [],
+            ),
+            (
+                ".foliplus-layer-more-btn",
+                ["color"],
+                [],
+            ),
+        ]
+        for sel, must_not, may in targets:
+            self._assert_no_bg_transition(css, sel, must_not, may)
+
+    @staticmethod
+    def _assert_no_bg_transition(css, selector_fragment, must_not, may):
+        """Assert the CSS rule whose *selector_fragment* is the base selector
+        (i.e. selector_fragment + whitespace + ``{``) does not transition any
+        property in *must_not*.
+
+        Handles both single-line (``transition: x;``) and multi-line
+        (``transition:\\n  x,\\n  y;``) transition declarations. Uses a
+        brace-depth scanner to correctly locate the matching closing ``}``
+        for rules that contain CSS nesting (e.g. ``&:is(...) { ... }``).
+        """
+        needle = selector_fragment + " {"
+
+        def _block_at(pos):
+            """Return the declaration text of the rule block starting at *pos*."""
+            brace = pos + len(selector_fragment) + 1
+            depth, end = 1, brace
+            while end < len(css) and depth > 0:
+                ch = css[end]
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                end += 1
+            return css[brace : end - 1]
+
+        def _transition_of(block):
+            """Split *block* into declarations and return the transition value."""
+            decls = []
+            buf = []
+            for ch in block:
+                if ch == ";":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                elif ch == "/" and buf and buf[-1] == "*":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                else:
+                    buf.append(ch)
+            return next((d for d in decls if d.startswith("transition")), None)
+
+        # A selector may appear in multiple rules (e.g. a `grid-area` shorthand
+        # and the full style rule). Prefer the rule that actually declares a
+        # transition — that is the one this assertion targets.
+        pos = 0
+        trans_decl = None
+        while True:
+            idx = css.find(needle, pos)
+            if idx == -1:
+                break
+            trans_decl = _transition_of(_block_at(idx)) or trans_decl
+            pos = idx + 1
+        assert trans_decl is not None, (
+            f"{selector_fragment} rule has no transition declaration"
+        )
+        # Transition value is "prop timing, prop timing, ..." — split on
+        # commas, then take the first token of each segment (the property).
+        transitioned_props = {
+            seg.split()[0]
+            for seg in trans_decl.split(":", 1)[1].split(",")
+            if seg.split()
+        }
+        for prop in must_not:
+            assert prop not in transitioned_props, (
+                f"{selector_fragment} must not transition {prop} — "
+                "element is destroyed+recreated on list rebuild (fold click)"
+            )
+        for prop in may:
+            assert prop in transitioned_props, (
+                f"{selector_fragment} should still transition {prop} — "
+                "it is pointer/state-driven, not rebuild-driven"
+            )
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
