@@ -1941,9 +1941,7 @@ class TestLayerControlBrowser:
         layers = []
         for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
             fg = folium.FeatureGroup(name=name, overlay=True, show=True)
-            folium.Marker(
-                [26.08 + i * 0.01, 119.30 + i * 0.01], popup=name
-            ).add_to(fg)
+            folium.Marker([26.08 + i * 0.01, 119.30 + i * 0.01], popup=name).add_to(fg)
             layers.append(fg)
 
         with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
@@ -1986,4 +1984,3 @@ class TestLayerControlBrowser:
                     f"{info['name']!r}: count column changed to {info['countText']!r} "
                     f"after an unrelated checkbox click"
                 )
-
