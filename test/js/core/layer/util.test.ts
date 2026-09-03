@@ -463,7 +463,7 @@ describe("core/layer util", () => {
 
   describe("isLayerInPanes", () => {
     const leafWithPane = (pane?: string) =>
-      ({ options: { pane } } as unknown as L.Layer);
+      ({ options: { pane } }) as unknown as L.Layer;
 
     it("matches a leaf whose options.pane is in the list", () => {
       const match = isLayerInPanes(["overlayPane", "measure"]);
