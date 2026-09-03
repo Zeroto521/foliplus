@@ -614,7 +614,16 @@ class TestLayerControlRendering:
                 ["background-color"],
                 ["border-color"],
             ),
-            (".foliplus-layer-item", ["background-color"], ["border-color"]),
+            (
+                ".foliplus-layer-item",
+                ["background-color", "border-color"],
+                [],
+            ),
+            (
+                ".foliplus-layer-more-btn",
+                ["color"],
+                [],
+            ),
         ]
         for sel, must_not, may in targets:
             self._assert_no_bg_transition(css, sel, must_not, may)
@@ -631,41 +640,61 @@ class TestLayerControlRendering:
         for rules that contain CSS nesting (e.g. ``&:is(...) { ... }``).
         """
         needle = selector_fragment + " {"
-        idx = css.find(needle)
-        assert idx != -1, f"rule for {selector_fragment!r} not found"
-        brace = idx + len(selector_fragment) + 1
-        depth, block_end = 1, brace
-        while block_end < len(css) and depth > 0:
-            ch = css[block_end]
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-            block_end += 1
-        block = css[brace : block_end - 1]
-        declarations = []
-        buf = []
-        for ch in block:
-            if ch == ";":
-                declarations.append("".join(buf).strip())
-                buf.clear()
-            elif ch == "/" and buf and buf[-1] == "*":
-                declarations.append("".join(buf).strip())
-                buf.clear()
-            else:
-                buf.append(ch)
-        trans_decl = next((d for d in declarations if d.startswith("transition")), None)
+
+        def _block_at(pos):
+            """Return the declaration text of the rule block starting at *pos*."""
+            brace = pos + len(selector_fragment) + 1
+            depth, end = 1, brace
+            while end < len(css) and depth > 0:
+                ch = css[end]
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                end += 1
+            return css[brace : end - 1]
+
+        def _transition_of(block):
+            """Split *block* into declarations and return the transition value."""
+            decls = []
+            buf = []
+            for ch in block:
+                if ch == ";":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                elif ch == "/" and buf and buf[-1] == "*":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                else:
+                    buf.append(ch)
+            return next((d for d in decls if d.startswith("transition")), None)
+
+        # A selector may appear in multiple rules (e.g. a `grid-area` shorthand
+        # and the full style rule). Prefer the rule that actually declares a
+        # transition — that is the one this assertion targets.
+        pos = 0
+        trans_decl = None
+        while True:
+            idx = css.find(needle, pos)
+            if idx == -1:
+                break
+            trans_decl = _transition_of(_block_at(idx)) or trans_decl
+            pos = idx + 1
         assert trans_decl is not None, (
             f"{selector_fragment} rule has no transition declaration"
         )
-        t_value = trans_decl.split(":", 1)[1]
+        # Transition value is "prop timing, prop timing, ..." — split on
+        # commas, then take the first token of each segment (the property).
+        transitioned_props = {
+            seg.split()[0] for seg in trans_decl.split(":", 1)[1].split(",") if seg.split()
+        }
         for prop in must_not:
-            assert prop not in t_value, (
+            assert prop not in transitioned_props, (
                 f"{selector_fragment} must not transition {prop} — "
                 "element is destroyed+recreated on list rebuild (fold click)"
             )
         for prop in may:
-            assert prop in t_value, (
+            assert prop in transitioned_props, (
                 f"{selector_fragment} should still transition {prop} — "
                 "it is pointer/state-driven, not rebuild-driven"
             )

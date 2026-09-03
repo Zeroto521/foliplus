@@ -366,11 +366,11 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     border-left: var(--border-thick) solid transparent;
-    transition: border-color var(--transition-fast);
-    /* background-color intentionally NOT animated on this row: the item is
-       destroyed and re-created on every list rebuild (fold click ->
-       renderInitialList), so a background-color transition would cause .active
-       rows (checked layers) to flash var(--accent-light) on each rebuild. */
+    transition: none;
+    /* border-color and background-color intentionally NOT animated on this
+       row: the item is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause .active rows (checked layers) to flash on each rebuild. */
 
     .foliplus-layer-label {
       cursor: inherit;
@@ -446,7 +446,11 @@ path.foliplus-focus-mask {
     margin: 0;
     color: var(--text-primary);
     cursor: pointer;
-    transition: color var(--transition-fast);
+    transition: none;
+    /* color intentionally NOT animated: the more button is destroyed and
+       re-created on every list rebuild, so a color transition would cause
+       .active rows' more buttons to flash var(--accent-primary) on each
+       rebuild. */
 
     svg {
       width: 100%;
