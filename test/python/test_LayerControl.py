@@ -602,8 +602,16 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl.css")
         targets = [
             # (base selector before " {", must_not, may)
-            ('input[type="checkbox"]', ["background-color", "border-color"], ["box-shadow"]),
-            (".foliplus-layer-sep.foliplus-layer-toggle-all", ["background-color"], ["border-color"]),
+            (
+                'input[type="checkbox"]',
+                ["background-color", "border-color"],
+                ["box-shadow"],
+            ),
+            (
+                ".foliplus-layer-sep.foliplus-layer-toggle-all",
+                ["background-color"],
+                ["border-color"],
+            ),
             (".foliplus-layer-item", ["background-color"], ["border-color"]),
         ]
         for sel, must_not, may in targets:
@@ -632,7 +640,7 @@ class TestLayerControlRendering:
             elif ch == "}":
                 depth -= 1
             block_end += 1
-        block = css[brace:block_end - 1]
+        block = css[brace : block_end - 1]
         declarations = []
         buf = []
         for ch in block:
@@ -645,7 +653,9 @@ class TestLayerControlRendering:
             else:
                 buf.append(ch)
         trans_decl = next((d for d in declarations if d.startswith("transition")), None)
-        assert trans_decl is not None, f"{selector_fragment} rule has no transition declaration"
+        assert trans_decl is not None, (
+            f"{selector_fragment} rule has no transition declaration"
+        )
         t_value = trans_decl.split(":", 1)[1]
         for prop in must_not:
             assert prop not in t_value, (
