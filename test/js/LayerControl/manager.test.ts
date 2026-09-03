@@ -868,6 +868,43 @@ describe("LayerManager", () => {
     expect(pts).toEqual([{ lat: 1, lng: 2, marker: data }]);
   });
 
+  it("extractPoints rejects a plain Marker without .feature, matching the icon contract", () => {
+    // countFeatureGeometry counts a plain Marker (no .feature) as a point, but
+    // the layer's type icon shows "unknown" because .feature is required to
+    // extract coordinates/properties.  extractPoints is that same .feature
+    // gate, so a plain Marker must be rejected here too — otherwise the icon's
+    // "unknown" promise would diverge from downstream behavior.
+    // A Marker WITH .feature (consumable) is extracted, proving the gate is
+    // specifically the missing envelope, not Marker identity.
+    class Marker {}
+    window.L.Marker = Marker;
+    const plain = new Marker() as any; // no .feature
+    plain.getLatLng = () => ({ lat: 1, lng: 2 });
+    plain.options = {};
+    const consumed = new Marker() as any;
+    consumed.feature = { type: "Feature", properties: {} };
+    consumed.getLatLng = () => ({ lat: 3, lng: 4 });
+    consumed.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "mixed",
+      name: "Mixed",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(plain);
+          cb(consumed);
+        },
+        options: {},
+      } as any,
+    });
+    // count treats both as points (count==2), but extractPoints returns only
+    // the consumable one — the count-vs-consumable contract held.
+    expect(manager.getFeatureCount("mixed")).toBe(2);
+    const pts = manager.extractPoints("mixed");
+    expect(pts.length).toBe(1);
+    expect(pts[0].marker).toBe(consumed);
+  });
+
   it("bringLayerToFront re-renders the list when a UI is attached", () => {
     manager.map.hasLayer.mockReturnValue(false);
     // register bottom first so top lands at index 0; bottom is then movable

@@ -2,16 +2,17 @@
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const out = {};
-  for (const item of document.querySelectorAll(".foliplus-layer-item")) {
+  // Overlay data rows only — base layers and the virtual color basemap
+  // are excluded by selector, matching read_overlay_item_displays.
+  const items = document.querySelectorAll(
+    '.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)',
+  );
+  for (const item of items) {
     const id = item.getAttribute("data-layer-id");
     if (!id) continue;
-    const li = api.layers.find(l => l.id === id);
-    // Base tile layers have no feature count (null) and no count column —
-    // only report data-bearing layers so callers get clean results.
-    if (!li || li.isBase) continue;
     const countCol = item.querySelector(".foliplus-layer-count");
     out[id] = {
-      name: li.name,
+      name: item.querySelector(".foliplus-layer-label")?.textContent.trim() ?? null,
       countText: countCol ? countCol.textContent.trim() : null,
       apiCount: api.getFeatureCount ? api.getFeatureCount(id) : null,
     };
