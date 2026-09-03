@@ -25,14 +25,13 @@ export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot, which
-  // carries zIndexOffset 11000 — so if the two overlap at all the dot paints
-  // on top, even though both live in labelPane. The label uses the default
-  // [0, -10] anchor (sits above its point), so the dot (centered on the point)
-  // clears the chip vertically. After zoom-out the real failure was not the
-  // dot but the *fill* painting over the label: the marker-icon landed at
-  // z = Y (same as the fill's parent SVG). rebuildCentroid() in ui.ts gives
-  // the label a matching zIndexOffset to lift it above the fill.
+  // The centroid label shares the same latlng as the 12×12 center dot. Both
+  // are added to measure_label with no zIndexOffset (z = Y), same level as
+  // all other measure labels — so the centroid never covers a segment label.
+  // The dot (centered on the point) is added first; the label (chip above,
+  // anchor y = -10) is added second, so DOM order at equal z-index puts the
+  // label above the dot. The del icon carries its own high zIndexOffset to
+  // stay above both.
   CENTROID_ANCHOR: [0, -10],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",

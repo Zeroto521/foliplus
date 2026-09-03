@@ -413,6 +413,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
+    // Both dot and label sit at z = Y (no zIndexOffset), same level as all
+    // other measure labels — the centroid must not cover segment labels. The
+    // label is added after the dot, so at equal z-index DOM order puts the
+    // label above the dot when they share the same latlng. The del icon keeps
+    // its own zIndexOffset to stay above both.
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
@@ -421,7 +426,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           iconSize: CONST.CENTER_DOT.SIZE as [number, number],
           iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: true,
       }),
       true,
@@ -432,12 +436,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
-        // After a zoom-out Leaflet zoom animation the label marker-icon lands
-        // at z = Y (same as the fill's parent SVG), so the label paints at the
-        // same level as the fill and appears washed out through backdrop-filter.
-        // A high zIndexOffset forces the marker-icon into its own stacking
-        // context above the fill, keeping the label crisp regardless of zoom.
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
         interactive: false,
       }),
       true,

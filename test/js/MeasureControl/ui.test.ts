@@ -323,39 +323,40 @@ describe("attachPolygonUI", () => {
     expect(dotIcons.length).toBe(1);
   });
 
-  it("keeps zIndexOffset on the center dot so the delete icon still renders above it", () => {
+  it("keeps the centroid dot and label at the same z-level as other labels", () => {
     const opts = makeOpts();
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
-    // The wrong fix would be to drop the dot's zIndexOffset. That is needed to
-    // keep the ✕ delete icon (DEL_ICON_Z_OFFSET) above the pin/dot, so it must
-    // survive this change. The dot is the first L.marker call inside
-    // rebuildCentroid (label is second, del-icon third).
-    const dotMarkerOpts = (window.L.marker as any).mock.calls[0][1];
-    expect(dotMarkerOpts.zIndexOffset).toBe(CONST.Z_INDEX.OFFSET);
-  });
-
-  it("gives the centroid label a high zIndexOffset so it paints above the fill after zoom-out", () => {
-    const opts = makeOpts();
-    UI.attachPolygonUI(makeMgr() as any, opts as any);
-
-    // After a Leaflet zoom animation the label's marker-icon lands at z = Y,
-    // which equals the fill's parent SVG z. Without an explicit zIndexOffset
-    // the fill paints over the label and it appears washed out through
-    // backdrop-filter. The label must carry the same high zIndexOffset as the
-    // centroid dot (regression: missing offset → faded label after zoom-out).
+    // Neither the centroid dot nor the label should carry a high zIndexOffset.
+    // At offset 11000 the label would paint above every segment/radius label
+    // at z = Y, hiding them. Both stay at z = Y so the centroid never covers
+    // other labels (regression: centroid label hiding "8.6 km" segment label).
     //
     // rebuildCentroid() builds markers in order: [0]=centroidDot,
-    // [1]=centroidLabel, [2]=centroidDelMarker — so the label is the 2nd
-    // L.marker call (0-indexed result at index 1).
-    const centroidLabelMarker = (window.L.marker as any).mock.results[1].value;
+    // [1]=centroidLabel, [2]=centroidDelMarker.
+    const dotOpts = (window.L.marker as any).mock.calls[0][1];
     const labelOpts = (window.L.marker as any).mock.calls[1][1];
-    expect(labelOpts.zIndexOffset).toBe(CONST.Z_INDEX.OFFSET);
+    expect(dotOpts.zIndexOffset).toBeUndefined();
+    expect(labelOpts.zIndexOffset).toBeUndefined();
     expect(labelOpts.interactive).toBe(false);
-    // Sanity: the dot (result 0) still keeps its offset too.
-    expect((window.L.marker as any).mock.calls[0][1].zIndexOffset).toBe(
-      CONST.Z_INDEX.OFFSET,
+    // The del icon keeps its own high offset to stay above both.
+    expect(makeDelIcon).toHaveBeenCalled();
+  });
+
+  it("adds the centroid label after the dot so DOM order puts the label above it", () => {
+    const opts = makeOpts();
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // rebuildCentroid() adds dot first (call 0), label second (call 1). At
+    // equal z-index DOM order decides, so the label paints over the dot when
+    // they share the centroid latlng.
+    expect((window.L.marker as any).mock.calls[0]).toBeTruthy(); // dot
+    expect((window.L.marker as any).mock.calls[1]).toBeTruthy(); // label
+    // The dot uses the center-dot class; the label uses the default label.
+    const dotIcon = (window.L.divIcon as any).mock.calls.find(
+      ([opts]) => opts?.className === "foliplus-measure-center-dot",
     );
+    expect(dotIcon).toBeTruthy();
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
