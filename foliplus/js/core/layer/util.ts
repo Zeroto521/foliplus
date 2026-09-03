@@ -160,15 +160,14 @@ const getGeometryType = (layer: L.Layer): string => {
     hasData = true;
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
-    else if (leaf instanceof L.CircleMarker && leaf.feature) hasPoint = true;
-    // Type icon reflects "structured, downstream-consumable point data" —
-    // the same contract as extractPoints / Heatmap, which require .feature to
-    // pull coordinates + properties.  A plain L.Marker (folium.Marker()) or a
-    // plain L.CircleMarker is a geometric point (countFeatureGeometry counts
-    // it), but without a GeoJSON envelope it is not "consumable point data",
-    // so it shows unknown rather than misleading the user into expecting
-    // Heatmap/export support that would reject it.
-    else if (leaf instanceof L.Marker && leaf.feature) hasPoint = true;
+    // Marker / CircleMarker need a .feature envelope to be "structured,
+    // downstream-consumable point data" (extractPoints / Heatmap / export
+    // all gate on .feature). A plain folium.Marker() is a geometric point —
+    // countFeatureGeometry counts it — but without that envelope it is not
+    // consumable point data, so we don't mark it as point here.
+    else if (leaf instanceof L.CircleMarker || leaf instanceof L.Marker) {
+      if (leaf.feature) hasPoint = true;
+    }
   }
   // Empty container or all-label layer → no data geometry.
   if (!hasData) return CONST.GEOM_TYPE.EMPTY;
