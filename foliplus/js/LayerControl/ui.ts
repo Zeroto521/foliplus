@@ -1806,11 +1806,7 @@ class LayerUI {
     const fmtLabel = (f: string) => T(`label_format_${f}`) || f;
 
     // Field options.
-    const fieldOpts = dom.el(
-      "option",
-      { value: "" },
-      T("label_field_placeholder"),
-    );
+    const fieldOpts = dom.el("option", { value: "" }, T("label_field_placeholder"));
     fields.forEach(f => fieldOpts.appendChild(dom.el("option", { value: f }, f)));
 
     const formatOpts = dom.el(
