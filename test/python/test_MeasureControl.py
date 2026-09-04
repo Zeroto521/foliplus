@@ -828,6 +828,7 @@ class TestMeasureControlBrowser:
             assert not info2["topElIsFill"], (
                 "after zoom: fill is painting over the centroid dot"
             )
+
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
