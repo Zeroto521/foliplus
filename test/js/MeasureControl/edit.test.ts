@@ -1,15 +1,14 @@
 // Direct namespace tests for edit.ts — verifies the extracted module behaves
 // identically to the Util re-exports and covers a few scenarios not exercised
 // in util.test.ts (which tests through the Util namespace).
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bindNodeDrag,
   buildEditOverlay,
   isDragSyntheticClick,
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
-
-const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,6 +48,20 @@ describe("buildEditOverlay", () => {
     overlay.close();
 
     expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops propagation on a drag-synthetic click so it never reaches the map click handler", () => {
+    const host = makeHost() as any;
+    const ev = { originalEvent: {} } as any;
+    const overlay = buildEditOverlay(host, { onOpen: vi.fn() });
+
+    markDragSyntheticClick();
+    overlay.open(ev);
+
+    // Synthetic click is fully neutralized — the same event object must not
+    // bubble to any map listener (so a future edit to onMapClick's guard can't
+    // accidentally re-open the path).
+    expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
   });
 
   it("open respects a mid-session isEditMode toggle (gate re-checked each call)", () => {

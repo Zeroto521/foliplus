@@ -64,7 +64,15 @@ const buildEditOverlay = (
   const open = (ev: L.LeafletMouseEvent) => {
     if (!host.isEditMode) return;
     if (isOpen) return;
-    if (isDragSyntheticClick()) return;
+    if (isDragSyntheticClick()) {
+      // Neutralize a drag-synthetic click entirely: the map-level onMapClick
+      // already guards against it, but stopping propagation here too keeps the
+      // event from reaching any other map listener that might act on it, so the
+      // synthetic click is fully inert regardless of future changes to
+      // onMapClick's guard.
+      L.DomEvent.stopPropagation(ev);
+      return;
+    }
     // Only one measurement shows ✕ at a time: close any other open overlay.
     host.closeOtherEditOverlays?.(close);
     // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
