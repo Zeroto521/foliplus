@@ -95,6 +95,18 @@ const makeNode = (
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
 };
 
+/** A non-interactive node used for transient previews (center, centroid). */
+const makePreviewNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
+  return L.circleMarker(latlng, {
+    radius: CONST.MARKER.RADIUS,
+    className,
+    interactive: false,
+  });
+};
+
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
 const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
@@ -181,6 +193,7 @@ export {
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
+  makePreviewNode,
   midpoint,
   pointsToLatLngs,
   recalculateSegments,

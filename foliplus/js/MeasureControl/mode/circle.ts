@@ -17,7 +17,7 @@ import { PreviewMode } from "./base.js";
 const T = createScopedTranslator(CONF);
 
 interface CirclePreviews {
-  center: L.Marker | null;
+  center: L.CircleMarker | null;
   circle: L.Circle | null;
   line: L.Polyline | null;
   node: L.CircleMarker | null;
@@ -56,17 +56,8 @@ class CircleMode extends PreviewMode {
       Util.makeNode(targetLatLng),
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
-      L.marker(centerLatLng, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }),
-    ) as L.Marker;
+      Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+    ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
     ) as L.Marker;
@@ -147,16 +138,7 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          L.marker(center, {
-            icon: L.divIcon({
-              className: CONST.CENTER_DOT.CLASS,
-              html: "",
-              iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-              iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-            }),
-            zIndexOffset: CONST.Z_INDEX.OFFSET,
-            interactive: false,
-          }),
+          Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -280,16 +262,7 @@ class CircleMode extends PreviewMode {
       const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
 
       const centerFinal = this.layers.addLayer(
-        L.marker(centerLatLng, {
-          icon: L.divIcon({
-            className: CONST.CENTER_DOT.CLASS,
-            html: "",
-            iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-            iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-          }),
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          interactive: true,
-        }),
+        Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       );
 
       const delMarker = this.layers.addLayer(
@@ -325,7 +298,7 @@ class CircleMode extends PreviewMode {
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
         radiusNode: radiusNode as L.CircleMarker,
-        centerFinal: centerFinal as L.Marker,
+        centerFinal: centerFinal as L.CircleMarker,
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {

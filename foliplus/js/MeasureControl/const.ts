@@ -1,8 +1,4 @@
-import {
-  DEL_ICON_CHAR,
-  DEL_ICON_SELECTOR,
-  DEL_ICON_Z_OFFSET,
-} from "#common/delicon.js";
+import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#common/delicon.js";
 
 /** Timing / delay constants. */
 export const TIMING = {
@@ -13,21 +9,15 @@ export const TIMING = {
 /** Measure node marker. */
 export const MARKER = { RADIUS: 5 };
 
-/** Center dot marker. */
-export const CENTER_DOT = {
-  SIZE: [12, 12],
-  ANCHOR: [6, 6],
-  CLASS: "foliplus-measure-center-dot",
-};
-
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. The
-  // dot goes to measure_graph (no isLabel flag) — same as node markers. The
-  // label is isLabel (measure_label, z=621 above graph z=620), so it always
+  // The centroid label shares the same latlng as the center dot. The dot is
+  // a CircleMarker (SVG path) in measure_graph, so it shares the SVG renderer
+  // with the fill and needs no zIndexOffset — DOM order guarantees paint
+  // order. The label is isLabel (measure_label, z = graph + 1), so it always
   // paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
@@ -50,9 +40,6 @@ export const FORMAT = {
   KM_THRESHOLD: 1000,
   KM_DECIMALS: 1,
 };
-
-/** Z-index. */
-export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 
 /** IDs and pane names. */
 export const ID = "foliplus_measure";
