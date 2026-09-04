@@ -262,9 +262,9 @@ const pressKey = (el: HTMLElement, key: string) => {
 /** Re-resolve the overlay group's chevron — the panel rebuilds on every fold,
  *  so a chevron captured before a fold is detached. */
 const overlayFoldBtn = (root: ParentNode) =>
-  root.querySelector(
-    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
-  )!.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
+  root
+    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`)!
+    .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
