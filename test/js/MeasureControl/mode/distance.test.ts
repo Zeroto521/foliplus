@@ -6,14 +6,13 @@ import { initMocks, makeManagerMock } from "./setup.js";
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
 // be exercised directly (these are the lines codecov flags as missing).
 const { attachDistanceUIMock } = vi.hoisted(() => ({
-  attachDistanceUIMock: vi.fn((mgr: unknown, opts: unknown) => {
+  attachDistanceUIMock: vi.fn((mgr: unknown, opts: any) => {
     capturedDistanceOpts = opts;
     // Simulate the real attachDistanceUI, which self-registers its dispose via
     // registerFinalized (delete and clearAll both run it).
     const cleanup = () => {};
-    (mgr as { registerFinalized?: (c: () => void) => void }).registerFinalized?.(
-      cleanup,
-    );
+    (mgr as { registerFinalized?: (c: () => void, id?: string) => void })
+      .registerFinalized?.(cleanup, opts?.id);
     return cleanup;
   }),
 }));
@@ -117,8 +116,8 @@ describe("DistanceMode — restore registers overlay cleanup", () => {
 
     // Regression: restored distances leaked their overlay map-click listener
     // because attachDistanceUI's return value was discarded.
-    expect(manager.finalizedClickHandlers.length).toBe(1);
-    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("d_reg").dispose).toBe("function");
   });
 
   it("invokes restore's onDelete and onUpdate callbacks", () => {
@@ -330,9 +329,8 @@ describe("DistanceMode — finish saves measurement", () => {
 
     // Regression: finishing overwrote _cleanup with a broken map.off(...) that
     // never unbound the overlay, and never registered the cleanup anywhere.
-    expect(manager.finalizedClickHandlers.length).toBe(1);
-    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
-    expect(() => manager.finalizedClickHandlers[0]()).not.toThrow();
+    expect(manager.editHandles.size).toBe(1);
+    expect(() => manager.clearAll()).not.toThrow();
   });
 });
 

@@ -300,8 +300,8 @@ describe("MeasureManager — setEditMode", () => {
     const { manager } = makeManager();
     const close1 = vi.fn();
     const close2 = vi.fn();
-    manager.registerEditOverlayCloser(close1);
-    manager.registerEditOverlayCloser(close2);
+    manager.registerEditOverlayCloser(close1, "m1");
+    manager.registerEditOverlayCloser(close2, "m2");
 
     manager.setEditMode(true);
     manager.setEditMode(false);
@@ -313,7 +313,7 @@ describe("MeasureManager — setEditMode", () => {
   it("keeps closers registered so a later edit session can close them again", () => {
     const { manager } = makeManager();
     const close = vi.fn();
-    manager.registerEditOverlayCloser(close);
+    manager.registerEditOverlayCloser(close, "m1");
 
     // First session: open → close
     manager.setEditMode(true);
@@ -326,16 +326,16 @@ describe("MeasureManager — setEditMode", () => {
     expect(close).toHaveBeenCalledTimes(2);
   });
 
-  it("closes other overlays but skips the given one", () => {
+  it("closes other overlays but skips the one keyed by the given id", () => {
     const { manager } = makeManager();
     const a = vi.fn();
     const b = vi.fn();
     const c = vi.fn();
-    manager.registerEditOverlayCloser(a);
-    manager.registerEditOverlayCloser(b);
-    manager.registerEditOverlayCloser(c);
+    manager.registerEditOverlayCloser(a, "m1");
+    manager.registerEditOverlayCloser(b, "m2");
+    manager.registerEditOverlayCloser(c, "m3");
 
-    manager.closeOtherEditOverlays(b);
+    manager.closeOtherEditOverlays("m2");
 
     expect(a).toHaveBeenCalledTimes(1);
     expect(c).toHaveBeenCalledTimes(1);
@@ -345,7 +345,7 @@ describe("MeasureManager — setEditMode", () => {
   it("unregisters a closer when the returned unregister runs", () => {
     const { manager } = makeManager();
     const close = vi.fn();
-    const unregister = manager.registerEditOverlayCloser(close);
+    const unregister = manager.registerEditOverlayCloser(close, "m1");
 
     unregister();
 
@@ -357,7 +357,7 @@ describe("MeasureManager — setEditMode", () => {
   it("toggles registered drag binds on setEditMode (nodes draggable without click-first)", () => {
     const { manager } = makeManager();
     const toggle = vi.fn();
-    manager.registerEditDragToggle(toggle);
+    manager.registerEditDragToggle(toggle, "m1");
 
     manager.setEditMode(true);
     expect(toggle).toHaveBeenCalledWith(true);
@@ -369,11 +369,57 @@ describe("MeasureManager — setEditMode", () => {
   it("unregisters a drag toggle when the returned unregister runs", () => {
     const { manager } = makeManager();
     const toggle = vi.fn();
-    const unregister = manager.registerEditDragToggle(toggle);
+    const unregister = manager.registerEditDragToggle(toggle, "m1");
 
     unregister();
     manager.setEditMode(true);
     expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("merges three registrations for one id into a single handle", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    expect(manager.editHandles.size).toBe(1);
+    expect(manager.editHandles.has("m1")).toBe(true);
+  });
+
+  it("keeps separate handles for different ids", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m2");
+    manager.registerEditDragToggle(vi.fn(), "m3");
+
+    expect(manager.editHandles.size).toBe(3);
+  });
+
+  it("clearAll drops all handles and runs each dispose once", () => {
+    const { manager } = makeManager();
+    const d1 = vi.fn();
+    const d2 = vi.fn();
+    manager.registerFinalized(d1, "m1");
+    manager.registerFinalized(d2, "m2");
+
+    manager.clearAll();
+
+    expect(d1).toHaveBeenCalledTimes(1);
+    expect(d2).toHaveBeenCalledTimes(1);
+    expect(manager.editHandles.size).toBe(0);
+  });
+
+  it("unregisterFinalized removes the handle (delete drops one entry)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    const unregister = manager.registerFinalized(vi.fn(), "m1");
+    expect(manager.editHandles.size).toBe(1);
+
+    unregister();
+    expect(manager.editHandles.size).toBe(0);
   });
 
   it("setMode EDIT enters edit mode when off", () => {

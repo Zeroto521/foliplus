@@ -60,6 +60,8 @@ interface AttachOpts {
   onDelete: () => void;
   onUpdate: (points: L.LatLng[]) => void;
   points: L.LatLng[];
+  /** Measurement id — groups this measurement's edit registrations. */
+  id: string;
 }
 
 /**
@@ -93,7 +95,7 @@ const bindSegmentLabels = (
 };
 
 const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
-  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
+  const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points, id } =
     opts;
   // The last label ends with the cumulative total, so it wins a collision
   // against any per-segment label — losing it would drop the line's length.
@@ -126,12 +128,13 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const onEmpty = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
   const openOverlay = overlay.open;
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
   // soon as edit mode is on — no click-first required.
-  const unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
-    dragBinds.forEach(db => db.setEnabled(enabled)),
+  const unregisterDragToggle = mgr.registerEditDragToggle(
+    enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
+    id,
   );
 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
@@ -141,7 +144,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     overlay.cleanup();
     unregisterDragToggle();
   };
-  const unregisterFinalized = mgr.registerFinalized(dispose);
+  const unregisterFinalized = mgr.registerFinalized(dispose, id);
 
   const deleteMeasurement = () => {
     unregisterFinalized();
@@ -268,6 +271,8 @@ interface CircleAttachOpts {
   radiusLabel: L.Marker | null;
   onDelete: () => void;
   onEnd?: (latlng: L.LatLng) => void;
+  /** Measurement id — groups this measurement's edit registrations. */
+  id: string;
 }
 
 const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
@@ -281,6 +286,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     radiusLabel,
     onDelete,
     onEnd,
+    id,
   } = opts;
 
   let unregisterDragToggle: () => void = () => {};
@@ -297,7 +303,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   const onEmpty = () => {
     toggleDelIcon(delMarker, false);
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
   const openOverlay = overlay.open;
 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
@@ -307,7 +313,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     overlay.cleanup();
     unregisterDragToggle();
   };
-  const unregisterFinalized = mgr.registerFinalized(dispose);
+  const unregisterFinalized = mgr.registerFinalized(dispose, id);
 
   const deleteMeasurement = () => {
     unregisterFinalized();
@@ -370,8 +376,9 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
 
   // Drag is gated by edit mode (not the overlay), so the center/radius node
   // are draggable as soon as edit mode is on — no click-first required.
-  unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
-    dragBinds.forEach(db => db.setEnabled(enabled)),
+  unregisterDragToggle = mgr.registerEditDragToggle(
+    enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
+    id,
   );
 
   const attachInteraction = (layer: L.Layer) => bindOpenOverlay(layer, openOverlay);
@@ -396,6 +403,8 @@ interface PolygonAttachOpts {
   onUpdate: () => void;
   points: L.LatLng[];
   area: number;
+  /** Measurement id — groups this measurement's edit registrations. */
+  id: string;
 }
 
 const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => {
@@ -408,6 +417,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     onUpdate,
     points,
     area: initArea,
+    id,
   } = opts;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
@@ -428,7 +438,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
     if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
   };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
   const openOverlay = overlay.open;
 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
@@ -439,7 +449,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     overlay.cleanup();
     unregisterDragToggle();
   };
-  const unregisterFinalized = mgr.registerFinalized(dispose);
+  const unregisterFinalized = mgr.registerFinalized(dispose, id);
 
   const relabel = () => {
     const area = Util.area(points);
@@ -516,8 +526,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
   // soon as edit mode is on — no click-first required.
-  unregisterDragToggle = mgr.registerEditDragToggle(enabled =>
-    dragBinds.forEach(db => db.setEnabled(enabled)),
+  unregisterDragToggle = mgr.registerEditDragToggle(
+    enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
+    id,
   );
 
   finalPoly.on("click", openOverlay);

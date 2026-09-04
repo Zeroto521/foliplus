@@ -332,7 +332,7 @@ describe("buildEditOverlay", () => {
     overlay.open({ originalEvent: {} } as any);
 
     expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
-    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(Function));
+    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("does not open when not in edit mode", () => {

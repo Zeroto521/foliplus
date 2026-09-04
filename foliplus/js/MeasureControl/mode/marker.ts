@@ -87,8 +87,9 @@ class MarkerMode extends MeasureMode {
     });
     // Drag is gated by edit mode (no popup-first required), matching
     // distance/polygon/circle nodes.
-    const unregisterDragToggle = manager.registerEditDragToggle(enabled =>
-      drag.setEnabled(enabled),
+    const unregisterDragToggle = manager.registerEditDragToggle(
+      enabled => drag.setEnabled(enabled),
+      measurement.id,
     );
 
     // The pin shares the edit overlay: clicking it in edit mode shows its ✕
@@ -100,6 +101,7 @@ class MarkerMode extends MeasureMode {
         toggleDelIcon(delMarker, false);
         marker.closePopup();
       },
+      id: measurement.id,
     });
 
     const onPinClick = (ev: L.LeafletMouseEvent) => {
@@ -168,7 +170,7 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       data,
     );
-    const unregisterFinalized = manager.registerFinalized(cleanupPin);
+    const unregisterFinalized = manager.registerFinalized(cleanupPin, data.id);
 
     const deleteMeasurement = () => {
       unregisterFinalized();
@@ -246,7 +248,7 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       measurement,
     );
-    const unregisterFinalized = this.m.registerFinalized(cleanupPin);
+    const unregisterFinalized = this.m.registerFinalized(cleanupPin, markerId);
 
     const deleteMeasurement = () => {
       unregisterFinalized();
