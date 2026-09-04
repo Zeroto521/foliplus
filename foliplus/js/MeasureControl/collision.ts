@@ -17,7 +17,7 @@
 // sees it during the split second before hiding.
 
 /** A label eligible for collision hiding. */
-export interface CollidableLabel {
+interface CollidableLabel {
   /** Marker that owns the chip; the chip is re-resolved every plan so a
    *  `setIcon` during a drag never leaves a stale element reference. */
   marker: L.Marker;
@@ -121,7 +121,7 @@ const hides = (a: Box, b: Box): boolean =>
  */
 /** Result of a placement pass — how many chips were hidden and which ones, so
  *  callers (export, telemetry, other controls) can reason about the outcome. */
-export interface PlanResult {
+interface PlanResult {
   hidden: number;
   elements: Set<HTMLElement>;
 }
@@ -193,4 +193,9 @@ const placeLabels = (
   return { hidden: toHide.size, elements: toHide };
 };
 
-export { mapProjector, placeLabels };
+export {
+  type CollidableLabel,
+  type PlanResult,
+  mapProjector,
+  placeLabels,
+};
