@@ -21,8 +21,8 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
-import * as CONST from "./const.js";
 import { AnnotationManager } from "./annotation.js";
+import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
 

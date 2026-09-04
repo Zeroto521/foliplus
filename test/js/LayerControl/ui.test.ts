@@ -2383,10 +2383,7 @@ describe("LayerUI annotation style panel positioning", () => {
 
     // Seed the field cache so renderStylePanel builds a panel: collectFields
     // walks the layer's leaves, and the fixture's data layer has none.
-    (ui as { fieldCache: Map<string, string[]> }).fieldCache.set(
-      "overlay1",
-      ["count"],
-    );
+    (ui as { fieldCache: Map<string, string[]> }).fieldCache.set("overlay1", ["count"]);
   });
 
   afterEach(() => {
@@ -2418,32 +2415,58 @@ describe("LayerUI annotation style panel positioning", () => {
 
   it("positions the panel below the row within the viewport", () => {
     const row = findItem(ui, "overlay1");
-    vi.spyOn(row, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 200, right: 280, bottom: 240,
-        width: 240, height: 40, x: 40, y: 200, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(row, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 200,
+          right: 280,
+          bottom: 240,
+          width: 240,
+          height: 40,
+          x: 40,
+          y: 200,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
     const ctrl = row.closest(".foliplus-layer-ctrl") as HTMLElement;
-    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 100, right: 280, bottom: 500,
-        width: 240, height: 400, x: 40, y: 100, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 100,
+          right: 280,
+          bottom: 500,
+          width: 240,
+          height: 400,
+          x: 40,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
 
     ui.openStylePanel("overlay1");
     const panel = panelAfterOpen();
-    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 0, right: 280, bottom: 180,
-        width: 240, height: 180, x: 40, y: 0, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 0,
+          right: 280,
+          bottom: 180,
+          width: 240,
+          height: 180,
+          x: 40,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
     // Re-run positioning with the panel reporting its real height.
-    (ui as unknown as {
-      positionStylePanel: (p: HTMLElement, id: string) => void;
-    }).positionStylePanel(panel, "overlay1");
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "overlay1");
 
     // top = row.bottom 240 + gap 6 - ctrl.top 100 = 146px
     expect(panel.style.top).toBe("146px");
@@ -2453,18 +2476,34 @@ describe("LayerUI annotation style panel positioning", () => {
 
   it("flips upward when the panel would overflow the viewport bottom", () => {
     const row = findItem(ui, "overlay1");
-    vi.spyOn(row, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 700, right: 280, bottom: 740,
-        width: 240, height: 40, x: 40, y: 700, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(row, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 700,
+          right: 280,
+          bottom: 740,
+          width: 240,
+          height: 40,
+          x: 40,
+          y: 700,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
     const ctrl = row.closest(".foliplus-layer-ctrl") as HTMLElement;
-    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 100, right: 280, bottom: 780,
-        width: 240, height: 680, x: 40, y: 100, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 100,
+          right: 280,
+          bottom: 780,
+          width: 240,
+          height: 680,
+          x: 40,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
     const prevInner = window.innerHeight;
     Object.defineProperty(window, "innerHeight", {
@@ -2474,16 +2513,26 @@ describe("LayerUI annotation style panel positioning", () => {
 
     ui.openStylePanel("overlay1");
     const panel = panelAfterOpen();
-    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(() =>
-      ({
-        left: 40, top: 0, right: 280, bottom: 200,
-        width: 240, height: 200, x: 40, y: 0, toJSON: () => ({}),
-      } as DOMRect),
+    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 0,
+          right: 280,
+          bottom: 200,
+          width: 240,
+          height: 200,
+          x: 40,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
     // Re-run positioning with the panel reporting its real height.
-    (ui as unknown as {
-      positionStylePanel: (p: HTMLElement, id: string) => void;
-    }).positionStylePanel(panel, "overlay1");
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "overlay1");
 
     // No flip: 740 + 6 - 100 = 646 → 646 + 200 = 846 > 800 - 8 → flip.
     // Flipped: row.top 700 - 200 - 6 - ctrl.top 100 = 394px
@@ -2498,9 +2547,11 @@ describe("LayerUI annotation style panel positioning", () => {
   it("omits inline positioning when the row is missing (CSS fallback)", () => {
     const panel = document.createElement("div");
     panel.className = CONST.CLASSES.STYLE_PANEL;
-    (ui as unknown as {
-      positionStylePanel: (p: HTMLElement, id: string) => void;
-    }).positionStylePanel(panel, "no-such-layer");
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "no-such-layer");
 
     expect(panel.style.top).toBe("");
     expect(panel.style.left).toBe("");

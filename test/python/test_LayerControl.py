@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
 import re
+from pathlib import Path
 
 import folium
 from conftest import (
@@ -204,9 +203,13 @@ class TestLayerControlRendering:
                     encoding="utf-8"
                 )
             )
-            keys = {k.split(".")[-1] for k in data.keys() if k.startswith("LayerControl.")}
+            keys = {
+                k.split(".")[-1] for k in data.keys() if k.startswith("LayerControl.")
+            }
             missing = required - keys
-            assert not missing, f"LayerControl.{lang} missing annotation keys: {missing}"
+            assert not missing, (
+                f"LayerControl.{lang} missing annotation keys: {missing}"
+            )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""

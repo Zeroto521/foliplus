@@ -45,21 +45,20 @@ class AnnotationManager {
   private readonly layerFind: (id: string) => L.Layer | null;
   private readonly config: Map<string, AnnotationConfig>;
 
-  constructor(
-    mapInstance: L.Map,
-    layerFind: (id: string) => L.Layer | null,
-  ) {
+  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
     this.layerFind = layerFind;
     this.config = new Map();
   }
 
   getConfig(id: string): AnnotationConfig {
-    return this.config.get(id) ?? {
-      show: false,
-      field: "",
-      format: CONST.FORMAT.AUTO,
-    };
+    return (
+      this.config.get(id) ?? {
+        show: false,
+        field: "",
+        format: CONST.FORMAT.AUTO,
+      }
+    );
   }
 
   setConfig(id: string, cfg: AnnotationConfig): void {
@@ -81,8 +80,9 @@ class AnnotationManager {
     const fields: string[] = [];
     const seen = new Set<string>();
     forEachLeaf(layer, (leaf: L.Layer) => {
-      const props = (leaf as L.Layer & { feature?: { properties?: Record<string, unknown> } })
-        .feature?.properties;
+      const props = (
+        leaf as L.Layer & { feature?: { properties?: Record<string, unknown> } }
+      ).feature?.properties;
       if (!props) return;
       for (const k of Object.keys(props)) {
         if (!seen.has(k)) {
@@ -97,8 +97,9 @@ class AnnotationManager {
   /** Read a leaf's field value as a string for display.
    *  Returns null when the leaf has no properties object. */
   readFieldValue(leaf: L.Layer, field: string): string | null {
-    const props = (leaf as L.Layer & { feature?: { properties?: Record<string, unknown> } })
-      .feature?.properties;
+    const props = (
+      leaf as L.Layer & { feature?: { properties?: Record<string, unknown> } }
+    ).feature?.properties;
     if (!props || !(field in props)) return null;
     return String(props[field]);
   }
@@ -109,14 +110,14 @@ class AnnotationManager {
   resolveAnchor(leaf: L.Layer): L.LatLng | null {
     // Duck-type for a point accessor (markers expose getLatLng); fall back to
     // bounds center for paths. Avoids instanceof against a possibly-mocked L.
-    const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng })
-      .getLatLng;
+    const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng;
     if (typeof getLatLng === "function") {
       const ll = getLatLng.call(leaf);
       if (ll) return ll;
     }
-    const bounds = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds })
-      .getBounds?.();
+    const bounds = (
+      leaf as L.Layer & { getBounds?: () => L.LatLngBounds }
+    ).getBounds?.();
     if (bounds && bounds.isValid()) return bounds.getCenter();
     return null;
   }
@@ -128,7 +129,11 @@ class AnnotationManager {
       const n = parseNum(value);
       return n === null ? value : formatNumber(n, "auto", locale);
     }
-    if (format === CONST.FORMAT.INT || format === CONST.FORMAT.COMMA || format === CONST.FORMAT.PERCENT) {
+    if (
+      format === CONST.FORMAT.INT ||
+      format === CONST.FORMAT.COMMA ||
+      format === CONST.FORMAT.PERCENT
+    ) {
       const n = parseNum(value);
       if (n === null) return value;
       return formatNumber(n, format as NumberStyle, locale);
@@ -214,12 +219,16 @@ const parseNum = (v: string): number | null => {
 
 /** Minimal HTML escaping for label text (attribute-safe innerHTML). */
 const escapeHTML = (s: string): string =>
-  s.replace(/[&<>"']/g, ch => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[ch]!));
+  s.replace(
+    /[&<>"']/g,
+    ch =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[ch]!,
+  );
 
 export { AnnotationManager, type AnnotationConfig };

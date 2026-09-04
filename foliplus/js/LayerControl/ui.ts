@@ -947,7 +947,8 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
-    if (this.onStylePanelClick) document.removeEventListener("click", this.onStylePanelClick);
+    if (this.onStylePanelClick)
+      document.removeEventListener("click", this.onStylePanelClick);
     this.onStylePanelClick = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
@@ -1569,8 +1570,7 @@ class LayerUI {
     // "Style" (annotation) is only meaningful for data layers with labelable
     // fields. Base maps, the color basemap, and data layers with no
     // feature.properties are disabled — same disabled recipe as focus-layer.
-    const styleDisabled =
-      skipFocus || !this.layerHasLabelFields(layerId);
+    const styleDisabled = skipFocus || !this.layerHasLabelFields(layerId);
 
     menu.appendChild(
       dom.el(
@@ -1579,9 +1579,7 @@ class LayerUI {
           "data-action": CONST.ACTION.STYLE_LAYER,
           role: "menuitem",
           tabindex: "0",
-          title: styleDisabled
-            ? T("annotation_no_data")
-            : T("style_layer_tooltip"),
+          title: styleDisabled ? T("annotation_no_data") : T("style_layer_tooltip"),
           "aria-disabled": styleDisabled ? "true" : "false",
         },
         { html: SVGs.LABEL },
@@ -1733,14 +1731,22 @@ class LayerUI {
     if (!layerId) return;
 
     const tgt = event.target as HTMLElement;
-    const field = tgt.closest(".foliplus-style-field-select") as HTMLSelectElement | null;
-    const fmt = tgt.closest(".foliplus-style-format-select") as HTMLSelectElement | null;
+    const field = tgt.closest(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement | null;
+    const fmt = tgt.closest(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement | null;
     const resetBtn = tgt.classList.contains("foliplus-style-reset-btn");
     // Resolving the toggle: clicking the input, the slider span, or the label
     // should all flip the checkbox. Grab the input from the toggle switch.
-    const toggleSwitch = tgt.closest(".foliplus-toggle-switch") as HTMLLabelElement | null;
+    const toggleSwitch = tgt.closest(
+      ".foliplus-toggle-switch",
+    ) as HTMLLabelElement | null;
     const toggle = toggleSwitch
-      ? (toggleSwitch.querySelector(".foliplus-style-toggle-input") as HTMLInputElement | null)
+      ? (toggleSwitch.querySelector(
+          ".foliplus-style-toggle-input",
+        ) as HTMLInputElement | null)
       : null;
 
     if (toggle) {
@@ -1797,17 +1803,30 @@ class LayerUI {
 
     const cfg = this.m.annotation.getConfig(layerId);
     const locale = CONF.locale_code ?? "en";
-    const fmtLabel = (f: string) =>
-      T(`annotation_format_${f}`) || f;
+    const fmtLabel = (f: string) => T(`annotation_format_${f}`) || f;
 
     // Field options.
-    const fieldOpts = dom.el("option", { value: "" }, T("annotation_field_placeholder"));
+    const fieldOpts = dom.el(
+      "option",
+      { value: "" },
+      T("annotation_field_placeholder"),
+    );
     fields.forEach(f => fieldOpts.appendChild(dom.el("option", { value: f }, f)));
 
-    const formatOpts = dom.el("option", { value: CONST.FORMAT.AUTO }, fmtLabel(CONST.FORMAT.AUTO));
-    formatOpts.appendChild(dom.el("option", { value: CONST.FORMAT.INT }, fmtLabel(CONST.FORMAT.INT)));
-    formatOpts.appendChild(dom.el("option", { value: CONST.FORMAT.COMMA }, fmtLabel(CONST.FORMAT.COMMA)));
-    formatOpts.appendChild(dom.el("option", { value: CONST.FORMAT.PERCENT }, fmtLabel(CONST.FORMAT.PERCENT)));
+    const formatOpts = dom.el(
+      "option",
+      { value: CONST.FORMAT.AUTO },
+      fmtLabel(CONST.FORMAT.AUTO),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.INT }, fmtLabel(CONST.FORMAT.INT)),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.COMMA }, fmtLabel(CONST.FORMAT.COMMA)),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.PERCENT }, fmtLabel(CONST.FORMAT.PERCENT)),
+    );
 
     const showToggle = dom.el("input", {
       type: "checkbox",
@@ -1836,11 +1855,7 @@ class LayerUI {
         "aria-label": T("style_layer"),
         tabindex: "-1",
       },
-      dom.el(
-        "div",
-        { class: "foliplus-style-section-heading" },
-        T("style_layer"),
-      ),
+      dom.el("div", { class: "foliplus-style-section-heading" }, T("style_layer")),
       dom.el(
         "div",
         { class: "foliplus-form-row" },
@@ -1860,21 +1875,13 @@ class LayerUI {
         "div",
         { class: "foliplus-form-row" },
         dom.el("label", { class: "foliplus-form-label" }, T("annotation_field")),
-        dom.el(
-          "div",
-          { class: "foliplus-form-control" },
-          fieldSelect,
-        ),
+        dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
       ),
       dom.el(
         "div",
         { class: "foliplus-form-row" },
         dom.el("label", { class: "foliplus-form-label" }, T("annotation_format")),
-        dom.el(
-          "div",
-          { class: "foliplus-form-control" },
-          formatSelect,
-        ),
+        dom.el("div", { class: "foliplus-form-control" }, formatSelect),
       ),
       dom.el(
         "div",
