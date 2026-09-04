@@ -408,27 +408,16 @@ path.foliplus-focus-mask {
       border-left-color: var(--accent-primary);
       background: var(--accent-light);
     }
-    /* Keyboard cursor (foliplus-layer-focused) on a layer row: left accent bar
-       + static glow, NO background wash. Defined here (after the base
-       .foliplus-layer-item rule and .active) so source order guarantees the
-       cursor's bar color wins over the base "border-left: ... transparent".
-       The cursor is the strongest signal on the row; it replaces the .active
-       layer-visible wash so the two don't stack into a muddy dark-red row
-       (layer-visible is already signaled by the checked checkbox). */
-    &.foliplus-layer-focused {
-      border-left-width: var(--cursor-bar-width);
-      border-left-color: var(--accent-primary);
+    /* Keyboard cursor appearance (left accent bar + glow) lives in the shared
+       global rule in common.css — LayerControl uses it unchanged, same as
+       SearchControl. The only LayerControl-specific bit is a collision override:
+       the cursor lands on a layer-visible (.active) row all the time, and its
+       8% red wash would stack with the cursor's bar + glow into a muddy row.
+       Suppress the wash; the checked checkbox already signals "layer visible",
+       and the cursor's own bar + glow read "this is the focused row". */
+    &.active.foliplus-layer-focused {
       background: transparent;
-      box-shadow: var(--cursor-glow);
     }
-    /* Suppress browser outline only when the keyboard cursor class is present.
-       Without the class the default outline remains — accessible fallback. */
-    &.foliplus-layer-focused:focus-visible {
-      outline: none;
-    }
-    /* Keyboard cursor visual is shared in common.css (left accent bar +
-       soft wash + static glow). LayerControl only needs the color language
-       rules for type icon / more button below. */
     /* Keyboard cursor and mouse hover share the same foliplus color language:
        type icon → black (text-primary), more button → red (accent-primary),
        count → gray (text-muted, unchanged). The left bar + wash are the

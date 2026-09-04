@@ -48,6 +48,11 @@
   &:hover {
     background: var(--accent-light);
 
+    /* Opt out of the shared item hover colour (common.css paints dropdown-item
+       text --accent-primary): a search result is a record, not an action, so the
+       text keeps its normal colour and only the identity icon wakes. */
+    color: var(--text-primary);
+
     .foliplus-search-result-icon {
       color: var(--text-primary);
     }
@@ -55,8 +60,8 @@
 
   /* Keyboard cursor (ArrowUp/ArrowDown): visual recipe is shared in
      common.css with the LayerControl .foliplus-layer-focused — left accent
-     bar + soft wash + static glow. SearchControl only keeps the icon color
-     rule here (the icon structure is search-specific). */
+     bar + static soft glow, no background wash. SearchControl only keeps the
+     icon colour rule here (the icon structure is search-specific). */
   &.active {
     .foliplus-search-result-icon {
       color: var(--text-primary);

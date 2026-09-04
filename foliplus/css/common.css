@@ -77,7 +77,9 @@
   /* ── Keyboard Navigation Cursor ──
      Left accent bar + static soft glow for keyboard nav cursors
      (.foliplus-layer-focused, .foliplus-search-result-item.active).
-     Light wash + soft glow — no inset hairlines, no animation.
+     NO background wash — the cursor is the strongest signal on the item, so it
+     replaces any "selected/active" wash instead of stacking with it.
+     No inset hairlines, no animation.
      Mirrors the drag-over direction glow but without the pulse. */
   --cursor-bar-width: var(--border-thick);
   --cursor-glow: 0 0 var(--size-8) calc(-1 * var(--border-thin))
@@ -485,27 +487,38 @@
 }
 
 /* ── Keyboard navigation cursor ──
-     Shared token-driven recipe: left accent bar (--cursor-bar-width) +
-     static glow (--cursor-glow). No background wash.
-     LayerControl defines its cursor appearance in LayerControl.css (so source
-     order lets the cursor win over its own .active wash / base border), so
-     this shared rule only covers SearchControl here. The cursor is the
-     strongest signal on the item: it replaces any "selected/active" wash so
-     the two don't stack into a muddy row. */
+     ONE shared recipe for every foliplus keyboard cursor: left accent bar
+     (--cursor-bar-width) + static soft glow (--cursor-glow). No background
+     wash. Applies to both the LayerControl row cursor (.foliplus-layer-focused)
+     and the SearchControl result cursor (.foliplus-search-result-item.active)
+     so keyboard nav looks identical across controls. The cursor is the strongest
+     signal on the item: it replaces any "selected/active" wash so the two don't
+     stack into a muddy row (LayerControl suppresses its .active wash for this
+     case in LayerControl.css). */
+/* LayerControl rows wrap inside .foliplus-layer-ctrl and their base
+   "border-left: transparent" rule is 2 classes; key the LayerControl cursor
+   on 3 classes so the shared bar color wins regardless of load order.
+   SearchControl's result-item is 2 classes and its base border is 1 class,
+   so the 2-class .active compound wins there. */
+.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-focused,
 .foliplus-search-result-item.active {
   border-left-width: var(--cursor-bar-width);
   border-left-color: var(--accent-primary);
   box-shadow: var(--cursor-glow);
 }
 
-/* ── Dropdown item :focus-visible ──
-   All dropdown items share one keyboard focus ring: thin accent border +
-   soft glow. The browser default outline would clash with the dropdown shell.
-   Covers the previously-unstyled HeatmapControl scheme dropdown items. */
+/* ── Dropdown / list item :focus-visible ──
+   Every keyboard-focusable foliplus list item shares one focus ring: thin accent
+   border + soft glow. The browser default outline (dark blue-gray) would clash
+   with the dropdown shell, so it's suppressed in favour of --focus-ring.
+   .foliplus-layer-item is included so LayerControl rows match every other
+   control's keyboard ring (it previously had no ring rule of its own, which is
+   why a keyboard-focused layer row showed the browser's default blue outline). */
 :is(
   .foliplus-search-result-item,
   .foliplus-heatmap-scheme-dropdown-item,
-  .foliplus-layer-more-menu li
+  .foliplus-layer-more-menu li,
+  .foliplus-layer-item
 ):focus-visible {
   outline: none;
   border-color: var(--accent-primary);
@@ -623,10 +636,12 @@
   &:indeterminate::after {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
   }
-  :focus-visible {
+  /* Only the outline suppression lives here: the border + glow already come
+     from the Unified Input Interaction rule above (this checkbox is in its
+     :is() list). Kept as a self-reference — bare `:focus-visible` inside a
+     nested block compiles to a descendant selector and would miss the box. */
+  &:focus-visible {
     outline: none;
-    box-shadow: var(--focus-ring);
-    border-radius: var(--radius-sm);
   }
 }
 
