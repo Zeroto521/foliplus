@@ -197,63 +197,6 @@ path.foliplus-focus-mask {
   }
   .foliplus-checkbox {
     grid-area: check;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--space-xl);
-    height: var(--space-xl);
-  }
-  input[type="checkbox"] {
-    position: relative;
-    appearance: none;
-    margin: 0;
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
-    cursor: pointer;
-    /* border-color and background-color intentionally NOT animated: the checkbox
-       is destroyed and re-created on every list rebuild (fold click →
-       renderInitialList), so a transition on either would flash on each rebuild
-       (bg var(--input-bg) → var(--accent-primary); border var(--input-border) →
-       var(--accent-primary)) for every checked row. box-shadow stays animated —
-       it is pointer/focus-driven and never changes on rebuild, so the hover and
-       :focus-visible feedback come from the shared Unified Input Interaction
-       rule in common.css. */
-    transition: box-shadow var(--transition-fast);
-
-    /* ── Checked & indeterminate (partial selection) share active bg ── */
-    &:is(:checked, :indeterminate) {
-      background: var(--accent-primary);
-      border-color: var(--accent-primary);
-
-      &::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-size: var(--size-12);
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-    }
-    &:checked::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-    }
-    &:indeterminate::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
-    }
-    /* Outline suppression only. Kept as a self-reference — bare
-       `:focus-visible` inside a nested block compiles to a descendant selector
-       and would miss the box. The border-color + glow for this state are
-       supplied by the shared Unified Input Interaction rule in common.css; the
-       border jump is instant because border-color is not in the transition above. */
-    &:focus-visible {
-      outline: none;
-    }
   }
   .foliplus-layer-label {
     grid-area: label;
@@ -656,7 +599,68 @@ path.foliplus-focus-mask {
   .foliplus-color-layer-item {
     cursor: pointer;
   }
-  /* ── Checkbox styles live in common.css (Shared Checkbox Component) ── */
+  /* ── Checkbox styles ── */
+  .foliplus-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-xl);
+    height: var(--space-xl);
+  }
+  input[type="checkbox"] {
+    position: relative;
+    appearance: none;
+    margin: 0;
+    width: var(--space-xl);
+    height: var(--space-xl);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    cursor: pointer;
+    transition: box-shadow var(--transition-fast);
+    /* background-color and border-color intentionally NOT animated: the
+       checkbox is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause checked checkboxes to flash on each rebuild.
+       box-shadow stays animated — it is pointer/focus-driven and never changes
+       on rebuild; hover and :focus-visible come from the shared Unified Input
+       Interaction rule in common.css. */
+
+    /* ── Checked & indeterminate (partial selection) share active bg ── */
+    &:is(:checked, :indeterminate) {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+
+      /* ── Shared ::after positioning for both states ── */
+      &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-size: var(--size-12);
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+    }
+    /* Checkmark icon */
+    &:checked::after {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    }
+    /* Dash icon (partial selection) */
+    &:indeterminate::after {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
+    }
+    /* Outline suppression only. Kept as a self-reference — bare
+       `:focus-visible` inside a nested block compiles to a descendant selector
+       and would miss the box. The border-color + glow are supplied by the
+       shared Unified Input Interaction rule in common.css; the border jump is
+       instant because border-color is not in the transition above. */
+    &:focus-visible {
+      outline: none;
+    }
+  }
   /* ── Solid color layer picker ── */
   .foliplus-color-layer-input {
     width: var(--space-xl);
