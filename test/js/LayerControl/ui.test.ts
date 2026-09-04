@@ -419,20 +419,19 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       layer.getBounds = undefined;
       // @ts-expect-error — eachLayer iterates two leaf children
       layer.eachLayer = (fn: (c: unknown) => void) => {
-        fn({
-          getBounds: () => ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }),
-        });
-        fn({
-          getBounds: () => ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 31, lng: 101 }),
-            getNorthEast: () => ({ lat: 39, lng: 109 }),
-          }),
-        });
+        for (const b of [
+          { sw: { lat: 30, lng: 100 }, ne: { lat: 40, lng: 110 } },
+          { sw: { lat: 31, lng: 101 }, ne: { lat: 39, lng: 109 } },
+        ]) {
+          fn({
+            options: {}, // every Leaflet layer has options; missing it breaks discoverChildPanes
+            getBounds: () => ({
+              isValid: () => true,
+              getSouthWest: () => b.sw,
+              getNorthEast: () => b.ne,
+            }),
+          });
+        }
       };
 
       ui.focusLayer("overlay1");
