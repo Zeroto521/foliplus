@@ -128,9 +128,7 @@ describe("MeasureManager — persistence", () => {
     expect(m.id).toBeDefined();
     expect(typeof m.id).toBe("string");
     // The stabilized id is persisted back to localStorage.
-    const persisted = JSON.parse(
-      window.localStorage.getItem(CONST.STORAGE.KEY)!,
-    );
+    const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
     expect(persisted[0].id).toBe(m.id);
   });
 
