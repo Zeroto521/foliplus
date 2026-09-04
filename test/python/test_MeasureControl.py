@@ -826,7 +826,9 @@ class TestMeasureControlBrowser:
                 const topEl = document.elementFromPoint(cx, cy);
                 return { topElIsDot: topEl === dot };
             }""")
-            assert not info2.get("error"), f"post-zoom probe error: {info2.get('error')}"
+            assert not info2.get("error"), (
+                f"post-zoom probe error: {info2.get('error')}"
+            )
             assert info2["topElIsDot"], (
                 "after zoom: centroid dot is not the topmost element at its center"
             )
