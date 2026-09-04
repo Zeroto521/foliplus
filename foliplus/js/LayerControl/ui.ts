@@ -1579,7 +1579,7 @@ class LayerUI {
           "data-action": CONST.ACTION.STYLE_LAYER,
           role: "menuitem",
           tabindex: "0",
-          title: styleDisabled ? T("annotation_no_data") : T("style_layer_tooltip"),
+          title: styleDisabled ? T("label_no_data") : T("style_layer_tooltip"),
           "aria-disabled": styleDisabled ? "true" : "false",
         },
         { html: SVGs.LABEL },
@@ -1803,13 +1803,13 @@ class LayerUI {
 
     const cfg = this.m.annotation.getConfig(layerId);
     const locale = CONF.locale_code ?? "en";
-    const fmtLabel = (f: string) => T(`annotation_format_${f}`) || f;
+    const fmtLabel = (f: string) => T(`label_format_${f}`) || f;
 
     // Field options.
     const fieldOpts = dom.el(
       "option",
       { value: "" },
-      T("annotation_field_placeholder"),
+      T("label_field_placeholder"),
     );
     fields.forEach(f => fieldOpts.appendChild(dom.el("option", { value: f }, f)));
 
@@ -1832,7 +1832,7 @@ class LayerUI {
       type: "checkbox",
       class: "foliplus-style-toggle-input",
       checked: cfg.show ? "" : null,
-      "aria-label": T("annotation_label_tooltip"),
+      "aria-label": T("label_tooltip"),
     });
     const fieldSelect = dom.el(
       "select",
@@ -1859,7 +1859,7 @@ class LayerUI {
       dom.el(
         "div",
         { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, T("annotation_label")),
+        dom.el("label", { class: "foliplus-form-label" }, T("label")),
         dom.el(
           "div",
           { class: "foliplus-form-control" },
@@ -1874,25 +1874,25 @@ class LayerUI {
       dom.el(
         "div",
         { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, T("annotation_field")),
+        dom.el("label", { class: "foliplus-form-label" }, T("label_field")),
         dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
       ),
       dom.el(
         "div",
         { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, T("annotation_format")),
+        dom.el("label", { class: "foliplus-form-label" }, T("label_format")),
         dom.el("div", { class: "foliplus-form-control" }, formatSelect),
       ),
       dom.el(
         "div",
         { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, T("annotation_collision")),
+        dom.el("label", { class: "foliplus-form-label" }, T("collision")),
         dom.el(
           "div",
           { class: "foliplus-form-control" },
           dom.el(
             "label",
-            { class: "foliplus-toggle-switch", title: T("annotation_collision_hint") },
+            { class: "foliplus-toggle-switch", title: T("collision_hint") },
             dom.el("input", { type: "checkbox", disabled: "" }),
             dom.el("span", { class: "foliplus-toggle-slider" }),
           ),

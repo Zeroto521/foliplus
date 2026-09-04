@@ -188,14 +188,14 @@ class TestLayerControlRendering:
         root = Path(__file__).resolve().parent.parent.parent
         required = {
             "style_layer",
-            "annotation_label",
-            "annotation_field",
-            "annotation_format",
-            "annotation_format_auto",
-            "annotation_format_int",
-            "annotation_format_comma",
-            "annotation_format_percent",
-            "annotation_collision",
+            "label",
+            "label_field",
+            "label_format",
+            "label_format_auto",
+            "label_format_int",
+            "label_format_comma",
+            "label_format_percent",
+            "collision",
         }
         for lang in ("en", "zh"):
             data = json.loads(
