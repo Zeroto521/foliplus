@@ -603,32 +603,45 @@ class TestLayerControlRendering:
         Transitions are kept only on properties that do not change on rebuild
         (box-shadow) or where the element survives the rebuild (hover,
         drag-over, :focus-visible)."""
-        css = read_css("foliplus/css/LayerControl.css")
-        targets = [
-            # (base selector before " {", must_not, may)
+        # Targets grouped by which stylesheet owns the rule. The checkbox lives
+        # in common.css (Shared Checkbox Component, scoped to
+        # .foliplus-layer-ctrl); the rest are LayerControl-specific.
+        by_source = [
             (
-                'input[type="checkbox"]',
-                ["background-color", "border-color"],
-                ["box-shadow"],
+                "foliplus/css/common.css",
+                [
+                    (
+                        'input[type="checkbox"]',
+                        ["background-color", "border-color"],
+                        ["box-shadow"],
+                    ),
+                ],
             ),
             (
-                ".foliplus-layer-sep.foliplus-layer-toggle-all",
-                ["background-color", "border-color"],
-                [],
-            ),
-            (
-                ".foliplus-layer-item",
-                ["background-color", "border-color"],
-                [],
-            ),
-            (
-                ".foliplus-layer-more-btn",
-                ["color"],
-                [],
+                "foliplus/css/LayerControl.css",
+                [
+                    (
+                        ".foliplus-layer-sep.foliplus-layer-toggle-all",
+                        ["background-color", "border-color"],
+                        [],
+                    ),
+                    (
+                        ".foliplus-layer-item",
+                        ["background-color", "border-color"],
+                        [],
+                    ),
+                    (
+                        ".foliplus-layer-more-btn",
+                        ["color"],
+                        [],
+                    ),
+                ],
             ),
         ]
-        for sel, must_not, may in targets:
-            self._assert_no_bg_transition(css, sel, must_not, may)
+        for css_path, targets in by_source:
+            css = read_css(css_path)
+            for sel, must_not, may in targets:
+                self._assert_no_bg_transition(css, sel, must_not, may)
 
     @staticmethod
     def _assert_no_bg_transition(css, selector_fragment, must_not, may):

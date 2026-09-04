@@ -225,6 +225,11 @@ path.foliplus-focus-mask {
     grid-template-areas: "drag check label . . .";
     column-gap: var(--grid-layer-gap);
     align-items: center;
+    /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
+       and a data row measure out to the same total box height: padding +
+       --layer-row-min-height. A group header without an explicit right padding
+       would fall back to the browser default (~8px), making it visibly taller
+       and misaligning its left border with the data rows below it. */
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     box-sizing: border-box;
     min-height: var(--layer-row-min-height);
@@ -473,7 +478,16 @@ path.foliplus-focus-mask {
     /* color intentionally NOT animated: the more button is destroyed and
        re-created on every list rebuild, so a color transition would cause
        .active rows' more buttons to flash var(--accent-primary) on each
-       rebuild. */
+       rebuild. The focus ring below is supplied here — not by the global
+       :focus-visible rule — because that rule paints a border-color on this
+       7px-wide button, and border-box sizing would collapse its box to 3px and
+       clip the glyph. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
 
     svg {
       width: 100%;
