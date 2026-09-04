@@ -38,6 +38,24 @@ const makeMap = (
   return map;
 };
 
+// Map stub for the label-pane tests. `getPane` returns the given object, so
+// ensurePane never creates a replacement — the pane div is the same object
+// the test mutates.
+const makePaneMap = () => {
+  const panes: Record<string, HTMLElement> = {};
+  const map: any = {
+    getPane: (name: string) => panes[name] ?? null,
+    createPane: (name: string) => {
+      panes[name] = document.createElement("div");
+      return panes[name];
+    },
+    _panes: panes,
+  };
+  map.getPane = vi.fn(map.getPane);
+  map.createPane = vi.fn(map.createPane);
+  return map;
+};
+
 describe("PaneManager", () => {
   it("isDefaultPane returns true for standard Leaflet panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
@@ -152,13 +170,69 @@ describe("PaneManager", () => {
   });
 
   it("bumpLabelPanes sets z + 1 on label panes", () => {
-    const pane = document.createElement("div");
-    const map = { getPane: vi.fn(() => pane), createPane: vi.fn() };
+    const map = makePaneMap();
     const pm = new PaneManager(map);
     pm.labelPanes.add("measure_label");
-    const layer = { options: { pane: "measure_label" } };
-    pm.bumpLabelPanes(layer, 600);
-    expect(pane.style.zIndex).toBe("601");
+    pm.bumpLabelPanes({ options: { pane: "measure_label" } } as any, 600);
+    expect(map.getPane("measure_label").style.zIndex).toBe("601");
+  });
+
+  it("bumpLabelPanes raises a label pane that fell back to BASE", () => {
+    // releaseFallbackPane deletes a pane from map._panes and ensurePane
+    // re-creates it at Z_INDEX.BASE, so a later enforceOrder pass must be able
+    // to raise it again — the guard must not remember a stale z.
+    const map = makePaneMap();
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("measure_label");
+    const layer = { options: { pane: "measure_label" } } as any;
+    pm.bumpLabelPanes(layer, 620);
+    const pane = map.getPane("measure_label");
+    expect(pane.style.zIndex).toBe("621");
+    pane.style.zIndex = String(CONST.Z_INDEX.BASE); // pane re-created at BASE
+    pm.bumpLabelPanes(layer, 620);
+    expect(pane.style.zIndex).toBe("621");
+  });
+
+  it("bumpLabelPanes never demotes a label pane", () => {
+    // A pass for a layer with a lower z (e.g. a base tile at the tail of the
+    // layer list) must not drag a raised label pane back down — that is what
+    // buried a polygon's centroid under its own fill.
+    const map = makePaneMap();
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("measure_label");
+    const layer = { options: { pane: "measure_label" } } as any;
+    pm.bumpLabelPanes(layer, 620);
+    pm.bumpLabelPanes(layer, 200);
+    expect(map.getPane("measure_label").style.zIndex).toBe("621");
+  });
+
+  it("bumpLabelPanes ignores non-label panes", () => {
+    // discoverChildPanes walks the tree, so a nested child carries its pane —
+    // a real measure layer looks like this (graph group + label group).
+    const map = makePaneMap();
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("other_label");
+    const child = { options: { pane: "measure_graph" } };
+    const layer = {
+      options: { pane: "measure_graph" },
+      eachLayer: (cb: (c: L.Layer) => void) => cb(child),
+    };
+    // Prime the map the way registerLayer does — bump must not create panes
+    // itself, only raise ones that already exist.
+    pm.ensurePane("measure_graph", false);
+    pm.bumpLabelPanes(layer as any, 600);
+    expect(map.getPane("measure_graph").style.zIndex).toBe("600");
+    expect(map.getPane("other_label")).toBeNull();
+  });
+
+  it("sweepLabelPanes drops entries no longer referenced", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.labelPanes.add("keep_label");
+    pm.labelPanes.add("drop_label");
+    pm.sweepLabelPanes([{ labelPane: "keep_label" }, { labelPane: null }, {}]);
+    expect(pm.labelPanes.has("keep_label")).toBe(true);
+    expect(pm.labelPanes.has("drop_label")).toBe(false);
   });
 
   it("reset clears the pane cache", () => {
@@ -190,16 +264,6 @@ describe("PaneManager", () => {
     // After a targeted invalidation the new pane is observed
     pm.reset(window.L.stamp(layer));
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
-  });
-
-  it("sweepLabelPanes drops entries no longer referenced", () => {
-    const map = { getPane: vi.fn(), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    pm.labelPanes.add("keep_label");
-    pm.labelPanes.add("drop_label");
-    pm.sweepLabelPanes([{ labelPane: "keep_label" }, { labelPane: null }, {}]);
-    expect(pm.labelPanes.has("keep_label")).toBe(true);
-    expect(pm.labelPanes.has("drop_label")).toBe(false);
   });
 
   it("releaseFallbackPane detaches a fallback pane and its renderer", () => {

@@ -766,6 +766,93 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(300)
             assert not errors, f"JS errors: {errors}"
 
+    def test_label_pane_stays_above_graph_pane(self, browser, tmp_path):
+        """The polygon centroid dot and its area label live in the same pane and
+        the label wins by z offset, not by pane order.
+
+        They used to be split across the label and graph panes, with the label
+        sitting above by `bumpLabelPanes` raising the label pane above the
+        graph one. `enforceOrder` re-writes both panes on every layer-order
+        change, and a low-z layer in the list demoted the label pane back
+        down — the dot and label then sat under the polygon fill, the dot
+        became unclickable and the polygon could not be moved in edit mode.
+        """
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        MeasureControl().add_to(m)
+        # Label-less layer on top: takes a fallback pane, and its z is one
+        # step above the measure layer's — so every enforceOrder pass runs at
+        # a different z than the pass that built the panes.
+        fg = folium.FeatureGroup(name="Extra", overlay=True, show=True)
+        folium.Marker([26.1, 119.35]).add_to(fg)
+        folium.Marker([26.11, 119.36]).add_to(fg)
+        fg.add_to(m)
+
+        html, n = re.subn(
+            r"(const|var) measureManager = new MeasureManager\(map\);",
+            r"\1 measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map;",
+            m.get_root().render(),
+            count=1,
+        )
+        assert n == 1
+        page, errors = make_browser_page(browser, tmp_path, html, "measure_panes")
+        page.wait_for_selector(".foliplus-measure-ctrl", state="attached", timeout=10000)
+
+        def check(where: str) -> None:
+            state = page.evaluate(_js("MeasureControl/read_centroid_panes"))
+            assert state["center"], f"{where}: polygon not restored"
+            dot = next(
+                (it for it in state["items"] if "center-dot" in it["cls"]), None
+            )
+            label = next(
+                (
+                    it
+                    for it in state["items"]
+                    if "foliplus-measure-label" in it["cls"]
+                    and "center-dot" not in it["cls"]
+                ),
+                None,
+            )
+            assert dot, f"{where}: no centroid dot: {state['items']!r}"
+            assert label, f"{where}: no centroid label: {state['items']!r}"
+            # Same pane — the pane order can no longer decide their stacking.
+            assert dot["label"] == "label" and dot["graph"] is None, (
+                f"{where}: dot not in the label pane: {dot!r}"
+            )
+            assert label["label"] == "label" and label["graph"] is None, (
+                f"{where}: label not in the label pane: {label!r}"
+            )
+            # And the label beats the dot by z offset, not by DOM order.
+            assert int(label["iconZ"]) > int(dot["iconZ"]), (
+                f"{where}: label z={label['iconZ']} is not above the dot "
+                f"z={dot['iconZ']}"
+            )
+            # The label is a passive chip — the dot must still be the hit
+            # target at the centroid.
+            assert "center-dot" in dot["hit"], (
+                f"{where}: dot is not hit-testable, hit {dot['hit']!r}"
+            )
+
+        assert errors == [], f"JS errors: {errors}"
+        page.evaluate(_js("MeasureControl/draw_polygon"))
+        page.wait_for_timeout(500)
+        check("after draw")
+        # Each step below re-runs enforceOrder at a new z.
+        page.evaluate(_js("MeasureControl/toggle_polygon_delete"))
+        page.wait_for_timeout(400)
+        check("after del toggle")
+        page.evaluate("window.__measureManager.clearAll()")
+        page.wait_for_timeout(400)
+        page.evaluate(_js("MeasureControl/draw_polygon"))
+        page.wait_for_timeout(400)
+        check("after re-creation")
+        page.evaluate(_js("MeasureControl/draw_circle"))
+        page.wait_for_timeout(400)
+        check("after circle")
+        assert not errors, f"JS errors: {errors}"
+
     def test_restore_polygon_from_storage(self, browser, tmp_path):
         """restorePolygon restores a polygon measurement from localStorage."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

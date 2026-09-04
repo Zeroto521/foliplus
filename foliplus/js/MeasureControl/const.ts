@@ -25,19 +25,22 @@ export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. The
-  // dot goes to measure_graph (no isLabel flag) — same as node markers. The
-  // label is isLabel (measure_label, z=621 above graph z=620), so it always
-  // paints above the dot by pane ordering.
+  // The centroid label and the 12×12 center dot share a latlng AND the label
+  // pane, so their stacking must come from zIndexOffset rather than pane
+  // order: a graph→label split depended on enforceOrder keeping the label
+  // pane above the graph pane, and a low-z layer in the list could demote it
+  // back down, burying the dot under the fill. Same-pane offsets can't.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
-  // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
-  // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
-  // which can push a lower-Y segment label over the area label.
   CENTROID_ANCHOR: [0, -10],
-  // Modest offset (above max viewport Y ≈ 900, below del icon 11000) that
-  // keeps the area label above segment labels within the label pane after
-  // sortLayers re-sorts by Y on zoom, without reaching other panes.
+  // Modest offset (above max viewport Y ≈ 900, below the dot's dotZOffset and
+  // the del icon's 11000) that keeps the area label above the center dot and
+  // above segment labels within the label pane after sortLayers re-sorts by Y
+  // on zoom.
   CENTROID_Z_OFFSET: 2000,
+  // Center dot. Same label pane as the chip, lower offset — the chip always
+  // wins, regardless of DOM order. Deliberately not the del icon's 11000, so
+  // the ✕ keeps floating on top when the del row is shown.
+  dotZOffset: 1000,
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",

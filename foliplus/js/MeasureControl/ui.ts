@@ -414,11 +414,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot goes into the graph pane (no isLabel), same as node
-    // markers — below the label pane. The centroid label is isLabel, so it
-    // lands in the label pane which always paints above the graph pane. No
-    // zIndexOffset needed; the pane ordering guarantees the label covers the
-    // dot, matching how distance/circle handle node-vs-label separation.
+    // Dot and label share the label pane, so the pane order does not decide
+    // their stacking — it would have to come from the dot's pane membership
+    // (enforceOrder raises the label pane above the graph pane, and a low-z
+    // layer in the list can demote that back down). The label's
+    // CENTROID_Z_OFFSET beats the dot's dotZOffset instead, which is
+    // pane-order independent. Both offsets sit below the del icon's 11000.
     // Segment labels (also isLabel) sit at z = Y. After a zoom `sortLayers`
     // re-sorts by Y and can push a lower-Y segment label above the area label.
     // A modest zIndexOffset keeps the area label above its own segment labels.
@@ -431,7 +432,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
         interactive: true,
+        zIndexOffset: CONST.LABEL.dotZOffset,
       }),
+      // The area's click target is the dot — the label above it is a passive
+      // chip. Routed to the label pane so the dot can never sit behind its own
+      // label (see LABEL.dotZOffset).
+      true,
     ) as L.Marker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {

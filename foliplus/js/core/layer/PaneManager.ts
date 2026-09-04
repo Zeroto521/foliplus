@@ -107,14 +107,24 @@ class PaneManager {
     this.labelPanes.clear();
   }
 
-  /** Bump label panes for a layer so labels render above paths. */
+  /**
+   * Bump label panes for a layer so labels render above paths.
+   * Only raises, never demotes: the layer list is ordered top-to-bottom, so a
+   * low-z layer (a base tile at the tail) would otherwise write `z + 1` back
+   * over a label pane that a higher-z layer already raised. That demotion is
+   * what buried a polygon's centroid under its own fill. Reading the current
+   * z instead of tracking it keeps the guard correct across a pane
+   * re-creation, since ensurePane re-creates a deleted pane at Z_INDEX.BASE.
+   */
   bumpLabelPanes(layer: L.Layer, z: number): void {
     const childPanes = this.discoverChildPanes(layer);
     childPanes.forEach(cp => {
-      if (this.labelPanes.has(cp)) {
-        const lp = this.ensurePane(cp, false);
-        if (lp.pane) lp.pane.style.zIndex = String(z + 1);
-      }
+      if (!this.labelPanes.has(cp)) return;
+      const lp = this.ensurePane(cp, false);
+      if (!lp.pane) return;
+      const cur = parseInt(lp.pane.style.zIndex, 10);
+      if (z + 1 <= (Number.isNaN(cur) ? CONST.Z_INDEX.BASE : cur)) return;
+      lp.pane.style.zIndex = String(z + 1);
     });
   }
 
@@ -205,13 +215,14 @@ class PaneManager {
    *  Only the bookkeeping is dropped — the pane div is left in place. Unlike a
    *  fallback pane it is not keyed to a single layer: its name is user-defined
    *  and can be reused, and its renderer is still live, its SVG container being
-   *  a child of the pane div. Removing the div would orphan that container, and
-   *  re-creating the pane would not re-parent it. */
+   *  a child of the pane div. Removing the pane div would orphan that container,
+   *  and re-creating the pane would not re-parent it. */
   sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
     const used = new Set<string>();
     for (const li of layers) if (li.labelPane) used.add(li.labelPane);
-    for (const pane of this.labelPanes)
+    for (const pane of this.labelPanes) {
       if (!used.has(pane)) this.labelPanes.delete(pane);
+    }
   }
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────

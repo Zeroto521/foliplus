@@ -61,17 +61,17 @@ describe("LABEL anchors", () => {
   });
 
   it("anchors the label chip above the point (negative y) so it covers the center dot", () => {
-    // The centroid label and the 12×12 center dot share a latlng and both live
-    // in labelPane with equal zIndexOffset (11000). Leaflet ties equal z-index
-    // by DOM order — rebuildCentroid() builds dot then label then del-marker,
-    // so the label paints on top of the dot. The default anchor [0, -10] sits
-    // the chip *above* the point (negative y = above in Leaflet's anchor
-    // convention), which both covers the dot and clears the polygon fill's
-    // inner area. A positive-y anchor was the wrong fix: it pushed the label
-    // *down* past the dot into the fill, where a zoom-out animation reparents
-    // the marker-icon to z = Y (equal to the fill's parent SVG) and the
-    // label washes out through backdrop-filter.
+    // The centroid label and the 12×12 center dot share a latlng AND the label
+    // pane, so their stacking comes from zIndexOffset (CENTROID_Z_OFFSET >
+    // dotZOffset), not DOM order — the label always paints on top of the dot.
+    // The default anchor [0, -10] sits the chip *above* the point (negative y
+    // = above in Leaflet's anchor convention), which both covers the dot and
+    // clears the polygon fill's inner area. A positive-y anchor was the wrong
+    // fix: it pushed the label *down* past the dot into the fill, where a
+    // zoom-out animation reparents the marker-icon to z = Y (equal to the
+    // fill's parent SVG) and the label washes out through backdrop-filter.
     expect(cy).toBeLessThan(0);
+    expect(CONST.LABEL.CENTROID_Z_OFFSET).toBeGreaterThan(CONST.LABEL.dotZOffset);
   });
 
   it("is distinct from the non-overlapping anchors so a value regression is caught", () => {

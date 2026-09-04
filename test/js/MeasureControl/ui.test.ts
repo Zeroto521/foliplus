@@ -323,7 +323,7 @@ describe("attachPolygonUI", () => {
     expect(dotIcons.length).toBe(1);
   });
 
-  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+  it("puts the centroid dot and label in the same pane, stacking by z offset", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
     const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
@@ -334,20 +334,23 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds markers in order: [0]=centroidDot,
-    // [1]=centroidLabel, [2]=centroidDelMarker. The dot goes to the graph
-    // pane (no isLabel flag, no zIndexOffset) — same as node markers. The
-    // label is isLabel so it lands in the label pane, which always paints
-    // above the graph pane, guaranteeing the label covers the dot. The label
-    // also carries a modest zIndexOffset so sortLayers (which re-sorts by Y
-    // on zoom) doesn't push a lower-Y segment label above the area label.
+    // [1]=centroidLabel, [2]=centroidDelMarker.
+    //
+    // Dot and label share the label pane and are stacked by zIndexOffset,
+    // not pane order. Splitting them used to let enforceOrder decide the
+    // stacking: it re-writes both panes on every layer-order change, and a
+    // low-z layer demoted the label pane to/below the graph pane, so the
+    // label chip (anchored just above the dot's center) buried the dot and
+    // the polygon became unmovable. Same-pane offsets are immune. The label
+    // also wins by offset, not DOM order, and both stay below the del icon's
+    // 11000 so the ✕ keeps floating on top.
     const dotOpts = (window.L.marker as any).mock.calls[0][1];
     const labelOpts = (window.L.marker as any).mock.calls[1][1];
-    // Dot: no zIndexOffset, routed to graph pane (isLabel=false).
-    expect(dotOpts.zIndexOffset).toBeUndefined();
-    expect(addLayerCalls[0].isLabel).toBe(false);
-    // Label: isLabel=true → label pane, has modest zIndexOffset.
+    expect(dotOpts.zIndexOffset).toBe(CONST.LABEL.dotZOffset);
+    expect(addLayerCalls[0].isLabel).toBe(true);
     expect(addLayerCalls[1].isLabel).toBe(true);
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
+    expect(CONST.LABEL.CENTROID_Z_OFFSET).toBeGreaterThan(CONST.LABEL.dotZOffset);
     expect(labelOpts.interactive).toBe(false);
     // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();
