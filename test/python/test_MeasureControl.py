@@ -824,7 +824,9 @@ class TestMeasureControlBrowser:
                     svgDivZ: parseInt(svgDivCS.zIndex, 10) || 0,
                 };
             }""")
-            assert not info2.get("error"), f"post-zoom probe error: {info2.get('error')}"
+            assert not info2.get("error"), (
+                f"post-zoom probe error: {info2.get('error')}"
+            )
             assert info2["dotZ"] > info2["svgDivZ"], (
                 f"after zoom: centroid dot z ({info2['dotZ']}) <= SVG container "
                 f"z ({info2['svgDivZ']}); sortLayers dropped the dot below the fill"

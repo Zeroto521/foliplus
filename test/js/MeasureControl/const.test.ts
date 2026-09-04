@@ -66,9 +66,7 @@ describe("CENTER_DOT", () => {
     // stay below the centroid label (LABEL.CENTROID_Z_OFFSET = 2000) and the
     // del icon (11000) so the label still paints above the dot.
     expect(CONST.CENTER_DOT.Z_OFFSET).toBeGreaterThan(700);
-    expect(CONST.CENTER_DOT.Z_OFFSET).toBeLessThan(
-      CONST.LABEL.CENTROID_Z_OFFSET,
-    );
+    expect(CONST.CENTER_DOT.Z_OFFSET).toBeLessThan(CONST.LABEL.CENTROID_Z_OFFSET);
   });
 });
 
