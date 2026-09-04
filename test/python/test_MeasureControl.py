@@ -798,14 +798,14 @@ class TestMeasureControlBrowser:
         )
         assert n == 1
         page, errors = make_browser_page(browser, tmp_path, html, "measure_panes")
-        page.wait_for_selector(".foliplus-measure-ctrl", state="attached", timeout=10000)
+        page.wait_for_selector(
+            ".foliplus-measure-ctrl", state="attached", timeout=10000
+        )
 
         def check(where: str) -> None:
             state = page.evaluate(_js("MeasureControl/read_centroid_panes"))
             assert state["center"], f"{where}: polygon not restored"
-            dot = next(
-                (it for it in state["items"] if "center-dot" in it["cls"]), None
-            )
+            dot = next((it for it in state["items"] if "center-dot" in it["cls"]), None)
             label = next(
                 (
                     it
