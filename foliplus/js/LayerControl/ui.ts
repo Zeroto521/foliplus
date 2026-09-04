@@ -76,6 +76,12 @@ class LayerUI {
   } | null;
   /** The layer id whose style panel is currently open, or null. */
   private stylePanelLayerId: string | null;
+  /** Scroll/resize handler that dismisses the style panel when the row it
+   *  anchors to moves — repositioning live is fiddler than closing on shift. */
+  private onStylePanelShift: (() => void) | null;
+  /** Armed by openStylePanel so the click that opened the panel is not read
+   *  as an outside-click close by handleStylePanelClick. */
+  private stylePanelJustOpened: boolean;
   /** Cached per-layer field lists (collectFields can be expensive; the data
    *  is stable for a layer's lifetime, so we cache it per layer). */
   private fieldCache: Map<string, string[]>;
@@ -113,6 +119,8 @@ class LayerUI {
     this.onStylePanelClick = null;
     this.activeMenu = null;
     this.stylePanelLayerId = null;
+    this.onStylePanelShift = null;
+    this.stylePanelJustOpened = false;
     this.fieldCache = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -1626,26 +1634,80 @@ class LayerUI {
 
   /** Open the annotation style panel for a layer. Mounts the panel as a
    *  sibling of the layer list (outside the scrollable content) so it can
-   *  overflow freely, anchored near the row's more button. */
+   *  overflow freely, anchored to the row that opened it — the same
+   *  "drop below the trigger" rule the overflow menu uses. */
   openStylePanel(layerId: string) {
     this.closeStylePanel();
     if (!layerId) return;
     const panel = this.renderStylePanel(layerId);
     if (!panel) return;
+    // The click that opened the panel still has to bubble out to the
+    // document handler, which would otherwise read the panel as "outside
+    // click" and close it immediately. Arm the guard so that one click is
+    // ignored; the next click outside really does dismiss.
+    this.stylePanelJustOpened = true;
 
     // Mount on the control root (parent of this.uiContainer) so the panel is
     // not clipped by the panel-content's overflow-y.
     const root = this.uiContainer.closest(".foliplus-layer-ctrl") ?? this.uiContainer;
     root.appendChild(panel);
 
+    this.positionStylePanel(panel, layerId);
+
+    // The panel is anchored to a row, so a scroll/resize that moves that row
+    // would leave the panel floating in the wrong place. Dismiss instead of
+    // repositioning: the panel is short-lived and reopening is one click.
+    const scrollEl = this.uiContainer.closest(".foliplus-panel-content") ?? root;
+    this.onStylePanelShift = () => this.closeStylePanel();
+    scrollEl.addEventListener("scroll", this.onStylePanelShift, { passive: true });
+    window.addEventListener("resize", this.onStylePanelShift);
+
     this.stylePanelLayerId = layerId;
     panel.focus?.();
+  }
+
+  /** Anchor the panel just below the layer row that opened it, aligned to the
+   *  control's right edge, flipping upward when it would overflow the viewport
+   *  bottom. CSS defaults cover the no-row fallback. */
+  private positionStylePanel(panel: HTMLElement, layerId: string): void {
+    const root = panel.parentElement;
+    const item =
+      this.uiContainer.querySelector<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-id="${CSS.escape(layerId)}"]`,
+      ) ?? null;
+    if (!root || !item) return;
+
+    const panelRect = panel.getBoundingClientRect();
+    // Anchor to the row, not the ⋮ button inside it: the button is vertically
+    // centred, so its bottom would leave the panel floating above the row's
+    // lower edge. The row is the visual unit the panel follows.
+    const anchor = item.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const gap = 6;
+    const margin = 8;
+
+    // Right edge of the control minus the panel width: same horizontal place
+    // the CSS default gives (panel width ≈ control width), but computed so it
+    // survives a row at the very top or bottom of the list.
+    panel.style.left = `${rootRect.right - panelRect.width - margin}px`;
+
+    let top = anchor.bottom + gap - rootRect.top;
+    if (top + panelRect.height > window.innerHeight - margin - rootRect.top) {
+      top = anchor.top - panelRect.height - gap - rootRect.top;
+    }
+    panel.style.top = `${top}px`;
   }
 
   /** Close the open style panel. */
   closeStylePanel() {
     if (this.stylePanelLayerId) this.fieldCache.delete(this.stylePanelLayerId);
     this.stylePanelLayerId = null;
+    if (this.onStylePanelShift) {
+      const scrollEl = this.uiContainer.closest(".foliplus-panel-content");
+      scrollEl?.removeEventListener("scroll", this.onStylePanelShift);
+      window.removeEventListener("resize", this.onStylePanelShift);
+      this.onStylePanelShift = null;
+    }
     const panel = document.querySelector(CONST.SEL.STYLE_PANEL);
     panel?.remove();
   }
@@ -1656,6 +1718,12 @@ class LayerUI {
   handleStylePanelClick(event: Event) {
     const panel = document.querySelector(CONST.SEL.STYLE_PANEL);
     if (!panel) return;
+    // The click that opened the panel bubbles here too; let that one through
+    // unaltered so the panel survives its own opening event.
+    if (this.stylePanelJustOpened) {
+      this.stylePanelJustOpened = false;
+      return;
+    }
     // Click outside the panel → close (the more-menu already closed itself).
     if (!panel.contains(event.target as Node)) {
       this.closeStylePanel();

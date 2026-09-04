@@ -701,7 +701,7 @@ path.foliplus-focus-mask {
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   --style-panel-width: 240px;
-  .foliplus-style-panel {
+  .foliplus-layer-style-panel {
     position: absolute;
     display: none;
     width: var(--style-panel-width);
@@ -736,7 +736,7 @@ path.foliplus-focus-mask {
   }
   /* Only render the panel when the list is expanded (the parent control
      root is `.expanded` when the layer panel is open). */
-  &.expanded .foliplus-style-panel {
+  &.expanded .foliplus-layer-style-panel {
     display: flex;
   }
 
