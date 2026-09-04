@@ -17,7 +17,7 @@ import { PreviewMode } from "./base.js";
 const T = createScopedTranslator(CONF);
 
 interface CirclePreviews {
-  center: L.Marker | null;
+  center: L.CircleMarker | null;
   circle: L.Circle | null;
   line: L.Polyline | null;
   node: L.CircleMarker | null;
@@ -298,7 +298,7 @@ class CircleMode extends PreviewMode {
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
         radiusNode: radiusNode as L.CircleMarker,
-        centerFinal: centerFinal as L.Marker,
+        centerFinal: centerFinal as L.CircleMarker,
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
