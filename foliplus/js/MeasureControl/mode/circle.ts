@@ -83,10 +83,7 @@ class CircleMode extends PreviewMode {
       centerFinal,
       delMarker,
       radiusLabel,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      onDelete: () => manager.store.remove(data.id!),
       onEnd: () => {
         const center = circle.getLatLng();
         const target = radiusNode!.getLatLng();
@@ -95,7 +92,7 @@ class CircleMode extends PreviewMode {
         data.target = { lng: target.lng, lat: target.lat };
         data.radius = r;
         data.area = Math.PI * r * r;
-        manager.saveMeasurements();
+        manager.store.persist();
       },
     });
   }
@@ -283,7 +280,7 @@ class CircleMode extends PreviewMode {
       );
 
       const circleId = this.nextMeasurementId();
-      this.m.measurements.push({
+      this.m.store.add({
         id: circleId,
         type: this.type,
         center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
@@ -291,7 +288,6 @@ class CircleMode extends PreviewMode {
         radius: r,
         area: Math.PI * r * r,
       });
-      this.m.saveMeasurements();
 
       attachCircleUI(this.m, {
         layers: this.layers,
@@ -302,11 +298,10 @@ class CircleMode extends PreviewMode {
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
-          this.m.saveMeasurements();
+          this.m.store.remove(circleId);
         },
         onEnd: () => {
-          const m = this.m.measurements.find(x => x.id === circleId);
+          const m = this.m.store.all().find(x => x.id === circleId);
           if (!m) return;
           const c = circle as L.Circle;
           const n = radiusNode as L.CircleMarker;
@@ -317,7 +312,7 @@ class CircleMode extends PreviewMode {
           m.target = { lng: target.lng, lat: target.lat };
           m.radius = r;
           m.area = Math.PI * r * r;
-          this.m.saveMeasurements();
+          this.m.store.persist();
         },
       });
     };

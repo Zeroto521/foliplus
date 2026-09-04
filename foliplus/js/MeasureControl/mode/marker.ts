@@ -49,11 +49,14 @@ class MarkerMode extends MeasureMode {
         measurement.lng = Util.roundCoord(latlng.lng);
         measurement.lat = Util.roundCoord(latlng.lat);
         // Throttle persists: live-update the coords but batch the write so
-        // each mousemove doesn't do its own localStorage round-trip.
+        // each mousemove doesn't do its own localStorage round-trip. The
+        // measurement object is the store's backing entry (passed by ref),
+        // so a direct mutation + persist() is cheaper than store.update()
+        // (which would re-find + re-assign the same fields).
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           rafId = null;
-          manager.saveMeasurements();
+          manager.store.persist();
         });
       },
       onEnd: async (latlng: L.LatLng) => {
@@ -75,7 +78,7 @@ class MarkerMode extends MeasureMode {
         );
         if (gen !== generation) return; // a newer drag superseded us
         measurement.address = addr;
-        manager.saveMeasurements();
+        manager.store.persist();
         if (marker.getPopup()?.isOpen())
           marker.setPopupContent(
             Util.buildPopup(measurement.lng!, measurement.lat!, addr),
@@ -140,8 +143,7 @@ class MarkerMode extends MeasureMode {
         // A marker restored with address:null (e.g. geocode was still in
         // flight when the page was reloaded) resolves its address here and
         // persists it so the next reload shows the address immediately.
-        data.address = addr;
-        manager.saveMeasurements();
+        manager.store.update(data.id!, { address: addr });
       },
       false, // do not auto-open popup on restore
     );
@@ -157,8 +159,9 @@ class MarkerMode extends MeasureMode {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
     });
 
-    // Pass `data` by reference so drag mutations persist to the manager's
-    // measurements (a copy would be discarded by saveMeasurements()).
+    // Pass `data` by reference so drag mutations land on the store's backing
+    // entry — bindPinDrag mutates the object directly then calls persist()
+    // (a copy would leave the store stale until the next full reload).
     const cleanupPin = MarkerMode.bindPinDrag(
       manager,
       marker as L.Marker,
@@ -172,8 +175,7 @@ class MarkerMode extends MeasureMode {
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       manager.layers.removeLayer(marker);
       manager.layers.removeLayer(delMarker);
-      manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-      manager.saveMeasurements();
+      manager.store.remove(data.id!);
       manager.layers.unregister();
     };
     attachDelClick(delMarker, deleteMeasurement);
@@ -207,8 +209,7 @@ class MarkerMode extends MeasureMode {
       lat: latNum,
       address: null,
     };
-    this.m.measurements.push(measurement);
-    this.m.saveMeasurements();
+    this.m.store.add(measurement);
 
     // createLocationMarker resolves the address async (popup + onAddress
     // callback) — no separate geocode call here to avoid a duplicate request.
@@ -226,8 +227,7 @@ class MarkerMode extends MeasureMode {
       null,
       this.layers.mainLayer,
       addr => {
-        measurement.address = addr;
-        this.m.saveMeasurements();
+        this.m.store.update(markerId, { address: addr });
       },
     );
 
@@ -253,8 +253,7 @@ class MarkerMode extends MeasureMode {
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       this.layers.removeLayer(marker);
       this.layers.removeLayer(delMarker);
-      this.m.measurements = this.m.measurements.filter(x => x.id !== markerId);
-      this.m.saveMeasurements();
+      this.m.store.remove(markerId);
       this.layers.unregister();
     };
     attachDelClick(delMarker, deleteMeasurement);

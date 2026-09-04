@@ -3,21 +3,20 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { CircleMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
-// Capture attachCircleUI's opts so restore/finishCircle's onEnd callback can
-// be exercised directly (these are the lines codecov flags as missing).
+// Capture attachCircleUI's opts so the start/restore callbacks
+// (onDelete, onUpdate, onEnd) can be exercised directly.
 const { attachCircleUIMock } = vi.hoisted(() => ({
   attachCircleUIMock: vi.fn((mgr: unknown, opts: unknown) => {
     capturedCircleOpts = opts;
     // Simulate the real attachCircleUI, which self-registers its dispose via
     // registerFinalized (delete and clearAll both run it).
     const cleanup = () => {};
-    (mgr as { registerFinalized?: (c: () => void) => void }).registerFinalized?.(
+    (mgr as { registerFinalized?: (c: () => void) => () => void }).registerFinalized?.(
       cleanup,
     );
     return cleanup;
   }),
 }));
-
 let capturedCircleOpts: any = null;
 
 vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
@@ -160,7 +159,15 @@ describe("CircleMode — start drawing flow", () => {
 
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.add).toHaveBeenCalled();
+
+      // Exercise the start-path onDelete captured by attachCircleUI so the
+      // store.remove line is covered.
+      expect(capturedCircleOpts).toBeDefined();
+      const circleId = manager.measurements[0].id;
+      manager.store.remove.mockClear();
+      capturedCircleOpts.onDelete();
+      expect(manager.store.remove).toHaveBeenCalledWith(circleId);
     } finally {
       vi.useRealTimers();
     }
@@ -221,7 +228,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     expect(data.target).toEqual({ lng: 121, lat: 32 });
     expect(data.radius).toBe(8000);
     expect(data.area).toBe(Math.PI * 8000 * 8000);
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.persist).toHaveBeenCalled();
   });
 
   it("finishCircle: onEnd syncs the just-saved measurement's fields", () => {
@@ -257,7 +264,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       expect(saved.radius).toBe(12000);
       expect(saved.area).toBe(Math.PI * 12000 * 12000);
       expect(saved.target).toEqual({ lng: 123, lat: 31 });
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

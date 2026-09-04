@@ -138,18 +138,20 @@ describe("DistanceMode — restore registers overlay cleanup", () => {
 
     expect(capturedDistanceOpts).toBeDefined();
 
-    // onDelete removes the measurement and persists.
-    capturedDistanceOpts.onDelete();
-    expect(manager.measurements.length).toBe(0);
-    expect(manager.saveMeasurements).toHaveBeenCalled();
-
     // onUpdate recomputes segments/totalDistance and persists back to `data`.
-    manager.saveMeasurements.mockClear();
+    // (Run before onDelete so the measurement is still in the store — onUpdate
+    // looks it up by id via store.update.)
     capturedDistanceOpts.onUpdate();
     expect(data.segments!.length).toBeGreaterThan(0);
     expect(data.totalDistance).toBeGreaterThan(0);
     expect(data.points).toHaveLength(2);
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.update).toHaveBeenCalled();
+
+    // onDelete removes the measurement and persists.
+    manager.store.remove.mockClear();
+    capturedDistanceOpts.onDelete();
+    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.remove).toHaveBeenCalled();
   });
 });
 
@@ -292,13 +294,25 @@ describe("DistanceMode — finish saves measurement", () => {
     // double-click finishes
     dblHandler({ latlng: { lat: 32, lng: 122 } });
 
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.add).toHaveBeenCalled();
     const saved = manager.measurements[0] as MeasureData;
     expect(saved.type).toBe("distance");
     expect(saved.points).toHaveLength(3);
     expect(saved.totalDistance).toBeGreaterThan(0);
     expect(saved.segments).toBeDefined();
     expect(saved.segments![0].bearing).toBeDefined();
+
+    // The start path's attachDistanceUI also captured onDelete/onUpdate
+    // callbacks (the restore-path variants are covered above). Exercise the
+    // start-path callbacks so the store.update/remove lines are covered.
+    expect(capturedDistanceOpts).toBeDefined();
+    manager.store.update.mockClear();
+    capturedDistanceOpts.onUpdate();
+    expect(manager.store.update).toHaveBeenCalledWith(saved.id, expect.anything());
+    manager.store.remove.mockClear();
+    capturedDistanceOpts.onDelete();
+    expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
+    expect(manager.measurements.length).toBe(0);
   });
 
   it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {

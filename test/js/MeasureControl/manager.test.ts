@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
 // blocked-path in setMode() without affecting the real ensureModes/ModeManager
@@ -115,18 +114,30 @@ describe("MeasureManager — persistence", () => {
     expect(opts.featureCountProvider()).toBe(0);
   });
 
+  it("restoreMeasurements stabilizes persisted measurements missing an id", () => {
+    const { manager } = makeManager();
+    // Seed localStorage with a legacy measurement that predates the id field.
+    // restoreMeasurements must assign one before rebuilding so later
+    // onUpdate/onDelete paths (which match by id) resolve correctly.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify([{ type: "marker", lng: 121, lat: 31 }]),
+    );
+    manager.restoreMeasurements();
+    const m = manager.measurements[0];
+    expect(m.id).toBeDefined();
+    expect(typeof m.id).toBe("string");
+    // The stabilized id is persisted back to localStorage.
+    const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    expect(persisted[0].id).toBe(m.id);
+  });
+
   it("saveMeasurements persists to storage", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
     const spy = vi.spyOn(manager, "saveMeasurements");
     manager.saveMeasurements();
     expect(spy).toHaveBeenCalled();
-  });
-
-  it("loadMeasurements returns empty array when no data", () => {
-    const { manager } = makeManager();
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
   });
 });
 
@@ -408,15 +419,6 @@ describe("MeasureManager — lifecycle", () => {
 });
 
 describe("MeasureManager — persistence edge cases", () => {
-  it("loadMeasurements falls back to [] on corrupted JSON", () => {
-    const { manager } = makeManager();
-    const spy = vi.spyOn(Storage, "load").mockReturnValue({ not: "array" });
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
-    spy.mockRestore();
-  });
-
   it("clearAll collapses expanded panel when ctrl exists", () => {
     const { manager } = makeManager();
     const ctrl = document.createElement("div");
