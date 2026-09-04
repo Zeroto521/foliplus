@@ -16,7 +16,7 @@
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165), [#188](https://github.com/Zeroto521/foliplus/pull/188))
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
 - `LayerControl`: focus-layer overflow menu — zoom the map to a layer's extent ([#194](https://github.com/Zeroto521/foliplus/pull/194))
-- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196))
+- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235))
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227))
@@ -50,6 +50,7 @@
 
 ### Fixed
 
+- `MeasureControl`: polygon centroid area label washed out after zoom-out; `zIndexOffset` fix caused it to cover other labels. Route centroid dot to `measure_graph` pane (like node markers) so pane ordering keeps the area label above it. Add a modest `zIndexOffset` to the area label so `sortLayers` (which re-sorts by Y on zoom) doesn't push a lower-Y segment label over it ([#230](https://github.com/Zeroto521/foliplus/pull/230))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
@@ -320,6 +321,36 @@ describe("attachPolygonUI", () => {
       ([opts]) => opts?.className === "foliplus-measure-center-dot",
     );
     expect(dotIcons.length).toBe(1);
+  });
+
+  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+    const mgr = makeMgr();
+    const opts = makeOpts();
+    const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
+    opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
+      addLayerCalls.push({ layer, isLabel: !!isLabel });
+      return layer;
+    });
+    UI.attachPolygonUI(mgr as any, opts as any);
+
+    // rebuildCentroid() builds markers in order: [0]=centroidDot,
+    // [1]=centroidLabel, [2]=centroidDelMarker. The dot goes to the graph
+    // pane (no isLabel flag, no zIndexOffset) — same as node markers. The
+    // label is isLabel so it lands in the label pane, which always paints
+    // above the graph pane, guaranteeing the label covers the dot. The label
+    // also carries a modest zIndexOffset so sortLayers (which re-sorts by Y
+    // on zoom) doesn't push a lower-Y segment label above the area label.
+    const dotOpts = (window.L.marker as any).mock.calls[0][1];
+    const labelOpts = (window.L.marker as any).mock.calls[1][1];
+    // Dot: no zIndexOffset, routed to graph pane (isLabel=false).
+    expect(dotOpts.zIndexOffset).toBeUndefined();
+    expect(addLayerCalls[0].isLabel).toBe(false);
+    // Label: isLabel=true → label pane, has modest zIndexOffset.
+    expect(addLayerCalls[1].isLabel).toBe(true);
+    expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
+    expect(labelOpts.interactive).toBe(false);
+    // Del icon: no isLabel flag → graph pane.
+    expect(makeDelIcon).toHaveBeenCalled();
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {

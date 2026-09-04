@@ -93,6 +93,16 @@ class CircleMode extends PreviewMode {
       delMarker,
       radiusLabel,
       onDelete: () => manager.store.remove(data.id!),
+      onEnd: () => {
+        const center = circle.getLatLng();
+        const target = radiusNode!.getLatLng();
+        const r = circle.getRadius();
+        data.center = { lng: center.lng, lat: center.lat };
+        data.target = { lng: target.lng, lat: target.lat };
+        data.radius = r;
+        data.area = Math.PI * r * r;
+        manager.store.persist();
+      },
     });
   }
 
@@ -316,6 +326,20 @@ class CircleMode extends PreviewMode {
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
           this.m.store.remove(circleId);
+        },
+        onEnd: () => {
+          const m = this.m.measurements.find(x => x.id === circleId);
+          if (!m) return;
+          const c = circle as L.Circle;
+          const n = radiusNode as L.CircleMarker;
+          const center = c.getLatLng();
+          const target = n.getLatLng();
+          const r = c.getRadius();
+          m.center = { lng: center.lng, lat: center.lat };
+          m.target = { lng: target.lng, lat: target.lat };
+          m.radius = r;
+          m.area = Math.PI * r * r;
+          this.m.saveMeasurements();
         },
       });
     };

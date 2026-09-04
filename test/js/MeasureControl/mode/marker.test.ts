@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
+import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
@@ -622,7 +623,7 @@ describe("MarkerMode — pin edit overlay (✕)", () => {
 
   it("ignores the synthetic click that follows a drag", () => {
     const { pin, icon } = restoreWithIcon(true);
-    (window as any).__foliplus_measure_drag_click = true;
+    markDragSyntheticClick();
     const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(false);
