@@ -4,12 +4,32 @@
 // lifecycle (isEditMode toggle, ModeManager lock, Escape priority) lives in
 // MeasureManager and can't be cleanly delegated to a separate controller.
 
-import * as CONST from "./const.js";
+/** Input the overlay expects from its host — a subset of MeasureManager. */
+interface EditOverlayHost {
+  isEditMode: boolean;
+  map: L.Map;
+  registerEditOverlayCloser?: (close: () => void) => () => void;
+  closeOtherEditOverlays?: (except: () => void) => void;
+}
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-// Kept in scope to preserve the IIFE contract even though this module has no
-// locale keys of its own yet.
-void CONST;
+/** Per-node drag options wired by bindNodeDrag. */
+interface NodeDragHandlers {
+  onDrag?: (latlng: L.LatLng) => void;
+  onEnd?: (latlng: L.LatLng) => void;
+}
+
+/** Per-node drag handle returned by bindNodeDrag. */
+interface NodeDragHandle {
+  setEnabled: (enabled: boolean) => void;
+  cleanup: () => void;
+}
+
+/** Public surface of the shared ✕ overlay returned by buildEditOverlay. */
+interface EditOverlay {
+  open: (ev: L.LeafletMouseEvent) => void;
+  close: () => void;
+  cleanup: () => void;
+}
 
 /** Minimum container-point movement (px) to count as a drag rather than a tap. */
 const DRAG_THRESHOLD = 4;
@@ -22,24 +42,15 @@ const DRAG_THRESHOLD = 4;
  * only empty-space clicks reach here).
  */
 const buildEditOverlay = (
-  mgr: {
-    isEditMode: boolean;
-    map: L.Map;
-    registerEditOverlayCloser?: (close: () => void) => () => void;
-    closeOtherEditOverlays?: (except: () => void) => void;
-  },
+  host: EditOverlayHost,
   opts: { onOpen: () => void; onEmpty?: () => void },
-): {
-  open: (ev: L.LeafletMouseEvent) => void;
-  close: () => void;
-  cleanup: () => void;
-} => {
-  let open = false;
+): EditOverlay => {
+  let isOpen = false;
   const { onOpen, onEmpty } = opts;
 
   const close = () => {
-    if (!open) return;
-    open = false;
+    if (!isOpen) return;
+    isOpen = false;
     onEmpty?.();
   };
 
@@ -47,28 +58,28 @@ const buildEditOverlay = (
     if (isDragSyntheticClick()) return;
     close();
   };
-  mgr.map.on("click", onMapClick);
-  const unregister = mgr.registerEditOverlayCloser?.(close);
+  host.map.on("click", onMapClick);
+  const unregister = host.registerEditOverlayCloser?.(close);
 
-  const openOverlay = (ev: L.LeafletMouseEvent) => {
-    if (!mgr.isEditMode) return;
-    if (open) return;
+  const open = (ev: L.LeafletMouseEvent) => {
+    if (!host.isEditMode) return;
+    if (isOpen) return;
     if (isDragSyntheticClick()) return;
     // Only one measurement shows ✕ at a time: close any other open overlay.
-    mgr.closeOtherEditOverlays?.(close);
+    host.closeOtherEditOverlays?.(close);
     // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.
     L.DomEvent.stopPropagation(ev);
-    open = true;
+    isOpen = true;
     onOpen();
   };
 
   return {
-    open: openOverlay,
+    open,
     close,
     cleanup: () => {
-      mgr.map.off("click", onMapClick);
+      host.map.off("click", onMapClick);
       unregister?.();
     },
   };
@@ -87,11 +98,8 @@ const bindNodeDrag = (
   node: L.Layer,
   delMarker: L.Layer | null,
   map: L.Map,
-  handlers: {
-    onDrag?: (latlng: L.LatLng) => void;
-    onEnd?: (latlng: L.LatLng) => void;
-  },
-): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
+  handlers: NodeDragHandlers,
+): NodeDragHandle => {
   let enabled = false;
   let dragging = false;
   let moved = false;
@@ -181,4 +189,13 @@ const isDragSyntheticClick = (): boolean => {
   return v;
 };
 
-export { bindNodeDrag, buildEditOverlay, isDragSyntheticClick, markDragSyntheticClick };
+export {
+  bindNodeDrag,
+  buildEditOverlay,
+  isDragSyntheticClick,
+  markDragSyntheticClick,
+  type EditOverlay,
+  type EditOverlayHost,
+  type NodeDragHandle,
+  type NodeDragHandlers,
+};
