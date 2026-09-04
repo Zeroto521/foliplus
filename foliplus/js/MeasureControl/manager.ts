@@ -365,13 +365,6 @@ class MeasureManager {
     };
   };
 
-  /** Chip lookup shared by every plan: the label div inside the marker's
-   *  icon element, or null when the marker is not on the map. */
-  private chipOf = (marker: L.Marker): HTMLElement | null => {
-    const icon = marker.getElement() as HTMLElement | null;
-    return (icon?.querySelector(CONST.SEL.LABEL) as HTMLElement | null) ?? null;
-  };
-
   /** Defer a collision re-plan to the next frame so a burst of label updates
    *  (a drag move, a node delete, a map move) runs one planner pass, not one
    *  per update. */
@@ -412,7 +405,7 @@ class MeasureManager {
       this.collidableLabels,
       mapProjector(this.map),
       this.labelsCollide,
-      this.chipOf,
+      Util.labelChipOf,
     );
   }
 
