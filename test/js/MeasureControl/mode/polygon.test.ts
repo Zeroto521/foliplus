@@ -307,7 +307,10 @@ describe("PolygonMode — restore", () => {
     capturedPolygonOpts.onUpdate();
     expect(manager.store.update).toHaveBeenCalledWith(
       data.id,
-      expect.objectContaining({ area: expect.any(Number), segments: expect.any(Array) }),
+      expect.objectContaining({
+        area: expect.any(Number),
+        segments: expect.any(Array),
+      }),
     );
 
     // onDelete removes the measurement and persists.
