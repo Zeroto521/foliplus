@@ -219,7 +219,7 @@ interface CircleAttachOpts {
   circle: L.Circle;
   radiusLine: L.Polyline | null;
   radiusNode: L.CircleMarker | null;
-  centerFinal: L.Marker;
+  centerFinal: L.CircleMarker;
   delMarker: L.Marker;
   radiusLabel: L.Marker | null;
   onDelete: () => void;
@@ -362,7 +362,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
-  let centroidDot: L.Marker | null = null;
+  let centroidDot: L.CircleMarker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDelMarker: L.Marker | null = null;
 
@@ -414,33 +414,17 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot is a div-icon marker in the graph pane. It needs a
-    // zIndexOffset (CENTER_DOT.Z_OFFSET) to stay above the fill's SVG
-    // renderer container (z = pane z ≈ 600–700) — without it, the dot's
-    // z = screen Y falls below the SVG and the fill paints over the dot.
-    // The offset (1000) keeps the dot below the label pane (z = graph+1)
-    // and the label (offset 2000) and del icon (11000).
+    // The centroid dot is a CircleMarker (SVG path) in the graph pane —
+    // same approach as the circle center. Both share the SVG renderer with
+    // the fill, so no zIndexOffset is needed; DOM order within the SVG
+    // guarantees the dot paints above the fill.
     // The centroid label is isLabel → label pane, which paints above the
     // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
     // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
     // above its own segment labels.
     centroidDot = layers.addLayer(
-      L.marker(centroid, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        // The centroid dot shares the graph pane with the fill's SVG
-        // renderer. Without an offset its z = screen Y, which can fall
-        // below the SVG container (z = pane z ≈ 600–700), letting the
-        // fill paint over the dot. This lifts it above the SVG while
-        // staying below the label (offset 2000) and del icon (11000).
-        zIndexOffset: CONST.CENTER_DOT.Z_OFFSET,
-        interactive: true,
-      }),
-    ) as L.Marker;
+      Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+    ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
         icon: Util.makeLabelDivIcon(

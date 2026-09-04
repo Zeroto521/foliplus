@@ -53,23 +53,6 @@ describe("PANES", () => {
   });
 });
 
-describe("CENTER_DOT", () => {
-  it("defines the center dot marker config", () => {
-    expect(CONST.CENTER_DOT.SIZE).toEqual([12, 12]);
-    expect(CONST.CENTER_DOT.ANCHOR).toEqual([6, 6]);
-    expect(CONST.CENTER_DOT.CLASS).toBe("foliplus-measure-center-dot");
-  });
-
-  it("zIndexOffset lifts the dot above the SVG renderer but below the label", () => {
-    // The centroid dot (div-icon in measure_graph) needs a zIndexOffset to
-    // clear the fill's SVG renderer container (z = pane z ≈ 600–700). It must
-    // stay below the centroid label (LABEL.CENTROID_Z_OFFSET = 2000) and the
-    // del icon (11000) so the label still paints above the dot.
-    expect(CONST.CENTER_DOT.Z_OFFSET).toBeGreaterThan(700);
-    expect(CONST.CENTER_DOT.Z_OFFSET).toBeLessThan(CONST.LABEL.CENTROID_Z_OFFSET);
-  });
-});
-
 describe("LABEL anchors", () => {
   const cy = CONST.LABEL.CENTROID_ANCHOR[1];
 
@@ -78,14 +61,15 @@ describe("LABEL anchors", () => {
   });
 
   it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
-    // The centroid label (isLabel → measure_label pane) and the 12×12 center
-    // dot (measure_graph pane) share a latlng. The label pane's z is
-    // graph + 1, so the label always paints above the dot by pane ordering.
-    // The [0, -10] anchor lifts the chip above the dot's centered position,
-    // so the dot stays visible underneath as the edit-mode drag target.
-    // A positive-y anchor was the wrong fix: it pushed the label *down* past
-    // the dot into the fill, where a zoom-out animation reparents the
-    // marker-icon to z = Y and the label washes out through backdrop-filter.
+    // The centroid label (isLabel → measure_label pane) and the center dot
+    // (CircleMarker in measure_graph pane) share a latlng. The label pane's
+    // z is graph + 1, so the label always paints above the dot by pane
+    // ordering. The [0, -10] anchor lifts the chip above the dot's centered
+    // position, so the dot stays visible underneath as the edit-mode drag
+    // target. A positive-y anchor was the wrong fix: it pushed the label
+    // *down* past the dot into the fill, where a zoom-out animation
+    // reparents the marker-icon to z = Y and the label washes out through
+    // backdrop-filter.
     expect(cy).toBeLessThan(0);
   });
 

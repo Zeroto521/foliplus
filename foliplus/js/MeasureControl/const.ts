@@ -1,8 +1,4 @@
-import {
-  DEL_ICON_CHAR,
-  DEL_ICON_SELECTOR,
-  DEL_ICON_Z_OFFSET,
-} from "#common/delicon.js";
+import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#common/delicon.js";
 
 /** Timing / delay constants. */
 export const TIMING = {
@@ -13,29 +9,16 @@ export const TIMING = {
 /** Measure node marker. */
 export const MARKER = { RADIUS: 5 };
 
-/** Center dot marker. */
-export const CENTER_DOT = {
-  SIZE: [12, 12],
-  ANCHOR: [6, 6],
-  CLASS: "foliplus-measure-center-dot",
-  // The centroid dot is a div-icon marker in the graph pane, sharing the pane
-  // with the fill path's SVG renderer. The SVG container's z is the pane z
-  // (≈ 600–700); without an offset the dot's z = screen Y, which can fall
-  // below the SVG, so the fill paints over the dot. This offset lifts the
-  // dot above the SVG container while keeping it below the centroid label
-  // (CENTROID_Z_OFFSET = 2000) and the del icon (11000).
-  Z_OFFSET: 1000,
-};
-
 /** Label markers. */
 export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. The
-  // dot goes to measure_graph with a zIndexOffset (CENTER_DOT.Z_OFFSET) to
-  // stay above the fill's SVG renderer. The label is isLabel (measure_label,
-  // z = graph + 1), so it always paints above the dot by pane ordering.
+  // The centroid label shares the same latlng as the center dot. The dot is
+  // a CircleMarker (SVG path) in measure_graph, so it shares the SVG renderer
+  // with the fill and needs no zIndexOffset — DOM order guarantees paint
+  // order. The label is isLabel (measure_label, z = graph + 1), so it always
+  // paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
   // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
@@ -57,9 +40,6 @@ export const FORMAT = {
   KM_THRESHOLD: 1000,
   KM_DECIMALS: 1,
 };
-
-/** Z-index. */
-export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 
 /** IDs and pane names. */
 export const ID = "foliplus_measure";

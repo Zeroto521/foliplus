@@ -56,17 +56,8 @@ class CircleMode extends PreviewMode {
       Util.makeNode(targetLatLng),
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
-      L.marker(centerLatLng, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }),
-    ) as L.Marker;
+      Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+    ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
     ) as L.Marker;
@@ -147,16 +138,7 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          L.marker(center, {
-            icon: L.divIcon({
-              className: CONST.CENTER_DOT.CLASS,
-              html: "",
-              iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-              iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-            }),
-            zIndexOffset: CONST.Z_INDEX.OFFSET,
-            interactive: false,
-          }),
+          Util.makeNode(center, CONST.CLASSES.NODE_SOLID),
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -280,16 +262,7 @@ class CircleMode extends PreviewMode {
       const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
 
       const centerFinal = this.layers.addLayer(
-        L.marker(centerLatLng, {
-          icon: L.divIcon({
-            className: CONST.CENTER_DOT.CLASS,
-            html: "",
-            iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-            iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-          }),
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          interactive: true,
-        }),
+        Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       );
 
       const delMarker = this.layers.addLayer(
