@@ -190,11 +190,9 @@ describe("CircleMode — restore wiring", () => {
 
 describe("CircleMode — drag persistence (onEnd)", () => {
   /** Get the nth L.circle mock instance (1-indexed). */
-  const circleInstance = (i: number) =>
-    window.L.circle.mock.results[i - 1].value;
+  const circleInstance = (i: number) => window.L.circle.mock.results[i - 1].value;
   /** Get the nth L.circleMarker mock instance (1-indexed). */
-  const nodeInstance = (i: number) =>
-    window.L.circleMarker.mock.results[i - 1].value;
+  const nodeInstance = (i: number) => window.L.circleMarker.mock.results[i - 1].value;
 
   it("restore: onEnd syncs center/target/radius/area back to the store", () => {
     const manager = makeManagerMock() as any;
