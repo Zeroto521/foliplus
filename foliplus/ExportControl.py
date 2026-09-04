@@ -15,7 +15,7 @@ class ExportControl(BaseControl):
 
     Shortcuts
     ---------
-    Focus a layer row by clicking it, then use:
+    Focus the map, then use:
 
     .. list-table::
        :header-rows: 1
@@ -26,10 +26,19 @@ class ExportControl(BaseControl):
          - Lock the current crop area, then begin export
        * - Escape
          - Unlock or dismiss the crop box
+       * - R
+         - Reset the crop box to the default centered size
+       * - Arrow keys
+         - Nudge the crop box by a fixed pixel step
        * - Mouse drag (crop box edge)
          - Resize the crop box
        * - Mouse drag (inside crop box)
          - Move the crop box
+
+    The keyboard shortcuts require the map container to have focus — click the
+    map before using them. While the crop box is unlocked, the arrow keys nudge
+    the box instead of panning the map (Leaflet's own arrow-key pan is
+    suspended for the duration of the edit).
 
     Parameters
     ----------

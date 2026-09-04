@@ -13,24 +13,14 @@
     height: var(--ctrl-size);
   }
 
-  /* ── Input Field ── */
-  input {
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
+  /* ── Input Field ──
+     Visual chrome comes from the shared .foliplus-input base (common.css);
+     only padding/size live here — the right padding reserves space for the
+     clear (✕) button, whose width is --ctrl-size. */
+  .foliplus-input {
     padding: 0 calc(var(--ctrl-size) - var(--space-xs)) 0 var(--space-md);
     width: 100%;
     height: 100%;
-    font-size: var(--font-size-md);
-    color: var(--text-primary);
-    outline: none;
-    background: var(--input-bg);
-    box-sizing: border-box;
-    box-shadow: none;
-    transition: var(--transition-input);
-
-    &::placeholder {
-      color: var(--text-muted);
-    }
   }
 }
 

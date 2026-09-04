@@ -7,7 +7,6 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import * as Storage from "#common/storage.js";
 import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
@@ -18,6 +17,7 @@ import {
   registerInteractions,
 } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import { MeasureStore } from "./store.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -51,13 +51,15 @@ class MeasureManager {
   finalizedClickHandlers: Array<() => void>;
   /** Next measurement id counter; increments per session so persisted ids are
    *   unique even when two measurements are created in the same millisecond. */
-  private measurementIdCounter: number;
+  private measurementIdCounter = 0;
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
    *   hides any open ✕ handles. */
   private editOverlayClosers: Array<() => void> = [];
   /** Toggles for each measurement's node drag binds, so entering/leaving edit
    *   mode enables/disables dragging directly (no click-first required). */
   private editDragToggles: Array<(enabled: boolean) => void> = [];
+  /** Central store for measurement data + persistence + count emission. */
+  readonly store: MeasureStore;
   /** Every rendered label chip, so collision detection plans all measurements
    *   together instead of one measurement at a time. */
   private collidableLabels: CollidableLabel[] = [];
@@ -65,7 +67,6 @@ class MeasureManager {
   private labelPlanFrame: number | null = null;
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
-  measurements: MeasureData[];
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
@@ -96,13 +97,14 @@ class MeasureManager {
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
     this.layerId = generateId(CONST.ID, opts?.id);
+    this.store = new MeasureStore(this.map, this.layerId);
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
       graphPane: CONST.PANES.GRAPH,
       labelPane: CONST.PANES.LABEL,
       iconSvg: SVGs.RULER,
-      featureCountProvider: () => this.measurements.length,
+      featureCountProvider: () => this.store.count(),
     });
     this.currentMode = null;
     this.modeInstance = null;
@@ -116,8 +118,6 @@ class MeasureManager {
     });
     this.toolBtns = [];
     this.finalizedClickHandlers = [];
-    this.measurements = [];
-    this.measurementIdCounter = 0;
     this.ctrl = null;
     this.isEditMode = false;
 
@@ -126,38 +126,53 @@ class MeasureManager {
     this.bindLayerRemoved();
   }
 
-  // ── Persistence ──
+  // ── Persistence (compatibility shell over MeasureStore) ──
+  // Browser tests and legacy call sites read `manager.measurements` /
+  // call `saveMeasurements()` directly; new code should use `manager.store`.
+
+  /** Live measurements array. Reads return the store's backing array; writes
+   *  hydrate the store in place (used by tests + legacy seed paths). Mutating
+   *  the returned array directly does NOT persist — use store.add/remove/update. */
+  get measurements(): MeasureData[] {
+    return this.store.all();
+  }
+  set measurements(data: MeasureData[]) {
+    this.store.hydrate(data);
+  }
 
   /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
-    Storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
-  }
-
-  /** Load measurements from localStorage.
-   *  @returns {Array} Restored measurements array. */
-  loadMeasurements() {
-    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
-    return Array.isArray(data) ? data : [];
+    this.store.persist();
   }
 
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
    * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
-    this.measurementIdCounter += 1;
-    return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
+    return this.store.nextId(type);
   }
 
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
-    this.measurements = this.loadMeasurements();
-    this.measurements.forEach(m => {
+    this.store.hydrate(this.store.load());
+    // Older persisted measurements may lack an `id`. Assign one before
+    // rebuild so later onUpdate / onDelete paths (which match by id) resolve
+    // to the right measurement and exports carry a stable id.
+    const loaded = this.store.all();
+    let stabilized = false;
+    for (const m of loaded) {
+      if (!m.id) {
+        m.id = this.store.nextId(m.type);
+        stabilized = true;
+      }
+    }
+    if (stabilized) this.store.persist();
+    loaded.forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
     // Notify LayerControl to refresh the count column now that the
     // persisted measurements are back, so the count is correct on page load
     // rather than only after the next user action.
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.store.emitCount();
   }
 
   /** Bind global map click, keydown, and unload events. */
@@ -210,7 +225,7 @@ class MeasureManager {
       if (this.currentMode) this.clearActiveMode();
       // Nothing to edit yet — keep out of edit mode and explain instead of
       // entering a dead state with no clickable measurements.
-      if (this.measurements.length === 0) {
+      if (this.store.count() === 0) {
         this.map.foliplus!.showHint(
           CONF.name,
           T("hint_edit_empty"),
@@ -456,8 +471,7 @@ class MeasureManager {
   /** Clear all measurements, layers, and persisted data. */
   clearAll() {
     this.layers.clearLayers();
-    this.measurements = [];
-    this.saveMeasurements();
+    this.store.clear();
     this.clearActiveMode();
     // Run each overlay's cleanup to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.

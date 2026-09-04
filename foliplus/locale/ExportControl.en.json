@@ -5,7 +5,7 @@
   "ExportControl.btn_confirm": "Confirm Area",
   "ExportControl.btn_export": "Export Map",
   "ExportControl.btn_cancel": "Cancel",
-  "ExportControl.hint_unlocked": "Drag to select export area — click ✓ to confirm",
+  "ExportControl.hint_unlocked": "Drag to select export area, arrow keys to nudge, R to reset, click ✓ to confirm",
   "ExportControl.hint_locked": "Use scroll wheel or +/- to zoom — click ↓ to export",
   "ExportControl.hint_restore": "Restored previous export area — click ✕ to reselect",
   "ExportControl.status_exporting": "Exporting map...",

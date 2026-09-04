@@ -588,6 +588,7 @@ describe("Export.handleExportClick", () => {
 
   const makeMgr = (measurements: MeasureData[] = [markerData]) => ({
     measurements,
+    store: { all: () => measurements },
     map: { foliplus: { showHint: vi.fn() } },
   });
 

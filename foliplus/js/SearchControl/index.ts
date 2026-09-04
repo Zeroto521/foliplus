@@ -11,7 +11,12 @@ import { CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
-import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
+import type {
+  AddressResult,
+  NominatimItem,
+  ResultItem,
+  SearchHistoryEntry,
+} from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
 const T = createScopedTranslator(CONF);
@@ -42,6 +47,7 @@ export class SearchControl extends BaseControl {
   declare lastSuggestFetch: number;
   declare throttleTimer: ReturnType<typeof setTimeout> | null;
   declare suggestSeq: number;
+  declare currentItems: ResultItem[];
 
   buildDOM() {
     this.createDOM();
@@ -91,6 +97,7 @@ export class SearchControl extends BaseControl {
     });
     const inp = dom.el("input", {
       type: "text",
+      class: "foliplus-input",
       placeholder: T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = createIconButton({
@@ -119,6 +126,7 @@ export class SearchControl extends BaseControl {
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;
+    this.currentItems = [];
 
     this.setMode(this.mode);
     this.modeBtn.onclick = (event: MouseEvent) => {

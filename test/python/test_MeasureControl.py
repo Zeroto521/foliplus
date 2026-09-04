@@ -418,7 +418,7 @@ class TestMeasureControlBrowser:
             assert state["x1"] is not None, "preview node not rendered"
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
-            assert moved, "circle preview node did not follow the mouse"
+            assert moved, f"circle preview node did not follow the mouse: {state}"
             assert not errors, f"JS errors: {errors}"
 
     # ── Persistence (browser) ──────────────────────────────────────
@@ -526,19 +526,17 @@ class TestMeasureControlBrowser:
     def test_marker_saved_before_geocode(self):
         """Marker measurement is persisted immediately, before geocode resolves."""
         html = render_control(MeasureControl())
-        # In the new-marker flow, saveMeasurements() must be called BEFORE
-        # createLocationMarker() (which triggers the async geocode), so a
-        # reload mid-lookup does not lose the marker. Search for the
-        # save-then-create pattern within a small window (not the global
-        # first occurrence, which may be in a different mode's restore()).
+        # In the new-marker flow, the measurement is persisted via
+        # store.add() BEFORE createLocationMarker() (which triggers the async
+        # geocode), so a reload mid-lookup does not lose the marker. Search for
+        # the save-then-create pattern within a small window (not the global
+        # first occurrence, which may be in restore()).
         create_pos = html.find("createLocationMarker(")
         assert create_pos != -1, "createLocationMarker should exist"
-        # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
+        # Search for store.add within 200 chars BEFORE createLocationMarker
         search_start = max(0, create_pos - 200)
-        save_pos = html.find("this.m.saveMeasurements();", search_start)
-        assert save_pos != -1, (
-            "saveMeasurements() should exist before createLocationMarker"
-        )
+        save_pos = html.find("this.m.store.add(", search_start)
+        assert save_pos != -1, "store.add() should exist before createLocationMarker"
         gap = create_pos - save_pos
         assert gap < 200, (
             "measurement must be saved right before triggering geocode so a "
@@ -573,6 +571,17 @@ class TestMeasureControlBrowser:
     def test_restore_marker_address_backfilled(self, browser, tmp_path):
         """Regression: marker restored with address:null resolves and persists address."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Intercept Nominatim so the reverse geocode resolves deterministically
+            # with a known address instead of hitting the network (CORS-blocked in
+            # headless, flaky on slow CI networks).
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"display_name":"Resolved Address, Test City"}',
+                ),
+            )
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
             page.reload()
             page.wait_for_timeout(3000)
@@ -761,6 +770,81 @@ class TestMeasureControlBrowser:
             count = page.evaluate("window.__measureManager.measurements.length")
             assert count == 0, f"expected 0 measurements after delete, got {count}"
             assert not errors, f"JS errors: {errors}"
+
+    def test_polygon_centroid_dot_above_fill(self, browser, tmp_path):
+        """The centroid dot must be visible (not covered by the fill).
+
+        Regression: when the dot was a div-icon marker in the graph pane it
+        competed with the SVG renderer's container z-index. After a zoom,
+        sortLayers reassigns each marker's z-index to its screen Y, which can
+        drop the dot below the SVG container and let the semi-transparent fill
+        paint over the dot.
+
+        Fix: the dot is now an SVG CircleMarker (same renderer as the fill),
+        so DOM order within the SVG guarantees the dot paints above the fill.
+        This test verifies the fill is NOT the topmost element at the dot's
+        center.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            info = page.evaluate("""() => {
+                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                if (!dot) return { error: 'no centroid dot path found' };
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
+                const dotSvg = dot.closest('svg');
+                const fillSvg = fill.closest('svg');
+                if (!dotSvg || !fillSvg) return { error: 'no SVG renderer found' };
+                if (dotSvg !== fillSvg) return { error: 'dot and fill in different SVGs' };
+                const rect = dot.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const topEl = document.elementFromPoint(cx, cy);
+                return {
+                    dotIsPath: dot.tagName === 'path',
+                    sameSvg: dotSvg === fillSvg,
+                    topEl: topEl ? topEl.tagName + '.' + (topEl.getAttribute('class') || '') : null,
+                    topElIsFill: topEl === fill,
+                };
+            }""")
+            assert not info.get("error"), f"probe error: {info.get('error')}"
+            assert not errors, f"JS errors: {errors}"
+            assert info["dotIsPath"], "centroid dot should be an SVG path"
+            assert info["sameSvg"], "dot and fill must share the SVG renderer"
+            assert not info["topElIsFill"], (
+                f"fill is painting over the centroid dot; topEl={info['topEl']}"
+            )
+
+            # After zoom, sortLayers re-sorts by Y. Since the dot is an SVG
+            # path (not a div-icon marker), it's unaffected by z-index re-sort.
+            page.evaluate("window.__map.setZoom(13)")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__map.setZoom(11)")
+            page.wait_for_timeout(500)
+
+            info2 = page.evaluate("""() => {
+                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                if (!dot) return { error: 'no centroid dot path found' };
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
+                const dotSvg = dot.closest('svg');
+                const fillSvg = fill.closest('svg');
+                if (!dotSvg || !fillSvg || dotSvg !== fillSvg)
+                    return { error: 'dot/fill SVG mismatch after zoom' };
+                const rect = dot.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const topEl = document.elementFromPoint(cx, cy);
+                return { topElIsFill: topEl === fill };
+            }""")
+            assert not info2.get("error"), (
+                f"post-zoom probe error: {info2.get('error')}"
+            )
+            assert not info2["topElIsFill"], (
+                "after zoom: fill is painting over the centroid dot"
+            )
 
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""

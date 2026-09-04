@@ -214,7 +214,7 @@ class TestExportControlBrowser:
         # Inject test hooks right after the manager is created (dev bundle).
         html, n = re.subn(
             r"var exportManager = new ExportManager\(map\);",
-            r"var exportManager = new ExportManager(map); window.__map = map; window.__exportManager = exportManager;",
+            r"var exportManager = new ExportManager(map, function(fn){return 0;}); window.__map = map; window.__exportManager = exportManager;",
             html,
             count=1,
         )
@@ -328,6 +328,146 @@ class TestExportControlBrowser:
                 timeout=5000,
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
+
+    def test_arrow_keys_nudge_crop_box(self, browser, tmp_path):
+        """Arrow keys nudge the unlocked crop box by NUDGE_STEP without panning."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            # The arrow shortcuts are container-bound — focus the map container.
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            rect0 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center0 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            rect1 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center1 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            # Box moved by NUDGE_STEP in both axes; the map must NOT pan
+            # (Leaflet's built-in arrow-key handler is disabled while editing).
+            assert rect1["l"] == pytest.approx(rect0["l"] + 3)
+            assert rect1["t"] == pytest.approx(rect0["t"] + 3)
+            assert center1 == center0
+
+    def test_nudge_tracks_key_without_reanimating_hint(self, browser, tmp_path):
+        """Holding an arrow key tracks each press and leaves the size hint alone."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Tag the size-hint element so we can detect if it gets rebuilt.
+            page.evaluate(
+                "() => { document.querySelector('.foliplus-hint-ExportControl-size')"
+                ".setAttribute('data-mark', '1'); }"
+            )
+            before = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+
+            # Simulate a held key: one keydown starts the smooth-nudge loop,
+            # then OS auto-repeat fires repeated keydowns for the same key.
+            # With the loop running the repeats are intentionally ignored, so
+            # a held key nudges exactly once (the loop's sync frame) plus the
+            # continuous stream handled by the loop — here the test injects a
+            # no-op scheduler so the loop only ever runs its sync frame, i.e.
+            # one NUDGE_STEP regardless of how many repeats follow.
+            page.keyboard.down("ArrowRight")
+            for _ in range(4):
+                page.evaluate(
+                    "() => document.dispatchEvent(new KeyboardEvent('keydown', "
+                    "{ key: 'ArrowRight', bubbles: true }))"
+                )
+
+            # The box suppresses its transition while nudging, so it tracks the
+            # keystrokes instead of chasing them (a transition would make the
+            # box lag behind and only settle after the key is released).
+            box = page.locator(".foliplus-export-box")
+            assert box.get_attribute("class").endswith("dragging")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+            # Repeats are ignored while the loop runs -> exactly one NUDGE_STEP.
+            assert after["l"] == pytest.approx(before["l"] + 3)
+            assert after["w"] == pytest.approx(before["w"])
+            assert after["h"] == pytest.approx(before["h"])
+
+            # A pure move keeps the size constant, so the hint is never refreshed —
+            # refreshing would rebuild the element and replay its entry animation.
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')"
+                    ".getAttribute('data-mark')"
+                )
+                == "1"
+            )
+
+            # Releasing the key restores the transition.
+            page.keyboard.up("ArrowRight")
+            page.wait_for_timeout(50)
+            assert not box.get_attribute("class").endswith("dragging")
+
+            # R changes the size, so the hint must be refreshed (and rebuilt).
+            page.keyboard.press("r")
+            page.wait_for_timeout(150)
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
+                    ".getAttribute('data-mark')"
+                )
+                != "1"
+            )
+
+    def test_r_resets_crop_box(self, browser, tmp_path):
+        """R resets the unlocked crop box to the default centered size."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            default = page.evaluate(
+                "() => { const r = window.__exportManager.defaultRect(); "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Nudge away from default so a reset is observable.
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            moved = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert moved != default, "expected box to move before reset"
+            page.keyboard.press("r")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert after == pytest.approx(default)
 
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""

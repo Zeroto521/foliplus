@@ -3,6 +3,7 @@ import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
+import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "./edit.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
 
@@ -34,7 +35,7 @@ const bindOpenOverlay = (
   });
 };
 
-/** Handle returned by Util.bindNodeDrag — enable/disable + unbind a node drag. */
+/** Handle returned by bindNodeDrag — enable/disable + unbind a node drag. */
 interface DragBind {
   setEnabled: (enabled: boolean) => void;
   cleanup: () => void;
@@ -101,7 +102,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const onEmpty = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
   };
-  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
   // soon as edit mode is on — no click-first required.
@@ -186,7 +187,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     if (isFirst) {
       // The solid start point translates the whole distance (like the circle
       // center / polygon centroid); hollow nodes reshape instead.
-      db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+      db = bindNodeDrag(node, delMarker, mgr.map, {
         onDrag: (latlng: L.LatLng) => {
           const origin = node.getLatLng(); // still the old pos (onDrag runs first)
           const dLat = latlng.lat - origin.lat;
@@ -200,12 +201,12 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           relabel();
         },
         onEnd: () => {
-          Util.markDragSyntheticClick();
+          markDragSyntheticClick();
           if (onUpdate) onUpdate(points);
         },
       });
     } else {
-      db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+      db = bindNodeDrag(node, delMarker, mgr.map, {
         onDrag: (latlng: L.LatLng) => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
@@ -214,7 +215,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           relabel();
         },
         onEnd: (latlng: L.LatLng) => {
-          Util.markDragSyntheticClick();
+          markDragSyntheticClick();
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
           points[pIdx] = latlng;
@@ -238,7 +239,7 @@ interface CircleAttachOpts {
   circle: L.Circle;
   radiusLine: L.Polyline | null;
   radiusNode: L.CircleMarker | null;
-  centerFinal: L.Marker;
+  centerFinal: L.CircleMarker;
   delMarker: L.Marker;
   radiusLabel: L.Marker | null;
   onDelete: () => void;
@@ -272,7 +273,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   const onEmpty = () => {
     toggleDelIcon(delMarker, false);
   };
-  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
@@ -305,7 +306,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     Util.setLabelText(radiusLabel, Util.formatDistance(r));
   };
 
-  const centerDrag = Util.bindNodeDrag(centerFinal, delMarker, mgr.map, {
+  const centerDrag = bindNodeDrag(centerFinal, delMarker, mgr.map, {
     onDrag: (latlng: L.LatLng) => {
       const dx = latlng.lng - circle.getLatLng().lng;
       const dy = latlng.lat - circle.getLatLng().lat;
@@ -321,14 +322,14 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
       updateLabel();
     },
     onEnd: (latlng: L.LatLng) => {
-      Util.markDragSyntheticClick();
+      markDragSyntheticClick();
       onEnd?.(latlng);
     },
   });
   dragBinds.push(centerDrag);
 
   if (radiusNode) {
-    const radiusDrag = Util.bindNodeDrag(radiusNode, null, mgr.map, {
+    const radiusDrag = bindNodeDrag(radiusNode, null, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         radiusNode.setLatLng(latlng);
         circle.setRadius(Util.distance(circle.getLatLng(), latlng));
@@ -336,7 +337,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
         updateLabel();
       },
       onEnd: (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
+        markDragSyntheticClick();
         onEnd?.(latlng);
       },
     });
@@ -414,7 +415,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
     if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
   };
-  const overlay = Util.buildEditOverlay(mgr, { onOpen, onEmpty });
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty });
   const openOverlay = overlay.open;
 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
@@ -566,7 +567,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     bindOpenOverlay(delMarker, openOverlay);
 
     const findPtIdx = () => findPointIndex(points, node.getLatLng());
-    const db = Util.bindNodeDrag(node, delMarker, mgr.map, {
+    const db = bindNodeDrag(node, delMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
@@ -575,7 +576,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
+        markDragSyntheticClick();
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
         points[pIdx] = latlng;
@@ -592,7 +593,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   // center drag). Pushed AFTER the node binds so dragBinds[i] lines up with
   // nodeMarkers[i] — the node-delete handler splices by node index.
   dragBinds.push(
-    Util.bindNodeDrag(centroidDot!, centroidDelMarker, mgr.map, {
+    bindNodeDrag(centroidDot!, centroidDelMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         const dx = latlng.lng - centroidDot!.getLatLng().lng;
         const dy = latlng.lat - centroidDot!.getLatLng().lat;
@@ -606,7 +607,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
+        markDragSyntheticClick();
         if (onUpdate) {
           opts.area = Util.area(points);
           onUpdate();

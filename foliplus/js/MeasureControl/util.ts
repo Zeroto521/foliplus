@@ -5,6 +5,9 @@ import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
+// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
+// flag) live in edit.ts. Callers import them directly from there.
+
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
@@ -33,175 +36,10 @@ const formatArea = (sqMeters: number): string => {
   return `${Math.round(sqMeters).toLocaleString()} m²`;
 };
 
-/** Minimum container-point movement (px) to count as a drag rather than a tap. */
-const DRAG_THRESHOLD = 4;
-
-/**
- * Build the shared edit overlay for a finalized measurement (distance,
- * polygon, circle, or pin). The caller wires `result.open(ev)` onto each of
- * the measure's clickable layers; clicking empty map space closes the overlay
- * (the manager's global click handler stops propagation for item clicks, so
- * only empty-space clicks reach here).
- */
-const buildEditOverlay = (
-  mgr: {
-    isEditMode: boolean;
-    map: L.Map;
-    registerEditOverlayCloser?: (close: () => void) => () => void;
-    closeOtherEditOverlays?: (except: () => void) => void;
-  },
-  opts: { onOpen: () => void; onEmpty?: () => void },
-): {
-  open: (ev: L.LeafletMouseEvent) => void;
-  close: () => void;
-  cleanup: () => void;
-} => {
-  let open = false;
-  const { onOpen, onEmpty } = opts;
-
-  const close = () => {
-    if (!open) return;
-    open = false;
-    onEmpty?.();
-  };
-
-  const onMapClick = () => {
-    if (isDragSyntheticClick()) return;
-    close();
-  };
-  mgr.map.on("click", onMapClick);
-  const unregister = mgr.registerEditOverlayCloser?.(close);
-
-  const openOverlay = (ev: L.LeafletMouseEvent) => {
-    if (!mgr.isEditMode) return;
-    if (open) return;
-    if (isDragSyntheticClick()) return;
-    // Only one measurement shows ✕ at a time: close any other open overlay.
-    mgr.closeOtherEditOverlays?.(close);
-    // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
-    // the map-level click handlers — including this overlay's own onMapClick
-    // which closes it — don't immediately undo the open.
-    L.DomEvent.stopPropagation(ev);
-    open = true;
-    onOpen();
-  };
-
-  return {
-    open: openOverlay,
-    close,
-    cleanup: () => {
-      mgr.map.off("click", onMapClick);
-      unregister?.();
-    },
-  };
-};
-
-/**
- * Bind manual drag to a finalized node marker (L.CircleMarker or L.Marker).
- * Nodes have no built-in dragging, so we drive it from mousedown/move/up,
- * disabling the map's own dragging while we hold, and moving a paired ✕
- * icon along. Works for both SVG circleMarkers and div-based pin markers.
- *
- * Returns { setEnabled, cleanup }: the caller enables the binding on edit-mode
- * enter (via the manager's edit drag toggles) and cleans it up on delete.
- */
-const bindNodeDrag = (
-  node: L.Layer,
-  delMarker: L.Layer | null,
-  map: L.Map,
-  handlers: {
-    onDrag?: (latlng: L.LatLng) => void;
-    onEnd?: (latlng: L.LatLng) => void;
-  },
-): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
-  let enabled = false;
-  let dragging = false;
-  let moved = false;
-  let startPt: { x: number; y: number } | null = null;
-
-  // Query the element fresh each time: resortLayers() removes/re-adds nodes,
-  // which re-creates their SVG path, so a captured element reference would go
-  // stale and the `move` cursor would silently stop applying.
-  const setCursor = (cursor: string) => {
-    const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
-    if (el) el.style.cursor = cursor;
-  };
-
-  const onDown = (ev: L.LeafletMouseEvent) => {
-    if (!enabled) return;
-    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
-    if (!raw) return;
-    startPt = map.mouseEventToContainerPoint(raw);
-    dragging = true;
-    moved = false;
-    setCursor("move");
-    map.dragging.disable();
-  };
-  const onMove = (ev: L.LeafletMouseEvent) => {
-    if (!dragging || !startPt) return;
-    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
-    if (!raw) return;
-    const pt = map.mouseEventToContainerPoint(raw);
-    if (
-      !moved &&
-      Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD
-    )
-      return;
-    moved = true;
-    // Notify handlers BEFORE repositioning the node so handlers that locate
-    // the node by its current latlng (distance/polygon `findPtIdx`) can still
-    // find the original point before it moves.
-    handlers.onDrag?.(ev.latlng);
-    (node as L.Marker).setLatLng(ev.latlng);
-    if (delMarker) (delMarker as L.Marker).setLatLng(ev.latlng);
-  };
-  const onUp = (ev: L.LeafletMouseEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    setCursor(enabled ? "move" : "");
-    map.dragging.enable();
-    if (moved) handlers.onEnd?.(ev.latlng);
-  };
-  const onNodeUp = (ev: L.LeafletMouseEvent) => {
-    onUp(ev);
-  };
-
-  node.on("mousedown", onDown);
-  node.on("mouseup", onNodeUp);
-  map.on("mousemove", onMove);
-  map.on("mouseup", onUp);
-
-  const setEnabled = (v: boolean) => {
-    enabled = v;
-    setCursor(v ? "move" : "");
-  };
-  const cleanup = () => {
-    node.off("mousedown", onDown);
-    node.off("mouseup", onNodeUp);
-    map.off("mousemove", onMove);
-    map.off("mouseup", onUp);
-  };
-  return { setEnabled, cleanup };
-};
-
-/**
- * Mark a click as drag-synthetic so the ensuing click (a drag ends with
- * mouseup, which also fires a click) doesn't reopen or close an overlay.
- */
-const markDragSyntheticClick = () => {
-  (
-    window as unknown as { __foliplus_measure_drag_click: boolean }
-  ).__foliplus_measure_drag_click = true;
-};
-
-const isDragSyntheticClick = (): boolean => {
-  const w = window as unknown as { __foliplus_measure_drag_click: boolean };
-  // Coalesce the absent flag to false so the return value matches the declared
-  // boolean type even on the first read (before any drag has marked a click).
-  const v = w.__foliplus_measure_drag_click ?? false;
-  w.__foliplus_measure_drag_click = false;
-  return v;
-};
+// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
+// flag) live in edit.ts. They are re-exported below for backward compatibility
+// so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
+// through the Util namespace without a follow-up rename.
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
 const setLabelText = (marker: L.Layer, text: string) => {
@@ -255,6 +93,18 @@ const makeNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+};
+
+/** A non-interactive node used for transient previews (center, centroid). */
+const makePreviewNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
+  return L.circleMarker(latlng, {
+    radius: CONST.MARKER.RADIUS,
+    className,
+    interactive: false,
+  });
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
@@ -331,22 +181,19 @@ const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
 export {
   animateDashSweep,
   area,
-  buildEditOverlay,
   bearing,
-  bindNodeDrag,
   buildPopup,
-  geocodeAddress,
-  isDragSyntheticClick,
-  markDragSyntheticClick,
   centroid,
   distance,
   formatArea,
   formatDistance,
   formatSegmentLabel,
   getEventTarget,
+  geocodeAddress,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
+  makePreviewNode,
   midpoint,
   pointsToLatLngs,
   recalculateSegments,

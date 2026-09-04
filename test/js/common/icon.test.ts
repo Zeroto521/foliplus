@@ -35,3 +35,10 @@ describe("GLOBE", () => {
     expect(ICON.GLOBE).toContain("circle");
   });
 });
+
+describe("EDIT", () => {
+  it("is an SVG string", () => {
+    expect(ICON.EDIT).toContain("<svg");
+    expect(ICON.EDIT).toContain("</svg>");
+  });
+});

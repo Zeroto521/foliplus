@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
+import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
@@ -118,7 +119,7 @@ describe("MarkerMode — start + click", () => {
 
     expect(manager.measurements.length).toBe(1);
     expect(manager.measurements[0].type).toBe("marker");
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.add).toHaveBeenCalled();
     expect(window.L.marker).toHaveBeenCalled();
   });
 
@@ -141,7 +142,7 @@ describe("MarkerMode — start + click", () => {
 
   it("drags a restored pin in edit mode: live update + geocode on end persists by reference", async () => {
     // requestAnimationFrame is unavailable in jsdom/node — stub it to queue
-    // the throttled saveMeasurements callback.
+    // the throttled store.persist() callback.
     let rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -206,7 +207,7 @@ describe("MarkerMode — start + click", () => {
       // Flush the RAF-throttled persist
       expect(rafCb).toBeTruthy();
       rafCb!();
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
 
       onUp({
         originalEvent: { clientX: 10, clientY: 0 },
@@ -622,7 +623,7 @@ describe("MarkerMode — pin edit overlay (✕)", () => {
 
   it("ignores the synthetic click that follows a drag", () => {
     const { pin, icon } = restoreWithIcon(true);
-    (window as any).__foliplus_measure_drag_click = true;
+    markDragSyntheticClick();
     const onPinClick = pin.on.mock.calls.find(([ev]: [string]) => ev === "click")?.[1];
     onPinClick({ originalEvent: {}, latlng: { lat: 31, lng: 121 } });
     expect(icon.classList.contains("visible")).toBe(false);

@@ -91,25 +91,24 @@ describe("build artifacts", () => {
   // Per-component upper bounds. These are sanity checks against accidental
   // bloat (e.g. an inline'd shared module or duplicated logic), not hard
   // budgets — the lower bound of >500 B guards against an empty bundle.
-  //
-  // MeasureControl is heavier because it bundles its own collision-detection
-  // geometry (placeLabels) inline. NOTE: CI runs make test -> npm run
-  // build:dev, which writes UNMINIFIED output to the .min.js artifacts
-  // (the production minified build overwrites them later). So this cap
-  // must accommodate the unminified dev size (~101 KB), not the ~40 KB
-  // minified size — carries ~20% headroom for future growth.
-  const COMPONENT_JS_MAX = new Map<string, number>([
-    ["foliplus-MeasureControl.min.js", 120000],
-  ]);
-  const DEFAULT_COMPONENT_JS_MAX = 100000;
-
+  // NOTE: CI runs make test -> npm run build:dev, which writes UNMINIFIED
+  // output to the .min.js artifacts (the production minified build overwrites
+  // them later). So these caps must accommodate the unminified dev size, not
+  // the minified size — each carries ~20% headroom for future growth.
+  const MAX_COMPONENT_SIZE = {
+    // MeasureControl bundles its own label-collision geometry (placeLabels)
+    // inline.
+    "foliplus-MeasureControl.min.js": 120000,
+    // LayerControl is otherwise the largest component (~98KB local, ~102KB CI
+    // after feature additions: rename, focus, reorder, fold).
+    "foliplus-LayerControl.min.js": 110000,
+  };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
       const size = readFileSync(resolve(distDir, artifact)).length;
       expect(size, artifact).toBeGreaterThan(500);
-      expect(size, artifact).toBeLessThan(
-        COMPONENT_JS_MAX.get(artifact) ?? DEFAULT_COMPONENT_JS_MAX,
-      );
+      const limit = MAX_COMPONENT_SIZE[artifact] ?? 100000;
+      expect(size, artifact).toBeLessThan(limit);
     }
   });
 

@@ -3,7 +3,22 @@ export const CROP = {
   MIN_SIZE: 40,
   PADDING_RATIO: 0.25,
   CONTAINER_PADDING: 200,
+  /** Pixels the crop box moves per arrow-key nudge on a single tap. */
+  NUDGE_STEP: 3,
+  /** Pixels/second while a key is held. Applied as a fractional per-frame
+   * increment at 60fps so motion is frame-aligned and smooth; a tap yields
+   * exactly NUDGE_STEP (the sync frame) before the stream begins. */
+  NUDGE_SPEED: 200,
+  /** Milliseconds a key must be held before the continuous stream kicks in.
+   * A tap shorter than this yields exactly NUDGE_STEP and stops; only a hold
+   * that passes this gate (or a real OS repeat event) starts the per-frame flow.
+   * This keeps "tap once" predictable (= one step) even on slow links or when
+   * the user releases quickly, while long holds still feel smooth. */
+  NUDGE_HOLD_DELAY: 300,
 };
+
+/** Arrow keys that nudge the crop box position (unlocked state). */
+export const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
 export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
