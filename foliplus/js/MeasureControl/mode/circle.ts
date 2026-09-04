@@ -92,9 +92,7 @@ class CircleMode extends PreviewMode {
       centerFinal,
       delMarker,
       radiusLabel,
-      onDelete: () => {
-        manager.store.remove(data.id!);
-      },
+      onDelete: () => manager.store.remove(data.id!),
     });
   }
 

@@ -62,9 +62,7 @@ class PolygonMode extends PreviewMode {
       segLabels,
       points: points,
       area: data.area ?? 0,
-      onDelete: () => {
-        manager.store.remove(data.id!);
-      },
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);

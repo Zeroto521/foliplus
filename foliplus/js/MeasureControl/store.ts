@@ -87,9 +87,11 @@ class MeasureStore {
     this.persist();
   }
 
-  /** Remove all measurements matching the id and persist. */
+  /** Remove every measurement matching the id and persist. */
   remove(id: string): void {
-    this.list.splice(0, this.list.length, ...this.list.filter(x => x.id !== id));
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      if (this.list[i].id === id) this.list.splice(i, 1);
+    }
     this.persist();
   }
 
