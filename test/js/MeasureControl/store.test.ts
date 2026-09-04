@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
+import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 
 // Mock Storage + ensureEvents so the store is tested in isolation — the store's
 // own contract is array + id + persist/emit, not the localStorage I/O (covered
@@ -20,9 +22,6 @@ vi.mock("#core/event/index.js", () => ({
   EVENTS: { LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count:change" },
   ensureEvents: () => ({ emit: events.emit }),
 }));
-
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 
 // CONF is a free variable read by the store (storage name prefix).
 window.CONF = { ...window.CONF, name: "MeasureControl" };
@@ -86,10 +85,9 @@ describe("MeasureStore — add", () => {
     store.add({ id: "a", type: "marker" });
     expect(store.all()).toHaveLength(1);
     expect(storage.save).toHaveBeenCalledTimes(1);
-    expect(events.emit).toHaveBeenCalledWith(
-      "foliplus:layer:item-count:change",
-      { id: "layer-1" },
-    );
+    expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
+      id: "layer-1",
+    });
   });
 
   it("keeps order of insertion", () => {
@@ -166,11 +164,46 @@ describe("MeasureStore — emitCount", () => {
   it("emits without writing to storage", () => {
     const store = makeStore();
     store.emitCount();
-    expect(events.emit).toHaveBeenCalledWith(
-      "foliplus:layer:item-count:change",
-      { id: "layer-1" },
-    );
+    expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
+      id: "layer-1",
+    });
     expect(storage.save).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeasureStore — hydrate reference stability", () => {
+  it("keeps the all() reference stable across hydrate calls", () => {
+    const store = makeStore();
+    store.hydrate([{ id: "a" }] as any);
+    const ref = store.all();
+    store.hydrate([{ id: "b" }] as any);
+    expect(store.all()).toBe(ref);
+    expect(store.all()).toEqual([{ id: "b" }] as any);
+  });
+});
+
+describe("MeasureStore — missing id stabilization (restore path)", () => {
+  it("assigns ids to id-less measurements and persists once", () => {
+    const store = makeStore();
+    store.hydrate([
+      { id: "a", type: "marker" },
+      { type: "distance" },
+      { type: "circle" },
+    ] as any);
+    storage.save.mockClear();
+    // Simulate restoreMeasurements' stabilization loop
+    let stabilized = false;
+    for (const m of store.all()) {
+      if (!m.id) {
+        m.id = store.nextId(m.type);
+        stabilized = true;
+      }
+    }
+    if (stabilized) store.persist();
+
+    expect(store.all().every(m => m.id)).toBe(true);
+    expect(new Set(store.all().map(m => m.id)).size).toBe(3);
+    expect(storage.save).toHaveBeenCalledTimes(1);
   });
 });
 

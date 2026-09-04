@@ -49,9 +49,10 @@ class MeasureStore {
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
-   *  rebuilds UI then emits count separately). */
+   *  rebuilds UI then emits count separately). Mutates the backing array in
+   *  place so callers holding an `all()` reference stay on the same object. */
   hydrate(data: MeasureData[]): void {
-    this.list = data;
+    this.list.splice(0, this.list.length, ...data);
   }
 
   /** Persist current list to localStorage and emit LAYER_ITEM_COUNT_CHANGE so
@@ -86,9 +87,9 @@ class MeasureStore {
     this.persist();
   }
 
-  /** Remove a measurement by id and persist. */
+  /** Remove all measurements matching the id and persist. */
   remove(id: string): void {
-    this.list = this.list.filter(x => x.id !== id);
+    this.list.splice(0, this.list.length, ...this.list.filter(x => x.id !== id));
     this.persist();
   }
 
@@ -103,7 +104,7 @@ class MeasureStore {
 
   /** Remove all measurements and persist. */
   clear(): void {
-    this.list = [];
+    this.list.splice(0, this.list.length);
     this.persist();
   }
 }

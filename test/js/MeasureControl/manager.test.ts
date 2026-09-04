@@ -121,7 +121,6 @@ describe("MeasureManager — persistence", () => {
     manager.saveMeasurements();
     expect(spy).toHaveBeenCalled();
   });
-
 });
 
 describe("MeasureManager — mode switching", () => {

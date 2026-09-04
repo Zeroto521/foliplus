@@ -10,13 +10,13 @@ import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
-import { MeasureStore } from "./store.js";
 import {
   registerActiveEscape,
   registerExportClick,
   registerInteractions,
 } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import { MeasureStore } from "./store.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -136,7 +136,19 @@ class MeasureManager {
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
     this.store.hydrate(this.store.load());
-    this.store.all().forEach(m => {
+    // Older persisted measurements may lack an `id`. Assign one before
+    // rebuild so later onUpdate / onDelete paths (which match by id) resolve
+    // to the right measurement and exports carry a stable id.
+    const loaded = this.store.all();
+    let stabilized = false;
+    for (const m of loaded) {
+      if (!m.id) {
+        m.id = this.store.nextId(m.type);
+        stabilized = true;
+      }
+    }
+    if (stabilized) this.store.persist();
+    loaded.forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
     // Notify LayerControl to refresh the count column now that the

@@ -146,10 +146,17 @@ export function makeManagerMock() {
     store: {
       all: () => measurements,
       count: () => measurements.length,
-      add: vi.fn((data: any) => measurements.push(data)),
+      add: vi.fn((data: any) => {
+        measurements.push(data);
+      }),
       remove: vi.fn((id: string) => {
-        const i = measurements.findIndex((m: any) => m.id === id);
-        if (i !== -1) measurements.splice(i, 1);
+        // Remove all matches — mirrors the real store's behavior.
+        const matches = measurements.map((m: any) => m.id === id);
+        measurements.splice(
+          0,
+          measurements.length,
+          ...measurements.filter((m: any) => m.id !== id),
+        );
       }),
       update: vi.fn((id: string, patch: any) => {
         const m = measurements.find((x: any) => x.id === id);
