@@ -25,13 +25,11 @@ export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. Both
-  // are added to measure_label with no zIndexOffset (z = Y), same level as
-  // all other measure labels — so the centroid never covers a segment label.
-  // The dot (centered on the point) is added first; the label (chip above,
-  // anchor y = -10) is added second, so DOM order at equal z-index puts the
-  // label above the dot. The del icon carries its own high zIndexOffset to
-  // stay above both.
+  // The centroid label shares the same latlng as the 12×12 center dot. The
+  // dot goes to measure_graph (no isLabel flag) — same as node markers. The
+  // label is isLabel (measure_label, z=621 above graph z=620), so it always
+  // paints above the dot by pane ordering. The [0, -10] anchor lifts the
+  // chip above the dot's centered position so they don't overlap vertically.
   CENTROID_ANCHOR: [0, -10],
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",

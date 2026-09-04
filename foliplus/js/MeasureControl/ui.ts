@@ -413,11 +413,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // Both dot and label sit at z = Y (no zIndexOffset), same level as all
-    // other measure labels — the centroid must not cover segment labels. The
-    // label is added after the dot, so at equal z-index DOM order puts the
-    // label above the dot when they share the same latlng. The del icon keeps
-    // its own zIndexOffset to stay above both.
+    // The centroid dot goes into the graph pane (no isLabel), same as node
+    // markers — below the label pane. The centroid label is isLabel, so it
+    // lands in the label pane which always paints above the graph pane. No
+    // zIndexOffset needed; the pane ordering guarantees the label covers the
+    // dot, matching how distance/circle handle node-vs-label separation.
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
@@ -428,7 +428,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         }),
         interactive: true,
       }),
-      true,
     ) as L.Marker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {

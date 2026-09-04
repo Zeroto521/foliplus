@@ -323,40 +323,34 @@ describe("attachPolygonUI", () => {
     expect(dotIcons.length).toBe(1);
   });
 
-  it("keeps the centroid dot and label at the same z-level as other labels", () => {
+  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+    const mgr = makeMgr();
     const opts = makeOpts();
-    UI.attachPolygonUI(makeMgr() as any, opts as any);
+    const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
+    opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
+      addLayerCalls.push({ layer, isLabel: !!isLabel });
+      return layer;
+    });
+    UI.attachPolygonUI(mgr as any, opts as any);
 
-    // Neither the centroid dot nor the label should carry a high zIndexOffset.
-    // At offset 11000 the label would paint above every segment/radius label
-    // at z = Y, hiding them. Both stay at z = Y so the centroid never covers
-    // other labels (regression: centroid label hiding "8.6 km" segment label).
-    //
     // rebuildCentroid() builds markers in order: [0]=centroidDot,
-    // [1]=centroidLabel, [2]=centroidDelMarker.
+    // [1]=centroidLabel, [2]=centroidDelMarker. The dot goes to the graph
+    // pane (no isLabel flag, no zIndexOffset) — same as node markers. The
+    // label is isLabel so it lands in the label pane, which always paints
+    // above the graph pane. This pane ordering guarantees the label covers
+    // the dot without z-index trickery, matching how distance/circle
+    // separate node markers (graph) from labels (label).
     const dotOpts = (window.L.marker as any).mock.calls[0][1];
     const labelOpts = (window.L.marker as any).mock.calls[1][1];
+    // Dot: no zIndexOffset, routed to graph pane (isLabel=false).
     expect(dotOpts.zIndexOffset).toBeUndefined();
+    expect(addLayerCalls[0].isLabel).toBe(false);
+    // Label: isLabel=true → label pane, no zIndexOffset.
+    expect(addLayerCalls[1].isLabel).toBe(true);
     expect(labelOpts.zIndexOffset).toBeUndefined();
     expect(labelOpts.interactive).toBe(false);
-    // The del icon keeps its own high offset to stay above both.
+    // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();
-  });
-
-  it("adds the centroid label after the dot so DOM order puts the label above it", () => {
-    const opts = makeOpts();
-    UI.attachPolygonUI(makeMgr() as any, opts as any);
-
-    // rebuildCentroid() adds dot first (call 0), label second (call 1). At
-    // equal z-index DOM order decides, so the label paints over the dot when
-    // they share the centroid latlng.
-    expect((window.L.marker as any).mock.calls[0]).toBeTruthy(); // dot
-    expect((window.L.marker as any).mock.calls[1]).toBeTruthy(); // label
-    // The dot uses the center-dot class; the label uses the default label.
-    const dotIcon = (window.L.divIcon as any).mock.calls.find(
-      ([opts]) => opts?.className === "foliplus-measure-center-dot",
-    );
-    expect(dotIcon).toBeTruthy();
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
