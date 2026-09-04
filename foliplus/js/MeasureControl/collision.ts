@@ -193,9 +193,4 @@ const placeLabels = (
   return { hidden: toHide.size, elements: toHide };
 };
 
-export {
-  type CollidableLabel,
-  type PlanResult,
-  mapProjector,
-  placeLabels,
-};
+export { type CollidableLabel, type PlanResult, mapProjector, placeLabels };
