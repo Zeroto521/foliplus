@@ -47,6 +47,14 @@ beforeEach(() => {
     })),
     latLng: vi.fn((lat, lng) => ({ lat, lng })),
     divIcon: vi.fn(() => ({})),
+    // makeNode builds L.CircleMarker nodes (shared with the edit-mode node
+    // markers); stub it so polygon-mode UI tests reach rebuildCentroid.
+    circleMarker: vi.fn(() => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      setLatLng: vi.fn(),
+      getElement: vi.fn(() => null),
+    })),
     DomEvent: { stopPropagation: vi.fn() },
   };
   globalThis.turf = {
@@ -476,12 +484,52 @@ describe("attachPolygonUI", () => {
     const opts = makeOpts();
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
-    // The centroid dot uses the shared center-dot divIcon class (regression:
-    // it was dropped during the edit-mode rewrite).
-    const dotIcons = (window.L.divIcon as any).mock.calls.filter(
-      ([opts]) => opts?.className === "foliplus-measure-center-dot",
+    // The centroid dot is a CircleMarker sharing the node-solid class (same
+    // approach as the circle center) — not a divIcon. Regression: the dot was
+    // dropped during the edit-mode rewrite.
+    const dot = (window.L.circleMarker as any).mock.results[0]?.value;
+    expect(dot).toBeDefined();
+    expect((window.L.circleMarker as any).mock.calls[0][1].className).toContain(
+      "foliplus-measure-node-solid",
     );
-    expect(dotIcons.length).toBe(1);
+  });
+
+  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+    const opts = makeOpts();
+    const addLayerCalls: Array<{ layer: any; isLabel?: boolean }> = [];
+    (opts.layers.addLayer as any).mockImplementation(
+      (layer: any, isLabel?: boolean) => {
+        addLayerCalls.push({ layer, isLabel });
+        return layer;
+      },
+    );
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // The dot must go to measure_graph (no isLabel flag, like node markers) and
+    // the label to measure_label — pane ordering is what covers the dot, so the
+    // two panes are load-bearing.
+    const [dotCall, labelCall] = addLayerCalls;
+    expect(dotCall.isLabel).toBeFalsy();
+    expect(labelCall.isLabel).toBe(true);
+    expect(makeDelIcon).toHaveBeenCalled();
+  });
+
+  it("applies the centroid label's z-index offset and disables its interactivity", () => {
+    const opts = makeOpts();
+    const markerOpts: any[] = [];
+    (window.L.marker as any).mockImplementation((_latlng: any, opts?: any) => {
+      markerOpts.push(opts);
+      return { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    });
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // sortLayers re-sorts by Y on zoom; the offset keeps the area label above
+    // segment labels within the label pane.
+    const labelOpts = markerOpts.find(
+      o => o?.zIndexOffset === CONST.LABEL.CENTROID_Z_OFFSET,
+    );
+    expect(labelOpts).toBeDefined();
+    expect(labelOpts.interactive).toBe(false);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
@@ -531,8 +579,8 @@ describe("attachPolygonUI", () => {
     // makeDelIcon call order: [0]=centroid, [1..4]=one per node.
     const centroidDel = (makeDelIcon as any).mock.results[0].value;
     const node0Del = (makeDelIcon as any).mock.results[1].value;
-    // The centroid dot is the first L.marker built (rebuildCentroid).
-    const centroidDot = (window.L.marker as any).mock.results[0].value;
+    // The centroid dot is a CircleMarker built by rebuildCentroid.
+    const centroidDot = (window.L.circleMarker as any).mock.results[0].value;
     const centroidEl = { style: {} };
     centroidDot.getElement = vi.fn(() => centroidEl);
 

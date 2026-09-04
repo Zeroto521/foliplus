@@ -387,7 +387,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
-  let centroidDot: L.Marker | null = null;
+  let centroidDot: L.CircleMarker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDelMarker: L.Marker | null = null;
   // Polygon segment labels are recreated on every relabel, so the registrations
@@ -457,29 +457,24 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
+    // The centroid dot is a CircleMarker (SVG path) in the graph pane —
+    // same approach as the circle center. Both share the SVG renderer with
+    // the fill, so no zIndexOffset is needed; DOM order within the SVG
+    // guarantees the dot paints above the fill.
+    // The centroid label is isLabel → label pane, which paints above the
+    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
+    // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
+    // above its own segment labels.
     centroidDot = layers.addLayer(
-      L.marker(centroid, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }),
-      true,
-    ) as L.Marker;
+      Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+    ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
         icon: Util.makeLabelDivIcon(
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
-        // Centroid label uses a large positive yAnchor (see CENTROID_ANCHOR):
-        // it shares the dot's latlng, so the chip is lifted *above* the dot
-        // to clear it entirely. Distance-start and radius labels never sit on
-        // a dot, so their anchors are irrelevant here.
+        zIndexOffset: CONST.LABEL.CENTROID_Z_OFFSET,
         interactive: false,
       }),
       true,

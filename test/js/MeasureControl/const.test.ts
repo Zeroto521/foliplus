@@ -20,17 +20,35 @@ describe("DEL_ICON", () => {
 });
 
 describe("LABEL anchors", () => {
-  it("lifts the centroid label clear of the center dot", () => {
-    // The centroid label shares the same latlng as the 12×12 center dot. A
-    // positive iconAnchor y places the chip *above* the point (the anchor
-    // pixel is inside the chip, below its top edge). To clear the dot the
-    // anchor must be ≥ chipHeight + dotRadius + gap; anything smaller and the
-    // chip's bottom edge overlaps the dot's top. Pin the invariant to the
-    // full clearance budget so a refactor that shrinks the anchor regresses
-    // loudly.
-    expect(CONST.LABEL.CENTROID_ANCHOR[1]).toBeGreaterThanOrEqual(
-      CONST.CENTER_DOT.SIZE[1] + 12,
-    );
+  const cy = CONST.LABEL.CENTROID_ANCHOR[1];
+
+  it("is horizontally centered on the centroid point", () => {
+    expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
+  });
+
+  it("anchors the label chip above the point so it covers the center dot", () => {
+    // The centroid label and the 12×12 center dot share a latlng. The dot
+    // goes to measure_graph (no isLabel flag), the label to measure_label —
+    // the label pane always paints above the graph pane, so pane ordering
+    // alone covers the dot without any z-index or anchor trickery. The
+    // default [0, -10] anchor sits the chip *above* the point (negative y in
+    // Leaflet's anchor convention), which covers the dot and clears the
+    // polygon fill's inner area. A positive-y "lift clear of the dot" fix was
+    // the wrong approach: it pushed the chip down into the fill, where a
+    // zoom-out animation reparents the marker-icon to z = Y (equal to the
+    // fill's parent SVG) and the label washes out through backdrop-filter.
+    expect(cy).toBeLessThan(0);
+  });
+
+  it("is distinct from the non-overlapping anchors so a regression is caught", () => {
+    // Radius and midpoint labels sit at different latlngs from their markers,
+    // so they anchor at [0, 0]. The centroid anchor must not accidentally
+    // collapse back to those values — or to a positive-y "clear the dot via
+    // vertical offset" fix, which hides the real (pane-order) problem.
+    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
+    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
+    expect(cy).not.toBe(CONST.LABEL.RADIUS_ANCHOR[1]);
+    expect(cy).toBeLessThan(0);
   });
 });
 
