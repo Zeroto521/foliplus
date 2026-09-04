@@ -58,6 +58,7 @@ const buildEditOverlay = (
     if (isDragSyntheticClick()) return;
     close();
   };
+
   host.map.on("click", onMapClick);
   const unregister = host.registerEditOverlayCloser?.(close);
 
@@ -131,6 +132,7 @@ const bindNodeDrag = (
     setCursor("move");
     map.dragging.disable();
   };
+
   const onMove = (ev: L.LeafletMouseEvent) => {
     if (!dragging || !startPt) return;
     const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
@@ -149,6 +151,7 @@ const bindNodeDrag = (
     (node as L.Marker).setLatLng(ev.latlng);
     if (delMarker) (delMarker as L.Marker).setLatLng(ev.latlng);
   };
+
   const onUp = (ev: L.LeafletMouseEvent) => {
     if (!dragging) return;
     dragging = false;
@@ -156,6 +159,7 @@ const bindNodeDrag = (
     map.dragging.enable();
     if (moved) handlers.onEnd?.(ev.latlng);
   };
+
   const onNodeUp = (ev: L.LeafletMouseEvent) => {
     onUp(ev);
   };
@@ -169,31 +173,33 @@ const bindNodeDrag = (
     enabled = v;
     setCursor(v ? "move" : "");
   };
+
   const cleanup = () => {
     node.off("mousedown", onDown);
     node.off("mouseup", onNodeUp);
     map.off("mousemove", onMove);
     map.off("mouseup", onUp);
   };
+
   return { setEnabled, cleanup };
 };
 
-/**
- * Mark a click as drag-synthetic so the ensuing click (a drag ends with
- * mouseup, which also fires a click) doesn't reopen or close an overlay.
- */
+// Module-scoped flag: the `onEnd` handler calls markDragSyntheticClick() on
+// drag end, so the ensuing click (a drag ends with mouseup, which also fires
+// a click) is recognised as synthetic and ignored by buildEditOverlay.
+// Lives on this module (not window) since both mark and check now import from
+// the same edit.ts — no need for a global cross-closure channel.
+let dragSyntheticClick = false;
+
+/** Mark a click as drag-synthetic so it doesn't reopen or close an overlay. */
 const markDragSyntheticClick = () => {
-  (
-    window as unknown as { __foliplus_measure_drag_click: boolean }
-  ).__foliplus_measure_drag_click = true;
+  dragSyntheticClick = true;
 };
 
+/** Consume the one-shot flag; returns true once after mark, then false. */
 const isDragSyntheticClick = (): boolean => {
-  const w = window as unknown as { __foliplus_measure_drag_click: boolean };
-  // Coalesce the absent flag to false so the return value matches the declared
-  // boolean type even on the first read (before any drag has marked a click).
-  const v = w.__foliplus_measure_drag_click ?? false;
-  w.__foliplus_measure_drag_click = false;
+  const v = dragSyntheticClick;
+  dragSyntheticClick = false;
   return v;
 };
 

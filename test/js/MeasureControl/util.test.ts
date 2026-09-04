@@ -12,8 +12,9 @@ const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Reset the one-shot drag-synthetic-click flag between tests.
-  delete (window as any).__foliplus_measure_drag_click;
+  // Consume any pending drag-synthetic-click flag so a prior test's drag end
+  // doesn't leak into this test's click handler.
+  isDragSyntheticClick();
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.DomEvent = {
     ...window.L.DomEvent,
@@ -506,12 +507,10 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
 
-    const { setEnabled, cleanup } = bindNodeDrag(
-      node as any,
-      del as any,
-      map as any,
-      { onDrag, onEnd },
-    );
+    const { setEnabled, cleanup } = bindNodeDrag(node as any, del as any, map as any, {
+      onDrag,
+      onEnd,
+    });
     setEnabled(true);
 
     // find handlers

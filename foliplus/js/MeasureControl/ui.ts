@@ -3,11 +3,7 @@ import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
-import {
-  bindNodeDrag,
-  buildEditOverlay,
-  markDragSyntheticClick,
-} from "./edit.js";
+import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "./edit.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
 

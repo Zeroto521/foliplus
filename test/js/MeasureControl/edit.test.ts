@@ -9,9 +9,15 @@ import {
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
 
+// Reset the module-scoped one-shot flag before each test so a prior test's
+// drag end doesn't leak into this test's click handler.
+const resetDragFlag = () => {
+  isDragSyntheticClick(); // consume any pending flag
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
-  delete (window as any).__foliplus_measure_drag_click;
+  resetDragFlag();
   window.L.DomEvent = {
     ...window.L.DomEvent,
     stopPropagation: vi.fn(),
