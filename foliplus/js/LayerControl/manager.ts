@@ -22,6 +22,7 @@ import {
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
+import { AnnotationManager } from "./annotation.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
 
@@ -73,6 +74,7 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
+  annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -130,6 +132,7 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -450,6 +453,8 @@ class LayerManager implements LayerAPI {
     // doesn't carry stale hidden state into a future session.
     this.ui?.hiddenIds?.delete(id);
     this.ui?.saveHiddenIds();
+    // Tear down any annotation labels attached to this layer.
+    this.annotation.destroyLayer(id);
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
@@ -683,6 +688,7 @@ class LayerManager implements LayerAPI {
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     this.persistence.destroy();
+    this.annotation.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;

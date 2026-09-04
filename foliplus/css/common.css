@@ -393,6 +393,129 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+  Shared Form Controls
+  Reusable form primitives shared across component panels (HeatmapControl
+  and LayerControl's annotation style panel). HeatmapControl keeps its own
+  .foliplus-heatmap-form-* classes for now; new panels use these directly.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* Form row: label on the left, control on the right. */
+.foliplus-form-row {
+  display: flex;
+  align-items: center;
+  min-height: var(--toggle-size);
+  gap: var(--space-md);
+  box-sizing: border-box;
+}
+
+.foliplus-form-label {
+  flex-shrink: 0;
+  width: 88px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+  padding-right: var(--space-xs);
+}
+
+.foliplus-form-control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Shared select (mirrors HeatmapControl's form-select visual). */
+.foliplus-form-select {
+  width: 100%;
+  height: var(--ctrl-size);
+  font-size: var(--font-size-md);
+  padding: 0 var(--space-xl) 0 var(--space-md);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
+    no-repeat right var(--space-md) center;
+  background-size: var(--size-8) var(--size-6);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  appearance: none;
+  transition: var(--transition-input);
+}
+
+/* Shared toggle switch (mirrors HeatmapControl's toggle-switch). */
+.foliplus-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: var(--size-20);
+  flex-shrink: 0;
+  cursor: pointer;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+}
+.foliplus-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--neutral-300);
+  border-radius: 10px;
+  transition: background-color var(--transition-fast);
+
+  &::before {
+    content: "";
+    position: absolute;
+    height: var(--size-16);
+    width: var(--size-16);
+    left: var(--size-2);
+    bottom: var(--size-2);
+    background-color: var(--neutral-0);
+    border-radius: var(--radius-round);
+    transition:
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  }
+}
+.foliplus-toggle-switch:hover .foliplus-toggle-slider {
+  background-color: var(--neutral-500);
+}
+.foliplus-toggle-switch:hover .foliplus-toggle-slider::before {
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+.foliplus-toggle-switch input:checked + .foliplus-toggle-slider {
+  background-color: var(--accent-primary);
+}
+.foliplus-toggle-switch input:checked + .foliplus-toggle-slider::before {
+  transform: translateX(var(--size-20)) scale(1.15);
+}
+.foliplus-toggle-switch:hover input:checked + .foliplus-toggle-slider {
+  background-color: var(--accent-hover);
+}
+.foliplus-toggle-switch input:disabled + .foliplus-toggle-slider {
+  opacity: var(--alpha-50);
+  cursor: default;
+}
+
+/* Shared section heading (mirrors HeatmapControl's section-heading). */
+.foliplus-section-heading {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+  padding: var(--space-md) var(--space-xl) var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
   Floating menus in SearchControl (result panel), HeatmapControl (scheme
   picker) and LayerControl (layer overflow menu) share one visual recipe.

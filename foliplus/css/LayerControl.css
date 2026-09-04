@@ -692,3 +692,112 @@ path.foliplus-focus-mask {
   color: inherit;
   width: 100%;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation style panel
+  Floating panel opened from a data layer's overflow menu, mounted as a
+  sibling of the layer list (outside the scrollable panel-content) so it can
+  overflow freely. Shares form primitives with common.css.
+  ══════════════════════════════════════════════════════════════════════ */
+.foliplus-layer-ctrl {
+  --style-panel-width: 240px;
+  .foliplus-style-panel {
+    position: absolute;
+    display: none;
+    width: var(--style-panel-width);
+    top: 0;
+    right: calc(-1 * var(--style-panel-width) - var(--space-sm));
+    background: var(--ctrl-bg);
+    border: var(--border-thin) solid var(--input-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--panel-shadow);
+    z-index: var(--z-index-floating);
+    flex-direction: column;
+    animation: foliplus-dropdown-in 0.15s ease-out;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    box-sizing: border-box;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+
+    .foliplus-form-row {
+      padding: var(--space-xs) var(--space-lg);
+      height: auto;
+      min-height: var(--toggle-size);
+    }
+
+    /* Section heading inside the panel — a bit more breathing than the
+       shared base so the panel header reads as a real title. */
+    .foliplus-style-section-heading {
+      border-bottom: var(--border-thin) solid var(--divider-color);
+    }
+  }
+  /* Only render the panel when the list is expanded (the parent control
+     root is `.expanded` when the layer panel is open). */
+  &.expanded .foliplus-style-panel {
+    display: flex;
+  }
+
+  .foliplus-form-row .foliplus-toggle-switch {
+    display: flex;
+  }
+
+  .foliplus-btn-row {
+    display: flex;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-top: var(--border-thin) solid var(--divider-color);
+  }
+  .foliplus-style-reset-btn {
+    flex: 1;
+    height: var(--ctrl-size);
+    border: var(--border-thin) solid var(--btn-secondary-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--input-bg);
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast),
+      transform var(--transition-fast);
+
+    &:hover {
+      background: var(--ctrl-hover-bg);
+      border-color: var(--input-focus-border);
+      transform: scale(var(--scale-hover));
+    }
+    &:active {
+      transform: scale(var(--scale-press));
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation label marker (drawn on the map, mounted on markerPane)
+  A plain text label with a white glow (text-shadow) for legibility on
+  dark satellite basemaps, mirroring the reference `Text(Marker)` glow.
+  pointer-events: none so clicks fall through to the data feature / map.
+  ══════════════════════════════════════════════════════════════════════ */
+.leaflet-marker-icon.foliplus-annotation-label {
+  pointer-events: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  line-height: 1;
+
+  .foliplus-annotation-label-text {
+    display: inline-block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    white-space: nowrap;
+    text-shadow:
+      0 0 4px #ffffff,
+      0 0 8px #ffffff,
+      0 0 12px #ffffff;
+  }
+}

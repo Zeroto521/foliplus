@@ -48,8 +48,11 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (li.getAttribute("disabled")) return;
   if (action === "focus-layer") ui.focusLayer(ui.activeMenu?.layerId ?? "");
   if (action === "rename-layer") ui.renameLayer(ui.activeMenu?.layerId ?? "");
+  if (action === "style-layer") ui.openStylePanel(ui.activeMenu?.layerId ?? "");
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
+  // Any other menu item (focus-layer, style-layer, or an unknown action)
+  // closes the menu and returns focus to the layer row.
   ui.closeMoreMenu(action !== "rename-layer");
 };
 

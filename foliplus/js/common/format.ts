@@ -1,14 +1,15 @@
 // Number formatting for foliplus components.
 // Imported statically by components at build time.
 
-export type NumberStyle = "auto" | "comma" | "int";
+export type NumberStyle = "auto" | "comma" | "int" | "percent";
 
 /**
  * Format a number for display.
  * @param val Value to format
  * @param style 'auto' (compact: en 1.2K, zh 1.2万 — locale-native units),
  *              'comma' (thousands separator: 6,000),
- *              'int' (plain integer, no grouping: 6000)
+ *              'int' (plain integer, no grouping: 6000),
+ *              'percent' (fraction × 100: 0.35 → 35% — for 0..1 values)
  * @param locale Locale code, defaults to 'en'
  */
 const formatNumber = (
@@ -49,6 +50,14 @@ const formatNumber = (
     return new Intl.NumberFormat(locale, {
       maximumFractionDigits: 0,
       useGrouping: false,
+    }).format(val);
+
+  // percent: fraction × 100 with % suffix (0.35 → 35%) — meant for 0..1
+  // fractional values such as a share/ratio column.
+  if (style === "percent")
+    return new Intl.NumberFormat(locale, {
+      style: "percent",
+      maximumFractionDigits: 1,
     }).format(val);
 
   // comma: user-requested thousands separator (6,000 / 1,234.5).
