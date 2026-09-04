@@ -141,7 +141,7 @@ describe("MarkerMode — start + click", () => {
 
   it("drags a restored pin in edit mode: live update + geocode on end persists by reference", async () => {
     // requestAnimationFrame is unavailable in jsdom/node — stub it to queue
-    // the throttled saveMeasurements callback.
+    // the throttled store.persist() callback.
     let rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -206,7 +206,7 @@ describe("MarkerMode — start + click", () => {
       // Flush the RAF-throttled persist
       expect(rafCb).toBeTruthy();
       rafCb!();
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
 
       onUp({
         originalEvent: { clientX: 10, clientY: 0 },
