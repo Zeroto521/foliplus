@@ -302,6 +302,16 @@ path.foliplus-focus-mask {
         transform: scale(var(--scale-hover));
       }
     }
+    /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
+       can't take the row cursor's border/glow without looking oversized. The
+       colour + scale preview already say "expand this group" (see the state
+       preview rules below), so the soft glow is enough to mark it focused. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
     &:active {
       transform: scale(var(--scale-press));
 
@@ -355,9 +365,16 @@ path.foliplus-focus-mask {
     visibility: hidden;
   }
 
-  /* ── Layer item hover (shared with toggle-all) ── */
+  /* ── Layer item hover (shared with toggle-all) ──
+     `.focused` is the keyboard cursor, which the JS also moves DOM focus onto.
+     It therefore IS :focus-visible for keyboard users, so grouping it with
+     :hover gives Tab and arrow navigation the exact same row wake-up as the
+     mouse — the drag handle, fold button and more button all come up together.
+     Mouse clicks never trigger :focus-visible, so this is keyboard-only. */
   .foliplus-layer-item:hover,
-  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
+  .foliplus-layer-sep.foliplus-layer-toggle-all:hover,
+  .foliplus-layer-item.foliplus-layer-focused,
+  .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-focused {
     background: var(--panel-header-hover);
   }
 
@@ -425,7 +442,8 @@ path.foliplus-focus-mask {
     }
     /* Keyboard cursor and mouse hover share the same foliplus color language:
        type icon → black (text-primary), more button → red (accent-primary),
-       count → gray (text-muted, unchanged). The left bar + wash are the
+       drag handle → visible, row wash → --panel-header-hover,
+       count → gray (text-muted, unchanged). The left bar + glow are the
        *additional* cursor-only signal that separates keyboard from mouse. */
     &.foliplus-layer-focused .foliplus-type-icon-col,
     &:hover .foliplus-type-icon-col,
