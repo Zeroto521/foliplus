@@ -1,7 +1,6 @@
 // Direct namespace tests for edit.ts — verifies the extracted module behaves
 // identically to the Util re-exports and covers a few scenarios not exercised
 // in util.test.ts (which tests through the Util namespace).
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bindNodeDrag,
@@ -133,9 +132,7 @@ describe("bindNodeDrag", () => {
     const moveHandler = (map.on as any).mock.calls.find(
       ([ev]) => ev === "mousemove",
     )?.[1];
-    const upHandler = (map.on as any).mock.calls.find(
-      ([ev]) => ev === "mouseup",
-    )?.[1];
+    const upHandler = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
 
     cleanup();
 
@@ -168,9 +165,10 @@ describe("bindNodeDrag", () => {
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
-    onMove(
-      { originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } } as any,
-    );
+    onMove({
+      originalEvent: { clientX: 10, clientY: 0 },
+      latlng: { lat: 2, lng: 2 },
+    } as any);
 
     expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
     // With no delMarker, only node.setLatLng is called (exactly once).

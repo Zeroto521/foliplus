@@ -4,6 +4,7 @@ import { buildPopupHtml } from "#common/dom.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
+
 export {
   bindNodeDrag,
   buildEditOverlay,
