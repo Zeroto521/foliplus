@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  bindNodeDrag,
+  buildEditOverlay,
+  isDragSyntheticClick,
+  markDragSyntheticClick,
+} from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
@@ -284,7 +290,7 @@ describe("buildEditOverlay", () => {
 
   it("exposes open and cleanup", () => {
     const mgr = makeMgr();
-    const overlay = Util.buildEditOverlay(mgr as any, {});
+    const overlay = buildEditOverlay(mgr as any, {});
 
     expect(typeof overlay.open).toBe("function");
     expect(typeof overlay.cleanup).toBe("function");
@@ -293,7 +299,7 @@ describe("buildEditOverlay", () => {
 
   it("close() is a no-op when the overlay is not open", () => {
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(makeMgr() as any, {
+    const overlay = buildEditOverlay(makeMgr() as any, {
       onOpen: vi.fn(),
       onEmpty,
     });
@@ -306,7 +312,7 @@ describe("buildEditOverlay", () => {
   it("fires onOpen and stops Leaflet propagation on open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
     const ev = { originalEvent: {} } as any;
 
     overlay.open(ev);
@@ -320,7 +326,7 @@ describe("buildEditOverlay", () => {
   it("closes other open overlays on open (single ✕ set at a time)", () => {
     const closeOtherEditOverlays = vi.fn();
     const mgr = makeMgr({ closeOtherEditOverlays });
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open({ originalEvent: {} } as any);
 
@@ -331,7 +337,7 @@ describe("buildEditOverlay", () => {
   it("does not open when not in edit mode", () => {
     const mgr = makeMgr({ isEditMode: false });
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
 
@@ -340,9 +346,9 @@ describe("buildEditOverlay", () => {
 
   it("does not open on a drag-synthetic click", () => {
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen });
+    const overlay = buildEditOverlay(makeMgr() as any, { onOpen });
 
-    Util.markDragSyntheticClick();
+    markDragSyntheticClick();
     overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).not.toHaveBeenCalled();
@@ -351,7 +357,7 @@ describe("buildEditOverlay", () => {
   it("does not re-open while already open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
     overlay.open({} as any);
@@ -363,7 +369,7 @@ describe("buildEditOverlay", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     // find the map-click handler registered by buildEditOverlay
     overlay.open({} as any);
@@ -377,11 +383,11 @@ describe("buildEditOverlay", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
-    Util.markDragSyntheticClick();
+    markDragSyntheticClick();
     mapClickHandler();
     expect(onEmpty).not.toHaveBeenCalled();
   });
@@ -389,7 +395,7 @@ describe("buildEditOverlay", () => {
   it("registers and cleans up the map-click listener", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open(fakeEv());
     overlay.cleanup();
@@ -411,7 +417,7 @@ describe("buildEditOverlay", () => {
       },
     };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     expect(closers).toHaveLength(1);
@@ -433,7 +439,7 @@ describe("buildEditOverlay", () => {
         };
       },
     };
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
     expect(closers).toHaveLength(1);
 
     overlay.cleanup();
@@ -443,13 +449,13 @@ describe("buildEditOverlay", () => {
 
 describe("markDragSyntheticClick / isDragSyntheticClick", () => {
   it("returns true once after markDragSyntheticClick", () => {
-    Util.markDragSyntheticClick();
-    expect(Util.isDragSyntheticClick()).toBe(true);
-    expect(Util.isDragSyntheticClick()).toBe(false); // consumed-on-read
+    markDragSyntheticClick();
+    expect(isDragSyntheticClick()).toBe(true);
+    expect(isDragSyntheticClick()).toBe(false); // consumed-on-read
   });
 
   it("returns false by default", () => {
-    expect(Util.isDragSyntheticClick()).toBe(false);
+    expect(isDragSyntheticClick()).toBe(false);
   });
 });
 
@@ -469,7 +475,7 @@ describe("bindNodeDrag", () => {
       off: vi.fn(),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
 
     // Simulate the node's element being replaced (resortLayers re-render).
     current = { style: { cursor: "" } };
@@ -500,7 +506,7 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
 
-    const { setEnabled, cleanup } = Util.bindNodeDrag(
+    const { setEnabled, cleanup } = bindNodeDrag(
       node as any,
       del as any,
       map as any,
@@ -561,7 +567,7 @@ describe("bindNodeDrag", () => {
       ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
@@ -583,7 +589,7 @@ describe("bindNodeDrag", () => {
       mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
       dragging: { disable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
     // enabled defaults to false
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     onDown({});
@@ -603,7 +609,7 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
 
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onEnd });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onEnd });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
@@ -625,7 +631,7 @@ describe("bindNodeDrag", () => {
       mouseEventToContainerPoint: vi.fn(),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];

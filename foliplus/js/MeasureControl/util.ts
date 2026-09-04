@@ -5,12 +5,8 @@ import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
-export {
-  bindNodeDrag,
-  buildEditOverlay,
-  isDragSyntheticClick,
-  markDragSyntheticClick,
-} from "./edit.js";
+// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
+// flag) live in edit.ts. Callers import them directly from there.
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
