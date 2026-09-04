@@ -227,7 +227,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     expect(data.target).toEqual({ lng: 121, lat: 32 });
     expect(data.radius).toBe(8000);
     expect(data.area).toBe(Math.PI * 8000 * 8000);
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.persist).toHaveBeenCalled();
   });
 
   it("finishCircle: onEnd syncs the just-saved measurement's fields", () => {
@@ -261,7 +261,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       expect(saved.radius).toBe(12000);
       expect(saved.area).toBe(Math.PI * 12000 * 12000);
       expect(saved.target).toEqual({ lng: 123, lat: 31 });
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

@@ -328,7 +328,7 @@ class CircleMode extends PreviewMode {
           this.m.store.remove(circleId);
         },
         onEnd: () => {
-          const m = this.m.measurements.find(x => x.id === circleId);
+          const m = this.m.store.all().find(x => x.id === circleId);
           if (!m) return;
           const c = circle as L.Circle;
           const n = radiusNode as L.CircleMarker;
@@ -339,7 +339,7 @@ class CircleMode extends PreviewMode {
           m.target = { lng: target.lng, lat: target.lat };
           m.radius = r;
           m.area = Math.PI * r * r;
-          this.m.saveMeasurements();
+          this.m.store.persist();
         },
       });
     };
