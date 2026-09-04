@@ -26,10 +26,10 @@ export interface CollidableLabel {
 }
 
 /** Resolve a marker's label chip, or null when it is not on the map. */
-export type ChipOf = (marker: L.Marker) => HTMLElement | null;
+type ChipOf = (marker: L.Marker) => HTMLElement | null;
 
 /** Everything the planner needs from the map. */
-export interface Projector {
+interface Projector {
   /** Container-relative box of a chip in its current state. */
   box: (el: HTMLElement) => Box;
 }
@@ -59,7 +59,7 @@ const FALLBACK_CHIP_H = 18;
  */
 const HIDE_OVERLAP = 0.75;
 
-export const mapProjector = (map: L.Map): Projector => {
+const mapProjector = (map: L.Map): Projector => {
   // Cache the container rect once per plan: it does not change between chips,
   // so we avoid a layout read (getBoundingClientRect) for every label.
   const container = map.getContainer().getBoundingClientRect();
@@ -126,7 +126,7 @@ export interface PlanResult {
   elements: Set<HTMLElement>;
 }
 
-export const placeLabels = (
+const placeLabels = (
   labels: CollidableLabel[],
   projector: Projector,
   collide: boolean,
@@ -192,3 +192,5 @@ export const placeLabels = (
   }
   return { hidden: toHide.size, elements: toHide };
 };
+
+export { mapProjector, placeLabels };

@@ -5,16 +5,16 @@ import {
 } from "#common/delicon.js";
 
 /** Timing / delay constants. */
-export const TIMING = {
+const TIMING = {
   CLICK_COOLDOWN: 300,
   FINALIZE_DELAY: 50,
 };
 
 /** Measure node marker. */
-export const MARKER = { RADIUS: 5 };
+const MARKER = { RADIUS: 5 };
 
 /** Center dot marker. */
-export const CENTER_DOT = {
+const CENTER_DOT = {
   SIZE: [12, 12],
   ANCHOR: [6, 6],
   CLASS: "foliplus-measure-center-dot",
@@ -23,7 +23,7 @@ export const CENTER_DOT = {
 /** Label markers. */
 
 /** Label markers. */
-export const LABEL = {
+const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
@@ -50,28 +50,28 @@ export const LABEL = {
  *  overlap heavily. Segment labels are the most numerous (a dense polygon
  *  stacks dozens of them), so they give way to the unique centroid / radius
  *  value first. */
-export const LABEL_PRIORITY = {
+const LABEL_PRIORITY = {
   SEGMENT: 60,
   CENTROID: 80,
   RADIUS: 80,
 };
 
 /** Formatting. */
-export const FORMAT = {
+const FORMAT = {
   LAT_LNG_PRECISION: 6,
   KM_THRESHOLD: 1000,
   KM_DECIMALS: 1,
 };
 
 /** Z-index. */
-export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
+const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
 
 /** IDs and pane names. */
-export const ID = "foliplus_measure";
-export const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
+const ID = "foliplus_measure";
+const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
 
 /** CSS class names. */
-export const CLASSES = {
+const CLASSES = {
   // Three path states shared by lines, circles, and polygons.
   PATH_SOLID: "foliplus-measure-path foliplus-measure-path-solid",
   PATH_DASHED: "foliplus-measure-path foliplus-measure-path-dashed",
@@ -90,28 +90,28 @@ export const CLASSES = {
 };
 
 /** Style property names. */
-export const STYLE = { SWEEP_LENGTH: "--sweep-length" };
+const STYLE = { SWEEP_LENGTH: "--sweep-length" };
 
 /** DOM selectors. */
-export const SEL = {
+const SEL = {
   LABEL: ".foliplus-measure-label",
   DEL_ICON: DEL_ICON_SELECTOR,
   TOOL_BTN: ".foliplus-tool-btn[data-mode]",
 };
 
 /** Persistent storage key. */
-export const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
+const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
 
 /** Export formats. */
-export const EXPORT_FORMAT = {
+const EXPORT_FORMAT = {
   GEOJSON: "geojson",
   CSV: "csv",
 } as const;
 
-export type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
+type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
 /** Standard GeoJSON type names (RFC 7946). */
-export const GEOJSON = {
+const GEOJSON = {
   FEATURE: "Feature",
   FEATURE_COLLECTION: "FeatureCollection",
   POINT: "Point",
@@ -120,11 +120,31 @@ export const GEOJSON = {
 } as const;
 
 /** Mode names. */
-export const MODE = {
+const MODE = {
   MARKER: "marker",
   DISTANCE: "distance",
   POLYGON: "polygon",
   CIRCLE: "circle",
   EDIT: "edit",
   CLEAR: "clear",
+};
+
+export {
+  TIMING,
+  MARKER,
+  CENTER_DOT,
+  LABEL,
+  LABEL_PRIORITY,
+  FORMAT,
+  Z_INDEX,
+  ID,
+  PANES,
+  CLASSES,
+  STYLE,
+  SEL,
+  STORAGE,
+  EXPORT_FORMAT,
+  type ExportFormat,
+  GEOJSON,
+  MODE,
 };
