@@ -96,6 +96,16 @@ class CircleMode extends PreviewMode {
         manager.measurements = manager.measurements.filter(x => x.id !== data.id);
         manager.saveMeasurements();
       },
+      onEnd: () => {
+        const center = circle.getLatLng();
+        const target = radiusNode!.getLatLng();
+        const r = circle.getRadius();
+        data.center = { lng: center.lng, lat: center.lat };
+        data.target = { lng: target.lng, lat: target.lat };
+        data.radius = r;
+        data.area = Math.PI * r * r;
+        manager.saveMeasurements();
+      },
     });
   }
 
@@ -320,6 +330,20 @@ class CircleMode extends PreviewMode {
         radiusLabel: radiusLabel as L.Marker,
         onDelete: () => {
           this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
+          this.m.saveMeasurements();
+        },
+        onEnd: () => {
+          const m = this.m.measurements.find(x => x.id === circleId);
+          if (!m) return;
+          const c = circle as L.Circle;
+          const n = radiusNode as L.CircleMarker;
+          const center = c.getLatLng();
+          const target = n.getLatLng();
+          const r = c.getRadius();
+          m.center = { lng: center.lng, lat: center.lat };
+          m.target = { lng: target.lng, lat: target.lat };
+          m.radius = r;
+          m.area = Math.PI * r * r;
           this.m.saveMeasurements();
         },
       });

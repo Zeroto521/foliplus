@@ -35,7 +35,9 @@ export function initMocks() {
 
   window.L.circle = vi.fn(() => ({
     setRadius: vi.fn(),
+    getRadius: vi.fn(() => 1000),
     setLatLng: vi.fn(),
+    getLatLng: vi.fn(() => ({ lat: 31, lng: 121 })),
     getElement: vi.fn(() => null),
     on: vi.fn(),
     off: vi.fn(),
