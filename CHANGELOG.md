@@ -50,7 +50,6 @@
 
 ### Fixed
 
-- `MeasureControl`: polygon centroid area label washed out after zoom-out; `zIndexOffset` fix caused it to cover other labels. Route centroid dot to `measure_graph` pane (like node markers) so pane ordering keeps the area label above it. Add a modest `zIndexOffset` to the area label so `sortLayers` (which re-sorts by Y on zoom) doesn't push a lower-Y segment label over it ([#230](https://github.com/Zeroto521/foliplus/pull/230))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
@@ -59,6 +58,7 @@
 - `SearchControl`: `Enter` now adopts the keyboard-highlighted suggestion (previously it always re-geocoded and took the first Nominatim result) ([#216](https://github.com/Zeroto521/foliplus/pull/216))
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
+- `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 
 ## [v0.3.0] (2026-08-02)
 

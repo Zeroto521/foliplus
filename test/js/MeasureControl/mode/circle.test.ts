@@ -124,7 +124,8 @@ describe("CircleMode — restore", () => {
 
     expect(window.L.circle).toHaveBeenCalled();
     expect(window.L.polyline).toHaveBeenCalled();
-    expect(window.L.marker).toHaveBeenCalled(); // center dot + labels + del icons
+    expect(window.L.circleMarker).toHaveBeenCalled(); // center + radius nodes
+    expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
     expect(manager.finalizedClickHandlers.length).toBe(1);
   });
@@ -147,7 +148,7 @@ describe("CircleMode — start drawing flow", () => {
       )?.[1];
 
       clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
-      expect(window.L.marker).toHaveBeenCalled(); // center dot
+      expect(window.L.circleMarker).toHaveBeenCalled(); // center dot (CircleMarker)
 
       moveHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       expect(window.L.circle).toHaveBeenCalled(); // preview circle
@@ -248,12 +249,14 @@ describe("CircleMode — drag persistence (onEnd)", () => {
 
       expect(manager.measurements.length).toBe(1);
 
-      // finishCircle creates: circle(1) + ripple(2) + radiusNode(1).
-      // onEnd reads from circle(1) and radiusNode(1) to sync the store.
+      // finishCircle creates: circle(1) + ripple(2) + radiusNode.
+      // The preview center (phase-0 click) is circleMarker call #1;
+      // the radius node in finishCircle is circleMarker call #2.
+      // onEnd reads from circle(1) and radiusNode(2) to sync the store.
       const c = circleInstance(1);
       c.getLatLng = vi.fn(() => ({ lat: 31, lng: 121 }));
       c.getRadius = vi.fn(() => 12000);
-      nodeInstance(1).getLatLng = vi.fn(() => ({ lat: 31, lng: 123 }));
+      nodeInstance(2).getLatLng = vi.fn(() => ({ lat: 31, lng: 123 }));
 
       capturedCircleOpts.onEnd();
 

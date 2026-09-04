@@ -219,7 +219,7 @@ interface CircleAttachOpts {
   circle: L.Circle;
   radiusLine: L.Polyline | null;
   radiusNode: L.CircleMarker | null;
-  centerFinal: L.Marker;
+  centerFinal: L.CircleMarker;
   delMarker: L.Marker;
   radiusLabel: L.Marker | null;
   onDelete: () => void;
@@ -362,7 +362,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
-  let centroidDot: L.Marker | null = null;
+  let centroidDot: L.CircleMarker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDelMarker: L.Marker | null = null;
 
@@ -414,25 +414,17 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot goes into the graph pane (no isLabel), same as node
-    // markers — below the label pane. The centroid label is isLabel, so it
-    // lands in the label pane which always paints above the graph pane. No
-    // zIndexOffset needed; the pane ordering guarantees the label covers the
-    // dot, matching how distance/circle handle node-vs-label separation.
-    // Segment labels (also isLabel) sit at z = Y. After a zoom `sortLayers`
-    // re-sorts by Y and can push a lower-Y segment label above the area label.
-    // A modest zIndexOffset keeps the area label above its own segment labels.
+    // The centroid dot is a CircleMarker (SVG path) in the graph pane —
+    // same approach as the circle center. Both share the SVG renderer with
+    // the fill, so no zIndexOffset is needed; DOM order within the SVG
+    // guarantees the dot paints above the fill.
+    // The centroid label is isLabel → label pane, which paints above the
+    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
+    // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
+    // above its own segment labels.
     centroidDot = layers.addLayer(
-      L.marker(centroid, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        interactive: true,
-      }),
-    ) as L.Marker;
+      Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+    ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
         icon: Util.makeLabelDivIcon(
