@@ -60,17 +60,14 @@ describe("LABEL anchors", () => {
     expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
   });
 
-  it("anchors the label chip above the point (negative y) so it covers the center dot", () => {
+  it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng and both live
-    // in labelPane with equal zIndexOffset (11000). Leaflet ties equal z-index
-    // by DOM order — rebuildCentroid() builds dot then label then del-marker,
-    // so the label paints on top of the dot. The default anchor [0, -10] sits
-    // the chip *above* the point (negative y = above in Leaflet's anchor
-    // convention), which both covers the dot and clears the polygon fill's
-    // inner area. A positive-y anchor was the wrong fix: it pushed the label
-    // *down* past the dot into the fill, where a zoom-out animation reparents
-    // the marker-icon to z = Y (equal to the fill's parent SVG) and the
-    // label washes out through backdrop-filter.
+    // in the label pane. The label carries a higher zIndexOffset than the dot
+    // (CENTROID_Z_OFFSET > CENTROID_DOT_Z_OFFSET), so it paints above the dot
+    // — Leaflet needs that delta, since equal z-index ties by DOM order and
+    // rebuildCentroid() builds dot first. The [0, -10] anchor lifts the chip
+    // *above* the point (negative y = above in Leaflet's anchor convention),
+    // so the dot stays visible underneath as the edit-mode drag target.
     expect(cy).toBeLessThan(0);
   });
 

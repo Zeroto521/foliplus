@@ -25,19 +25,22 @@ export const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
-  // The centroid label shares the same latlng as the 12×12 center dot. The
-  // dot goes to measure_graph (no isLabel flag) — same as node markers. The
-  // label is isLabel (measure_label, z=621 above graph z=620), so it always
-  // paints above the dot by pane ordering.
+  // The centroid label and the 12×12 center dot share a latlng and BOTH live
+  // in the label pane (isLabel). The dot needs to clear the polygon fill,
+  // which sits in the graph pane — a semi-transparent fill over the dot hides
+  // the hit target and makes it ungrabable in edit mode, so the dot stays
+  // above the fill via CENTROID_DOT_Z_OFFSET within the label pane. The label
+  // then sits above the dot by the offset delta so the chip stays readable.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
-  // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
-  // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
-  // which can push a lower-Y segment label over the area label.
   CENTROID_ANCHOR: [0, -10],
-  // Modest offset (above max viewport Y ≈ 900, below del icon 11000) that
-  // keeps the area label above segment labels within the label pane after
-  // sortLayers re-sorts by Y on zoom, without reaching other panes.
-  CENTROID_Z_OFFSET: 2000,
+  // Baseline offset for the centroid dot inside the label pane. Above the max
+  // viewport Y (sortLayers assigns each icon z = screen Y, so this clears
+  // every segment label) and below the del icon (11000).
+  CENTROID_DOT_Z_OFFSET: 1500,
+  // Delta above the dot's offset: keeps the area label above the dot AND above
+  // segment labels within the label pane. The label is interactive:false, so
+  // it never steals the dot's drag target.
+  CENTROID_Z_OFFSET: 1800,
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",

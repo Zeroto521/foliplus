@@ -49,7 +49,7 @@
 
 ### Fixed
 
-- `MeasureControl`: polygon centroid area label washed out after zoom-out; `zIndexOffset` fix caused it to cover other labels. Route centroid dot to `measure_graph` pane (like node markers) so pane ordering keeps the area label above it. Add a modest `zIndexOffset` to the area label so `sortLayers` (which re-sorts by Y on zoom) doesn't push a lower-Y segment label over it ([#230](https://github.com/Zeroto521/foliplus/pull/230))
+- `MeasureControl`: polygon centroid area label washed out after zoom-out; `zIndexOffset` fix caused it to cover other labels. Move both the centroid dot and the area label into `measure_label` and stack them by `zIndexOffset` — the dot clears the semi-transparent polygon fill (which was hiding its drag target in edit mode) and the label stays above the dot, while `sortLayers` (which re-sorts by Y on zoom) applies to both and preserves the offset delta ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#237](https://github.com/Zeroto521/foliplus/pull/237))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))

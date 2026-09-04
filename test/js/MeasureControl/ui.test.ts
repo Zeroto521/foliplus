@@ -323,7 +323,7 @@ describe("attachPolygonUI", () => {
     expect(dotIcons.length).toBe(1);
   });
 
-  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+  it("puts the centroid dot and label in the same pane, stacking by z offset", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
     const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
@@ -334,20 +334,24 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds markers in order: [0]=centroidDot,
-    // [1]=centroidLabel, [2]=centroidDelMarker. The dot goes to the graph
-    // pane (no isLabel flag, no zIndexOffset) — same as node markers. The
-    // label is isLabel so it lands in the label pane, which always paints
-    // above the graph pane, guaranteeing the label covers the dot. The label
-    // also carries a modest zIndexOffset so sortLayers (which re-sorts by Y
-    // on zoom) doesn't push a lower-Y segment label above the area label.
+    // [1]=centroidLabel, [2]=centroidDelMarker. Both dot and label are
+    // isLabel so they share the label pane and order by zIndexOffset — that
+    // keeps the dot above the polygon fill (which lives in the graph pane and
+    // would otherwise cover the dot with a semi-transparent wash, hiding the
+    // drag target in edit mode) while sortLayers re-sorts both icons by Y
+    // together, preserving the offset delta.
     const dotOpts = (window.L.marker as any).mock.calls[0][1];
     const labelOpts = (window.L.marker as any).mock.calls[1][1];
-    // Dot: no zIndexOffset, routed to graph pane (isLabel=false).
-    expect(dotOpts.zIndexOffset).toBeUndefined();
-    expect(addLayerCalls[0].isLabel).toBe(false);
-    // Label: isLabel=true → label pane, has modest zIndexOffset.
+    // Dot: isLabel=true → label pane (above the graph-pane fill), carries the
+    // centroid dot offset, interactive so edit mode can grab it.
+    expect(addLayerCalls[0].isLabel).toBe(true);
+    expect(dotOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_DOT_Z_OFFSET);
+    expect(dotOpts.interactive).toBe(true);
+    // Label: also isLabel, sits ABOVE the dot via a larger offset, and is
+    // non-interactive so it never steals the dot's drag target.
     expect(addLayerCalls[1].isLabel).toBe(true);
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
+    expect(labelOpts.zIndexOffset).toBeGreaterThan(dotOpts.zIndexOffset);
     expect(labelOpts.interactive).toBe(false);
     // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();

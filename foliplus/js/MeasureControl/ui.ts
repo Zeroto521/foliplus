@@ -414,14 +414,19 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot goes into the graph pane (no isLabel), same as node
-    // markers — below the label pane. The centroid label is isLabel, so it
-    // lands in the label pane which always paints above the graph pane. No
-    // zIndexOffset needed; the pane ordering guarantees the label covers the
-    // dot, matching how distance/circle handle node-vs-label separation.
-    // Segment labels (also isLabel) sit at z = Y. After a zoom `sortLayers`
-    // re-sorts by Y and can push a lower-Y segment label above the area label.
-    // A modest zIndexOffset keeps the area label above its own segment labels.
+    // The centroid dot and the area label both live in the label pane (isLabel),
+    // so they order by pane order + zIndexOffset instead of competing with the
+    // polygon fill. The dot must sit ABOVE the fill — the fill lives in the
+    // graph pane, and a semi-transparent fill painting over the dot makes it
+    // impossible to grab in edit mode. The label sits ABOVE the dot by the
+    // offset delta, so the chip still reads as the visible centroid while the
+    // dot underneath keeps the hit target and the `move` cursor.
+    //
+    // Keeping both in the label pane also sidesteps sortLayers: that routine
+    // reassigns each icon's z-index to its screen Y on zoom, which would drop
+    // a graph-pane dot back to z = Y and let the fill win again. Both icons
+    // here are in the label pane, so sortLayers applies uniformly to both and
+    // the offset delta (not their raw Y) decides the pair's order.
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
@@ -430,8 +435,10 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           iconSize: CONST.CENTER_DOT.SIZE as [number, number],
           iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
+        zIndexOffset: CONST.LABEL.CENTROID_DOT_Z_OFFSET,
         interactive: true,
       }),
+      true,
     ) as L.Marker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
