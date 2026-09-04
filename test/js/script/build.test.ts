@@ -88,11 +88,12 @@ describe("build artifacts", () => {
     expect(size).toBeLessThan(100000);
   });
 
-  // LayerControl is the largest component (~98KB local, ~102KB CI after feature
-  // additions: rename, focus, reorder, fold). Per-component ceiling gives room
-  // for the ~4KB cross-platform build delta while still catching runaway growth.
+  // LayerControl is the largest component. Ceiling tracks legitimate feature
+  // additions (rename, focus, reorder, fold, annotation style panel); it
+  // gives room for the ~4KB cross-platform build delta while still catching
+  // runaway growth. Current baseline: ~121KB.
   const MAX_COMPONENT_SIZE = {
-    "foliplus-LayerControl.min.js": 110000,
+    "foliplus-LayerControl.min.js": 130000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {

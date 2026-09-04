@@ -20,6 +20,7 @@
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227))
+- `LayerControl`: per-layer annotation style panel from a layer's ⋮ menu — toggle text labels on features and choose the label field and number format ([#236](https://github.com/Zeroto521/foliplus/pull/236))
 
 ### Changed
 

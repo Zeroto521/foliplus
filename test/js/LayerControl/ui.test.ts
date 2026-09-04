@@ -2364,3 +2364,196 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     });
   });
 });
+
+// ===========================================================================
+describe("LayerUI annotation style panel positioning", () => {
+  let manager: LayerManager, ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    // openStylePanel mounts the panel on the closest .foliplus-layer-ctrl
+    // (the control root, which is the parent of the scrollable
+    // panel-content). The fixture has no such wrapper, so wrap uiContainer to
+    // exercise the production mount path.
+    const host = manager.uiContainer!;
+    const ctrl = document.createElement("div");
+    ctrl.className = "foliplus-layer-ctrl expanded";
+    host.parentNode!.insertBefore(ctrl, host);
+    ctrl.appendChild(host);
+
+    // Seed the field cache so renderStylePanel builds a panel: collectFields
+    // walks the layer's leaves, and the fixture's data layer has none.
+    (ui as { fieldCache: Map<string, string[]> }).fieldCache.set("overlay1", ["count"]);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const panelAfterOpen = (): HTMLElement => {
+    const panel = document.querySelector(CONST.SEL.STYLE_PANEL) as HTMLElement;
+    expect(panel).not.toBeNull();
+    return panel;
+  };
+
+  it("mounts on the control root and anchors just below the row", () => {
+    ui.openStylePanel("overlay1");
+    const panel = panelAfterOpen();
+
+    // Mounted on the control root, not the row — must survive the
+    // panel-content's overflow-y clipping.
+    expect(panel.parentElement?.className).toContain("foliplus-layer-ctrl");
+    expect(panel.parentElement).not.toBe(findItem(ui, "overlay1"));
+
+    // Inline top/left set by positionStylePanel, not the CSS top:0 fallback.
+    expect(panel.style.top).not.toBe("");
+    expect(panel.style.left).not.toBe("");
+    expect(panel.style.top).not.toBe("0px");
+  });
+
+  it("positions the panel below the row within the viewport", () => {
+    const row = findItem(ui, "overlay1");
+    vi.spyOn(row, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 200,
+          right: 280,
+          bottom: 240,
+          width: 240,
+          height: 40,
+          x: 40,
+          y: 200,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    const ctrl = row.closest(".foliplus-layer-ctrl") as HTMLElement;
+    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 100,
+          right: 280,
+          bottom: 500,
+          width: 240,
+          height: 400,
+          x: 40,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+
+    ui.openStylePanel("overlay1");
+    const panel = panelAfterOpen();
+    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 0,
+          right: 280,
+          bottom: 180,
+          width: 240,
+          height: 180,
+          x: 40,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    // Re-run positioning with the panel reporting its real height.
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "overlay1");
+
+    // top = row.bottom 240 + gap 6 - ctrl.top 100 = 146px
+    expect(panel.style.top).toBe("146px");
+    // left = ctrl.right 280 - panel.width 240 - margin 8 = 32px
+    expect(panel.style.left).toBe("32px");
+  });
+
+  it("flips upward when the panel would overflow the viewport bottom", () => {
+    const row = findItem(ui, "overlay1");
+    vi.spyOn(row, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 700,
+          right: 280,
+          bottom: 740,
+          width: 240,
+          height: 40,
+          x: 40,
+          y: 700,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    const ctrl = row.closest(".foliplus-layer-ctrl") as HTMLElement;
+    vi.spyOn(ctrl, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 100,
+          right: 280,
+          bottom: 780,
+          width: 240,
+          height: 680,
+          x: 40,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    const prevInner = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      get: () => 800,
+    });
+
+    ui.openStylePanel("overlay1");
+    const panel = panelAfterOpen();
+    vi.spyOn(panel, "getBoundingClientRect").mockImplementation(
+      () =>
+        ({
+          left: 40,
+          top: 0,
+          right: 280,
+          bottom: 200,
+          width: 240,
+          height: 200,
+          x: 40,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    // Re-run positioning with the panel reporting its real height.
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "overlay1");
+
+    // No flip: 740 + 6 - 100 = 646 → 646 + 200 = 846 > 800 - 8 → flip.
+    // Flipped: row.top 700 - 200 - 6 - ctrl.top 100 = 394px
+    expect(panel.style.top).toBe("394px");
+
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: prevInner,
+    });
+  });
+
+  it("omits inline positioning when the row is missing (CSS fallback)", () => {
+    const panel = document.createElement("div");
+    panel.className = CONST.CLASSES.STYLE_PANEL;
+    (
+      ui as unknown as {
+        positionStylePanel: (p: HTMLElement, id: string) => void;
+      }
+    ).positionStylePanel(panel, "no-such-layer");
+
+    expect(panel.style.top).toBe("");
+    expect(panel.style.left).toBe("");
+  });
+});

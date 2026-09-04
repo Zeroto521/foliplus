@@ -12,6 +12,7 @@ import {
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { type AnnotationConfig } from "./annotation.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -62,6 +63,9 @@ class LayerUI {
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
+  /** Style panel click handler — mounted outside the layer list, so
+   *  container delegation on this.uiContainer does not reach it. */
+  onStylePanelClick: ((event: Event) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -70,6 +74,17 @@ class LayerUI {
     menu: HTMLElement;
     layerId: string;
   } | null;
+  /** The layer id whose style panel is currently open, or null. */
+  private stylePanelLayerId: string | null;
+  /** Scroll/resize handler that dismisses the style panel when the row it
+   *  anchors to moves — repositioning live is fiddler than closing on shift. */
+  private onStylePanelShift: (() => void) | null;
+  /** Armed by openStylePanel so the click that opened the panel is not read
+   *  as an outside-click close by handleStylePanelClick. */
+  private stylePanelJustOpened: boolean;
+  /** Cached per-layer field lists (collectFields can be expensive; the data
+   *  is stable for a layer's lifetime, so we cache it per layer). */
+  private fieldCache: Map<string, string[]>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -101,7 +116,12 @@ class LayerUI {
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onStylePanelClick = null;
     this.activeMenu = null;
+    this.stylePanelLayerId = null;
+    this.onStylePanelShift = null;
+    this.stylePanelJustOpened = false;
+    this.fieldCache = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -150,6 +170,10 @@ class LayerUI {
     // Heatmap in particular publishes its final count during initScan, so the
     // column may update a second time — that is driven by the event bus.
     this.refreshAllCounts();
+
+    // Re-apply persisted annotation labels so labels that were on at reload
+    // re-attach to their anchors (layers were just restored to the map above).
+    this.applyAnnotationState();
 
     // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
     // other components finish their own attach/onAdd before we finalize type
@@ -207,6 +231,23 @@ class LayerUI {
   /** Save user-assigned names, coalescing rapid calls. */
   saveNamesState() {
     this.m.persistence.saveNames(() => this.renamedNames);
+  }
+
+  /** Load persisted per-layer annotation config and re-render labels.
+   *  Called once from attachUI() after the initial list is rendered, so the
+   *  layers are resolvable and labels can be drawn at their anchors. */
+  applyAnnotationState() {
+    const saved = this.m.persistence.loadAnnotations();
+    for (const [id, raw] of Object.entries(saved)) {
+      const cfg = raw as Partial<AnnotationConfig>;
+      if (!this.layerHasLabelFields(id)) continue; // stale / no fields
+      this.m.annotation.setConfig(id, {
+        show: !!cfg.show,
+        field: typeof cfg.field === "string" ? cfg.field : "",
+        format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
+      });
+      if (cfg.show && cfg.field) this.m.annotation.renderLabels(id);
+    }
   }
 
   /**
@@ -799,6 +840,11 @@ class LayerUI {
     // and may visually overflow the panel bounds.
     document.addEventListener("click", this.onMoreMenuClick);
     this.m.map.on("click", this.onMoreMapClick);
+    // Style panel click — it mounts outside the layer list, so container
+    // delegation on this.uiContainer can't reach it; a scoped document click
+    // (handled in the panel's own method) closes it on outside click.
+    this.onStylePanelClick = event => this.handleStylePanelClick(event);
+    document.addEventListener("click", this.onStylePanelClick);
     // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
     // by InteractionManager via registerInteractions() in interaction.ts,
     // which routes to handleKeyDown() — that method detects when the
@@ -875,6 +921,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
+    this.closeStylePanel();
     this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
     this.dismissFocus();
@@ -900,6 +947,9 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    if (this.onStylePanelClick)
+      document.removeEventListener("click", this.onStylePanelClick);
+    this.onStylePanelClick = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -1274,7 +1324,8 @@ class LayerUI {
         this.toggleFocusedLayer();
         break;
       case "Escape":
-        if (this.activeMenu) this.closeMoreMenu(true);
+        if (this.stylePanelLayerId) this.closeStylePanel();
+        else if (this.activeMenu) this.closeMoreMenu(true);
         else this.clearActiveItem();
         break;
     }
@@ -1516,6 +1567,27 @@ class LayerUI {
       ),
     );
 
+    // "Style" (annotation) is only meaningful for data layers with labelable
+    // fields. Base maps, the color basemap, and data layers with no
+    // feature.properties are disabled — same disabled recipe as focus-layer.
+    const styleDisabled = skipFocus || !this.layerHasLabelFields(layerId);
+
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": CONST.ACTION.STYLE_LAYER,
+          role: "menuitem",
+          tabindex: "0",
+          title: styleDisabled ? T("label_no_data") : T("style_layer_tooltip"),
+          "aria-disabled": styleDisabled ? "true" : "false",
+        },
+        { html: SVGs.LABEL },
+        T("style_layer"),
+      ),
+    );
+    if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
+
     item.style.position = "relative";
     item.appendChild(menu);
 
@@ -1533,6 +1605,305 @@ class LayerUI {
     this.activeMenu.menu.remove();
     this.activeMenu = null;
     if (setFocus) item.focus();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Annotation style panel
+  // ─────────────────────────────────────────────────────────────────
+
+  /** Cached labelable fields for a layer. Returns [] when the layer has no
+   *  feature.properties (base maps, color basemap, canvas layers). */
+  layerHasLabelFields(layerId: string): boolean {
+    const cached = this.fieldCache.get(layerId);
+    if (cached) return cached.length > 0;
+    const fields = this.m.annotation.collectFields(layerId);
+    this.fieldCache.set(layerId, fields);
+    return fields.length > 0;
+  }
+
+  /** Field list for a layer (cached). */
+  private layerFields(layerId: string): string[] {
+    const cached = this.fieldCache.get(layerId);
+    if (cached) return cached;
+    const fields = this.m.annotation.collectFields(layerId);
+    this.fieldCache.set(layerId, fields);
+    return fields;
+  }
+
+  /** Open the annotation style panel for a layer. Mounts the panel as a
+   *  sibling of the layer list (outside the scrollable content) so it can
+   *  overflow freely, anchored to the row that opened it — the same
+   *  "drop below the trigger" rule the overflow menu uses. */
+  openStylePanel(layerId: string) {
+    this.closeStylePanel();
+    if (!layerId) return;
+    const panel = this.renderStylePanel(layerId);
+    if (!panel) return;
+    // The click that opened the panel still has to bubble out to the
+    // document handler, which would otherwise read the panel as "outside
+    // click" and close it immediately. Arm the guard so that one click is
+    // ignored; the next click outside really does dismiss.
+    this.stylePanelJustOpened = true;
+
+    // Mount on the control root (parent of this.uiContainer) so the panel is
+    // not clipped by the panel-content's overflow-y.
+    const root = this.uiContainer.closest(".foliplus-layer-ctrl") ?? this.uiContainer;
+    root.appendChild(panel);
+
+    this.positionStylePanel(panel, layerId);
+
+    // The panel is anchored to a row, so a scroll/resize that moves that row
+    // would leave the panel floating in the wrong place. Dismiss instead of
+    // repositioning: the panel is short-lived and reopening is one click.
+    const scrollEl = this.uiContainer.closest(".foliplus-panel-content") ?? root;
+    this.onStylePanelShift = () => this.closeStylePanel();
+    scrollEl.addEventListener("scroll", this.onStylePanelShift, { passive: true });
+    window.addEventListener("resize", this.onStylePanelShift);
+
+    this.stylePanelLayerId = layerId;
+    panel.focus?.();
+  }
+
+  /** Anchor the panel just below the layer row that opened it, aligned to the
+   *  control's right edge, flipping upward when it would overflow the viewport
+   *  bottom. CSS defaults cover the no-row fallback. */
+  private positionStylePanel(panel: HTMLElement, layerId: string): void {
+    const root = panel.parentElement;
+    const item =
+      this.uiContainer.querySelector<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-id="${CSS.escape(layerId)}"]`,
+      ) ?? null;
+    if (!root || !item) return;
+
+    const panelRect = panel.getBoundingClientRect();
+    // Anchor to the row, not the ⋮ button inside it: the button is vertically
+    // centred, so its bottom would leave the panel floating above the row's
+    // lower edge. The row is the visual unit the panel follows.
+    const anchor = item.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const gap = 6;
+    const margin = 8;
+
+    // Right edge of the control minus the panel width: same horizontal place
+    // the CSS default gives (panel width ≈ control width), but computed so it
+    // survives a row at the very top or bottom of the list.
+    panel.style.left = `${rootRect.right - panelRect.width - margin}px`;
+
+    let top = anchor.bottom + gap - rootRect.top;
+    if (top + panelRect.height > window.innerHeight - margin - rootRect.top) {
+      top = anchor.top - panelRect.height - gap - rootRect.top;
+    }
+    panel.style.top = `${top}px`;
+  }
+
+  /** Close the open style panel. */
+  closeStylePanel() {
+    if (this.stylePanelLayerId) this.fieldCache.delete(this.stylePanelLayerId);
+    this.stylePanelLayerId = null;
+    if (this.onStylePanelShift) {
+      const scrollEl = this.uiContainer.closest(".foliplus-panel-content");
+      scrollEl?.removeEventListener("scroll", this.onStylePanelShift);
+      window.removeEventListener("resize", this.onStylePanelShift);
+      this.onStylePanelShift = null;
+    }
+    const panel = document.querySelector(CONST.SEL.STYLE_PANEL);
+    panel?.remove();
+  }
+
+  /** Click handler for the style panel (document-scoped, since the panel
+   *  lives outside the layer list). Handles the internal controls and the
+   *  outside-click close. */
+  handleStylePanelClick(event: Event) {
+    const panel = document.querySelector(CONST.SEL.STYLE_PANEL);
+    if (!panel) return;
+    // The click that opened the panel bubbles here too; let that one through
+    // unaltered so the panel survives its own opening event.
+    if (this.stylePanelJustOpened) {
+      this.stylePanelJustOpened = false;
+      return;
+    }
+    // Click outside the panel → close (the more-menu already closed itself).
+    if (!panel.contains(event.target as Node)) {
+      this.closeStylePanel();
+      return;
+    }
+    const layerId = this.stylePanelLayerId;
+    if (!layerId) return;
+
+    const tgt = event.target as HTMLElement;
+    const field = tgt.closest(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement | null;
+    const fmt = tgt.closest(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement | null;
+    const resetBtn = tgt.classList.contains("foliplus-style-reset-btn");
+    // Resolving the toggle: clicking the input, the slider span, or the label
+    // should all flip the checkbox. Grab the input from the toggle switch.
+    const toggleSwitch = tgt.closest(
+      ".foliplus-toggle-switch",
+    ) as HTMLLabelElement | null;
+    const toggle = toggleSwitch
+      ? (toggleSwitch.querySelector(
+          ".foliplus-style-toggle-input",
+        ) as HTMLInputElement | null)
+      : null;
+
+    if (toggle) {
+      const cfg = this.m.annotation.getConfig(layerId);
+      cfg.show = toggle.checked;
+      this.m.annotation.setConfig(layerId, cfg);
+      this.m.annotation.renderLabels(layerId);
+      this.persistAnnotation();
+      return;
+    }
+    if (field) {
+      const cfg = this.m.annotation.getConfig(layerId);
+      cfg.field = field.value;
+      this.m.annotation.setConfig(layerId, cfg);
+      this.m.annotation.renderLabels(layerId);
+      this.persistAnnotation();
+      return;
+    }
+    if (fmt) {
+      const cfg = this.m.annotation.getConfig(layerId);
+      cfg.format = fmt.value;
+      this.m.annotation.setConfig(layerId, cfg);
+      this.m.annotation.renderLabels(layerId);
+      this.persistAnnotation();
+      return;
+    }
+    if (resetBtn) {
+      this.m.annotation.setConfig(layerId, {
+        show: false,
+        field: "",
+        format: CONST.FORMAT.AUTO,
+      });
+      this.m.annotation.renderLabels(layerId);
+      this.persistAnnotation();
+      this.closeStylePanel();
+      return;
+    }
+  }
+
+  /** Persist the current per-layer annotation config map. */
+  private persistAnnotation() {
+    this.m.persistence.saveAnnotations(() =>
+      Object.fromEntries(
+        [...this.m.annotation.configEntries()].map(([id, cfg]) => [id, cfg]),
+      ),
+    );
+  }
+
+  /** Build the style panel DOM for a layer. Returns null if there are no
+   *  labelable fields (defensive: the menu item should have been disabled). */
+  private renderStylePanel(layerId: string): HTMLElement | null {
+    const fields = this.layerFields(layerId);
+    if (!fields.length) return null;
+
+    const cfg = this.m.annotation.getConfig(layerId);
+    const locale = CONF.locale_code ?? "en";
+    const fmtLabel = (f: string) => T(`label_format_${f}`) || f;
+
+    // Field options.
+    const fieldOpts = dom.el("option", { value: "" }, T("label_field_placeholder"));
+    fields.forEach(f => fieldOpts.appendChild(dom.el("option", { value: f }, f)));
+
+    const formatOpts = dom.el(
+      "option",
+      { value: CONST.FORMAT.AUTO },
+      fmtLabel(CONST.FORMAT.AUTO),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.INT }, fmtLabel(CONST.FORMAT.INT)),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.COMMA }, fmtLabel(CONST.FORMAT.COMMA)),
+    );
+    formatOpts.appendChild(
+      dom.el("option", { value: CONST.FORMAT.PERCENT }, fmtLabel(CONST.FORMAT.PERCENT)),
+    );
+
+    const showToggle = dom.el("input", {
+      type: "checkbox",
+      class: "foliplus-style-toggle-input",
+      checked: cfg.show ? "" : null,
+      "aria-label": T("label_tooltip"),
+    });
+    const fieldSelect = dom.el(
+      "select",
+      { class: "foliplus-form-select foliplus-style-field-select" },
+      fieldOpts,
+    );
+    (fieldSelect as HTMLSelectElement).value = cfg.field || "";
+    const formatSelect = dom.el(
+      "select",
+      { class: "foliplus-form-select foliplus-style-format-select" },
+      formatOpts,
+    );
+    (formatSelect as HTMLSelectElement).value = cfg.format || CONST.FORMAT.AUTO;
+
+    return dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.STYLE_PANEL,
+        role: "dialog",
+        "aria-label": T("style_layer"),
+        tabindex: "-1",
+      },
+      dom.el("div", { class: "foliplus-style-section-heading" }, T("style_layer")),
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, T("label")),
+        dom.el(
+          "div",
+          { class: "foliplus-form-control" },
+          dom.el(
+            "label",
+            { class: "foliplus-toggle-switch" },
+            showToggle,
+            dom.el("span", { class: "foliplus-toggle-slider" }),
+          ),
+        ),
+      ),
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, T("label_field")),
+        dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
+      ),
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, T("label_format")),
+        dom.el("div", { class: "foliplus-form-control" }, formatSelect),
+      ),
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, T("collision")),
+        dom.el(
+          "div",
+          { class: "foliplus-form-control" },
+          dom.el(
+            "label",
+            { class: "foliplus-toggle-switch", title: T("collision_hint") },
+            dom.el("input", { type: "checkbox", disabled: "" }),
+            dom.el("span", { class: "foliplus-toggle-slider" }),
+          ),
+        ),
+      ),
+      dom.el(
+        "div",
+        { class: "foliplus-btn-row" },
+        dom.el(
+          "button",
+          { type: "button", class: "foliplus-style-reset-btn" },
+          T("clear"),
+        ),
+      ),
+    );
   }
 
   /**

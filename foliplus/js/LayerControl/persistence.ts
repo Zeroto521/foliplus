@@ -24,9 +24,11 @@ class LayerPersistence {
   private debouncedSaveOrder: Debounced | undefined;
   private debouncedSaveHiddenIds: Debounced | undefined;
   private debouncedSaveNames: Debounced | undefined;
+  private debouncedSaveAnnotations: Debounced | undefined;
   private orderGetter: (() => string[]) | null = null;
   private hiddenGetter: (() => Set<string>) | null = null;
   private namesGetter: (() => Record<string, string>) | null = null;
+  private annotationGetter: (() => Record<string, unknown>) | null = null;
 
   constructor(registry: LayerRegistry) {
     this.persistName = CONF.name;
@@ -142,10 +144,47 @@ class LayerPersistence {
     this.debouncedSaveNames?.cancel();
   }
 
+  // ── Annotations (per-layer label config) ─────────────────────────
+
+  loadAnnotations(): Record<string, unknown> {
+    const data = Storage.load<Record<string, unknown>>(
+      CONST.STORAGE.ANNOTATION_KEY,
+      this.persistName,
+    );
+    if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+    const layerSet = new Set(this.registry.layers.map(l => l.id));
+    // Keep only entries for layers still registered; drop stale ids.
+    return Object.fromEntries(
+      Object.entries(data).filter(
+        ([id, v]) => layerSet.has(id) && typeof v === "object" && v !== null,
+      ),
+    );
+  }
+
+  saveAnnotations(annotationGetter: () => Record<string, unknown>) {
+    this.annotationGetter = annotationGetter;
+    if (!this.debouncedSaveAnnotations) {
+      this.debouncedSaveAnnotations = debounce(() => {
+        if (!this.annotationGetter) return;
+        Storage.save(
+          CONST.STORAGE.ANNOTATION_KEY,
+          this.annotationGetter(),
+          this.persistName,
+        );
+      }, CONST.SAVE_ORDER_DEBOUNCE_MS);
+    }
+    this.debouncedSaveAnnotations();
+  }
+
+  cancelSaveAnnotations() {
+    this.debouncedSaveAnnotations?.cancel();
+  }
+
   destroy() {
     this.debouncedSaveOrder?.cancel();
     this.debouncedSaveHiddenIds?.cancel();
     this.debouncedSaveNames?.cancel();
+    this.debouncedSaveAnnotations?.cancel();
   }
 }
 

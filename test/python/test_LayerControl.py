@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 import folium
 from conftest import (
@@ -180,6 +182,34 @@ class TestLayerControlRendering:
         assert "LayerControl.toggle_title" in html
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
+
+    def test_annotation_locale_keys(self):
+        """Annotation / style-panel locale keys exist in both en and zh."""
+        root = Path(__file__).resolve().parent.parent.parent
+        required = {
+            "style_layer",
+            "label",
+            "label_field",
+            "label_format",
+            "label_format_auto",
+            "label_format_int",
+            "label_format_comma",
+            "label_format_percent",
+            "collision",
+        }
+        for lang in ("en", "zh"):
+            data = json.loads(
+                (root / "foliplus" / "locale" / f"LayerControl.{lang}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            keys = {
+                k.split(".")[-1] for k in data.keys() if k.startswith("LayerControl.")
+            }
+            missing = required - keys
+            assert not missing, (
+                f"LayerControl.{lang} missing annotation keys: {missing}"
+            )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""

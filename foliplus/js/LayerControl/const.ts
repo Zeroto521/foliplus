@@ -14,6 +14,8 @@ export const STORAGE = {
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
   /** Map of layer id → user-assigned display name. */
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
+  /** Map of layer id → annotation config (show/field/format). */
+  ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
@@ -87,6 +89,10 @@ export const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
+  /** Floating style panel opened from the layer overflow menu. */
+  STYLE_PANEL: "foliplus-layer-style-panel",
+  /** Marker wrapper element used to render an annotation label. */
+  ANNOTATION_LABEL: "foliplus-annotation-label",
 };
 
 /** Data attribute names. */
@@ -98,7 +104,11 @@ export const DATA = {
 };
 
 /** Overflow-menu action values (data-action). */
-export const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+export const ACTION = {
+  FOCUS_LAYER: "focus-layer",
+  RENAME_LAYER: "rename-layer",
+  STYLE_LAYER: "style-layer",
+};
 
 /** DOM selectors. */
 export const SEL = {
@@ -107,7 +117,24 @@ export const SEL = {
   COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
+  MORE_BTN: ".foliplus-layer-more-btn",
+  STYLE_PANEL: ".foliplus-layer-style-panel",
 };
 
 /** Group names. */
 export const GROUP = { OVERLAY: "overlay", BASE: "base" };
+
+/** Annotation label number-format presets. */
+export const FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const;
+
+/** Default annotation config for a layer (disabled). */
+export const DEFAULT_ANNOTATION = {
+  show: false,
+  field: "",
+  format: FORMAT.AUTO,
+} as const;
