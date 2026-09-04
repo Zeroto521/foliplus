@@ -274,11 +274,130 @@ const createLocationMarker = (
   return marker;
 };
 
+/**
+ * Update a layer item's label and associated inputs (checkbox / color input)
+ * with a new display name. Finds the label via `data-layer-id` attribute on
+ * the item, then updates label text + checkbox/color-input aria-label and title.
+ *
+ * @param item Parent item element with `data-layer-id` (optional).
+ * @param name New display name to apply.
+ * @returns The updated label element, or null if not found.
+ */
+const updateItemLabel = (
+  item: HTMLElement | null,
+  name: string,
+): HTMLLabelElement | null => {
+  if (!item) return null;
+  const label = item.querySelector("label") as HTMLLabelElement | null;
+  if (!label) return null;
+  label.textContent = name;
+  const checkbox = item.querySelector(
+    'input[type="checkbox"]',
+  ) as HTMLInputElement | null;
+  if (checkbox) {
+    checkbox.setAttribute("aria-label", name);
+    checkbox.title = name;
+  }
+  const colorInput = item.querySelector(
+    'input[type="color"]',
+  ) as HTMLInputElement | null;
+  if (colorInput) {
+    colorInput.setAttribute("aria-label", name);
+    colorInput.title = name;
+  }
+  return label;
+};
+
+/**
+ * Remove an inline edit input from its label element. Used to tear down a
+ * rename input after commit/cancel. The caller owns restoring the label text
+ * (via updateItemLabel) — this only detaches the input.
+ *
+ * @param label The label element containing the inline edit input.
+ * @returns The removed input element, or null if not found.
+ */
+const removeInlineEditInput = (
+  label: HTMLLabelElement | null,
+): HTMLInputElement | null => {
+  if (!label) return null;
+  const input = label.querySelector("input") as HTMLInputElement | null;
+  if (input) label.removeChild(input);
+  return input;
+};
+
+/**
+ * Replace a label's text content with an inline text input for editing.
+ *
+ * Handles Enter (commit), Escape (cancel), and blur (commit if non-empty).
+ * The input is appended into the label element; the caller owns removing it
+ * and restoring the label text after the edit completes.
+ *
+ * Returns the created input element (already focused and selected).
+ */
+const createInlineEditInput = (opts: {
+  label: HTMLLabelElement;
+  initialValue: string;
+  className: string;
+  ariaLabel: string;
+  onCommit: (value: string) => void;
+  /** Called when the edit ends without committing — Escape (reason "escape")
+   *  or an empty/whitespace Enter (reason "empty"). Callers can distinguish
+   *  silent abandon from a rejected empty value (e.g. to show a hint). */
+  onCancel: (reason: "escape" | "empty") => void;
+  /** Gate blur-commit: only true while the edit is still the active one.
+   *  Guards against a double-commit when Enter/Escape tear the input down
+   *  (removing the focused element fires blur, which would re-commit stale
+   *  value). Defaults to "always active". */
+  isActive?: () => boolean;
+}): HTMLInputElement => {
+  const input = dom.el("input", {
+    type: "text",
+    value: opts.initialValue,
+    class: opts.className,
+    "aria-label": opts.ariaLabel,
+  }) as HTMLInputElement;
+
+  const commit = (value: string) => {
+    if (opts.isActive && !opts.isActive()) return;
+    const trimmed = value.trim();
+    if (trimmed.length > 0) opts.onCommit(trimmed);
+    else opts.onCancel("empty");
+  };
+
+  input.addEventListener("keydown", (event: KeyboardEvent) => {
+    // Stop every key from reaching the document-level InteractionManager —
+    // otherwise ArrowLeft/Right (registered as layer shortcuts) preventDefault
+    // and swallow the caret move, and Ctrl+Arrow would reorder the layer while
+    // the user edits the name. The browser keeps its default caret/typing.
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      commit(input.value);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      opts.onCancel("escape");
+    } else {
+      event.stopPropagation();
+    }
+  });
+  input.addEventListener("blur", () => commit(input.value));
+
+  opts.label.textContent = "";
+  opts.label.appendChild(input);
+  input.focus();
+  input.select();
+  return input;
+};
+
 export {
   buildPopupHtml,
   createIconButton,
+  createInlineEditInput,
   createLocationMarker,
   dom,
   escapeHTML,
+  removeInlineEditInput,
   stopEvent,
+  updateItemLabel,
 };

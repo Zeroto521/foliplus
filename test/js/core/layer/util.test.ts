@@ -6,6 +6,7 @@ import {
   forEachLayer,
   forEachLeaf,
   getGeometryType,
+  isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
@@ -15,6 +16,10 @@ describe("core/layer util", () => {
     // setup.ts does not define L.Marker — stub one so instanceof checks work.
     if (!window.L.Marker)
       window.L.Marker = class Marker {
+        feature: unknown = null;
+      };
+    if (!window.L.CircleMarker)
+      window.L.CircleMarker = class CircleMarker {
         feature: unknown = null;
       };
   });
@@ -161,12 +166,28 @@ describe("core/layer util", () => {
       expect(getGeometryType(group as never)).toBe("unknown");
     });
 
-    it("returns point for L.CircleMarker leaves", () => {
-      const group = wrap(new window.L.CircleMarker());
+    it("returns point for CircleMarker leaves with feature", () => {
+      const cm = new window.L.CircleMarker();
+      cm.feature = {};
+      const group = wrap(cm);
       expect(getGeometryType(group as never)).toBe("point");
     });
 
+    it("returns unknown for a CircleMarker without a .feature property", () => {
+      // Same consumable-data contract as Marker: extractPoints gates on
+      // .feature for CircleMarker too, so the icon must not promise "point"
+      // for data downstream cannot consume.
+      const cm = new window.L.CircleMarker();
+      const group = wrap(cm);
+      expect(getGeometryType(group as never)).toBe("unknown");
+    });
+
     it("returns unknown for a Marker without a .feature property", () => {
+      // The type icon reflects "structured, consumable point data" (the
+      // extractPoints / Heatmap contract), not raw geometry.  A plain
+      // folium.Marker() is a geometric point — countFeatureGeometry counts it
+      // — but without a GeoJSON envelope it is not consumable point data, so
+      // the icon stays unknown to avoid promising Heatmap/export support.
       const marker = new window.L.Marker();
       const group = wrap(marker);
       expect(getGeometryType(group as never)).toBe("unknown");
@@ -216,10 +237,13 @@ describe("core/layer util", () => {
       expect(countFeatureGeometry(group as never)).toBe(1);
     });
 
-    it("ignores Markers without feature", () => {
+    it("counts Markers without feature as points", () => {
+      // A plain folium.Marker() renders as L.Marker() with no .feature; it is
+      // still a data point feature and must be counted.  .feature is only
+      // required by extractPoints / Heatmap property lookup.
       const marker = new window.L.Marker();
       const group = wrap(marker);
-      expect(countFeatureGeometry(group as never)).toBe(0);
+      expect(countFeatureGeometry(group as never)).toBe(1);
     });
 
     it("excludes label layers", () => {
@@ -269,6 +293,31 @@ describe("core/layer util", () => {
     it("returns 0 for an empty container", () => {
       const emptyGroup = { eachLayer: () => {} };
       expect(countFeatureGeometry(emptyGroup as never)).toBe(0);
+    });
+  });
+
+  describe("plain Marker count-vs-icon divergence", () => {
+    const wrap = (...leaves: L.Layer[]) => ({
+      eachLayer: (fn: (l: L.Layer) => void) => leaves.forEach(fn),
+    });
+
+    // A plain folium.Marker() (no .feature) is a geometric point but not
+    // "structured, consumable point data".  countFeatureGeometry and
+    // getGeometryType intentionally use different contracts so the layer
+    // panel shows an honest count without implying Heatmap/export support.
+    it("counts it as a point but its type icon is unknown", () => {
+      const marker = new window.L.Marker();
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(1);
+      expect(getGeometryType(group as never)).toBe("unknown");
+    });
+
+    it("a Marker with .feature counts as a point and its type is point", () => {
+      const marker = new window.L.Marker();
+      marker.feature = {};
+      const group = wrap(marker);
+      expect(countFeatureGeometry(group as never)).toBe(1);
+      expect(getGeometryType(group as never)).toBe("point");
     });
   });
 
@@ -409,6 +458,36 @@ describe("core/layer util", () => {
       const map = { eachLayer: vi.fn() };
       suspendMapInteractions(map as never);
       expect(map.eachLayer).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("isLayerInPanes", () => {
+    const leafWithPane = (pane?: string) =>
+      ({ options: { pane } }) as unknown as L.Layer;
+
+    it("matches a leaf whose options.pane is in the list", () => {
+      const match = isLayerInPanes(["overlayPane", "measure"]);
+      expect(match(leafWithPane("overlayPane"))).toBe(true);
+    });
+
+    it("rejects a leaf whose options.pane is not in the list", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match(leafWithPane("measure"))).toBe(false);
+    });
+
+    it("rejects a leaf with no options.pane", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match(leafWithPane())).toBe(false);
+    });
+
+    it("rejects a leaf with no options at all", () => {
+      const match = isLayerInPanes(["overlayPane"]);
+      expect(match({} as unknown as L.Layer)).toBe(false);
+    });
+
+    it("matches nothing against an empty pane list", () => {
+      const match = isLayerInPanes([]);
+      expect(match(leafWithPane("overlayPane"))).toBe(false);
     });
   });
 });

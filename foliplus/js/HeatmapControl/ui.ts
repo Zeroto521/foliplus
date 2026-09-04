@@ -288,7 +288,15 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
-  if (ctrl.m.pointLayers.length === 1 && !ctrl.m.selectedLayerId) {
+  // Auto-select a single point layer only on the very first scan, so the
+  // initial map load shows its heatmap without user input.  Rebuilds
+  // triggered later (zoomend, layeradd/layerremove, map reload) must not
+  // re-fire this — otherwise a user's manual clear keeps being overridden.
+  if (
+    !ctrl.m.hasScanned &&
+    ctrl.m.pointLayers.length === 1 &&
+    !ctrl.m.selectedLayerId
+  ) {
     ctrl.m.selectedLayerId = ctrl.m.pointLayers[0].id;
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.m.selectedLayerId);
@@ -482,8 +490,13 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
       T(missingLayerControl ? "no_layercontrol" : "no_layer"),
       HINT_DURATION.LONG,
     );
+    ctrl.m.hasScanned = true;
   } else {
     rebuildLayerDropdown(ctrl);
+    // Mark scanned only after the first rebuild completes, so the
+    // one-shot single-layer auto-select inside buildLayerListItems can
+    // still fire for the initial map load but never again afterwards.
+    ctrl.m.hasScanned = true;
     // Restore path: rebuild only syncs the dropdown value — refresh the
     // field selector and draw the saved layer so a reload shows the saved
     // configuration without waiting for user input.

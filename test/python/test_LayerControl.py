@@ -587,6 +587,120 @@ class TestLayerControlRendering:
         # Should use a dash/minus icon (not a checkmark)
         assert "x1='6' y1='12' x2='18' y2='12'" in css
 
+    def test_no_rebuild_flash_transitions_on_rebuilt_elements(self):
+        """renderInitialList() destroys and re-creates every panel element on a
+        fold click. Any element whose rebuild changes a transitioned property
+        MUST NOT transition that property — otherwise it animates from its
+        initial state to the target state, producing a flash:
+
+          - checkbox: bg var(--input-bg) -> var(--accent-primary);
+                      border var(--input-border) -> var(--accent-primary)
+          - layer item (.active): bg var(--panel-bg) -> var(--accent-light)
+          - toggle-all row: same mechanism if its bg ever changes on rebuild
+
+        Transitions are kept only on properties that do not change on rebuild
+        (box-shadow) or where the element survives the rebuild (hover,
+        drag-over, :focus-visible)."""
+        css = read_css("foliplus/css/LayerControl.css")
+        targets = [
+            # (base selector before " {", must_not, may)
+            (
+                'input[type="checkbox"]',
+                ["background-color", "border-color"],
+                ["box-shadow"],
+            ),
+            (
+                ".foliplus-layer-sep.foliplus-layer-toggle-all",
+                ["background-color", "border-color"],
+                [],
+            ),
+            (
+                ".foliplus-layer-item",
+                ["background-color", "border-color"],
+                [],
+            ),
+            (
+                ".foliplus-layer-more-btn",
+                ["color"],
+                [],
+            ),
+        ]
+        for sel, must_not, may in targets:
+            self._assert_no_bg_transition(css, sel, must_not, may)
+
+    @staticmethod
+    def _assert_no_bg_transition(css, selector_fragment, must_not, may):
+        """Assert the CSS rule whose *selector_fragment* is the base selector
+        (i.e. selector_fragment + whitespace + ``{``) does not transition any
+        property in *must_not*.
+
+        Handles both single-line (``transition: x;``) and multi-line
+        (``transition:\\n  x,\\n  y;``) transition declarations. Uses a
+        brace-depth scanner to correctly locate the matching closing ``}``
+        for rules that contain CSS nesting (e.g. ``&:is(...) { ... }``).
+        """
+        needle = selector_fragment + " {"
+
+        def _block_at(pos):
+            """Return the declaration text of the rule block starting at *pos*."""
+            brace = pos + len(selector_fragment) + 1
+            depth, end = 1, brace
+            while end < len(css) and depth > 0:
+                ch = css[end]
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                end += 1
+            return css[brace : end - 1]
+
+        def _transition_of(block):
+            """Split *block* into declarations and return the transition value."""
+            decls = []
+            buf = []
+            for ch in block:
+                if ch == ";":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                elif ch == "/" and buf and buf[-1] == "*":
+                    decls.append("".join(buf).strip())
+                    buf.clear()
+                else:
+                    buf.append(ch)
+            return next((d for d in decls if d.startswith("transition")), None)
+
+        # A selector may appear in multiple rules (e.g. a `grid-area` shorthand
+        # and the full style rule). Prefer the rule that actually declares a
+        # transition — that is the one this assertion targets.
+        pos = 0
+        trans_decl = None
+        while True:
+            idx = css.find(needle, pos)
+            if idx == -1:
+                break
+            trans_decl = _transition_of(_block_at(idx)) or trans_decl
+            pos = idx + 1
+        assert trans_decl is not None, (
+            f"{selector_fragment} rule has no transition declaration"
+        )
+        # Transition value is "prop timing, prop timing, ..." — split on
+        # commas, then take the first token of each segment (the property).
+        transitioned_props = {
+            seg.split()[0]
+            for seg in trans_decl.split(":", 1)[1].split(",")
+            if seg.split()
+        }
+        for prop in must_not:
+            assert prop not in transitioned_props, (
+                f"{selector_fragment} must not transition {prop} — "
+                "element is destroyed+recreated on list rebuild (fold click)"
+            )
+        for prop in may:
+            assert prop in transitioned_props, (
+                f"{selector_fragment} should still transition {prop} — "
+                "it is pointer/state-driven, not rebuild-driven"
+            )
+
 
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
@@ -661,6 +775,66 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
+
+    def test_rename_input_fills_row_height(self, browser, tmp_path):
+        """The inline rename input spans the full row height (not a 19.6px line).
+
+        Regression guard for the scoped `.foliplus-layer-ctrl .foliplus-layer-item`
+        padding rule outranking a bare `.foliplus-layer-renaming` rule — if that
+        priority regresses, the row keeps its 8px vertical padding and the input
+        collapses back to a single line.
+        """
+        layer = folium.FeatureGroup(name="My Layer")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="rename_visual"
+        ) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                state="attached",
+                timeout=5000,
+            )
+
+            ok = page.evaluate(_js("LayerControl/rename_first_layer"))
+            assert ok, "failed to open the inline rename input"
+            page.wait_for_selector(
+                ".foliplus-layer-rename-input", state="attached", timeout=5000
+            )
+
+            m = page.evaluate(
+                """() => {
+                  const row = [...document.querySelectorAll('.foliplus-layer-item')]
+                    .find(r => r.querySelector('.foliplus-layer-rename-input'));
+                  const input = row?.querySelector('.foliplus-layer-rename-input');
+                  if (!row || !input) return null;
+                  const rr = row.getBoundingClientRect();
+                  const ir = input.getBoundingClientRect();
+                  return {
+                    rowH: Math.round(rr.height),
+                    inputH: Math.round(ir.height),
+                    inputX: Math.round(ir.x),
+                    labelX: Math.round(row.querySelector('.foliplus-layer-label').getBoundingClientRect().x),
+                    padTop: getComputedStyle(row).paddingTop,
+                    padBottom: getComputedStyle(row).paddingBottom,
+                  };
+                }"""
+            )
+            assert m is not None, "no renaming row found"
+            # Row's vertical padding is dropped while renaming…
+            assert m["padTop"] == "0px", f"row padTop={m['padTop']}"
+            assert m["padBottom"] == "0px", f"row padBottom={m['padBottom']}"
+            # …so the input fills the whole row, not a 19.6px line-box.
+            assert abs(m["inputH"] - m["rowH"]) <= 1, (
+                f"input height {m['inputH']} != row height {m['rowH']}"
+            )
 
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
@@ -1868,3 +2042,59 @@ class TestLayerControlBrowser:
             assert result["rowHighlighted"] is True, (
                 f"row not highlighted, got {result}"
             )
+
+    def test_plain_marker_layers_count_and_stay_stable(self, browser, tmp_path):
+        """A plain folium.Marker (no GeoJSON .feature) counts as a point feature.
+
+        Regression: countFeatureGeometry / getGeometryType gated on
+        ``marker.feature``, so layers built from ``folium.Marker()`` reported a
+        count of 0 and showed no type icon.  Counting must not require
+        .feature (that only matters for extractPoints / Heatmap properties),
+        and toggling an unrelated layer's checkbox must not reset the count.
+        """
+        layers = []
+        for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
+            fg = folium.FeatureGroup(name=name, overlay=True, show=True)
+            folium.Marker([26.08 + i * 0.01, 119.30 + i * 0.01], popup=name).add_to(fg)
+            layers.append(fg)
+
+        with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            # initTypesAndVisibility (which paints the count columns) runs on a
+            # 300ms INIT_DELAY_MS timer after attach, so settle before reading.
+            page.wait_for_timeout(500)
+
+            counts = page.evaluate(_js("LayerControl/read_count_columns"))
+            assert counts is not None, "read_count_columns failed"
+            assert len(counts) == 4, f"expected 4 overlay layers, got {len(counts)}"
+            for info in counts.values():
+                assert info["apiCount"] == 1, (
+                    f"{info['name']!r}: plain folium.Marker should count as 1, "
+                    f"got {info['apiCount']}"
+                )
+                assert info["countText"] == "1", (
+                    f"{info['name']!r}: count column should read '1', "
+                    f"got {info['countText']!r}"
+                )
+
+            # Toggling another layer's checkbox must not zero out the counts.
+            page.evaluate("window.__test_layer_name = 'Beta'")
+            page.evaluate(_js("LayerControl/click_checkbox_by_name"))
+            page.wait_for_timeout(300)
+
+            after = page.evaluate(_js("LayerControl/read_count_columns"))
+            assert after is not None, "read_count_columns failed after toggle"
+            for info in after.values():
+                assert info["apiCount"] == 1, (
+                    f"{info['name']!r}: count changed to {info['apiCount']} "
+                    f"after an unrelated checkbox click"
+                )
+                assert info["countText"] == "1", (
+                    f"{info['name']!r}: count column changed to {info['countText']!r} "
+                    f"after an unrelated checkbox click"
+                )

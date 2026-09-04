@@ -20,8 +20,17 @@ describe("getTypeSVG", () => {
   it("maps geometry types to their SVG icons", () => {
     expect(getTypeSVG(makeContainer([new Polygon()]))).toBe(SVGs.POLYGON);
     expect(getTypeSVG(makeContainer([new Polyline()]))).toBe(SVGs.LINE);
-    expect(getTypeSVG(makeContainer([new CircleMarker()]))).toBe(SVGs.POINT);
     expect(getTypeSVG(makeContainer([]))).toBe(SVGs.EMPTY);
     expect(getTypeSVG(makeContainer([{}]))).toBe(SVGs.UNKNOWN);
+  });
+
+  it("shows the point icon only for feature-bearing CircleMarkers", () => {
+    // The point icon promises downstream-consumable data (extractPoints /
+    // Heatmap), which require .feature. A plain CircleMarker is a geometric
+    // point but not consumable, so it shows unknown — not point.
+    const cm = new CircleMarker();
+    cm.feature = {};
+    expect(getTypeSVG(makeContainer([cm]))).toBe(SVGs.POINT);
+    expect(getTypeSVG(makeContainer([new CircleMarker()]))).toBe(SVGs.UNKNOWN);
   });
 });

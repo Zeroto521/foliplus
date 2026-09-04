@@ -146,4 +146,89 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
   });
+
+  // ── Names (user-assigned display names) ──────────────────────────
+
+  describe("names", () => {
+    it("loads renamed names and drops unknown ids", () => {
+      vi.spyOn(Storage, "load").mockReturnValue({
+        a: "A2",
+        ghost: "G",
+        b: "B2",
+        gone: "Z",
+      });
+      const p = makePersistence(["a", "b", "c"]);
+      expect(p.loadNames()).toEqual({ a: "A2", b: "B2" });
+    });
+
+    it("returns empty object for missing or non-object storage", () => {
+      const p = makePersistence(["a"]);
+      vi.spyOn(Storage, "load").mockReturnValue(null);
+      expect(p.loadNames()).toEqual({});
+
+      vi.spyOn(Storage, "load").mockReturnValue("not-object");
+      expect(p.loadNames()).toEqual({});
+
+      vi.spyOn(Storage, "load").mockReturnValue([]);
+      expect(p.loadNames()).toEqual({});
+    });
+
+    it("drops non-string name values", () => {
+      vi.spyOn(Storage, "load").mockReturnValue({ a: "A2", b: 123, c: null });
+      const p = makePersistence(["a", "b", "c"]);
+      expect(p.loadNames()).toEqual({ a: "A2" });
+    });
+
+    it("debounces rapid saveNames calls into one write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveNames(() => ({ a: "A1" }));
+      p.saveNames(() => ({ a: "A2", b: "B1" }));
+      p.saveNames(() => ({ a: "A3", b: "B2" }));
+      expect(save).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      expect(save.mock.calls[0][1]).toEqual({ a: "A3", b: "B2" });
+      expect(save).toHaveBeenCalledTimes(1);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("cancelSaveNames suppresses a pending write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a"]);
+      p.saveNames(() => ({ a: "A1" }));
+      p.cancelSaveNames();
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).not.toHaveBeenCalled();
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("destroy", () => {
+    it("cancels every in-flight debounced write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+
+      p.saveOrder(() => ["a", "b"]);
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.saveNames(() => ({ a: "A" }));
+      p.destroy();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).not.toHaveBeenCalled();
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("is a no-op when no writes are pending", () => {
+      const p = makePersistence(["a"]);
+      expect(() => p.destroy()).not.toThrow();
+    });
+  });
 });
