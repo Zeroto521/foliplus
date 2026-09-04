@@ -22,8 +22,6 @@
 .foliplus-heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  --heatmap-toggle-width: 40px;
-  --heatmap-toggle-height: var(--size-20);
   --toggle-off-bg: var(--neutral-300);
   --accent-shadow-sm: 0 var(--size-2) var(--size-8)
     rgba(var(--red-rgb), var(--alpha-30));
@@ -33,6 +31,8 @@
   --heatmap-select-pad-right: var(--space-xxl);
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
+  --heatmap-toggle-width: 40px;
+  --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
   --heatmap-select-arrow-width: var(--size-8);
