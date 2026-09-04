@@ -1,7 +1,6 @@
 // Direct namespace tests for edit.ts — verifies the extracted module behaves
 // identically to the Util re-exports and covers a few scenarios not exercised
 // in util.test.ts (which tests through the Util namespace).
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bindNodeDrag,
