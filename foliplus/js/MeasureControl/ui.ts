@@ -438,7 +438,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
-        zIndexOffset: CONST.CENTROID_LABEL_Z_OFFSET,
+        zIndexOffset: CONST.LABEL.CENTROID_Z_OFFSET,
         interactive: false,
       }),
       true,

@@ -347,7 +347,7 @@ describe("attachPolygonUI", () => {
     expect(addLayerCalls[0].isLabel).toBe(false);
     // Label: isLabel=true → label pane, has modest zIndexOffset.
     expect(addLayerCalls[1].isLabel).toBe(true);
-    expect(labelOpts.zIndexOffset).toBe(CONST.CENTROID_LABEL_Z_OFFSET);
+    expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
     // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();

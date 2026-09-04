@@ -28,11 +28,16 @@ export const LABEL = {
   // The centroid label shares the same latlng as the 12×12 center dot. The
   // dot goes to measure_graph (no isLabel flag) — same as node markers. The
   // label is isLabel (measure_label, z=621 above graph z=620), so it always
-  // paints above the dot by pane ordering. It also needs zIndexOffset so it
-  // stays above segment labels within the label pane — sortLayers re-sorts by
-  // Y on zoom, which can push a lower-Y segment label over the area label. The
-  // [0, -10] anchor lifts the chip above the dot's centered position.
+  // paints above the dot by pane ordering.
+  // The [0, -10] anchor lifts the chip above the dot's centered position.
+  // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
+  // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
+  // which can push a lower-Y segment label over the area label.
   CENTROID_ANCHOR: [0, -10],
+  // Modest offset (above max viewport Y ≈ 900, below del icon 11000) that
+  // keeps the area label above segment labels within the label pane after
+  // sortLayers re-sorts by Y on zoom, without reaching other panes.
+  CENTROID_Z_OFFSET: 2000,
   SIZE: [0, 0],
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",
@@ -48,13 +53,6 @@ export const FORMAT = {
 
 /** Z-index. */
 export const Z_INDEX = { OFFSET: DEL_ICON_Z_OFFSET };
-
-/** z-index offset for the centroid (area) label within the label pane. Segment
- * labels sit at z = Y (no offset); after a zoom `sortLayers` re-sorts by Y, so a
- * segment label whose Y is lower than the area label's Y would paint on top.
- * This offset lifts the area label above all segment labels (max viewport Y is
- * well under this value) while staying below the del icon (11000). */
-export const CENTROID_LABEL_Z_OFFSET = 2000;
 
 /** IDs and pane names. */
 export const ID = "foliplus_measure";
