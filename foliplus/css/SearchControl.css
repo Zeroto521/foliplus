@@ -67,6 +67,11 @@
       color: var(--text-primary);
     }
   }
+
+  /* Tab/Space lands focus here; keep the identity icon woken like hover. */
+  &:focus-visible .foliplus-search-result-icon {
+    color: var(--text-primary);
+  }
 }
 .foliplus-search-result-icon {
   flex-shrink: 0;

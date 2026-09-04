@@ -614,19 +614,6 @@
   box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
 }
 
-/* ── Section Heading (shared uppercase label) ── */
-.foliplus-section-heading {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: var(--heading-letter-spacing, var(--letter-spacing-tight));
-  padding: var(--space-md) var(--space-xl) var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
 /* ── Ctrl Fold (Shared Container) ──
   Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
   Expanded: defined by component or shared extension rules */

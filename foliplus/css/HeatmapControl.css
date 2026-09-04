@@ -11,7 +11,11 @@
 }
 .foliplus-hf-secondary {
   fill: currentColor;
-  opacity: var(--alpha-15);
+  /* Deliberately not tokenized: 0.08 sits between --alpha-05 (bg) and
+     --alpha-15 (center) to keep the second/third hex visibly lighter.
+     var(--alpha-10) does not exist, so tokenizing this would force a
+     jump to 0.15 and erase the layering. */
+  opacity: 0.08;
   stroke: none;
 }
 
@@ -30,6 +34,7 @@
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
   --heatmap-accent-arrow-offset: var(--size-6);
+  --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
   --heatmap-select-arrow-width: var(--size-8);
   --heatmap-select-arrow-height: var(--size-6);
   /* Label Canvas – CSS-driven parameters for Canvas text rendering */
@@ -37,8 +42,8 @@
   --heatmap-label-font-weight: bold;
   --heatmap-label-font-size: var(--font-size-sm);
   --heatmap-label-color: var(--neutral-0);
-  --heatmap-label-stroke-color: rgba(0, 0, 0, var(--alpha-70));
-  --heatmap-label-stroke-width: var(--size-4);
+  --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
+  --heatmap-label-stroke-width: 3px;
 
   /* ── Sections: Data / Style / Labels ── */
   .foliplus-heatmap-section-block {
@@ -367,6 +372,18 @@
 
   .foliplus-section-divider {
     margin: var(--space-md) var(--space-lg) var(--space-sm);
+  }
+  /* ── Section Headings ── */
+  .foliplus-heatmap-section-heading {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: var(--heatmap-heading-letter-spacing);
+    padding: var(--space-md) var(--space-xl) var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
   }
 }
 

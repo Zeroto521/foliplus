@@ -83,7 +83,7 @@ export const CLASSES = {
   ACTIVE: "active",
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
-  SECTION_HEADING: "foliplus-section-heading",
+  SECTION_HEADING: "foliplus-heatmap-section-heading",
   SECTION_BLOCK: "foliplus-heatmap-section-block",
   SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
   CONFIG_BODY: "foliplus-heatmap-config-body",

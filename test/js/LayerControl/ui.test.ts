@@ -221,12 +221,74 @@ const initFixture = (
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
   ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
+/** Resolve the overlay group's toggle-all row and its chevron, plus a live
+ *  read of its child rows. */
+const attachWithGroup = (ui: LayerUI) => {
+  const row = ui.uiContainer.querySelector(
+    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+  ) as HTMLElement;
+  const children = () =>
+    Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+
+  return {
+    ui,
+    row,
+    foldBtn: row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement,
+    children,
+  };
+};
+
+/** True when every group child row carries the folded class, i.e. the group is
+ *  folded. The toggle-all row itself never gets this class — only its
+ *  children do — so the fold assertion goes on them. */
+const allFolded = (rows: HTMLElement[]) =>
+  rows.length > 0 &&
+  rows.every(el => el.classList.contains(CONST.CLASSES.GROUP_FOLDED));
+
+/** Fire a keydown on `el`, leaving DOM focus there. handleKeyDown() resolves
+ *  the cursor from `document.activeElement` only, so focus must already be
+ *  pinned on `el` before the dispatch. */
+const pressKey = (el: HTMLElement, key: string) => {
+  el.focus();
+  el.dispatchEvent(
+    new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key }),
+  );
+};
+
+/** Re-resolve the overlay group's chevron — the panel rebuilds on every fold,
+ *  so a chevron captured before a fold is detached. */
+const overlayFoldBtn = (root: ParentNode) =>
+  root.querySelector(
+    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+  )!.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
+
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   let manager: LayerManager, ui: LayerUI, map: any;
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
+    // Fold tests need two overlay layers, so overlay1 isn't collapsed into the
+    // single-child "no toggle-all" layout. Registered here (not in the tests)
+    // because initFixture() flushes the 300ms initTypesAndVisibility timeout
+    // AFTER any nested beforeEach, which would drop a layer added inside a test.
+    if (!manager.layerRegistry.get("overlay2"))
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Circles",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+      });
+    ui.foldedGroups = new Set();
+    ui.hiddenIds = new Set();
+    // Folded-group state is persisted to localStorage, so a fold from one test
+    // would be re-read by the next test's LayerUI constructor and present as
+    // already-folded.
+    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
   });
 
   afterEach(() => {
@@ -1869,6 +1931,103 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    });
+  });
+
+  // ─────────────────── fold group via keyboard ───────────────────
+
+  describe("fold group via keyboard (chevron button)", () => {
+    // The chevron button lives inside the toggle-all row, so focus on it
+    // resolves up to that row. Enter/Space over it must fold the group —
+    // not flip the row's select-all checkbox.
+    //
+    // The group needs two overlay layers so overlay1 isn't collapsed into the
+    // single-child "no toggle-all" layout of initFixture(), and hiddenIds must
+    // be empty so a visibility collapse can't read as a fold (the outer
+    // beforeEach owns both).
+
+    it("Enter on the chevron folds the group and hides its children", () => {
+      const { foldBtn, children } = attachWithGroup(ui);
+      expect(children()).toHaveLength(2);
+      expect(allFolded(children())).toBe(false);
+
+      pressKey(foldBtn, "Enter");
+
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(allFolded(children())).toBe(true);
+    });
+
+    it("Space folds too, and Enter again unfolds", () => {
+      const { children } = attachWithGroup(ui);
+      // The chevron is a real focusable button, so dispatch the key there.
+      pressKey(overlayFoldBtn(ui.uiContainer), " ");
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(allFolded(children())).toBe(true);
+      // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
+      pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
+
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(false);
+      expect(allFolded(children())).toBe(false);
+    });
+
+    it("Enter on the chevron does NOT flip the select-all checkbox", () => {
+      const { foldBtn, children } = attachWithGroup(ui);
+      const childBoxes = () =>
+        children()
+          .map(el => el.querySelector('input[type="checkbox"]'))
+          .filter(Boolean) as HTMLInputElement[];
+
+      const allChecked = () => childBoxes().every(cb => cb.checked);
+      expect(allChecked()).toBe(true);
+
+      pressKey(foldBtn, "Enter");
+      expect(allFolded(children())).toBe(true);
+
+      // Unfold again and confirm nothing was deselected.
+      pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
+      expect(children()).toHaveLength(2);
+      expect(allChecked()).toBe(true);
+    });
+
+    it("Enter on the toggle-all row itself still selects/deselects the group", () => {
+      const { row, children } = attachWithGroup(ui);
+      const childBoxes = () =>
+        children()
+          .map(el => el.querySelector('input[type="checkbox"]'))
+          .filter(Boolean) as HTMLInputElement[];
+
+      pressKey(row, "Enter");
+
+      // Enter on the row itself toggles visibility, not the fold.
+      expect(row.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+      expect(allFolded(children())).toBe(false);
+      expect(children()).toHaveLength(2);
+      expect(childBoxes().some(cb => !cb.checked)).toBe(true);
+    });
+
+    it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
+      const colorRow = ui.uiContainer.querySelector(
+        `.${CONST.CLASSES.COLOR_ITEM}`,
+      ) as HTMLElement | null;
+
+      const items = ui.getNavigableItems();
+      // The color row is a picker, not a layer, so it stays out of the list.
+      if (colorRow) expect(items).not.toContain(colorRow);
+      // Rows are enumerated by class, never filtered by checkbox presence.
+      const isRow = (el: HTMLElement) =>
+        el.classList.contains(CONST.CLASSES.LAYER_ITEM) ||
+        el.classList.contains(CONST.CLASSES.TOGGLE_ALL);
+      expect(items.every(isRow)).toBe(true);
+      expect(items.filter(isRow)).toHaveLength(items.length);
+
+      // Simulate the divergence that made Tab and arrow keys disagree: a row
+      // the old checkbox-first enumeration silently dropped.
+      const bareRow = document.createElement("div");
+      bareRow.className = CONST.CLASSES.LAYER_ITEM;
+      bareRow.setAttribute(CONST.DATA.LAYER_ID, "no-checkbox");
+      ui.uiContainer.appendChild(bareRow);
+
+      expect(ui.getNavigableItems()).toContain(bareRow);
     });
   });
 

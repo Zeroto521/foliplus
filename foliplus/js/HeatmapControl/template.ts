@@ -7,7 +7,7 @@ import * as CONST from "./const.js";
 /** Build the panel-content HTML string (data section + style section). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
-  <div class="foliplus-section-heading">
+  <div class="foliplus-heatmap-section-heading">
     ${T("section_data")}
   </div>
 
@@ -40,7 +40,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-section-heading">
+    <div class="foliplus-heatmap-section-heading">
       ${T("section_style")}
     </div>
 

@@ -264,8 +264,8 @@
 /* ── Preview image (auto-cleaned) ── */
 .foliplus-export-preview {
   position: fixed;
-  bottom: var(--space-lg);
-  right: var(--space-lg);
+  bottom: 10px;
+  right: 10px;
   z-index: 100000;
   max-width: 400px;
   max-height: 300px;
