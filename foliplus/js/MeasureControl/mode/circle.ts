@@ -138,7 +138,7 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          Util.makeNode(center, CONST.CLASSES.NODE_SOLID),
+          Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
         );
         phase = 1;
         map.foliplus!.showHint(

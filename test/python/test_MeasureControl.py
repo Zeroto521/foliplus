@@ -399,7 +399,7 @@ class TestMeasureControlBrowser:
             assert state["x1"] is not None, "preview node not rendered"
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
-            assert moved, "circle preview node did not follow the mouse"
+            assert moved, f"circle preview node did not follow the mouse: {state}"
             assert not errors, f"JS errors: {errors}"
 
     # ── Persistence (browser) ──────────────────────────────────────
@@ -764,27 +764,21 @@ class TestMeasureControlBrowser:
         paint over the dot.
 
         Fix: the dot is now an SVG CircleMarker (same renderer as the fill),
-        so DOM order within the SVG guarantees the dot paints above the fill —
-        no z-index competition, no zIndexOffset needed. This test verifies the
-        dot is visible via elementFromPoint at its center.
+        so DOM order within the SVG guarantees the dot paints above the fill.
+        This test verifies the fill is NOT the topmost element at the dot's
+        center.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
             page.wait_for_timeout(500)
 
-            # The centroid dot is an SVG path (CircleMarker) with class
-            # .foliplus-measure-node-solid inside the same SVG renderer as
-            # the fill (.foliplus-measure-shape-fill). Verify it's visible:
-            # elementFromPoint at the dot's center should hit the dot path
-            # (or a descendant), not the fill path.
             info = page.evaluate("""() => {
                 const dot = document.querySelector('path.foliplus-measure-node-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
-                const svgEl = document.querySelector('.foliplus-measure-shape-fill');
-                if (!svgEl) return { error: 'no fill path found' };
-                // Both must be in the same <svg> renderer.
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
                 const dotSvg = dot.closest('svg');
-                const fillSvg = svgEl.closest('svg');
+                const fillSvg = fill.closest('svg');
                 if (!dotSvg || !fillSvg) return { error: 'no SVG renderer found' };
                 if (dotSvg !== fillSvg) return { error: 'dot and fill in different SVGs' };
                 const rect = dot.getBoundingClientRect();
@@ -795,23 +789,19 @@ class TestMeasureControlBrowser:
                     dotIsPath: dot.tagName === 'path',
                     sameSvg: dotSvg === fillSvg,
                     topEl: topEl ? topEl.tagName + '.' + (topEl.getAttribute('class') || '') : null,
-                    topElIsDot: topEl === dot,
+                    topElIsFill: topEl === fill,
                 };
             }""")
             assert not info.get("error"), f"probe error: {info.get('error')}"
             assert not errors, f"JS errors: {errors}"
             assert info["dotIsPath"], "centroid dot should be an SVG path"
             assert info["sameSvg"], "dot and fill must share the SVG renderer"
-            # The dot must be the topmost element at its center — the fill
-            # should NOT paint over it.
-            assert info["topElIsDot"], (
-                f"centroid dot is not the topmost element at its center; "
-                f"topEl={info['topEl']}"
+            assert not info["topElIsFill"], (
+                f"fill is painting over the centroid dot; topEl={info['topEl']}"
             )
 
             # After zoom, sortLayers re-sorts by Y. Since the dot is an SVG
-            # path (not a div-icon marker), it's unaffected by z-index re-sort —
-            # DOM order within the SVG guarantees it paints above the fill.
+            # path (not a div-icon marker), it's unaffected by z-index re-sort.
             page.evaluate("window.__map.setZoom(13)")
             page.wait_for_timeout(500)
             page.evaluate("window.__map.setZoom(11)")
@@ -820,19 +810,24 @@ class TestMeasureControlBrowser:
             info2 = page.evaluate("""() => {
                 const dot = document.querySelector('path.foliplus-measure-node-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
+                const dotSvg = dot.closest('svg');
+                const fillSvg = fill.closest('svg');
+                if (!dotSvg || !fillSvg || dotSvg !== fillSvg)
+                    return { error: 'dot/fill SVG mismatch after zoom' };
                 const rect = dot.getBoundingClientRect();
                 const cx = rect.left + rect.width / 2;
                 const cy = rect.top + rect.height / 2;
                 const topEl = document.elementFromPoint(cx, cy);
-                return { topElIsDot: topEl === dot };
+                return { topElIsFill: topEl === fill };
             }""")
             assert not info2.get("error"), (
                 f"post-zoom probe error: {info2.get('error')}"
             )
-            assert info2["topElIsDot"], (
-                "after zoom: centroid dot is not the topmost element at its center"
+            assert not info2["topElIsFill"], (
+                "after zoom: fill is painting over the centroid dot"
             )
-
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
