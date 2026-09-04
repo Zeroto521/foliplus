@@ -7,6 +7,12 @@ import {
 import { createLocationMarker } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
+import {
+  bindNodeDrag,
+  buildEditOverlay,
+  isDragSyntheticClick,
+  markDragSyntheticClick,
+} from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 import { MeasureMode } from "./base.js";
@@ -37,7 +43,7 @@ class MarkerMode extends MeasureMode {
     let generation = 0;
     let rafId: number | null = null;
 
-    const drag = Util.bindNodeDrag(marker, delMarker, manager.map, {
+    const drag = bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
         measurement.lng = Util.roundCoord(latlng.lng);
@@ -51,7 +57,7 @@ class MarkerMode extends MeasureMode {
         });
       },
       onEnd: async (latlng: L.LatLng) => {
-        Util.markDragSyntheticClick();
+        markDragSyntheticClick();
         if (rafId) {
           cancelAnimationFrame(rafId);
           rafId = null;
@@ -85,7 +91,7 @@ class MarkerMode extends MeasureMode {
     // The pin shares the edit overlay: clicking it in edit mode shows its ✕
     // and closes every other open overlay (single selection). Outside edit
     // mode the marker's default popup (address) behavior is untouched.
-    const overlay = Util.buildEditOverlay(manager, {
+    const overlay = buildEditOverlay(manager, {
       onOpen: () => toggleDelIcon(delMarker, true),
       onEmpty: () => {
         toggleDelIcon(delMarker, false);
@@ -95,7 +101,7 @@ class MarkerMode extends MeasureMode {
 
     const onPinClick = (ev: L.LeafletMouseEvent) => {
       if (!manager.isEditMode) return;
-      if (Util.isDragSyntheticClick()) return;
+      if (isDragSyntheticClick()) return;
       overlay.open(ev);
     };
     marker.on("click", onPinClick);
