@@ -754,6 +754,82 @@ class TestMeasureControlBrowser:
             assert count == 0, f"expected 0 measurements after delete, got {count}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_polygon_centroid_dot_above_fill(self, browser, tmp_path):
+        """The centroid dot's z-index must exceed the SVG renderer's z-index.
+
+        Regression: a div-icon marker in the graph pane competes with the SVG
+        renderer's container z-index. After a zoom, sortLayers reassigns each
+        marker's z-index to its screen Y, which can drop the dot below the SVG
+        container (z = pane z) and let the semi-transparent fill paint over the
+        dot. The dot must carry a zIndexOffset (CENTER_DOT.Z_OFFSET) that lifts
+        it above the SVG container in every phase.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            # Draw a centroid check: dot z > SVG container z.
+            # The dot is a div-icon marker in measure_graph. Its z = screen Y
+            # + zIndexOffset. The SVG renderer's container z = pane z (~620).
+            info = page.evaluate("""() => {
+                const dot = document.querySelector('.foliplus-measure-center-dot');
+                if (!dot) return { error: 'no centroid dot found' };
+                const svgEl = document.querySelector('.foliplus-measure-shape-fill');
+                if (!svgEl) return { error: 'no fill path found' };
+                const svgContainer = svgEl.parentNode; // the <svg> element
+                const svgDiv = svgContainer.parentNode; // the renderer div
+                const dotCS = getComputedStyle(dot);
+                const svgDivCS = getComputedStyle(svgDiv);
+                const dotRect = dot.getBoundingClientRect();
+                const cx = dotRect.left + dotRect.width / 2;
+                const cy = dotRect.top + dotRect.height / 2;
+                const topEl = document.elementFromPoint(cx, cy);
+                return {
+                    dotZ: parseInt(dotCS.zIndex, 10) || 0,
+                    svgDivZ: parseInt(svgDivCS.zIndex, 10) || 0,
+                    svgDivZFromStyle: svgDiv.style.zIndex || '',
+                    paneZ: svgDivCS.zIndex,
+                    dotInGraphPane: dot.parentElement &&
+                        dot.parentElement.classList.contains('foliplus-measure-graph-pane'),
+                    topEl: topEl?.tagName + '.' + (topEl?.className || ''),
+                    topElIsDot: topEl === dot,
+                };
+            }""")
+            assert not info.get("error"), f"probe error: {info.get('error')}"
+            assert not errors, f"JS errors: {errors}"
+
+            # The dot's z-index must exceed the SVG renderer's container z.
+            assert info["dotZ"] > info["svgDivZ"], (
+                f"centroid dot z ({info['dotZ']}) <= SVG container z "
+                f"({info['svgDivZ']}); the fill paints over the dot"
+            )
+
+            # After zoom, sortLayers re-sorts by Y. The dot's offset must
+            # keep it above the SVG container in all phases.
+            page.evaluate("window.__map.setZoom(13)")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__map.setZoom(11)")
+            page.wait_for_timeout(500)
+
+            info2 = page.evaluate("""() => {
+                const dot = document.querySelector('.foliplus-measure-center-dot');
+                if (!dot) return { error: 'no centroid dot found' };
+                const svgEl = document.querySelector('.foliplus-measure-shape-fill');
+                if (!svgEl) return { error: 'no fill path found' };
+                const svgDiv = svgEl.parentNode.parentNode;
+                const dotCS = getComputedStyle(dot);
+                const svgDivCS = getComputedStyle(svgDiv);
+                return {
+                    dotZ: parseInt(dotCS.zIndex, 10) || 0,
+                    svgDivZ: parseInt(svgDivCS.zIndex, 10) || 0,
+                };
+            }""")
+            assert not info2.get("error"), f"post-zoom probe error: {info2.get('error')}"
+            assert info2["dotZ"] > info2["svgDivZ"], (
+                f"after zoom: centroid dot z ({info2['dotZ']}) <= SVG container "
+                f"z ({info2['svgDivZ']}); sortLayers dropped the dot below the fill"
+            )
+
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

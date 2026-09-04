@@ -414,19 +414,16 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot and the area label both live in the label pane (isLabel),
-    // so they order by pane order + zIndexOffset instead of competing with the
-    // polygon fill. The dot must sit ABOVE the fill — the fill lives in the
-    // graph pane, and a semi-transparent fill painting over the dot makes it
-    // impossible to grab in edit mode. The label sits ABOVE the dot by the
-    // offset delta, so the chip still reads as the visible centroid while the
-    // dot underneath keeps the hit target and the `move` cursor.
-    //
-    // Keeping both in the label pane also sidesteps sortLayers: that routine
-    // reassigns each icon's z-index to its screen Y on zoom, which would drop
-    // a graph-pane dot back to z = Y and let the fill win again. Both icons
-    // here are in the label pane, so sortLayers applies uniformly to both and
-    // the offset delta (not their raw Y) decides the pair's order.
+    // The centroid dot is a div-icon marker in the graph pane. It needs a
+    // zIndexOffset (CENTER_DOT.Z_OFFSET) to stay above the fill's SVG
+    // renderer container (z = pane z ≈ 600–700) — without it, the dot's
+    // z = screen Y falls below the SVG and the fill paints over the dot.
+    // The offset (1000) keeps the dot below the label pane (z = graph+1)
+    // and the label (offset 2000) and del icon (11000).
+    // The centroid label is isLabel → label pane, which paints above the
+    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
+    // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
+    // above its own segment labels.
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
@@ -435,10 +432,14 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           iconSize: CONST.CENTER_DOT.SIZE as [number, number],
           iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
         }),
-        zIndexOffset: CONST.LABEL.CENTROID_DOT_Z_OFFSET,
+        // The centroid dot shares the graph pane with the fill's SVG
+        // renderer. Without an offset its z = screen Y, which can fall
+        // below the SVG container (z = pane z ≈ 600–700), letting the
+        // fill paint over the dot. This lifts it above the SVG while
+        // staying below the label (offset 2000) and del icon (11000).
+        zIndexOffset: CONST.CENTER_DOT.Z_OFFSET,
         interactive: true,
       }),
-      true,
     ) as L.Marker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
