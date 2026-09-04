@@ -301,6 +301,18 @@ describe("DistanceMode — finish saves measurement", () => {
     expect(saved.totalDistance).toBeGreaterThan(0);
     expect(saved.segments).toBeDefined();
     expect(saved.segments![0].bearing).toBeDefined();
+
+    // The start path's attachDistanceUI also captured onDelete/onUpdate
+    // callbacks (the restore-path variants are covered above). Exercise the
+    // start-path callbacks so the store.update/remove lines are covered.
+    expect(capturedDistanceOpts).toBeDefined();
+    manager.store.update.mockClear();
+    capturedDistanceOpts.onUpdate();
+    expect(manager.store.update).toHaveBeenCalledWith(saved.id, expect.anything());
+    manager.store.remove.mockClear();
+    capturedDistanceOpts.onDelete();
+    expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
+    expect(manager.measurements.length).toBe(0);
   });
 
   it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {

@@ -3,7 +3,26 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { PolygonMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
-beforeEach(initMocks);
+// Capture attachPolygonUI's opts so the start-path onDelete/onUpdate
+// callbacks (store.update/remove by polyId) can be exercised directly.
+const { attachPolygonUIMock } = vi.hoisted(() => ({
+  attachPolygonUIMock: vi.fn((_mgr: unknown, opts: unknown) => {
+    capturedPolygonOpts = opts;
+    return () => {};
+  }),
+}));
+let capturedPolygonOpts: any = null;
+
+vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
+  const actual =
+    await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
+  return { ...actual, attachPolygonUI: attachPolygonUIMock };
+});
+
+beforeEach(() => {
+  initMocks();
+  capturedPolygonOpts = null;
+});
 
 describe("PolygonMode — marker click stops map propagation", () => {
   it("does not add a duplicate point when re-clicking an existing node", () => {
@@ -159,6 +178,17 @@ describe("PolygonMode — finish saves centroid", () => {
     expect(saved.segments).toBeDefined();
     expect(saved.segments!.length).toBe(3); // 3 sides incl. closing
     expect(saved.segments![0].bearing).toBeDefined(); // bearing added
+
+    // Exercise the start-path onDelete/onUpdate callbacks captured by the
+    // attachPolygonUI mock so the store.update/remove lines are covered.
+    expect(capturedPolygonOpts).toBeDefined();
+    manager.store.update.mockClear();
+    capturedPolygonOpts.onUpdate();
+    expect(manager.store.update).toHaveBeenCalledWith(saved.id, expect.anything());
+    manager.store.remove.mockClear();
+    capturedPolygonOpts.onDelete();
+    expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
+    expect(manager.measurements.length).toBe(0);
   });
 });
 
@@ -253,5 +283,37 @@ describe("PolygonMode — restore", () => {
       ],
     });
     expect(window.L.polygon).toHaveBeenCalled();
+  });
+
+  it("invokes restore's onDelete and onUpdate callbacks", () => {
+    const manager = makeManagerMock() as any;
+    const data: MeasureData = {
+      id: "p_cb",
+      type: "polygon",
+      points: [
+        { lng: 121, lat: 31 },
+        { lng: 122, lat: 31 },
+        { lng: 121.5, lat: 32 },
+      ],
+      segments: [],
+      area: 0,
+    };
+    manager.measurements = [data];
+    PolygonMode.restore(manager, data);
+
+    expect(capturedPolygonOpts).toBeDefined();
+
+    // onUpdate recomputes area/segments/center and persists via store.update.
+    capturedPolygonOpts.onUpdate();
+    expect(manager.store.update).toHaveBeenCalledWith(
+      data.id,
+      expect.objectContaining({ area: expect.any(Number), segments: expect.any(Array) }),
+    );
+
+    // onDelete removes the measurement and persists.
+    manager.store.remove.mockClear();
+    capturedPolygonOpts.onDelete();
+    expect(manager.store.remove).toHaveBeenCalledWith(data.id);
+    expect(manager.measurements.length).toBe(0);
   });
 });

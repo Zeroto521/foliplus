@@ -3,7 +3,32 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { CircleMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
-beforeEach(initMocks);
+// Capture attachCircleUI's opts so the start-path onDelete callback
+// (store.remove by circleId) can be exercised directly.
+const { attachCircleUIMock } = vi.hoisted(() => ({
+  attachCircleUIMock: vi.fn((mgr: unknown, opts: unknown) => {
+    capturedCircleOpts = opts;
+    // Simulate the real attachCircleUI, which self-registers its dispose via
+    // registerFinalized (delete and clearAll both run it).
+    const cleanup = () => {};
+    (mgr as { registerFinalized?: (c: () => void) => () => void }).registerFinalized?.(
+      cleanup,
+    );
+    return cleanup;
+  }),
+}));
+let capturedCircleOpts: any = null;
+
+vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
+  const actual =
+    await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
+  return { ...actual, attachCircleUI: attachCircleUIMock };
+});
+
+beforeEach(() => {
+  initMocks();
+  capturedCircleOpts = null;
+});
 
 describe("CircleMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing center", () => {
@@ -134,6 +159,14 @@ describe("CircleMode — start drawing flow", () => {
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);
       expect(manager.store.add).toHaveBeenCalled();
+
+      // Exercise the start-path onDelete captured by attachCircleUI so the
+      // store.remove line is covered.
+      expect(capturedCircleOpts).toBeDefined();
+      const circleId = manager.measurements[0].id;
+      manager.store.remove.mockClear();
+      capturedCircleOpts.onDelete();
+      expect(manager.store.remove).toHaveBeenCalledWith(circleId);
     } finally {
       vi.useRealTimers();
     }
