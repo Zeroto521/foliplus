@@ -581,9 +581,9 @@ class TestLayerControlRendering:
 
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
-        # Checkbox (including :indeterminate) lives in common.css
-        # as the Shared Checkbox Component, scoped to .foliplus-layer-ctrl.
-        css = read_css("foliplus/css/common.css")
+        # Only LayerControl renders this checkbox (CONST.CLASSES.CHECKBOX), so
+        # the component is not shared and the rule stays in LayerControl.css.
+        css = read_css("foliplus/css/LayerControl.css")
         assert ":indeterminate" in css
         assert ":indeterminate::after" in css
         # Should use a dash/minus icon (not a checkmark)
@@ -603,23 +603,15 @@ class TestLayerControlRendering:
         Transitions are kept only on properties that do not change on rebuild
         (box-shadow) or where the element survives the rebuild (hover,
         drag-over, :focus-visible)."""
-        # Targets grouped by which stylesheet owns the rule. The checkbox lives
-        # in common.css (Shared Checkbox Component, scoped to
-        # .foliplus-layer-ctrl); the rest are LayerControl-specific.
         by_source = [
             (
-                "foliplus/css/common.css",
+                "foliplus/css/LayerControl.css",
                 [
                     (
                         'input[type="checkbox"]',
                         ["background-color", "border-color"],
                         ["box-shadow"],
                     ),
-                ],
-            ),
-            (
-                "foliplus/css/LayerControl.css",
-                [
                     (
                         ".foliplus-layer-sep.foliplus-layer-toggle-all",
                         ["background-color", "border-color"],

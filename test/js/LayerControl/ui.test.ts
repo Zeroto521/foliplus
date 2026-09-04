@@ -1749,7 +1749,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
   describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
-    // getNavigableItems() enumerates rows by checkbox DOM order: the "Toggle
+    // getNavigableItems() enumerates row elements in DOM order: the "Toggle
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.
     const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));

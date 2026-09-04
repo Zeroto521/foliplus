@@ -146,8 +146,8 @@ describe("panelContentHTML", () => {
 
   it("includes label toggle switch structure", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-toggle-switch");
-    expect(html).toContain("foliplus-toggle-slider");
+    expect(html).toContain("foliplus-heatmap-toggle-switch");
+    expect(html).toContain("foliplus-heatmap-toggle-slider");
     expect(html).toContain('type="checkbox"');
   });
 

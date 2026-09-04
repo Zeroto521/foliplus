@@ -751,13 +751,7 @@ class LayerUI {
       }
       const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
       if (!row || el.closest('[data-role="toggle-all"]')) return;
-      const group = row.dataset.group ?? "";
-      if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
-      else this.foldedGroups.add(group);
-      this.renderInitialList();
-      this.initTypesAndVisibility();
-      this.refreshAllCounts();
-      this.saveFoldState();
+      this.toggleFold(row.dataset.group ?? "");
     };
 
     this.onDragStart = event => this.handleDragStart(event);
@@ -1037,20 +1031,19 @@ class LayerUI {
   }
 
   /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
-   *  order. The color item is excluded (it is a picker, not a layer). */
+   *  order. The color item is excluded (it is a picker, not a layer).
+   *
+   *  Enumerates the row elements themselves, not their checkboxes. The old
+   *  checkbox-first traversal silently dropped any row without a checkbox, so
+   *  arrow-key navigation and Tab order could disagree about which rows exist.
+   *  Rows are selected by class rather than `[tabindex]` because the inline
+   *  rename input is also `tabindex=0` and is not a navigable row. */
   getNavigableItems(): HTMLElement[] {
     return Array.from(
-      this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
-    )
-      .map(
-        cb =>
-          (cb.closest(CONST.SEL.LAYER_ITEM) ??
-            cb.closest(CONST.SEL.TOGGLE_ALL)) as HTMLElement | null,
-      )
-      .filter(
-        (el): el is HTMLElement =>
-          el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
-      );
+      this.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
+      ),
+    ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
   }
 
   /** Index of the nearest row in `step` direction that is not folded away,
@@ -1234,8 +1227,8 @@ class LayerUI {
       case "ArrowRight":
       case " ":
       case "Enter":
-        // Do not toggle the checkbox when the more (⋮) button is focused —
-        // that key opens the overflow menu instead.
+        // A ⋮ button is focused — that key opens the overflow menu, not the
+        // row checkbox.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
           event.preventDefault();
           event.stopPropagation();
@@ -1243,6 +1236,18 @@ class LayerUI {
             CONST.SEL.LAYER_ITEM,
           ) as HTMLElement | null;
           if (item) this.openMoreMenu(item);
+          break;
+        }
+        // The chevron button is focused — that key folds the group, not
+        // select-all. Left untouched, resolveActiveIdx() walks up from the
+        // button to its toggle-all row and the row checkbox flips instead.
+        if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.TOGGLE_ALL,
+          ) as HTMLElement | null;
+          if (row) this.toggleFold(row.dataset.group ?? "");
           break;
         }
         // Menu item (li) is focused — trigger the focus-layer action.
@@ -1305,6 +1310,17 @@ class LayerUI {
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** Fold or unfold one group. Shared by the pointer (row click) and the
+   *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
+  private toggleFold(group: string): void {
+    if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+    else this.foldedGroups.add(group);
+    this.renderInitialList();
+    this.initTypesAndVisibility();
+    this.refreshAllCounts();
+    this.saveFoldState();
   }
 
   handleDragStart(event: DragEvent) {

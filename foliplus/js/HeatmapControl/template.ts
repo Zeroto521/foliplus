@@ -88,9 +88,9 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       <div class="foliplus-heatmap-form-row foliplus-heatmap-section-block-last">
         <label class="foliplus-heatmap-form-label">${T("label")}</label>
         <div class="foliplus-heatmap-form-control">
-          <label class="foliplus-toggle-switch">
+          <label class="foliplus-heatmap-toggle-switch">
             <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
-            <span class="foliplus-toggle-slider"></span>
+            <span class="foliplus-heatmap-toggle-slider"></span>
           </label>
         </div>
       </div>
