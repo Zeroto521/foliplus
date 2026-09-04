@@ -55,22 +55,33 @@ const attachWithGroup = () => {
     options: {},
   }));
   window.L.Path = Path;
-  window.L.Polygon = class { options = {}; };
-  window.L.Polyline = class { options = {}; };
+  window.L.Polygon = class {
+    options = {};
+  };
+  window.L.Polyline = class {
+    options = {};
+  };
   window.L.Marker = class {};
-  window.L.CircleMarker = class { constructor(_l: any, _o: any) {} };
+  window.L.CircleMarker = class {
+    constructor(_l: any, _o: any) {}
+  };
   window.L.stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);
   })();
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
-  window.L.polygon = vi.fn((rings: any, opts: any) => ({ options: opts, _rings: rings }) as any);
-  window.L.rectangle = vi.fn((_b: any, opts: any) => ({
-    _options: opts,
-    getClassName: () => opts?.className ?? "",
-    on: vi.fn(),
-    eachLayer: vi.fn(),
-  }) as any);
+  window.L.polygon = vi.fn(
+    (rings: any, opts: any) => ({ options: opts, _rings: rings }) as any,
+  );
+  window.L.rectangle = vi.fn(
+    (_b: any, opts: any) =>
+      ({
+        _options: opts,
+        getClassName: () => opts?.className ?? "",
+        on: vi.fn(),
+        eachLayer: vi.fn(),
+      }) as any,
+  );
 
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -80,7 +91,11 @@ const attachWithGroup = () => {
     getSouthWest: () => ({ lat: 30, lng: 100 }),
     getNorthEast: () => ({ lat: 40, lng: 110 }),
   };
-  const polygonLayer = { options: {}, eachLayer: vi.fn(), getBounds: vi.fn(() => polyBounds) };
+  const polygonLayer = {
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => polyBounds),
+  };
 
   const map: any = {
     on: vi.fn(),
@@ -210,7 +225,9 @@ describe("fold group via keyboard (chevron button)", () => {
     const { foldBtn, children } = attachWithGroup();
     const childBoxes = () =>
       Array.from(
-        children().map(el => el.querySelector('input[type="checkbox"]') as HTMLInputElement),
+        children().map(
+          el => el.querySelector('input[type="checkbox"]') as HTMLInputElement,
+        ),
       ).filter(Boolean);
 
     // All children start checked.
@@ -235,7 +252,9 @@ describe("fold group via keyboard (chevron button)", () => {
     const { row, children } = attachWithGroup();
     const childBoxes = () =>
       Array.from(
-        children().map(el => el.querySelector('input[type="checkbox"]') as HTMLInputElement),
+        children().map(
+          el => el.querySelector('input[type="checkbox"]') as HTMLInputElement,
+        ),
       ).filter(Boolean);
 
     pressKey(row, "Enter");
@@ -258,7 +277,9 @@ describe("fold group via keyboard (chevron button)", () => {
     // The color row is a picker, not a layer, so it stays out of the list.
     if (colorRow) expect(items).not.toContain(colorRow);
     // Both toggle-all rows are present.
-    expect(items.filter(el => el.classList.contains(CONST.CLASSES.TOGGLE_ALL))).toHaveLength(2);
+    expect(
+      items.filter(el => el.classList.contains(CONST.CLASSES.TOGGLE_ALL)),
+    ).toHaveLength(2);
     expect(items[0].classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
     expect(
       items.every(
