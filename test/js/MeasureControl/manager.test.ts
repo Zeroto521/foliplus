@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
 // blocked-path in setMode() without affecting the real ensureModes/ModeManager
@@ -123,11 +122,6 @@ describe("MeasureManager — persistence", () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it("loadMeasurements returns empty array when no data", () => {
-    const { manager } = makeManager();
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
-  });
 });
 
 describe("MeasureManager — mode switching", () => {
@@ -408,15 +402,6 @@ describe("MeasureManager — lifecycle", () => {
 });
 
 describe("MeasureManager — persistence edge cases", () => {
-  it("loadMeasurements falls back to [] on corrupted JSON", () => {
-    const { manager } = makeManager();
-    const spy = vi.spyOn(Storage, "load").mockReturnValue({ not: "array" });
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
-    spy.mockRestore();
-  });
-
   it("clearAll collapses expanded panel when ctrl exists", () => {
     const { manager } = makeManager();
     const ctrl = document.createElement("div");

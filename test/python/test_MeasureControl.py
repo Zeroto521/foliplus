@@ -507,18 +507,18 @@ class TestMeasureControlBrowser:
     def test_marker_saved_before_geocode(self):
         """Marker measurement is persisted immediately, before geocode resolves."""
         html = render_control(MeasureControl())
-        # In the new-marker flow, saveMeasurements() must be called BEFORE
-        # createLocationMarker() (which triggers the async geocode), so a
-        # reload mid-lookup does not lose the marker. Search for the
-        # save-then-create pattern within a small window (not the global
-        # first occurrence, which may be in a different mode's restore()).
+        # In the new-marker flow, the measurement is persisted via
+        # store.add() BEFORE createLocationMarker() (which triggers the async
+        # geocode), so a reload mid-lookup does not lose the marker. Search for
+        # the save-then-create pattern within a small window (not the global
+        # first occurrence, which may be in restore()).
         create_pos = html.find("createLocationMarker(")
         assert create_pos != -1, "createLocationMarker should exist"
-        # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
+        # Search for store.add within 200 chars BEFORE createLocationMarker
         search_start = max(0, create_pos - 200)
-        save_pos = html.find("this.m.saveMeasurements();", search_start)
+        save_pos = html.find("this.m.store.add(", search_start)
         assert save_pos != -1, (
-            "saveMeasurements() should exist before createLocationMarker"
+            "store.add() should exist before createLocationMarker"
         )
         gap = create_pos - save_pos
         assert gap < 200, (

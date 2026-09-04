@@ -154,7 +154,6 @@ export function makeManagerMock() {
       update: vi.fn((id: string, patch: any) => {
         const m = measurements.find((x: any) => x.id === id);
         if (m) Object.assign(m, patch);
-        return m;
       }),
       load: vi.fn(() => measurements),
       hydrate: vi.fn((data: any[]) => {

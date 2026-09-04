@@ -127,12 +127,6 @@ class MeasureManager {
     this.store.persist();
   }
 
-  /** Load measurements from localStorage.
-   *  @returns {Array} Restored measurements array. */
-  loadMeasurements() {
-    return this.store.load();
-  }
-
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
    * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
@@ -201,7 +195,7 @@ class MeasureManager {
       if (this.currentMode) this.clearActiveMode();
       // Nothing to edit yet — keep out of edit mode and explain instead of
       // entering a dead state with no clickable measurements.
-      if (this.measurements.length === 0) {
+      if (this.store.count() === 0) {
         this.map.foliplus!.showHint(
           CONF.name,
           T("hint_edit_empty"),

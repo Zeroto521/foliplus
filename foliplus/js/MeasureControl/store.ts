@@ -92,14 +92,13 @@ class MeasureStore {
     this.persist();
   }
 
-  /** Merge a patch into a measurement by id and persist. Returns the updated
-   *  measurement, or undefined if not found. */
-  update(id: string, patch: Partial<MeasureData>): MeasureData | undefined {
+  /** Merge a patch into a measurement by id and persist. No-op if not found
+   *  (callers already guard the drag binding that triggers updates). */
+  update(id: string, patch: Partial<MeasureData>): void {
     const m = this.list.find(x => x.id === id);
-    if (!m) return undefined;
+    if (!m) return;
     Object.assign(m, patch);
     this.persist();
-    return m;
   }
 
   /** Remove all measurements and persist. */
