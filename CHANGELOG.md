@@ -40,6 +40,7 @@
 - `SearchControl`: address search delegates to `foliplus.geocode` (shared bidirectional CRS-aware cache, Nominatim throttle, CRS conversion); suggestion results pre-populate the same cache via `cacheSuggestion` so a follow-up address search reuses cached coordinates ([#166](https://github.com/Zeroto521/foliplus/pull/166))
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
+- `doc`: quickstart base themes move off CARTO tiles (`CartoDB positron` / `CartoDB dark_matter`) to Stadia-hosted Stamen Toner / Toner Dark — the CARTO basemap is now behind a paid API token, which raised `ValueError: Token is required for this provider` on Read the Docs builds. Same look, no key ([#239](https://github.com/Zeroto521/foliplus/pull/239))
 
 ### Removed
 
