@@ -418,6 +418,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     // lands in the label pane which always paints above the graph pane. No
     // zIndexOffset needed; the pane ordering guarantees the label covers the
     // dot, matching how distance/circle handle node-vs-label separation.
+    // Segment labels (also isLabel) sit at z = Y. After a zoom `sortLayers`
+    // re-sorts by Y and can push a lower-Y segment label above the area label.
+    // A modest zIndexOffset keeps the area label above its own segment labels.
     centroidDot = layers.addLayer(
       L.marker(centroid, {
         icon: L.divIcon({
@@ -435,6 +438,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),
+        zIndexOffset: CONST.CENTROID_LABEL_Z_OFFSET,
         interactive: false,
       }),
       true,

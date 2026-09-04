@@ -337,17 +337,17 @@ describe("attachPolygonUI", () => {
     // [1]=centroidLabel, [2]=centroidDelMarker. The dot goes to the graph
     // pane (no isLabel flag, no zIndexOffset) — same as node markers. The
     // label is isLabel so it lands in the label pane, which always paints
-    // above the graph pane. This pane ordering guarantees the label covers
-    // the dot without z-index trickery, matching how distance/circle
-    // separate node markers (graph) from labels (label).
+    // above the graph pane, guaranteeing the label covers the dot. The label
+    // also carries a modest zIndexOffset so sortLayers (which re-sorts by Y
+    // on zoom) doesn't push a lower-Y segment label above the area label.
     const dotOpts = (window.L.marker as any).mock.calls[0][1];
     const labelOpts = (window.L.marker as any).mock.calls[1][1];
     // Dot: no zIndexOffset, routed to graph pane (isLabel=false).
     expect(dotOpts.zIndexOffset).toBeUndefined();
     expect(addLayerCalls[0].isLabel).toBe(false);
-    // Label: isLabel=true → label pane, no zIndexOffset.
+    // Label: isLabel=true → label pane, has modest zIndexOffset.
     expect(addLayerCalls[1].isLabel).toBe(true);
-    expect(labelOpts.zIndexOffset).toBeUndefined();
+    expect(labelOpts.zIndexOffset).toBe(CONST.CENTROID_LABEL_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
     // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();
