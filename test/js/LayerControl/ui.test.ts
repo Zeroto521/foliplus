@@ -1043,14 +1043,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         "LayerControl.attr_source",
         "https://example.com/parks.geojson",
       ]);
-      expect(
-        rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1],
-      ).toBe("Sep 1, 2026, 4:00 PM");
+      expect(rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1]).toBe(
+        "Sep 1, 2026, 4:00 PM",
+      );
       expect(rendered).toContainEqual(["area_km2", "12.5"]);
       // Third-party rows follow a separator.
-      expect(
-        item.querySelectorAll(".foliplus-layer-attrs-sep").length,
-      ).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(1);
     });
 
     it("omits the custom-attributes block when meta is empty", () => {
@@ -1059,12 +1057,8 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
 
-      expect(
-        item.querySelectorAll(".foliplus-layer-attrs-sep").length,
-      ).toBe(0);
-      expect(
-        item.querySelector(".foliplus-layer-attrs-meta-row"),
-      ).toBeNull();
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
+      expect(item.querySelector(".foliplus-layer-attrs-meta-row")).toBeNull();
     });
 
     it("formats the timestamp from epoch ms", () => {
@@ -1085,14 +1079,15 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
     it("reflects the hidden state", () => {
       const item = findItem(ui, "overlay1");
-      (item.querySelector('input[type="checkbox"]') as HTMLInputElement)
-        .checked = false;
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement).checked =
+        false;
 
       ui.openAttrsPanel(item);
 
-      expect(
-        rows(item.querySelector(".foliplus-layer-attrs-panel")!),
-      ).toContainEqual(["LayerControl.attr_visible", "LayerControl.attr_no"]);
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_visible",
+        "LayerControl.attr_no",
+      ]);
     });
 
     it("color basemap shows name + visibility and no provenance rows", () => {

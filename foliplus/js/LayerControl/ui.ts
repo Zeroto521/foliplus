@@ -31,9 +31,7 @@ const mapContainer = map.getContainer();
  *  input returns "" so the caller omits the row instead of showing a
  *  "Invalid Date" literal. */
 const formatTimestamp = (value: string | number): string => {
-  const date = new Date(
-    typeof value === "number" ? value : Date.parse(value),
-  );
+  const date = new Date(typeof value === "number" ? value : Date.parse(value));
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString(CONF.locale_code, {
     dateStyle: "medium",
@@ -1595,24 +1593,17 @@ class LayerUI {
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
-    const layerInfo = isColor
-      ? null
-      : this.manager.layerRegistry.get(layerId);
+    const layerInfo = isColor ? null : this.manager.layerRegistry.get(layerId);
 
     const rows: Array<[string, string]> = [
-      [
-        T("attr_name"),
-        isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId),
-      ],
+      [T("attr_name"), isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId)],
     ];
     if (layerInfo?.source) rows.push([T("attr_source"), layerInfo.source]);
     if (!isColor) {
       const count = layerInfo ? this.manager.getFeatureCount(layerId) : null;
       rows.push([
         T("attr_feature_count"),
-        count == null
-          ? T("attr_empty")
-          : formatNumber(count, "auto", CONF.locale_code),
+        count == null ? T("attr_empty") : formatNumber(count, "auto", CONF.locale_code),
       ]);
       if (layerInfo?.updatedAt != null)
         rows.push([T("attr_updated_at"), formatTimestamp(layerInfo.updatedAt)]);
@@ -1632,11 +1623,7 @@ class LayerUI {
         role: "dialog",
         "aria-label": T("attributes_layer"),
       },
-      dom.el(
-        "h3",
-        { class: "foliplus-layer-attrs-title" },
-        T("attributes_layer"),
-      ),
+      dom.el("h3", { class: "foliplus-layer-attrs-title" }, T("attributes_layer")),
       dom.el(
         "dl",
         { class: "foliplus-layer-attrs-list" },
@@ -1644,16 +1631,8 @@ class LayerUI {
           dom.el(
             "div",
             { class: CONST.CLASSES.ATTRS_ROW },
-            dom.el(
-              "dt",
-              { class: CONST.CLASSES.ATTRS_LABEL },
-              label,
-            ),
-            dom.el(
-              "dd",
-              { class: CONST.CLASSES.ATTRS_VALUE, title: value },
-              value,
-            ),
+            dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL }, label),
+            dom.el("dd", { class: CONST.CLASSES.ATTRS_VALUE, title: value }, value),
           ),
         ),
       ),
@@ -1682,16 +1661,8 @@ class LayerUI {
               {
                 class: `${CONST.CLASSES.ATTRS_ROW} ${CONST.CLASSES.ATTRS_META_ROW}`,
               },
-              dom.el(
-                "dt",
-                { class: CONST.CLASSES.ATTRS_LABEL, title: key },
-                key,
-              ),
-              dom.el(
-                "dd",
-                { class: CONST.CLASSES.ATTRS_VALUE, title: text },
-                text,
-              ),
+              dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL, title: key }, key),
+              dom.el("dd", { class: CONST.CLASSES.ATTRS_VALUE, title: text }, text),
             ),
           );
         }
