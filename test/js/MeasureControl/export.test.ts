@@ -595,12 +595,38 @@ describe("Export.handleExportClick", () => {
     expect(dl.anchors.length).toBe(0);
   });
 
-  it("triggers a download and shows no hint when measurements exist", () => {
+  it("shows a success hint after the download completes", () => {
     const mgr = makeMgr([markerData]);
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
-    expect(mgr.map.foliplus.showHint).not.toHaveBeenCalled();
+    const [component, text, duration] = mgr.map.foliplus.showHint.mock.calls[0];
+    expect(component).toBe("MeasureControl");
+    expect(duration).toBe(HINT_DURATION.LONG);
+    // The success text is two key concatenations — T() is the identity
+    // function under the locale mock, so the keys are adjacent.
+    expect(text).toBe("export_successexport_file");
+    // No success is claimed without a file being written.
     expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].filename).toBe("meas.geojson");
+  });
+
+  it("shows a failure hint when serialization throws", () => {
+    // JSON.stringify is the narrowest seam that puts a throw inside the
+    // handler's try block — download() is called there too, but making it
+    // throw is a real DOM failure rather than a controlled condition.
+    const stringify = JSON.stringify;
+    JSON.stringify = (() => {
+      throw new Error("boom");
+    }) as any;
+    try {
+      const mgr = makeMgr([markerData]);
+      Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
+      const [component, text, duration] = mgr.map.foliplus.showHint.mock.calls[0];
+      expect(component).toBe("MeasureControl");
+      expect(text).toBe("export_failerr_export");
+      expect(duration).toBe(HINT_DURATION.LONG);
+      expect(dl.anchors.length).toBe(0);
+    } finally {
+      JSON.stringify = stringify;
+    }
   });
 
   it("resolves the format from CONF, defaulting to geojson", () => {
