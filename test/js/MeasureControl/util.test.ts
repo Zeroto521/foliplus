@@ -327,30 +327,32 @@ describe("coord readout", () => {
     container.remove();
   });
 
-  it("updates the chip text and returns it", () => {
+  it("updates the chip text, reveals it, and returns the text", () => {
     const { map, container } = makeMap();
     const el = Util.buildCoordReadout(map);
+    expect(el.hidden).toBe(true);
     const text = Util.setCoordReadout(el, "121.473701, 31.230955");
     expect(text).toBe("121.473701, 31.230955");
+    expect(el.hidden).toBe(false);
     expect(el.querySelector(".foliplus-measure-coord")?.textContent).toBe(text);
     el.remove();
     container.remove();
   });
 
-  it("toggles visibility", () => {
+  it("hides the chip on request", () => {
     const { map, container } = makeMap();
     const el = Util.buildCoordReadout(map);
-    Util.setCoordReadoutVisible(el, true);
+    Util.setCoordReadout(el, "0.000000, 0.000000");
     expect(el.hidden).toBe(false);
-    Util.setCoordReadoutVisible(el, false);
+    Util.setCoordReadoutHidden(el);
     expect(el.hidden).toBe(true);
     el.remove();
     container.remove();
   });
 
   it("ignores a missing element without throwing", () => {
-    expect(() => Util.setCoordReadout(null, "x")).not.toThrow();
-    expect(() => Util.setCoordReadoutVisible(null, true)).not.toThrow();
+    expect(Util.setCoordReadout(null, "x")).toBe("x");
+    expect(() => Util.setCoordReadoutHidden(null)).not.toThrow();
   });
 });
 
@@ -363,6 +365,28 @@ describe("coordText", () => {
     expect(Util.coordText(map, { lat: 31.230955, lng: 121.473701 })).toBe(
       "121.473701, 31.230955",
     );
+  });
+  it("accepts Leaflet's latitude/longitude object shape", () => {
+    const map = { options: {}, _layers: {} } as any;
+    expect(Util.coordText(map, { latitude: 31.230955, longitude: 121.473701 })).toBe(
+      "121.473701, 31.230955",
+    );
+  });
+  it("accepts an L.LatLng instance whose lat/lng come from getters", () => {
+    const map = { options: {}, _layers: {} } as any;
+    const ll: any = {
+      get lat() {
+        return 31.230955;
+      },
+      get lng() {
+        return 121.473701;
+      },
+    };
+    expect(Util.coordText(map, ll)).toBe("121.473701, 31.230955");
+  });
+  it("rejects a point with no coordinates instead of rendering NaN", () => {
+    const map = { options: {}, _layers: {} } as any;
+    expect(() => Util.coordText(map, {} as any)).toThrowError(TypeError);
   });
   it("detects a non-WGS84 map so the conversion path is taken", () => {
     // getMapCrsType keys off the CRS code, not the tile URL string.

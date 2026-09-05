@@ -230,8 +230,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           nodeMarkers.forEach((m, i) => m.setLatLng(points[i]));
           nodeDelMarkers.forEach((d, i) => d.setLatLng(points[i]));
           relabel();
-          mgr.setCoordReadoutVisible(true);
-          mgr.setCoordReadoutWgs(points[0].lng, points[0].lat);
+          mgr.setCoordReadout(points[0]);
         },
         onEnd: () => {
           markDragSyntheticClick();
@@ -252,8 +251,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
           points[pIdx] = latlng;
-          mgr.setCoordReadoutVisible(true);
-          mgr.setCoordReadoutWgs(points[0].lng, points[0].lat);
+          mgr.setCoordReadout(points[0]);
           if (onUpdate) onUpdate(points);
         },
       });
@@ -358,8 +356,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
         });
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
       updateLabel();
-      mgr.setCoordReadoutVisible(true);
-      mgr.setCoordReadoutWgs(latlng.lng, latlng.lat);
+      mgr.setCoordReadout(latlng);
     },
     onEnd: (latlng: L.LatLng) => {
       markDragSyntheticClick();
@@ -490,6 +487,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   };
 
   const rebuildCentroid = (currentArea?: number) => {
+    // The previous dot/label/del-icon stay live while the drag handler holds
+    // onto centroidDot, so swap them out atomically and drop the old ones.
+    unregisterCentroid();
+    if (centroidDot) layers.removeLayer(centroidDot);
+    if (centroidLabel) layers.removeLayer(centroidLabel);
+    if (centroidDelMarker) layers.removeLayer(centroidDelMarker);
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
     // The centroid dot is a CircleMarker (SVG path) in the graph pane —
@@ -521,7 +524,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
     ) as L.Marker;
+    centroidDelMarker.on("click", openOverlay);
     attachDelClick(centroidDelMarker, deleteMeasurement);
+    resortLayers(layers, nodeMarkers, nodeDelMarkers, segLabels);
   };
 
   const deleteMeasurement = () => {
@@ -630,18 +635,19 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   dragBinds.push(
     bindNodeDrag(centroidDot!, centroidDelMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
+        // Rebuild the points: LatLng instances are immutable, so translating
+        // them in place would leave every node where it started.
         const dx = latlng.lng - centroidDot!.getLatLng().lng;
         const dy = latlng.lat - centroidDot!.getLatLng().lat;
-        points.forEach((p, i) => {
-          p.lat += dy;
-          p.lng += dx;
-          nodeMarkers[i]?.setLatLng(p);
-          nodeDelMarkers[i]?.setLatLng(p);
-        });
+        for (let i = 0; i < points.length; i++) {
+          const shifted = L.latLng(points[i].lat + dy, points[i].lng + dx);
+          points[i] = shifted;
+          nodeMarkers[i]?.setLatLng(shifted);
+          nodeDelMarkers[i]?.setLatLng(shifted);
+        }
         finalPoly.setLatLngs(points);
-        relabel();
-        mgr.setCoordReadoutVisible(true);
-        mgr.setCoordReadoutWgs(Util.centroid(points).lng, Util.centroid(points).lat);
+        rebuildCentroid(opts.area);
+        mgr.setCoordReadout(Util.centroid(points));
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();

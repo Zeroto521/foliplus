@@ -129,9 +129,9 @@ class MeasureManager {
     this.toolBtns = [];
     this.ctrl = null;
     this.isEditMode = false;
-    this.coordReadoutEl = CONF.show_live_coords
-      ? Util.buildCoordReadout(mapInstance)
-      : null;
+    // Omitted means enabled (Python default is True); only false opts out.
+    this.coordReadoutEl =
+      CONF.show_live_coords !== false ? Util.buildCoordReadout(mapInstance) : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -443,22 +443,17 @@ class MeasureManager {
     );
   }
 
-  /** Show or hide the live coordinate readout. No-op when disabled by config. */
-  setCoordReadoutVisible(visible: boolean) {
-    Util.setCoordReadoutVisible(this.coordReadoutEl, visible);
-  }
-
-  /** Update the readout with a map-display-coordinate point. The WGS84
-   *  conversion lives inside coordText, so the readout always matches export. */
+  /** Update the readout with a map-display-coordinate point, showing the chip
+   *  if it isn't visible yet. The WGS84 conversion lives in `coordText`, so
+   *  the readout reports the same CRS as the export regardless of tiles. */
   setCoordReadout(pt: L.LatLng | { lat: number; lng: number }) {
     if (!this.coordReadoutEl) return;
     Util.setCoordReadout(this.coordReadoutEl, Util.coordText(this.map, pt));
   }
 
-  /** Update the readout with an already-WGS84 point (persisted measurements). */
-  setCoordReadoutWgs(lng: number, lat: number) {
-    if (!this.coordReadoutEl) return;
-    Util.setCoordReadout(this.coordReadoutEl, Util.formatLatLng(lng, lat));
+  /** Hide the readout. Writing shows it, so this only ever moves it back down. */
+  setCoordReadoutHidden() {
+    Util.setCoordReadoutHidden(this.coordReadoutEl);
   }
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
@@ -506,8 +501,9 @@ class MeasureManager {
     // (LayerControl/ExportControl) can respond again.
     this.measureEscapeCleanup?.();
     this.measureEscapeCleanup = undefined;
-    // Stop tracking the cursor once a drawing session ends.
-    this.setCoordReadoutVisible(false);
+    // NOTE: the readout is left visible on purpose. A just-finalized
+    // measurement still reports its coordinates, and the mousemove handlers
+    // keep it live until a new mode starts. clearAll / destroy hide it.
     // NOTE: the low-priority Escape (interactionCleanup) stays registered for
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
@@ -520,6 +516,8 @@ class MeasureManager {
     this.layers.clearLayers();
     this.store.clear();
     this.clearActiveMode();
+    // Nothing left to report: no measurement, no cursor to track.
+    this.setCoordReadoutHidden();
     // Run each handle's dispose to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.
     this.disposeAllHandles();

@@ -182,13 +182,10 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 const roundCoord = (n: number): number =>
   parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
 
-/** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
-const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
-  ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
-
 // ── Live coordinate readout ─────────────────────────────────────────
-/** One coordinate formatted to the persisted precision, keeping trailing zeros.
- *  `0` (not `0.000000`) for negative zero so the readout never shows "-0". */
+/** One coordinate formatted to the persisted precision. Rendering the full
+ *  fixed-decimal string avoids "-0.000000" on a west/south of equator point,
+ *  and keeps the chip from shifting width as the cursor moves. */
 const formatCoord = (n: number): string => {
   const v = parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
   return (v === 0 ? 0 : v).toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
@@ -199,7 +196,7 @@ const formatCoord = (n: number): string => {
 const formatLatLng = (lng: number, lat: number): string =>
   `${formatCoord(lng)}, ${formatCoord(lat)}`;
 
-/** A point already in the map's display CRS that should be read out. Accepts
+/** A point in the map's display CRS that should be read out. Accepts
  *  both Leaflet's `lat/lng` shape and Leaflet's plain-object `latitude/longitude`
  *  alias so callers can pass either without wrapping. */
 type DisplayLatLng =
@@ -222,8 +219,8 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
 };
 
 /** Format `pt` (display CRS) as a WGS84 readout string. Conversion happens here
- *  so callers never have to remember it — the readout always reports what the
- *  export would contain, not what the tile layer happens to show. */
+ *  so callers never have to remember it — every entry point that accepts a map
+ *  coordinate goes through this one function. */
 const coordText = (map: L.Map, pt: DisplayLatLng): string => {
   const [lat, lng] = readLatLng(pt);
   const [wlng, wlat] = toWgs84(map, lng, lat);
@@ -246,16 +243,25 @@ const buildCoordReadout = (map: L.Map): HTMLElement => {
   return el;
 };
 
-/** Update the readout chip and return the new text (lets callers assert it). */
+/** Update the readout chip, showing it if needed. Returning the text lets
+ *  callers assert on it. Visibility lives here so no caller can forget to make
+ *  the element appear — hidden-at-start is required because nothing shows until
+ *  a measurement exists. */
 const setCoordReadout = (el: HTMLElement | null, text: string): string => {
-  el?.querySelector(CONST.SEL.COORD_LABEL)?.replaceChildren(text);
+  if (!el) return text;
+  el.hidden = false;
+  el.querySelector(CONST.SEL.COORD_LABEL)?.replaceChildren(text);
   return text;
 };
 
-/** Show or hide the readout. */
-const setCoordReadoutVisible = (el: HTMLElement | null, visible: boolean) => {
-  if (el) el.hidden = !visible;
+/** Hide the readout. Separate from `setCoordReadout`, which shows on write. */
+const setCoordReadoutHidden = (el: HTMLElement | null) => {
+  if (el) el.hidden = true;
 };
+
+/** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
+const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
+  ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
 
 export {
   animateDashSweep,
@@ -284,5 +290,5 @@ export {
   roundCoord,
   setLabelText,
   setCoordReadout,
-  setCoordReadoutVisible,
+  setCoordReadoutHidden,
 };

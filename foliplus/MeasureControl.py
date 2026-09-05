@@ -80,9 +80,10 @@ class MeasureControl(BaseControl):
         While measuring it tracks the cursor; once a measurement is finalized it
         shows that measurement's coordinates (start node for distance, centroid for
         area, center for circle) and updates as its nodes are dragged in edit mode.
-        The locate mode already reports its coordinates in the popup and is not
-        covered. Coordinates are converted to WGS84 before display, so the readout
-        matches the exported data even on GCJ02 / BD09 maps.
+        The marker mode already reports its coordinates in the popup, so the readout
+        settles on the pin and follows it while dragged in edit mode. Coordinates are
+        converted to WGS84 before display, so the readout matches the exported data
+        even on GCJ02 / BD09 maps.
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is

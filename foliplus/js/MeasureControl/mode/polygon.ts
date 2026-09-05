@@ -222,8 +222,7 @@ class PolygonMode extends PreviewMode {
       // finalized polygon/nodes).
       this._cleanup = () => {};
       // Settle on the centroid so the readout reports the shape's anchor.
-      this.m.setCoordReadoutVisible(true);
-      this.m.setCoordReadoutWgs(centroid.lng, centroid.lat);
+      this.m.setCoordReadout(centroid);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, polyEvents);
