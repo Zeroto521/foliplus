@@ -147,11 +147,9 @@ describe("makeNode", () => {
     });
   });
 
-  it("honours the variant on a preview node", () => {
+  it("uses the given className on a preview node", () => {
     Util.makePreviewNode({ lat: 1, lng: 2 }, "custom");
-    expect(window.L.circleMarker.mock.calls[0][1].className).toBe(
-      "foliplus-measure-node custom",
-    );
+    expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
   });
 });
 

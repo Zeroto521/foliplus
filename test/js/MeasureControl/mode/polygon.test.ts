@@ -391,10 +391,10 @@ describe("PolygonMode — preview cursor node", () => {
     expect(cursorCall[1].interactive).toBe(false);
     expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
 
-    // Mounted through addPreview, so it lands in the same layer group as the
-    // preview polygon and paints above the preview fill.
+    // Mounted through addPreview with `isNode` so it lands in the node pane
+    // and paints above the preview fill, which sits in the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor, false, true);
   });
 
   it("moves the node with the cursor and removes it when the shape is finished", () => {
