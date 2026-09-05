@@ -9,6 +9,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
+import type { NumberStyle } from "#common/format.js";
 
 /**
  * Ambient declarations for globals injected at runtime by the foliplus
@@ -26,10 +27,6 @@ import type { ModeManager as CoreModeManager } from "#core/mode.js";
  * Third-party libraries with no available @types (turf v7, gcoord,
  * simple-statistics) have their used subset described inline.
  */
-// Re-exported into the global scope so ``CONF.<field>: NumberStyle`` typechecks
-// in every component bundle without importing #common/format.js just for the type.
-export type { NumberStyle } from "#common/format.js";
-
 // ── Runtime helpers ────────────────────────────────────────────
 
 // ── CDN globals (no @types available) ──────────────────────────
@@ -336,4 +333,3 @@ declare global {
   }
 }
 
-export {};
