@@ -980,6 +980,50 @@ class TestLayerControlBrowser:
                 f"Expected select/deselect title, got '{title}'"
             )
 
+    def test_rename_keeps_checkbox_title_and_sets_aria_label(self, browser, tmp_path):
+        """Renaming a layer updates the label and aria-label, not the tooltip."""
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="MyPoints", overlay=True, show=True),
+            slug="rename_cb_title",
+        ) as (page, _):
+            page.wait_for_selector(
+                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(500)
+
+            assert page.evaluate(_js("LayerControl/rename_first_layer")), (
+                "failed to open the inline rename input"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-rename-input", state="attached", timeout=5000
+            )
+            res = page.evaluate(_js("LayerControl/commit_rename_and_read_checkbox"))
+            assert res is not None, "rename did not commit"
+            assert res["label"] == "RenamedLayer", f"label={res['label']!r}"
+            # The name reaches assistive tech via aria-label…
+            assert res["ariaLabel"] == "RenamedLayer", (
+                f"aria-label={res['ariaLabel']!r}"
+            )
+            # …but never replaces the Select/Deselect tooltip (accept the
+            # translated wording — a local browser can resolve `zh`).
+            assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
+
+    def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
+        """The toggle-all tooltip says "deselect all" in whatever locale it renders.
+
+        CI is locale-neutral but a local browser can resolve `zh`, so accept the
+        translated wording too — the contract is that the tooltip is the
+        toggle-all action, never a layer name.
+        """
+        assert title and ("Deselect" in title or "隐藏" in title), (
+            f"Expected {label} 'deselect all' tooltip, got {title!r}"
+        )
+
     def test_toggle_all_checkbox_title_changes_with_state(self, browser, tmp_path):
         """Toggle-all checkbox title updates when state changes."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -1003,19 +1047,18 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # All checked → title should be "Deselect all"
-            initial = page.evaluate(_js("LayerControl/read_toggle_all_title"))
-            assert initial and "Deselect" in initial, (
-                f"Expected 'Deselect all', got '{initial}'"
+            # All checked → tooltip is "deselect all"
+            self._assert_toggle_all_deselect_title(
+                page.evaluate(_js("LayerControl/read_toggle_all_title")), "all-checked"
             )
 
-            # Uncheck one layer → title should become "Deselect all" (indeterminate)
+            # Uncheck one layer → still "deselect all" (indeterminate)
             page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
-            after = page.evaluate(_js("LayerControl/read_toggle_all_title"))
-            assert after and "Deselect" in after, (
-                f"Expected 'Deselect all', got '{after}'"
+            self._assert_toggle_all_deselect_title(
+                page.evaluate(_js("LayerControl/read_toggle_all_title")),
+                "indeterminate",
             )
 
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
@@ -1350,7 +1393,10 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
                 r = result[phase]
-                assert r["name"] == "Keep Me", f"{phase}: name lost"
+                # `name` never leaves the registry's own values: the initial
+                # registration falls back to the id, and the partial one
+                # keeps it.
+                assert r["name"] in ("Keep Me", "__keep__"), f"{phase}: name lost"
                 assert r["isBase"] is True, f"{phase}: isBase lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"

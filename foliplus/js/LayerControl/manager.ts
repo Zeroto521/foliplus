@@ -446,10 +446,20 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
-    // Remove the layer's id from the persisted hidden set so a removed layer
-    // doesn't carry stale hidden state into a future session.
+    // Remove the layer's id from the persisted hidden set and rename map so
+    // a removed layer doesn't carry stale state into a future session.
+    // The rename prune has to happen here rather than in applyUserState:
+    // that sweep also runs for ids that are not in the registry yet because
+    // they belong to a component registering later (HeatmapControl and
+    // MeasureControl register in their own constructor, after this UI has
+    // already attached), and pruning there would revert the rename on the
+    // first attach — every reload.
     this.ui?.hiddenIds?.delete(id);
     this.ui?.saveHiddenIds();
+    if (this.ui?.renamedNames?.[id] != null) {
+      delete this.ui.renamedNames[id];
+      this.ui.saveNamesState();
+    }
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.

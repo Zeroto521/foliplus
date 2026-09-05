@@ -380,25 +380,22 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("focuses a canvas layer via its getBounds provider", () => {
-      // Canvas layers (e.g. HeatmapControl) have no Leaflet layer, only a
-      // canvas element + a getBounds provider. Focus must use the provider
-      // and boost the canvas element itself.
       const canvas = document.createElement("canvas");
       canvas.style.filter = "";
       manager.registerLayer({
-        id: "heatmap1",
-        name: "Heatmap",
+        id: "heat1",
+        name: "Heat",
         canvas,
         onToggle: () => {},
-        getBounds: () =>
-          ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }) as unknown as L.LatLngBounds,
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
       });
-
-      ui.focusLayer("heatmap1");
+      // A never-touched late registration must not be force-hidden by the
+      // targeted applyUserState(id) drain — that is what keeps this focusable.
+      ui.focusLayer("heat1");
 
       expect(map.fitBounds).toHaveBeenCalled();
       expect(L.rectangle).toHaveBeenCalled();
@@ -1184,7 +1181,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("New Name");
+      expect(ui.renamedNames.overlay1).toBe("New Name");
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
     });
 
@@ -1199,7 +1196,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new Event("blur"));
 
       expect(label.textContent).toBe("Via Blur");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Via Blur");
+      expect(ui.renamedNames.overlay1).toBe("Via Blur");
     });
 
     it("Escape cancels and restores the original label text", () => {
@@ -1265,7 +1262,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(label.textContent).toBe("Trimmed");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Trimmed");
+      expect(ui.renamedNames.overlay1).toBe("Trimmed");
     });
 
     it("committing an unchanged name does not write to renamedNames", () => {
@@ -1294,19 +1291,55 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames["overlay1"]).toBe("Changed");
     });
 
-    it("committing a rename updates the checkbox aria-label and title", () => {
+    it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      // The tooltip is the Select/Deselect affordance; a rename must not
+      // occupy that slot.
+      const tooltip = checkbox.title;
+      expect(tooltip).not.toBe("");
+      expect(tooltip).not.toBe("Renamed");
 
       input.value = "Renamed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
-      expect(checkbox.title).toBe("Renamed");
+      expect(checkbox.title).toBe(tooltip);
+    });
+
+    it("renaming the color basemap updates the color input's aria-label too", () => {
+      // The color row has no checkbox — its toggle is the type="color" input.
+      // Both the label cell and the input must announce the rename, otherwise
+      // assistive tech keeps reading the locale default after a rename.
+      const item = findItem(ui, CONST.COLOR.MAP_ID);
+      const colorInput = item.querySelector(`input[type="color"]`) as HTMLInputElement;
+      // Capture the pre-rename value from the source of truth, not the DOM:
+      // the aria-label and the label cell are both projections of
+      // displayName(), so comparing them against each other would pass either
+      // way — vacuously if neither propagated, and without ever observing a
+      // rename at all.
+      const before = ui.displayName(CONST.COLOR.MAP_ID);
+
+      expect(colorInput.getAttribute("aria-label")).toBe(before);
+
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+      const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
+        "input",
+      ) as HTMLInputElement;
+      input.value = "My Colour";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(item.querySelector("label")!.textContent).toBe("My Colour");
+      expect(colorInput.getAttribute("aria-label")).toBe("My Colour");
+      // The row tooltip is the TYPE label, a different slot from the name —
+      // a rename must not move into it.
+      const tooltip = item.getAttribute("title");
+      expect(tooltip).not.toBe("My Colour");
+      expect(tooltip).not.toBe("");
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
@@ -1422,21 +1455,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
     });
 
-    it("applying persisted rename restores the color-layer label text", () => {
+    it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
       );
       ui.loadNamesState();
-      ui.applyNamesState();
+      ui.applyUserState();
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
+      // The color input's aria-label and tooltip belong to the row builder:
+      // the tooltip is the palette type label, and the aria-label stays the
+      // color_map_label so the swatch is still announced as the basemap.
       const colorInput = colorItem.querySelector(
         'input[type="color"]',
       ) as HTMLInputElement;
-      expect(colorInput.getAttribute("aria-label")).toBe("Custom Color");
-      expect(colorInput.title).toBe("Custom Color");
+      expect(colorInput.title).not.toBe("Custom Color");
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
@@ -1480,21 +1515,87 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
     });
 
-    it("applyNamesState overwrites the registry name, label text, and checkbox", () => {
+    it("applyUserState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
 
       ui.loadNamesState();
-      ui.applyNamesState();
+      ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      expect(ui.renamedNames.overlay1).toBe("Persisted Name");
+      // The sweep pushes the rename into the registry projection as well.
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");
-      expect(checkbox.title).toBe("Persisted Name");
+      // The tooltip stays the Select/Deselect affordance, not the layer name.
+      expect(checkbox.title).not.toBe("Persisted Name");
+    });
+
+    it("does not re-write a row that already holds the stored name", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Persisted Name" }),
+      );
+      ui.loadNamesState();
+      ui.applyUserState();
+
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const setAttr = HTMLInputElement.prototype.setAttribute;
+      let attrWrites = 0;
+      vi.spyOn(checkbox, "setAttribute").mockImplementation(function (
+        this: HTMLInputElement,
+        ...args
+      ) {
+        attrWrites++;
+        return setAttr.call(this, ...args);
+      });
+
+      try {
+        ui.applyUserState();
+
+        // Everything already matches, so nothing is re-written.
+        expect(attrWrites).toBe(0);
+        expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it("a targeted apply updates only that layer's registry entry", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
+      );
+      ui.loadNamesState();
+
+      manager.layerRegistry.get("overlay1")!.name = "Renamed";
+      ui.applyUserState("overlay1");
+
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Renamed");
+      // The other layer was left alone — the targeted call must not sweep the
+      // whole panel on every late registration.
+      expect(manager.layerRegistry.get("base1")!.name).not.toBe("Also Renamed");
+    });
+
+    it("a targeted apply for an un-renamed id leaves the registry untouched", () => {
+      // insertLayerItem calls applyUserState(id) for every late registration,
+      // including layers the user never renamed. A missing rename must be a
+      // no-op, not a write of undefined over the registry's own name.
+      ui.renamedNames = {};
+
+      const before = manager.layerRegistry.get("base1")!.name;
+      const label = findItem(ui, "base1")!.querySelector("label")!;
+      const labelBefore = label.textContent;
+
+      ui.applyUserState("base1");
+
+      expect(manager.layerRegistry.get("base1")!.name).toBe(before);
+      expect(label.textContent).toBe(labelBefore);
     });
 
     it("tolerates corrupt / non-object / empty names storage", () => {
@@ -1946,7 +2047,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   // ─────────────────── load / apply on attach ───────────────────
 
-  describe("loadHiddenIds / applyHiddenState", () => {
+  describe("loadHiddenIds / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
@@ -1955,7 +2056,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
       expect(u.hiddenIds).toContain("overlay1");
@@ -1971,7 +2072,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
       expect(warnSpy).toHaveBeenCalledTimes(1);
@@ -1991,7 +2092,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       vi.useFakeTimers();
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
+      u.applyUserState();
       warnSpy.mockRestore();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
@@ -2019,7 +2120,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds.add("canvas1");
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(onToggle).toHaveBeenCalledWith(false);
     });
@@ -2252,7 +2353,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         { id: "base2", name: "B2", isBase: true, layer: base2, paneName: "tilePane" },
       ]);
 
-      // Both bases were removed from the map by applyHiddenState.
+      // Both bases were removed from the map by applyUserState().
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
@@ -2313,9 +2414,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     });
   });
 
-  // ─────────────────── applyHiddenState with multiple layers ───────────────────
+  // ─────────────────── applyUserState with multiple layers ───────────────────
 
-  describe("applyHiddenState with multiple hidden layers", () => {
+  describe("applyUserState with multiple hidden layers", () => {
     it("handles overlay, base, and callback-only layers in one pass", () => {
       const poly = {
         options: {},
@@ -2352,7 +2453,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);

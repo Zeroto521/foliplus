@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
   patchBringToFront,
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
+import { LayerUI } from "#foliplus/LayerControl/ui.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
@@ -1430,5 +1432,213 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
     expect(enforceSpy).toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// User-assigned display names (rename persistence)
+//
+// `LayerUI.renamedNames` is the source of truth; the registry's
+// `LayerInfo.name` is a projection refreshed by `applyUserState()`. A
+// third-party layer that re-registers itself re-advertises its own metadata,
+// so a re-registration used to reset `name` back to the provider's original
+// and the rename reverted visibly. `attachUI()` applies the persisted names at
+// startup, so the rename also survives a reload.
+//
+// The initial registration carries a real layer object: an id-only one makes
+// createLayerInfo fall through to `Reflect.get(window, id)`, which in jsdom
+// resolves to a host object and crashes enforceOrder's `instanceof` check.
+
+describe("LayerManager user-assigned names", () => {
+  // Assertions go through `ui.displayName(id)` — the render contract — never
+  // the registry's `LayerInfo.name`, which a third-party re-registration can
+  // legitimately overwrite before the refresh pushes the rename back out.
+  let manager, map;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+
+    class Renderer {}
+    class Path {
+      options = {};
+    }
+    class Polygon {
+      options = {};
+    }
+    class Polyline {
+      options = {};
+    }
+    class Marker {}
+    class CircleMarker {}
+    window.L.TileLayer = TileLayer;
+    window.L.GridLayer = GridLayer;
+    window.L.Renderer = Renderer;
+    window.L.Path = Path;
+    window.L.Polygon = Polygon;
+    window.L.Polyline = Polyline;
+    window.L.Marker = Marker;
+    window.L.CircleMarker = CircleMarker;
+    window.L.stamp = vi.fn();
+    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+
+    const makePane = () => {
+      const el = document.createElement("div");
+      el.style.zIndex = "0";
+      return el;
+    };
+
+    map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      invalidateSize: vi.fn(),
+      hasLayer: vi.fn(() => false),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getContainer: vi.fn(() => map._container),
+      getPane: vi.fn(() => {
+        const p = makePane();
+        p.style.zIndex = "0";
+        return p;
+      }),
+      createPane: vi.fn(() => {
+        const p = makePane();
+        p.classList.add("foliplus-layer-pane");
+        return p;
+      }),
+      _container: document.createElement("div"),
+      _layers: {},
+      _paneRenderers: {},
+      attributionControl: { _attributions: {}, _update: vi.fn() },
+    };
+
+    // The third-party provider's own layer object; its metadata advertises the
+    // provider's name, never the user's rename.
+    const extLayer = { options: {} };
+
+    manager = new LayerManager(map, [
+      { id: "ext", name: "Provider Layer", isBase: false, layer: extLayer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    manager.attachUI(document.createElement("div"));
+  });
+
+  it("keeps a rename when the provider re-registers its own layer", () => {
+    // The user renamed the layer, then the provider re-adds it still
+    // advertising its own name. createLayerInfo used to take the caller's
+    // `opts.name` over the existing value, reverting the panel to the
+    // original on the next render or reload.
+    manager.ui.renameLayer("ext");
+    const item = manager.ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="ext"]`,
+    )!;
+    const label = item.querySelector("label") as HTMLLabelElement;
+    const input = label.querySelector("input") as HTMLInputElement;
+    input.value = "My Layer";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(manager.ui.displayName("ext")).toBe("My Layer");
+
+    // Re-registration rebuilds the registry entry from the caller's metadata,
+    // then the incremental refresh pushes the rename back out.
+    manager.registerLayer({ id: "ext", name: "Provider Layer" });
+    manager.ui.applyUserState();
+
+    expect(manager.ui.displayName("ext")).toBe("My Layer");
+    expect(manager.layerRegistry.get("ext")?.name).toBe("My Layer");
+  });
+
+  it("applies a persisted rename at startup", () => {
+    // `attachUI` reads the names key at call time, so the seed has to land
+    // before `attachUI` — but after the LayerManager constructor, which has
+    // already built the registry that loadNames validates against.
+    const fresh = new LayerManager(map, [
+      { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
+    ]);
+    fresh.ui = new LayerUI(fresh);
+    window.localStorage.setItem(
+      CONST.STORAGE.NAMES_KEY,
+      JSON.stringify({ ext: "My Layer" }),
+    );
+    fresh.attachUI(document.createElement("div"));
+
+    // The registry is the projection, so the sweep pushes the rename into it
+    // too; displayName is the render contract either way.
+    expect(fresh.layerRegistry.get("ext")?.name).toBe("My Layer");
+    expect(fresh.ui.displayName("ext")).toBe("My Layer");
+  });
+
+  it("keeps a rename for a layer that registers after the UI attaches", () => {
+    // A component whose bundle loads after LayerControl registers its layer
+    // in its own constructor — HeatmapControl's createCanvas and
+    // MeasureControl's createLayers both run after attachUI has already
+    // loaded the persisted names. loadNames filters value types only, so the
+    // rename survives the attach and is projected the moment the layer
+    // registers. A registry filter here would have reverted it on every reload.
+    const fresh = new LayerManager(map, [
+      { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
+    ]);
+    fresh.ui = new LayerUI(fresh);
+    window.localStorage.setItem(
+      CONST.STORAGE.NAMES_KEY,
+      JSON.stringify({ heatmap1: "POI Density" }),
+    );
+    fresh.attachUI(document.createElement("div"));
+
+    // The heatmap registers late, still advertising its own title.
+    fresh.registerLayer({ id: "heatmap1", name: "Heatmap" });
+    fresh.ui.applyUserState();
+
+    expect(fresh.ui.displayName("heatmap1")).toBe("POI Density");
+    expect(fresh.layerRegistry.get("heatmap1")?.name).toBe("POI Density");
+  });
+
+  it("accepts a caller-supplied name for a fresh layer", () => {
+    // A fresh id has no existing entry, so the caller's `opts.name` wins
+    // instead of the registry defaulting to the id.
+    const fresh = new LayerManager(map, [
+      { id: "fresh", name: "Fresh Layer", isBase: false, layer: { options: {} } },
+    ]);
+
+    expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
+  });
+
+  it("keeps a stored rename for an id that no longer exists", () => {
+    // The sweep must not drop a rename whose id is absent from the registry:
+    // that id may belong to a component that registers later. unregisterLayer
+    // is the only place that prunes a rename, since it knows the layer is
+    // gone for good.
+    window.localStorage.setItem(
+      CONST.STORAGE.NAMES_KEY,
+      JSON.stringify({ "no-such-id": "Ghost" }),
+    );
+    manager.ui.loadNamesState();
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    manager.ui.applyUserState();
+    warn.mockRestore();
+
+    expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
+  });
+
+  it("prunes a rename when its layer is unregistered", () => {
+    // The prune lives on unregisterLayer because only that call knows the
+    // layer is gone for good rather than merely not registered yet.
+    manager.ui.renamedNames["ext"] = "My Layer";
+    const save = vi.fn();
+    manager.ui.saveNamesState = save;
+
+    expect(manager.unregisterLayer("ext")).toBe(true);
+
+    expect(manager.ui.renamedNames["ext"]).toBeUndefined();
+    expect(save).toHaveBeenCalled();
+  });
+
+  it("does not touch the rename map when unregistering an unknown id", () => {
+    const save = vi.fn();
+    manager.ui.saveNamesState = save;
+
+    expect(manager.unregisterLayer("never-registered")).toBe(false);
+    expect(save).not.toHaveBeenCalled();
   });
 });
