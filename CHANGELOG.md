@@ -4,7 +4,7 @@
 
 ### Added
 
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242), [#245](https://github.com/Zeroto521/foliplus/pull/245))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134), [#212](https://github.com/Zeroto521/foliplus/pull/212))
@@ -42,6 +42,7 @@
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
+- `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 
 ### Removed
 

@@ -5,6 +5,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
+import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
@@ -20,7 +21,6 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { download } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -687,9 +687,9 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    const format = CONST.currentFormat();
     const prevImg = document.createElement("img");
-    prevImg.src = canvas.toDataURL(mimeType);
+    prevImg.src = canvas.toDataURL(format.mime);
     prevImg.className = CONST.CLASSES.PREVIEW;
     document.body.appendChild(prevImg);
     // Click to dismiss the preview early; otherwise auto-dismiss after SHORT.
@@ -708,11 +708,11 @@ class ExportManager {
         }
         const name = CONF.filename || "map";
         try {
-          if (CONF.format === "geotiff") {
+          if (format.geotiff) {
             // Export as a single GeoTIFF file with embedded georeferencing.
             await this.downloadGeoTiff(canvas, name);
           } else {
-            download(blob, `${name}.${CONF.format}`);
+            download(blob, `${name}.${format.ext}`);
           }
         } catch (err) {
           // The download step can throw (e.g. createObjectURL failure) — a thrown
@@ -724,7 +724,7 @@ class ExportManager {
           this.endExport();
         }
       },
-      mimeType,
+      format.mime,
       CONF.quality,
     );
   }
@@ -812,7 +812,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    download(blob, `${name}.tif`);
+    download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */

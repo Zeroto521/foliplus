@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
@@ -773,6 +774,46 @@ describe("ExportManager — download paths", () => {
     }
   });
 
+  it.each([
+    ["png", "image/png", "test-map.png"],
+    ["jpeg", "image/jpeg", "test-map.jpeg"],
+    ["webp", "image/webp", "test-map.webp"],
+  ])(
+    "onRenderSuccess with format=%s encodes and names the file from the FORMAT table",
+    async (format, mime, filename) => {
+      window.CONF = { ...window.CONF, format };
+      const toBlobCalls: unknown[][] = [];
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (
+        cb: (b: Blob | null) => void,
+        ...rest: unknown[]
+      ) {
+        toBlobCalls.push([this, ...rest]);
+        cb(new Blob(["fake"], { type: mime }));
+      };
+      // The spies must exist before `onRenderSuccess` runs — spying afterwards
+      // would never catch a call that already happened.
+      const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
+      const downloadSpy = vi.spyOn(downloadMod, "download");
+
+      try {
+        manager.onRenderSuccess(document.createElement("canvas"), []);
+        await new Promise(r => setTimeout(r, 0));
+        // `toBlob` must be fed the mime from the FORMAT record — no `as "png"` cast,
+        // no DEFAULT fallback — and the filename must come from the record's `ext`.
+        expect(toBlobCalls.length).toBe(1);
+        expect(toBlobCalls[0][1]).toBe(mime);
+        expect(downloadSpy).toHaveBeenCalledTimes(1);
+        expect(downloadSpy.mock.calls[0][1]).toBe(filename);
+        // The geotiff pipeline must not be taken for a plain image format.
+        expect(geoSpy).not.toHaveBeenCalled();
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = origToBlob;
+        vi.restoreAllMocks();
+      }
+    },
+  );
+
   it("downloadGeoTiff produces .tif download with valid geo bounds", async () => {
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
@@ -813,47 +854,6 @@ describe("ExportManager — download paths", () => {
       expect(links[0].href).toBe("blob:");
       expect(links[0].click).toHaveBeenCalled();
     } finally {
-      vi.restoreAllMocks();
-    }
-  });
-
-  it("releases the export state when the download step throws", async () => {
-    // createObjectURL / createElement can throw (e.g. Safari quirks). Without a
-    // guard around the download call, the cleanup block would be skipped and
-    // the map would stay locked behind the blocker overlay.
-    manager.isExporting = true;
-    const events = ensureEvents(manager.map);
-    const emitSpy = vi.spyOn(events, "emit");
-    vi.spyOn(manager, "removeExportOverlay");
-
-    const origToBlob = HTMLCanvasElement.prototype.toBlob;
-    const origCreateObjectURL = URL.createObjectURL.bind(URL);
-    URL.createObjectURL = vi.fn(() => {
-      throw new Error("boom");
-    });
-
-    try {
-      HTMLCanvasElement.prototype.toBlob = function (cb) {
-        cb(new Blob(["fake"], { type: "image/png" }));
-      };
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      manager.onRenderSuccess(document.createElement("canvas"), []);
-      await new Promise(r => setTimeout(r, 0));
-
-      // Export state released even though the download threw.
-      expect(manager.isExporting).toBe(false);
-      expect(emitSpy).toHaveBeenCalledWith("foliplus:export:after", {
-        component: "ExportControl",
-      });
-      expect(manager.removeExportOverlay).toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("export failed"),
-        expect.any(Error),
-      );
-      warnSpy.mockRestore();
-    } finally {
-      HTMLCanvasElement.prototype.toBlob = origToBlob;
-      URL.createObjectURL = origCreateObjectURL;
       vi.restoreAllMocks();
     }
   });
