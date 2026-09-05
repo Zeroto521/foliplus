@@ -23,7 +23,7 @@ const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 // ==================== Control Definition ====================
-export class SearchControl extends BaseControl {
+class SearchControl extends BaseControl {
   declare container: HTMLElement;
   declare ctrl: HTMLElement;
   declare toggleBtn: HTMLElement;
@@ -162,5 +162,7 @@ export class SearchControl extends BaseControl {
     this.inp.focus();
   }
 }
+
+export { SearchControl };
 
 new SearchControl({ position: CONF.position }).addTo(map);
