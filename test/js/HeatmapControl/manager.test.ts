@@ -224,79 +224,6 @@ describe("getColorScale", () => {
   });
 });
 
-describe("buildFeatures", () => {
-  let m;
-
-  beforeEach(() => {
-    m = makeManager();
-  });
-
-  it("builds GeoJSON features from aggregated hex data", () => {
-    const aggregated = {
-      hexCells: {
-        abc: { sum: 10, count: 5, min: 1, max: 5 },
-        def: { sum: 20, count: 8, min: 2, max: 6 },
-      },
-      getAggValue: cell => cell.count,
-      valueToClassIdx: val => Math.min(val - 1, 0),
-      classColors: ["#ff0000", "#00ff00"],
-    };
-    const features = m.buildFeatures(aggregated);
-    expect(features).toHaveLength(2);
-    expect(features[0].properties.value).toBe(5);
-    expect(features[0].properties.h3).toBe("abc");
-    expect(features[0].geometry.type).toBe("Polygon");
-  });
-
-  it("returns empty array for empty hexCells", () => {
-    const aggregated = {
-      hexCells: {},
-      getAggValue: () => 0,
-      valueToClassIdx: () => 0,
-      classColors: [],
-    };
-    const features = m.buildFeatures(aggregated);
-    expect(features).toHaveLength(0);
-  });
-});
-
-describe("aggregateData", () => {
-  let m;
-
-  beforeEach(() => {
-    m = makeManager();
-  });
-
-  it("aggregates points with COUNT", () => {
-    m.currentAgg = CONST.AGG.COUNT;
-    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
-    const pts = [
-      { lat: 26.08, lng: 119.3, value: 1 },
-      { lat: 26.09, lng: 119.31, value: 1 },
-    ];
-    const result = m.aggregateData(pts, 4);
-    expect(result).toBeDefined();
-    expect(Object.keys(result.hexCells)).toHaveLength(2);
-  });
-
-  it("aggregates points with SUM", () => {
-    m.currentAgg = CONST.AGG.SUM;
-    globalThis.h3.latLngToCell = vi.fn(() => "same_cell");
-    const pts = [
-      { lat: 26.08, lng: 119.3, value: 5 },
-      { lat: 26.08, lng: 119.3, value: 10 },
-    ];
-    const result = m.aggregateData(pts, 4);
-    expect(result.getAggValue(result.hexCells["same_cell"])).toBe(15);
-  });
-
-  it("returns null for empty points", () => {
-    m.overlay.canvas = {};
-    const result = m.aggregateData([], 4);
-    expect(result).toBeNull();
-  });
-});
-
 describe("computeBreaks — additional gaps", () => {
   it("returns [lo, hi] for single-element data across methods", () => {
     const m = makeManager();
@@ -352,47 +279,6 @@ describe("getPointValue — additional gaps", () => {
     expect(m.valueFallbackWarned).toBe(true);
     expect(m.getPointValue({})).toBe(1); // no additional warn
     warnSpy.mockRestore();
-  });
-});
-
-describe("buildFeatures — centroid fallback", () => {
-  it("computes centroid from boundary polygon when h3.cellToLatLng fails", () => {
-    const m = makeManager();
-    // Override AFTER construction — makeManager reassigns h3 mocks
-    globalThis.h3.cellToLatLng = vi.fn(() => {
-      throw new Error("unavailable");
-    });
-    globalThis.h3.cellToBoundary = vi.fn(() => [
-      [0, 0],
-      [0, 2],
-      [2, 2],
-      [2, 0],
-      [0, 0],
-    ]);
-
-    const aggregated: any = {
-      hexCells: { abc: { sum: 1, count: 1 } },
-      getAggValue: c => c.count,
-      valueToClassIdx: () => 0,
-      classColors: ["#ff0000"],
-    };
-    const feats = m.buildFeatures(aggregated);
-    expect(feats).toHaveLength(1);
-    expect(feats[0].properties.centroid).toBeDefined();
-    // centroid = [cy/(n-1), cx/(n-1)] over coords = [[0,0],[2,0],[2,2],[0,2],[0,0]]
-    // cy = 0+0+2+2+0 = 4, cx = 0+2+2+0+0 = 4, n-1 = 5
-    expect(feats[0].properties.centroid).toEqual([4 / 5, 4 / 5]);
-  });
-
-  it("returns empty array for empty hexCells", () => {
-    const m = makeManager();
-    const aggregated: any = {
-      hexCells: {},
-      getAggValue: c => 0,
-      valueToClassIdx: () => 0,
-      classColors: [],
-    };
-    expect(m.buildFeatures(aggregated)).toEqual([]);
   });
 });
 
@@ -559,33 +445,205 @@ describe("renderFeatures", () => {
   });
 });
 
-describe("renderHexagons", () => {
-  it("clears canvas when no layer selected", () => {
+// ==== Worker boundary ====
+
+describe("computeFeatures", () => {
+  it("builds features on the main thread from the same aggregate as the worker", () => {
     const m = makeManager();
-    m.selectedLayerId = null;
-    m.map = { _container: {}, getZoom: () => 5 };
-    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
-    m.renderHexagons();
-    expect(clearSpy).toHaveBeenCalled();
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const feats = m.computeFeatures({
+      pts: [
+        { lat: 26.08, lng: 119.3, value: 1 },
+        { lat: 26.09, lng: 119.31, value: 1 },
+      ],
+      res: 2,
+      agg: "count",
+      method: "jenks",
+      numClasses: 6,
+      classColors: ["#ff0000", "#00ff00"],
+      seq: 0,
+    });
+    expect(feats).toHaveLength(2);
+    expect(feats[0].properties.value).toBe(1);
+    expect(feats[0].geometry.type).toBe("Polygon");
+    // A closed ring: the first coordinate is repeated at the end.
+    const ring = feats[0].geometry.coordinates[0];
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
   });
 
-  it("reuses cachedAgg when key matches", () => {
+  it("warns and clears the canvas when every point is unconvertible", () => {
     const m = makeManager();
+    m.overlay.canvas = {} as any;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    expect(
+      m.computeFeatures({
+        pts: [],
+        res: 2,
+        agg: "count",
+        method: "equal",
+        numClasses: 4,
+        classColors: [],
+        seq: 0,
+      }),
+    ).toEqual([]);
+    expect(clearSpy).toHaveBeenCalled();
+    expect(warnSpy.mock.calls[0][0]).toContain("h3 cell conversion failed");
+    warnSpy.mockRestore();
+  });
+});
+
+describe("ensureWorker", () => {
+  let stub: { addEventListener: any; postMessage: any; terminate: any };
+  let ctorCalls: unknown[][];
+
+  // `vi.fn()` arrows are not constructable — the manager uses `new Worker()`.
+  const installCtor = () => {
+    stub = { addEventListener: vi.fn(), postMessage: vi.fn(), terminate: vi.fn() };
+    ctorCalls = [];
+    globalThis.Worker = function ctor() {
+      ctorCalls.push([...arguments]);
+      return stub;
+    } as any;
+  };
+
+  beforeEach(installCtor);
+
+  afterEach(() => {
+    delete globalThis.Worker;
+  });
+
+  it("creates a worker from the embedded blob source", () => {
+    let parts: unknown[] = [];
+    let opts: Record<string, unknown> = {};
+    const realCreate = URL.createObjectURL;
+    const realBlob = globalThis.Blob;
+    URL.createObjectURL = vi.fn(o => `blob:fake/${o._opts.type}`);
+    globalThis.Blob = function Blob(ps: unknown[], o: unknown) {
+      parts = [...ps];
+      opts = { ...o };
+      return { _parts: ps, _opts: o };
+    } as any;
+
+    const m = makeManager();
+    const worker = m.ensureWorker();
+    expect(worker).toBe(stub);
+    expect(ctorCalls).toEqual([["blob:fake/text/javascript"]]);
+    // One self-contained source string, shipped under the JavaScript MIME type.
+    // The h3 build is embedded by the real plugin; vitest resolves the stand-in.
+    expect(parts).toHaveLength(1);
+    expect(typeof parts[0]).toBe("string");
+    expect(parts[0].length).toBeGreaterThan(100);
+    expect(parts[0]).toContain("self.onmessage");
+    expect(opts).toEqual({ type: "text/javascript" });
+    expect(m.ensureWorker()).toBe(worker);
+    expect(ctorCalls).toHaveLength(1); // memoised
+
+    URL.createObjectURL = realCreate;
+    globalThis.Blob = realBlob;
+  });
+
+  it("returns null and disables itself when worker creation throws", () => {
+    const m = makeManager();
+    const real = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => {
+      throw new Error("blob workers rejected");
+    });
+    expect(m.ensureWorker()).toBeNull();
+    expect(m.ensureWorker()).toBeNull();
+    expect(ctorCalls).toEqual([]);
+    URL.createObjectURL = real;
+  });
+});
+
+describe("renderHexagons — worker path", () => {
+  let stub: { addEventListener: any; postMessage: any; terminate: any };
+
+  const payloadShape = m => {
     m.selectedLayerId = "layer1";
     m.map = { _container: {}, getZoom: () => 5 };
-    m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
-    m.cachedAgg = {
-      key: "layer1|count|true||2|jenks|Reds|6",
-      data: {
-        hexCells: {},
-        getAggValue: () => 0,
-        valueToClassIdx: () => 0,
-        classColors: [],
-      },
-    };
-    const spy = vi.spyOn(m, "aggregateData");
+    m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 2 }];
+    m.getSelectedPoints = vi.fn(() => [
+      { lat: 26.08, lng: 119.3, value: 1, marker: {} as any },
+      { lat: 26.09, lng: 119.31, value: 1, marker: {} as any },
+    ]);
+    m.getColorScale = vi.fn(() => ["#ff0000"]);
+    m.renderFeatures = vi.fn();
+    return m;
+  };
+
+  beforeEach(() => {
+    stub = { addEventListener: vi.fn(), postMessage: vi.fn(), terminate: vi.fn() };
+    globalThis.Worker = function ctor() {
+      return stub;
+    } as any;
+  });
+
+  afterEach(() => {
+    delete globalThis.Worker;
+  });
+
+  it("posts the aggregation payload and renders the worker's reply", () => {
+    const m = makeManager();
+    payloadShape(m);
     m.renderHexagons();
-    expect(spy).not.toHaveBeenCalled();
+    expect(stub.postMessage).toHaveBeenCalledTimes(1);
+    const payload = stub.postMessage.mock.calls[0][0];
+    expect(payload.seq).toBe(0);
+    expect(payload.res).toBe(2);
+    expect(payload.agg).toBe("count");
+    expect(payload.classColors).toEqual(["#ff0000"]);
+    // Leaflet markers are projected to plain numbers for the clone boundary.
+    expect(payload.pts).toEqual([
+      { lat: 26.08, lng: 119.3, value: 1 },
+      { lat: 26.09, lng: 119.31, value: 1 },
+    ]);
+    const listener = stub.addEventListener.mock.calls[0][1];
+    expect(m.renderFeatures).not.toHaveBeenCalled();
+    listener({ data: { seq: 0, features: [{ type: "Feature" }] as any } });
+    expect(m.renderFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a stale reply from a superseded request", () => {
+    const m = makeManager();
+    payloadShape(m);
+    m.renderHexagons();
+    const listener = stub.addEventListener.mock.calls[0][1];
+    listener({ data: { seq: 99, features: [{ type: "Feature" }] as any } });
+    expect(m.renderFeatures).not.toHaveBeenCalled();
+  });
+
+  it("treats an empty reply as a real answer, not a failure", () => {
+    const m = makeManager();
+    payloadShape(m);
+    const fallback = vi.spyOn(m, "computeFeatures");
+    m.renderHexagons();
+    const listener = stub.addEventListener.mock.calls[0][1];
+    listener({ data: { seq: 0, features: [] } });
+    expect(m.renderFeatures).toHaveBeenCalled();
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it("re-runs on the main thread when the reply is malformed", () => {
+    const m = makeManager();
+    payloadShape(m);
+    const fallback = vi.spyOn(m, "computeFeatures");
+    m.renderHexagons();
+    const listener = stub.addEventListener.mock.calls[0][1];
+    listener({ data: { seq: 0, nope: true } });
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the main thread when no worker is available", () => {
+    const m = makeManager();
+    payloadShape(m);
+    m.worker = null;
+    const fallback = vi.spyOn(m, "computeFeatures");
+    m.renderHexagons();
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(m.renderFeatures).toHaveBeenCalledTimes(1);
+    // A non-empty result is cached for the next render with the same key.
+    expect(m.cachedAgg).not.toBeNull();
   });
 });
 

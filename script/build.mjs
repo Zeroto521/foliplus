@@ -34,6 +34,7 @@ import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
 import { resolveVersion } from "./version.mjs";
+import { makeWorkerInlinePlugin } from "./worker-inline-plugin.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
@@ -168,7 +169,14 @@ const artifact = (entryPoints, outfile, name) => ({
   plugins:
     name === SHARED_ENTRY
       ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
-      : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
+      : name === "HeatmapControl"
+        ? [
+            ...esbuildCfg.plugins,
+            globalNamespacePlugin(srcDir),
+            // Embeds the worker bundle and emits the standalone worker artifact.
+            makeWorkerInlinePlugin(srcDir, distDir, { dev: CFG.dev }),
+          ]
+        : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
   banner: {
     js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
     css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,

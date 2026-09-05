@@ -27,6 +27,9 @@ export default defineConfig({
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
         "script/build.mjs",
+        // Worker inliner — invokes esbuild's `build()` and writes the artifact;
+        // exercised by the real build, not by vitest.
+        "script/worker-inline-plugin.mjs",
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo)
         "foliplus/js/ExportControl/index.ts",

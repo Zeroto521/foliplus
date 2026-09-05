@@ -102,6 +102,12 @@ describe("build artifacts", () => {
     // LayerControl is otherwise the largest component (~98KB local, ~102KB CI
     // after feature additions: rename, focus, reorder, fold).
     "foliplus-LayerControl.min.js": 110000,
+    // HeatmapControl embeds the whole h3 build twice: once as the worker
+    // source string (the inline bundle has no same-origin URL to hand
+    // `new Worker` a path) and once in the aggregation itself.  The worker
+    // copy is always minified by the inline plugin, so the component lands at
+    // ~277 KB regardless of the dev/prod build mode.
+    "foliplus-HeatmapControl.min.js": 330000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {

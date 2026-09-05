@@ -1,6 +1,11 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+// The `#foliplus/` form (not a relative path) so `script/worker-inline-plugin.mjs`
+// can intercept it and embed the *bundled* worker — a relative import resolves
+// to `source.ts` and ships the vitest stand-in (literal `import` statements that
+// cannot run inside a classic worker).
+import { WORKER_SOURCE } from "#foliplus/HeatmapControl/worker/source.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
@@ -10,6 +15,8 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
+import { aggregate, computeBreaks } from "./worker/aggregate.js";
+import type { AggregateMessage, H3Api, HexFeature } from "./worker/types.js";
 
 const T = createScopedTranslator(CONF);
 
@@ -18,35 +25,6 @@ type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
   value?: number;
   options?: { value?: number };
 };
-
-/** A hexagon feature drawn on the heatmap canvas. */
-interface HexFeature {
-  type?: string;
-  geometry: { type: string; coordinates: number[][][] };
-  properties: {
-    centroid: [number, number] | null;
-    fillColor?: string;
-    value?: number;
-    classIdx?: number;
-    [key: string]: unknown;
-  };
-}
-
-/** Aggregated hex cell. */
-interface HexCell {
-  sum: number;
-  count: number;
-  min: number;
-  max: number;
-}
-
-/** Aggregated data returned by aggregateData. */
-interface AggregatedData {
-  hexCells: Record<string, HexCell>;
-  getAggValue: (cell: HexCell) => number;
-  valueToClassIdx: (val: number) => number;
-  classColors: string[];
-}
 
 /** Canvas label style resolved from CSS custom properties. */
 interface LabelStyle {
@@ -106,7 +84,11 @@ class HeatmapManager {
   ui: { ctrl: HTMLElement } | null;
   cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   cachedFeatures: HexFeature[] | null;
-  cachedAgg: { key: string; data: AggregatedData } | null;
+  cachedAgg: { key: string; features: HexFeature[] } | null;
+  /** Correlation id handed to the worker. */
+  seq: number;
+  /** Aggregation worker, or null once creation has failed. */
+  worker: Worker | null | undefined;
   cachedLabelStyle: LabelStyle | null;
   renderAll: boolean;
   /**
@@ -175,6 +157,8 @@ class HeatmapManager {
     this.cachedPoints = null;
     this.cachedFeatures = null;
     this.cachedAgg = null;
+    this.seq = 0;
+    this.worker = undefined;
     this.cachedLabelStyle = null;
     this.renderAll = false;
     this.hasScanned = false;
@@ -460,44 +444,14 @@ class HeatmapManager {
     return Array(n).fill(CONST.GRAY);
   }
 
+  /** Break intervals for `nClasses` classes.  Delegates to the shared worker
+   *  implementation so the main-thread and offscreen paths cannot diverge. */
   computeBreaks(data: number[], nClasses: number, method: string): number[] {
-    if (data.length === 0) return [];
-    const sorted = data.slice().sort((a, b) => a - b);
-    const n = sorted.length;
-    if (n <= 2) return [sorted[0], sorted[n - 1]];
-    nClasses = Math.max(3, Math.min(nClasses, n));
-
-    const lo = sorted[0];
-    const hi = sorted[n - 1];
-
-    if (method === CONST.METHOD.JENKS) {
-      try {
-        const clusters = ss.ckmeans(data, nClasses);
-        const breaks: number[] = [clusters[0][0]];
-        clusters.forEach(c => breaks.push(c[c.length - 1]));
-        return breaks;
-      } catch (e) {
-        /* fall through */
-      }
-      return [lo, hi];
-    } else if (method === CONST.METHOD.QUANTILE) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
-        b.push(ss.quantileSorted(sorted, i / nClasses));
-      return b.concat(hi);
-    } else if (method === CONST.METHOD.HEADS) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
-        b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
-      return b.concat(hi);
-    } else {
-      const step = (hi - lo) / nClasses;
-      const b: number[] = [];
-      for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-      return b;
-    }
+    return computeBreaks(data, nClasses, method);
   }
 
+  /** Render the heatmap canvas from scratch.  Kick the offscreen worker first
+   *  and fall back to the main thread when no worker is available. */
   renderHexagons() {
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
@@ -505,113 +459,78 @@ class HeatmapManager {
       return;
     }
     const pts = this.getSelectedPoints();
-    const zoom = this.map.getZoom();
-    const res = this.getH3Res(zoom);
-    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
-    let aggregated: AggregatedData | undefined;
-    if (this.cachedAgg && this.cachedAgg.key === aggKey)
-      aggregated = this.cachedAgg.data;
-    else {
-      aggregated = this.aggregateData(pts, res) ?? undefined;
-      if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
-    }
-    if (!aggregated) return;
-    const features = this.buildFeatures(aggregated);
-    this.renderFeatures(features);
-  }
-
-  aggregateData(pts: SelectedPoint[], res: number): AggregatedData | null {
-    const hexCells: Record<string, HexCell> = {};
-    pts.forEach(pt => {
-      try {
-        const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx])
-          hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
-        const cell = hexCells[h3Idx];
-        cell.sum += pt.value;
-        cell.count += 1;
-        if (pt.value < cell.min) cell.min = pt.value;
-        if (pt.value > cell.max) cell.max = pt.value;
-      } catch (e) {
-        console.warn(`[${CONF.name}] h3 cell conversion failed`, pt.lat, pt.lng, e);
-      }
-    });
-
-    const getAggValue = (cell: HexCell): number => {
-      switch (this.currentAgg) {
-        case CONST.AGG.COUNT:
-          return cell.count;
-        case CONST.AGG.SUM:
-          return cell.sum;
-        case CONST.AGG.AVG:
-          return cell.count > 0 ? cell.sum / cell.count : 0;
-        case CONST.AGG.MIN:
-          return cell.min;
-        case CONST.AGG.MAX:
-          return cell.max;
-        default:
-          return cell.count;
-      }
-    };
-
-    const allVals = Object.values(hexCells).map(getAggValue);
-    if (allVals.length === 0) {
+    if (pts.length === 0) {
       this.clearHeatmapCanvas();
-      return null;
+      return;
     }
-
-    const nClasses = Math.min(this.numClasses, allVals.length);
-    const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
-    const classColors = this.getColorScale(this.currentScheme, nClasses);
-    const valueToClassIdx = (val: number): number => {
-      if (breaks.length < 2) return 0;
-      for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
-      return breaks.length - 2;
+    const res = this.getH3Res(this.map.getZoom());
+    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+    if (this.cachedAgg?.key === aggKey) {
+      this.renderFeatures(this.cachedAgg.features);
+      return;
+    }
+    // Project the Leaflet markers to plain numbers once — the worker boundary
+    // must not structure-clone a DOM object.
+    const payload: AggregateMessage = {
+      pts: pts.map(p => ({ lat: p.lat, lng: p.lng, value: p.value })),
+      res,
+      agg: this.currentAgg,
+      method: this.currentMethod,
+      numClasses: this.numClasses,
+      classColors: this.getColorScale(this.currentScheme, this.numClasses),
+      seq: this.seq++,
     };
-    return { hexCells, getAggValue, valueToClassIdx, classColors };
+    const run = (features: HexFeature[]) => {
+      if (features.length) this.cachedAgg = { key: aggKey, features };
+      this.renderFeatures(features);
+    };
+    const worker = this.ensureWorker();
+    if (worker) {
+      const seq = payload.seq;
+      worker.addEventListener("message", e => {
+        if (e.data?.seq !== seq) return;
+        if (Array.isArray(e.data?.features)) run(e.data.features);
+        else run(this.computeFeatures(payload));
+      });
+      // An empty reply is a real answer, not a failure: every point was
+      // unconvertible.  Only a malformed reply re-runs on the main thread.
+      try {
+        worker.postMessage(payload);
+      } catch (e) {
+        // A dead worker never answers, so compute here and stop using it.
+        this.worker = null;
+        run(this.computeFeatures(payload));
+      }
+      return;
+    }
+    run(this.computeFeatures(payload));
   }
 
-  buildFeatures({
-    hexCells,
-    getAggValue,
-    valueToClassIdx,
-    classColors,
-  }: AggregatedData): HexFeature[] {
-    const features: HexFeature[] = [];
-    for (const [h3Idx, cell] of Object.entries(hexCells)) {
-      const val = getAggValue(cell);
-      const classIdx = valueToClassIdx(val);
-      const fillColor = classColors[classIdx];
-      let centroid: [number, number] | null = null;
-      try {
-        const c = h3.cellToLatLng(h3Idx);
-        centroid = [c[0], c[1]];
-      } catch (e) {
-        /* fallback */
-      }
-      try {
-        const boundary = h3.cellToBoundary(h3Idx);
-        const coords = boundary.map(p => [p[1], p[0]]);
-        coords.push(coords[0]);
-        if (!centroid) {
-          let cx = 0,
-            cy = 0;
-          for (let j = 0; j < coords.length - 1; j++) {
-            cx += coords[j][0];
-            cy += coords[j][1];
-          }
-          centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
-        }
-        features.push({
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
-          properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
-        });
-      } catch (e) {
-        console.warn(`[${CONF.name}] h3 boundary conversion failed`, h3Idx, e);
-      }
+  /** Build features on the main thread.  Runs when the worker is unavailable
+   *  (`file://`, CDN outage, unsupported browser) or when the worker's reply
+   *  arrives malformed. */
+  computeFeatures(payload: AggregateMessage): HexFeature[] {
+    const features = aggregate(payload, h3 as H3Api);
+    if (features.length === 0) {
+      console.warn(`[${CONF.name}] h3 cell conversion failed`, payload.res);
+      this.clearHeatmapCanvas();
     }
     return features;
+  }
+
+  /** Create the aggregation worker once, from the bundle's embedded source.
+   *  Returns `null` and disables itself when the worker cannot be created —
+   *  `file://` pages reject blob workers by origin policy. */
+  ensureWorker(): Worker | null {
+    if (this.worker !== undefined) return this.worker;
+    try {
+      this.worker = new Worker(
+        URL.createObjectURL(new Blob([WORKER_SOURCE], { type: "text/javascript" })),
+      );
+    } catch (e) {
+      this.worker = null;
+    }
+    return this.worker;
   }
 
   renderFeatures(features: HexFeature[]) {

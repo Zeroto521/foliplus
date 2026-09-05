@@ -148,10 +148,19 @@ const globalNamespacePlugin = sourceRoot => ({
       starUsed = result.starUsed;
     }
 
-    build.onResolve({ filter: /^#(core|common|foliplus)\// }, args => ({
-      path: args.path,
-      namespace: "foliplus-shared",
-    }));
+    // Only `#core/*`, `#common/*` and the single `#foliplus/BaseControl.js` are
+    // shared-namespace modules.  Anything else under `#foliplus/` (today:
+    // `#foliplus/HeatmapControl/worker/source.js`) is component-private and
+    // must be left for later plugins to resolve — the default
+    // ``sharedGlobalNamespace`` branch would mint an invalid shim identifier
+    // (``#`` inside a var name) for it.
+    build.onResolve(
+      { filter: /^#(core|common)\/|^#foliplus\/BaseControl\.js$/ },
+      args => ({
+        path: args.path,
+        namespace: "foliplus-shared",
+      }),
+    );
     build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, args => {
       const spec = args.path;
       const rel = spec
