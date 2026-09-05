@@ -32,7 +32,7 @@ const formatSegmentLabel = (
   return `${bVal}° | ${dist}`;
 };
 
-/** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.56 km²". */
+/** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000)
     return `${formatNumber(sqMeters / 1_000_000, "comma", "en", 2)} km²`;
