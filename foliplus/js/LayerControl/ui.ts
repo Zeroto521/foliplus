@@ -2057,15 +2057,14 @@ class LayerUI {
   /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
   private registerAutoCancel(layerId: string): void {
     this.focusingLayerId = layerId;
-    const self = this;
     const handler = () => {
-      if (self.focusingLayerId !== layerId) return;
+      if (this.focusingLayerId !== layerId) return;
       // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
       // completion, which should NOT auto-cancel. Any move/zoom *after* the
       // grace window is a deliberate user action → cancel.
       setTimeout(() => {
-        if (self.focusingLayerId === layerId) {
-          self.dismissFocus();
+        if (this.focusingLayerId === layerId) {
+          this.dismissFocus();
         }
       }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
     };

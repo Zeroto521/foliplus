@@ -253,22 +253,25 @@ const createLocationMarker = (
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus;
     if (foliplus?.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
-        if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-          marker.setPopupContent(
-            buildPopupHtml(
-              lng,
-              lat,
-              resolved,
-              titleText,
-              loadingText,
-              locLabelText,
-              addrLabelText,
-            ),
-          );
-        }
-      });
+      void foliplus
+        .reverseGeocode(map, lng, lat, code)
+        .then((resolved: string) => {
+          if (onAddress) onAddress(resolved);
+          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
+            marker.setPopupContent(
+              buildPopupHtml(
+                lng,
+                lat,
+                resolved,
+                titleText,
+                loadingText,
+                locLabelText,
+                addrLabelText,
+              ),
+            );
+          }
+        })
+        .catch(() => undefined);
     }
   }
   return marker;

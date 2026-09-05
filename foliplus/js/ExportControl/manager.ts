@@ -613,7 +613,7 @@ class ExportManager {
 
     if (needsBigger && geoBounds && geoBounds.nw)
       this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
-    else this.doRender(r, scaleValue, bg, geoBounds);
+    else void this.doRender(r, scaleValue, bg, geoBounds);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -703,7 +703,9 @@ class ExportManager {
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
       this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+      this.doRender(r, scaleValue, bg, geoBounds)
+        .finally(restore)
+        .catch(() => undefined);
     });
   }
 
@@ -735,7 +737,7 @@ class ExportManager {
       this.showPreview(blob);
       // GeoTIFF needs embedded georeferencing, so it ships as its own
       // container file; every other format is the encoded blob itself.
-      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
+      if (format.geotiff) this.downloadGeoTiff(canvas, name);
       else download(blob, `${name}.${format.ext}`);
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
@@ -782,7 +784,7 @@ class ExportManager {
    * and ModelPixelScale tags for WGS84 (EPSG:4326).
    * Falls back to a plain image download if geo bounds are unavailable.
    */
-  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+  downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
     // doExport() clears cropState via removeCropBox() before the render
     // callback fires, so cropState.geoBounds is gone by the time we
     // reach downloadGeoTiff.  Use the geoBounds saved in doExport
