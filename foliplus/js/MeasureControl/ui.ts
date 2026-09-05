@@ -119,6 +119,10 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         ),
       );
     });
+    // Unregister the previous registrations before re-binding, otherwise the
+    // old entries leak into collidableLabels and the planner hides the
+    // duplicates — labels vanish after the first node drag.
+    unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
 
@@ -471,6 +475,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       segLabels.push(label);
       label.on("click", openOverlay);
     }
+    unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
     const centroid = Util.centroid(points);
     if (centroidDot) centroidDot.setLatLng(centroid);
