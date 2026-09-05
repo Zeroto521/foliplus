@@ -142,6 +142,36 @@ describe("PaneManager", () => {
     expect(result.renderer).toBe(renderer);
   });
 
+  it("ensureVector pins a cached renderer and the pane on the layer", () => {
+    const pane = document.createElement("div");
+    const renderer = { addTo: vi.fn() };
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+      foliplus_renderer_measure_graph: renderer,
+    };
+    const pm = new PaneManager(map);
+    const layer = { options: {} };
+    expect(pm.ensureVector(layer, "measure_graph")).toBe(renderer);
+    expect(window.L.svg).not.toHaveBeenCalled();
+    expect(layer.options.renderer).toBe(renderer);
+    expect(layer.options.pane).toBe("measure_graph");
+  });
+
+  it("ensureVector creates the pane's renderer when none is cached", () => {
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const layer = { options: {} };
+    const renderer = pm.ensureVector(layer, "measure_graph");
+    expect(window.L.svg).toHaveBeenCalledWith({ pane: "measure_graph" });
+    expect(layer.options.renderer).toBe(renderer);
+    expect(layer.options.pane).toBe("measure_graph");
+  });
+
   it("discoverChildPanes filters out default panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
