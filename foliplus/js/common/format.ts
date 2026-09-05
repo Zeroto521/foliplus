@@ -20,7 +20,7 @@ const formatNumber = (
   val: number,
   style: NumberStyle = "auto",
   locale: string = "en",
-  fractionDigits = 1,
+  fractionDigits: number = 1,
 ): string => {
   // 'comma' is language-agnostic: always en grouping, fixed fraction digits.
   if (style === "comma")
