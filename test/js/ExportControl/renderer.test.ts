@@ -207,7 +207,6 @@ function stubBitmaps() {
 }
 
 describe("calcTiles", () => {
-
   it("throws without a valid CRS", () => {
     const renderer = makeRenderer({ latLngToPoint: undefined });
     expect(() =>
