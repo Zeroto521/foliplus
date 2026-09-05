@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
+import * as downloadMod from "#common/download.js";
 
 vi.mock("#common/locale.js", () => ({
   createTranslator: () => (k: string) => k,
@@ -299,41 +300,19 @@ describe("Export.toCSV", () => {
 
 // ── Download stub ──
 
-// `download()` builds an <a> via `document.createElement`, hands it to
-// `URL.createObjectURL`, and appends it to `<body>`. These tests replace all
-// three and expose the created anchor. Shared by the two suites below.
+// `download()` is the module that actually triggers the anchor click — spied on
+// the namespace object so `exportMeasurements` picks the mock up. Shared by the
+// two suites below.
 const stubDownload = () => {
-  const state = { anchors: [] as any[] };
-  const origUrl = URL.createObjectURL;
-  const origEl = document.createElement;
-  const origAppend = HTMLBodyElement.prototype.appendChild;
-
-  URL.createObjectURL = vi.fn(() => "blob:test-url") as any;
-  document.createElement = vi.fn((tag: string) => {
-    if (tag !== "a") return origEl(tag);
-    const anchor = {
-      href: "",
-      download: "",
-      rel: "",
-      style: {},
-      click: vi.fn(),
-      remove: vi.fn(),
-    };
-    state.anchors.push(anchor);
-    return anchor as any;
-  }) as any;
-  HTMLBodyElement.prototype.appendChild = vi.fn() as any;
-
+  const anchors: { blob: Blob; filename: string }[] = [];
+  const downloadSpy = vi
+    .spyOn(downloadMod, "download")
+    .mockImplementation((blob: Blob, filename: string) => {
+      anchors.push({ blob, filename });
+    });
   return {
-    ...state,
-    get blobArg() {
-      return URL.createObjectURL.mock.calls[0]?.[0];
-    },
-    restore: () => {
-      URL.createObjectURL = origUrl;
-      document.createElement = origEl;
-      HTMLBodyElement.prototype.appendChild = origAppend;
-    },
+    anchors,
+    restore: () => downloadSpy.mockRestore(),
   };
 };
 
@@ -365,44 +344,44 @@ describe("Export.currentExportFormat — serialize hooks", () => {
   });
 
   it("serializers are pure — same input yields the same output", () => {
+    const prev = window.CONF;
     const geo = Export.currentExportFormat;
     (window as any).CONF = { name: "MeasureControl", export_format: "geojson" };
     expect(geo().serialize([markerData])).toBe(geo().serialize([markerData]));
     (window as any).CONF = { name: "MeasureControl", export_format: "csv" };
     expect(geo().serialize([markerData])).toBe(geo().serialize([markerData]));
-    (window as any).CONF = undefined;
+    (window as any).CONF = prev;
   });
 });
 
 describe("Export.exportMeasurements", () => {
   let dl: ReturnType<typeof stubDownload>;
+  let prevConf: typeof window.CONF | undefined;
 
   beforeEach(() => {
     dl = stubDownload();
+    prevConf = window.CONF;
     (window as any).CONF = { name: "MeasureControl", filename: "test_data" };
   });
 
   afterEach(() => {
     dl.restore();
-    (window as any).CONF = undefined;
+    (window as any).CONF = prevConf;
   });
 
   it("creates a download with geojson format and correct filename", () => {
     Export.exportMeasurements([markerData], "geojson");
 
     expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].href).toBe("blob:test-url");
-    expect(dl.anchors[0].download).toBe("test_data.geojson");
-    expect(dl.anchors[0].click).toHaveBeenCalled();
-    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(dl.anchors[0].filename).toBe("test_data.geojson");
+    expect(dl.anchors[0].blob).toBeInstanceOf(Blob);
   });
 
   it("creates a download with csv format and correct filename", () => {
     Export.exportMeasurements([markerData], "csv");
 
     expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].download).toBe("test_data.csv");
-    expect(dl.anchors[0].click).toHaveBeenCalled();
+    expect(dl.anchors[0].filename).toBe("test_data.csv");
   });
 
   it("does nothing when measurements is empty", () => {
@@ -418,23 +397,22 @@ describe("Export.exportMeasurements", () => {
   it("handles multiple measurements in one download", () => {
     Export.exportMeasurements([markerData, distanceData], "geojson");
     expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].click).toHaveBeenCalled();
   });
 
   it("creates geojson blob with the table mime type", () => {
     Export.exportMeasurements([markerData], "geojson");
-    expect(dl.blobArg.type).toBe("application/geo+json");
+    expect(dl.anchors[0].blob.type).toBe("application/geo+json");
   });
 
   it("creates csv blob with the table mime type", () => {
     Export.exportMeasurements([markerData], "csv");
-    expect(dl.blobArg.type).toBe("text/csv");
+    expect(dl.anchors[0].blob.type).toBe("text/csv");
   });
 
   it("uses the default filename prefix when CONF.filename is missing", () => {
     (window as any).CONF = { name: "MeasureControl" };
     Export.exportMeasurements([markerData], "geojson");
-    expect(dl.anchors[0].download).toBe("measurements.geojson");
+    expect(dl.anchors[0].filename).toBe("measurements.geojson");
   });
 });
 
@@ -459,87 +437,49 @@ describe("Export.csvEscape", () => {
 });
 
 describe("Export.getNameForType", () => {
-  it("returns address for marker with address", () => {
+  it("returns the mode's display label for every built-in type", () => {
     expect(Export.getNameForType(markerData)).toBe("Location Marker");
-  });
-
-  it("returns default for marker without address", () => {
-    const marker = { id: "1", type: CONST.MODE.MARKER, lat: 0, lng: 0 } as MeasureData;
-    expect(Export.getNameForType(marker)).toBe("Location Marker");
-  });
-
-  it("returns Distance Measurement for distance type", () => {
     expect(Export.getNameForType(distanceData)).toBe("Distance Measurement");
-  });
-
-  it("returns Area Measurement for polygon type", () => {
     expect(Export.getNameForType(polygonData)).toBe("Area Measurement");
-  });
-
-  it("returns Circle for circle type", () => {
     expect(Export.getNameForType(circleData)).toBe("Circle Measurement");
   });
 
-  it("returns type string for unknown type", () => {
+  it("returns the label regardless of the marker's address", () => {
+    const noAddress = { id: "1", type: CONST.MODE.MARKER, lat: 0, lng: 0 } as MeasureData;
+    expect(Export.getNameForType(noAddress)).toBe("Location Marker");
+  });
+
+  it("returns the raw type string when the mode is unknown", () => {
     expect(Export.getNameForType({ type: "unknown" } as MeasureData)).toBe("unknown");
-  });
-
-  it("falls back to NAME_LABEL when locale table is missing", () => {
-    expect(Export.getNameForType(markerData)).toBe("Location Marker");
-    expect(Export.getNameForType(distanceData)).toBe("Distance Measurement");
-    expect(Export.getNameForType(polygonData)).toBe("Area Measurement");
-    expect(Export.getNameForType(circleData)).toBe("Circle Measurement");
   });
 });
 
 describe("Export.toCSV edge cases", () => {
-  it("returns header only for empty array", () => {
+  it("returns the header alone for an empty array", () => {
     const csv = Export.toCSV([]);
     const lines = csv.split("\n");
     expect(lines.length).toBe(1);
     expect(lines[0]).toContain("type");
   });
 
-  it("skips entries without type", () => {
+  it("skips entries without a type", () => {
     const csv = Export.toCSV([markerData, { id: "bad" } as MeasureData]);
     const lines = csv.split("\n");
     expect(lines.length).toBe(2); // header + 1 valid row only
   });
-});
 
-describe("Export.toGeoJSON edge cases", () => {
-  it("filters out entries without a type", () => {
-    const json = Export.toGeoJSON([markerData, { id: "bad" } as MeasureData]);
-    const data = JSON.parse(json);
-    expect(data.features.length).toBe(1);
-    expect(data.features[0].geometry.type).toBe("Point");
-  });
-
-  it("produces valid JSON that round-trips", () => {
-    const json = Export.toGeoJSON([markerData]);
-    const parsed = JSON.parse(json);
-    const reSerialized = JSON.stringify(parsed);
-    expect(JSON.parse(reSerialized)).toEqual(parsed);
-  });
-});
-
-describe("Export.toCSV edge cases", () => {
-  it("handles marker with null lat/lng", () => {
+  it("leaves the center column empty for a marker with no coordinates", () => {
     const marker = {
       id: "m1",
       type: CONST.MODE.MARKER,
       lat: undefined,
       lng: undefined,
     } as MeasureData;
-    const csv = Export.toCSV([marker]);
-    const lines = csv.split("\n");
-    expect(lines.length).toBe(2);
-    const row = lines[1].split(",");
-    // center should be an empty string when the marker has no center
+    const row = Export.toCSV([marker]).split("\n")[1].split(",");
     expect(row[3]).toBe("");
   });
 
-  it("handles marker with address containing comma", () => {
+  it("quotes an address that contains a comma", () => {
     const marker = {
       id: "m1",
       type: CONST.MODE.MARKER,
@@ -547,64 +487,66 @@ describe("Export.toCSV edge cases", () => {
       lng: 119.3,
       address: "City, District",
     } as MeasureData;
-    const csv = Export.toCSV([marker]);
-    // The address with comma should be quoted
-    expect(csv).toContain('"City, District"');
+    expect(Export.toCSV([marker])).toContain('"City, District"');
   });
 
-  it("handles circle with null center", () => {
+  it("leaves the center column empty for a null-center circle", () => {
     const circle = {
       id: "c1",
       type: CONST.MODE.CIRCLE,
       center: null,
     } as MeasureData;
-    const csv = Export.toCSV([circle]);
-    const lines = csv.split("\n");
-    expect(lines.length).toBe(2);
-    const row = lines[1].split(",");
-    // center column is empty for a null-center circle
+    const row = Export.toCSV([circle]).split("\n")[1].split(",");
     expect(row[3]).toBe("");
   });
 
-  it("handles distance with empty points", () => {
+  it("emits a row even for a distance with no points", () => {
     const dist = {
       id: "d1",
       type: CONST.MODE.DISTANCE,
       points: [],
     } as MeasureData;
-    const csv = Export.toCSV([dist]);
-    const lines = csv.split("\n");
-    expect(lines.length).toBe(2);
+    expect(Export.toCSV([dist]).split("\n").length).toBe(2);
+  });
+});
+
+describe("Export.toGeoJSON edge cases", () => {
+  it("drops entries without a type", () => {
+    const json = Export.toGeoJSON([markerData, { id: "bad" } as MeasureData]);
+    const data = JSON.parse(json);
+    expect(data.features.length).toBe(1);
+    expect(data.features[0].geometry.type).toBe("Point");
+  });
+
+  it("round-trips through JSON.parse", () => {
+    const json = Export.toGeoJSON([markerData]);
+    const parsed = JSON.parse(json);
+    expect(JSON.parse(JSON.stringify(parsed))).toEqual(parsed);
   });
 });
 
 describe("Export.csvEscape edge cases", () => {
-  it("handles null and undefined values", () => {
+  it("returns an empty string for null and undefined", () => {
     expect(Export.csvEscape(null as any)).toBe("");
     expect(Export.csvEscape(undefined as any)).toBe("");
   });
 
-  it("handles numbers", () => {
+  it("passes numbers through as strings", () => {
     expect(Export.csvEscape(0)).toBe("0");
     expect(Export.csvEscape(-1)).toBe("-1");
     expect(Export.csvEscape(3.14)).toBe("3.14");
   });
 
-  it("handles string with all special chars", () => {
+  it("wraps a field that combines every escape trigger", () => {
     expect(Export.csvEscape('a,"b",\nc')).toBe('"a,""b"",\nc"');
   });
 });
 
 describe("Export.currentExportFormat — CONF edge cases", () => {
-  it("returns geojson when CONF.export_format is null", () => {
+  it("falls back to geojson for null and undefined CONF.export_format", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl", export_format: null };
     expect(Export.currentExportFormat().ext).toBe("geojson");
-    (window as any).CONF = prev;
-  });
-
-  it("returns geojson when CONF.export_format is undefined", () => {
-    const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl" };
     expect(Export.currentExportFormat().ext).toBe("geojson");
     (window as any).CONF = prev;
@@ -613,6 +555,7 @@ describe("Export.currentExportFormat — CONF edge cases", () => {
 
 describe("Export.handleExportClick", () => {
   let dl: ReturnType<typeof stubDownload>;
+  let prevConf: typeof window.CONF | undefined;
 
   const makeMgr = (measurements: MeasureData[] = [markerData]) => ({
     store: { all: () => measurements },
@@ -621,12 +564,13 @@ describe("Export.handleExportClick", () => {
 
   beforeEach(() => {
     dl = stubDownload();
+    prevConf = window.CONF;
     (window as any).CONF = { name: "MeasureControl", filename: "meas" };
   });
 
   afterEach(() => {
     dl.restore();
-    (window as any).CONF = undefined;
+    (window as any).CONF = prevConf;
   });
 
   it("stops propagation", () => {
@@ -651,13 +595,12 @@ describe("Export.handleExportClick", () => {
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
     expect(mgr.map.foliplus.showHint).not.toHaveBeenCalled();
     expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].download).toBe("meas.geojson");
-    expect(dl.anchors[0].click).toHaveBeenCalled();
+    expect(dl.anchors[0].filename).toBe("meas.geojson");
   });
 
   it("resolves the format from CONF, defaulting to geojson", () => {
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
-    expect(dl.anchors[0].download).toBe("meas.geojson");
+    expect(dl.anchors[0].filename).toBe("meas.geojson");
 
     (window as any).CONF = {
       name: "MeasureControl",
@@ -665,28 +608,15 @@ describe("Export.handleExportClick", () => {
       export_format: "csv",
     };
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
-    expect(dl.anchors[1].download).toBe("meas.csv");
-  });
-
-  it("resolves the format from CONF", () => {
-    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
-    expect(dl.anchors[0].download).toBe("meas.geojson");
-
-    (window as any).CONF = {
-      name: "MeasureControl",
-      filename: "meas",
-      export_format: "csv",
-    };
-    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
-    expect(dl.anchors[1].download).toBe("meas.csv");
+    expect(dl.anchors[1].filename).toBe("meas.csv");
   });
 
   it("warns instead of throwing when the export fails", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const mgr = makeMgr([{ id: "x" } as MeasureData]);
-    vi.spyOn(URL, "createObjectURL").mockImplementation(() => {
+    vi.spyOn(downloadMod, "download").mockImplementation(() => {
       throw new Error("boom");
     });
+    const mgr = makeMgr([{ id: "x" } as MeasureData]);
     expect(() =>
       Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any),
     ).not.toThrow();
