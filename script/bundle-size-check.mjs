@@ -29,6 +29,59 @@ const LOW_MARGIN_PCT = 5;
 
 const distDir = root => resolve(root, "foliplus/dist");
 
+// Build tooling that rewrites the emitted bytes. `esbuild` owns the minifier
+// and the bundle structure; `svgo` rewrites the inline SVG inside JS sources;
+// `postcss`, `postcss-nesting` and `autoprefixer` rewrite the CSS; `browserslist`
+// selects the browsers they target. `package-lock.json` is not committed, so a
+// PR and the base branch each run their own `npm install` against the live
+// registry and can resolve different versions — the diff would then measure tool
+// drift instead of code. Observed within the same session: svgo 4.0.2 → 4.1.0,
+// postcss 8.5.26 → 8.5.28, browserslist 4.28.8 → 4.28.9, esbuild 0.24.2 (pinned).
+const BUILD_TOOLS = [
+  "esbuild",
+  "svgo",
+  "postcss",
+  "postcss-nesting",
+  "autoprefixer",
+  "browserslist",
+];
+
+/** Resolve a package's version from a root's node_modules, or null when the
+ *  package is absent (e.g. a tool that is no longer needed by the build). */
+const toolVersion = (root, pkg) => {
+  const path = resolve(root, "node_modules", pkg, "package.json");
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf-8")).version ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** Diff the build tool versions of the current checkout against the baseline
+ *  capture. Both were built with the versions named here — a mismatch means the
+ *  two size samples were produced by different toolchains. */
+const toolMismatch = (current, baseline) => {
+  const recorded = baseline.tools || {};
+  const rows = [];
+  for (const pkg of BUILD_TOOLS) {
+    const prev = recorded[pkg];
+    if (prev == null) continue;
+    const curr = toolVersion(ROOT, pkg);
+    if (prev !== curr) rows.push({ pkg, prev, curr });
+  }
+  return rows;
+};
+
+// Drop the leading block comment — esbuild's `banner`. It is emitted by both
+// builds being compared and carries no runtime code, and its byte count drifts
+// with the build config, so counting it is pure diff noise. It stays in the
+// shipped bundle: it is how a served asset is tied to the version that built it.
+const stripLeadingBlockComment = src => {
+  const body = src.replace(/^﻿?\/\*[\s\S]*?\*\/\s*/, "");
+  return body !== src ? body : src;
+};
+
 const parseArgs = argv => {
   const args = {
     emit: null,
@@ -57,8 +110,10 @@ const readSizes = (root = ROOT) => {
     .filter(f => /\.min\.(js|css)$/.test(f))
     .sort();
   const sizes = {};
-  for (const f of files)
-    sizes[f] = brotliCompressSync(readFileSync(resolve(dir, f))).length;
+  for (const f of files) {
+    const src = readFileSync(resolve(dir, f), "utf-8");
+    sizes[f] = brotliCompressSync(stripLeadingBlockComment(src)).length;
+  }
   return sizes;
 };
 
@@ -183,10 +238,14 @@ const renderTable = (rows, threshold) => {
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
+    `Sizes exclude the build banner.`,
+    "",
     `**Total:** ${curr} · **Δ** ${delta} (${pct}) · ${changed} of ${rows.length} bundles changed`,
     "",
     "<details>",
-    `<summary>📦 Per-bundle breakdown${over ? ` — ${WARN} ${over} over threshold` : ""}</summary>`,
+    `<summary>📦 Per-bundle breakdown${
+      over ? ` — ${WARN} **${over} over threshold**` : ""
+    }</summary>`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
     "|:-----|--------:|---------:|-----:|----:|--------|",
@@ -248,7 +307,12 @@ const emit = (args, root = ROOT) => {
   }
   const path = resolve(args.emit);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify({ files: sizes }, null, 2) + "\n");
+  // Recorded from ROOT, the tree that is diffed against this capture — the
+  // capture root (`--root=/tmp/base`) is a bare checkout with no node_modules.
+  const tools = Object.fromEntries(
+    BUILD_TOOLS.map(pkg => [pkg, toolVersion(ROOT, pkg)]),
+  );
+  writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
   const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
@@ -272,6 +336,9 @@ const check = (args, root = ROOT) => {
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
   const lowMargin = rows.filter(r => r.status === "low");
+  // Toolchain drift is not a code-size signal: flag it instead of failing, and
+  // point at the capture step so the base can be re-sampled.
+  const drift = toolMismatch(current, baseline);
 
   const table = renderTable(rows, threshold);
   console.log(renderConsole(rows));
@@ -280,6 +347,22 @@ const check = (args, root = ROOT) => {
     const reportPath = resolve(args.report);
     mkdirSync(dirname(reportPath), { recursive: true });
     writeFileSync(reportPath, table + "\n");
+  }
+
+  if (drift.length) {
+    const parts = drift.map(d => {
+      const next = d.curr == null ? "absent" : `→ ${d.curr}`;
+      return `${d.pkg} ${d.prev} ${next}`;
+    });
+    console.warn(
+      `\n${WARN}  Build tools differ from the baseline capture — this diff mixes tool drift with code:` +
+        "\n  " +
+        parts.join(", ") +
+        "\n  The base branch and this PR resolve devDependencies separately, so they can pick up different versions between runs.",
+    );
+    console.warn(
+      `${WARN}  re-run the capture step against this toolchain to get a clean comparison.`,
+    );
   }
 
   if (failures.length > 0) {
@@ -314,7 +397,10 @@ export {
   fmtPct,
   parseArgs,
   rowCells,
+  stripLeadingBlockComment,
   summarize,
+  toolMismatch,
+  toolVersion,
 };
 
 // CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.

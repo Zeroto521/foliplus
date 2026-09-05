@@ -12,6 +12,7 @@ import {
   fmtPct,
   parseArgs,
   rowCells,
+  stripLeadingBlockComment,
   summarize,
 } from "#script/bundle-size-check.mjs";
 
@@ -55,6 +56,28 @@ afterEach(() => {
     } catch {}
   }
   tmpRoots = [];
+});
+
+describe("stripLeadingBlockComment", () => {
+  it("removes the esbuild banner comment and its trailing newline", () => {
+    const src = "/*! foliplus@v0.3.1-127-g1a1bd10 · common */\n\n:root{--a:1}";
+    expect(stripLeadingBlockComment(src)).toBe(":root{--a:1}");
+  });
+
+  it("treats the banner as a non-greedy first comment only", () => {
+    const src = "/*! banner */\nvar a=1;/* keep */";
+    expect(stripLeadingBlockComment(src)).toBe("var a=1;/* keep */");
+  });
+
+  it("tolerates a UTF-8 BOM before the banner", () => {
+    const src = "﻿/*! banner */\nbody{}";
+    expect(stripLeadingBlockComment(src)).toBe("body{}");
+  });
+
+  it("leaves a bundle without a leading block comment untouched", () => {
+    const src = "var a=1;/* inline */";
+    expect(stripLeadingBlockComment(src)).toBe(src);
+  });
 });
 
 describe("parseArgs", () => {
@@ -357,6 +380,50 @@ describe("check", () => {
     expect(readFileSync(report, "utf-8")).toContain("over threshold");
   });
 
+  it("bolds the over-threshold count in the report summary", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" +
+        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(1);
+    expect(readFileSync(report, "utf-8")).toContain("**1 over threshold**");
+  });
+
+  it("reports the same size for banners that differ", () => {
+    // The banner carries `git describe`, which is different in every checkout,
+    // so two builds of identical code must not differ in size.
+    const root = mkTmp();
+    const body = "const x = 1;".repeat(200);
+    const bannered = (v: string) => `/*! foliplus@${v} · a */
+
+${body}`;
+    const a = bannered("v0.3.1-127-g1a1bd10");
+    const b = bannered("v0.3.1-128-g9b32ca3");
+    const args = argsWithBaseline(root, { files: { "a.min.js": brotli(a) } });
+    mkDist(root, { "a.min.js": b });
+    expect(check(args, root)).toBe(0);
+  });
+
+  it("reports the same size for banners of different lengths", () => {
+    const root = mkTmp();
+    const body = "const x = 1;".repeat(200);
+    const a = `/*! short */
+
+${body}`;
+    const b = `/*! a much longer version string */
+
+${body}`;
+    const args = argsWithBaseline(root, { files: { "a.min.js": brotli(a) } });
+    mkDist(root, { "a.min.js": b });
+    expect(check(args, root)).toBe(0);
+  });
+
   it("renders a baseline bundle that is missing from dist without failing", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
@@ -384,6 +451,27 @@ describe("emit", () => {
     );
   });
 
+  it("records the build tool versions alongside the sizes", () => {
+    const root = mkTmp();
+    const content = "export const a = 1;".repeat(50);
+    mkDist(root, { "a.min.js": content });
+    const path = join(root, "sizes.json");
+    expect(emit(parseArgs(["--emit=" + path]), root)).toBe(0);
+    const tools = JSON.parse(readFileSync(path, "utf-8")).tools;
+    // Every build tool is recorded, and `esbuild` is resolvable at ROOT.
+    expect(typeof tools.esbuild).toBe("string");
+    for (const pkg of [
+      "esbuild",
+      "svgo",
+      "postcss",
+      "postcss-nesting",
+      "autoprefixer",
+      "browserslist",
+    ]) {
+      expect(tools).toHaveProperty(pkg);
+    }
+  });
+
   it("returns 1 when the dist directory has no bundles", () => {
     const root = mkTmp();
     mkdirSync(join(root, "foliplus", "dist"), { recursive: true });
@@ -399,5 +487,83 @@ describe("emit", () => {
     expect(JSON.parse(readFileSync(path, "utf-8")).files["a.min.js"]).toBe(
       brotli(content),
     );
+  });
+});
+
+describe("toolchain drift", () => {
+  // The guard reads versions from ROOT (the real checkout), so a mismatch means
+  // the baseline capture was built with a different toolchain.
+  const liveVersion = (pkg: string) => {
+    const v = join("node_modules", pkg, "package.json");
+    return JSON.parse(readFileSync(v, "utf-8")).version;
+  };
+
+  // Runs check against a baseline and returns "[exit code]\n[console output]".
+  const runCheck = (root: string, data: unknown): string => {
+    const baseline = join(root, "base.json");
+    writeFileSync(baseline, JSON.stringify(data), "utf-8");
+    const logs = [];
+    const warn = console.warn;
+    const log = console.log;
+    console.warn = (...a) => logs.push(a.join(" "));
+    console.log = (...a) => logs.push(a.join(" "));
+    try {
+      const code = check(parseArgs(["--baseline=" + baseline]), root);
+      return String(code) + "\n" + logs.join("\n");
+    } finally {
+      console.warn = warn;
+      console.log = log;
+    }
+  };
+
+  const dist = (root: string, body = "const x = 1;".repeat(100)) => {
+    const size = brotli(body);
+    mkDist(root, { "a.min.js": body });
+    return size;
+  };
+
+  it("stays silent when the baseline records the same tool versions", () => {
+    const root = mkTmp();
+    const size = dist(root);
+    const out = runCheck(root, {
+      files: { "a.min.js": size },
+      tools: { esbuild: liveVersion("esbuild") },
+    });
+    expect(out).not.toContain("Build tools differ");
+  });
+
+  it("flags a tool version the baseline captured differently", () => {
+    const root = mkTmp();
+    const size = dist(root);
+    // A version the install cannot have resolved — drift must not depend on the
+    // registry being live at the right minute.
+    const out = runCheck(root, {
+      files: { "a.min.js": size },
+      tools: { postcss: "0.0.0-pre-drift" },
+    });
+    expect(out.split("\n")[0]).toBe("0");
+    expect(out).toContain("Build tools differ");
+    expect(out).toContain("postcss 0.0.0-pre-drift");
+    expect(out).toContain(liveVersion("postcss"));
+    expect(out).toContain("re-run the capture step");
+  });
+
+  it("counts a build tool that went missing as drift", () => {
+    const root = mkTmp();
+    const size = dist(root);
+    const out = runCheck(root, {
+      files: { "a.min.js": size },
+      tools: { esbuild: "0.0.0-missing" },
+    });
+    expect(out).toContain("Build tools differ");
+    expect(out).toContain("esbuild 0.0.0-missing");
+  });
+
+  it("does not flag a tool the baseline never recorded", () => {
+    const root = mkTmp();
+    const size = dist(root);
+    // An empty tools map is a pre-guard capture; there is nothing to compare.
+    const out = runCheck(root, { files: { "a.min.js": size }, tools: {} });
+    expect(out).not.toContain("Build tools differ");
   });
 });
