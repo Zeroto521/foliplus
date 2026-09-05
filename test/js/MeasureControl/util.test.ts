@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
   buildEditOverlay,
   isDragSyntheticClick,
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
-import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
