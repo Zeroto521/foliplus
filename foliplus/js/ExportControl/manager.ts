@@ -602,8 +602,9 @@ class ExportManager {
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     // Progress callback: format the percentage with locale text and refresh
-    // the persistent hint.  The renderer calls this after each tile batch
-    // completes; it is a no-op when no tile layers are present.
+    // the persistent hint.  render() reports 0..90 over the drawing passes;
+    // this callback owns the final stretch, so 100 is reserved for the
+    // download having started rather than the tiles having finished.
     const onProgress = (percent: number) => {
       // Substitutes the {pct} placeholder in the locale string.
       const text = T("status_loading_tiles").replace(/\{pct\}/g, String(percent));
@@ -723,6 +724,15 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
+    // render() stops short of 100 on purpose: the canvas still has to be
+    // encoded before it can be saved.  Claim the 100 the user expects, so a
+    // full bar means the download is happening rather than the tiles having
+    // finished loading, which is what it previously meant.
+    this.showGlobalHint(
+      T("status_loading_tiles").replace(/\{pct\}/g, "100"),
+      HINT_DURATION.PERSIST,
+      true,
+    );
     // Awaited inline so a rejection cannot escape as an unhandled promise
     // rejection — endExport() has to run on every path or the map stays
     // locked behind the blocker overlay.

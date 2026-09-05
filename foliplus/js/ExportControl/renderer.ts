@@ -16,6 +16,9 @@ interface RenderCtx {
   ch: number;
   sw: number;
   sh: number;
+  /** Reports how far the render has progressed, 0..90.  Never decreases. */
+  onProgress?: (percent: number) => void;
+  lastPercent: number;
 }
 
 /** A tile descriptor computed by calcTiles. */
@@ -131,14 +134,35 @@ class ExportRenderer {
     return tiles;
   }
 
+  /** Share of the progress range each phase of render() may occupy.
+   *
+   *  Tiles get the most, since they are the only phase that waits on the
+   *  network and therefore dominates real export time; the vector/marker
+   *  passes are fast but still happen before the canvas is done.  The top
+   *  10 points are deliberately unused here — they belong to the manager,
+   *  which owns the blob encoding.  That way 100 means the download has
+   *  started, not that tiles have finished loading, which is when the
+   *  download was previously reported as complete. */
+  private static readonly PHASES = {
+    tiles: [0, 70],
+    layers: [71, 90],
+  } as const;
+
+  /** Map a [0,1] fraction to the given percent range, monotonically. */
+  private static mapPhase(fraction: number, [lo, hi]: readonly [number, number]) {
+    return Math.min(hi, lo + Math.round(fraction * (hi - lo)));
+  }
+
   /** Orchestrate all rendering passes in painter's-algorithm order.
    *  Passes: tiles → SVG → canvas → markers → FA → text → remaining.
    *  Overlay layers iterate via `api.layers` (read-only view of
    *  LayerRegistry's ordered array) bottom-to-top so cross-technology
    *  z-ordering is preserved per layer.
    *
-   *  onProgress is called with 0-100 as tile layers load.  ExportRenderer does
-   *  not interpret the value — it forwards it so the caller can format it
+   *  onProgress reports 0..90 over those passes, monotonically.  It never
+   *  reports 100: the canvas still has to be encoded before it can be
+   *  saved, and that belongs to the caller.  ExportRenderer does not
+   *  interpret the value — it forwards it so the caller can format it
    *  (e.g. with locale text) however it likes. */
   async render(
     rect: { left: number; top: number; width: number; height: number },
@@ -174,6 +198,14 @@ class ExportRenderer {
       ch: rect.height * scale,
       sw,
       sh,
+      // Only ever move forward: reporting a lower value than one already
+      // shown would make the bar look stuck and regress.
+      onProgress: (percent: number) => {
+        if (percent <= rc.lastPercent) return;
+        rc.lastPercent = percent;
+        onProgress?.(percent);
+      },
+      lastPercent: 0,
     };
 
     // 2. All layers — iterate in LayerControl API order bottom-to-top.
@@ -214,46 +246,60 @@ class ExportRenderer {
           for (const { layer } of sizedTiles) {
             await this.renderTileLayer(rc, geoBounds, layer, handled => {
               tilesDone += handled;
-              onProgress?.(Math.min(Math.round((tilesDone / grandTotal) * 100), 100));
+              rc.onProgress?.(
+                ExportRenderer.mapPhase(tilesDone / grandTotal, ExportRenderer.PHASES.tiles),
+              );
             });
           }
+        } else {
+          // No tiles to download, so the remaining phases start from the top
+          // of their range instead of from 0.
+          rc.onProgress?.(ExportRenderer.PHASES.layers[0]);
         }
       }
 
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const li = layers[i];
-        if (!li.visible) continue;
-
-        // Tile layers (e.g. basemaps) are handled by the pass above, which
-        // also owns the progress callback; other layer types (e.g.
-        // L.ImageOverlay) are skipped here.
-        if (li.layer instanceof L.TileLayer && li.layer._url) continue;
+      // Only layers that can actually paint are in the denominator: an entry
+      // with no layer and no canvas contributes nothing, and counting it would
+      // leave the layer range permanently short of its top.
+      const passable = layers.filter(
+        li =>
+          li.visible &&
+          (li.canvas ||
+            (li.layer && !(li.layer instanceof L.TileLayer && li.layer._url))),
+      );
+      let done = 0;
+      for (let i = passable.length - 1; i >= 0; i--) {
+        const li = passable[i];
 
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
         if (li.canvas) {
           await this.renderCanvasElement(rc, li.canvas);
-          continue;
-        }
-        // Use the layer reference from layerInfo (resolved at init or register)
-        if (!li.layer) continue;
+        } else {
+          // Use the layer reference from layerInfo (resolved at init or register)
+          if (!li.layer) continue;
 
-        // SVG paths, Canvas elements, and Markers in this layer's panes
-        const panes = api.getLayerPanes(li.layer);
-        for (const paneName of panes) {
-          const pane = this.map.getPane(paneName);
-          if (!pane) continue;
-          await this.renderPaneSVG(rc, pane);
-          await this.renderPaneCanvas(rc, pane);
-        }
+          // SVG paths, Canvas elements, and Markers in this layer's panes
+          const panes = api.getLayerPanes(li.layer);
+          for (const paneName of panes) {
+            const pane = this.map.getPane(paneName);
+            if (!pane) continue;
+            await this.renderPaneSVG(rc, pane);
+            await this.renderPaneCanvas(rc, pane);
+          }
 
-        // Markers and divIcons in this layer
-        const markerRoots = this.collectLayerMarkers(li.layer);
-        if (markerRoots.length) {
-          await this.renderMarkers(rc, markerRoots);
-          await this.renderFontAwesome(rc, markerRoots);
-          await this.renderTextLabels(rc, markerRoots);
-          await this.renderRemaining(rc, markerRoots);
+          // Markers and divIcons in this layer
+          const markerRoots = this.collectLayerMarkers(li.layer);
+          if (markerRoots.length) {
+            await this.renderMarkers(rc, markerRoots);
+            await this.renderFontAwesome(rc, markerRoots);
+            await this.renderTextLabels(rc, markerRoots);
+            await this.renderRemaining(rc, markerRoots);
+          }
         }
+        done++;
+        rc.onProgress?.(
+          ExportRenderer.mapPhase(done / passable.length, ExportRenderer.PHASES.layers),
+        );
       }
     }
 
@@ -321,19 +367,23 @@ class ExportRenderer {
   }
 
   /** Render a single tile layer from geo bounds with concurrent tile loading.
-   *  onProgress reports the cumulative tiles handled for this layer (not a
-   *  percentage), so the caller can accumulate a share of the whole export
-   *  instead of re-basing the bar at the start of every layer. */
+   *  onProgress reports the cumulative tiles actually drawn for this layer
+   *  (not a percentage, and not tiles merely fetched), so the caller can
+   *  accumulate a share of the whole export instead of re-basing the bar at
+   *  the start of every layer.  Failing tiles do not advance it: they are
+   *  still missing from the picture, which is what the bar is for. */
   async renderTileLayer(
     rc: RenderCtx,
     geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
     tileLayer: L.TileLayer,
-    onProgress?: (tilesHandled: number) => void,
+    onProgress?: (tilesDrawn: number) => void,
   ) {
     const ctx = rc.ctx;
     if (!geoBounds || !geoBounds.nw) return;
     const visibleTiles = this.tilePositions(rc, geoBounds, tileLayer);
+    if (visibleTiles.length === 0) return;
 
+    let drawn = 0;
     // Load and draw tiles in concurrent batches to avoid overwhelming the
     // browser connection limit (~6 per domain) while still parallelizing.
     const concurrency = CONST.TILE_CONCURRENCY;
@@ -349,6 +399,7 @@ class ExportRenderer {
         const t = batch[j];
         try {
           ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+          drawn++;
         } catch {
           /* skip tile on draw error */
         } finally {
@@ -361,10 +412,10 @@ class ExportRenderer {
         }
       }
 
-      // Report the tiles handled this batch so the caller can accumulate a
-      // share of the whole export instead of re-basing per layer.
-      if (onProgress && batch.length > 0)
-        onProgress(Math.min(i + concurrency, visibleTiles.length));
+      // Report the tiles painted this batch so the caller can accumulate a
+      // share of the whole export instead of re-basing per layer.  Counting
+      // the batch position would credit tiles whose download failed.
+      if (onProgress) onProgress(drawn);
     }
   }
 
