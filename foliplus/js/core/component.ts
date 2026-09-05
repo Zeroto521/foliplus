@@ -32,5 +32,4 @@ const assertComponentName = (name: string): void => {
   }
 };
 
-export { assertComponentName, COMPONENTS, generateId };
-export type { ComponentName };
+export { type ComponentName, COMPONENTS, assertComponentName, generateId };

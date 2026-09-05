@@ -3,7 +3,7 @@
 // rather than letting it fail later at an obscure DOM access.
 import { registerHintIcon } from "#core/hint.js";
 
-export const requireRuntime = (componentName: string): void => {
+const requireRuntime = (componentName: string): void => {
   if (!window.foliplus)
     throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
 };
@@ -15,7 +15,9 @@ export const requireRuntime = (componentName: string): void => {
  * @param CONF - Component configuration (from IIFE).
  * @param icon - SVG icon string for the hint icon. Optional (ScaleControl omits it).
  */
-export const createControlEnv = (CONF: { name: string }, icon?: string): void => {
+const createControlEnv = (CONF: { name: string }, icon?: string): void => {
   requireRuntime(CONF.name);
   if (icon) registerHintIcon(CONF.name, icon);
 };
+
+export { requireRuntime, createControlEnv };

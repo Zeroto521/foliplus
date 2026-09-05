@@ -14,7 +14,7 @@
 type Handle = ReturnType<typeof setTimeout>;
 type Scheduler = (fn: () => void, ms: number) => Handle;
 
-export type RafLoop = {
+type RafLoop = {
   start(key?: string): void;
   stop(): void;
 };
@@ -77,4 +77,4 @@ const rafLoop = (
   };
 };
 
-export { rafLoop };
+export { type RafLoop, rafLoop };

@@ -38,7 +38,7 @@ const nudgeDirection = (key: string): { x: number; y: number } =>
           : { x: 0, y: 0 };
 
 /** A screen-space rectangle. */
-export interface Rect {
+interface Rect {
   left: number;
   top: number;
   width: number;
@@ -860,4 +860,4 @@ class ExportManager {
   }
 }
 
-export { ExportManager };
+export { type Rect, ExportManager };
