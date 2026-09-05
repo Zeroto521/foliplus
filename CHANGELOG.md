@@ -134,3 +134,7 @@
 [v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.1.0
+
+## Unreleased
+
+- fix(`MeasureControl`): rebase onto main and resolve the `makePreviewNode` conflict — cursor nodes now route to the node pane (`isNode`) so they paint above the preview shapes, and the duplicate `addPreview` call in circle mode is removed (#252)

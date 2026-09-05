@@ -34,7 +34,7 @@ class PolygonMode extends PreviewMode {
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
       const node = manager.layers.addLayer(Util.makeNode(pt)) as L.CircleMarker;
-      // Nodes are last in the stack, so the polygon outline never covers them.
+      node.bringToFront();
       nodeMarkers.push(node);
     });
 
@@ -250,7 +250,8 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
-      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      if (!cursorNode)
+        cursorNode = this.addPreview(Util.makePreviewNode(event.latlng), false, true);
       else cursorNode.setLatLng(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
@@ -295,7 +296,7 @@ class PolygonMode extends PreviewMode {
       const marker = this.layers.addLayer(
         Util.makeNode(event.latlng),
       ) as L.CircleMarker;
-      // Nodes are last in the stack, so the polygon outline never covers them.
+      marker.bringToFront();
       nodeMarkers.push(marker);
 
       marker.on("click", (event: L.LeafletMouseEvent) => {
