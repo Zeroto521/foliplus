@@ -3,6 +3,7 @@ import { ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import * as Storage from "#common/storage.js";
+import * as downloadMod from "#common/download.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
 // blocked-path in doExport() without affecting the real ensureModes/ModeManager
@@ -790,10 +791,10 @@ describe("ExportManager — download paths", () => {
         toBlobCalls.push([this, ...rest]);
         cb(new Blob(["fake"], { type: mime }));
       };
-      // The spy must exist before `onRenderSuccess` runs — spying afterwards
+      // The spies must exist before `onRenderSuccess` runs — spying afterwards
       // would never catch a call that already happened.
       const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
-      const downloadSpy = vi.spyOn(manager, "download");
+      const downloadSpy = vi.spyOn(downloadMod, "download");
 
       try {
         manager.onRenderSuccess(document.createElement("canvas"), []);

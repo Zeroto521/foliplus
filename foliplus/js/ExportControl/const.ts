@@ -25,7 +25,6 @@ export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
 export const TIMING = {
-  URL_REVOKE_DELAY: 10000,
   TIMEOUT: CONF.timeout,
   RESTORE_DELAY: 200,
 };

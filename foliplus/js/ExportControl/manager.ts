@@ -712,7 +712,7 @@ class ExportManager {
             // Export as a single GeoTIFF file with embedded georeferencing.
             await this.downloadGeoTiff(canvas, name);
           } else {
-            this.download(blob, `${name}.${format.ext}`);
+            download(blob, `${name}.${format.ext}`);
           }
         } catch (err) {
           // The download step can throw (e.g. createObjectURL failure) — a thrown
@@ -727,20 +727,6 @@ class ExportManager {
       format.mime,
       CONF.quality,
     );
-  }
-
-  /** Trigger a blob download. The anchor lifecycle lives here so the
-   *  object-URL revoke policy cannot drift between call sites. */
-  download(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = filename;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
   }
 
   /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
@@ -826,7 +812,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    this.download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
+    download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
