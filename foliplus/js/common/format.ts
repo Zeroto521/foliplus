@@ -9,17 +9,33 @@ export type NumberStyle = "auto" | "comma" | "int";
  * @param style 'auto' (compact: en 1.2K, zh 1.2万 — locale-native units),
  *              'comma' (thousands separator: 6,000),
  *              'int' (plain integer, no grouping: 6000)
- * @param locale Locale code, defaults to 'en'
+ * @param locale Locale code for 'auto'/'int', or a fraction-digit count for
+ *               'comma' (defaults to 1). 'comma' ignores it and always groups
+ *               en-style, which is what keeps decimals alongside grouping:
+ *               1,234.5 km, 1.23 km². Pass 0 explicitly for whole-number
+ *               'comma' values (a count of 0 groups too, but drops the
+ *               trailing ".0" the default adds).
  */
 const formatNumber = (
   val: number,
   style: NumberStyle = "auto",
-  locale = "en",
+  locale: string | number = "en",
 ): string => {
+  // 'comma' is language-agnostic: always en grouping, fixed fraction digits.
+  if (style === "comma") {
+    const frac = typeof locale === "number" ? locale : 1;
+    return new Intl.NumberFormat("en", {
+      minimumFractionDigits: frac,
+      maximumFractionDigits: frac,
+    }).format(val);
+  }
+
+  // 'auto'/'int' read the locale as a locale code only.
+  const localeCode = typeof locale === "number" ? "en" : locale;
   const absVal = Math.abs(val);
 
   const fmt = (maxFrac: number) =>
-    new Intl.NumberFormat(locale, {
+    new Intl.NumberFormat(localeCode, {
       notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
       compactDisplay: "short",
       maximumFractionDigits: maxFrac,
@@ -44,14 +60,13 @@ const formatNumber = (
   }
 
   // int: plain integer, no grouping separator (6000) — distinct from comma's
-  // thousands separator (6,000). Both are locale-agnostic.
+  // thousands separator (6,000).
   if (style === "int")
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(localeCode, {
       maximumFractionDigits: 0,
       useGrouping: false,
     }).format(val);
 
-  // comma: user-requested thousands separator (6,000 / 1,234.5).
   return fmt(absVal >= 100 ? 0 : 1).format(val);
 };
 

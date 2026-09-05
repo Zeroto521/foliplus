@@ -76,6 +76,10 @@ describe("formatDistance", () => {
   it("formats km above the threshold", () => {
     expect(Util.formatDistance(1500)).toBe("1.5 km");
   });
+
+  it("groups km values with a thousands separator", () => {
+    expect(Util.formatDistance(1_234_567)).toBe("1,234.6 km");
+  });
 });
 
 describe("formatArea", () => {
@@ -87,8 +91,8 @@ describe("formatArea", () => {
     expect(Util.formatArea(2_500_000)).toBe("2.50 km²");
   });
 
-  it("uses the comma separator for 4-digit areas", () => {
-    expect(Util.formatArea(123_456)).toBe("123,456 m²");
+  it("groups km² values with a thousands separator", () => {
+    expect(Util.formatArea(1_234_567_890)).toBe("1,234.57 km²");
   });
 });
 

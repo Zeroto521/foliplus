@@ -17,8 +17,7 @@ describe("formatNumber", () => {
   });
 
   it("uses thousands separator for comma style", () => {
-    // Intl rounds to integer when abs >= 100 in comma style
-    expect(formatNumber(1234.5, "comma")).toBe("1,235");
+    expect(formatNumber(6000, "comma", 0)).toBe("6,000");
   });
 
   it("respects locale (auto style)", () => {
@@ -52,10 +51,11 @@ describe("formatNumber", () => {
     expect(formatNumber(12000, "auto", "en")).toBe("12K");
   });
 
-  it("comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
-    // comma is user-requested; the locale is not consulted for grouping.
-    expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
-    expect(formatNumber(6000, "comma", "en")).toBe("6,000");
+  it("comma style groups regardless of locale and always uses en separators", () => {
+    // comma is language-agnostic: the locale code is not consulted at all, so
+    // zh renders with an en comma instead of 万-based 4-digit grouping.
+    expect(formatNumber(6000, "comma", "zh")).toBe("6,000.0");
+    expect(formatNumber(6000, "comma", "en")).toBe("6,000.0");
   });
 
   it("int style is a plain integer with no grouping (6000 in zh)", () => {
@@ -65,15 +65,30 @@ describe("formatNumber", () => {
     expect(formatNumber(6000, "int", "en")).toBe("6000");
   });
 
-  it("comma style keeps one decimal below 100", () => {
+  it("comma style groups and keeps one decimal by default", () => {
+    // Default is a fixed 1 fraction digit, so the decimal never gets trimmed.
     expect(formatNumber(42.7, "comma")).toBe("42.7");
     expect(formatNumber(99.9, "comma")).toBe("99.9");
+    expect(formatNumber(1234.5, "comma")).toBe("1,234.5");
+    expect(formatNumber(5, "comma")).toBe("5.0");
+  });
+
+  it("comma style takes a numeric fraction-digit count", () => {
+    // Both min and max are set, so decimals stay fixed (1.0, 2.50) rather
+    // than trailing-digit-trimmed. The locale is ignored here — grouping is
+    // pinned to en and language-agnostic.
+    expect(formatNumber(1.5, "comma", 2)).toBe("1.50");
+    expect(formatNumber(10, "comma", 2)).toBe("10.00");
+    expect(formatNumber(0.1, "comma", 2)).toBe("0.10");
+    expect(formatNumber(1000, "comma", 1)).toBe("1,000.0");
+    expect(formatNumber(6000, "comma", 0)).toBe("6,000");
+    expect(formatNumber(6000, "comma", 1)).toBe("6,000.0");
   });
 
   it("handles zero and negative values", () => {
     expect(formatNumber(0, "auto")).toBe("0");
     expect(formatNumber(-6000, "auto", "zh")).toBe("-6000");
-    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000");
+    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000.0");
     expect(formatNumber(-1234.5, "int", "zh")).toBe("-1235");
   });
 
