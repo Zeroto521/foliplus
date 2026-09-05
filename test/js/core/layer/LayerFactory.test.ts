@@ -150,6 +150,24 @@ describe("LayerFactory", () => {
       expect(labelLayer.options.pane).toBe("label1");
     });
 
+    // A Path that is also a label must be pinned to the label pane, not the
+    // graph pane: it joins the label layer group, so pinning the graph pane
+    // would force it back into the wrong renderer.
+    it("pins the label pane on an isLabel L.Path", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        labelPane: "label1",
+      });
+      const path = new window.L.Path();
+      path.isLabel = true;
+      api.addLayer(path);
+      expect(path.options.pane).toBe("label1");
+      const svgCalls = window.L.svg.mock.calls.map((c: any[]) => c[0]);
+      expect(svgCalls.some(o => o.pane === "label1")).toBe(true);
+    });
+
     it("falls through to origAddLayer when no graphPane/labelPane", () => {
       const api = factory.createLayers({ id: "test", name: "Test" });
       const layer = new window.L.Path();

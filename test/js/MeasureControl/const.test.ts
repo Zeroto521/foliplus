@@ -19,39 +19,6 @@ describe("DEL_ICON", () => {
   });
 });
 
-describe("LABEL anchors", () => {
-  const cy = CONST.LABEL.CENTROID_ANCHOR[1];
-
-  it("is horizontally centered on the centroid point", () => {
-    expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
-  });
-
-  it("anchors the label chip above the point so it covers the center dot", () => {
-    // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to measure_graph (no isLabel flag), the label to measure_label —
-    // the label pane always paints above the graph pane, so pane ordering
-    // alone covers the dot without any z-index or anchor trickery. The
-    // default [0, -10] anchor sits the chip *above* the point (negative y in
-    // Leaflet's anchor convention), which covers the dot and clears the
-    // polygon fill's inner area. A positive-y "lift clear of the dot" fix was
-    // the wrong approach: it pushed the chip down into the fill, where a
-    // zoom-out animation reparents the marker-icon to z = Y (equal to the
-    // fill's parent SVG) and the label washes out through backdrop-filter.
-    expect(cy).toBeLessThan(0);
-  });
-
-  it("is distinct from the non-overlapping anchors so a regression is caught", () => {
-    // Radius and midpoint labels sit at different latlngs from their markers,
-    // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values — or to a positive-y "clear the dot via
-    // vertical offset" fix, which hides the real (pane-order) problem.
-    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
-    expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
-    expect(cy).not.toBe(CONST.LABEL.RADIUS_ANCHOR[1]);
-    expect(cy).toBeLessThan(0);
-  });
-});
-
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.ACTIVE).toBe("active");
@@ -60,6 +27,17 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.PATH_DASHED).toContain("foliplus-measure-path-dashed");
     expect(CONST.CLASSES.PATH_PREVIEW).toContain("foliplus-measure-path-preview");
     expect(CONST.CLASSES.SHAPE_FILL).toContain("foliplus-measure-shape-fill");
+  });
+
+  // The node fill states are modifiers, not complete class lists: every node
+  // appends one to the base `.foliplus-measure-node`, which alone provides the
+  // fill/stroke. A variant that carried the base would either double it or
+  // be used alone as an unstyled circle.
+  it("keeps the node variants as modifiers of the base class", () => {
+    const base = CONST.CLASSES.NODE_HOLLOW;
+    expect(base).toBe("foliplus-measure-node");
+    expect(base.split(" ")).toHaveLength(1);
+    expect(CONST.CLASSES.NODE_SOLID.split(" ")).not.toContain(base);
   });
 });
 
@@ -93,7 +71,7 @@ describe("LABEL anchors", () => {
     expect(CONST.LABEL.CENTROID_ANCHOR[0]).toBe(0);
   });
 
-  it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
+  it("anchors the label chip above the point so it clears the center dot", () => {
     // The centroid label (isLabel → measure_label pane) and the center dot
     // (CircleMarker in measure_graph pane) share a latlng. The label pane's
     // z is graph + 1, so the label always paints above the dot by pane
@@ -106,11 +84,11 @@ describe("LABEL anchors", () => {
     expect(cy).toBeLessThan(0);
   });
 
-  it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
+  it("is distinct from the non-overlapping anchors so a regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
     // collapse back to those values — or to a positive-y "clear the dot via
-    // vertical offset" fix, which hides the real (z-index) problem.
+    // vertical offset" fix, which hides the real (pane-order) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
     expect(cy).not.toBe(CONST.LABEL.RADIUS_ANCHOR[1]);

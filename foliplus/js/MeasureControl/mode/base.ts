@@ -98,10 +98,13 @@ class PreviewMode extends MeasureMode {
     this.isFinished = false;
   }
 
-  /** Track a preview layer (adds to layer group + tracks for cleanup). */
-  addPreview<T extends L.Layer>(layer: T): T {
+  /** Track a preview layer (adds to layer group + tracks for cleanup).
+   *  `isLabel` forwards to the layer tree so preview labels route to the label
+   *  pane, which sits above the graph pane — without it a preview label lands
+   *  in the graph pane and is painted under the very path it labels. */
+  addPreview<T extends L.Layer>(layer: T, isLabel = false): T {
     this.previewLayers.push(layer);
-    this.layers.addLayer(layer);
+    this.layers.addLayer(layer, isLabel);
     return layer;
   }
 

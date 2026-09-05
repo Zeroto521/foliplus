@@ -80,8 +80,10 @@ const CLASSES = {
   PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
+  // Node fill states, parallel to PATH_SOLID / PATH_PREVIEW: a modifier that a
+  // node marker always appends to the base, never a complete class list.
   NODE_HOLLOW: "foliplus-measure-node",
-  NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
+  NODE_SOLID: "foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   ACTIVE: "active",
