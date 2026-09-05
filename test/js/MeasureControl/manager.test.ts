@@ -22,6 +22,12 @@ const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
 
+// coordText converts through toWgs84; stub it to an identity so the readout
+// positioning tests don't need a real CRS on the mocked map.
+vi.mock("#common/coord.js", () => ({
+  toWgs84: vi.fn((_map: unknown, lng: number, lat: number) => [lng, lat]),
+}));
+
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
   return {
@@ -182,6 +188,60 @@ describe("MeasureManager — mode switching", () => {
     manager.clearAll();
     expect(layers.clearLayers).toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(0);
+  });
+
+  it("clearActiveMode hides the live readout chip", () => {
+    const { manager, container } = makeManager();
+    manager.setMode(CONST.MODE.MARKER);
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+    expect(readout.hidden).toBe(false);
+    manager.clearActiveMode();
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("setMode shows the readout only when a mode is armed", () => {
+    const { manager, container } = makeManager();
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+    expect(readout.hidden).toBe(true);
+    manager.setMode(CONST.MODE.MARKER);
+    expect(readout.hidden).toBe(false);
+  });
+
+  it("tracks the cursor and anchors the chip above it ([0, -10])", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    manager.setMode(CONST.MODE.MARKER);
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+
+    // The lift lives in CSS (translate), so the inline style is just the
+    // cursor's container point; the horizontal clamp keeps it on-screen.
+    const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    move({ containerPoint: { x: 500, y: 400 }, originalEvent: {} });
+    expect(readout.style.left).toBe("500px");
+    expect(readout.style.top).toBe("400px");
+    expect(readout.style.transform).toBe("");
+    expect(readout.textContent).toBe("121.000000, 31.000000");
+
+    // Near the top edge with no room above, the chip re-anchors below the cursor.
+    move({ containerPoint: { x: 500, y: 2 }, originalEvent: {} });
+    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
+  });
+
+  it("hides the chip on mouseout", () => {
+    const { manager, map, container } = makeManager();
+    manager.setMode(CONST.MODE.MARKER);
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+    const out = (map.on as any).mock.calls.find(([ev]) => ev === "mouseout")?.[1];
+    out();
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("removes the readout element on destroy", () => {
+    const { manager, container } = makeManager();
+    expect(container.querySelector(".foliplus-measure-readout")).not.toBeNull();
+    manager.destroy();
+    expect(container.querySelector(".foliplus-measure-readout")).toBeNull();
   });
 
   it("setMode toggles active class on matching tool button", () => {

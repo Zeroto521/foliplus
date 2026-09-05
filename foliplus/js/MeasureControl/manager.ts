@@ -6,6 +6,7 @@ import { isLayerInPanes } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
@@ -75,6 +76,12 @@ class MeasureManager {
   private labelPlanFrame: number | null = null;
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
+  /** Cursor-following coordinate readout, live for the manager's lifetime.
+   *  null when `show_live_coords` is off. */
+  private coordReadoutEl: HTMLElement | null = null;
+  /** The readout is only created while a mode is armed (setMode), so its
+   *  map listeners are only ever live inside that window. */
+  private coordReadoutEvents: [string, L.LeafletEventHandlerFn][] = [];
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
@@ -127,6 +134,9 @@ class MeasureManager {
     this.toolBtns = [];
     this.ctrl = null;
     this.isEditMode = false;
+
+    this.coordReadoutEl =
+      CONF.show_live_coords !== false ? this.buildCoordReadout() : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -277,6 +287,10 @@ class MeasureManager {
     );
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
+    // The readout tracks the cursor for as long as a mode is armed, including
+    // before the first click: the operator wants the coordinate they are about
+    // to place, not only the ones already placed.
+    this.showCoordReadout();
 
     // Register a high-priority Escape so it wins over all container-bound
     // shortcuts (LayerControl/ExportControl) while a measurement is in
@@ -330,6 +344,70 @@ class MeasureManager {
     this.handleFor(key).closeOverlay = close;
     return () => this.editHandles.delete(key);
   };
+
+  /** Build the cursor-following readout chip, appended to the map container.
+   *  It lives outside the Leaflet panes, so panning and zooming never move it.
+   *  Hidden until a drawing mode is armed — nothing is measured while idle. */
+  private buildCoordReadout(): HTMLElement {
+    const container = document.createElement("div");
+    container.className = CONST.READOUT.CLASS_PREFIX;
+    container.setAttribute("role", "status");
+    container.setAttribute("aria-live", "off");
+    container.hidden = true;
+    this.map.getContainer().appendChild(container);
+    return container;
+  }
+
+  /** Start tracking the pointer. Only called from setMode, so the listeners
+   *  are live exactly while a drawing mode is armed. The map event only
+   *  carries Leaflet's own properties — `clientX` / `clientY` are null and the
+   *  real values live on `event.originalEvent`. */
+  private showCoordReadout(): void {
+    if (!this.coordReadoutEl || this.coordReadoutEvents.length) return;
+    const container = this.coordReadoutEl;
+    const move = (event: L.LeafletMouseEvent): void => {
+      const { x, y } = event.containerPoint;
+      const size = this.map.getSize();
+      const gap = CONST.READOUT.ANCHOR_GAP;
+      // The chip is centered on the cursor and lifted `gap` px above it; when
+      // that would push it past the container edge, keep it inside. This is the
+      // same [0, -10] anchor a measurement label uses on its point.
+      const cx = Math.max(
+        container.offsetWidth / 2,
+        Math.min(size.x - container.offsetWidth / 2, x),
+      );
+      container.style.left = `${cx}px`;
+      container.style.top = `${y}px`;
+      // Near the top edge there is no room above the cursor, so sit below it.
+      container.classList.toggle(
+        CONST.READOUT.CLASS_FLIP,
+        y < container.offsetHeight + gap,
+      );
+      container.textContent = Util.coordText(
+        this.map,
+        this.map.mouseEventToLatLng(event.originalEvent as MouseEvent),
+      );
+    };
+    const handlers: [string, L.LeafletEventHandlerFn][] = [
+      ["mousemove", event => move(event as L.LeafletMouseEvent)],
+      ["mouseout", () => (container.hidden = true)],
+    ];
+    bindMapEvents(this.map, handlers);
+    this.coordReadoutEvents = handlers;
+    container.hidden = false;
+  }
+
+  /** Stop tracking. Called by clearActiveMode, so a finalized measurement
+   *  reports nothing — the chip only ever describes a coordinate under the
+   *  cursor. */
+  private hideCoordReadout(): void {
+    if (!this.coordReadoutEl) return;
+    if (this.coordReadoutEvents.length) {
+      unbindMapEvents(this.map, this.coordReadoutEvents);
+      this.coordReadoutEvents = [];
+    }
+    this.coordReadoutEl.hidden = true;
+  }
 
   /** Close every open edit overlay except the one keyed by `exceptId`, so
    *  selecting a new measurement hides the previously selected one's ✕. */
@@ -483,6 +561,9 @@ class MeasureManager {
     // (LayerControl/ExportControl) can respond again.
     this.measureEscapeCleanup?.();
     this.measureEscapeCleanup = undefined;
+    // A finalized measurement reports nothing: the chip only ever describes
+    // the coordinate under the cursor, which is the transient quantity.
+    this.hideCoordReadout();
     // NOTE: the low-priority Escape (interactionCleanup) stays registered for
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
@@ -517,6 +598,9 @@ class MeasureManager {
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
     this.clearAll();
+    this.hideCoordReadout();
+    this.coordReadoutEl?.remove();
+    this.coordReadoutEl = null;
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);

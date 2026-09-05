@@ -162,3 +162,46 @@ path.foliplus-measure-node-solid {
     transform: var(--label-center) scale(1);
   }
 }
+
+/* ── Live coordinate readout ──
+   A small chip that trails the pointer while a drawing mode is armed, so the
+   operator sees the coordinate they are about to place without moving to the
+   map edge. It is styled exactly like a measurement label and anchored to the
+   cursor the same way: centered horizontally, its bottom edge this many px
+   above the pointer (the label's [0, -10] convention). It sits on the container
+   (not a Leaflet pane), so panning and zooming never move it; `pointer-events:
+   none` keeps every click reaching the map. `left` / `top` are driven inline by
+   the mousemove handler; the vertical lift and the near-edge flip live here. */
+.foliplus-measure-readout {
+  position: absolute;
+  z-index: 600;
+  display: inline-block;
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, var(--alpha-50));
+  color: var(--neutral-0);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: var(--shadow-xs);
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, calc(-100% - 10px));
+  /* Keep the last position when the chip is hidden so re-arming does not
+     visibly jump in from a corner. */
+}
+
+/* The UA stylesheet hides `[hidden]` with `display: none`, but the explicit
+   `display: inline-block` above would override it — restate it so a hidden chip
+   actually disappears. */
+.foliplus-measure-readout[hidden] {
+  display: none;
+}
+
+/* Near the top edge the chip has no room to sit above the cursor, so it is
+   re-anchored below it instead (bottom edge `gap` px under the pointer). */
+.foliplus-measure-readout-flip {
+  transform: translate(-50%, 10px);
+}
