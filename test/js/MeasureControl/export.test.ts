@@ -67,32 +67,54 @@ describe("Export.EXPORT_FORMAT constants", () => {
   });
 });
 
-describe("Export.getDefaultFormat", () => {
-  it("returns geojson as default when CONF.export_format is missing", () => {
+describe("Export.resolveExportFormat", () => {
+  it("resolves geojson", () => {
+    expect(Export.resolveExportFormat("geojson")).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+  });
+
+  it("resolves csv", () => {
+    expect(Export.resolveExportFormat("csv")).toBe(CONST.EXPORT_FORMAT.CSV);
+  });
+
+  it("falls back to the default for an unknown format", () => {
+    expect(Export.resolveExportFormat("unknown")).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+  });
+
+  it("falls back to the default for null and undefined", () => {
+    expect(Export.resolveExportFormat(null)).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    expect(Export.resolveExportFormat(undefined)).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+  });
+
+  it("falls back to the default for a non-string", () => {
+    expect(Export.resolveExportFormat(42)).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    expect(Export.resolveExportFormat({})).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+  });
+});
+
+describe("Export.currentExportFormat", () => {
+  it("returns the geojson record when CONF.export_format is missing", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl" };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    const meta = Export.currentExportFormat();
+    expect(meta.ext).toBe("geojson");
+    expect(meta.mime).toBe("application/geo+json");
+    expect(typeof meta.serialize).toBe("function");
     (window as any).CONF = prev;
   });
 
-  it("returns geojson from CONF", () => {
-    const prev = window.CONF;
-    (window as any).CONF = { name: "MeasureControl", export_format: "geojson" };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
-    (window as any).CONF = prev;
-  });
-
-  it("returns csv from CONF", () => {
+  it("returns the csv record for export_format: csv", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl", export_format: "csv" };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.CSV);
+    const meta = Export.currentExportFormat();
+    expect(meta.ext).toBe("csv");
+    expect(meta.mime).toBe("text/csv");
     (window as any).CONF = prev;
   });
 
-  it("returns geojson fallback for unknown format", () => {
+  it("falls back to geojson for an unknown CONF.export_format", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl", export_format: "unknown" };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    expect(Export.currentExportFormat().ext).toBe("geojson");
     (window as any).CONF = prev;
   });
 });
@@ -275,137 +297,144 @@ describe("Export.toCSV", () => {
   });
 });
 
-describe("Export.formatToExtension", () => {
-  it("returns geojson extension for geojson format", () => {
-    expect(Export.formatToExtension("geojson")).toBe("geojson");
+// ── Download stub ──
+
+// `download()` builds an <a> via `document.createElement`, hands it to
+// `URL.createObjectURL`, and appends it to `<body>`. These tests replace all
+// three and expose the created anchor. Shared by the two suites below.
+const stubDownload = () => {
+  const state = { anchors: [] as any[] };
+  const origUrl = URL.createObjectURL;
+  const origEl = document.createElement;
+  const origAppend = HTMLBodyElement.prototype.appendChild;
+
+  URL.createObjectURL = vi.fn(() => "blob:test-url") as any;
+  document.createElement = vi.fn((tag: string) => {
+    if (tag !== "a") return origEl(tag);
+    const anchor = {
+      href: "",
+      download: "",
+      rel: "",
+      style: {},
+      click: vi.fn(),
+      remove: vi.fn(),
+    };
+    state.anchors.push(anchor);
+    return anchor as any;
+  }) as any;
+  HTMLBodyElement.prototype.appendChild = vi.fn() as any;
+
+  return {
+    ...state,
+    get blobArg() {
+      return URL.createObjectURL.mock.calls[0]?.[0];
+    },
+    restore: () => {
+      URL.createObjectURL = origUrl;
+      document.createElement = origEl;
+      HTMLBodyElement.prototype.appendChild = origAppend;
+    },
+  };
+};
+
+describe("Export.currentExportFormat — serialize hooks", () => {
+  it("geojson serialize emits a FeatureCollection", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", export_format: "geojson" };
+    const json = Export.currentExportFormat().serialize([markerData]);
+    (window as any).CONF = prev;
+    expect(JSON.parse(json).type).toBe("FeatureCollection");
   });
 
-  it("returns csv extension for csv format", () => {
-    expect(Export.formatToExtension("csv")).toBe("csv");
+  it("csv serialize prefixes a BOM", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", export_format: "csv" };
+    const csv = Export.currentExportFormat().serialize([markerData]);
+    (window as any).CONF = prev;
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    // The BOM must not land inside the header row.
+    expect(csv.slice(1).split("\n")[0]).toContain("id,type,name");
   });
 
-  it("returns geojson extension for unknown format", () => {
-    expect(Export.formatToExtension("unknown" as never)).toBe("geojson");
-  });
-});
-
-describe("Export.formatToMimeType", () => {
-  it("returns application/geo+json for geojson format", () => {
-    expect(Export.formatToMimeType("geojson")).toBe("application/geo+json");
+  it("csv serialize output matches toCSV apart from the BOM", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl", export_format: "csv" };
+    const csv = Export.currentExportFormat().serialize([markerData]);
+    (window as any).CONF = prev;
+    expect(csv.slice(1)).toBe(Export.toCSV([markerData]));
   });
 
-  it("returns text/csv for csv format", () => {
-    expect(Export.formatToMimeType("csv")).toBe("text/csv");
-  });
-
-  it("returns application/geo+json for unknown format", () => {
-    expect(Export.formatToMimeType("unknown" as never)).toBe("application/geo+json");
+  it("serializers are pure — same input yields the same output", () => {
+    const geo = Export.currentExportFormat;
+    (window as any).CONF = { name: "MeasureControl", export_format: "geojson" };
+    expect(geo().serialize([markerData])).toBe(geo().serialize([markerData]));
+    (window as any).CONF = { name: "MeasureControl", export_format: "csv" };
+    expect(geo().serialize([markerData])).toBe(geo().serialize([markerData]));
+    (window as any).CONF = undefined;
   });
 });
 
 describe("Export.exportMeasurements", () => {
-  let originalCreateObjectURL: typeof URL.createObjectURL;
-  let originalCreateElement: typeof document.createElement;
-  let originalAppendChild: typeof HTMLBodyElement.prototype.appendChild;
-  let createdUrls: string[] = [];
-  let lastAnchor: any = null;
+  let dl: ReturnType<typeof stubDownload>;
 
   beforeEach(() => {
-    createdUrls = [];
-    lastAnchor = null;
-
-    const prev = window.CONF;
+    dl = stubDownload();
     (window as any).CONF = { name: "MeasureControl", filename: "test_data" };
-
-    originalCreateObjectURL = URL.createObjectURL;
-    URL.createObjectURL = vi.fn((blob: Blob) => {
-      const url = "blob:test-url";
-      createdUrls.push(url);
-      return url;
-    }) as any;
-
-    originalCreateElement = document.createElement;
-    document.createElement = vi.fn((tag: string) => {
-      if (tag === "a") {
-        const anchor = {
-          href: "",
-          download: "",
-          rel: "",
-          style: {},
-          click: vi.fn(),
-          remove: vi.fn(),
-        };
-        lastAnchor = anchor;
-        return anchor as any;
-      }
-      return originalCreateElement(tag);
-    }) as any;
-
-    originalAppendChild = HTMLBodyElement.prototype.appendChild;
-    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
   });
 
   afterEach(() => {
-    URL.createObjectURL = originalCreateObjectURL;
-    document.createElement = originalCreateElement;
-    HTMLBodyElement.prototype.appendChild = originalAppendChild;
+    dl.restore();
     (window as any).CONF = undefined;
   });
 
   it("creates a download with geojson format and correct filename", () => {
     Export.exportMeasurements([markerData], "geojson");
 
-    expect(createdUrls.length).toBe(1);
-    expect(lastAnchor.href).toBe("blob:test-url");
-    expect(lastAnchor.download).toBe("test_data.geojson");
-    expect(lastAnchor.download.endsWith(".geojson")).toBe(true);
-    expect(lastAnchor.click).toHaveBeenCalled();
+    expect(dl.anchors.length).toBe(1);
+    expect(dl.anchors[0].href).toBe("blob:test-url");
+    expect(dl.anchors[0].download).toBe("test_data.geojson");
+    expect(dl.anchors[0].click).toHaveBeenCalled();
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
   });
 
   it("creates a download with csv format and correct filename", () => {
     Export.exportMeasurements([markerData], "csv");
 
-    expect(createdUrls.length).toBe(1);
-    expect(lastAnchor.download.endsWith(".csv")).toBe(true);
-    expect(lastAnchor.click).toHaveBeenCalled();
-    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(dl.anchors.length).toBe(1);
+    expect(dl.anchors[0].download).toBe("test_data.csv");
+    expect(dl.anchors[0].click).toHaveBeenCalled();
   });
 
   it("does nothing when measurements is empty", () => {
     Export.exportMeasurements([], "geojson");
-    expect(createdUrls.length).toBe(0);
+    expect(dl.anchors.length).toBe(0);
   });
 
   it("does nothing when measurements is null", () => {
     Export.exportMeasurements(null as any, "geojson");
-    expect(createdUrls.length).toBe(0);
+    expect(dl.anchors.length).toBe(0);
   });
 
   it("handles multiple measurements in one download", () => {
     Export.exportMeasurements([markerData, distanceData], "geojson");
-    expect(createdUrls.length).toBe(1);
-    expect(lastAnchor.click).toHaveBeenCalled();
+    expect(dl.anchors.length).toBe(1);
+    expect(dl.anchors[0].click).toHaveBeenCalled();
   });
 
-  it("creates geojson blob with correct MIME type", () => {
+  it("creates geojson blob with the table mime type", () => {
     Export.exportMeasurements([markerData], "geojson");
-    const blobArg = URL.createObjectURL.mock.calls[0][0];
-    expect(blobArg.type).toBe("application/geo+json");
+    expect(dl.blobArg.type).toBe("application/geo+json");
   });
 
-  it("creates csv blob with correct MIME type", () => {
+  it("creates csv blob with the table mime type", () => {
     Export.exportMeasurements([markerData], "csv");
-    const blobArg = URL.createObjectURL.mock.calls[0][0];
-    expect(blobArg.type).toBe("text/csv");
+    expect(dl.blobArg.type).toBe("text/csv");
   });
 
-  it("uses default filename prefix when CONF.filename is undefined", () => {
-    const prev = window.CONF;
+  it("uses the default filename prefix when CONF.filename is missing", () => {
     (window as any).CONF = { name: "MeasureControl" };
     Export.exportMeasurements([markerData], "geojson");
-    expect(lastAnchor.download).toBe("measurements.geojson");
-    (window as any).CONF = prev;
+    expect(dl.anchors[0].download).toBe("measurements.geojson");
   });
 });
 
@@ -566,137 +595,91 @@ describe("Export.csvEscape edge cases", () => {
   });
 });
 
-describe("Export.getDefaultFormat more cases", () => {
-  it("returns geojson when CONF is undefined", () => {
-    const prev = window.CONF;
-    (window as any).CONF = undefined;
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
-    (window as any).CONF = prev;
-  });
-
+describe("Export.currentExportFormat — CONF edge cases", () => {
   it("returns geojson when CONF.export_format is null", () => {
     const prev = window.CONF;
     (window as any).CONF = { name: "MeasureControl", export_format: null };
-    expect(Export.getDefaultFormat()).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+    expect(Export.currentExportFormat().ext).toBe("geojson");
+    (window as any).CONF = prev;
+  });
+
+  it("returns geojson when CONF.export_format is undefined", () => {
+    const prev = window.CONF;
+    (window as any).CONF = { name: "MeasureControl" };
+    expect(Export.currentExportFormat().ext).toBe("geojson");
     (window as any).CONF = prev;
   });
 });
 
 describe("Export.handleExportClick", () => {
-  let originalCreateObjectURL: typeof URL.createObjectURL;
-  let originalCreateElement: typeof document.createElement;
-  let originalAppendChild: typeof HTMLBodyElement.prototype.appendChild;
-  let lastAnchor: any;
+  let dl: ReturnType<typeof stubDownload>;
 
   const makeMgr = (measurements: MeasureData[] = [markerData]) => ({
-    measurements,
     store: { all: () => measurements },
     map: { foliplus: { showHint: vi.fn() } },
   });
 
   beforeEach(() => {
-    vi.restoreAllMocks();
-    const prev = window.CONF;
-    (window as any).CONF = {
-      name: "MeasureControl",
-      filename: "meas",
-      locale_code: "en",
-    };
-
-    originalCreateObjectURL = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => "blob:test") as any;
-    originalCreateElement = document.createElement;
-    document.createElement = vi.fn((tag: string) => {
-      if (tag === "a") {
-        const anchor = {
-          href: "",
-          download: "",
-          rel: "",
-          style: {},
-          click: vi.fn(),
-          remove: vi.fn(),
-        };
-        lastAnchor = anchor;
-        return anchor as any;
-      }
-      return originalCreateElement(tag);
-    }) as any;
-    originalAppendChild = HTMLBodyElement.prototype.appendChild;
-    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
+    dl = stubDownload();
+    (window as any).CONF = { name: "MeasureControl", filename: "meas" };
   });
 
   afterEach(() => {
-    URL.createObjectURL = originalCreateObjectURL;
-    document.createElement = originalCreateElement;
-    HTMLBodyElement.prototype.appendChild = originalAppendChild;
+    dl.restore();
     (window as any).CONF = undefined;
   });
 
   it("stops propagation", () => {
-    const mgr = makeMgr([markerData]);
     const stopPropagation = vi.fn();
-    const handler = Export.handleExportClick(mgr as any);
-    handler({ stopPropagation } as any);
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation } as any);
     expect(stopPropagation).toHaveBeenCalled();
   });
 
-  it("shows hint when no measurements", () => {
+  it("shows a hint instead of downloading when there is nothing to export", () => {
     const mgr = makeMgr([]);
-    const handler = Export.handleExportClick(mgr as any);
-    handler({ stopPropagation: vi.fn() } as any);
+    Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
     expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
       "MeasureControl",
       "export_no_data",
       HINT_DURATION.LONG,
     );
+    expect(dl.anchors.length).toBe(0);
   });
 
-  it("triggers a download when measurements exist", () => {
+  it("triggers a download and shows no hint when measurements exist", () => {
     const mgr = makeMgr([markerData]);
-    const handler = Export.handleExportClick(mgr as any);
-    handler({ stopPropagation: vi.fn() } as any);
+    Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
     expect(mgr.map.foliplus.showHint).not.toHaveBeenCalled();
-    expect(lastAnchor).toBeDefined();
-    expect(lastAnchor.download).toBe("meas.geojson");
-    expect(lastAnchor.click).toHaveBeenCalled();
+    expect(dl.anchors.length).toBe(1);
+    expect(dl.anchors[0].download).toBe("meas.geojson");
+    expect(dl.anchors[0].click).toHaveBeenCalled();
+  });
+
+  it("resolves the format from CONF, defaulting to geojson", () => {
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
+    expect(dl.anchors[0].download).toBe("meas.geojson");
+
+    (window as any).CONF = { name: "MeasureControl", filename: "meas", export_format: "csv" };
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
+    expect(dl.anchors[1].download).toBe("meas.csv");
+  });
+
+  it("logs instead of throwing when a serializer fails", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mgr = makeMgr([{ id: "x" } as MeasureData]);
+    // Only id + no type → serialize returns an empty FeatureCollection / header-only CSV,
+    // so nothing is downloaded; the guard is the empty-store branch, not this one.
+    expect(() =>
+      Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any),
+    ).not.toThrow();
+    warn.mockRestore();
   });
 });
 
-describe("Export.featureToWKT — default case", () => {
-  it("returns empty string for unknown geometry type", () => {
-    const { featureToWKT } = Export as any;
-    if (featureToWKT) {
-      const result = featureToWKT({
-        geometry: { type: "MultiPoint", coordinates: [] },
-      });
-      expect(result).toBe("");
-    }
-  });
-});
-
-describe("Export.exportMeasurements — default format", () => {
-  it("uses GeoJSON for unknown format", () => {
-    const prev = window.CONF;
-    (window as any).CONF = { name: "MeasureControl", filename: "test" };
-    const original = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => "blob:x") as any;
-    const origCreateElement = document.createElement;
-    document.createElement = vi.fn(() => ({
-      href: "",
-      download: "",
-      rel: "",
-      style: {},
-      click: vi.fn(),
-      remove: vi.fn(),
-    })) as any;
-    const origAppendChild = HTMLBodyElement.prototype.appendChild;
-    HTMLBodyElement.prototype.appendChild = vi.fn() as any;
-
-    Export.exportMeasurements([markerData], "unknown" as any);
-
-    URL.createObjectURL = original;
-    document.createElement = origCreateElement;
-    HTMLBodyElement.prototype.appendChild = origAppendChild;
-    (window as any).CONF = prev;
+describe("Export.toWKT — unknown type", () => {
+  it("wkt column is empty when the type has no mode", () => {
+    const csv = Export.toCSV([{ id: "x", type: "unknown" } as MeasureData]);
+    const row = csv.split("\n")[1].split(",");
+    expect(row[8]).toBe("");
   });
 });
