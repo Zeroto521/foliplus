@@ -5,7 +5,7 @@
 // global names.
 
 /** Options for registerLayer / createLayerInfo. */
-export interface RegisterLayerOpts {
+interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
@@ -28,7 +28,7 @@ export interface RegisterLayerOpts {
 }
 
 /** A layer entry in the ordered registry (read-only view). */
-export interface LayerInfo {
+interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
@@ -55,7 +55,7 @@ export interface LayerInfo {
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-export interface LabelAwareLayer extends L.Layer {
+interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
   isNode?: boolean;
   options: L.LayerOptions & {
@@ -66,7 +66,7 @@ export interface LabelAwareLayer extends L.Layer {
 }
 
 /** Options for `LayerAPI.createLayers`. */
-export interface CreateLayersOpts {
+interface CreateLayersOpts {
   id: string;
   name?: string;
   graphPane?: string;
@@ -82,7 +82,7 @@ export interface CreateLayersOpts {
 }
 
 /** Options for `LayerAPI.createCanvas`. */
-export interface CreateCanvasOpts {
+interface CreateCanvasOpts {
   id: string;
   name?: string;
   className?: string;
@@ -99,7 +99,7 @@ export interface CreateCanvasOpts {
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
-export interface CreateCanvasAPI {
+interface CreateCanvasAPI {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;
@@ -115,7 +115,7 @@ export interface CreateCanvasAPI {
 }
 
 /** Return type of `LayerAPI.createLayers`. */
-export interface CreateLayersAPI {
+interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
   addLayer: (layer: L.Layer, isLabel?: boolean, isNode?: boolean) => L.Layer;
   removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
@@ -133,7 +133,7 @@ export interface CreateLayersAPI {
  *   - ensureLayerAPI's lightweight default (createLayers/createCanvas only;
  *     registry/query methods are no-ops returning empty results)
  */
-export interface LayerAPI {
+interface LayerAPI {
   /** Diagnostic marker (true = LayerManager, false = lightweight stub).
    * Not authoritative for dependency checks — use isRealLayerControl, which
    * asserts the registry-delegating `layers` getter that only LayerManager
@@ -161,3 +161,14 @@ export interface LayerAPI {
    *  Null when the layer cannot be counted (e.g. Canvas without provider). */
   getFeatureCount?: (id: string) => number | null;
 }
+
+export type {
+  RegisterLayerOpts,
+  LayerInfo,
+  LabelAwareLayer,
+  CreateLayersOpts,
+  CreateCanvasOpts,
+  CreateCanvasAPI,
+  CreateLayersAPI,
+  LayerAPI,
+};

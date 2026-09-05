@@ -988,6 +988,39 @@ describe("LayerManager", () => {
       expect(node.style.zIndex).toBe("");
       expect(graph.style.zIndex).not.toBe("");
     });
+
+    it("z-orders discovered child panes and skips the fallback pane", () => {
+      const graph = document.createElement("div");
+      const label = document.createElement("div");
+      map._panes = { child_graph: graph, child_label: label };
+      map.getPane = vi.fn((name: string) => map._panes[name]);
+      // The group's own subtree must reach the label pane through a second
+      // container, not the layer's own options.pane — that is what makes the
+      // discovered set contain more than the layer's graph pane.
+      const data = {
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) =>
+          cb({ options: { pane: "child_label" } }),
+      };
+      const layer = {
+        options: { pane: "child_graph" },
+        eachLayer: (cb: (l: unknown) => void) => cb(data),
+      };
+      manager.panes.labelPanes.add("child_label");
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({ id: "d1", name: "D1", layer });
+
+      manager.enforceOrder();
+
+      const z = Number(graph.style.zIndex);
+      expect(z).toBeGreaterThan(0);
+      // Label panes are bumped one step above the graph pane's z.
+      expect(Number(label.style.zIndex)).toBe(z + 1);
+      expect(layer.options.paneSet).toBe(true);
+      // Discovered child panes are handled by their own branch; a fallback
+      // pane for this layer must not be created alongside them.
+      expect(manager.panes.fallbackPaneMap.has(window.L.stamp(layer))).toBe(false);
+    });
   });
 
   describe("getFeatureCount", () => {
@@ -1151,6 +1184,24 @@ describe("LayerManager", () => {
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("ghost");
       expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+    });
+
+    // The createLayers wiring hands invalidateType / onDataChange to the factory
+    // as thin closures — the body they resolve to is what the factory calls on
+    // every add/remove. Exercise them through that path.
+    it("wires createLayers addLayer to invalidateType and onDataChange", () => {
+      manager.map.hasLayer.mockReturnValue(true);
+      const api = manager.createLayers({ id: "w1", name: "W1", graphPane: "g" });
+      manager.registerLayer({ id: "w1", name: "W1", layer: api.mainLayer });
+      manager.layerRegistry.get("w1")!.type = GEOM_TYPE.POINT;
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+
+      api.addLayer(new window.L.Path());
+
+      expect(manager.layerRegistry.get("w1")!.type).toBeNull();
+      expect(handler).toHaveBeenCalledWith({ id: "w1" });
     });
   });
 

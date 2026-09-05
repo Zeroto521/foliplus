@@ -554,6 +554,32 @@ describe("LayerFactory", () => {
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onZIndex }));
     });
 
+    it("uses default onToggle and onZIndex when none are supplied", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createCanvas({ id: "test" });
+      api.register();
+
+      const registered = reg.mock.calls[0][0] as any;
+      expect(typeof registered.onToggle).toBe("function");
+      expect(typeof registered.onZIndex).toBe("function");
+
+      // The defaults must actually drive the canvas, not be inert stubs.
+      registered.onToggle(false);
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+      registered.onToggle(true);
+      expect(api.canvas.classList.contains("hidden")).toBe(false);
+      registered.onZIndex(7);
+      expect(api.canvas.style.zIndex).toBe("7");
+    });
+
     it("removeLayer routes from graphLayer when present", () => {
       const api = factory.createLayers({
         id: "test",
@@ -582,6 +608,23 @@ describe("LayerFactory", () => {
       expect(api.registered()).toBe(true);
       api.removeLayer(labelLayer);
       // Label layer was removed from the label sub-layer; registered stays true
+      // (removeLayer does not auto-unregister; only clearLayers does)
+      expect(api.registered()).toBe(true);
+    });
+
+    it("removeLayer routes from nodeLayer when isNode", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+      });
+      const nodeLayer = new window.L.Marker();
+      nodeLayer.isNode = true;
+      api.addLayer(nodeLayer);
+      expect(api.registered()).toBe(true);
+      api.removeLayer(nodeLayer);
+      // Node layer was removed from the node sub-layer; registered stays true
       // (removeLayer does not auto-unregister; only clearLayers does)
       expect(api.registered()).toBe(true);
     });
