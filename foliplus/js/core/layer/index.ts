@@ -1,7 +1,6 @@
 // core — shared layer-management primitives (pure logic, no CONF/DOM).
 // LayerControl composes these via LayerManager; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
-
 export {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
