@@ -1,3 +1,15 @@
+import type * as ChromaJs from "chroma-js";
+import type * as GeoJSON from "geojson";
+import type * as Leaflet from "leaflet";
+import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
+import type {
+  CreateCanvasAPI as CoreCreateCanvasAPI,
+  CreateLayersAPI as CoreCreateLayersAPI,
+  LayerAPI as CoreLayerAPI,
+  LayerInfo as CoreLayerInfo,
+} from "#core/layer/type.js";
+import type { ModeManager as CoreModeManager } from "#core/mode.js";
+
 /**
  * Ambient declarations for globals injected at runtime by the foliplus
  * Python↔JS bridge (Leaflet, the foliplus runtime, per-control config).
@@ -17,18 +29,6 @@
 // Re-exported into the global scope so ``CONF.<field>: NumberStyle`` typechecks
 // in every component bundle without importing #common/format.js just for the type.
 export type { NumberStyle } from "#common/format.js";
-
-import type * as ChromaJs from "chroma-js";
-import type * as GeoJSON from "geojson";
-import type * as Leaflet from "leaflet";
-import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
-import type {
-  CreateCanvasAPI as CoreCreateCanvasAPI,
-  CreateLayersAPI as CoreCreateLayersAPI,
-  LayerAPI as CoreLayerAPI,
-  LayerInfo as CoreLayerInfo,
-} from "#core/layer/type.js";
-import type { ModeManager as CoreModeManager } from "#core/mode.js";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
