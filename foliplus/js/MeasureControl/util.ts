@@ -2,6 +2,7 @@
 import { toWgs84 } from "#common/coord.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml, dom } from "#common/dom.js";
+import { formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -12,12 +13,12 @@ import * as CONST from "./const.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
-/** Format meters to human-readable string (e.g. "1.2 km", "500 m"). */
-const formatDistance = (meters: number): string => {
-  return meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
-    : `${Math.round(meters)} m`;
-};
+/** Format meters to human-readable string: "999 m" under the km threshold,
+ *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
+const formatDistance = (meters: number): string =>
+  meters >= CONST.FORMAT.KM_THRESHOLD
+    ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
+    : `${formatNumber(meters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
@@ -31,10 +32,11 @@ const formatSegmentLabel = (
   return `${bVal}° | ${dist}`;
 };
 
-/** Format area: "1,234 m²" or "1.23 km²". */
+/** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
-  if (sqMeters >= 1_000_000) return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
-  return `${Math.round(sqMeters).toLocaleString()} m²`;
+  if (sqMeters >= 1_000_000)
+    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
+  return `${formatNumber(sqMeters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
 };
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click

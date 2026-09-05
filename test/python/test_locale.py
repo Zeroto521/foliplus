@@ -200,6 +200,10 @@ _JS_USED_KEYS = {
     "MeasureControl.name_polygon",
     "MeasureControl.name_circle",
     "MeasureControl.export_no_data",
+    "MeasureControl.export_success",
+    "MeasureControl.export_file",
+    "MeasureControl.export_fail",
+    "MeasureControl.err_export",
     "MeasureControl.export_paused",
     "MeasureControl.readout_label",
     # ScaleControl

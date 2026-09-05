@@ -237,8 +237,7 @@ class ExportRenderer {
     const dw = w * scale;
     const dh = h * scale;
     if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-    const dataUrl = ce.toDataURL(mimeType);
+    const dataUrl = ce.toDataURL(CONST.MIME_LOSSLESS);
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
@@ -404,8 +403,7 @@ class ExportRenderer {
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-        const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-        const dataUrl = (ce as HTMLCanvasElement).toDataURL(mimeType);
+        const dataUrl = (ce as HTMLCanvasElement).toDataURL(CONST.MIME_LOSSLESS);
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;

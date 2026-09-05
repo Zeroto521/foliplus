@@ -1,5 +1,14 @@
+// ============================================================================
+// Static configuration.
+//
+// All declarations are private here and re-exported together from the single
+// `export` block at the end of the file. Everything about an export format
+// (mime type, file extension, codec class, pipeline routing) reads from one
+// `FORMAT` record — add a format by adding one row there.
+// ============================================================================
+
 /** Crop-box constraints. */
-export const CROP = {
+const CROP = {
   MIN_SIZE: 40,
   PADDING_RATIO: 0.25,
   CONTAINER_PADDING: 200,
@@ -18,28 +27,19 @@ export const CROP = {
 };
 
 /** Arrow keys that nudge the crop box position (unlocked state). */
-export const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
-export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
+const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
-export const TIMING = {
+const TIMING = {
   TIMEOUT: CONF.timeout,
   RESTORE_DELAY: 200,
 };
 
-// MIME type lookup (format → toBlob mime, toDataURL mime)
-export const MIME = {
-  DEFAULT: "image/png", // Default MIME when CONF.format is not in MIME
-  png: "image/png",
-  jpeg: "image/jpeg",
-  webp: "image/webp",
-  tif: "image/tiff",
-};
-
 /** CSS class names used during render. */
-export const CLASSES = {
+const CLASSES = {
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   TOOL_BTN: "foliplus-tool-btn",
@@ -57,10 +57,10 @@ export const CLASSES = {
   DRAGGING: "dragging",
 };
 
-export const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** DOM selectors used during render. */
-export const SEL = {
+const SEL = {
   CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
@@ -121,7 +121,7 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  * Vendor-prefixed accessors (moz/webkit) are consulted so Firefox and older
  * Safari work.  Standard `navigator.connection` wins when present.
  */
-export const detectConcurrency = (): number => {
+const detectConcurrency = (): number => {
   const conn =
     (navigator as any).connection ||
     (navigator as any).mozConnection ||
@@ -141,8 +141,70 @@ export const detectConcurrency = (): number => {
   return CONN_CONCURRENCY[et] ?? DEFAULT_CONN_CONCURRENCY[et] ?? DEFAULT_CONCURRENCY;
 };
 
-/**
- * Maximum concurrent tile fetches during render.  Auto-detected at module
- * load — no user-configurable override.
- */
-export const TILE_CONCURRENCY: number = detectConcurrency();
+/** Maximum concurrent tile fetches during render. Auto-detected at module load. */
+const TILE_CONCURRENCY: number = detectConcurrency();
+
+// ============================================================================
+// Export formats — single source for everything format-specific.
+// ============================================================================
+
+/** Export format key — mirrors Python's `ExportControl.FORMAT` literal. */
+type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
+
+/** Per-format descriptor. */
+interface FormatSpec {
+  /** `toBlob()` / `toDataURL()` mime type. */
+  mime: string;
+  /** File extension (no dot). */
+  ext: string;
+  /** Lossy codec — the single compress pass happens at write time. */
+  lossy: boolean;
+  /** Routed through `downloadGeoTiff` instead of a plain blob download. */
+  geotiff: boolean;
+}
+
+const FORMAT: Record<ExportFormat, FormatSpec> = {
+  png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
+  // `ext` is the historical user-visible name — `jpeg`, not `jpg`.
+  jpeg: { mime: "image/jpeg", ext: "jpeg", lossy: true, geotiff: false },
+  webp: { mime: "image/webp", ext: "webp", lossy: true, geotiff: false },
+  geotiff: { mime: "image/tiff", ext: "tif", lossy: false, geotiff: true },
+};
+
+/** Lossless mime for intermediate `toDataURL()` snapshots inside the renderer.
+ * Composing passes must stay lossless — encoding to the requested format is
+ * applied once, at download time. */
+const MIME_LOSSLESS = FORMAT.png.mime;
+
+/** Resolve a runtime `CONF.format` to a table key. Python's `ExportControl`
+ * rejects anything outside `FORMAT`, so this only guards misconfiguration. */
+const resolveFormat = (raw: unknown): ExportFormat =>
+  typeof raw === "string" && Object.prototype.hasOwnProperty.call(FORMAT, raw)
+    ? (raw as ExportFormat)
+    : "png";
+
+/** The record for `CONF.format` — no cast, no DEFAULT fallback. */
+const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
+
+// ============================================================================
+// Public API — every consumer reads CONST.<name>; add nothing to this block
+// without declaring it above. Types come first, then values.
+// ============================================================================
+
+export type { ExportFormat, FormatSpec };
+
+export {
+  CROP,
+  NUDGE_KEYS,
+  STORAGE,
+  TIMING,
+  CLASSES,
+  SVG_NS,
+  SEL,
+  detectConcurrency,
+  TILE_CONCURRENCY,
+  FORMAT,
+  MIME_LOSSLESS,
+  resolveFormat,
+  currentFormat,
+};

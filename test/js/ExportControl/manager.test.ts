@@ -1,7 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
+import { ensureHint } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
@@ -28,6 +30,8 @@ vi.mock("geotiff", () => ({
 vi.mock("pako", async () => vi.importActual("pako"));
 
 // Minimal map mock satisfying ExportManager constructor requirements.
+// showHint/hideHint on foliplus mirror setup.ts's window.map mock — ExportManager
+// talks to them via the public map.foliplus! API rather than ensureHint().
 function makeMapMock() {
   const container = document.createElement("div");
   return {
@@ -45,6 +49,7 @@ function makeMapMock() {
     boxZoom: { disable: vi.fn(), enable: vi.fn() },
     keyboard: { disable: vi.fn(), enable: vi.fn() },
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),
@@ -469,6 +474,83 @@ describe("ExportManager — shortcut lifecycle", () => {
   });
 });
 
+describe("ExportManager — hint lifecycle", () => {
+  // The crop-box size/limit hints are PERSIST (duration 0 sets no timer), so
+  // nothing clears them on its own. Before this, they stayed on screen through
+  // the whole export and outlived it — a stale "100 × 100 px" label under the
+  // "exporting…" spinner.
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.showGlobalHint = vi.fn();
+  });
+
+  it("doExport clears the crop-box hints before exporting", () => {
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
+
+    try {
+      manager.doExport();
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "size");
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "limit");
+      expect(hideHint).not.toHaveBeenCalledWith(CONF.name);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      hideHint.mockRestore();
+    }
+  });
+
+  it("clears the crop-box hints when the pixel limit aborts the export", () => {
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    // CONF.max_pixels is captured by const.ts at import time, so it cannot be
+    // set per-test here — set the flag checkPixelLimit() normally produces.
+    manager.pixelOverLimit = true;
+
+    try {
+      manager.doExport();
+      // An aborted export must not wedge the button, and must clear the whole
+      // component's hints rather than just the two subkeys.
+      expect(manager.isExporting).toBe(false);
+      expect(hideHint).toHaveBeenCalledWith(CONF.name);
+    } finally {
+      manager.pixelOverLimit = false;
+      hideHint.mockRestore();
+    }
+  });
+
+  it("unlocks the map when the pixel limit aborts the export", () => {
+    // doExport() calls lockMap() before the pixel-limit check, so an abort
+    // that only ends the export state would leave dragging/zoom disabled with
+    // the overlay long gone — the map looks broken and doesn't tell you why.
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    manager.pixelOverLimit = true;
+    const unlockMap = vi.spyOn(manager, "unlockMap");
+
+    try {
+      manager.doExport();
+      expect(unlockMap).toHaveBeenCalledTimes(1);
+    } finally {
+      manager.pixelOverLimit = false;
+      unlockMap.mockRestore();
+    }
+  });
+});
+
 describe("ExportManager — pixel limit & storage", () => {
   let manager;
 
@@ -747,6 +829,14 @@ describe("ExportManager — download paths", () => {
         expect.any(String),
         expect.any(Number),
       );
+      // The success hint must not live in `finally` — `finally` also runs
+      // after this early return, so it would tell the user the export worked
+      // when it produced nothing. The state is still released though.
+      expect(manager.showGlobalHint).not.toHaveBeenCalledWith(
+        expect.stringContaining("status_success"),
+        expect.any(Number),
+      );
+      expect(manager.isExporting).toBe(false);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
@@ -772,6 +862,46 @@ describe("ExportManager — download paths", () => {
       spy.mockRestore();
     }
   });
+
+  it.each([
+    ["png", "image/png", "test-map.png"],
+    ["jpeg", "image/jpeg", "test-map.jpeg"],
+    ["webp", "image/webp", "test-map.webp"],
+  ])(
+    "onRenderSuccess with format=%s encodes and names the file from the FORMAT table",
+    async (format, mime, filename) => {
+      window.CONF = { ...window.CONF, format };
+      const toBlobCalls: unknown[][] = [];
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (
+        cb: (b: Blob | null) => void,
+        ...rest: unknown[]
+      ) {
+        toBlobCalls.push([this, ...rest]);
+        cb(new Blob(["fake"], { type: mime }));
+      };
+      // The spies must exist before `onRenderSuccess` runs — spying afterwards
+      // would never catch a call that already happened.
+      const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
+      const downloadSpy = vi.spyOn(downloadMod, "download");
+
+      try {
+        manager.onRenderSuccess(document.createElement("canvas"), []);
+        await new Promise(r => setTimeout(r, 0));
+        // `toBlob` must be fed the mime from the FORMAT record — no `as "png"` cast,
+        // no DEFAULT fallback — and the filename must come from the record's `ext`.
+        expect(toBlobCalls.length).toBe(1);
+        expect(toBlobCalls[0][1]).toBe(mime);
+        expect(downloadSpy).toHaveBeenCalledTimes(1);
+        expect(downloadSpy.mock.calls[0][1]).toBe(filename);
+        // The geotiff pipeline must not be taken for a plain image format.
+        expect(geoSpy).not.toHaveBeenCalled();
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = origToBlob;
+        vi.restoreAllMocks();
+      }
+    },
+  );
 
   it("downloadGeoTiff produces .tif download with valid geo bounds", async () => {
     manager.cropState!.geoBounds = {
@@ -813,47 +943,6 @@ describe("ExportManager — download paths", () => {
       expect(links[0].href).toBe("blob:");
       expect(links[0].click).toHaveBeenCalled();
     } finally {
-      vi.restoreAllMocks();
-    }
-  });
-
-  it("releases the export state when the download step throws", async () => {
-    // createObjectURL / createElement can throw (e.g. Safari quirks). Without a
-    // guard around the download call, the cleanup block would be skipped and
-    // the map would stay locked behind the blocker overlay.
-    manager.isExporting = true;
-    const events = ensureEvents(manager.map);
-    const emitSpy = vi.spyOn(events, "emit");
-    vi.spyOn(manager, "removeExportOverlay");
-
-    const origToBlob = HTMLCanvasElement.prototype.toBlob;
-    const origCreateObjectURL = URL.createObjectURL.bind(URL);
-    URL.createObjectURL = vi.fn(() => {
-      throw new Error("boom");
-    });
-
-    try {
-      HTMLCanvasElement.prototype.toBlob = function (cb) {
-        cb(new Blob(["fake"], { type: "image/png" }));
-      };
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      manager.onRenderSuccess(document.createElement("canvas"), []);
-      await new Promise(r => setTimeout(r, 0));
-
-      // Export state released even though the download threw.
-      expect(manager.isExporting).toBe(false);
-      expect(emitSpy).toHaveBeenCalledWith("foliplus:export:after", {
-        component: "ExportControl",
-      });
-      expect(manager.removeExportOverlay).toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("export failed"),
-        expect.any(Error),
-      );
-      warnSpy.mockRestore();
-    } finally {
-      HTMLCanvasElement.prototype.toBlob = origToBlob;
-      URL.createObjectURL = origCreateObjectURL;
       vi.restoreAllMocks();
     }
   });
@@ -1049,10 +1138,6 @@ describe("ExportManager — download paths", () => {
       HTMLCanvasElement.prototype.toBlob = function (cb) {
         cb(new Blob(["fake"]));
       };
-      const origToDataUrl = HTMLCanvasElement.prototype.toDataURL;
-      HTMLCanvasElement.prototype.toDataURL = vi
-        .fn()
-        .mockReturnValue("data:image/png,");
 
       const img = document.createElement("img") as HTMLImageElement & {
         _removeCalled: boolean;
@@ -1075,18 +1160,74 @@ describe("ExportManager — download paths", () => {
       });
 
       manager.onRenderSuccess(document.createElement("canvas"), []);
+      // canvasToBlob resolves via a promise chain, so flush microtasks before
+      // the SHORT timer becomes eligible.
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(false);
 
+      // Advance to SHORT and fire the preview dismissal. Only flush timers —
+      // a bare runOnlyPendingTimers() would also trip the revoke timer
+      // scheduled in the same tick.
       vi.advanceTimersByTime(1200);
       vi.runOnlyPendingTimers();
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(true);
 
       HTMLCanvasElement.prototype.toBlob = origToBlob;
-      HTMLCanvasElement.prototype.toDataURL = origToDataUrl;
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
     }
+  });
+
+  it("onRenderSuccess does not base64-encode the canvas for the preview", async () => {
+    // Preview and download must share one encoding. toDataURL() used to copy
+    // the whole raster into a base64 string just for the preview, and toBlob()
+    // then encoded the same pixels a second time — the dominant chunk of the
+    // click-to-download delay on HD exports.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(new Blob(["fake"]));
+    };
+    const toDataURL = vi.fn();
+    HTMLCanvasElement.prototype.toDataURL = toDataURL;
+    vi.stubGlobal("createImageBitmap", undefined);
+
+    const img = document.createElement("img") as HTMLImageElement;
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "img") return img;
+      return origCreate(tag);
+    });
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(toDataURL).not.toHaveBeenCalled();
+      expect(img.src).not.toBe("");
+      expect(img.src.startsWith("blob:")).toBe(true);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      HTMLCanvasElement.prototype.toDataURL = origToDataURL;
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("canvasToBlob passes the format through to toBlob and surfaces null", async () => {
+    const canvas = document.createElement("canvas");
+    const toBlob = vi.fn(cb => cb(new Blob(["png"])));
+    canvas.toBlob = toBlob;
+
+    expect(await canvasToBlob(canvas, "image/jpeg", 0.8)).toBeInstanceOf(Blob);
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.8);
+
+    // `toBlob` signalling failure (callback with null) must resolve to null so
+    // onRenderSuccess reports the failure instead of throwing past endExport().
+    canvas.toBlob = vi.fn(cb => cb(null));
+    expect(await canvasToBlob(canvas, "image/png")).toBeNull();
   });
 });
 

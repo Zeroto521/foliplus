@@ -53,7 +53,13 @@ const LABEL_PRIORITY = {
 const FORMAT = {
   LAT_LNG_PRECISION: 6,
   KM_THRESHOLD: 1000,
+  // Area gets one extra digit: the unit conversion squares, so error grows
+  // faster and a 2nd digit carries real information.
+  // 0 decimals for the small-unit branches: they cap below the threshold, so a
+  // fractional digit would read as false precision.
+  SMALL_DECIMALS: 0,
   KM_DECIMALS: 1,
+  KM2_DECIMALS: 2,
 };
 
 /** IDs and pane names. */
@@ -101,6 +107,11 @@ const EXPORT_FORMAT = {
 
 type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
+/** Default format for `CONF.export_format` — used when the value is missing
+ * or unknown. Python's `MeasureControl` rejects anything outside
+ * `EXPORT_FORMAT`, so this only guards misconfiguration. */
+const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;
+
 /** Standard GeoJSON type names (RFC 7946). */
 const GEOJSON = {
   FEATURE: "Feature",
@@ -133,6 +144,7 @@ export {
   SEL,
   STORAGE,
   EXPORT_FORMAT,
+  DEFAULT_EXPORT_FORMAT,
   type ExportFormat,
   GEOJSON,
   MODE,
