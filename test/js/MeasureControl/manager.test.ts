@@ -202,11 +202,11 @@ describe("MeasureManager — mode switching", () => {
   it("reveals the chip on mousemove and hides it on clearActiveMode", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
-    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
-    move({ containerPoint: { x: 100, y: 100 }, originalEvent: {} });
+    move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.hidden).toBe(false);
     manager.clearActiveMode();
     expect(readout.hidden).toBe(true);
@@ -215,12 +215,12 @@ describe("MeasureManager — mode switching", () => {
   it("shows the readout in edit mode too", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
-    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
     manager.setEditMode(true);
     const readout = container.querySelector(".foliplus-measure-readout")!;
     expect(readout.hidden).toBe(true); // not positioned yet
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
-    move({ containerPoint: { x: 100, y: 100 }, originalEvent: {} });
+    move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.hidden).toBe(false);
     // Leaving edit mode hides it.
     manager.setEditMode(false);
@@ -230,14 +230,15 @@ describe("MeasureManager — mode switching", () => {
   it("tracks the cursor and anchors the chip above it ([0, -10])", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
-    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    let px = { x: 500, y: 400 };
+    map.latLngToContainerPoint = () => px;
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
 
     // The lift lives in CSS (translate), so the inline style is just the
     // cursor's container point; the horizontal clamp keeps it on-screen.
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
-    move({ containerPoint: { x: 500, y: 400 }, originalEvent: {} });
+    move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.style.left).toBe("500px");
     expect(readout.style.top).toBe("400px");
     expect(readout.style.transform).toBe("");
@@ -245,7 +246,8 @@ describe("MeasureManager — mode switching", () => {
     expect(readout.hidden).toBe(false);
 
     // Near the top edge with no room above, the chip re-anchors below the cursor.
-    move({ containerPoint: { x: 500, y: 2 }, originalEvent: {} });
+    px = { x: 500, y: 2 };
+    move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
   });
 
@@ -256,6 +258,24 @@ describe("MeasureManager — mode switching", () => {
     const out = (map.on as any).mock.calls.find(([ev]) => ev === "mouseout")?.[1];
     out();
     expect(readout.hidden).toBe(true);
+  });
+
+  it("survives a dispatched mousemove with no containerPoint", () => {
+    // Regression: Leaflet fills containerPoint only for browser-driven events.
+    // Programmatic `map.fire("mousemove", { latlng })` (as the browser tests do)
+    // must not throw — the handler reads the pixel point from `latlng`.
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
+    manager.setMode(CONST.MODE.MARKER);
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+    const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
+    expect(() => move({ latlng: { lat: 31, lng: 121 } })).not.toThrow();
+    expect(map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 31, lng: 121 });
+    expect(readout.style.left).toBe("120px");
+    expect(readout.style.top).toBe("240px");
+    expect(readout.hidden).toBe(false);
   });
 
   it("removes the readout element on destroy", () => {

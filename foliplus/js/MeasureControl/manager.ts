@@ -359,14 +359,18 @@ class MeasureManager {
   }
 
   /** Start tracking the pointer. Only called from setMode, so the listeners
-   *  are live exactly while a drawing mode is armed. The map event only
-   *  carries Leaflet's own properties — `clientX` / `clientY` are null and the
-   *  real values live on `event.originalEvent`. */
+   *  are live exactly while a drawing mode is armed. The handler reads only
+   *  `event.latlng` — it is the one field present on both browser-driven and
+   *  programmatically dispatched mousemove events. */
   private showCoordReadout(): void {
     if (!this.coordReadoutEl || this.coordReadoutEvents.length) return;
     const container = this.coordReadoutEl;
     const move = (event: L.LeafletMouseEvent): void => {
-      const { x, y } = event.containerPoint;
+      // Derive the pixel point from `latlng` rather than reading
+      // `event.containerPoint`: Leaflet fills that only for browser-driven
+      // events, while tests (and the mode's own mousemove handlers) dispatch
+      // a bare `{ latlng }`. `latlng` is the contract both share.
+      const { x, y } = this.map.latLngToContainerPoint(event.latlng);
       const size = this.map.getSize();
       const gap = CONST.READOUT.ANCHOR_GAP;
       // The chip is centered on the cursor and lifted `gap` px above it; when
@@ -383,10 +387,7 @@ class MeasureManager {
         CONST.READOUT.CLASS_FLIP,
         y < container.offsetHeight + gap,
       );
-      container.textContent = Util.coordText(
-        this.map,
-        this.map.mouseEventToLatLng(event.originalEvent as MouseEvent),
-      );
+      container.textContent = Util.coordText(this.map, event.latlng);
       // Reveal only once it has a real position. Showing it before the first
       // mousemove would leave it at the container's default spot (by the hint)
       // with no inline left/top.
