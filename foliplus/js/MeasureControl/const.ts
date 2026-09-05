@@ -35,9 +35,9 @@ const LABEL = {
 };
 
 /** Cursor-following readout. The chip is anchored to the pointer exactly like
- *  a measurement label: centered horizontally, its bottom edge `ANCHOR_GAP`
- *  px above the cursor (the label convention [0, -10]). `CLASS_FLIP` re-anchors
- *  it below the cursor when there is no room above it. */
+ *  the area label is anchored to the centroid dot — centered horizontally, its
+ *  top edge `ANCHOR_GAP` px below the anchor, due south. `CLASS_FLIP` re-anchors
+ *  it above the cursor when there is no room below. */
 const READOUT = {
   ANCHOR_GAP: 10,
   CLASS_PREFIX: "foliplus-measure-readout",
