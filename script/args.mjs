@@ -9,9 +9,10 @@
  *   import { parseArgs, help } from "./args.mjs";
  *
  *   const spec = {
- *     dev:    { type: "bool"   },
- *     check:  { type: "bool"   },
- *     root:   { type: "string", default: ".", desc: "Project root directory" },
+ *     dev:       { type: "bool"   },
+ *     check:     { type: "bool"   },
+ *     root:      { type: "string", default: ".", desc: "Project root directory" },
+ *     threshold: { type: "number", default: 10 },
  *   };
  *
  *   const result = parseArgs(process.argv.slice(2), spec);
@@ -24,6 +25,9 @@
  *   --flag value      (string, positional after flag)
  *   -d                (short flag, single-char)
  *   --help / -h       (set help=true, no error)
+ *
+ * Types: "bool", "string" (default), "number", "array". A non-numeric value
+ * for a "number" flag is an error, not a silent coercion failure.
  */
 
 /**
@@ -119,17 +123,33 @@ export const parseArgs = (argv, spec) => {
         }
       }
     } else {
+      let raw = null;
       if (value !== null) {
-        result[flag] = value;
+        raw = value;
         i++;
       } else {
         if (i + 1 >= argv.length) {
           result.errors.push("--" + flag + " requires a value");
           i++;
         } else {
-          result[flag] = argv[i + 1];
+          raw = argv[i + 1];
           i += 2;
         }
+      }
+      // `type: "number"` is declared as a real type here (and advertised as `n`
+      // in help), so it must coerce — otherwise the default is silently
+      // replaced by a string, and `pct > threshold` compares against NaN.
+      if (meta.type === "number") {
+        if (raw !== null && raw.trim() !== "") {
+          const n = Number(raw);
+          if (Number.isFinite(n)) result[flag] = n;
+          else result.errors.push("--" + flag + " must be a number: " + raw);
+        } else if (raw !== null) {
+          // `Number("")` is 0, which would masquerade as an explicit zero.
+          result.errors.push("--" + flag + " requires a value");
+        }
+      } else if (raw !== null) {
+        result[flag] = raw;
       }
     }
   }
