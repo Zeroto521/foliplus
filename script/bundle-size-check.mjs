@@ -13,6 +13,7 @@
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
  *   node script/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
+ *   node script/bundle-size-check.mjs --help                          # all flags
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
@@ -20,6 +21,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
+import { help, parseArgs as parseArgsCore } from "./args.mjs";
 import { FAIL, OK, STATUS, WARN } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -86,27 +88,18 @@ const stripLeadingBlockComment = src => {
   return body !== src ? body : src;
 };
 
-const parseArgs = argv => {
-  const args = {
-    emit: null,
-    threshold: DEFAULT_THRESHOLD,
-    baseline: null,
-    report: null,
-    root: null,
-    unknown: [],
-  };
-  for (const a of argv) {
-    if (a.startsWith("--emit=")) args.emit = a.split("=")[1];
-    else if (a.startsWith("--threshold=")) {
-      const v = parseFloat(a.split("=")[1]);
-      args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
-    } else if (a.startsWith("--baseline=")) args.baseline = a.split("=")[1];
-    else if (a.startsWith("--report=")) args.report = a.split("=")[1];
-    else if (a.startsWith("--root=")) args.root = a.split("=")[1];
-    else args.unknown.push(a);
-  }
-  return args;
+/** Flag spec — parsed by the shared `args.mjs` parser used by the other build
+ *  scripts. It defaults flags it does not see to `false`, so the `?`/`!`
+ *  checks below keep their usual meaning. */
+const SPEC = {
+  emit: { type: "string", desc: "Write the current sizes to this JSON file" },
+  baseline: { type: "string", desc: "JSON file to diff against" },
+  report: { type: "string", desc: "Also write the Markdown table here" },
+  threshold: { type: "number", default: DEFAULT_THRESHOLD, desc: "Max growth before failing, in %" },
+  root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
 };
+
+const parseArgs = argv => parseArgsCore(argv, SPEC);
 
 const readSizes = (root = ROOT) => {
   const dir = distDir(root);
@@ -423,8 +416,18 @@ export {
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
-  if (args.unknown.length)
-    console.warn(`${WARN}  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
+  if (args.help) {
+    console.log(help(SPEC));
+    process.exit(0);
+  }
+  // Malformed input (an unknown flag, a non-numeric threshold) is an error —
+  // running anyway would compare against the wrong threshold and report
+  // success.
+  if (args.errors.length) {
+    console.error(args.errors.join("\n"));
+    console.error(help(SPEC));
+    process.exit(1);
+  }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = args.emit ? emit(args, root) : check(args, root);
   process.exit(code ?? 0);

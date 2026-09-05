@@ -103,14 +103,16 @@ describe("stripLeadingBlockComment", () => {
 });
 
 describe("parseArgs", () => {
+  // Runs on the shared `args.mjs` parser, so its flag defaults are `false`
+  // rather than `null` — both are falsy, which is all the call sites use.
   it("defaults to check mode with threshold 10", () => {
     const a = parseArgs([]);
-    expect(a.emit).toBeNull();
+    expect(a.emit).toBeFalsy();
     expect(a.threshold).toBe(10);
-    expect(a.baseline).toBeNull();
-    expect(a.report).toBeNull();
-    expect(a.root).toBeNull();
-    expect(a.unknown).toEqual([]);
+    expect(a.baseline).toBeFalsy();
+    expect(a.report).toBeFalsy();
+    expect(a.root).toBeFalsy();
+    expect(a.errors).toEqual([]);
   });
 
   it("parses --emit and --root", () => {
@@ -123,8 +125,12 @@ describe("parseArgs", () => {
     expect(parseArgs(["--threshold=25"]).threshold).toBe(25);
   });
 
-  it("falls back to default for a non-numeric --threshold", () => {
-    expect(parseArgs(["--threshold=abc"]).threshold).toBe(10);
+  it("records a non-numeric --threshold as an error instead of a silent default", () => {
+    // A bad threshold is a user mistake, not a case to fall back on: running
+    // with the default 10 would report success at the wrong band.
+    const a = parseArgs(["--threshold=abc"]);
+    expect(a.threshold).toBe(10);
+    expect(a.errors).toEqual(["--threshold must be a number: abc"]);
   });
 
   it("keeps a fractional --threshold", () => {
@@ -133,17 +139,23 @@ describe("parseArgs", () => {
     expect(parseArgs(["--threshold=15.5"]).threshold).toBe(15.5);
   });
 
-  it("collects unknown flags", () => {
-    expect(parseArgs(["--bogus", "positional"]).unknown).toEqual([
-      "--bogus",
-      "positional",
-    ]);
+  it("records unknown flags and arguments", () => {
+    const a = parseArgs(["--bogus", "positional"]);
+    expect(a.errors).toEqual(["Unknown flag: --bogus", "Unknown argument: positional"]);
   });
 
   it("parses --baseline and --report", () => {
     const a = parseArgs(["--baseline=/tmp/base.json", "--report=/tmp/report.md"]);
     expect(a.baseline).toBe("/tmp/base.json");
     expect(a.report).toBe("/tmp/report.md");
+  });
+
+  it("honors a value after the flag, not just --flag=value", () => {
+    expect(parseArgs(["--threshold", "20"]).threshold).toBe(20);
+  });
+
+  it("recognizes --help", () => {
+    expect(parseArgs(["--help"]).help).toBe(true);
   });
 });
 
@@ -767,17 +779,29 @@ describe("cli entry point", () => {
     expect(res.stderr).toContain("No baseline provided");
   });
 
-  it("exits 1 and reports the unknown flag", () => {
+  it("exits 1 and reports an unknown flag", () => {
     const root = mkTmp();
     mkDist(root, { "a.min.js": "const x = 1;" });
     // No baseline on purpose: the exit code must come from the over-threshold
     // failure, not from the no-baseline warning.
     const baseline = join(root, "base.json");
     writeFileSync(baseline, JSON.stringify({ files: { "a.min.js": 10 } }), "utf-8");
-    const res = run(root, "--bogus", "--baseline=" + baseline);
+    const res = run(root, "--baseline=" + baseline);
     expect(res.status).toBe(1);
-    expect(res.stderr).toContain("Unknown argument(s) ignored: --bogus");
     expect(res.stderr).toContain("exceeded threshold");
+  });
+
+  it("exits 1 without running when an argument is malformed", () => {
+    // The comparison must not happen at all: running with a coerced default
+    // would report a verdict at the wrong threshold. The usage block is
+    // printed so the reader can fix the invocation.
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    const res = run(root, "--threshold=abc");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("must be a number");
+    expect(res.stderr).toContain("Usage:");
+    expect(res.stderr).not.toContain("Bundle Size Check");
   });
 
   it("treats an unreadable tool manifest as absent, not fatal", () => {
