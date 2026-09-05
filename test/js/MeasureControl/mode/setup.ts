@@ -109,7 +109,7 @@ export function initMocks() {
 }
 
 export function makeManagerMock() {
-  const finalizedClickHandlers: Array<() => void> = [];
+  const editHandles: Map<string, any> = new Map();
   // Backing array so add/remove/update mutate the same live list the tests
   // assert against via manager.measurements (compatibility getter path).
   const measurements: any[] = [];
@@ -145,12 +145,14 @@ export function makeManagerMock() {
     // Label collision wiring is exercised by collision.test.ts; the mode/UI
     // tests only need the registration to be a no-op that can be unregistered.
     registerLabel: vi.fn(() => () => {}),
-    registerFinalized: vi.fn((cleanup: () => void) => {
-      finalizedClickHandlers.push(cleanup);
-      return () => {
-        const i = finalizedClickHandlers.indexOf(cleanup);
-        if (i !== -1) finalizedClickHandlers.splice(i, 1);
-      };
+    registerFinalized: vi.fn((cleanup: () => void, id?: string) => {
+      const key = id ?? "";
+      editHandles.set(key, { ...editHandles.get(key), dispose: cleanup });
+      return () => editHandles.delete(key);
+    }),
+    clearAll: vi.fn(() => {
+      editHandles.forEach(h => h.dispose?.());
+      editHandles.clear();
     }),
     store: {
       all: () => measurements,
@@ -192,6 +194,6 @@ export function makeManagerMock() {
       measurements.length = 0;
       measurements.push(...v);
     },
-    finalizedClickHandlers,
+    editHandles,
   };
 }

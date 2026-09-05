@@ -61,6 +61,7 @@ class DistanceMode extends PreviewMode {
       nodeMarkers,
       segLabels,
       points: points,
+      id: data.id!,
       onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
@@ -150,6 +151,7 @@ class DistanceMode extends PreviewMode {
         nodeMarkers,
         segLabels,
         points: points,
+        id: distId,
         onDelete: () => {
           this.m.store.remove(distId);
         },

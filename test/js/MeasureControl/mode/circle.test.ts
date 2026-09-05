@@ -6,14 +6,14 @@ import { initMocks, makeManagerMock } from "./setup.js";
 // Capture attachCircleUI's opts so the start/restore callbacks
 // (onDelete, onUpdate, onEnd) can be exercised directly.
 const { attachCircleUIMock } = vi.hoisted(() => ({
-  attachCircleUIMock: vi.fn((mgr: unknown, opts: unknown) => {
+  attachCircleUIMock: vi.fn((mgr: unknown, opts: any) => {
     capturedCircleOpts = opts;
     // Simulate the real attachCircleUI, which self-registers its dispose via
     // registerFinalized (delete and clearAll both run it).
     const cleanup = () => {};
-    (mgr as { registerFinalized?: (c: () => void) => () => void }).registerFinalized?.(
-      cleanup,
-    );
+    (
+      mgr as { registerFinalized?: (c: () => void, id?: string) => () => void }
+    ).registerFinalized?.(cleanup, opts?.id);
     return cleanup;
   }),
 }));
@@ -127,7 +127,8 @@ describe("CircleMode — restore", () => {
     expect(window.L.circleMarker).toHaveBeenCalled(); // center + radius nodes
     expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
-    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_r1").dispose).toBe("function");
   });
 });
 
@@ -175,7 +176,7 @@ describe("CircleMode — start drawing flow", () => {
 });
 
 describe("CircleMode — restore wiring", () => {
-  it("wires finalizedClickHandlers and saves data", () => {
+  it("registers edit handles via registerFinalized and saves data", () => {
     const manager = makeManagerMock() as any;
     const saveSpy = vi.spyOn(manager, "saveMeasurements");
     CircleMode.restore(manager, {
@@ -186,7 +187,8 @@ describe("CircleMode — restore wiring", () => {
       radius: 5000,
     });
     // Verify the handler is wired (regression check)
-    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_wire").dispose).toBe("function");
     // Verify the onDelete callback works by calling it directly
     manager.measurements.push({ id: "c_wire", type: "circle" });
     // The onDelete callback is inside attachCircleUI's closure.
