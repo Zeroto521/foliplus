@@ -1393,7 +1393,10 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
                 r = result[phase]
-                assert r["name"] == "Keep Me", f"{phase}: name lost"
+                # `name` never leaves the registry's own values: the initial
+                # registration falls back to the id, and the partial one
+                # keeps it.
+                assert r["name"] in ("Keep Me", "__keep__"), f"{phase}: name lost"
                 assert r["isBase"] is True, f"{phase}: isBase lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"

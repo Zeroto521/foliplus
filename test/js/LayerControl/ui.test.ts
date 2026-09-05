@@ -1554,6 +1554,22 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(manager.layerRegistry.get("base1")!.name).not.toBe("Also Renamed");
     });
 
+    it("a targeted apply for an un-renamed id leaves the registry untouched", () => {
+      // insertLayerItem calls applyNamesState(id) for every late registration,
+      // including layers the user never renamed. A missing rename must be a
+      // no-op, not a write of undefined over the registry's own name.
+      ui.renamedNames = {};
+
+      const before = manager.layerRegistry.get("base1")!.name;
+      const label = findItem(ui, "base1")!.querySelector("label")!;
+      const labelBefore = label.textContent;
+
+      ui.applyNamesState("base1");
+
+      expect(manager.layerRegistry.get("base1")!.name).toBe(before);
+      expect(label.textContent).toBe(labelBefore);
+    });
+
     it("tolerates corrupt / non-object / empty names storage", () => {
       // Reset the fixture label/registry to the pristine name — sibling tests
       // may have renamed this layer before this case runs.

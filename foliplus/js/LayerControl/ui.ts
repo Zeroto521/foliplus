@@ -225,6 +225,7 @@ class LayerUI {
    */
   applyNamesState(id?: string) {
     if (id) {
+      if (!(id in this.renamedNames)) return;
       const layerInfo = this.m.layerRegistry.get(id);
       applyNameProjection(layerInfo ?? null, null, this.renamedNames[id]);
       return;
