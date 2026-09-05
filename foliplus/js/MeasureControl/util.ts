@@ -12,7 +12,6 @@ import * as CONST from "./const.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
-
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
 const formatDistance = (meters: number): string => {
