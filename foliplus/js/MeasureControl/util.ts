@@ -14,11 +14,10 @@ const T = createScopedTranslator(CONF);
 
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
-const formatDistance = (meters: number): string => {
-  return meters >= CONST.FORMAT.KM_THRESHOLD
+const formatDistance = (meters: number): string =>
+  meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
     : `${formatNumber(meters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
-};
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (

@@ -38,24 +38,6 @@ const formatNumber = (
       maximumFractionDigits: maxFrac,
     });
 
-  if (style === "auto") {
-    const nf = fmt(1);
-    const parts = nf.formatToParts(val);
-    const intStr = parts
-      .filter(p => p.type === "integer")
-      .map(p => p.value)
-      .join("");
-
-    // Compact notation already renders below its unit boundary without a
-    // grouping separator — zh < 10000 has no 万 unit, so 6000 comes out
-    // as "6000", not "6,000", which is exactly right for zh/ja 4-digit
-    // grouping. No special fallback is needed; just trim fractional digits
-    // once the integer part reaches 3 digits.
-    if (intStr.length >= 3) return fmt(0).format(val);
-
-    return nf.format(val);
-  }
-
   // int: plain integer, no grouping separator (6000) — distinct from comma's
   // thousands separator (6,000). Both are locale-agnostic.
   if (style === "int")
@@ -64,7 +46,18 @@ const formatNumber = (
       useGrouping: false,
     }).format(val);
 
-  return fmt(absVal >= 100 ? 0 : 1).format(val);
+  // auto: compact notation for large values, with fractional digits trimmed
+  // once the integer part reaches 3 digits. Compact notation already renders
+  // below its unit boundary without a grouping separator — zh < 10000 has no
+  // 万 unit, so 6000 comes out as "6000", not "6,000", which is exactly right
+  // for zh/ja 4-digit grouping. No special fallback is needed.
+  const nf = fmt(1);
+  const intStr = nf
+    .formatToParts(val)
+    .filter(p => p.type === "integer")
+    .map(p => p.value)
+    .join("");
+  return intStr.length >= 3 ? fmt(0).format(val) : nf.format(val);
 };
 
 export { formatNumber };

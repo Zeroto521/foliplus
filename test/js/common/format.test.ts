@@ -4,6 +4,14 @@ import { debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
 
 describe("formatNumber", () => {
+  it("defaults to 'auto' style and 'en' locale", () => {
+    // Every real caller passes the style explicitly, so the default is only
+    // reached here.
+    expect(formatNumber(1234)).toBe("1.2K");
+    expect(formatNumber(6000)).toBe("6K");
+    expect(formatNumber(150)).toBe("150");
+  });
+
   it("formats small numbers as-is (auto style)", () => {
     expect(formatNumber(42)).toBe("42");
   });

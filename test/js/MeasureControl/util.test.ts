@@ -5,6 +5,7 @@ import {
   isDragSyntheticClick,
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
@@ -245,6 +246,43 @@ describe("formatArea boundary", () => {
 
   it("formats 999999 m² with locale thousands separator", () => {
     expect(Util.formatArea(999_999)).toBe("999,999 m²");
+  });
+});
+
+describe("formatting constants", () => {
+  // The unit ladder the renderers depend on. These pin the precision contract:
+  // sub-threshold units show no false decimals, and the km/km² branches carry
+  // more digits than the raw meters do.
+  it("small-unit branches carry no decimals", () => {
+    expect(CONST.FORMAT.SMALL_DECIMALS).toBe(0);
+  });
+
+  it("the km branch carries one more digit than the meters branch", () => {
+    expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
+    expect(CONST.FORMAT.KM_DECIMALS).toBeGreaterThan(CONST.FORMAT.SMALL_DECIMALS);
+  });
+
+  it("the km² branch carries two decimals", () => {
+    expect(CONST.FORMAT.KM2_DECIMALS).toBe(2);
+  });
+
+  it("the km threshold matches the divisor used by formatDistance", () => {
+    // formatDistance divides by a hard-coded 1000, so a changed threshold here
+    // would silently desynchronise the unit label from the magnitude.
+    expect(CONST.FORMAT.KM_THRESHOLD).toBe(1000);
+  });
+
+  it("every fraction-digit constant is a non-negative integer", () => {
+    // formatNumber pins minimumFractionDigits === maximumFractionDigits, so a
+    // fractional or negative value would throw a RangeError at runtime.
+    for (const n of [
+      CONST.FORMAT.SMALL_DECIMALS,
+      CONST.FORMAT.KM_DECIMALS,
+      CONST.FORMAT.KM2_DECIMALS,
+    ]) {
+      expect(Number.isInteger(n)).toBe(true);
+      expect(n).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 
