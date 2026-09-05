@@ -9,7 +9,7 @@
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
 /** WGS84 longitude/latitude limits, shared by coordinate validation. */
-export const COORD_BOUNDS = { LON: 180, LAT: 90 };
+const COORD_BOUNDS = { LON: 180, LAT: 90 };
 
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
 const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
@@ -126,4 +126,4 @@ const fromWgs84 = (map: L.Map, lng: number, lat: number): number[] => {
   return gcoord.transform([lng, lat], gcoord.WGS84, dst);
 };
 
-export { getMapCrsType, toWgs84, fromWgs84 };
+export { COORD_BOUNDS, getMapCrsType, toWgs84, fromWgs84 };

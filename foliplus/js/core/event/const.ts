@@ -4,7 +4,7 @@
 import { COMPONENTS } from "#core/component.js";
 
 // ── Event name dictionary (unified <namespace>:<component>:<action> naming) ──
-export const EVENTS = {
+const EVENTS = {
   /** Layer registry changed (registered / unregistered / reordered / toggled). */
   LAYER_CHANGE: "foliplus:layer:change",
   /** A layer was removed from the registry by an external caller (e.g. panel delete). */
@@ -21,7 +21,7 @@ export const EVENTS = {
 
 // ── Type-safe payload map ──
 
-export interface EventPayloadMap {
+interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: undefined;
   [EVENTS.LAYER_REMOVED]: { id: string };
   [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
@@ -31,14 +31,14 @@ export interface EventPayloadMap {
 }
 
 // ── Event metadata registry ──
-export interface EventMeta {
+interface EventMeta {
   description: string;
   publisher: string;
   subscribers: string[];
   payload: string;
 }
 
-export const EVENT_REGISTRY: Record<string, EventMeta> = {
+const EVENT_REGISTRY: Record<string, EventMeta> = {
   [EVENTS.LAYER_CHANGE]: {
     description:
       "Layer registry changed (registered / unregistered / reordered / toggled)",
@@ -79,3 +79,5 @@ export const EVENT_REGISTRY: Record<string, EventMeta> = {
     payload: "{ id: string }",
   },
 };
+
+export { type EventMeta, type EventPayloadMap, EVENTS, EVENT_REGISTRY };

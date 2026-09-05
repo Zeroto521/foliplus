@@ -10,7 +10,7 @@ import type { SearchSource, SearchType } from "./const.js";
  * Nominatim search result element.
  * The API returns `lon`; we map to `lng` at the fetch boundary.
  */
-export interface NominatimItem {
+interface NominatimItem {
   lng: string;
   lat: string;
   name?: string;
@@ -18,13 +18,13 @@ export interface NominatimItem {
 }
 
 /** Cached address result: the raw item + its formatted display name. */
-export interface AddressResult {
+interface AddressResult {
   item: NominatimItem;
   displayName: string;
 }
 
 /** A single entry in the user's search history, persisted to localStorage. */
-export interface SearchHistoryEntry {
+interface SearchHistoryEntry {
   /**
    * Dedup key: the user's address keyword, or a canonical "<lng>,<lat>" for
    * coordinates (whitespace and full-width commas normalized away, so variant
@@ -48,7 +48,7 @@ export interface SearchHistoryEntry {
 }
 
 /** A rendered result item in the suggestions/history panel, shared by both sources. */
-export interface ResultItem {
+interface ResultItem {
   /** Source: live geocode result or saved history entry. */
   source: SearchSource;
   /** Icon SVG to display. */
@@ -71,7 +71,7 @@ export interface ResultItem {
 }
 
 /** Public shape of the SearchControl instance, shared across sub-modules. */
-export interface SearchControl extends BaseControl {
+interface SearchControl extends BaseControl {
   container: HTMLElement;
   ctrl: HTMLElement;
   toggleBtn: HTMLElement;
@@ -97,3 +97,11 @@ export interface SearchControl extends BaseControl {
   currentItems: ResultItem[];
   setMode(newMode: string): void;
 }
+
+export type {
+  AddressResult,
+  NominatimItem,
+  ResultItem,
+  SearchControl,
+  SearchHistoryEntry,
+};

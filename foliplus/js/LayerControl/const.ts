@@ -1,13 +1,13 @@
 /** Timing / delay constants. */
-export const INIT_DELAY_MS = 300;
-export const ENFORCE_ORDER_DEBOUNCE_MS = 50;
-export const SAVE_ORDER_DEBOUNCE_MS = 100;
+const INIT_DELAY_MS = 300;
+const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+const SAVE_ORDER_DEBOUNCE_MS = 100;
 
 /** Drag hint cooldown. */
-export const DRAG = { HINT_COOLDOWN_MS: 800 };
+const DRAG = { HINT_COOLDOWN_MS: 800 };
 
 /** Persistent storage keys. */
-export const STORAGE = {
+const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
   /** Set of layer ids currently hidden by the user (checked-off). */
@@ -17,10 +17,10 @@ export const STORAGE = {
 };
 
 /** Color map layer. */
-export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
+const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
 /** Focus-on-layer behaviour. */
-export const FOCUS = {
+const FOCUS = {
   /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
   /** fitBounds animation duration. */
@@ -47,10 +47,10 @@ export const FOCUS = {
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
-export const FOCUS_PANE = "foliplus-focus-overlay";
+const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** CSS class names. */
-export const CLASSES = {
+const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
   ACTIVE: "active",
   CHECKBOX: "foliplus-checkbox",
@@ -90,7 +90,7 @@ export const CLASSES = {
 };
 
 /** Data attribute names. */
-export const DATA = {
+const DATA = {
   INDEX: "data-index",
   LAYER_ID: "data-layer-id",
   COUNT: "data-item-count",
@@ -98,10 +98,10 @@ export const DATA = {
 };
 
 /** Overflow-menu action values (data-action). */
-export const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
 
 /** DOM selectors. */
-export const SEL = {
+const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   COLOR_ITEM: ".foliplus-color-layer-item",
   COLOR_INPUT: ".foliplus-color-layer-input",
@@ -110,4 +110,20 @@ export const SEL = {
 };
 
 /** Group names. */
-export const GROUP = { OVERLAY: "overlay", BASE: "base" };
+const GROUP = { OVERLAY: "overlay", BASE: "base" };
+
+export {
+  ACTION,
+  CLASSES,
+  COLOR,
+  DATA,
+  DRAG,
+  ENFORCE_ORDER_DEBOUNCE_MS,
+  FOCUS,
+  FOCUS_PANE,
+  GROUP,
+  INIT_DELAY_MS,
+  SAVE_ORDER_DEBOUNCE_MS,
+  SEL,
+  STORAGE,
+};
