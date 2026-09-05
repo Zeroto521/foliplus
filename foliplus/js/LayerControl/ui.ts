@@ -784,7 +784,9 @@ class LayerUI {
     container.addEventListener("dragleave", this.onDragLeave);
     container.addEventListener("drop", this.onDrop);
     container.addEventListener("dragend", this.onDragEnd);
-    // Double-click on a layer row → focus the map on that layer.
+    // Double-click on a layer row → focus the map on that layer. Native widgets
+    // (checkbox, color input, button) already have a double-click meaning, so
+    // handleDblClick ignores those targets.
     container.addEventListener("dblclick", event =>
       this.handleDblClick(event as MouseEvent),
     );
@@ -893,7 +895,9 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHiddenIds();
+    // Flush, never cancel: the last checkbox change may still be sitting in the
+    // debounce queue (100ms), and cancelling here would drop it on unload.
+    this.m.persistence.flushSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
@@ -1210,12 +1214,9 @@ class LayerUI {
     if (event.altKey && event.key === "Enter" && this.activeIdx !== null) {
       const item = items[this.activeIdx];
       if (item) {
-        const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-        if (layerId) {
-          event.preventDefault();
-          this.focusLayer(layerId);
-          return;
-        }
+        event.preventDefault();
+        this.focusRow(item);
+        return;
       }
     }
 
@@ -1265,13 +1266,23 @@ class LayerUI {
           if (action === CONST.ACTION.RENAME_LAYER)
             this.renameLayer(this.activeMenu.layerId);
           else {
-            this.focusLayer(this.activeMenu.layerId);
+            this.focusRow(this.activeMenu.item);
             this.closeMoreMenu(true);
           }
           break;
         }
-        event.preventDefault();
-        this.toggleFocusedLayer();
+        // Enter only toggles visibility when the row's own checkbox has the
+        // keyboard focus (a row click never focuses it, so the row div itself
+        // is not a shortcut either). Space is handled natively by the input.
+        const input = document.activeElement;
+        if (
+          input instanceof HTMLInputElement &&
+          item.contains(input) &&
+          input.type === "checkbox"
+        ) {
+          event.preventDefault();
+          this.handleEnterRow(item);
+        }
         break;
       case "Escape":
         if (this.activeMenu) this.closeMoreMenu(true);
@@ -1282,26 +1293,30 @@ class LayerUI {
 
   /** Double-click on a layer row → focus the map on that layer. */
   handleDblClick(event: MouseEvent): void {
-    const item = (event.target as HTMLElement).closest(
-      CONST.SEL.LAYER_ITEM,
-    ) as HTMLElement | null;
+    const target = event.target as HTMLElement;
+    // Double-click is reserved for native widgets: the browser has one for
+    // checkboxes, color inputs and buttons, and the event still bubbles to
+    // the container. Focusing a layer while the checkbox toggles twice would
+    // make one gesture produce three effects, so only the row's dead space
+    // (label / count / icon area) counts as a row double-click.
+    if (target.closest("input, button, select, textarea, a")) return;
+    const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
     if (!item) return;
-    // Ignore dblclick on the ⋮ button (would open the menu instead).
-    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
-      return;
-    }
+    this.focusRow(item);
+  }
+
+  /** Focus the map on a layer row. Callers do the intent check. */
+  focusRow(item: HTMLElement): void {
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);
   }
 
-  /** Toggle visibility of the currently focused layer. */
-  private toggleFocusedLayer(): void {
-    const item = this.getActiveLayerItem();
-    if (!item) return;
-    const checkbox = item.querySelector(
+  /** Enter on a focused layer row → toggle its visibility checkbox, no menu. */
+  private handleEnterRow(item: HTMLElement): void {
+    const checkbox = item.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
+    );
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));

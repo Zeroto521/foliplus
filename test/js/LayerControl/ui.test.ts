@@ -221,6 +221,22 @@ const initFixture = (
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
   ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
+/** Invoke the container's dblclick handler with `target` pinned to `node`.
+ *  jsdom does not populate `Event.target` for a `dispatchEvent`, and
+ *  `handleDblClick` reads `event.target` only — so pinning `target` is what
+ *  models a real user double-click here. The container listener is just this
+ *  call, so skipping the dispatch avoids the synthetic-event ambiguity.
+ *  `node` must live inside `ui.uiContainer` so the handler's
+ *  `closest(LAYER_ITEM)` lookup resolves. */
+const fireDblClickOnTarget = (ui: LayerUI, node: HTMLElement): void => {
+  const event = new MouseEvent("dblclick", { bubbles: true });
+  Object.defineProperty(event, "target", {
+    configurable: true,
+    value: node,
+  });
+  ui.handleDblClick(event as MouseEvent);
+};
+
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   let manager: LayerManager, ui: LayerUI, map: any;
@@ -544,13 +560,57 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.isFocusing()).toBe(false);
     });
 
-    it("dblclick on a layer row triggers focusLayer", () => {
+    it("dblclick on a layer row's dead space triggers focusLayer", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
 
-      const item = findItem(ui, "overlay1");
-      item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      // The label is the row's non-widget area: this is what a user means by
+      // "double-clicking the layer row".
+      const row = findItem(ui, "overlay1");
+      const label = row.querySelector(`.${CONST.CLASSES.LAYER_LABEL}`) as HTMLElement;
+      expect(label).not.toBeNull();
+      fireDblClickOnTarget(ui, label);
 
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
+
+      focusSpy.mockRestore();
+    });
+
+    it("dblclick on a row checkbox does not trigger focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      fireDblClickOnTarget(ui, checkbox);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+
+      focusSpy.mockRestore();
+    });
+
+    it("dblclick on a group toggle-all checkbox does not trigger focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      const checkbox = document.querySelector(
+        `input[data-role="toggle-all"]`,
+      ) as HTMLInputElement | null;
+      expect(checkbox).not.toBeNull();
+      fireDblClickOnTarget(ui, checkbox!);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+
+      focusSpy.mockRestore();
+    });
+
+    it("dblclick on the more button does not trigger focusLayer", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+
+      const btn = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLButtonElement;
+      fireDblClickOnTarget(ui, btn);
+
+      expect(focusSpy).not.toHaveBeenCalled();
 
       focusSpy.mockRestore();
     });
@@ -1055,7 +1115,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(document.activeElement).toBe(li);
 
       const focusSpy = vi.fn();
-      ui.focusLayer = focusSpy;
+      ui.focusRow = focusSpy;
 
       const event = new KeyboardEvent("keydown", {
         key: "Enter",
@@ -1064,7 +1124,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
-      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      expect(focusSpy).toHaveBeenCalledWith(item);
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
@@ -1327,7 +1387,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const focusSpy = vi.fn();
       const renameSpy = vi.fn();
-      ui.focusLayer = focusSpy;
+      ui.focusRow = focusSpy;
       ui.renameLayer = renameSpy;
 
       const event = new KeyboardEvent("keydown", {
@@ -1344,7 +1404,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("Enter in the rename input does not bubble to the container handler (no toggle)", () => {
-      // Ensure checkbox is checked so toggleFocusedLayer would flip it off.
+      // Checkbox starts checked, so a leaked toggle would flip it off.
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.checked).toBe(true);
@@ -1357,7 +1417,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.value = "New Name";
 
       const toggleSpy = vi.fn();
-      ui.toggleFocusedLayer = toggleSpy;
+      ui.handleEnterRow = toggleSpy;
 
       input.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -1650,7 +1710,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       // Focus the more button so document.activeElement is inside the
       // uiContainer and the Enter/Space shortcut fires. `handleKeyDown`
-      // short-circuits on MORE_BTN without calling toggleFocusedLayer.
+      // short-circuits on MORE_BTN without toggling the row's checkbox.
       btn.focus();
       expect(document.activeElement).toBe(btn);
 
@@ -1705,18 +1765,48 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const checkbox = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
+      const wasChecked = checkbox.checked;
       checkbox.focus();
 
-      const event = new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Enter",
-        altKey: false,
-      });
-      ui.handleKeyDown(event as unknown as KeyboardEvent);
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as KeyboardEvent,
+      );
 
       expect(focusSpy).not.toHaveBeenCalled();
+      // Enter on the focused checkbox toggles visibility instead of focusing.
+      expect(checkbox.checked).toBe(!wasChecked);
 
+      focusSpy.mockRestore();
+    });
+
+    it("Enter on a layer row without the checkbox focused does nothing", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const toggleSpy = vi.spyOn(ui, "handleEnterRow");
+
+      const row = findItem(ui, "overlay1");
+      const checkbox = row.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const wasChecked = checkbox.checked;
+      row.focus();
+
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as KeyboardEvent,
+      );
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(toggleSpy).not.toHaveBeenCalled();
+      expect(checkbox.checked).toBe(wasChecked);
+
+      toggleSpy.mockRestore();
       focusSpy.mockRestore();
     });
 

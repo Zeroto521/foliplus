@@ -47,6 +47,8 @@ function makeUI(): any {
     openMoreMenu: vi.fn(),
     focusLayer: vi.fn(),
     closeMoreMenu: vi.fn(),
+    focusRow: vi.fn(),
+    renameLayer: vi.fn(),
     activeIdx: null,
     activeMenu: null,
   };
@@ -197,25 +199,25 @@ describe("LayerControl handleMoreMenuClick", () => {
     return { ui, li };
   }
 
-  it("dispatches focus-layer action → calls focusLayer + closeMoreMenu", () => {
+  it("dispatches focus-layer action → focuses the menu's row + closeMoreMenu", () => {
     const { ui, li } = buildMenu();
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).toHaveBeenCalledWith("layer1");
+    expect(ui.focusRow).toHaveBeenCalledWith(ui.activeMenu.item);
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
-  it("skips focusLayer when the menu item is disabled (hidden layer)", () => {
+  it("skips focus when the menu item is disabled (hidden layer)", () => {
     const { ui, li } = buildMenu(true);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).not.toHaveBeenCalled();
+    expect(ui.focusRow).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
   });
 
@@ -227,11 +229,11 @@ describe("LayerControl handleMoreMenuClick", () => {
     Object.defineProperty(event, "target", { value: ul });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).not.toHaveBeenCalled();
+    expect(ui.focusRow).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
   });
 
-  it("does not call focusLayer for an unknown action", () => {
+  it("does not focus a row for an unknown action", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
@@ -249,11 +251,11 @@ describe("LayerControl handleMoreMenuClick", () => {
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).not.toHaveBeenCalled();
+    expect(ui.focusRow).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
-  it("does not call focusLayer for a li without data-action", () => {
+  it("does not focus a row for a li without data-action", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
@@ -270,11 +272,11 @@ describe("LayerControl handleMoreMenuClick", () => {
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).not.toHaveBeenCalled();
+    expect(ui.focusRow).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
-  it("focus-layer action with no active menu falls back to an empty layer id", () => {
+  it("focus-layer action with no active menu does not focus any row", () => {
     const ui = makeUI(); // activeMenu stays null
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
@@ -287,7 +289,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.focusLayer).toHaveBeenCalledWith("");
+    expect(ui.focusRow).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 });

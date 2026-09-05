@@ -62,6 +62,8 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `LayerControl`: clicking a layer's checkbox also focused the layer, because the double-click listener resolved the row from the event target and the checkbox toggled twice on top of the map jump; double-click is now ignored for native widgets (`input`/`button`/`select`/`textarea`/`a`) so only the row's label, count, and icon area focus it
+- `LayerControl`: a visibility toggle made within 100ms of removing the control was dropped — `onRemove` cancelled the debounced hidden-set write instead of flushing it, so `flushSaveHiddenIds` writes it synchronously before teardown discards the timer
 
 ## [v0.3.0] (2026-08-02)
 

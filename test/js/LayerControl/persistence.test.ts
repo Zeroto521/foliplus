@@ -134,6 +134,26 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
+    it("flushSaveHiddenIds writes the pending set immediately", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveHiddenIds(() => new Set(["a", "b"]));
+      expect(save).not.toHaveBeenCalled();
+
+      // Teardown path: unbindEvents() runs inside the debounce window, so the
+      // last checkbox toggle must reach storage before the timer is discarded.
+      p.flushSaveHiddenIds();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][1]).toEqual(["a", "b"]);
+
+      // No timer is left behind.
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).toHaveBeenCalledTimes(1);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
     it("cancelSaveHiddenIds suppresses a pending write", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);

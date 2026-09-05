@@ -103,6 +103,14 @@ class LayerPersistence {
     this.debouncedSaveHiddenIds();
   }
 
+  /** Persist the pending hidden-set write immediately. Callers use this on
+   *  teardown instead of `cancelSaveHiddenIds`, so the last toggle before
+   *  removal survives: the write is debounced at 100ms, and a control can be
+   *  removed inside that window. */
+  flushSaveHiddenIds() {
+    this.debouncedSaveHiddenIds?.flush();
+  }
+
   cancelSaveHiddenIds() {
     this.debouncedSaveHiddenIds?.cancel();
   }

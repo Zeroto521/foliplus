@@ -539,6 +539,116 @@ describe("LayerFactory", () => {
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg: "<svg/>" }));
     });
 
+    // Node and label sub-layers own their content: removing from them must not
+    // fan out to the graph branch, and a data-change provider suppresses the
+    // live count refresh exactly as it does on addLayer.
+    it("skips onDataChange for node and label removals when a provider is supplied", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+        onDataChange,
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+        labelPane: "label1",
+        featureCountProvider: () => 0,
+      });
+      const nodeLayer = new window.L.Marker();
+      nodeLayer.isNode = true;
+      const labelLayer = new window.L.Marker();
+      labelLayer.isLabel = true;
+      api.addLayer(nodeLayer);
+      api.addLayer(labelLayer);
+
+      api.removeLayer(nodeLayer);
+      api.removeLayer(labelLayer);
+
+      expect(onDataChange).not.toHaveBeenCalled();
+      expect(invalidateType).toHaveBeenCalledTimes(4);
+    });
+
+    // api.removeLayer is varargs and silently drops null/undefined slots, so a
+    // mixed batch must still clear the real entries.
+    it("removeLayer skips null and undefined items", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      api.removeLayer(null, undefined, layer, null);
+      expect(api.mainLayer.getLayers().length).toBe(1); // graphLayer container remains
+    });
+
+    // The public api.addLayer accepts an isLabel argument; exercising it proves
+    // the flag route is live and not just a dead branch for direct .isLabel sets.
+    it("addLayer's isLabel argument pins the layer to the label pane", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        labelPane: "label1",
+      });
+      const layer = new window.L.Marker();
+      api.addLayer(layer, true);
+      expect(layer.isLabel).toBe(true);
+      expect(layer.options.pane).toBe("label1");
+    });
+
+    // A non-Path layer still claims its pane so the discovery cache and z-order
+    // pass find it; only vectors get a pinned renderer.
+    it("calls ensurePane without a renderer for non-Path layers", () => {
+      const ensureSpy = vi.spyOn(PaneManager.prototype, "ensurePane");
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        labelPane: "label1",
+      });
+      const labelLayer = new window.L.Marker();
+      labelLayer.isLabel = true;
+      api.addLayer(labelLayer);
+      expect(ensureSpy).toHaveBeenCalledWith("label1", false);
+      ensureSpy.mockRestore();
+    });
+
+    // jsdom defaults devicePixelRatio to 1, which hides the fallback; the
+    // fallback must survive when the platform reports 0 or leaves it unset.
+    it("falls back to a device pixel ratio of 1 when the platform reports 0", () => {
+      const saved = window.devicePixelRatio;
+      Object.defineProperty(window, "devicePixelRatio", {
+        value: 0,
+        configurable: true,
+      });
+      try {
+        const api = factory.createCanvas({ id: "dpr_test" });
+        expect(api.canvas.width).toBe(800);
+        expect(api.canvas.height).toBe(600);
+      } finally {
+        Object.defineProperty(window, "devicePixelRatio", {
+          value: saved,
+          configurable: true,
+        });
+      }
+    });
+
     it("throws when mapPane is not available", () => {
       const badMap = { ...map, getPanes: vi.fn(() => ({})) };
       const f = new LayerFactory({
