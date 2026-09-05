@@ -196,8 +196,7 @@ class LayerUI {
   applyNamesState() {
     if (!this.uiContainer) return;
     for (const [id, name] of Object.entries(this.renamedNames)) {
-      if (id !== CONST.COLOR.MAP_ID && this.m.layerRegistry.get(id) == null)
-        continue;
+      if (id !== CONST.COLOR.MAP_ID && this.m.layerRegistry.get(id) == null) continue;
       const layerInfo = this.m.layerRegistry.get(id);
       if (layerInfo) layerInfo.name = name;
       const item = this.uiContainer.querySelector(

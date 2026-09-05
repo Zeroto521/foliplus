@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
-import { LayerUI } from "#foliplus/LayerControl/ui.js";
 import {
   patchBringToFront,
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerUI } from "#foliplus/LayerControl/ui.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
