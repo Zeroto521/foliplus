@@ -519,6 +519,21 @@ class LayerManager implements LayerAPI {
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
       }
 
+      // Child panes that are not the layer's own `paneName` (its label and node
+      // panes) would otherwise keep the 600 LayerFactory gave them — under every
+      // data pane. Each is pinned one step above the graph pane of the layer
+      // that owns it; label is declared last, so it ends up highest.
+      for (let i = 0; i < this.layers.length; i++) {
+        const info = this.layers[i];
+        if (!info.paneName) continue;
+        const graphZ = this.computeZIndex(i, false);
+        for (const child of [info.nodePane, info.labelPane]) {
+          if (!child) continue;
+          const childPaneEl = this.map.getPane(child);
+          if (childPaneEl) childPaneEl.style.zIndex = String(graphZ + 1);
+        }
+      }
+
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
       // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
       // markers (search/locate pins, ✕, data markers) one step below topZ but

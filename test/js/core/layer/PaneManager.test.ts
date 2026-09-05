@@ -191,6 +191,27 @@ describe("PaneManager", () => {
     expect(pane.style.zIndex).toBe("601");
   });
 
+  it("applies a PANE_Z override when creating a pane", () => {
+    const map = {
+      getPane: vi.fn(() => null),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    const { pane } = pm.ensurePane("measure_node", false);
+    expect(map.createPane).toHaveBeenCalledWith("measure_node");
+    expect((pane as HTMLElement).style.zIndex).toBe(String(CONST.Z_INDEX.BASE + 1));
+  });
+
+  it("leaves a PANE_Z override alone when the pane already exists", () => {
+    const existing = document.createElement("div");
+    existing.style.zIndex = "999";
+    const map = { getPane: vi.fn(() => existing), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const { pane } = pm.ensurePane("measure_node", false);
+    expect(pane).toBe(existing);
+    expect(pane.style.zIndex).toBe("999");
+  });
+
   it("reset clears the pane cache", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);

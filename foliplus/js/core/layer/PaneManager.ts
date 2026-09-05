@@ -62,6 +62,10 @@ class PaneManager {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
       pane.style.zIndex = String(CONST.Z_INDEX.BASE);
+      // Pane names that carry their own z within the fOLIplus stack, in case a
+      // layer reaches a pane without going through `createLayers`.
+      if (CONST.PANE_Z[paneName] != null)
+        pane.style.zIndex = String(CONST.PANE_Z[paneName]);
     }
     let renderer: L.SVG | null = null;
     if (needRenderer) {

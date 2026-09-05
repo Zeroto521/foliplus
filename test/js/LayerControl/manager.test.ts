@@ -940,6 +940,56 @@ describe("LayerManager", () => {
     expect(layer.options.paneSet).toBe(true);
   });
 
+  describe("child pane z-order", () => {
+    it("pins a layer's node and label panes one step above its graph pane", () => {
+      // Child panes are never written by the main loop, so they would keep the
+      // 600 `LayerFactory` gave them at creation time — under every data pane.
+      // A stable registry is needed, since the fixture's getPane is a factory.
+      const graph = document.createElement("div");
+      const node = document.createElement("div");
+      const label = document.createElement("div");
+      const panes: Record<string, HTMLDivElement> = {
+        measure_graph: graph,
+        measure_node: node,
+        measure_label: label,
+      };
+      map._panes = panes;
+      map.getPane = vi.fn((name: string) => panes[name]);
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({
+        id: "measure",
+        name: "Measure",
+        layer: { options: {} } as any,
+        paneName: "measure_graph",
+        nodePane: "measure_node",
+        labelPane: "measure_label",
+      });
+      manager.enforceOrder();
+      const graphZ = Number(graph.style.zIndex);
+      expect(Number(node.style.zIndex)).toBe(graphZ + 1);
+      expect(Number(label.style.zIndex)).toBe(graphZ + 1);
+      expect(graphZ).toBeGreaterThan(Z_INDEX.BASE);
+    });
+
+    it("leaves the panes of a child-less layer alone", () => {
+      const graph = document.createElement("div");
+      const node = document.createElement("div");
+      const panes = { my_graph: graph, my_node: node };
+      map._panes = panes;
+      map.getPane = vi.fn((name: string) => panes[name]);
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({
+        id: "plain",
+        name: "Plain",
+        layer: { options: {} } as any,
+        paneName: "my_graph",
+      });
+      manager.enforceOrder();
+      expect(node.style.zIndex).toBe("");
+      expect(graph.style.zIndex).not.toBe("");
+    });
+  });
+
   describe("getFeatureCount", () => {
     // Build a leaf that looks like a real Leaflet layer (has options) so
     // registerLayer's discoverChildPanes does not fail, and that carries
