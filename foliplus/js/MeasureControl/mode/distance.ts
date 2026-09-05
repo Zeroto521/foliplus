@@ -61,16 +61,15 @@ class DistanceMode extends PreviewMode {
       nodeMarkers,
       segLabels,
       points: points,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
-        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.totalDistance = totalDistance;
-        manager.saveMeasurements();
+        manager.store.update(data.id!, {
+          points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          totalDistance,
+        });
       },
     });
   }
@@ -125,14 +124,13 @@ class DistanceMode extends PreviewMode {
         distance: Util.distance(points[i], points[i + 1]),
         bearing: Util.bearing(points[i], points[i + 1]),
       }));
-      this.m.measurements.push({
+      this.m.store.add({
         id: distId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         totalDistance: total,
       });
-      this.m.saveMeasurements();
 
       // Format last label
       if (segLabels.length > 0) {
@@ -153,18 +151,17 @@ class DistanceMode extends PreviewMode {
         nodeMarkers,
         segLabels,
         points: points,
+        id: distId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== distId);
-          this.m.saveMeasurements();
+          this.m.store.remove(distId);
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === distId);
-          if (!m) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.totalDistance = totalDistance;
-          this.m.saveMeasurements();
+          this.m.store.update(distId, {
+            points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+            segments,
+            totalDistance,
+          });
         },
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized

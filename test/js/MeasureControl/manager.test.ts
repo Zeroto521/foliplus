@@ -2,7 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import * as Storage from "#common/storage.js";
+
+// Label-collision lifecycle tests mock the collision module. It must be
+// hoisted + mocked before MeasureManager is imported, because manager.ts
+// imports collision.js synchronously at module load.
+const placeLabels = vi.hoisted(() => vi.fn(() => 0));
+
+vi.mock("#foliplus/MeasureControl/collision.js", () => ({
+  placeLabels,
+  mapProjector: () => ({
+    box: () => ({ x: 0, y: 0, w: 64, h: 18 }),
+  }),
+}));
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
 // blocked-path in setMode() without affecting the real ensureModes/ModeManager
@@ -18,7 +29,6 @@ vi.mock("#core/mode.js", async () => {
     guardBlocked: modeMocks.guardBlocked,
   };
 });
-
 // Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
 function mockLayerAPI() {
   return {
@@ -115,18 +125,30 @@ describe("MeasureManager — persistence", () => {
     expect(opts.featureCountProvider()).toBe(0);
   });
 
+  it("restoreMeasurements stabilizes persisted measurements missing an id", () => {
+    const { manager } = makeManager();
+    // Seed localStorage with a legacy measurement that predates the id field.
+    // restoreMeasurements must assign one before rebuilding so later
+    // onUpdate/onDelete paths (which match by id) resolve correctly.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify([{ type: "marker", lng: 121, lat: 31 }]),
+    );
+    manager.restoreMeasurements();
+    const m = manager.measurements[0];
+    expect(m.id).toBeDefined();
+    expect(typeof m.id).toBe("string");
+    // The stabilized id is persisted back to localStorage.
+    const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    expect(persisted[0].id).toBe(m.id);
+  });
+
   it("saveMeasurements persists to storage", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
     const spy = vi.spyOn(manager, "saveMeasurements");
     manager.saveMeasurements();
     expect(spy).toHaveBeenCalled();
-  });
-
-  it("loadMeasurements returns empty array when no data", () => {
-    const { manager } = makeManager();
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
   });
 });
 
@@ -185,6 +207,36 @@ describe("MeasureManager — mode switching", () => {
     const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
     const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
     expect(showOrder).toBeGreaterThan(hideOrder);
+  });
+
+  it("leaves modeInstance null when setMode is given an unknown mode name", () => {
+    // An unknown mode string passes the guard but has no entry in MODE_MAP, so
+    // setMode must not throw and modeInstance stays null instead of a runtime
+    // error on modeInstance.start().
+    const { manager } = makeManager();
+    expect(() => manager.setMode("nonexistent-mode")).not.toThrow();
+    expect(manager.modeInstance).toBeNull();
+  });
+
+  it("clears an active drawing mode when leaving edit mode via clearActiveMode", () => {
+    // Regression surface: clearActiveMode (called by the LAYER_REMOVED handler)
+    // must exit edit mode before clearing the drawing mode, otherwise edit
+    // handles linger while the drawing mode is deactivated.
+    // Note: setMode(DISTANCE) exits edit mode on its own (line 232) before
+    // entering the drawing mode, so that normal flow never leaves us in the
+    // (isEditMode=true, currentMode=distance) state; we synthesize that state
+    // here to exercise the clearActiveMode branch.
+    const { manager } = makeManager();
+    manager.setEditMode(true);
+    manager.currentMode = CONST.MODE.DISTANCE;
+
+    const spy = vi.spyOn(manager, "setEditMode");
+
+    manager.clearActiveMode();
+
+    expect(spy).toHaveBeenCalledWith(false);
+    expect(manager.currentMode).toBeNull();
+    expect(manager.isEditMode).toBe(false);
   });
 });
 
@@ -248,8 +300,8 @@ describe("MeasureManager — setEditMode", () => {
     const { manager } = makeManager();
     const close1 = vi.fn();
     const close2 = vi.fn();
-    manager.registerEditOverlayCloser(close1);
-    manager.registerEditOverlayCloser(close2);
+    manager.registerEditOverlayCloser(close1, "m1");
+    manager.registerEditOverlayCloser(close2, "m2");
 
     manager.setEditMode(true);
     manager.setEditMode(false);
@@ -261,7 +313,7 @@ describe("MeasureManager — setEditMode", () => {
   it("keeps closers registered so a later edit session can close them again", () => {
     const { manager } = makeManager();
     const close = vi.fn();
-    manager.registerEditOverlayCloser(close);
+    manager.registerEditOverlayCloser(close, "m1");
 
     // First session: open → close
     manager.setEditMode(true);
@@ -274,16 +326,16 @@ describe("MeasureManager — setEditMode", () => {
     expect(close).toHaveBeenCalledTimes(2);
   });
 
-  it("closes other overlays but skips the given one", () => {
+  it("closes other overlays but skips the one keyed by the given id", () => {
     const { manager } = makeManager();
     const a = vi.fn();
     const b = vi.fn();
     const c = vi.fn();
-    manager.registerEditOverlayCloser(a);
-    manager.registerEditOverlayCloser(b);
-    manager.registerEditOverlayCloser(c);
+    manager.registerEditOverlayCloser(a, "m1");
+    manager.registerEditOverlayCloser(b, "m2");
+    manager.registerEditOverlayCloser(c, "m3");
 
-    manager.closeOtherEditOverlays(b);
+    manager.closeOtherEditOverlays("m2");
 
     expect(a).toHaveBeenCalledTimes(1);
     expect(c).toHaveBeenCalledTimes(1);
@@ -293,7 +345,7 @@ describe("MeasureManager — setEditMode", () => {
   it("unregisters a closer when the returned unregister runs", () => {
     const { manager } = makeManager();
     const close = vi.fn();
-    const unregister = manager.registerEditOverlayCloser(close);
+    const unregister = manager.registerEditOverlayCloser(close, "m1");
 
     unregister();
 
@@ -305,7 +357,7 @@ describe("MeasureManager — setEditMode", () => {
   it("toggles registered drag binds on setEditMode (nodes draggable without click-first)", () => {
     const { manager } = makeManager();
     const toggle = vi.fn();
-    manager.registerEditDragToggle(toggle);
+    manager.registerEditDragToggle(toggle, "m1");
 
     manager.setEditMode(true);
     expect(toggle).toHaveBeenCalledWith(true);
@@ -317,11 +369,82 @@ describe("MeasureManager — setEditMode", () => {
   it("unregisters a drag toggle when the returned unregister runs", () => {
     const { manager } = makeManager();
     const toggle = vi.fn();
-    const unregister = manager.registerEditDragToggle(toggle);
+    const unregister = manager.registerEditDragToggle(toggle, "m1");
 
     unregister();
     manager.setEditMode(true);
     expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("merges three registrations for one id into a single handle", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    expect((manager as any).editHandles.size).toBe(1);
+    expect((manager as any).editHandles.has("m1")).toBe(true);
+  });
+
+  it("keeps separate handles for different ids", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m2");
+    manager.registerEditDragToggle(vi.fn(), "m3");
+
+    expect((manager as any).editHandles.size).toBe(3);
+  });
+
+  it("clearAll drops all handles and runs each dispose once", () => {
+    const { manager } = makeManager();
+    const d1 = vi.fn();
+    const d2 = vi.fn();
+    manager.registerFinalized(d1, "m1");
+    manager.registerFinalized(d2, "m2");
+
+    manager.clearAll();
+
+    expect(d1).toHaveBeenCalledTimes(1);
+    expect(d2).toHaveBeenCalledTimes(1);
+    expect((manager as any).editHandles.size).toBe(0);
+  });
+
+  it("unregisterFinalized removes the handle (delete drops one entry)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    const unregister = manager.registerFinalized(vi.fn(), "m1");
+    expect((manager as any).editHandles.size).toBe(1);
+
+    unregister();
+    expect((manager as any).editHandles.size).toBe(0);
+  });
+
+  it("registers under ANON_HANDLE when no id is given (fallback)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn());
+
+    const handles = (manager as any).editHandles;
+    expect(handles.size).toBe(1);
+    expect(handles.has(" anon-edit-handle")).toBe(true);
+  });
+
+  it("clearAll runs dispose but NOT closeOverlay or toggleDrag", () => {
+    const { manager } = makeManager();
+    const dispose = vi.fn();
+    const closeOverlay = vi.fn();
+    const toggleDrag = vi.fn();
+    manager.registerFinalized(dispose, "m1");
+    manager.registerEditOverlayCloser(closeOverlay, "m1");
+    manager.registerEditDragToggle(toggleDrag, "m1");
+
+    manager.clearAll();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(closeOverlay).not.toHaveBeenCalled();
+    expect(toggleDrag).not.toHaveBeenCalled();
   });
 
   it("setMode EDIT enters edit mode when off", () => {
@@ -408,15 +531,6 @@ describe("MeasureManager — lifecycle", () => {
 });
 
 describe("MeasureManager — persistence edge cases", () => {
-  it("loadMeasurements falls back to [] on corrupted JSON", () => {
-    const { manager } = makeManager();
-    const spy = vi.spyOn(Storage, "load").mockReturnValue({ not: "array" });
-    const result = manager.loadMeasurements();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
-    spy.mockRestore();
-  });
-
   it("clearAll collapses expanded panel when ctrl exists", () => {
     const { manager } = makeManager();
     const ctrl = document.createElement("div");
@@ -438,9 +552,18 @@ describe("MeasureManager — global events", () => {
     const { manager, map, layers } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
     manager.currentMode = CONST.MODE.DISTANCE;
-    manager.onUnload();
+    // onUnload is bound via this.map.on("unload", ...). Leaflet fires all
+    // bound handlers on unload, so invoke every "unload" handler the manager
+    // registered (InteractionManager's own unload cleanup runs first).
+    const unloadHandlers = (map as any).on.mock.calls
+      .filter(([ev]: [string]) => ev === "unload")
+      .map((c: any[]) => c[1]);
+    expect(unloadHandlers.length).toBeGreaterThanOrEqual(1);
+    unloadHandlers.forEach((h: () => void) => h());
     expect(manager.currentMode).toBeNull();
     expect(layers.clearLayers).toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+    expect(layers.removeLayer).not.toHaveBeenCalled();
     expect(manager.measurements).toHaveLength(1);
   });
 
@@ -448,7 +571,12 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = CONST.MODE.DISTANCE;
-    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    // The Escape shortcut is registered via registerInteractions →
+    // InteractionManager, which listens on document. Dispatch a real keydown
+    // so the handler reaches onKeyDown through the real routing path.
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).toHaveBeenCalled();
   });
 
@@ -456,7 +584,9 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = null;
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -465,8 +595,24 @@ describe("MeasureManager — global events", () => {
     const spy = vi.spyOn(manager, "setEditMode");
     manager.setEditMode(true);
     manager.currentMode = null;
-    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("non-Escape keydown is ignored by the manager's keydown handler", () => {
+    // The manager's onKeyDown only acts on Escape; every other key returns
+    // early and must not clear mode or edit state.
+    const { manager } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    const editSpy = vi.spyOn(manager, "setEditMode");
+    manager.currentMode = CONST.MODE.DISTANCE;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(editSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -819,5 +965,324 @@ describe("MeasureManager — onMapClick handler", () => {
 
     // A del-icon click must not reach the empty-space path.
     expect(manager.isEditMode).toBe(true);
+  });
+});
+
+// ==================== Label-collision lifecycle ====================
+// End-to-end registerLabel flow: lazy map-event binding, next-frame placement
+// plan, re-plan on label-set changes. The pure planner is tested in
+// collision.test.ts; here we mock the collision module (hoisted at the top of
+// this file) and only exercise the manager.
+type CollidableLabel = {
+  marker: L.Marker;
+  priority: number;
+};
+
+// A real DOM chip nested inside a mock L.Marker so chipOf(marker) resolves.
+function makeLabelMarker(): L.Marker {
+  const chip = document.createElement("div");
+  chip.className = "foliplus-measure-label";
+  const icon = document.createElement("span");
+  icon.appendChild(chip);
+  const marker = {
+    getElement: vi.fn(() => icon),
+    on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
+  };
+  return marker as unknown as L.Marker;
+}
+
+// requestAnimationFrame is unavailable in jsdom/node — defer each callback to
+// the next microtask so it behaves like a real async paint frame. The
+// manager's labelPlanFrame re-entrancy guard only works if the callback does
+// NOT run synchronously on the same stack as the schedule call.
+let labelRafQueue: Array<() => void> = [];
+function flushRaf() {
+  while (labelRafQueue.length) {
+    const q = labelRafQueue;
+    labelRafQueue = [];
+    q.forEach(cb => cb());
+  }
+}
+
+function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
+  window.CONF = { name: "MeasureControl", locale_code: "en", ...conf };
+
+  const layers = mockLayerAPI();
+  const container = document.createElement("div");
+  container.id = "test-map";
+  const map = {
+    getContainer: () => container,
+    on: vi.fn(),
+    off: vi.fn(),
+    eachLayer: vi.fn(),
+    foliplus: {
+      showHint: vi.fn(),
+      hideHint: vi.fn(),
+      LayerAPI: { createLayers: vi.fn(() => layers) },
+    },
+  };
+
+  return { manager: new MeasureManager(map), map, container, layers };
+}
+
+beforeEach(() => {
+  document.body.innerHTML = "";
+  window.L.marker = vi.fn(() => ({
+    on: vi.fn(),
+    off: vi.fn(),
+    getElement: vi.fn(() => null),
+    setLatLng: vi.fn(),
+  }));
+  window.CONF.collide_labels = undefined;
+  labelRafQueue = [];
+  vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+    labelRafQueue.push(cb);
+    return 1;
+  });
+  placeLabels.mockReset();
+});
+
+describe("MeasureManager — registerLabel lifecycle", () => {
+  it("runs a placement plan on the next frame after registering a label", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+    expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(1);
+  });
+
+  it("passes the collide flag through to placeLabels", () => {
+    const { manager } = makeLabelManager({ collide_labels: true });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect(placeLabels.mock.calls[0][2] as boolean).toBe(true);
+  });
+
+  it("passes collide=false through when detection is off", () => {
+    const { manager } = makeLabelManager({ collide_labels: false });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect(placeLabels.mock.calls[0][2] as boolean).toBe(false);
+  });
+
+  it("labelsCollide reads collide_labels from CONF and defaults to true", () => {
+    const { manager } = makeLabelManager();
+    expect(manager.labelsCollide).toBe(true);
+
+    window.CONF.collide_labels = false;
+    expect(manager.labelsCollide).toBe(false);
+  });
+
+  it("forwards the marker and priority to the label passed into placeLabels", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    const label = (placeLabels.mock.calls[0][0] as CollidableLabel[])[0]!;
+    expect(label.marker).toBe(marker);
+    expect(label.priority).toBe(60);
+  });
+
+  it("re-plans the live label set when a map-move event fires", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+    const initialCalls = placeLabels.mock.calls.length;
+
+    const moveendCall = map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "moveend",
+    )![1];
+
+    moveendCall();
+    flushRaf();
+    expect(placeLabels.mock.calls.length).toBe(initialCalls + 1);
+  });
+
+  it("coalesces multiple same-frame registerLabel calls into one plan", () => {
+    const { manager } = makeLabelManager();
+
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+
+    // Two rAF callbacks may be queued (the coalescing guard skips the
+    // schedule work, but requestAnimationFrame is still called), so drain
+    // them; placeLabels must run exactly once with all three labels.
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+    expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(3);
+  });
+
+  it("passes a runtime collide_labels flip through to the next plan", () => {
+    const { manager, map } = makeLabelManager({ collide_labels: true });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+    flushRaf();
+    expect(placeLabels.mock.calls[0][2] as boolean).toBe(true);
+
+    const moveendCall = map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "moveend",
+    )![1];
+
+    window.CONF.collide_labels = false;
+    moveendCall();
+    flushRaf();
+    expect(placeLabels.mock.calls[1][2] as boolean).toBe(false);
+  });
+
+  it("re-plans a smaller set when a label is removed mid-measurement", () => {
+    const { manager } = makeLabelManager();
+    const a = makeLabelMarker();
+    const b = makeLabelMarker();
+
+    const unregisterA = manager.registerLabel(a, 60);
+    flushRaf();
+    expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(1);
+
+    manager.registerLabel(b, 60);
+    flushRaf();
+    expect((placeLabels.mock.calls[1][0] as CollidableLabel[]).length).toBe(2);
+
+    unregisterA();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(3);
+    const last = placeLabels.mock.calls[2] as [CollidableLabel[]];
+    expect(last[0].length).toBe(1);
+    expect(last[0][0]!.marker).toBe(b);
+  });
+
+  it("skips the planner when the label set is empty after unregistering the last label", () => {
+    // planLabels returns early when collidableLabels is empty; unregistering
+    // the final label must not pass an empty array into the planner.
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+
+    unregister();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("MeasureManager — map event binding", () => {
+  it("binds move/zoom/resize events lazily on the first label", () => {
+    const { manager, map } = makeLabelManager();
+
+    expect(map.on).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+
+    manager.registerLabel(makeLabelMarker(), 60);
+
+    expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("unbinds all map events when the last label is removed", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+
+    unregister();
+    flushRaf();
+
+    expect(map.off).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("keeps map events bound while a second label is still registered", () => {
+    const { manager } = makeLabelManager();
+    const a = makeLabelMarker();
+    const b = makeLabelMarker();
+
+    const unregisterA = manager.registerLabel(a, 60);
+    flushRaf();
+    manager.registerLabel(b, 60);
+    flushRaf();
+
+    unregisterA();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(3);
+    expect(manager.map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+  });
+
+  it("rebinds map events after a fresh register following a full unbind", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+    unregister();
+    flushRaf();
+
+    const offBefore = map.off.mock.calls.length;
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+
+    expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("resize", expect.any(Function));
+    expect(map.off.mock.calls.length).toBe(offBefore);
+  });
+});
+
+describe("MeasureManager — label cleanup", () => {
+  it("destroy clears the label set and unbinds map events", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+
+    manager.destroy();
+
+    expect(map.off).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("destroy tolerates an unflushed rAF — the pending plan runs against an empty set", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+    placeLabels.mockClear();
+
+    manager.registerLabel(marker, 60);
+    // Do not flush rAF — leave a plan in flight.
+    manager.destroy();
+
+    // Now drain the pending rAF; it must not throw even though the manager
+    // has cleared collidableLabels. planLabels() returns early (empty set) so
+    // placeLabels is never reached.
+    expect(() => flushRaf()).not.toThrow();
+    expect(placeLabels).not.toHaveBeenCalled();
+  });
+
+  it("destroy unbinds map events safely even when no label was ever registered", () => {
+    const { manager, map } = makeLabelManager();
+
+    expect(() => manager.destroy()).not.toThrow();
+    expect(map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
   });
 });

@@ -3,21 +3,20 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { CircleMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
-// Capture attachCircleUI's opts so restore/finishCircle's onEnd callback can
-// be exercised directly (these are the lines codecov flags as missing).
+// Capture attachCircleUI's opts so the start/restore callbacks
+// (onDelete, onUpdate, onEnd) can be exercised directly.
 const { attachCircleUIMock } = vi.hoisted(() => ({
-  attachCircleUIMock: vi.fn((mgr: unknown, opts: unknown) => {
+  attachCircleUIMock: vi.fn((mgr: unknown, opts: any) => {
     capturedCircleOpts = opts;
     // Simulate the real attachCircleUI, which self-registers its dispose via
     // registerFinalized (delete and clearAll both run it).
     const cleanup = () => {};
-    (mgr as { registerFinalized?: (c: () => void) => void }).registerFinalized?.(
-      cleanup,
-    );
+    (
+      mgr as { registerFinalized?: (c: () => void, id?: string) => () => void }
+    ).registerFinalized?.(cleanup, opts?.id);
     return cleanup;
   }),
 }));
-
 let capturedCircleOpts: any = null;
 
 vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
@@ -125,9 +124,11 @@ describe("CircleMode — restore", () => {
 
     expect(window.L.circle).toHaveBeenCalled();
     expect(window.L.polyline).toHaveBeenCalled();
-    expect(window.L.marker).toHaveBeenCalled(); // center dot + labels + del icons
+    expect(window.L.circleMarker).toHaveBeenCalled(); // center + radius nodes
+    expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
-    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_r1").dispose).toBe("function");
   });
 });
 
@@ -148,7 +149,7 @@ describe("CircleMode — start drawing flow", () => {
       )?.[1];
 
       clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
-      expect(window.L.marker).toHaveBeenCalled(); // center dot
+      expect(window.L.circleMarker).toHaveBeenCalled(); // center dot (CircleMarker)
 
       moveHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       expect(window.L.circle).toHaveBeenCalled(); // preview circle
@@ -159,7 +160,15 @@ describe("CircleMode — start drawing flow", () => {
 
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.add).toHaveBeenCalled();
+
+      // Exercise the start-path onDelete captured by attachCircleUI so the
+      // store.remove line is covered.
+      expect(capturedCircleOpts).toBeDefined();
+      const circleId = manager.measurements[0].id;
+      manager.store.remove.mockClear();
+      capturedCircleOpts.onDelete();
+      expect(manager.store.remove).toHaveBeenCalledWith(circleId);
     } finally {
       vi.useRealTimers();
     }
@@ -167,7 +176,7 @@ describe("CircleMode — start drawing flow", () => {
 });
 
 describe("CircleMode — restore wiring", () => {
-  it("wires finalizedClickHandlers and saves data", () => {
+  it("registers edit handles via registerFinalized and saves data", () => {
     const manager = makeManagerMock() as any;
     const saveSpy = vi.spyOn(manager, "saveMeasurements");
     CircleMode.restore(manager, {
@@ -178,7 +187,8 @@ describe("CircleMode — restore wiring", () => {
       radius: 5000,
     });
     // Verify the handler is wired (regression check)
-    expect(manager.finalizedClickHandlers.length).toBe(1);
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_wire").dispose).toBe("function");
     // Verify the onDelete callback works by calling it directly
     manager.measurements.push({ id: "c_wire", type: "circle" });
     // The onDelete callback is inside attachCircleUI's closure.
@@ -220,7 +230,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     expect(data.target).toEqual({ lng: 121, lat: 32 });
     expect(data.radius).toBe(8000);
     expect(data.area).toBe(Math.PI * 8000 * 8000);
-    expect(manager.saveMeasurements).toHaveBeenCalled();
+    expect(manager.store.persist).toHaveBeenCalled();
   });
 
   it("finishCircle: onEnd syncs the just-saved measurement's fields", () => {
@@ -241,12 +251,14 @@ describe("CircleMode — drag persistence (onEnd)", () => {
 
       expect(manager.measurements.length).toBe(1);
 
-      // finishCircle creates: circle(1) + ripple(2) + radiusNode(1).
-      // onEnd reads from circle(1) and radiusNode(1) to sync the store.
+      // finishCircle creates: circle(1) + ripple(2) + radiusNode.
+      // The preview center (phase-0 click) is circleMarker call #1;
+      // the radius node in finishCircle is circleMarker call #2.
+      // onEnd reads from circle(1) and radiusNode(2) to sync the store.
       const c = circleInstance(1);
       c.getLatLng = vi.fn(() => ({ lat: 31, lng: 121 }));
       c.getRadius = vi.fn(() => 12000);
-      nodeInstance(1).getLatLng = vi.fn(() => ({ lat: 31, lng: 123 }));
+      nodeInstance(2).getLatLng = vi.fn(() => ({ lat: 31, lng: 123 }));
 
       capturedCircleOpts.onEnd();
 
@@ -254,7 +266,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       expect(saved.radius).toBe(12000);
       expect(saved.area).toBe(Math.PI * 12000 * 12000);
       expect(saved.target).toEqual({ lng: 123, lat: 31 });
-      expect(manager.saveMeasurements).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

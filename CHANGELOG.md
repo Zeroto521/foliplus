@@ -4,7 +4,7 @@
 
 ### Added
 
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134), [#212](https://github.com/Zeroto521/foliplus/pull/212))
@@ -16,8 +16,9 @@
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165), [#188](https://github.com/Zeroto521/foliplus/pull/188))
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
 - `LayerControl`: focus-layer overflow menu — zoom the map to a layer's extent ([#194](https://github.com/Zeroto521/foliplus/pull/194))
-- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235))
+- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235), [#243](https://github.com/Zeroto521/foliplus/pull/243))
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
+- `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227))
 
@@ -41,6 +42,7 @@
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - Keyboard cursor + focus ring unified across foliplus — LayerControl/SearchControl cursor (left accent bar + glow, no wash), global `--focus-ring` soft double-ring on every keyboard-focusable row and button (LayerControl layer rows, group rows, more button), removed red more-button tint on `.active`. LayerControl: Enter/Space on the group fold chevron now folds the group instead of toggling its select-all checkbox, and keyboard navigation enumerates rows by element (Tab / arrow keys cover the same rows). Single-consumer styling stays component-local — the LayerControl checkbox and the HeatmapControl label toggle (10px pill rounding) are back in their own stylesheets instead of `common.css` ([#229](https://github.com/Zeroto521/foliplus/pull/229))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
+- `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 
 ### Removed
 
@@ -50,7 +52,6 @@
 
 ### Fixed
 
-- `MeasureControl`: polygon centroid area label washed out after zoom-out; `zIndexOffset` fix caused it to cover other labels. Route centroid dot to `measure_graph` pane (like node markers) so pane ordering keeps the area label above it. Add a modest `zIndexOffset` to the area label so `sortLayers` (which re-sorts by Y on zoom) doesn't push a lower-Y segment label over it ([#230](https://github.com/Zeroto521/foliplus/pull/230))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
@@ -59,6 +60,7 @@
 - `SearchControl`: `Enter` now adopts the keyboard-highlighted suggestion (previously it always re-geocoded and took the first Nominatim result) ([#216](https://github.com/Zeroto521/foliplus/pull/216))
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
+- `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 
 ## [v0.3.0] (2026-08-02)
 

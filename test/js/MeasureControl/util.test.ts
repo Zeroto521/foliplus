@@ -327,12 +327,15 @@ describe("buildEditOverlay", () => {
   it("closes other open overlays on open (single ✕ set at a time)", () => {
     const closeOtherEditOverlays = vi.fn();
     const mgr = makeMgr({ closeOtherEditOverlays });
-    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, {
+      onOpen: vi.fn(),
+      id: "m42",
+    });
 
     overlay.open({ originalEvent: {} } as any);
 
     expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
-    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(Function));
+    expect(closeOtherEditOverlays).toHaveBeenCalledWith("m42");
   });
 
   it("does not open when not in edit mode", () => {

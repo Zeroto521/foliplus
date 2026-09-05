@@ -10,6 +10,7 @@
 // translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { download } from "../ExportControl/util.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
@@ -18,9 +19,6 @@ import { MODE_MAP, MeasureMode } from "./mode/index.js";
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 const T = createScopedTranslator(CONF);
 
-/**
- * Convert a single measurement to a GeoJSON feature.
- */
 /**
  * Serialize measurements as a GeoJSON FeatureCollection string.
  * Each feature carries the measurement id and type-specific fields in
@@ -195,12 +193,7 @@ const exportMeasurements = (
       content = toGeoJSON(measurements);
   }
 
-  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
+  download(new Blob([content], { type: mimeType }), filename);
 };
 
 /**
@@ -210,7 +203,7 @@ const exportMeasurements = (
  */
 const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
-  const measurements = mgr.measurements;
+  const measurements = mgr.store.all();
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
     mgr.map.foliplus?.showHint?.(CONF.name, T("export_no_data"), HINT_DURATION.LONG);

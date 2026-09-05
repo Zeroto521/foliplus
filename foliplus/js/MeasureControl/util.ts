@@ -41,11 +41,18 @@ const formatArea = (sqMeters: number): string => {
 // so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
 // through the Util namespace without a follow-up rename.
 
+/** Resolve the label chip inside a marker's icon element, or null when the
+ *  marker has no rendered element. Callers that read the chip must go through
+ *  this rather than caching a reference — a setIcon during a drag replaces
+ *  the element. */
+const labelChipOf = (marker: L.Layer): HTMLElement | null => {
+  const el = (marker as L.Marker).getElement();
+  return el ? (el.querySelector(CONST.SEL.LABEL) ?? null) : null;
+};
+
 /** Update a label marker's text content. Always gets fresh DOM reference. */
 const setLabelText = (marker: L.Layer, text: string) => {
-  const el = (marker as L.Marker).getElement();
-  if (!el) return;
-  const labelEl = el.querySelector(CONST.SEL.LABEL);
+  const labelEl = labelChipOf(marker);
   if (labelEl) labelEl.textContent = text;
 };
 
@@ -93,6 +100,18 @@ const makeNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+};
+
+/** A non-interactive node used for transient previews (center, centroid). */
+const makePreviewNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
+  return L.circleMarker(latlng, {
+    radius: CONST.MARKER.RADIUS,
+    className,
+    interactive: false,
+  });
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
@@ -176,11 +195,13 @@ export {
   formatArea,
   formatDistance,
   formatSegmentLabel,
+  labelChipOf,
   getEventTarget,
   geocodeAddress,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
+  makePreviewNode,
   midpoint,
   pointsToLatLngs,
   recalculateSegments,

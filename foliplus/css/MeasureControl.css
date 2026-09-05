@@ -23,16 +23,6 @@
   cursor: pointer;
 }
 
-/* ── Measurement Labels ── */
-.foliplus-measure-center-dot {
-  width: var(--size-12);
-  height: var(--size-12);
-  background: var(--accent-primary);
-  border: var(--border-thick) solid var(--neutral-0);
-  border-radius: var(--radius-round);
-  box-shadow: 0 0 var(--size-4) rgba(0, 0, 0, var(--alpha-30));
-}
-
 /* ── Measurement Nodes (circleMarker) ── */
 /* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
 .foliplus-measure-node {
@@ -41,9 +31,8 @@
   stroke: var(--accent-primary);
   stroke-width: 2.5px;
 }
-/* Solid nodes (e.g. the start point of a distance measurement) are filled
-  with the accent color and outlined in neutral — mirrors the center-dot
-  style so the start point reads as a distinct "solid" dot. */
+/* Solid nodes (distance start point, circle center, polygon centroid) are
+  filled with the accent color and outlined in neutral. */
 path.foliplus-measure-node-solid {
   fill: var(--accent-primary);
   fill-opacity: 1;
