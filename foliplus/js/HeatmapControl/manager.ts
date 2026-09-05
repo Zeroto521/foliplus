@@ -16,7 +16,12 @@ import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 import { aggregate, computeBreaks } from "./worker/aggregate.js";
-import type { AggregateMessage, H3Api, HexFeature } from "./worker/types.js";
+import type {
+  AggregateMessage,
+  AggregateResult,
+  H3Api,
+  HexFeature,
+} from "./worker/types.js";
 
 const T = createScopedTranslator(CONF);
 
@@ -89,6 +94,15 @@ class HeatmapManager {
   seq: number;
   /** Aggregation worker, or null once creation has failed. */
   worker: Worker | null | undefined;
+  /** Cache key of the payload currently in flight — the worker reply arrives
+   *  without it, so it is kept beside the payload. */
+  aggCacheKey: string = "";
+  /** Payload of the newest renderHexagons call, so a late or malformed reply
+   *  can be re-run on the main thread with the right inputs. */
+  lastPayload: AggregateMessage | null = null;
+  /** One message handler for the worker's whole lifetime (no per-render
+   *  listener accumulation). */
+  onWorkerMessage: ((e: MessageEvent<AggregateResult>) => void) | null = null;
   cachedLabelStyle: LabelStyle | null;
   renderAll: boolean;
   /**
@@ -469,41 +483,58 @@ class HeatmapManager {
       this.renderFeatures(this.cachedAgg.features);
       return;
     }
+    this.aggCacheKey = aggKey;
     // Project the Leaflet markers to plain numbers once — the worker boundary
     // must not structure-clone a DOM object.
     const payload: AggregateMessage = {
-      pts: pts.map(p => ({ lat: p.lat, lng: p.lng, value: p.value })),
+      point: pts.map(p => ({ lat: p.lat, lng: p.lng, value: p.value })),
       res,
       agg: this.currentAgg,
       method: this.currentMethod,
-      numClasses: this.numClasses,
-      classColors: this.getColorScale(this.currentScheme, this.numClasses),
+      classes: this.numClasses,
+      colors: this.getColorScale(this.currentScheme, this.numClasses),
       seq: this.seq++,
     };
-    const run = (features: HexFeature[]) => {
-      if (features.length) this.cachedAgg = { key: aggKey, features };
-      this.renderFeatures(features);
-    };
+    this.lastPayload = payload;
     const worker = this.ensureWorker();
     if (worker) {
-      const seq = payload.seq;
-      worker.addEventListener("message", e => {
-        if (e.data?.seq !== seq) return;
-        if (Array.isArray(e.data?.features)) run(e.data.features);
-        else run(this.computeFeatures(payload));
-      });
-      // An empty reply is a real answer, not a failure: every point was
-      // unconvertible.  Only a malformed reply re-runs on the main thread.
+      // One listener for the worker's whole lifetime: it dispatches by the
+      // correlation id, so superseded renders neither pile up handlers nor
+      // apply a stale reply out of order (a seq=0 reply arriving after seq=1
+      // no longer overwrites the newer canvas).
+      if (!this.onWorkerMessage) {
+        this.onWorkerMessage = e => this.handleWorkerReply(e);
+        worker.addEventListener("message", this.onWorkerMessage);
+      }
       try {
         worker.postMessage(payload);
       } catch (e) {
         // A dead worker never answers, so compute here and stop using it.
-        this.worker = null;
-        run(this.computeFeatures(payload));
+        this.disposeWorker();
+        this.renderFeatures(this.computeFeatures(payload));
       }
       return;
     }
-    run(this.computeFeatures(payload));
+    const features = this.computeFeatures(payload);
+    if (features.length) this.cachedAgg = { key: aggKey, features };
+    this.renderFeatures(features);
+  }
+
+  /** Apply a worker reply.  Only the reply matching the newest request counts;
+   *  an empty reply is a real answer (every point was unconvertible), and a
+   *  malformed one re-runs on the main thread. */
+  private handleWorkerReply(e: MessageEvent<AggregateResult>) {
+    const data = e.data;
+    if (!data || typeof data !== "object" || data.seq !== this.seq - 1) return;
+    const payload = this.lastPayload;
+    if (!payload) return;
+    if (!Array.isArray(data.feature)) {
+      this.renderFeatures(this.computeFeatures(payload));
+      return;
+    }
+    if (data.feature.length)
+      this.cachedAgg = { key: this.aggCacheKey, features: data.feature };
+    this.renderFeatures(data.feature);
   }
 
   /** Build features on the main thread.  Runs when the worker is unavailable
@@ -523,14 +554,31 @@ class HeatmapManager {
    *  `file://` pages reject blob workers by origin policy. */
   ensureWorker(): Worker | null {
     if (this.worker !== undefined) return this.worker;
+    let url: string | null = null;
     try {
-      this.worker = new Worker(
-        URL.createObjectURL(new Blob([WORKER_SOURCE], { type: "text/javascript" })),
-      );
+      url = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: "text/javascript" }));
+      this.worker = new Worker(url);
+      // The Worker has already fetched its script by the time this resolves,
+      // so the blob URL is dead weight from here on — release it in a
+      // microtask instead of leaking for the page's life.  Classic Workers
+      // emit no "ready" event, so there is no earlier hook to use.
+      const blobUrl = url;
+      queueMicrotask(() => URL.revokeObjectURL(blobUrl!));
     } catch (e) {
       this.worker = null;
+      if (url) URL.revokeObjectURL(url);
     }
     return this.worker;
+  }
+
+  /** Abandon the worker after `postMessage` throws: it will never answer. */
+  private disposeWorker() {
+    if (this.onWorkerMessage) {
+      this.worker?.removeEventListener?.("message", this.onWorkerMessage);
+      this.onWorkerMessage = null;
+    }
+    this.worker?.terminate();
+    this.worker = null;
   }
 
   renderFeatures(features: HexFeature[]) {

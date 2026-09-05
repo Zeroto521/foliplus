@@ -9,10 +9,9 @@
  *
  * The worker is compiled twice: once to a standalone minified artifact
  * (``foliplus-HeatmapControl.worker.min.js``, shipped in the sdist) and once
- * through esbuild's ``transform`` to shrink the copy embedded in the
- * component.  Both come from the same source, so they cannot drift.
+ * through esbuild's ``build`` with ``write: false`` to shrink the copy embedded
+ * in the component.  Both come from the same source, so they cannot drift.
  */
-import { transform } from "esbuild";
 import { readFileSync } from "fs";
 import { basename, resolve } from "path";
 import { transformSource } from "./compress.mjs";

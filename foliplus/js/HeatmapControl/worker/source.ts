@@ -17,9 +17,9 @@ import type { AggregateMessage, AggregateResult } from "./types.js";
 const onMessage: (e: MessageEvent<AggregateMessage>) => void = e => {
   let result: AggregateResult;
   try {
-    result = { seq: e.data.seq, features: aggregate(e.data, h3) };
+    result = { seq: e.data.seq, feature: aggregate(e.data, h3) };
   } catch (err) {
-    result = { seq: e.data.seq, features: [] };
+    result = { seq: e.data.seq, feature: [] };
   }
   postMessage(result);
 };
@@ -28,4 +28,4 @@ self.onmessage = onMessage;
 
 /** Worker source for `new Worker(URL.createObjectURL(new Blob([…])))`. */
 export const WORKER_SOURCE =
-  "import { h3 } from 'h3-asm.js';import { aggregate } from 'aggregate.js';const onMessage=(e)=>{let result;try{result={seq:e.data.seq,features:aggregate(e.data,h3)};}catch(err){result={seq:e.data.seq,features:[]};}postMessage(result);};self.onmessage=onMessage;";
+  "import { h3 } from 'h3-asm.js';import { aggregate } from 'aggregate.js';const onMessage=(e)=>{let result;try{result={seq:e.data.seq,feature:aggregate(e.data,h3)};}catch(err){result={seq:e.data.seq,feature:[]};}postMessage(result);};self.onmessage=onMessage;";

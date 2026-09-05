@@ -1,19 +1,33 @@
-// Vendored h3-js build for offscreen aggregation.
+// The h3 surface the worker needs, imported from the npm `h3-js` package at
+// build time rather than vendored as source in this repo.
 //
-// ``h3.ts`` is h3-js@4.5.0's ``dist/browser/h3-js.es.js`` with one line appended
-// (the ``export * as h3asm`` re-export at its tail).  It is the ENVIRONMENT=web
-// asm.js build: a plain module (no ``this.h3 = {}`` self-assignment, unlike the
-// UMD build) that needs no .wasm fetch at runtime.
+// A worker's module graph must be self-contained — the bundle is inlined as a
+// string (see `script/worker-inline-plugin.mjs`) and evaluated from a Blob URL
+// — but that says nothing about *bundle time*: the import below is resolved by
+// esbuild and the result ships inside the string, so no network fetch ever
+// happens at runtime.
 //
-// It lives here as source rather than as a bundled import so that the
-// aggregation never depends on ``importScripts``/``fetch`` at worker start —
-// scripts that are unreachable at load time (CSP, ``file://``, CDN outage)
-// would otherwise leave ``h3`` undefined and take the whole heatmap down.  The
-// page's CDN UMD build (``h3-js@4/dist/h3-js.umd.js``, see ``foliplus/cdn.json``)
-// is a separate copy that the manager uses for its synchronous fallback, so
-// ``h3.ts`` must be refreshed together with that entry if the version changes.
+// `h3-js` ships four builds and only two are ESM:
+//   - `h3-js:legacy` is CJS (`module.exports`), so it cannot bundle here;
+//   - `h3-js/lib/h3core.js` is the Node entry, which `require`s a CJS file;
+//   - `dist/h3-js.es.js` and `dist/browser/h3-js.es.js` are the same asm.js
+//     core, and neither exports the `h3asm` core handle — only the named API
+//     functions are public.  esbuild's `browser` field rewrites this file's
+//     import to the `dist/browser/` build whether or not the path is spelled
+//     out, so both spellings bundle identically and either is fine.
+// The browser build is the one that lands: it detects no `document`, an
+// inline asm.js memory initializer, and no `.wasm` fetch, so it starts up
+// cleanly inside a dedicated worker.  It is exercised end-to-end in a real
+// browser by the HeatmapControl browser tests.
 //
-// Plain ``.js`` (not ``.ts``) because it carries no type syntax: esbuild treats
-// ``.js`` as JS.  ``h3asm`` is the type-only import source for the ``H3Api``
-// contract declared in ``types.ts``.
-export { h3asm as h3 } from "./h3.js";
+// Upgrade path: bump `h3-js` in `package.json` *and* the `h3-js@4` CDN script
+// the main-thread fallback reads (see `foliplus/cdn.json`) — independent
+// copies of the same library.
+//
+// Plain `.js` (not `.ts`) because it carries no type syntax.  The
+// `#core`/`#common` externaliser does not match this path, so the package is
+// inlined into the worker bundle rather than read from `window.foliplus`.
+import { cellToBoundary, cellToLatLng, latLngToCell } from "h3-js";
+
+const h3 = { cellToBoundary, cellToLatLng, latLngToCell };
+export { h3 };

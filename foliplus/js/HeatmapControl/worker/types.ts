@@ -5,10 +5,12 @@
 // other: the worker bundle must stay free of `window.foliplus`, and the
 // component bundle must not drag a second copy of h3 in.  This file is the
 // shared type-only seam — it compiles to nothing in either bundle.
+//
+// Every type here is exported once, at the end of the file.
 import type { Feature, Polygon } from "geojson";
 
 /** A hexagon feature drawn on the heatmap canvas. */
-export type HexFeature = Feature<
+type HexFeature = Feature<
   Polygon,
   {
     /** Aggregated value the hexagon represents. */
@@ -26,34 +28,43 @@ export type HexFeature = Feature<
 
 /** A source point, projected to plain numbers before it crosses the worker
  *  boundary so no structured-clone of a Leaflet object is required. */
-export interface PointInput {
+interface PointInput {
   lat: number;
   lng: number;
   value: number;
 }
 
 /** Message payload sent to the worker. */
-export interface AggregateMessage {
-  pts: PointInput[];
+interface AggregateMessage {
+  point: PointInput[];
   res: number;
   agg: string;
   method: string;
-  numClasses: number;
-  classColors: string[];
+  classes: number;
+  colors: string[];
   /** Correlation id so a stale reply can be discarded after a settings change. */
   seq: number;
 }
 
 /** Message payload posted back from the worker. */
-export interface AggregateResult {
+interface AggregateResult {
   seq: number;
-  features: HexFeature[];
+  feature: HexFeature[];
 }
 
-/** The h3 surface `aggregate` needs — the vendor build in `h3-asm.js` is a
- *  strict superset of this. */
-export interface H3Api {
+/** The h3 surface `aggregate` needs.  `h3-js` accepts a string or a split
+ *  long for a cell index; `aggregate` only ever passes back the string it
+ *  got from `latLngToCell`, so string is the working contract. */
+interface H3Api {
   latLngToCell: (lat: number, lng: number, res: number) => string;
   cellToLatLng: (h3: string) => number[];
-  cellToBoundary: (h3: string, ...args: unknown[]) => number[][];
+  cellToBoundary: (h3: string, formatAsGeoJson?: boolean) => number[][];
 }
+
+export {
+  type AggregateMessage,
+  type AggregateResult,
+  type H3Api,
+  type HexFeature,
+  type PointInput,
+};

@@ -452,15 +452,15 @@ describe("computeFeatures", () => {
     const m = makeManager();
     globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
     const feats = m.computeFeatures({
-      pts: [
+      point: [
         { lat: 26.08, lng: 119.3, value: 1 },
         { lat: 26.09, lng: 119.31, value: 1 },
       ],
       res: 2,
       agg: "count",
       method: "jenks",
-      numClasses: 6,
-      classColors: ["#ff0000", "#00ff00"],
+      classes: 6,
+      colors: ["#ff0000", "#00ff00"],
       seq: 0,
     });
     expect(feats).toHaveLength(2);
@@ -478,12 +478,12 @@ describe("computeFeatures", () => {
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
     expect(
       m.computeFeatures({
-        pts: [],
+        point: [],
         res: 2,
         agg: "count",
         method: "equal",
-        numClasses: 4,
-        classColors: [],
+        classes: 4,
+        colors: [],
         seq: 0,
       }),
     ).toEqual([]);
@@ -513,12 +513,20 @@ describe("ensureWorker", () => {
     delete globalThis.Worker;
   });
 
-  it("creates a worker from the embedded blob source", () => {
+  it("creates a worker from the embedded blob source", async () => {
     let parts: unknown[] = [];
     let opts: Record<string, unknown> = {};
+    let created: string[] = [];
+    let revoked: string[] = [];
     const realCreate = URL.createObjectURL;
+    const realRevoke = URL.revokeObjectURL;
     const realBlob = globalThis.Blob;
-    URL.createObjectURL = vi.fn(o => `blob:fake/${o._opts.type}`);
+    URL.createObjectURL = vi.fn(() => {
+      const url = "blob:fake/text/javascript";
+      created.push(url);
+      return url;
+    });
+    URL.revokeObjectURL = vi.fn(u => revoked.push(u));
     globalThis.Blob = function Blob(ps: unknown[], o: unknown) {
       parts = [...ps];
       opts = { ...o };
@@ -536,23 +544,37 @@ describe("ensureWorker", () => {
     expect(parts[0].length).toBeGreaterThan(100);
     expect(parts[0]).toContain("self.onmessage");
     expect(opts).toEqual({ type: "text/javascript" });
+    // The URL is released once the Worker has parsed its script — that happens
+    // in a microtask, since classic Workers emit no "ready" event.
+    expect(created).toEqual(["blob:fake/text/javascript"]);
+    expect(revoked).toEqual([]);
+    await new Promise(r => setTimeout(r, 0));
+    expect(revoked).toEqual(["blob:fake/text/javascript"]);
     expect(m.ensureWorker()).toBe(worker);
     expect(ctorCalls).toHaveLength(1); // memoised
+    expect(revoked).toEqual(["blob:fake/text/javascript"]); // revoked once
 
     URL.createObjectURL = realCreate;
+    URL.revokeObjectURL = realRevoke;
     globalThis.Blob = realBlob;
   });
 
-  it("returns null and disables itself when worker creation throws", () => {
-    const m = makeManager();
-    const real = URL.createObjectURL;
+  it("leaves the blob URL unrevokeable when worker creation throws", () => {
+    let revoked: string[] = [];
+    const realCreate = URL.createObjectURL;
+    const realRevoke = URL.revokeObjectURL;
     URL.createObjectURL = vi.fn(() => {
       throw new Error("blob workers rejected");
     });
+    URL.revokeObjectURL = vi.fn(u => revoked.push(u));
+    const m = makeManager();
     expect(m.ensureWorker()).toBeNull();
     expect(m.ensureWorker()).toBeNull();
     expect(ctorCalls).toEqual([]);
-    URL.createObjectURL = real;
+    // No worker was built, so nothing was wired to revoke.
+    expect(revoked).toEqual([]);
+    URL.createObjectURL = realCreate;
+    URL.revokeObjectURL = realRevoke;
   });
 });
 
@@ -573,7 +595,12 @@ describe("renderHexagons — worker path", () => {
   };
 
   beforeEach(() => {
-    stub = { addEventListener: vi.fn(), postMessage: vi.fn(), terminate: vi.fn() };
+    stub = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+    };
     globalThis.Worker = function ctor() {
       return stub;
     } as any;
@@ -592,25 +619,59 @@ describe("renderHexagons — worker path", () => {
     expect(payload.seq).toBe(0);
     expect(payload.res).toBe(2);
     expect(payload.agg).toBe("count");
-    expect(payload.classColors).toEqual(["#ff0000"]);
+    expect(payload.colors).toEqual(["#ff0000"]);
     // Leaflet markers are projected to plain numbers for the clone boundary.
-    expect(payload.pts).toEqual([
+    expect(payload.point).toEqual([
       { lat: 26.08, lng: 119.3, value: 1 },
       { lat: 26.09, lng: 119.31, value: 1 },
     ]);
     const listener = stub.addEventListener.mock.calls[0][1];
     expect(m.renderFeatures).not.toHaveBeenCalled();
-    listener({ data: { seq: 0, features: [{ type: "Feature" }] as any } });
+    listener({ data: { seq: 0, feature: [{ type: "Feature" }] as any } });
     expect(m.renderFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it("installs one message listener across every render", () => {
+    const m = makeManager();
+    payloadShape(m);
+    m.renderHexagons();
+    m.renderHexagons();
+    m.renderHexagons();
+    // The handler is hoisted and reused — a listener per render would pile up
+    // forever on a long-lived worker.
+    expect(stub.addEventListener).toHaveBeenCalledTimes(1);
+    const [type, handler] = stub.addEventListener.mock.calls[0];
+    expect(type).toBe("message");
+    expect(handler).toBe(m.onWorkerMessage);
   });
 
   it("ignores a stale reply from a superseded request", () => {
     const m = makeManager();
     payloadShape(m);
     m.renderHexagons();
+    m.renderHexagons();
     const listener = stub.addEventListener.mock.calls[0][1];
-    listener({ data: { seq: 99, features: [{ type: "Feature" }] as any } });
+    // seq 0 is two renders behind — the newest is seq 1.
+    listener({ data: { seq: 0, feature: [{ type: "Feature" }] as any } });
     expect(m.renderFeatures).not.toHaveBeenCalled();
+  });
+
+  it("lets the newest reply win when the worker answers out of order", () => {
+    const m = makeManager();
+    payloadShape(m);
+    m.renderHexagons();
+    m.renderHexagons();
+    const listener = stub.addEventListener.mock.calls[0][1];
+    // seq 0 arrives first: it is stale, so the canvas is untouched.
+    listener({ data: { seq: 0, feature: [{ type: "Feature", seq: 0 }] as any } });
+    expect(m.renderFeatures).not.toHaveBeenCalled();
+    // seq 1 arrives second: it is current and renders.
+    listener({ data: { seq: 1, feature: [{ type: "Feature", seq: 1 }] as any } });
+    expect(m.renderFeatures).toHaveBeenCalledTimes(1);
+    // Now seq 0 arrives again — it must not clobber the newer result.
+    listener({ data: { seq: 0, feature: [{ type: "Feature", seq: 0 }] as any } });
+    expect(m.renderFeatures).toHaveBeenCalledTimes(1);
+    expect(m.renderFeatures.mock.calls[0][0][0].seq).toBe(1);
   });
 
   it("treats an empty reply as a real answer, not a failure", () => {
@@ -619,7 +680,7 @@ describe("renderHexagons — worker path", () => {
     const fallback = vi.spyOn(m, "computeFeatures");
     m.renderHexagons();
     const listener = stub.addEventListener.mock.calls[0][1];
-    listener({ data: { seq: 0, features: [] } });
+    listener({ data: { seq: 0, feature: [] } });
     expect(m.renderFeatures).toHaveBeenCalled();
     expect(fallback).not.toHaveBeenCalled();
   });
@@ -634,6 +695,18 @@ describe("renderHexagons — worker path", () => {
     expect(fallback).toHaveBeenCalledTimes(1);
   });
 
+  it("falls back to the main thread when the reply is not an object", () => {
+    const m = makeManager();
+    payloadShape(m);
+    const fallback = vi.spyOn(m, "computeFeatures");
+    m.renderHexagons();
+    const listener = stub.addEventListener.mock.calls[0][1];
+    listener({ data: null });
+    expect(fallback).not.toHaveBeenCalled();
+    listener({ data: "stray" });
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
   it("falls back to the main thread when no worker is available", () => {
     const m = makeManager();
     payloadShape(m);
@@ -644,6 +717,23 @@ describe("renderHexagons — worker path", () => {
     expect(m.renderFeatures).toHaveBeenCalledTimes(1);
     // A non-empty result is cached for the next render with the same key.
     expect(m.cachedAgg).not.toBeNull();
+  });
+
+  it("stops using a worker that throws on postMessage", () => {
+    const m = makeManager();
+    payloadShape(m);
+    stub.postMessage.mockImplementation(() => {
+      throw new Error("worker died");
+    });
+    const fallback = vi.spyOn(m, "computeFeatures");
+    m.renderHexagons();
+    expect(stub.terminate).toHaveBeenCalledTimes(1);
+    expect(m.worker).toBeNull();
+    expect(fallback).toHaveBeenCalledTimes(1);
+    // The next render does not re-attach: the fallback is already in place.
+    m.renderHexagons();
+    expect(fallback).toHaveBeenCalledTimes(2);
+    expect(stub.addEventListener).toHaveBeenCalledTimes(1);
   });
 });
 

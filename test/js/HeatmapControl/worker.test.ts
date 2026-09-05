@@ -21,12 +21,12 @@ const makeH3 = (overrides: Partial<H3Api> = {}): H3Api => ({
 });
 
 const msg = (over: Partial<AggregateMessage> = {}): AggregateMessage => ({
-  pts: [{ lat: 26.08, lng: 119.3, value: 1 }],
+  point: [{ lat: 26.08, lng: 119.3, value: 1 }],
   res: 2,
   agg: "count",
   method: "equal",
-  numClasses: 4,
-  classColors: ["#ff0000", "#00ff00"],
+  classes: 4,
+  colors: ["#ff0000", "#00ff00"],
   seq: 1,
   ...over,
 });
@@ -95,7 +95,7 @@ describe("computeBreaks", () => {
 
 describe("aggregate", () => {
   it("returns [] when there are no points", () => {
-    expect(aggregate(msg({ pts: [] }), makeH3())).toEqual([]);
+    expect(aggregate(msg({ point: [] }), makeH3())).toEqual([]);
   });
 
   it("returns [] when every point is unconvertible", () => {
@@ -131,27 +131,31 @@ describe("aggregate", () => {
         [26.08, 119.31],
       ],
     };
-    const feats = aggregate(msg({ pts, agg: "count" }), h3);
+    const feats = aggregate(msg({ point: pts, agg: "count" }), h3);
     expect(feats).toHaveLength(2);
     const byCell = Object.fromEntries(feats.map(f => [f.properties.h3, f]));
     expect(byCell["c2608"].properties.value).toBe(2);
     expect(byCell["c2609"].properties.value).toBe(1);
     // Aggregation is recomputed per kind.
     expect(
-      aggregate(msg({ pts, agg: "sum" }), h3).find(f => f.properties.h3 === "c2608")
-        .properties.value,
+      aggregate(msg({ point: pts, agg: "sum" }), h3).find(
+        f => f.properties.h3 === "c2608",
+      )!.properties.value,
     ).toBe(15);
     expect(
-      aggregate(msg({ pts, agg: "avg" }), h3).find(f => f.properties.h3 === "c2608")
-        .properties.value,
+      aggregate(msg({ point: pts, agg: "avg" }), h3).find(
+        f => f.properties.h3 === "c2608",
+      )!.properties.value,
     ).toBe(7.5);
     expect(
-      aggregate(msg({ pts, agg: "min" }), h3).find(f => f.properties.h3 === "c2608")
-        .properties.value,
+      aggregate(msg({ point: pts, agg: "min" }), h3).find(
+        f => f.properties.h3 === "c2608",
+      )!.properties.value,
     ).toBe(5);
     expect(
-      aggregate(msg({ pts, agg: "max" }), h3).find(f => f.properties.h3 === "c2608")
-        .properties.value,
+      aggregate(msg({ point: pts, agg: "max" }), h3).find(
+        f => f.properties.h3 === "c2608",
+      )!.properties.value,
     ).toBe(10);
   });
 
@@ -165,7 +169,7 @@ describe("aggregate", () => {
   });
 
   it("derives the centroid from the boundary when cellToLatLng fails", () => {
-    const feats = aggregate(msg({ pts: [{ lat: 27.03, lng: 119.3, value: 1 }] }), {
+    const feats = aggregate(msg({ point: [{ lat: 27.03, lng: 119.3, value: 1 }] }), {
       ...makeH3(),
       cellToLatLng: () => {
         throw new Error("no centroid");
@@ -184,7 +188,7 @@ describe("aggregate", () => {
 
   it("skips a cell whose boundary cannot be read", () => {
     let seen = 0;
-    const feats = aggregate(msg({ pts: [{ lat: 27.04, lng: 119.3, value: 1 }] }), {
+    const feats = aggregate(msg({ point: [{ lat: 27.04, lng: 119.3, value: 1 }] }), {
       ...makeH3(),
       cellToBoundary: () => {
         seen++;
@@ -200,15 +204,15 @@ describe("aggregate", () => {
     // the top value sits exactly on the last break and clamps to the final class.
     const feats = aggregate(
       msg({
-        pts: [
+        point: [
           { lat: 27.11, lng: 119.3, value: 1 },
           { lat: 27.12, lng: 119.3, value: 7 },
           { lat: 27.13, lng: 119.3, value: 12 },
           { lat: 27.14, lng: 119.3, value: 20 },
         ],
         agg: "sum",
-        numClasses: 4,
-        classColors: ["#ff0000", "#00ff00", "#0000ff", "#ffff00"],
+        classes: 4,
+        colors: ["#ff0000", "#00ff00", "#0000ff", "#ffff00"],
       }),
       makeH3(),
     );
@@ -224,15 +228,15 @@ describe("aggregate", () => {
   it("falls back to #999 when the color scale is shorter than the classes", () => {
     const feats = aggregate(
       msg({
-        pts: [
+        point: [
           { lat: 27.21, lng: 119.3, value: 1 },
           { lat: 27.22, lng: 119.3, value: 7 },
           { lat: 27.23, lng: 119.3, value: 12 },
           { lat: 27.24, lng: 119.3, value: 20 },
         ],
         agg: "sum",
-        numClasses: 4,
-        classColors: ["#ff0000", "#00ff00", "#0000ff"],
+        classes: 4,
+        colors: ["#ff0000", "#00ff00", "#0000ff"],
       }),
       makeH3(),
     );
@@ -245,27 +249,31 @@ describe("aggregate", () => {
     ]);
   });
 
-  it("caches geometry per cell — cellToBoundary is called once per cell", () => {
-    const seen: number[] = [];
+  it("caches geometry per cell within one pass", () => {
+    // The geometry cache is per-pass (built fresh for each `aggregate` call),
+    // so within one pass each cell's boundary is decoded once no matter how
+    // many points fall in it.
+    let boundaryCalls = 0;
     const h3: H3Api = {
-      latLngToCell: lat => {
-        seen.push(Math.round(lat * 100));
-        return `c${Math.round(lat * 100)}`;
-      },
+      latLngToCell: lat => `c${Math.round(lat * 100)}`,
       cellToLatLng: () => [26.08, 119.3],
-      cellToBoundary: () => [
-        [26.08, 119.3],
-        [26.09, 119.3],
-        [26.09, 119.31],
-        [26.08, 119.31],
-      ],
+      cellToBoundary: () => {
+        boundaryCalls++;
+        return [
+          [26.08, 119.3],
+          [26.09, 119.3],
+          [26.09, 119.31],
+          [26.08, 119.31],
+        ];
+      },
     };
     const pts = [
       { lat: 26.08, lng: 119.3, value: 1 },
       { lat: 26.08, lng: 119.4, value: 1 },
       { lat: 26.08, lng: 119.5, value: 1 },
     ];
-    const feats = aggregate(msg({ pts }), h3);
+    const feats = aggregate(msg({ point: pts }), h3);
     expect(feats).toHaveLength(1);
+    expect(boundaryCalls).toBe(1);
   });
 });

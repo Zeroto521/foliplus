@@ -13,11 +13,11 @@ import type { AggregateMessage, AggregateResult } from "./types.js";
 const onMessage: (e: MessageEvent<AggregateMessage>) => void = e => {
   let result: AggregateResult;
   try {
-    result = { seq: e.data.seq, features: aggregate(e.data, h3) };
+    result = { seq: e.data.seq, feature: aggregate(e.data, h3) };
   } catch (err) {
     // A bad cell / bad point must not kill the worker — the manager retries
     // the whole pass on the main thread when the reply arrives invalid.
-    result = { seq: e.data.seq, features: [] };
+    result = { seq: e.data.seq, feature: [] };
     if (typeof console !== "undefined") console.warn("foliplus heatmap worker:", err);
   }
   postMessage(result);

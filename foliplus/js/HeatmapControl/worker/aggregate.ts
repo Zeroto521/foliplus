@@ -23,37 +23,40 @@ interface BreakSs {
 }
 
 /** h3 cell index → centroid + closed boundary ring in GeoJSON ``[lng, lat]``
- *  order.  Cached because a pass asks for both per cell. */
-const cellGeomCache = new Map<
-  string,
-  { centroid: [number, number]; ring: number[][] }
->();
+ *  order.  Scoped to a single ``aggregate`` pass: it de-duplicates the two
+ *  h3 calls each cell needs, and it is discarded when the pass ends so the
+ *  cache cannot grow across renders (a long-lived worker otherwise keeps
+ *  every zoom level's worth of cells). */
+type CellGeom = { centroid: [number, number]; ring: number[][] };
 
-const cellGeom = (h3api: H3Api, h3Idx: string) => {
-  const hit = cellGeomCache.get(h3Idx);
-  if (hit) return hit;
-  let centroid: [number, number] | null = null;
-  try {
-    const c = h3api.cellToLatLng(h3Idx);
-    centroid = [c[0], c[1]];
-  } catch (e) {
-    /* fall back to the boundary average below */
-  }
-  const boundary = h3api.cellToBoundary(h3Idx);
-  const ring = boundary.map(p => [p[1], p[0]]);
-  ring.push(ring[0]);
-  if (!centroid) {
-    let cx = 0,
-      cy = 0;
-    for (let j = 0; j < ring.length - 1; j++) {
-      cx += ring[j][0];
-      cy += ring[j][1];
+const cellGeomOf = (h3api: H3Api) => {
+  const cache = new Map<string, CellGeom>();
+  return (h3Idx: string): CellGeom => {
+    const hit = cache.get(h3Idx);
+    if (hit) return hit;
+    let centroid: [number, number] | null = null;
+    try {
+      const c = h3api.cellToLatLng(h3Idx);
+      centroid = [c[0], c[1]];
+    } catch (e) {
+      /* fall back to the boundary average below */
     }
-    centroid = [cy / (ring.length - 1), cx / (ring.length - 1)];
-  }
-  const geom = { centroid, ring };
-  cellGeomCache.set(h3Idx, geom);
-  return geom;
+    const boundary = h3api.cellToBoundary(h3Idx);
+    const ring = boundary.map(p => [p[1], p[0]]);
+    ring.push(ring[0]);
+    if (!centroid) {
+      let cx = 0,
+        cy = 0;
+      for (let j = 0; j < ring.length - 1; j++) {
+        cx += ring[j][0];
+        cy += ring[j][1];
+      }
+      centroid = [cy / (ring.length - 1), cx / (ring.length - 1)];
+    }
+    const geom = { centroid, ring };
+    cache.set(h3Idx, geom);
+    return geom;
+  };
 };
 
 /** Classify a value into a break interval. */
@@ -118,9 +121,10 @@ const computeBreaks = (data: number[], nClasses: number, method: string) => {
 /** Full aggregate + classify + geometry pass.  Returns ``[]`` for empty
  *  input; the caller clears the canvas in that case. */
 const aggregate = (msg: AggregateMessage, h3api: H3Api): HexFeature[] => {
-  const { pts, res, agg, method, numClasses, classColors } = msg;
+  const { point, res, agg, method, classes, colors } = msg;
+  const cellGeom = cellGeomOf(h3api);
   const hexCells: Record<string, HexCell> = {};
-  for (const pt of pts) {
+  for (const pt of point) {
     try {
       const h3Idx = h3api.latLngToCell(pt.lat, pt.lng, res);
       let cell = hexCells[h3Idx];
@@ -154,7 +158,7 @@ const aggregate = (msg: AggregateMessage, h3api: H3Api): HexFeature[] => {
 
   const allVals = Object.values(hexCells).map(getAggValue);
   if (allVals.length === 0) return [];
-  const breaks = computeBreaks(allVals, Math.min(numClasses, allVals.length), method);
+  const breaks = computeBreaks(allVals, Math.min(classes, allVals.length), method);
 
   const features: HexFeature[] = [];
   let dropped = 0;
@@ -163,7 +167,7 @@ const aggregate = (msg: AggregateMessage, h3api: H3Api): HexFeature[] => {
     const classIdx = valueToClassIdx(val, breaks);
     let geom;
     try {
-      geom = cellGeom(h3api, h3Idx);
+      geom = cellGeom(h3Idx);
     } catch (e) {
       /* boundary unavailable — the cell is dropped, not fatal */
       dropped += 1;
@@ -175,7 +179,7 @@ const aggregate = (msg: AggregateMessage, h3api: H3Api): HexFeature[] => {
       properties: {
         value: val,
         classIdx,
-        fillColor: classColors[classIdx] ?? "#999",
+        fillColor: colors[classIdx] ?? "#999",
         h3: h3Idx,
         centroid: geom.centroid,
       },
