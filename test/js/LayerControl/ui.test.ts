@@ -1316,9 +1316,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       // Both the label cell and the input must announce the rename, otherwise
       // assistive tech keeps reading the locale default after a rename.
       const item = findItem(ui, CONST.COLOR.MAP_ID);
-      const colorInput = item.querySelector(
-        `input[type="color"]`,
-      ) as HTMLInputElement;
+      const colorInput = item.querySelector(`input[type="color"]`) as HTMLInputElement;
       // Capture the pre-rename value from the source of truth, not the DOM:
       // the aria-label and the label cell are both projections of
       // displayName(), so comparing them against each other would pass either
