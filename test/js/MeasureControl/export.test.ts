@@ -672,7 +672,11 @@ describe("Export.handleExportClick", () => {
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
     expect(dl.anchors[0].download).toBe("meas.geojson");
 
-    (window as any).CONF = { name: "MeasureControl", filename: "meas", export_format: "csv" };
+    (window as any).CONF = {
+      name: "MeasureControl",
+      filename: "meas",
+      export_format: "csv",
+    };
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
     expect(dl.anchors[1].download).toBe("meas.csv");
   });
