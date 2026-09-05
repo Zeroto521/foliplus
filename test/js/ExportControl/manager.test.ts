@@ -777,35 +777,41 @@ describe("ExportManager — download paths", () => {
     ["png", "image/png", "test-map.png"],
     ["jpeg", "image/jpeg", "test-map.jpeg"],
     ["webp", "image/webp", "test-map.webp"],
-  ])("onRenderSuccess with format=%s encodes and names the file from the FORMAT table", async (format, mime, filename) => {
-    window.CONF = { ...window.CONF, format };
-    const toBlobCalls: unknown[][] = [];
-    const origToBlob = HTMLCanvasElement.prototype.toBlob;
-    HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void, ...rest: unknown[]) {
-      toBlobCalls.push([this, ...rest]);
-      cb(new Blob(["fake"], { type: mime }));
-    };
-    // The spy must exist before `onRenderSuccess` runs — spying afterwards
-    // would never catch a call that already happened.
-    const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
-    const downloadSpy = vi.spyOn(manager, "download");
+  ])(
+    "onRenderSuccess with format=%s encodes and names the file from the FORMAT table",
+    async (format, mime, filename) => {
+      window.CONF = { ...window.CONF, format };
+      const toBlobCalls: unknown[][] = [];
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (
+        cb: (b: Blob | null) => void,
+        ...rest: unknown[]
+      ) {
+        toBlobCalls.push([this, ...rest]);
+        cb(new Blob(["fake"], { type: mime }));
+      };
+      // The spy must exist before `onRenderSuccess` runs — spying afterwards
+      // would never catch a call that already happened.
+      const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
+      const downloadSpy = vi.spyOn(manager, "download");
 
-    try {
-      manager.onRenderSuccess(document.createElement("canvas"), []);
-      await new Promise(r => setTimeout(r, 0));
-      // `toBlob` must be fed the mime from the FORMAT record — no `as "png"` cast,
-      // no DEFAULT fallback — and the filename must come from the record's `ext`.
-      expect(toBlobCalls.length).toBe(1);
-      expect(toBlobCalls[0][1]).toBe(mime);
-      expect(downloadSpy).toHaveBeenCalledTimes(1);
-      expect(downloadSpy.mock.calls[0][1]).toBe(filename);
-      // The geotiff pipeline must not be taken for a plain image format.
-      expect(geoSpy).not.toHaveBeenCalled();
-    } finally {
-      HTMLCanvasElement.prototype.toBlob = origToBlob;
-      vi.restoreAllMocks();
-    }
-  });
+      try {
+        manager.onRenderSuccess(document.createElement("canvas"), []);
+        await new Promise(r => setTimeout(r, 0));
+        // `toBlob` must be fed the mime from the FORMAT record — no `as "png"` cast,
+        // no DEFAULT fallback — and the filename must come from the record's `ext`.
+        expect(toBlobCalls.length).toBe(1);
+        expect(toBlobCalls[0][1]).toBe(mime);
+        expect(downloadSpy).toHaveBeenCalledTimes(1);
+        expect(downloadSpy.mock.calls[0][1]).toBe(filename);
+        // The geotiff pipeline must not be taken for a plain image format.
+        expect(geoSpy).not.toHaveBeenCalled();
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = origToBlob;
+        vi.restoreAllMocks();
+      }
+    },
+  );
 
   it("downloadGeoTiff produces .tif download with valid geo bounds", async () => {
     manager.cropState!.geoBounds = {
