@@ -83,6 +83,7 @@ class CircleMode extends PreviewMode {
       centerFinal,
       delMarker,
       radiusLabel,
+      id: data.id!,
       onDelete: () => manager.store.remove(data.id!),
       onEnd: () => {
         const center = circle.getLatLng();
@@ -297,6 +298,7 @@ class CircleMode extends PreviewMode {
         centerFinal: centerFinal as L.CircleMarker,
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
+        id: circleId,
         onDelete: () => {
           this.m.store.remove(circleId);
         },

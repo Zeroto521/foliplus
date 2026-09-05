@@ -5,6 +5,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
+import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";

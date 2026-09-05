@@ -9,8 +9,8 @@
 // The measurement type label (properties.name / CSV name column) is i18n-
 // translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
+import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { download } from "../ExportControl/util.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";

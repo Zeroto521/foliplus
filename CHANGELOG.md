@@ -16,7 +16,7 @@
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165), [#188](https://github.com/Zeroto521/foliplus/pull/188))
 - `MeasureControl`: export measurements to GeoJSON / CSV (with WKT column) ([#168](https://github.com/Zeroto521/foliplus/pull/168))
 - `LayerControl`: focus-layer overflow menu — zoom the map to a layer's extent ([#194](https://github.com/Zeroto521/foliplus/pull/194))
-- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235))
+- `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235), [#243](https://github.com/Zeroto521/foliplus/pull/243))
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 - `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
@@ -42,6 +42,7 @@
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
+- `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 
 ### Removed
 
