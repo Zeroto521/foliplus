@@ -3,6 +3,18 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { CircleMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
 
+// Layers of one measurement must never paint over each other, and within a
+// pane the only lever is attachment order (first = bottom). That works for
+// siblings attached together, but not for a marker placed before the shapes
+// exist — the circle center is clicked first, so its position in the graph
+// pane is fixed at the bottom for the whole drawing session, and the radius
+// line lands above it. Re-attaching cannot move it either: `L.SVG._initPath`
+// re-creates the `<path>` and the new node enters the renderer's layer map in
+// the same place. The center therefore leaves the graph pane for `nodePane`,
+// which is asserted here the same way the graph order is.
+const STACK = ["shape", "radiusLine", "node"] as const;
+type Slot = (typeof STACK)[number];
+
 // Capture attachCircleUI's opts so the start/restore callbacks
 // (onDelete, onUpdate, onEnd) can be exercised directly.
 const { attachCircleUIMock } = vi.hoisted(() => ({
@@ -19,6 +31,49 @@ const { attachCircleUIMock } = vi.hoisted(() => ({
 }));
 let capturedCircleOpts: any = null;
 
+/** Wrap a shape factory so each instance carries its stack-slot name.
+ *  The wrapper is itself a `vi.fn` delegating to the original, so the member
+ *  stays a spy and `mock.calls` / `mock.results` stay aligned by call order —
+ *  the `onEnd` tests index the latter. */
+const tag = (key: string, name: Slot) => {
+  const factory = window.L[key] as any;
+  window.L[key] = vi.fn((...args: any[]) => ({
+    __slot: name,
+    ...factory(...args),
+  }));
+};
+
+// `initMocks` re-creates the shape factories in `beforeEach`, so this must run
+// after it, not at module scope.
+const withShapeTags = () => {
+  tag("circle", "shape");
+  tag("polygon", "shape");
+  tag("polyline", "radiusLine");
+  tag("circleMarker", "node");
+};
+
+// Walks the `addLayer` calls of a run and returns the stack slot of each
+// graph layer. Labels and delete icons sit in the label pane, outside the
+// stack, so they are skipped by the `isLabel` flag; node-pane markers are
+// outside it too, skipped by `isNode`.
+const graphStack = (manager: any): Slot[] =>
+  (manager.layers.addLayer as any).mock.calls
+    .filter(([layer, isLabel, isNode]: any[]) => !isLabel && !isNode && layer.__slot)
+    .map(([layer]: any[]) => layer.__slot);
+
+// The node-pane attaches of a run.
+const nodeLayers = (manager: any) =>
+  (manager.layers.addLayer as any).mock.calls.filter(
+    ([, isLabel, isNode]: any[]) => !isLabel && isNode,
+  );
+
+// `sequence` is the order of attaches this run performs. `prefix` checks only
+// the leading slice, for the flows that add layers as they go.
+const expectStack = (manager: any, sequence: readonly Slot[], prefix = false) => {
+  const seen = graphStack(manager);
+  expect(prefix ? seen.slice(0, sequence.length) : seen).toEqual([...sequence]);
+};
+
 vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
   const actual =
     await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
@@ -27,6 +82,7 @@ vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
 
 beforeEach(() => {
   initMocks();
+  withShapeTags();
   capturedCircleOpts = null;
 });
 
@@ -127,6 +183,11 @@ describe("CircleMode — restore", () => {
     expect(window.L.circleMarker).toHaveBeenCalled(); // center + radius nodes
     expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
+    // Fill, radius line, then the radius node. The center is not part of the
+    // graph stack — it is in the node pane.
+    expectStack(manager, ["shape", "radiusLine", "node"]);
+    // The center is the only node-pane layer, so nothing can paint over it.
+    expect(nodeLayers(manager)).toHaveLength(1);
     expect(manager.editHandles.size).toBe(1);
     expect(typeof manager.editHandles.get("c_r1").dispose).toBe("function");
   });
@@ -151,12 +212,36 @@ describe("CircleMode — start drawing flow", () => {
       clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
       expect(window.L.circleMarker).toHaveBeenCalled(); // center dot (CircleMarker)
 
+      // Phase 1: only the center dot, and it is not in the graph pane at all.
+      // It is placed before any shape exists, so in the graph pane its
+      // position would be permanently first — and the radius line would paint
+      // over it for the rest of the session. The node pane puts it above the
+      // graph vectors instead.
+      expectStack(manager, []);
+      expect(nodeLayers(manager)).toHaveLength(1);
+
       moveHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       expect(window.L.circle).toHaveBeenCalled(); // preview circle
+
+      // Every preview frame re-anchors the label only: the shapes are mutated
+      // in place, so the stack must not re-run.
+      moveHandler({ latlng: { lat: 31.22, lng: 121.52 } });
+      expectStack(manager, ["shape", "radiusLine", "node"]);
+      // 3 graph layers + 1 node + 1 label — no extra layer on the move.
+      expect(manager.layers.addLayer.mock.calls.length).toBe(5);
 
       // second click completes the circle (scheduled via setTimeout)
       clickHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       vi.runAllTimers();
+
+      // Finalization replaces the previews: fill, radius line, then the radius
+      // node. The ripple is a transient shape layer: it rides on top of the
+      // fill, plays the sweep, and is removed on `animationend`. Its slot is
+      // `shape`, not an out-of-order attach.
+      expectStack(manager, ["shape", "radiusLine", "node", "shape"], true);
+      // The final center replaces the preview center in the node pane, so the
+      // node pane holds two of the three — never covered, never covering.
+      expect(nodeLayers(manager)).toHaveLength(2);
 
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);

@@ -101,10 +101,11 @@ class PreviewMode extends MeasureMode {
   /** Track a preview layer (adds to layer group + tracks for cleanup).
    *  `isLabel` forwards to the layer tree so preview labels route to the label
    *  pane, which sits above the graph pane — without it a preview label lands
-   *  in the graph pane and is painted under the very path it labels. */
-  addPreview<T extends L.Layer>(layer: T, isLabel = false): T {
+   *  in the graph pane and is painted under the very path it labels. `isNode`
+   *  does the same for markers that must paint above the graph vectors. */
+  addPreview<T extends L.Layer>(layer: T, isLabel = false, isNode = false): T {
     this.previewLayers.push(layer);
-    this.layers.addLayer(layer, isLabel);
+    this.layers.addLayer(layer, isLabel, isNode);
     return layer;
   }
 

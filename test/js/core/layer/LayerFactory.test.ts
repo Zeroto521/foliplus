@@ -150,6 +150,51 @@ describe("LayerFactory", () => {
       expect(labelLayer.options.pane).toBe("label1");
     });
 
+    // The measure center dot is placed before the shapes exist, so its slot in
+    // the graph pane is permanently first and the radius line paints over it.
+    // The node pane sits above the graph pane instead.
+    it("routes isNode layers to nodePane", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+      });
+      const nodeLayer = new window.L.Marker();
+      nodeLayer.isNode = true;
+      api.addLayer(nodeLayer);
+      expect(nodeLayer.options.pane).toBe("node1");
+    });
+
+    // A node that is a label is a label: the label pane wins over the node
+    // pane, otherwise a label would be pinned to the wrong renderer.
+    it("prefers labelPane when a layer is both a label and a node", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+        labelPane: "label1",
+      });
+      const path = new window.L.Path();
+      path.isLabel = true;
+      path.isNode = true;
+      api.addLayer(path);
+      expect(path.options.pane).toBe("label1");
+    });
+
+    it("routes isNode Layers via addLayer's isNode argument", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+      });
+      const nodeLayer = new window.L.Marker();
+      api.addLayer(nodeLayer, false, true);
+      expect(nodeLayer.options.pane).toBe("node1");
+    });
+
     // A Path that is also a label must be pinned to the label pane, not the
     // graph pane: it joins the label layer group, so pinning the graph pane
     // would force it back into the wrong renderer.

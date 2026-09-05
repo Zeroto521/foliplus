@@ -57,6 +57,8 @@ class CircleMode extends PreviewMode {
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      false,
+      true,
     ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
@@ -141,8 +143,16 @@ class CircleMode extends PreviewMode {
 
       if (phase === 0) {
         center = event.latlng;
+        // The center is placed before any shape exists, so its position in the
+        // graph pane is fixed at the bottom for the whole drawing session. The
+        // radius line is attached later, so it would paint over the dot. The
+        // dot is routed to the node pane instead of re-attached — re-attaching
+        // cannot move it, `L.SVG._initPath` re-creates the `<path>` and the new
+        // node enters the renderer's layer map in the same place.
         previews.center = this.addPreview(
           Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          false,
+          true,
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -266,12 +276,13 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      // LAYER_STACK is the z-order: the radius line lands above the circle,
-      // and the center node is last of the graph layers, so neither can cover
-      // the other.
+      // The center also gets the node pane, matching `restore`: the preview
+      // center is already in it, and swapping panes would re-add the path.
       const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        false,
+        true,
       );
 
       const delMarker = this.layers.addLayer(

@@ -40,6 +40,8 @@ describe("LayerRegistry", () => {
       expect(info.visible).toBe(true);
       expect(info.isBase).toBe(false);
       expect(info.paneName).toBeNull();
+      expect(info.labelPane).toBeNull();
+      expect(info.nodePane).toBeNull();
       expect(info.iconSvg).toBeNull();
       expect(info.canvas).toBeNull();
       expect(info.onToggle).toBeNull();
@@ -69,6 +71,34 @@ describe("LayerRegistry", () => {
     it("accepts opts.name for a fresh id", () => {
       const info = registry.createLayerInfo({ id: "new1", name: "Fresh" });
       expect(info.name).toBe("Fresh");
+    });
+
+    it("carries the child panes through to the layer info", () => {
+      // Regression: `createLayerInfo` copied `labelPane` but not `nodePane`,
+      // so `enforceOrder` never saw the node pane and it kept the 600 that
+      // `LayerFactory` gave it — the measure center dot painted under the
+      // radius line in preview.
+      const info = registry.createLayerInfo({
+        id: "test",
+        paneName: "measure_graph",
+        labelPane: "measure_label",
+        nodePane: "measure_node",
+      });
+      expect(info.paneName).toBe("measure_graph");
+      expect(info.labelPane).toBe("measure_label");
+      expect(info.nodePane).toBe("measure_node");
+    });
+
+    it("falls back to the existing layer info for the child panes", () => {
+      const info = registry.createLayerInfo(
+        { id: "test" },
+        {
+          labelPane: "old_label",
+          nodePane: "old_node",
+        },
+      );
+      expect(info.labelPane).toBe("old_label");
+      expect(info.nodePane).toBe("old_node");
     });
   });
 

@@ -5,13 +5,14 @@
 // global names.
 
 /** Options for registerLayer / createLayerInfo. */
-interface RegisterLayerOpts {
+export interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
   isBase?: boolean;
   paneName?: string | null;
   labelPane?: string | null;
+  nodePane?: string | null;
   iconSvg?: string | null;
   visible?: boolean;
   canvas?: HTMLCanvasElement | null;
@@ -27,7 +28,7 @@ interface RegisterLayerOpts {
 }
 
 /** A layer entry in the ordered registry (read-only view). */
-interface LayerInfo {
+export interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
@@ -35,6 +36,7 @@ interface LayerInfo {
   isBase: boolean;
   paneName: string | null;
   labelPane?: string | null;
+  nodePane?: string | null;
   iconSvg: string | null;
   type: string | null;
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
@@ -53,8 +55,9 @@ interface LayerInfo {
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-interface LabelAwareLayer extends L.Layer {
+export interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
+  isNode?: boolean;
   options: L.LayerOptions & {
     renderer?: L.Renderer;
     pane?: string;
@@ -63,11 +66,14 @@ interface LabelAwareLayer extends L.Layer {
 }
 
 /** Options for `LayerAPI.createLayers`. */
-interface CreateLayersOpts {
+export interface CreateLayersOpts {
   id: string;
   name?: string;
   graphPane?: string;
   labelPane?: string;
+  /** Pane routed to by layers flagged `isNode`: markers that must paint above
+   *  the graph vectors (the measure center dot) but below their labels. */
+  nodePane?: string;
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default
@@ -76,7 +82,7 @@ interface CreateLayersOpts {
 }
 
 /** Options for `LayerAPI.createCanvas`. */
-interface CreateCanvasOpts {
+export interface CreateCanvasOpts {
   id: string;
   name?: string;
   className?: string;
@@ -93,7 +99,7 @@ interface CreateCanvasOpts {
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
-interface CreateCanvasAPI {
+export interface CreateCanvasAPI {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;
@@ -109,9 +115,9 @@ interface CreateCanvasAPI {
 }
 
 /** Return type of `LayerAPI.createLayers`. */
-interface CreateLayersAPI {
+export interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
-  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+  addLayer: (layer: L.Layer, isLabel?: boolean, isNode?: boolean) => L.Layer;
   removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
   clearLayers: () => void;
   register: () => void;
@@ -127,7 +133,7 @@ interface CreateLayersAPI {
  *   - ensureLayerAPI's lightweight default (createLayers/createCanvas only;
  *     registry/query methods are no-ops returning empty results)
  */
-interface LayerAPI {
+export interface LayerAPI {
   /** Diagnostic marker (true = LayerManager, false = lightweight stub).
    * Not authoritative for dependency checks — use isRealLayerControl, which
    * asserts the registry-delegating `layers` getter that only LayerManager
@@ -155,14 +161,3 @@ interface LayerAPI {
    *  Null when the layer cannot be counted (e.g. Canvas without provider). */
   getFeatureCount?: (id: string) => number | null;
 }
-
-export type {
-  CreateCanvasAPI,
-  CreateCanvasOpts,
-  CreateLayersAPI,
-  CreateLayersOpts,
-  LabelAwareLayer,
-  LayerAPI,
-  LayerInfo,
-  RegisterLayerOpts,
-};

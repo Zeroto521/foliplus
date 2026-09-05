@@ -70,7 +70,15 @@ const FORMAT = {
 
 /** IDs and pane names. */
 const ID = "foliplus_measure";
-const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
+// `NODE` holds markers that must paint above every shape of the same layer:
+// the circle center and the polygon centroid. They are routed to their own pane
+// because paint order within one pane is DOM source order, and the center is
+// attached before the radius line that would otherwise cover it.
+const PANES = {
+  GRAPH: "measure_graph",
+  NODE: "measure_node",
+  LABEL: "measure_label",
+};
 
 /** CSS class names. */
 const CLASSES = {
