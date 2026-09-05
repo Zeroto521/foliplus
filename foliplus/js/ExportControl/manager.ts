@@ -601,6 +601,15 @@ class ExportManager {
 
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
+    // Progress callback: format the percentage with locale text and refresh
+    // the persistent hint.  The renderer calls this after each tile batch
+    // completes; it is a no-op when no tile layers are present.
+    const onProgress = (percent: number) => {
+      // Substitutes the {pct} placeholder in the locale string.
+      const text = T("status_loading_tiles").replace(/\{pct\}/g, String(percent));
+      this.showGlobalHint(text, HINT_DURATION.PERSIST, true);
+    };
+
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
     const needsBigger =
@@ -612,8 +621,8 @@ class ExportManager {
       r.top + r.height > vpH * 1.02;
 
     if (needsBigger && geoBounds && geoBounds.nw)
-      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
-    else this.doRender(r, scaleValue, bg, geoBounds);
+      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
+    else this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -624,6 +633,7 @@ class ExportManager {
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds | undefined,
+    onProgress?: (percent: number) => void,
   ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
@@ -645,7 +655,7 @@ class ExportManager {
     }
 
     return new ExportRenderer(this.map)
-      .render(r, scaleValue, bg || undefined, geoBounds)
+      .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
       .then(canvas => {
         this.onRenderSuccess(canvas, hideEls);
       })
@@ -662,6 +672,7 @@ class ExportManager {
     geoBounds: GeoBounds,
     vpW: number,
     vpH: number,
+    onProgress?: (percent: number) => void,
   ) {
     const savedStyles: Record<string, string> = {};
     const style = this.mapContainer.style;
@@ -703,7 +714,7 @@ class ExportManager {
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
       this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+      this.doRender(r, scaleValue, bg, geoBounds, onProgress).finally(restore);
     });
   }
 

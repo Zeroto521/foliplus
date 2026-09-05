@@ -13,6 +13,23 @@ const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
 
+// T is module-level and frozen at import — CONF there is an esbuild
+// compile-time literal, not window.CONF, so no per-test locale_tables can
+// change it.  Substitute the two progress strings and pass everything else
+// through unchanged (CONF.name is "SearchControl" here, from setup.ts).
+vi.mock("#common/locale.js", async () => {
+  const real = await vi.importActual("#common/locale.js");
+  const TABLES: Record<string, string> = {
+    status_exporting: "Exporting map...",
+    status_loading_tiles: "Exporting map... ({pct}%)",
+  };
+  return {
+    ...real,
+    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+      TABLES[key] ?? key,
+  };
+});
+
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
   return {
@@ -1412,5 +1429,78 @@ describe("ExportManager — nudge continuous stream", () => {
     await vi.advanceTimersByTimeAsync(16);
     // Now the gate has passed and per-frame motion has applied.
     expect(manager.cropState.rect.left).toBeGreaterThan(afterSync);
+  });
+});
+
+describe("ExportManager — export progress", () => {
+  let manager;
+
+  beforeEach(() => {
+    // The {pct} string comes from the locale mock at the top of this file.
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      timeout: 7500,
+    };
+    manager = new ExportManager(makeMapMock());
+    manager.showCropBox = vi.fn();
+    manager.lockCropBox = vi.fn();
+    manager.unlockCropBox = vi.fn();
+    manager.removeCropBox = vi.fn();
+    manager.updateBoxStyle = vi.fn();
+    manager.showHintWithInfo = vi.fn();
+    manager.showGlobalHint = vi.fn();
+    setCropState(manager);
+    manager.pixelOverLimit = false;
+    // jsdom's clientWidth/clientHeight are accessors on HTMLElement — a plain
+    // assignment would throw.  doExport only reads them for needsBigger, so
+    // define the values directly.
+    Object.defineProperty(manager.mapContainer, "clientWidth", { value: 800 });
+    Object.defineProperty(manager.mapContainer, "clientHeight", { value: 600 });
+  });
+
+  it("doExport forwards an onProgress callback to doRender", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    const args = manager.doRender.mock.calls[0];
+    expect(args.length).toBe(5);
+    expect(args[0]).toEqual(manager.cropState.rect);
+    expect(args[4]).toBeTypeOf("function");
+  });
+
+  it("onProgress re-renders the persistent hint with the percentage", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    manager.doRender.mock.calls[0][4](42);
+
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("42%"),
+      0, // HINT_DURATION.PERSIST
+      true,
+    );
+  });
+
+  it("onProgress works through enlargeAndRender for over-size crops", () => {
+    manager.cropState.rect = { left: 1000, top: 1000, width: 500, height: 500 };
+    manager.cropState.geoBounds = {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    };
+    manager.enlargeAndRender = vi.fn();
+    manager.doRender = vi.fn(() => Promise.resolve());
+
+    manager.doExport();
+
+    expect(manager.enlargeAndRender).toHaveBeenCalledTimes(1);
+    const args = manager.enlargeAndRender.mock.calls[0];
+    expect(args.slice(4)).toEqual([800, 600, expect.any(Function)]);
+    args[6](77);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("77%"),
+      0,
+      true,
+    );
   });
 });
