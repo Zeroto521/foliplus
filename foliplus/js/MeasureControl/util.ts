@@ -105,7 +105,8 @@ const makeNode = (
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
 };
 
-/** A non-interactive node used for transient previews (center, centroid). */
+/** A non-interactive node used for transient previews (center, centroid and
+ *  the live cursor dot while a shape is being drawn). */
 const makePreviewNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
