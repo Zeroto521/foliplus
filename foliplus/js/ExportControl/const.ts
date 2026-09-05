@@ -149,10 +149,10 @@ const TILE_CONCURRENCY: number = detectConcurrency();
 // ============================================================================
 
 /** Export format key — mirrors Python's `ExportControl.FORMAT` literal. */
-export type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
+type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
 
 /** Per-format descriptor. */
-export interface FormatSpec {
+interface FormatSpec {
   /** `toBlob()` / `toDataURL()` mime type. */
   mime: string;
   /** File extension (no dot). */
@@ -187,9 +187,11 @@ const resolveFormat = (raw: unknown): ExportFormat =>
 const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
 
 // ============================================================================
-// Public API — every consumer reads CONST.<name>; add nothing to this list
-// without exporting the declaration above.
+// Public API — every consumer reads CONST.<name>; add nothing to this block
+// without declaring it above. Types come first, then values.
 // ============================================================================
+
+export type { ExportFormat, FormatSpec };
 
 export {
   CROP,
