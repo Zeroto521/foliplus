@@ -426,12 +426,14 @@ class TestMeasureControlBrowser:
         above the preview line, and is removed when the measurement finishes.
 
         Mirrors the circle mode's radius-endpoint node so all three preview
-        shapes share one cursor affordance.
+        shapes share one cursor affordance. The dot is created lazily on the
+        first move — entering the mode with no points placed shows nothing.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             state = page.evaluate(
                 _js("MeasureControl/draw_distance_preview_cursor_node")
             )
+            assert state["idle"], "cursor node floated with no points placed"
             assert state["x1"] is not None, "cursor node not rendered"
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
@@ -449,16 +451,20 @@ class TestMeasureControlBrowser:
         above the preview polygon, and is removed when the measurement ends.
 
         Mirrors the circle mode's radius-endpoint node so all three preview
-        shapes share one cursor affordance.
+        shapes share one cursor affordance. The dot is created lazily on the
+        first move — entering the mode with no points placed shows nothing.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             state = page.evaluate(
                 _js("MeasureControl/draw_polygon_preview_cursor_node")
             )
-            assert state["x1"] is not None, "cursor node not rendered"
-            assert state["x2"] is not None
-            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
-            assert moved, f"polygon cursor node did not follow the mouse: {state}"
+            assert state["idle"], "cursor node floated with no points placed"
+            assert state["created"], "cursor node not rendered on the first move"
+            # The same DOM node must survive both moves — a re-created node would
+            # prove the move path drops and re-adds the dot instead of relocating it.
+            assert state["moved"], (
+                f"polygon cursor node did not follow the mouse: {state}"
+            )
             s = state["stack"]
             # The node must come after both preview paths and the fill in DOM
             # order, which is Leaflet SVG paint order (later siblings paint above).

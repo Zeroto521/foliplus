@@ -85,16 +85,10 @@ class DistanceMode extends PreviewMode {
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
-    // Created after the preview line so the node paints above it. The cursor
-    // dot is the same hollow node as the circle mode's radius endpoint. It
-    // starts one tile north-west of the map centre purely to give the marker a
-    // finite position — it is never shown until the first point is placed.
-    const cursorNode = this.addPreview(
-      Util.makePreviewNode(
-        L.latLng(this.map.getCenter().lat + 1e-4, this.map.getCenter().lng - 1e-4),
-        CONST.CLASSES.NODE_HOLLOW,
-      ),
-    );
+    // Created on the first move, after the preview line, so the node paints
+    // above it. The cursor dot is the same hollow node as the circle mode's
+    // radius endpoint — it has no meaning before the first point is placed.
+    let cursorNode: L.CircleMarker | null = null;
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
@@ -103,7 +97,10 @@ class DistanceMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
-      this.layers.removeLayer(cursorNode);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -123,7 +120,10 @@ class DistanceMode extends PreviewMode {
       }
       this.isFinished = true;
       this.layers.removeLayer(poly);
-      this.layers.removeLayer(cursorNode);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -193,7 +193,11 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
-      cursorNode.setLatLng(event.latlng);
+      if (!cursorNode) {
+        cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      } else {
+        cursorNode.setLatLng(event.latlng);
+      }
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];

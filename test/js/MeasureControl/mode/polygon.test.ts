@@ -36,10 +36,9 @@ describe("PolygonMode — marker click stops map propagation", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
-    // The preview cursor dot is the first circleMarker; confirmed nodes are
-    // the rest.
-    const confirmedMarkers = () =>
-      window.L.circleMarker.mock.results.slice(1).map(r => r.value);
+    // Confirmed nodes are the only circleMarkers here — the preview cursor
+    // dot is not created until the cursor moves.
+    const confirmedMarkers = () => window.L.circleMarker.mock.results.map(r => r.value);
     const pt1 = { lat: 30, lng: 120 };
     const pt2 = { lat: 31, lng: 121 };
     clickHandler({ latlng: pt1 });
@@ -325,25 +324,40 @@ describe("PolygonMode — restore", () => {
 });
 
 describe("PolygonMode — preview cursor node", () => {
-  it("creates a non-interactive hollow node after the preview polygon", () => {
-    const manager = makeManagerMock();
+  it("mounts a non-interactive hollow node only after the first point", () => {
+    const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
     manager.currentMode = CONST.MODE.POLYGON;
     mode.start();
 
-    // addLayer is called with poly, confirmedPoly, previewPoly, cursorNode,
-    // finalPoly — so the cursor node sits directly behind the finalized shape.
-    const addLayerCalls = (manager.layers as any).addLayer.mock.calls;
-    expect(addLayerCalls).toHaveLength(5);
+    // Entering the mode adds only the drawing scaffolding — poly, confirmedPoly,
+    // previewPoly, finalPoly. Nothing until the cursor actually moves.
+    const addLayerCalls = manager.layers.addLayer.mock.calls;
+    expect(addLayerCalls).toHaveLength(4);
+    window.L.circleMarker.mockClear();
 
-    const cursor = (addLayerCalls[3] as [unknown])[0];
-    expect(cursor).toBe(window.L.circleMarker.mock.results[0].value);
-    // Rendered after the preview polygon, so it paints above the fill.
-    expect(addLayerCalls[2][0]).not.toBe(cursor);
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    // Before the first point the move handler bails out entirely.
+    handlers({ latlng: { lat: 29, lng: 118 } });
+    expect(window.L.circleMarker.mock.calls).toHaveLength(0);
 
-    const cursorCall = window.L.circleMarker.mock.calls[0] as [unknown, object];
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    click({ latlng: { lat: 30, lng: 120 } });
+    handlers({ latlng: { lat: 31, lng: 121 } });
+
+    // Exactly one new circleMarker — the confirmed node for the first point
+    // and this cursor dot — nothing else.
+    const cursorCall = window.L.circleMarker.mock.calls.at(-1) as [unknown, object];
+    expect(cursorCall[0]).toEqual({ lat: 31, lng: 121 });
     expect(cursorCall[1].interactive).toBe(false);
     expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+
+    // Mounted through addPreview, so it lands in the same layer group as the
+    // preview polygon and paints above the preview fill.
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor);
   });
 
   it("moves the node with the cursor and removes it when the shape is finished", () => {
@@ -355,25 +369,24 @@ describe("PolygonMode — preview cursor node", () => {
     const handlers = manager.map.on.mock.calls.find(
       ([event]) => event === "mousemove",
     )?.[1];
-    const cursor = window.L.circleMarker.mock.results[0].value;
-
-    // No movement before the first point is placed.
-    handlers({ latlng: { lat: 29, lng: 118 } });
-    expect(cursor.setLatLng).not.toHaveBeenCalled();
-
     const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    const contextmenu = manager.map.on.mock.calls.find(
+      ([event]) => event === "contextmenu",
+    )?.[1];
+
     click({ latlng: { lat: 30, lng: 120 } });
     click({ latlng: { lat: 31, lng: 121 } });
     click({ latlng: { lat: 32, lng: 122 } });
-
     handlers({ latlng: { lat: 33, lng: 123 } });
-    expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 33, lng: 123 });
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+    const created = window.L.circleMarker.mock.calls.length;
 
-    // Context-menu finishes: the node leaves the map with the other preview
-    // artifacts, while the confirmed nodes stay.
-    manager.map.on.mock.calls.find(([event]) => event === "contextmenu")?.[1]({
-      latlng: { lat: 33, lng: 123 },
-    });
+    // Subsequent moves reuse the same node instead of stacking new ones.
+    handlers({ latlng: { lat: 34, lng: 124 } });
+    expect(window.L.circleMarker).toHaveBeenCalledTimes(created);
+    expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 34, lng: 124 });
+
+    contextmenu({ latlng: { lat: 34, lng: 124 }, originalEvent: {} });
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
   });
 });

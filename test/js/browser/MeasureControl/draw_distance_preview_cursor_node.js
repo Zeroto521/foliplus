@@ -2,12 +2,15 @@
   const mm = window.__measureManager;
   const map = window.__map;
   mm.setMode("distance");
-  map.fire("click", { latlng: L.latLng(26.08, 119.3) }); // anchor → 1 point
-  map.invalidateSize();
   // The cursor dot is the only .foliplus-measure-node WITHOUT the -solid
   // modifier (the placed anchor is NODE_SOLID).
   const node = () =>
     document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
+  // Nothing to cursor at yet: entering the mode must not float a dot.
+  const idle = node() === null;
+
+  map.fire("click", { latlng: L.latLng(26.08, 119.3) }); // anchor → 1 point
+  map.invalidateSize();
   // Renderer root sibling order == paint order (later siblings paint above).
   const stack = () => {
     const el = node();
@@ -34,6 +37,7 @@
   // Right-click finishes: the transient preview node must be removed.
   map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
   return {
+    idle,
     x1: r1?.x ?? null,
     y1: r1?.y ?? null,
     x2: r2?.x ?? null,
