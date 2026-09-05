@@ -8,8 +8,8 @@
 interface EditOverlayHost {
   isEditMode: boolean;
   map: L.Map;
-  registerEditOverlayCloser?: (close: () => void) => () => void;
-  closeOtherEditOverlays?: (except: () => void) => void;
+  registerEditOverlayCloser?: (close: () => void, id?: string) => () => void;
+  closeOtherEditOverlays?: (exceptId: string) => void;
 }
 
 /** Per-node drag options wired by bindNodeDrag. */
@@ -43,10 +43,10 @@ const DRAG_THRESHOLD = 4;
  */
 const buildEditOverlay = (
   host: EditOverlayHost,
-  opts: { onOpen: () => void; onEmpty?: () => void },
+  opts: { onOpen: () => void; onEmpty?: () => void; id?: string },
 ): EditOverlay => {
   let isOpen = false;
-  const { onOpen, onEmpty } = opts;
+  const { onOpen, onEmpty, id } = opts;
 
   const close = () => {
     if (!isOpen) return;
@@ -60,7 +60,7 @@ const buildEditOverlay = (
   };
 
   host.map.on("click", onMapClick);
-  const unregister = host.registerEditOverlayCloser?.(close);
+  const unregister = host.registerEditOverlayCloser?.(close, id);
 
   const open = (ev: L.LeafletMouseEvent) => {
     if (!host.isEditMode) return;
@@ -75,7 +75,7 @@ const buildEditOverlay = (
       return;
     }
     // Only one measurement shows ✕ at a time: close any other open overlay.
-    host.closeOtherEditOverlays?.(close);
+    host.closeOtherEditOverlays?.(id ?? "");
     // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.

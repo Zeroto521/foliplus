@@ -161,6 +161,7 @@ describe("attachCircleUI — delete flow", () => {
       delMarker,
       radiusLabel: makeLayer("radiusLabel"),
       onDelete,
+      id: "test-id",
     };
     return { layers, delMarker, onDelete, opts };
   };
@@ -263,6 +264,7 @@ describe("attachDistanceUI", () => {
         { lat: 0, lng: 0 },
         { lat: 1, lng: 1 },
       ],
+      id: "test-id",
       onDelete: vi.fn(),
       onUpdate: vi.fn(),
     };
@@ -286,7 +288,10 @@ describe("attachDistanceUI", () => {
     const opts = makeOpts();
     UI.attachDistanceUI(mgr as any, opts as any);
 
-    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
+      expect.any(Function),
+      "test-id",
+    );
     // The registered toggle must not throw when fired (setEditMode toggling).
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
     expect(() => toggle(true)).not.toThrow();
@@ -544,6 +549,7 @@ describe("attachPolygonUI", () => {
         { lat: 1, lng: 1 },
         { lat: 2, lng: 0 },
       ],
+      id: "test-id",
       onDelete: vi.fn(),
       onUpdate: vi.fn(),
       area: 5000,
@@ -556,7 +562,7 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function));
+    expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function), "test-id");
   });
 
   it("rebuilds the centroid dot alongside the label and delete icon", () => {
@@ -605,7 +611,10 @@ describe("attachPolygonUI", () => {
     const opts = makeOpts();
     UI.attachPolygonUI(mgr as any, opts as any);
 
-    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(expect.any(Function));
+    expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
+      expect.any(Function),
+      "test-id",
+    );
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
     expect(() => toggle(true)).not.toThrow();
     expect(() => toggle(false)).not.toThrow();
@@ -639,6 +648,7 @@ describe("attachPolygonUI", () => {
         segLabels,
         points,
         area: 5000,
+        id: "test-id",
         onDelete: vi.fn(),
         onUpdate: vi.fn(),
       } as any,

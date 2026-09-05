@@ -123,7 +123,7 @@ describe("MarkerMode — start + click", () => {
     expect(window.L.marker).toHaveBeenCalled();
   });
 
-  it("pushes pin-drag cleanup into finalizedClickHandlers (regression: cleanup must run on clearAll)", () => {
+  it("registers pin-drag cleanup via registerFinalized (regression: cleanup must run on clearAll)", () => {
     const manager = makeManagerMock() as any;
     MarkerMode.restore(manager, {
       id: "m_wire",
@@ -133,11 +133,11 @@ describe("MarkerMode — start + click", () => {
       address: "test",
     });
 
-    expect(manager.finalizedClickHandlers.length).toBe(1);
-    expect(typeof manager.finalizedClickHandlers[0]).toBe("function");
+    expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("m_wire").dispose).toBe("function");
 
     // Cleanup must not throw even though mocks are shallow
-    expect(() => manager.finalizedClickHandlers[0]()).not.toThrow();
+    expect(() => manager.clearAll()).not.toThrow();
   });
 
   it("drags a restored pin in edit mode: live update + geocode on end persists by reference", async () => {
@@ -508,7 +508,7 @@ describe("MarkerMode — start + click", () => {
         latlng: { lat: 32, lng: 122 },
       });
       expect(rafCb).toBeTruthy(); // a RAF persist is pending
-      manager.finalizedClickHandlers[0]();
+      manager.clearAll();
       expect(cancelSpy).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
