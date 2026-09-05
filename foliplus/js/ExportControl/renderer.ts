@@ -18,7 +18,6 @@ interface RenderCtx {
   sh: number;
   /** Reports how far the render has progressed, 0..90.  Never decreases. */
   onProgress?: (percent: number) => void;
-  lastPercent: number;
 }
 
 /** A tile descriptor computed by calcTiles. */
@@ -177,6 +176,18 @@ class ExportRenderer {
     const sh = Math.round(rect.height * scale);
     if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
 
+    // Progress must be reportable from the moment the canvas is created, so it
+    // lives here rather than on the render context: the background fill below
+    // is the first step that costs anything, and no layers can be sized yet.
+    let lastPercent = 0;
+    const reportProgress = (percent: number) => {
+      // Only ever move forward: reporting a lower value than one already
+      // shown would make the bar look stuck and regress.
+      if (percent <= lastPercent) return;
+      lastPercent = percent;
+      onProgress?.(percent);
+    };
+
     const canvas = document.createElement("canvas");
     canvas.width = sw;
     canvas.height = sh;
@@ -198,14 +209,7 @@ class ExportRenderer {
       ch: rect.height * scale,
       sw,
       sh,
-      // Only ever move forward: reporting a lower value than one already
-      // shown would make the bar look stuck and regress.
-      onProgress: (percent: number) => {
-        if (percent <= rc.lastPercent) return;
-        rc.lastPercent = percent;
-        onProgress?.(percent);
-      },
-      lastPercent: 0,
+      onProgress: reportProgress,
     };
 
     // 2. All layers — iterate in LayerControl API order bottom-to-top.
@@ -263,7 +267,9 @@ class ExportRenderer {
 
       // Only layers that can actually paint are in the denominator: an entry
       // with no layer and no canvas contributes nothing, and counting it would
-      // leave the layer range permanently short of its top.
+      // leave the layer range permanently short of its top.  The filter must
+      // stay in step with what the loop body consumes, since every surviving
+      // entry is counted as one unit of progress.
       const passable = layers.filter(
         li =>
           li.visible &&
@@ -277,10 +283,8 @@ class ExportRenderer {
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
         if (li.canvas) {
           await this.renderCanvasElement(rc, li.canvas);
-        } else {
-          // Use the layer reference from layerInfo (resolved at init or register)
-          if (!li.layer) continue;
-
+          done++;
+        } else if (li.layer) {
           // SVG paths, Canvas elements, and Markers in this layer's panes
           const panes = api.getLayerPanes(li.layer);
           for (const paneName of panes) {
@@ -907,4 +911,4 @@ class ExportRenderer {
   }
 }
 
-export { ExportRenderer };
+export { pooledEach, ExportRenderer };

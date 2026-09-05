@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportRenderer } from "#foliplus/ExportControl/renderer.js";
+import { ExportRenderer, pooledEach } from "#foliplus/ExportControl/renderer.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // renderer.ts captures loadImageBitmap at import time, and the module's
@@ -8,45 +8,23 @@ import * as UTIL from "#foliplus/ExportControl/util.js";
 // batch.map, the rejection is swallowed by .catch(() => null), and no tile
 // ever loads.  Hoisting a factory instead lets the tests control which tiles
 // resolve, which is what the drawn-count assertions measure.
+
 vi.mock("#foliplus/ExportControl/util.js", async () => {
   const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });
 
-//===========================================================================
+//=============================================================================
 //  pooledEach — bounded-concurrency, order-preserving per-item async runner.
-// Mirrors the module-scoped helper from renderer.ts so we can unit-test its
-// contract directly.  The same function is called by renderTileLayer and
-//  renderMarkers internally.
-//===========================================================================
-async function pooledEach<T, R>(
-  items: T[],
-  maxConcurrency: number,
-  fn: (item: T, index: number) => Promise<R | null> | R | null,
-): Promise<Array<R | null>> {
-  if (items.length === 0) return [];
-  const cap = Math.max(1, maxConcurrency);
-  const results = new Array<R | null>(items.length);
-  let next = 0;
-  const enqueue = async (): Promise<void> => {
-    const idx = next++;
-    if (idx >= items.length) return;
-    try {
-      const value = await fn(items[idx], idx);
-      results[idx] = value ?? null;
-    } catch (err) {
-      console.warn(err);
-      results[idx] = null;
-    }
-    await enqueue();
-  };
-  await Promise.all(Array.from({ length: cap }, enqueue));
-  return results;
-}
+// Exported from renderer.ts so its contract is unit-testable directly.  It
+// is what renderTileLayer and renderMarkers call under the hood.
+//=============================================================================
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
 describe("pooledEach", () => {
   it("returns empty array for empty input", async () => {
     expect(await pooledEach([], 3, () => 42)).toEqual([]);
@@ -116,6 +94,7 @@ describe("pooledEach", () => {
 //===========================================================================
 // calcTiles — deterministic tile coordinate computation.
 //===========================================================================
+
 function makeEPSG3857Mock() {
   // Correct Web Mercator latLngToPoint.  At zoom z the world is 256·2^z
   // pixels wide/high.  lng=−180→x=0, lng=+180→x=worldSize.  lat=+85.051129°
@@ -134,14 +113,17 @@ function makeEPSG3857Mock() {
     },
   };
 }
+
 class MockTileLayer {
   _url = "";
   options: Record<string, unknown> = {};
 }
+
 beforeEach(() => {
   (L as any).CRS = { EPSG3857: makeEPSG3857Mock() };
   (L as any).TileLayer = MockTileLayer;
 });
+
 function makeTileLayer(overrides: Partial<any> = {}) {
   const url = overrides._url ?? "https://{s}.tile.example.com/{z}/{x}/{y}.png";
   delete (overrides as any)._url;
@@ -150,6 +132,7 @@ function makeTileLayer(overrides: Partial<any> = {}) {
   layer.options = { tileSize: 256, subdomains: "abc", ...overrides };
   return layer as any;
 }
+
 function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
   const container = document.createElement("div");
   container.id = "test";
@@ -163,6 +146,7 @@ function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
 /** jsdom's 2d context is a no-op stub: drawImage silently does nothing, so a
  *  painted-count assertion built on it would always read 0.  Hand a real no-op
  *  context to the draw pass instead, and let the caller count the calls. */
+
 function makeMockCtx() {
   return {
     drawImage: vi.fn(),
@@ -175,6 +159,7 @@ function makeMockCtx() {
 }
 /** A RenderCtx with a stubbed context — jsdom canvas backends do not exist, so
  *  the context cannot come from `canvas.getContext("2d")`. */
+
 function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
   return {
     ctx,
@@ -189,6 +174,7 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
 }
 /** Tiles centred on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
+
 const tilesNearCenter = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
     x: 1,
@@ -201,6 +187,7 @@ const tilesNearCenter = (n: number) =>
   }));
 /** Give every tile real output coordinates so the draw call has something to
  *  paint and the drawn counter can advance. */
+
 const withPixels = (tiles: unknown[]) =>
   tiles.map(t => ({
     ...t,
@@ -209,15 +196,16 @@ const withPixels = (tiles: unknown[]) =>
     dw: (t as any).size,
     dh: (t as any).size,
   }));
-/** Resolve the tile load and hand back a bitmap for every URL.  Without this
- *  every tile is skipped and nothing is ever painted. */
-/** Resolve loadImageBitmap to a bitmap for every tile.  loadImageBitmap is
- *  mocked at module level, so the call count doubles as the tile count. */
+/** Resolve loadImageBitmap to a bitmap for every tile.  Without this every
+ *  tile is skipped and nothing is ever painted; the mock is module-scoped, so
+ *  the call count doubles as the tile count. */
+
 function stubBitmaps() {
   (UTIL.loadImageBitmap as any).mockResolvedValue({
     close: () => undefined,
   });
 }
+
 describe("calcTiles", () => {
   it("throws without a valid CRS", () => {
     const renderer = makeRenderer({ latLngToPoint: undefined });
@@ -481,6 +469,7 @@ describe("calcTiles", () => {
 //===========================================================================
 //  ExportRenderer.render — crop-too-small guard + canvas creation.
 //===========================================================================
+
 describe("ExportRenderer.render — canvas creation", () => {
   let renderer: ExportRenderer;
   let container: HTMLDivElement;
@@ -567,6 +556,7 @@ describe("ExportRenderer.render — canvas creation", () => {
 //  The renderer reports a percentage after each tile batch; it does not
 // interpret or format the value, so no locale dependency lands here.
 //===========================================================================
+
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
   let renderer: ExportRenderer;
   beforeEach(() => {
@@ -646,6 +636,36 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       survivors.length,
     ]);
   });
+  it("returns without drawing when a tile's drawImage throws", async () => {
+    // drawImage is wrapped in a try/catch so one bad tile cannot abort the
+    // whole layer: it is simply left out of the count and the rest is drawn.
+    vi.spyOn(renderer, "tilePositions").mockReturnValue(
+      withPixels(tilesNearCenter(2)).map((t, k) => ({ ...t, url: `url${k}` })) as any,
+    );
+    stubBitmaps();
+    const ctx = makeMockCtx();
+    ctx.drawImage.mockImplementation((src?: unknown) => {
+      if (src && typeof src === "object" && (src as { _bad?: boolean })._bad)
+        throw new Error("draw failed");
+    });
+    UTIL.loadImageBitmap
+      .mockImplementationOnce(() =>
+        Promise.resolve({ _bad: true, close: () => {} } as any),
+      )
+      .mockResolvedValue({ close: () => {} });
+
+    const onProgress = vi.fn();
+    await renderer.renderTileLayer(
+      makeRC(4096, 4096, ctx),
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      makeTileLayer(),
+      onProgress,
+    );
+
+    // Only the second tile was painted, so it is the only one that counts.
+    expect(onProgress.mock.calls.map(c => c[0])).toEqual([1]);
+  });
+
   it("caps the final batch at the tile count when it is not a multiple of the concurrency", async () => {
     const total = CONST.TILE_CONCURRENCY + 1;
     vi.spyOn(renderer, "calcTiles").mockReturnValue(withPixels(tilesNearCenter(total)));
@@ -926,6 +946,48 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     expect(calcTiles).not.toHaveBeenCalled();
     expect(renderTileLayer).not.toHaveBeenCalled();
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+});
+
+describe("ExportRenderer.renderCanvasElement", () => {
+  const rectOf = (width: number, height: number, left = 0, top = 0) =>
+    ({
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+    }) as DOMRect;
+
+  it("skips a canvas with no area", async () => {
+    const ctx = makeMockCtx();
+    const canvas = document.createElement("canvas");
+    canvas.getBoundingClientRect = () => rectOf(0, 0);
+    const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+
+    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
+      makeRC(1000, 1000, ctx),
+      canvas,
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("draws nothing when loading the canvas data URL fails", async () => {
+    const ctx = makeMockCtx();
+    const canvas = document.createElement("canvas");
+    canvas.getBoundingClientRect = () => rectOf(200, 200, 10, 10);
+    const load = vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
+
+    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
+      makeRC(1000, 1000, ctx),
+      canvas,
+    );
+
+    expect(load).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });
 

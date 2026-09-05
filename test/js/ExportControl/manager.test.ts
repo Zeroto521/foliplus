@@ -3,6 +3,7 @@ import { ensureEvents } from "#core/event/index.js";
 import { ensureHint } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import { ExportRenderer } from "#foliplus/ExportControl/renderer.js";
 import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
@@ -1502,5 +1503,46 @@ describe("ExportManager — export progress", () => {
       0,
       true,
     );
+  });
+
+  it("claims 100 in onRenderSuccess, before the canvas is encoded", async () => {
+    // render() stops at 90 on purpose. The final claim happens here, before
+    // finishExport() encodes the raster, so a full bar means the download has
+    // started — not that the tiles have finished loading, which is what it
+    // used to mean.
+    manager.finishExport = vi.fn(async () => {});
+    const canvas = document.createElement("canvas");
+
+    manager.onRenderSuccess(canvas, []);
+
+    // The 100 is the very first hint this handler shows: the caller sees it as
+    // "saving now", not "tiles finished loading".
+    expect(manager.showGlobalHint.mock.calls[0][0]).toBe("Exporting map... (100%)");
+    await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalledWith(canvas));
+  });
+
+  it("doRender re-computes the rect from geoBounds before rendering", () => {
+    // The rect the user dragged is superseded by the projected geo bounds:
+    // render() receives the projected one, so the export matches the saved
+    // geography rather than whatever the cursor happened to do.
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockResolvedValue(document.createElement("canvas"));
+    manager.onRenderSuccess = vi.fn();
+
+    const rect = { left: 999, top: 888, width: 50, height: 50 };
+    const p = manager.doRender(rect, 1, undefined, {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    });
+
+    // latLngToContainerPoint maps (lat, lng) to (x, y), so the projected rect
+    // is computed from those values rather than the dragged one.
+    expect(renderSpy.mock.calls[0][0].left).toBe(119.2);
+    expect(renderSpy.mock.calls[0][0].top).toBe(26.0);
+    expect(renderSpy.mock.calls[0][0].width).toBeCloseTo(0.2);
+    expect(renderSpy.mock.calls[0][0].height).toBeCloseTo(0.1);
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    return p;
   });
 });

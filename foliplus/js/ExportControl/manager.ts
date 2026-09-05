@@ -25,6 +25,10 @@ import {
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
+/** Format a progress percentage with the locale text, for the persistent hint. */
+const formatProgress = (percent: number) =>
+  T("status_loading_tiles").replace(/\{pct\}/g, String(percent));
+
 /**
  * Encode a rendered canvas to a Blob, resolving to `null` when encoding fails.
  * `toBlob` already encodes the raster exactly once, so this is deliberately
@@ -606,9 +610,7 @@ class ExportManager {
     // this callback owns the final stretch, so 100 is reserved for the
     // download having started rather than the tiles having finished.
     const onProgress = (percent: number) => {
-      // Substitutes the {pct} placeholder in the locale string.
-      const text = T("status_loading_tiles").replace(/\{pct\}/g, String(percent));
-      this.showGlobalHint(text, HINT_DURATION.PERSIST, true);
+      this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
     };
 
     const vpW = this.mapContainer.clientWidth;
@@ -728,11 +730,7 @@ class ExportManager {
     // encoded before it can be saved.  Claim the 100 the user expects, so a
     // full bar means the download is happening rather than the tiles having
     // finished loading, which is what it previously meant.
-    this.showGlobalHint(
-      T("status_loading_tiles").replace(/\{pct\}/g, "100"),
-      HINT_DURATION.PERSIST,
-      true,
-    );
+    this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
     // Awaited inline so a rejection cannot escape as an unhandled promise
     // rejection — endExport() has to run on every path or the map stays
     // locked behind the blocker overlay.
