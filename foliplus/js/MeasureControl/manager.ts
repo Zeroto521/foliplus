@@ -387,6 +387,10 @@ class MeasureManager {
         this.map,
         this.map.mouseEventToLatLng(event.originalEvent as MouseEvent),
       );
+      // Reveal only once it has a real position. Showing it before the first
+      // mousemove would leave it at the container's default spot (by the hint)
+      // with no inline left/top.
+      container.hidden = false;
     };
     const handlers: [string, L.LeafletEventHandlerFn][] = [
       ["mousemove", event => move(event as L.LeafletMouseEvent)],
@@ -394,7 +398,6 @@ class MeasureManager {
     ];
     bindMapEvents(this.map, handlers);
     this.coordReadoutEvents = handlers;
-    container.hidden = false;
   }
 
   /** Stop tracking. Called by clearActiveMode, so a finalized measurement
@@ -538,8 +541,13 @@ class MeasureManager {
     this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
       this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
+      // The readout is live in edit mode too: the operator drags nodes to
+      // reshape a measurement and wants to see the coordinate under the cursor
+      // while doing it.
+      this.showCoordReadout();
     } else {
       this.map.foliplus!.hideHint(CONF.name);
+      this.hideCoordReadout();
       // Close any open overlays so ✕ handles don't linger after leaving edit
       // mode. Keep the handles registered so a later edit session can close
       // them again; each overlay unregisters itself on delete.

@@ -190,21 +190,41 @@ describe("MeasureManager — mode switching", () => {
     expect(manager.measurements).toHaveLength(0);
   });
 
-  it("clearActiveMode hides the live readout chip", () => {
+  it("stays hidden after arming until it has a real cursor position", () => {
+    // Regression: showing the chip before the first mousemove left it at the
+    // container's default spot (by the hint) with no inline left/top.
     const { manager, container } = makeManager();
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("reveals the chip on mousemove and hides it on clearActiveMode", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    manager.setMode(CONST.MODE.MARKER);
+    const readout = container.querySelector(".foliplus-measure-readout")!;
+    const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    move({ containerPoint: { x: 100, y: 100 }, originalEvent: {} });
     expect(readout.hidden).toBe(false);
     manager.clearActiveMode();
     expect(readout.hidden).toBe(true);
   });
 
-  it("setMode shows the readout only when a mode is armed", () => {
-    const { manager, container } = makeManager();
+  it("shows the readout in edit mode too", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.mouseEventToLatLng = () => ({ lat: 31, lng: 121 });
+    manager.setEditMode(true);
     const readout = container.querySelector(".foliplus-measure-readout")!;
-    expect(readout.hidden).toBe(true);
-    manager.setMode(CONST.MODE.MARKER);
+    expect(readout.hidden).toBe(true); // not positioned yet
+    const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    move({ containerPoint: { x: 100, y: 100 }, originalEvent: {} });
     expect(readout.hidden).toBe(false);
+    // Leaving edit mode hides it.
+    manager.setEditMode(false);
+    expect(readout.hidden).toBe(true);
   });
 
   it("tracks the cursor and anchors the chip above it ([0, -10])", () => {
@@ -222,6 +242,7 @@ describe("MeasureManager — mode switching", () => {
     expect(readout.style.top).toBe("400px");
     expect(readout.style.transform).toBe("");
     expect(readout.textContent).toBe("121.000000, 31.000000");
+    expect(readout.hidden).toBe(false);
 
     // Near the top edge with no room above, the chip re-anchors below the cursor.
     move({ containerPoint: { x: 500, y: 2 }, originalEvent: {} });
