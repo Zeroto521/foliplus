@@ -3,7 +3,7 @@ import { generateId } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { type NumberStyle, formatNumber } from "#common/format.js";
+import { formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapSync } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
