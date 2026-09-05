@@ -275,9 +275,14 @@ const createLocationMarker = (
 };
 
 /**
- * Update a layer item's label and associated inputs (checkbox / color input)
- * with a new display name. Finds the label via `data-layer-id` attribute on
- * the item, then updates label text + checkbox/color-input aria-label and title.
+ * Update a layer item's label and its checkbox's aria-label with a new
+ * display name.
+ *
+ * Only the checkbox is touched: it is the one toggle control on a data row,
+ * so the name must reach assistive tech — but via aria-label, never via
+ * `title`, because `title` is the Select/Deselect tooltip slot. The color
+ * layer row's type input is left to the caller: its tooltip is the
+ * palette name (`"viridis"`, …), not the row label.
  *
  * @param item Parent item element with `data-layer-id` (optional).
  * @param name New display name to apply.
@@ -294,17 +299,8 @@ const updateItemLabel = (
   const checkbox = item.querySelector(
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
-  if (checkbox) {
+  if (checkbox && checkbox.getAttribute("aria-label") !== name)
     checkbox.setAttribute("aria-label", name);
-    checkbox.title = name;
-  }
-  const colorInput = item.querySelector(
-    'input[type="color"]',
-  ) as HTMLInputElement | null;
-  if (colorInput) {
-    colorInput.setAttribute("aria-label", name);
-    colorInput.title = name;
-  }
   return label;
 };
 

@@ -1438,11 +1438,11 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 // ===========================================================================
 // User-assigned display names (rename persistence)
 //
-// The rename lives in `LayerUI.renamedNames` and localStorage; the registry's
-// `LayerInfo.name` is a write-through cache. A third-party layer that
-// re-registers itself re-advertises its own metadata, so a re-registration
-// must never reset `name` back to the provider's original — otherwise the
-// rename visibly reverts. `attachUI()` applies the persisted names at
+// `LayerUI.renamedNames` is the source of truth; the registry's
+// `LayerInfo.name` is a projection refreshed by `applyNamesState()`. A
+// third-party layer that re-registers itself re-advertises its own metadata,
+// so a re-registration used to reset `name` back to the provider's original
+// and the rename reverted visibly. `attachUI()` applies the persisted names at
 // startup, so the rename also survives a reload.
 //
 // The initial registration carries a real layer object: an id-only one makes
@@ -1450,6 +1450,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 // resolves to a host object and crashes enforceOrder's `instanceof` check.
 
 describe("LayerManager user-assigned names", () => {
+  // Assertions go through `ui.displayName(id)` — the render contract — never
+  // the registry's `LayerInfo.name`, which a third-party re-registration can
+  // legitimately overwrite before the refresh pushes the rename back out.
   let manager, map;
 
   beforeEach(() => {
@@ -1521,13 +1524,27 @@ describe("LayerManager user-assigned names", () => {
   });
 
   it("keeps a rename when the provider re-registers its own layer", () => {
-    // A third-party provider re-adds its layer, still advertising its own
-    // name. The registry builds a fresh layerInfo from that metadata, which
-    // used to reset `name` and revert the panel to the original on reload.
+    // The user renamed the layer, then the provider re-adds it still
+    // advertising its own name. createLayerInfo used to take the caller's
+    // `opts.name` over the existing value, reverting the panel to the
+    // original on the next render or reload.
+    manager.ui.renameLayer("ext");
+    const item = manager.ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="ext"]`,
+    )!;
+    const label = item.querySelector("label") as HTMLLabelElement;
+    const input = label.querySelector("input") as HTMLInputElement;
+    input.value = "My Layer";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(manager.ui.displayName("ext")).toBe("My Layer");
+
+    // Re-registration rebuilds the registry entry from the caller's metadata,
+    // then the incremental refresh pushes the rename back out.
     manager.registerLayer({ id: "ext", name: "Provider Layer" });
     manager.ui.applyNamesState();
 
-    expect(manager.layerRegistry.get("ext")?.name).toBe("Provider Layer");
+    expect(manager.ui.displayName("ext")).toBe("My Layer");
+    expect(manager.layerRegistry.get("ext")?.name).toBe("My Layer");
   });
 
   it("applies a persisted rename at startup", () => {
@@ -1544,13 +1561,20 @@ describe("LayerManager user-assigned names", () => {
     fresh.ui = new LayerUI(fresh);
     fresh.attachUI(document.createElement("div"));
 
+    // The registry is the projection, so the sweep pushes the rename into it
+    // too; displayName is the render contract either way.
     expect(fresh.layerRegistry.get("ext")?.name).toBe("My Layer");
+    expect(fresh.ui.displayName("ext")).toBe("My Layer");
   });
 
   it("accepts a caller-supplied name for a fresh layer", () => {
-    manager.registerLayer({ id: "fresh", name: "Fresh Layer" });
+    // A fresh id has no existing entry, so the caller's `opts.name` wins
+    // instead of the registry defaulting to the id.
+    const fresh = new LayerManager(map, [
+      { id: "fresh", name: "Fresh Layer", isBase: false, layer: { options: {} } },
+    ]);
 
-    expect(manager.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
+    expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
   });
 
   it("ignores stored names for ids that are not registered", () => {
@@ -1559,11 +1583,11 @@ describe("LayerManager user-assigned names", () => {
       JSON.stringify({ "no-such-id": "Ghost" }),
     );
 
-    manager.renameLayer("no-such-id");
+    manager.ui.loadNamesState();
+    manager.ui.applyNamesState();
 
-    // The store is untouched: nothing is rewritten, nothing is added.
-    expect(window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)).toBe(
-      JSON.stringify({ "no-such-id": "Ghost" }),
-    );
+    // A stale id is pruned by loadNames and stays out of the render contract.
+    expect(manager.ui.renamedNames["no-such-id"]).toBeUndefined();
+    expect(manager.ui.displayName("no-such-id")).toBe("");
   });
 });

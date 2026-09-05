@@ -1294,19 +1294,24 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames["overlay1"]).toBe("Changed");
     });
 
-    it("committing a rename updates the checkbox aria-label and title", () => {
+    it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      // The tooltip is the Select/Deselect affordance; a rename must not
+      // occupy that slot.
+      const tooltip = checkbox.title;
+      expect(tooltip).not.toBe("");
+      expect(tooltip).not.toBe("Renamed");
 
       input.value = "Renamed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
-      expect(checkbox.title).toBe("Renamed");
+      expect(checkbox.title).toBe(tooltip);
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
@@ -1422,7 +1427,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
     });
 
-    it("applying persisted rename restores the color-layer label text", () => {
+    it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
@@ -1432,11 +1437,13 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
+      // The color input's aria-label and tooltip belong to the row builder:
+      // the tooltip is the palette type label, and the aria-label stays the
+      // color_map_label so the swatch is still announced as the basemap.
       const colorInput = colorItem.querySelector(
         'input[type="color"]',
       ) as HTMLInputElement;
-      expect(colorInput.getAttribute("aria-label")).toBe("Custom Color");
-      expect(colorInput.title).toBe("Custom Color");
+      expect(colorInput.title).not.toBe("Custom Color");
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
@@ -1480,7 +1487,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
     });
 
-    it("applyNamesState overwrites the registry name, label text, and checkbox", () => {
+    it("applyNamesState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Persisted Name" }),
@@ -1491,10 +1498,60 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       const item = findItem(ui, "overlay1");
       expect(ui.renamedNames.overlay1).toBe("Persisted Name");
+      // The sweep pushes the rename into the registry projection as well.
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");
-      expect(checkbox.title).toBe("Persisted Name");
+      // The tooltip stays the Select/Deselect affordance, not the layer name.
+      expect(checkbox.title).not.toBe("Persisted Name");
+    });
+
+    it("does not re-write a row that already holds the stored name", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Persisted Name" }),
+      );
+      ui.loadNamesState();
+      ui.applyNamesState();
+
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const setAttr = HTMLInputElement.prototype.setAttribute;
+      let attrWrites = 0;
+      vi.spyOn(checkbox, "setAttribute").mockImplementation(function (
+        this: HTMLInputElement,
+        ...args
+      ) {
+        attrWrites++;
+        return setAttr.call(this, ...args);
+      });
+
+      try {
+        ui.applyNamesState();
+
+        // Everything already matches, so nothing is re-written.
+        expect(attrWrites).toBe(0);
+        expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it("a targeted apply updates only that layer's registry entry", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
+      );
+      ui.loadNamesState();
+
+      manager.layerRegistry.get("overlay1")!.name = "Renamed";
+      ui.applyNamesState("overlay1");
+
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Renamed");
+      // The other layer was left alone — the targeted call must not sweep the
+      // whole panel on every late registration.
+      expect(manager.layerRegistry.get("base1")!.name).not.toBe("Also Renamed");
     });
 
     it("tolerates corrupt / non-object / empty names storage", () => {

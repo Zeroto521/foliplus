@@ -393,7 +393,7 @@ describe("escapeHTML", () => {
 });
 
 describe("updateItemLabel", () => {
-  it("updates the label text and its checkbox/color-input aria-labels", () => {
+  it("updates the label text and the checkbox aria-label only", () => {
     const item = dom.el("div", { "data-layer-id": "a" });
     item.appendChild(dom.el("label", null, "Old"));
     const checkbox = dom.el("input", { type: "checkbox" }) as HTMLInputElement;
@@ -405,12 +405,16 @@ describe("updateItemLabel", () => {
     const label = updateItemLabel(item, "New");
     expect(label?.textContent).toBe("New");
     expect(checkbox.getAttribute("aria-label")).toBe("New");
-    expect(checkbox.title).toBe("New");
-    expect(colorInput.getAttribute("aria-label")).toBe("New");
-    expect(colorInput.title).toBe("New");
+    // The tooltip slot stays the Select/Deselect label — a layer name in
+    // there reads as a tooltip for the wrong control.
+    expect(checkbox.title).toBe("");
+    // The color row's type input is untouched: its tooltip is the palette
+    // name, owned by the caller that builds that row.
+    expect(colorInput.getAttribute("aria-label")).toBeNull();
+    expect(colorInput.title).toBe("");
   });
 
-  it("returns the label and tolerates missing inputs", () => {
+  it("updates just the label when the item has no checkbox", () => {
     const item = dom.el("div", null);
     item.appendChild(dom.el("label", null, "OnlyLabel"));
     const label = updateItemLabel(item, "Renamed");

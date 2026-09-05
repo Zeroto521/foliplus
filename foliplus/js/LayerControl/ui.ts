@@ -1,6 +1,11 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import {
+  GEOM_TYPE,
+  type LayerInfo,
+  forEachLeaf,
+  getGeometryType,
+} from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -25,6 +30,22 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
+
+/**
+ * Push one persisted rename out to whatever projections of it exist.
+ *
+ * Shared by the whole-panel sweep and the targeted single-layer call so the
+ * "skip unchanged" rule lives in exactly one place.
+ */
+const applyNameProjection = (
+  layerInfo: LayerInfo | null,
+  item: HTMLElement | null,
+  name: string,
+): void => {
+  if (!layerInfo && !item) return;
+  if (layerInfo && layerInfo.name !== name) layerInfo.name = name;
+  updateItemLabel(item, name);
+};
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
@@ -188,21 +209,49 @@ class LayerUI {
   }
 
   /**
-   * Overwrite each registered layer's display name with the user-assigned
-   * value and refresh the affected label in the UI. Called once from
-   * attachUI() as the final step, and after any later registry mutation
-   * (LayerManager.renameLayer) that would otherwise resurrect a stale name.
+   * Propagate the user-assigned names to the registry and the rendered rows.
+   *
+   * `renamedNames` is the source of truth; the registry's `LayerInfo.name`
+   * and the row labels are its projections, refreshed here whenever a row or
+   * the registry is rebuilt from a third-party layer's own metadata — that
+   * rebuild would otherwise resurrect the author's original name over a
+   * rename. Writes only where the projection still differs, so a repeated
+   * pass is a no-op.
+   *
+   * @param {string} [id] Restrict to one layer id — a late-arriving row is
+   *   already rendered with the right label, so it only needs its registry
+   *   projection; a full sweep would re-rewrite every renamed row for no
+   *   gain.
    */
-  applyNamesState() {
-    if (!this.uiContainer) return;
-    for (const [id, name] of Object.entries(this.renamedNames)) {
-      if (id !== CONST.COLOR.MAP_ID && this.m.layerRegistry.get(id) == null) continue;
+  applyNamesState(id?: string) {
+    if (id) {
       const layerInfo = this.m.layerRegistry.get(id);
-      if (layerInfo) layerInfo.name = name;
-      const item = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-      ) as HTMLElement | null;
-      updateItemLabel(item, name);
+      applyNameProjection(layerInfo ?? null, null, this.renamedNames[id]);
+      return;
+    }
+    const container = this.uiContainer;
+    if (!container) return;
+    for (const [layerId, name] of Object.entries(this.renamedNames)) {
+      if (layerId === CONST.COLOR.MAP_ID) {
+        // The color basemap has no registry entry — only its row label.
+        applyNameProjection(
+          null,
+          container.querySelector(
+            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+          ) as HTMLElement | null,
+          name,
+        );
+        continue;
+      }
+      const layerInfo = this.m.layerRegistry.get(layerId);
+      if (!layerInfo) continue; // stale id — pruned by persistence on save
+      applyNameProjection(
+        layerInfo,
+        container.querySelector(
+          `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+        ) as HTMLElement | null,
+        name,
+      );
     }
   }
 
@@ -416,10 +465,11 @@ class LayerUI {
     } else container.insertBefore(frag, firstOfGroup);
 
     if (reindex) this.reindexItems();
-    // insertLayerItem is also where a late-registered (third-party) layer
-    // first shows up, so its rename lands with the row instead of waiting
-    // for the next applyNamesState pass.
-    this.applyNamesState();
+    // insertLayerItem is where a late-registered (third-party) layer first
+    // shows up, so its rename lands with the row instead of waiting for a
+    // later pass. Only this layer's id is applied — a full sweep would
+    // re-rewrite every renamed row on each registration.
+    this.applyNamesState(layerInfo.id);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -435,19 +485,29 @@ class LayerUI {
     ) as HTMLInputElement | null;
     if (checkbox) {
       checkbox.dataset.index = String(idx);
+      // The checkbox keeps its Select/Deselect tooltip: the name already
+      // reaches assistive tech via aria-label, and the row's own title
+      // carries the feature count + type. Overwriting it here would put the
+      // layer name in a slot the tooltip is meant to occupy.
       checkbox.setAttribute("aria-label", name);
-      checkbox.title = name;
     }
   }
 
   /**
    * Effective panel display name for a layer: the user-assigned rename wins,
-   * falling back to the registry name. Every render path resolves names
-   * through here so a registry mutation (re-registration, type refresh) can
-   * no longer resurrect the original third-party name over a rename.
+   * falling back to the registry name, then to the locale label for the
+   * virtual color basemap — the only row with no registry entry.
+   *
+   * Every render path resolves names through here so a registry mutation
+   * (re-registration, type refresh) can no longer resurrect the original
+   * third-party name over a rename.
    */
   displayName(id: string): string {
-    return this.renamedNames[id] ?? this.m.layerRegistry.get(id)?.name ?? "";
+    return (
+      this.renamedNames[id] ??
+      this.m.layerRegistry.get(id)?.name ??
+      (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
+    );
   }
 
   renderToggleAllRow(group: string, labelKey: string) {
@@ -552,11 +612,10 @@ class LayerUI {
     );
   }
 
-  /** Current display name for the virtual color basemap: persisted rename
-   *  if present, else the locale label. The color layer has no registry
-   *  entry, so this is its only source of truth. */
+  /** Current display name for the virtual color basemap: persisted rename if
+   *  present, else the locale label. The color layer has no registry entry. */
   private colorLayerName(): string {
-    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
+    return this.displayName(CONST.COLOR.MAP_ID);
   }
 
   renderColorLayerItem() {
@@ -637,8 +696,9 @@ class LayerUI {
         else item.classList.remove(CONST.CLASSES.ACTIVE);
         // The rename must survive a full init pass — initLayerItem is the
         // only incremental path that refreshes a row without re-rendering it.
+        // aria-label carries the name; the title slot stays Select/Deselect
+        // as set above.
         input.setAttribute("aria-label", name);
-        input.title = name;
       }
     }
 
@@ -1561,9 +1621,9 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
-    // Color layer has no registry entry — default the input to the name the
-    // UI already shows (locale label), not the color hex.
-    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
+    // displayName resolves rename → registry → the color layer's locale label,
+    // so the input opens with the name the UI already shows.
+    const currentName = this.displayName(layerId);
 
     this.activeRenameId = layerId;
     // Flag the row so CSS can stretch the input across the label+count area
@@ -1581,9 +1641,10 @@ class LayerUI {
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
-          // The rename lives in renamedNames only — never in the registry,
-          // which re-registers from the third-party layer's own metadata and
-          // would silently clobber the display name on the next re-add.
+          // renamedNames is the source of truth; the registry entry and the
+          // row labels are projections that applyNamesState() pushes out, so
+          // a re-registration that rebuilds the registry from a third-party
+          // layer's own metadata cannot resurrect the author's original name.
           this.renamedNames[layerId] = trimmed;
           this.saveNamesState();
           this.applyNamesState();
@@ -1623,10 +1684,7 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     item?.classList.remove(CONST.CLASSES.RENAMING);
     removeInlineEditInput(label);
-    if (restoreText) {
-      const name = layerInfo ? layerInfo.name : this.colorLayerName();
-      updateItemLabel(item, name);
-    }
+    if (restoreText) updateItemLabel(item, this.displayName(layerId));
   }
 
   /**

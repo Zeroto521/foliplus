@@ -21,7 +21,6 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
@@ -333,10 +332,6 @@ class LayerManager implements LayerAPI {
 
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-    // A re-registration carries the provider's own metadata, so the registry
-    // keeps the current `name` for an existing id — a user rename survives a
-    // third-party layer re-adding itself. The caller's `opts.name` only wins
-    // for a fresh id, where the registry has no prior name to keep.
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
@@ -398,28 +393,6 @@ class LayerManager implements LayerAPI {
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
-  }
-
-  /**
-   * Re-apply a layer's persisted display name on top of the registry. Used at
-   * startup, when the initial registry is rebuilt from Python's CONF and
-   * carries the author's original names.
-   *
-   * Third-party re-registration needs no equivalent: `createLayerInfo` keeps
-   * an existing id's current name instead of taking the caller's `opts.name`,
-   * so a provider re-adding its layer cannot reset a rename.
-   * @param {string} id - Layer id whose persisted display name should apply.
-   */
-  renameLayer(id: string) {
-    const stored = Storage.load<Record<string, string>>(
-      CONST.STORAGE.NAMES_KEY,
-      CONF.name,
-    );
-    const name = stored?.[id];
-    if (!name) return;
-    const layerInfo = this.layerRegistry.get(id);
-    if (layerInfo) layerInfo.name = name;
-    this.ui?.applyNamesState();
   }
 
   /**
