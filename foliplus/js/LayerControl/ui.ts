@@ -1624,7 +1624,11 @@ class LayerUI {
       isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId),
       "hero",
     );
-    addRow(T("attr_source"), layerInfo?.source ?? "", isLong(layerInfo?.source ?? "") ? "wide" : "");
+    addRow(
+      T("attr_source"),
+      layerInfo?.source ?? "",
+      isLong(layerInfo?.source ?? "") ? "wide" : "",
+    );
     if (!isColor) {
       const count = layerInfo ? this.manager.getFeatureCount(layerId) : null;
       addRow(
@@ -1652,7 +1656,10 @@ class LayerUI {
             dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL }, label),
             dom.el(
               "dd",
-              { class: [CONST.CLASSES.ATTRS_VALUE, kind].filter(Boolean).join(" "), title: value },
+              {
+                class: [CONST.CLASSES.ATTRS_VALUE, kind].filter(Boolean).join(" "),
+                title: value,
+              },
               value,
             ),
           ),
