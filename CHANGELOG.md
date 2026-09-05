@@ -42,6 +42,7 @@
 - `LayerControl`: feature count column in the layer panel — shows the number of geometric features per layer row. Base maps are excluded; canvas layers (e.g. `HeatmapControl`) and third-party layers can supply a `featureCountProvider` callback so the component counts its own data instead of falling back to a geometry walk ([#172](https://github.com/Zeroto521/foliplus/pull/172), [#190](https://github.com/Zeroto521/foliplus/pull/190))
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
+- `MeasureControl`: consolidate three parallel per-measurement edit registries (`finalizedClickHandlers` / `editOverlayClosers` / `editDragToggles`) into one `editHandles: Map<id, EditHandle>` — delete drops one entry, `setEditMode` / `clearAll` / `destroy` walk one collection ([#245](https://github.com/Zeroto521/foliplus/pull/245))
 
 ### Removed
 
