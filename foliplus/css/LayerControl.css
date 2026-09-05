@@ -524,6 +524,97 @@ path.foliplus-focus-mask {
     color: var(--text-primary);
   }
 
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. Shares the unified dropdown shell
+     (common.css) for background/border/shadow/entrance; this block owns the
+     internal label/value layout. Rows are a fixed-width label + right-aligned
+     value so the value column reads as one vertical column. */
+  .foliplus-layer-attrs-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 300px;
+    max-height: 340px;
+    padding: var(--space-xs) 0 var(--space-sm);
+    overflow-x: hidden;
+  }
+  /* Block heading: the name row is the hero, then the "custom attributes"
+     block label. Uppercase tracking makes it read as a section header at the
+     panel's small type size. */
+  .foliplus-layer-attrs-title {
+    margin: var(--space-sm) var(--space-md) var(--space-xs);
+    padding: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .foliplus-layer-attrs-list {
+    margin: 0;
+  }
+  .foliplus-layer-attrs-row {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: var(--space-md);
+    align-items: baseline;
+    padding: var(--space-xs) var(--space-md);
+  }
+  /* The name row leads the panel: larger type, primary weight, and an accent
+     left bar so it reads as the panel's subject before the detail rows. */
+  .foliplus-layer-attrs-row.foliplus-layer-attrs-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-sm);
+    padding-left: calc(var(--space-md) + var(--space-sm));
+    border-left: var(--space-xs) solid var(--accent-primary);
+    margin-left: calc(-1 * var(--space-md));
+  }
+  .foliplus-layer-attrs-row.foliplus-layer-attrs-hero .foliplus-layer-attrs-label {
+    display: block;
+    grid-column: 1 / -1;
+    margin-bottom: 2px;
+  }
+  .foliplus-layer-attrs-row.foliplus-layer-attrs-hero .foliplus-layer-attrs-value {
+    grid-column: 1 / -1;
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .foliplus-layer-attrs-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .foliplus-layer-attrs-value {
+    font-size: var(--font-size-xs);
+    color: var(--text-primary);
+    margin: 0;
+    text-align: right;
+    word-break: break-word;
+  }
+  /* Long values (a URL source) get the full width of the value column and
+     wrap rather than compressing the label column. */
+  .foliplus-layer-attrs-value.foliplus-layer-attrs-wide {
+    grid-column: 1 / -1;
+    text-align: left;
+    color: var(--text-muted);
+    margin-top: calc(-1 * var(--space-xs));
+  }
+  .foliplus-layer-attrs-sep {
+    border: none;
+    border-top: var(--border-thin) solid var(--input-border);
+    margin: var(--space-xs) var(--space-md) 0;
+    padding: 0;
+  }
+
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
   .foliplus-layer-item.foliplus-layer-focusing {
     border-left-color: var(--accent-primary);

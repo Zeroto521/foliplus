@@ -73,3 +73,11 @@ export const FOCUS = `
     <path d="M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15"/>
     <circle cx="12" cy="12" r="2.2" class="solid"/>
   </svg>`;
+
+/** "Layer attributes" icon — info (i) in a circle. */
+export const INFO = `
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 11v5"/>
+    <circle cx="12" cy="7.75" r="1.1" fill="currentColor" stroke="none"/>
+  </svg>`;

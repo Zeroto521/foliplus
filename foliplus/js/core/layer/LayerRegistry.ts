@@ -81,6 +81,9 @@ class LayerRegistry {
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
+      source: opts.source ?? existingLi?.source ?? null,
+      updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
+      meta: opts.meta ?? existingLi?.meta ?? null,
     };
   }
 

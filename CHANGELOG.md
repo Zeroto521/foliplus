@@ -21,6 +21,7 @@
 - `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227))
+- `LayerControl`: layer attributes panel — a third ⋮ menu entry that opens a read-only popover with the layer name, data source, feature count, last-update time, and visibility state; third parties append their own label/value rows via new `registerLayer` options `source`, `updatedAt`, and `meta` (static, merged with `??` so re-registration keeps them). Rows without a value are omitted rather than padded ([#241](https://github.com/Zeroto521/foliplus/pull/241))
 
 ### Changed
 

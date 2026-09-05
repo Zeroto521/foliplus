@@ -964,6 +964,229 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     it("closeMoreMenu() is a no-op when no menu is open", () => {
       expect(() => ui.closeMoreMenu(false)).not.toThrow();
     });
+
+    it("exposes the attributes action", () => {
+      const item = findItem(ui, "overlay1");
+
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `.foliplus-layer-more-menu li[data-action='layer-attributes']`,
+      );
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("role")).toBe("menuitem");
+      expect(li?.getAttribute("tabindex")).toBe("0");
+    });
+  });
+
+  // ─────────────────── attributes panel ───────────────────
+
+  describe("openAttrsPanel() / closeAttrsPanel()", () => {
+    const rows = (panel: HTMLElement): Array<[string, string]> =>
+      Array.from(panel.querySelectorAll(".foliplus-layer-attrs-row")).map(
+        r =>
+          [
+            r.querySelector(".foliplus-layer-attrs-label")!.textContent!,
+            r.querySelector(".foliplus-layer-attrs-value")!.textContent!,
+          ] as [string, string],
+      );
+
+    it("renders the built-in rows only (nothing registered → no — padding)", () => {
+      // An empty layer: featureCountProvider returns 0, so the count row shows
+      // the real (zero) count instead of the attr_empty placeholder. The
+      // placeholder is asserted separately below.
+      vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(0);
+
+      const item = findItem(ui, "overlay1");
+
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel).not.toBeNull();
+      expect(panel.getAttribute("role")).toBe("dialog");
+      const rendered = rows(panel);
+      // T() falls back to the locale key in jsdom, so assert on keys.
+      const keys = rendered.map(([label]) => label);
+      expect(keys).toContain("LayerControl.attr_name");
+      expect(keys).toContain("LayerControl.attr_feature_count");
+      expect(keys).toContain("LayerControl.attr_visible");
+      // Rows with no value are omitted.
+      const values = rendered.map(([, v]) => v);
+      expect(values).toContain("Polygons");
+      expect(values).toContain("0");
+      expect(values).toContain("LayerControl.attr_yes");
+      // A layer with no resolvable count falls back to the placeholder.
+      vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(null);
+      ui.openAttrsPanel(item);
+      expect(
+        rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
+          ([k]) => k === "LayerControl.attr_feature_count",
+        )?.[1],
+      ).toBe("LayerControl.attr_empty");
+    });
+
+    it("reads name / source / updatedAt / meta from registerLayer opts", () => {
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Parks",
+        source: "https://example.com/parks.geojson",
+        updatedAt: "2026-09-01T08:00:00Z",
+        meta: { area_km2: 12.5 },
+      });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+
+      expect(rendered).toContainEqual(["LayerControl.attr_name", "Parks"]);
+      expect(rendered).toContainEqual([
+        "LayerControl.attr_source",
+        "https://example.com/parks.geojson",
+      ]);
+      expect(rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1]).toBe(
+        // Expectation built with the same formatTimestamp options, so the
+        // assertion holds regardless of the runner's timezone / ICU data.
+        new Date("2026-09-01T08:00:00Z").toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+      expect(rendered).toContainEqual(["area_km2", "12.5"]);
+      // Third-party rows follow a separator.
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(1);
+    });
+
+    it("omits the custom-attributes block when meta is empty", () => {
+      manager.registerLayer({ id: "overlay1", meta: { empty: "" } });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
+      // One block only: a single heading and a single list.
+      expect(item.querySelectorAll(".foliplus-layer-attrs-title").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-list").length).toBe(1);
+    });
+
+    it("marks meta rows separately so the separator lands before them", () => {
+      manager.registerLayer({ id: "overlay1", meta: { area_km2: 12.5 } });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const lists = item.querySelectorAll(".foliplus-layer-attrs-list");
+      expect(lists.length).toBe(2);
+      expect(lists[1]!.querySelector(".foliplus-layer-attrs-label")!.textContent).toBe(
+        "area_km2",
+      );
+    });
+
+    it("flags the name row as hero and the source row as wide", () => {
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Parks",
+        source: "https://example.com/parks.geojson",
+      });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const hero = item.querySelector(".foliplus-layer-attrs-row.hero");
+      expect(hero!.querySelector(".foliplus-layer-attrs-value")!.textContent).toBe(
+        "Parks",
+      );
+      const wide = item.querySelector(".foliplus-layer-attrs-value.wide");
+      expect(wide!.textContent).toBe("https://example.com/parks.geojson");
+    });
+
+    it("formats the timestamp from epoch ms", () => {
+      manager.registerLayer({
+        id: "overlay1",
+        updatedAt: new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).getTime(),
+      });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      expect(
+        rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
+          ([k]) => k === "LayerControl.attr_updated_at",
+        )?.[1],
+        // Derived from the same Date + options the implementation formats, so
+        // this passes under any runner timezone or ICU build.
+      ).toBe(
+        new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+    });
+
+    it("reflects the hidden state", () => {
+      const item = findItem(ui, "overlay1");
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement).checked =
+        false;
+
+      ui.openAttrsPanel(item);
+
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_visible",
+        "LayerControl.attr_no",
+      ]);
+    });
+
+    it("color basemap shows name + visibility and no provenance rows", () => {
+      const item = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+
+      ui.openAttrsPanel(item);
+
+      const keys = rows(item.querySelector(".foliplus-layer-attrs-panel")!).map(
+        ([label]) => label,
+      );
+      expect(keys).toContain("LayerControl.attr_name");
+      expect(keys).toContain("LayerControl.attr_visible");
+      expect(keys).not.toContain("LayerControl.attr_source");
+      expect(keys).not.toContain("LayerControl.attr_feature_count");
+      expect(keys).not.toContain("LayerControl.attr_updated_at");
+    });
+
+    it("closeAttrsPanel(setFocus=true) returns focus to the layer row", () => {
+      const item = findItem(ui, "overlay1");
+      const focusSpy = vi.fn();
+      item.focus = focusSpy;
+
+      ui.openAttrsPanel(item);
+      ui.closeAttrsPanel(true);
+
+      expect(focusSpy).toHaveBeenCalled();
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
+    it("closeAttrsPanel(setFocus=false) does not focus the layer row", () => {
+      const item = findItem(ui, "overlay1");
+      const focusSpy = vi.fn();
+      item.focus = focusSpy;
+
+      ui.openAttrsPanel(item);
+      ui.closeAttrsPanel(false);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it("closeAttrsPanel() is a no-op when no panel is open", () => {
+      expect(() => ui.closeAttrsPanel(false)).not.toThrow();
+    });
+
+    it("closes the previously open panel before opening a new one", () => {
+      const a = findItem(ui, "overlay1");
+      const b = findItem(ui, "base1");
+
+      ui.openAttrsPanel(a);
+      ui.openAttrsPanel(b);
+
+      expect(a.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(b.querySelectorAll(".foliplus-layer-attrs-panel").length).toBe(1);
+    });
   });
 
   // ─────────────────── more button visibility ───────────────────

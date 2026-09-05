@@ -404,7 +404,8 @@
 :is(
   .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
-  .foliplus-layer-more-menu
+  .foliplus-layer-more-menu,
+  .foliplus-layer-attrs-panel
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -434,7 +435,8 @@
   :is(
     .foliplus-search-result-panel,
     .foliplus-heatmap-scheme-dropdown,
-    .foliplus-layer-more-menu
+    .foliplus-layer-more-menu,
+    .foliplus-layer-attrs-panel
   ) {
     animation: none;
   }
