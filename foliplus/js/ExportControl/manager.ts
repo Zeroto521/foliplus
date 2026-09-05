@@ -703,28 +703,41 @@ class ExportManager {
       async blob => {
         if (!blob) {
           this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
-          this.isExporting = false;
-          ensureModes(this.map).setMode(CONF.name, null);
-          ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-          this.removeExportOverlay();
+          this.endExport();
           return;
         }
         const name = CONF.filename || "map";
-        if (CONF.format === "geotiff") {
-          // Export as a single GeoTIFF file with embedded georeferencing.
-          await this.downloadGeoTiff(canvas, name);
-        } else {
-          download(blob, `${name}.${CONF.format}`);
+        try {
+          if (CONF.format === "geotiff") {
+            // Export as a single GeoTIFF file with embedded georeferencing.
+            await this.downloadGeoTiff(canvas, name);
+          } else {
+            download(blob, `${name}.${CONF.format}`);
+          }
+        } catch (err) {
+          // The download step can throw (e.g. createObjectURL failure) — a thrown
+          // error would otherwise skip endExport below and leave the map locked
+          // with the blocker overlay on screen.
+          console.warn(`[${CONF.name}] export failed:`, err);
+        } finally {
+          this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
+          this.endExport();
         }
-        this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
-        this.isExporting = false;
-        ensureModes(this.map).setMode(CONF.name, null);
-        ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-        this.removeExportOverlay();
       },
       mimeType,
       CONF.quality,
     );
+  }
+
+  /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
+   *  the blocker overlay. Runs on both the success and failure paths —
+   *  forgetting it strands `isExporting === true` with map interaction
+   *  disabled and the overlay still on screen. */
+  endExport() {
+    this.isExporting = false;
+    ensureModes(this.map).setMode(CONF.name, null);
+    ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.removeExportOverlay();
   }
 
   /**

@@ -86,10 +86,9 @@ const ensureFont = async (fontSpec: string) => {
 };
 
 // ============================================================================
-// File download — the single place in the codebase that owns a download
-// anchor. Export producers hand over only the blob and filename: ExportControl
-// images (this file's callers) and MeasureControl GeoJSON/CSV. Centralising the
-// anchor lifecycle here means revoke policy cannot drift between components.
+// File download — the single place that owns a download anchor. Producers
+// hand over a blob and a filename; centralising the anchor lifecycle here
+// means the revoke policy cannot drift between components.
 // ============================================================================
 
 /** Milliseconds to keep an object URL alive after the download is triggered.
@@ -100,8 +99,6 @@ const DEFAULT_REVOKE_DELAY = 10000;
 
 /**
  * Download `blob` as a file named `filename`.
- * @param blob The bytes to download; its `type` is the MIME type.
- * @param filename File name including extension.
  * @param revokeDelayMs How long to keep the object URL before releasing it.
  *   Default {@link DEFAULT_REVOKE_DELAY}.
  */
