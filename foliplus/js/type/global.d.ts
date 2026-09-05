@@ -332,4 +332,3 @@ declare global {
     map: Leaflet.Map;
   }
 }
-
