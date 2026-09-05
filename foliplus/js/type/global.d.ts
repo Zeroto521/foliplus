@@ -133,6 +133,10 @@ declare module "leaflet" {
   }
 }
 
+// Re-exported into the global scope so ``CONF.<field>: NumberStyle`` typechecks
+// in every component bundle without importing #common/format.js just for the type.
+export type { NumberStyle } from "#common/format.js";
+
 declare global {
   /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
   interface ComponentConfig {
@@ -153,7 +157,7 @@ declare global {
     border_color?: string;
     border_opacity?: number;
     fill_opacity?: number;
-    label_format?: "auto" | "comma" | "int";
+    label_format?: NumberStyle;
     label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
