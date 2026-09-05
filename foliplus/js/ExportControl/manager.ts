@@ -1,7 +1,7 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { HINT_DURATION, ensureHint } from "#core/hint.js";
+import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
@@ -585,7 +585,7 @@ class ExportManager {
       // Clear all of this component's hints first. The crop-box size/limit
       // hints are PERSIST (duration 0 sets no timer), so they would otherwise
       // outlive the export and sit on top of whatever status appears next.
-      ensureHint(this.map).hideHint(CONF.name);
+      this.map.foliplus!.hideHint(CONF.name);
       this.unlockMap();
       this.endExport();
       return;
@@ -596,8 +596,8 @@ class ExportManager {
     // PERSIST (duration 0 sets no timer), so nothing else removes them once
     // the box is gone — they'd outlive the export entirely, the same registry
     // leak as the object-URL one.
-    ensureHint(this.map).hideHint(CONF.name, "size");
-    ensureHint(this.map).hideHint(CONF.name, "limit");
+    this.map.foliplus!.hideHint(CONF.name, "size");
+    this.map.foliplus!.hideHint(CONF.name, "limit");
 
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 

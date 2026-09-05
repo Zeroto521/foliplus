@@ -30,6 +30,8 @@ vi.mock("geotiff", () => ({
 vi.mock("pako", async () => vi.importActual("pako"));
 
 // Minimal map mock satisfying ExportManager constructor requirements.
+// showHint/hideHint on foliplus mirror setup.ts's window.map mock — ExportManager
+// talks to them via the public map.foliplus! API rather than ensureHint().
 function makeMapMock() {
   const container = document.createElement("div");
   return {
@@ -47,6 +49,7 @@ function makeMapMock() {
     boxZoom: { disable: vi.fn(), enable: vi.fn() },
     keyboard: { disable: vi.fn(), enable: vi.fn() },
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),
@@ -485,30 +488,34 @@ describe("ExportManager — hint lifecycle", () => {
   });
 
   it("doExport clears the crop-box hints before exporting", () => {
-    const hint = ensureHint(manager.map);
-    vi.spyOn(hint, "hideHint");
-    hint.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
-    hint.showHint(CONF.name, "too large", 0, undefined, "limit");
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
 
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
 
     try {
       manager.doExport();
-      expect(hint.hideHint).toHaveBeenCalledWith(CONF.name, "size");
-      expect(hint.hideHint).toHaveBeenCalledWith(CONF.name, "limit");
-      expect(hint.hideHint).not.toHaveBeenCalledWith(CONF.name);
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "size");
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "limit");
+      expect(hideHint).not.toHaveBeenCalledWith(CONF.name);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
-      hint.hideHint.mockRestore();
+      hideHint.mockRestore();
     }
   });
 
   it("clears the crop-box hints when the pixel limit aborts the export", () => {
-    const hint = ensureHint(manager.map);
-    const hideHint = vi.spyOn(hint, "hideHint");
-    hint.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
-    hint.showHint(CONF.name, "too large", 0, undefined, "limit");
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
     manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
     // CONF.max_pixels is captured by const.ts at import time, so it cannot be
     // set per-test here — set the flag checkPixelLimit() normally produces.
