@@ -14,7 +14,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import { type NumberStyle, formatNumber } from "#common/format.js";
+import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";

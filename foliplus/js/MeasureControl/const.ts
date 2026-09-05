@@ -103,6 +103,11 @@ const EXPORT_FORMAT = {
 
 type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
+/** Default format for `CONF.export_format` — used when the value is missing
+ * or unknown. Python's `MeasureControl` rejects anything outside
+ * `EXPORT_FORMAT`, so this only guards misconfiguration. */
+const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;
+
 /** Standard GeoJSON type names (RFC 7946). */
 const GEOJSON = {
   FEATURE: "Feature",
@@ -135,6 +140,7 @@ export {
   SEL,
   STORAGE,
   EXPORT_FORMAT,
+  DEFAULT_EXPORT_FORMAT,
   type ExportFormat,
   GEOJSON,
   MODE,
