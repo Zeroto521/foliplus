@@ -64,6 +64,7 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `MeasureControl`: circle preview radius line covered the radius label and the circle fill — a layer whose renderer was never pinned joined a stale fallback renderer, so a second attach hit an already-held `<path>` and broke the whole SVG renderer; `PaneManager.ensureVector` now pins both `renderer` and `pane` on the layer, the attachment order is declared once as `LAYER_STACK` (shape → radius line → node) and asserted by tests, and the four `bringToFront()` calls that re-attached paths are gone ([#252](https://github.com/Zeroto521/foliplus/pull/252))
 
 ## [v0.3.0] (2026-08-02)
 

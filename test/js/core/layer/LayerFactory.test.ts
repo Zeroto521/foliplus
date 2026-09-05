@@ -81,6 +81,10 @@ describe("LayerFactory", () => {
         const el = document.createElement("div");
         return { mapPane: el };
       }),
+      // Minimal stand-in for the renderer `Map.getRenderer` would resolve
+      // from the layer's own pane; `ensureVector` pins that pane instead.
+      getRenderer: vi.fn(() => ({ addTo: vi.fn() })),
+      _paneRenderers: {},
       _container: document.createElement("div"),
       _layers: {},
       attributionControl: { _attributions: {}, _update: vi.fn() },

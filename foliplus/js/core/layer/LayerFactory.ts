@@ -112,8 +112,9 @@ class LayerFactory {
         const paneName = isLabel ? opts.labelPane : opts.graphPane;
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
-          const { renderer } = panes.ensurePane(opts.graphPane!);
-          layer.options.renderer = renderer ?? undefined;
+          // Resolves the renderer and pins the pane on the layer itself, so
+          // the renderer a Path lands on is the one that owns its pane.
+          panes.ensureVector(layer, opts.graphPane!);
         } else if (paneName) panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         // The mainLayer subtree changed and the added layer's options.pane was

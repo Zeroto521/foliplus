@@ -62,6 +62,12 @@ class CircleMode extends PreviewMode {
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
     ) as L.Marker;
 
+    // The radius label re-registers with the collision planner
+    // (attachCircleUI), which replans it inside a requestAnimationFrame.
+    // Adding it here, ahead of the stack, lets that re-plan detach it before
+    // the shapes are attached — the circle disappears while its label stays.
+    // It is a marker in measure_label, a pane that already sits above
+    // measure_graph, so the stack is irrelevant to it.
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = manager.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
@@ -187,10 +193,13 @@ class CircleMode extends PreviewMode {
 
       if (!previews.node) {
         previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
-        previews.node.bringToFront();
-        // Keep the radius node glued to the cursor while drawing.
+        // Keep the radius node glued to the cursor while drawing. The node is
+        // last in the stack, so the radius line and circle can never cover it.
       } else previews.node.setLatLng(event.latlng);
 
+      // The label is re-anchored on the label pane only, so the preview stack
+      // never re-runs: re-attaching the shape each frame is what let the radius
+      // node cover the label and the radius line cover the center.
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
@@ -251,8 +260,10 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
+      // LAYER_STACK is the z-order: the radius line lands above the circle,
+      // and the center node is last of the graph layers, so neither can cover
+      // the other.
       const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
-
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       );

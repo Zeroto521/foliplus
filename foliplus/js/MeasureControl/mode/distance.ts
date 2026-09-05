@@ -30,7 +30,7 @@ class DistanceMode extends PreviewMode {
       const node = manager.layers.addLayer(
         Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
       ) as L.CircleMarker;
-      node.bringToFront();
+      // Nodes are last in the stack, so the line never covers them.
       nodeMarkers.push(node);
     });
 
@@ -236,7 +236,7 @@ class DistanceMode extends PreviewMode {
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
       ) as L.CircleMarker;
-      marker.bringToFront();
+      // Nodes are last in the stack, so the line never covers them.
       nodeMarkers.push(marker);
 
       marker.on("click", (event: L.LeafletMouseEvent) => {
