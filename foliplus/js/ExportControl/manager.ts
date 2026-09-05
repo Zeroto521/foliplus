@@ -1,8 +1,7 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { ensureHint } from "#core/hint.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { ensureHint, HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
@@ -583,14 +582,12 @@ class ExportManager {
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
-      this.isExporting = false;
-      ensureModes(this.map).setMode(CONF.name, null);
-      ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-      this.removeExportOverlay();
       // Clear the crop-box size/limit hints: they are PERSIST (no timer) and
       // would otherwise stay on screen after the box is gone, on top of the
       // abort message.
       ensureHint(this.map).hideHint(CONF.name);
+      this.unlockMap();
+      this.endExport();
       return;
     }
 
@@ -743,13 +740,14 @@ class ExportManager {
       } else {
         download(blob, `${name}.${format.ext}`);
       }
+      this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
       // leaked rejection would otherwise skip endExport below and leave the
       // map locked with the blocker overlay on screen.
+      this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
       console.warn(`[${CONF.name}] export failed:`, err);
     } finally {
-      this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
       this.endExport();
     }
   }

@@ -525,6 +525,23 @@ describe("ExportManager — hint lifecycle", () => {
       hideHint.mockRestore();
     }
   });
+
+  it("unlocks the map when the pixel limit aborts the export", () => {
+    // doExport() calls lockMap() before the pixel-limit check, so an abort
+    // that only ends the export state would leave dragging/zoom disabled with
+    // the overlay long gone — the map looks broken and doesn't tell you why.
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    manager.pixelOverLimit = true;
+    const unlockMap = vi.spyOn(manager, "unlockMap");
+
+    try {
+      manager.doExport();
+      expect(unlockMap).toHaveBeenCalledTimes(1);
+    } finally {
+      manager.pixelOverLimit = false;
+      unlockMap.mockRestore();
+    }
+  });
 });
 
 describe("ExportManager — pixel limit & storage", () => {
@@ -805,6 +822,14 @@ describe("ExportManager — download paths", () => {
         expect.any(String),
         expect.any(Number),
       );
+      // The success hint must not live in `finally` — `finally` also runs
+      // after this early return, so it would tell the user the export worked
+      // when it produced nothing. The state is still released though.
+      expect(manager.showGlobalHint).not.toHaveBeenCalledWith(
+        expect.stringContaining("status_success"),
+        expect.any(Number),
+      );
+      expect(manager.isExporting).toBe(false);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
@@ -1179,6 +1204,7 @@ describe("ExportManager — download paths", () => {
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
       HTMLCanvasElement.prototype.toDataURL = origToDataURL;
+      vi.unstubAllGlobals();
       vi.restoreAllMocks();
     }
   });
