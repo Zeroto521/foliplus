@@ -113,10 +113,16 @@ const download = (
   anchor.download = filename;
   anchor.rel = "noopener";
   anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), revokeDelayMs);
+  // Cleanup lives in a finally so a throw from appendChild, click, or remove
+  // cannot leak the object URL or strand the anchor in the DOM — the very
+  // leak centralising the anchor here is meant to prevent.
+  try {
+    document.body.appendChild(anchor);
+    anchor.click();
+  } finally {
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), revokeDelayMs);
+  }
 };
 
 export {
