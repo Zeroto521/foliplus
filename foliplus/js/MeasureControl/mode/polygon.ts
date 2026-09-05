@@ -62,6 +62,7 @@ class PolygonMode extends PreviewMode {
       segLabels,
       points: points,
       area: data.area ?? 0,
+      id: data.id!,
       onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const newArea = Util.area(points);
@@ -194,6 +195,7 @@ class PolygonMode extends PreviewMode {
         segLabels,
         points,
         area,
+        id: polyId,
         onDelete: () => {
           this.m.store.remove(polyId);
         },
