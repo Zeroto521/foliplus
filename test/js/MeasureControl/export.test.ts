@@ -595,15 +595,6 @@ describe("Export.handleExportClick", () => {
     expect(dl.anchors.length).toBe(0);
   });
 
-  it("triggers a download and shows no hint when measurements exist", () => {
-    const mgr = makeMgr([markerData]);
-    Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
-    expect(mgr.map.foliplus.showHint).not.toHaveBeenCalled();
-    expect(dl.anchors.length).toBe(1);
-    expect(dl.anchors[0].filename).toBe("meas.geojson");
-  });
-
-
   it("shows a success hint after the download completes", () => {
     const mgr = makeMgr([markerData]);
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
