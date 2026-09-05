@@ -25,18 +25,48 @@ export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
 export const TIMING = {
+  URL_REVOKE_DELAY: 10000,
   TIMEOUT: CONF.timeout,
   RESTORE_DELAY: 200,
 };
 
-// MIME type lookup (format → toBlob mime, toDataURL mime)
-export const MIME = {
-  DEFAULT: "image/png", // Default MIME when CONF.format is not in MIME
-  png: "image/png",
-  jpeg: "image/jpeg",
-  webp: "image/webp",
-  tif: "image/tiff",
+// Export format key — mirrors Python's `ExportControl.FORMAT` literal.
+export type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
+
+// One record per format — single source for mime type, extension, and
+// whether the request goes down the GeoTIFF pipeline.
+export interface FormatSpec {
+  /** `toBlob()` / `toDataURL()` mime type. */
+  mime: string;
+  /** File extension (no dot). */
+  ext: string;
+  /** Lossy codec — the single compress pass happens at write time. */
+  lossy: boolean;
+  /** Routed through `downloadGeoTiff` instead of a plain blob download. */
+  geotiff: boolean;
+}
+
+export const FORMAT: Record<ExportFormat, FormatSpec> = {
+  png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
+  jpeg: { mime: "image/jpeg", ext: "jpeg", lossy: true, geotiff: false },
+  webp: { mime: "image/webp", ext: "webp", lossy: true, geotiff: false },
+  geotiff: { mime: "image/tiff", ext: "tif", lossy: false, geotiff: true },
 };
+
+// Lossless mime for intermediate `toDataURL()` snapshots inside the renderer.
+// Composing passes must stay lossless — encoding to the requested format is
+// applied once, at download time.
+export const MIME_LOSSLESS = FORMAT.png.mime;
+
+// Resolve a runtime `CONF.format` to a table key. Python's `ExportControl`
+// rejects anything outside `FORMAT`, so this only guards misconfiguration.
+export const resolveFormat = (raw: unknown): ExportFormat =>
+  typeof raw === "string" && Object.prototype.hasOwnProperty.call(FORMAT, raw)
+    ? (raw as ExportFormat)
+    : "png";
+
+// The record for `CONF.format` — no cast, no DEFAULT fallback.
+export const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
 
 /** CSS class names used during render. */
 export const CLASSES = {

@@ -20,7 +20,6 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
-import { download } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -687,9 +686,9 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    const format = CONST.currentFormat();
     const prevImg = document.createElement("img");
-    prevImg.src = canvas.toDataURL(mimeType);
+    prevImg.src = canvas.toDataURL(format.mime);
     prevImg.className = CONST.CLASSES.PREVIEW;
     document.body.appendChild(prevImg);
     // Click to dismiss the preview early; otherwise auto-dismiss after SHORT.
@@ -708,11 +707,11 @@ class ExportManager {
         }
         const name = CONF.filename || "map";
         try {
-          if (CONF.format === "geotiff") {
+          if (format.geotiff) {
             // Export as a single GeoTIFF file with embedded georeferencing.
             await this.downloadGeoTiff(canvas, name);
           } else {
-            download(blob, `${name}.${CONF.format}`);
+            this.download(blob, `${name}.${format.ext}`);
           }
         } catch (err) {
           // The download step can throw (e.g. createObjectURL failure) — a thrown
@@ -724,9 +723,23 @@ class ExportManager {
           this.endExport();
         }
       },
-      mimeType,
+      format.mime,
       CONF.quality,
     );
+  }
+
+  /** Trigger a blob download. The anchor lifecycle lives here so the
+   *  object-URL revoke policy cannot drift between call sites. */
+  download(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = url;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
   }
 
   /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
@@ -812,7 +825,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    download(blob, `${name}.tif`);
+    this.download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
