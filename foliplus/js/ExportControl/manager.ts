@@ -582,9 +582,9 @@ class ExportManager {
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
-      // Clear the crop-box size/limit hints: they are PERSIST (no timer) and
-      // would otherwise stay on screen after the box is gone, on top of the
-      // abort message.
+      // Clear all of this component's hints first. The crop-box size/limit
+      // hints are PERSIST (duration 0 sets no timer), so they would otherwise
+      // outlive the export and sit on top of whatever status appears next.
       ensureHint(this.map).hideHint(CONF.name);
       this.unlockMap();
       this.endExport();
@@ -734,12 +734,10 @@ class ExportManager {
         return;
       }
       this.showPreview(blob);
-      if (format.geotiff) {
-        // Export as a single GeoTIFF file with embedded georeferencing.
-        await this.downloadGeoTiff(canvas, name);
-      } else {
-        download(blob, `${name}.${format.ext}`);
-      }
+      // GeoTIFF needs embedded georeferencing, so it ships as its own
+      // container file; every other format is the encoded blob itself.
+      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
+      else download(blob, `${name}.${format.ext}`);
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
