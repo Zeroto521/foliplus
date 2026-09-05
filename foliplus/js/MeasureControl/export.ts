@@ -20,9 +20,6 @@ import { MODE_MAP, MeasureMode } from "./mode/index.js";
 const T = createScopedTranslator(CONF);
 
 /**
- * Convert a single measurement to a GeoJSON feature.
- */
-/**
  * Serialize measurements as a GeoJSON FeatureCollection string.
  * Each feature carries the measurement id and type-specific fields in
  * properties (see each mode's toGeoFeature).

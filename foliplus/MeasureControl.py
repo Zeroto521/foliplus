@@ -29,6 +29,11 @@ class MeasureControl(BaseControl):
       area centroid to translate the whole shape, the circle radius node to resize, or
       a marker to move it (its address is re-resolved on drop).
     - 🗑️ **Clear**: remove all measurement layers at once.
+    - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
+      centroid, or radius) and are never nudged. When dense, the collision
+      detector hides the least-important overlapping chips so labels remain
+      readable — see ``collide_labels`` for the exact hiding rule and
+      priority order.
 
     **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
     clicking a measurement does not reveal its × handles. Edit mode and the drawing
@@ -55,6 +60,20 @@ class MeasureControl(BaseControl):
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
         mode; area and circle modes always show plain distance.
+
+    collide_labels : bool, default True
+        Whether to run the label collision detector. When enabled, a label is
+        hidden only when two chips **intersect on the y-axis AND** overlap at
+        least 75% of the narrower chip's width on the x-axis, so chips that
+        share a screen column but are stacked vertically (e.g. labels on two
+        near-vertical polygon edges at very different y) stay visible and a
+        light edge graze is left alone. Hiding sweeps labels from strongest
+        to weakest — centroid and radius, then the distance mode's final
+        total, then plain segments; a tie goes to the wider chip — so the
+        most important label always keeps its anchor. When disabled, every
+        label stays visible on its anchor regardless of overlap. Only affects
+        on-screen layout, never exports (CSV / GeoJSON always read persisted
+        measurements).
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
@@ -102,7 +121,12 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _export_fields = ("show_bearing", "filename", "export_format")
+    _export_fields = (
+        "show_bearing",
+        "collide_labels",
+        "filename",
+        "export_format",
+    )
 
     default_js = load_cdn("MeasureControl")
 
@@ -111,6 +135,7 @@ class MeasureControl(BaseControl):
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
+        collide_labels: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
@@ -122,6 +147,7 @@ class MeasureControl(BaseControl):
             )
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
+        self.collide_labels = collide_labels
         self.filename = filename
         self.export_format = export_format
         self._template = self._get_template()
