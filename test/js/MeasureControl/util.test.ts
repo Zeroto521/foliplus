@@ -7,7 +7,14 @@ import {
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
+import { toWgs84 } from "#common/coord.js";
 import { stopEvent } from "#common/dom.js";
+
+// coordText converts through toWgs84; stub it to an identity by default so the
+// readout tests can exercise formatting without a real CRS conversion.
+vi.mock("#common/coord.js", () => ({
+  toWgs84: vi.fn((_map: unknown, lng: number, lat: number) => [lng, lat]),
+}));
 
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
@@ -689,6 +696,62 @@ describe("bindNodeDrag", () => {
     // No startPt was set, so a later move must not drag
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
     expect(onDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe("readLatLng", () => {
+  it("reads the lat/lng pair", () => {
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([31.2, 121.5]);
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
+      31.2, 121.5,
+    ]);
+  });
+
+  it("throws when the point has no coordinate", () => {
+    expect(() => Util.readLatLng({} as any)).toThrow(TypeError);
+  });
+
+  it("throws when only one coordinate is present", () => {
+    expect(() => Util.readLatLng({ lat: 31.2 } as any)).toThrow(TypeError);
+  });
+});
+
+describe("formatCoord / formatLatLng", () => {
+  it("pins the persisted 6-decimal precision", () => {
+    expect(Util.formatCoord(121.987654321)).toBe("121.987654");
+  });
+
+  it("formats longitude before latitude", () => {
+    expect(Util.formatLatLng(121.5, 31.2)).toBe("121.500000, 31.200000");
+  });
+});
+
+describe("coordText", () => {
+  it("reports the WGS84 conversion result", () => {
+    const map = {} as L.Map;
+    vi.mocked(toWgs84).mockReturnValue([121.5, 31.2]);
+    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
+      "121.500000, 31.200000",
+    );
+    expect(toWgs84).toHaveBeenCalledWith(map, 121.5, 31.2);
+  });
+
+  it("reads the latitude/longitude alias and forwards it", () => {
+    const map = {} as L.Map;
+    vi.mocked(toWgs84).mockReturnValue([120.0, 30.0]);
+    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
+      "120.000000, 30.000000",
+    );
+    expect(toWgs84).toHaveBeenCalledWith(map, 120, 30);
+  });
+
+  it("rounds the converted value to the persisted precision", () => {
+    const map = {} as L.Map;
+    vi.mocked(toWgs84).mockReturnValue([121.987654321, 31.123456789]);
+    expect(Util.coordText(map, { lng: 121, lat: 31 })).toBe("121.987654, 31.123457");
   });
 });
 
