@@ -1006,7 +1006,9 @@ class TestLayerControlBrowser:
             assert res is not None, "rename did not commit"
             assert res["label"] == "RenamedLayer", f"label={res['label']!r}"
             # The name reaches assistive tech via aria-label…
-            assert res["ariaLabel"] == "RenamedLayer", f"aria-label={res['ariaLabel']!r}"
+            assert res["ariaLabel"] == "RenamedLayer", (
+                f"aria-label={res['ariaLabel']!r}"
+            )
             # …but never replaces the Select/Deselect tooltip (accept the
             # translated wording — a local browser can resolve `zh`).
             assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
