@@ -36,11 +36,13 @@ jobs:
       # a clean tree with no lockfile, so its own `npm install` would resolve
       # devDependencies against the live registry and drift from the PR's build.
       # Copying node_modules keeps the toolchain identical in both directions.
+      # `-a` (not `-R`): it preserves symlinks and modes across the handoff —
+      # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
-          cp -R node_modules /tmp/base/node_modules
+          cp -a node_modules /tmp/base/node_modules
           (
             cd /tmp/base
             npm run build

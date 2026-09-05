@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
-import { OK, STATUS, WARN } from "./glyphs.mjs";
+import { FAIL, OK, STATUS, WARN } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -60,13 +60,17 @@ const toolVersion = (root, pkg) => {
 
 /** Diff the build tool versions of the current checkout against the baseline
  *  capture. Both were built with the versions named here — a mismatch means the
- *  two size samples were produced by different toolchains. */
-const toolMismatch = (current, baseline) => {
+ *  two size samples were produced by different toolchains.
+ *
+ *  `emit` records an explicit `null` for a tool the build no longer needs, so
+ *  the test is whether the key is *present*, not whether the value is truthy:
+ *  a `null → version` change means the tool came back into the build. */
+const toolMismatch = (_current, baseline) => {
   const recorded = baseline.tools || {};
   const rows = [];
   for (const pkg of BUILD_TOOLS) {
+    if (!Object.prototype.hasOwnProperty.call(recorded, pkg)) continue;
     const prev = recorded[pkg];
-    if (prev == null) continue;
     const curr = toolVersion(ROOT, pkg);
     if (prev !== curr) rows.push({ pkg, prev, curr });
   }
@@ -94,7 +98,7 @@ const parseArgs = argv => {
   for (const a of argv) {
     if (a.startsWith("--emit=")) args.emit = a.split("=")[1];
     else if (a.startsWith("--threshold=")) {
-      const v = parseInt(a.split("=")[1], 10);
+      const v = parseFloat(a.split("=")[1]);
       args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
     } else if (a.startsWith("--baseline=")) args.baseline = a.split("=")[1];
     else if (a.startsWith("--report=")) args.report = a.split("=")[1];
@@ -174,6 +178,8 @@ const buildRows = (current, baseline, threshold) => {
     const prev = baseline ? (baseline.files?.[f] ?? null) : null;
     if (curr === null) return absent(f, null, prev, "missing");
     if (prev === null) return absent(f, curr, null, "new");
+    // A non-numeric entry renders "NaN%" in the table; treat it as absent.
+    if (!Number.isFinite(prev)) return absent(f, curr, null, "new");
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
     const over = pct > threshold;
@@ -312,7 +318,12 @@ const emit = (args, root = ROOT) => {
   const tools = Object.fromEntries(
     BUILD_TOOLS.map(pkg => [pkg, toolVersion(ROOT, pkg)]),
   );
-  writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
+  try {
+    writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
+  } catch (err) {
+    console.error(`${FAIL} Cannot write ${path}: ${err.message}`);
+    return 1;
+  }
   const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
@@ -345,8 +356,12 @@ const check = (args, root = ROOT) => {
   appendSummary(table);
   if (args.report) {
     const reportPath = resolve(args.report);
-    mkdirSync(dirname(reportPath), { recursive: true });
-    writeFileSync(reportPath, table + "\n");
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true });
+      writeFileSync(reportPath, table + "\n");
+    } catch (err) {
+      console.error(`${FAIL} Cannot write ${reportPath}: ${err.message}`);
+    }
   }
 
   if (drift.length) {
