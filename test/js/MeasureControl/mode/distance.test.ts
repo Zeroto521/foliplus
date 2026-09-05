@@ -350,6 +350,28 @@ describe("DistanceMode — cleanup", () => {
     // next cleanup is a safe no-op
     expect(() => mode.cleanup()).not.toThrow();
   });
+
+  it("removes the preview cursor node when the mode is aborted", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
+    // Place one point and move, so a live cursor node exists when the mode
+    // is aborted. This is the path the finish handler never takes: cleanup
+    // runs while the node is still mounted.
+    click({ latlng: { lat: 30, lng: 120 } });
+    handlers({ latlng: { lat: 31, lng: 121 } });
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+
+    mode.cleanup();
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+  });
 });
 
 describe("DistanceMode — preview cursor node", () => {
@@ -421,5 +443,38 @@ describe("DistanceMode — preview cursor node", () => {
     // artifacts, while the confirmed nodes stay.
     contextmenu({ latlng: { lat: 33, lng: 123 }, originalEvent: {} });
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+  });
+
+  it("removes the node when the draw is aborted mid-way", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    const dblclick = manager.map.on.mock.calls.find(
+      ([event]) => event === "dblclick",
+    )?.[1];
+
+    click({ latlng: { lat: 30, lng: 120 } });
+    handlers({ latlng: { lat: 31, lng: 121 } });
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+
+    // Placing the second point retires the segment preview label — it is
+    // replaced by a permanent segment label, so it must leave the map.
+    const previewLabel = manager.layers.addLayer.mock.calls.at(-1)[0];
+    click({ latlng: { lat: 32, lng: 122 } });
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(previewLabel);
+
+    // Double-clicking with a single point is not a valid distance, so the
+    // mode aborts and cleans up instead of finalizing. The cursor node must
+    // leave the map with the other drawing scaffolding.
+    manager.clearActiveMode = vi.fn();
+    dblclick({ latlng: { lat: 31, lng: 121 }, originalEvent: {} });
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.clearActiveMode).toHaveBeenCalled();
   });
 });

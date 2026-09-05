@@ -323,6 +323,43 @@ describe("PolygonMode — restore", () => {
   });
 });
 
+describe("PolygonMode — cleanup", () => {
+  it("runs the registered cleanup callback", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+    mode.cleanup();
+
+    // start() binds map events; cleanup() unbinds via _cleanup
+    expect(mode._cleanup).toBeNull(); // cleanup consumed the callback
+    // next cleanup is a safe no-op
+    expect(() => mode.cleanup()).not.toThrow();
+  });
+
+  it("removes the preview cursor node when the mode is aborted", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
+    // Place one vertex and move, so a live cursor node exists when the mode
+    // is aborted. This is the path the finish handler never takes: cleanup
+    // runs while the node is still mounted.
+    click({ latlng: { lat: 30, lng: 120 } });
+    handlers({ latlng: { lat: 31, lng: 121 } });
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+
+    mode.cleanup();
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+  });
+});
+
 describe("PolygonMode — preview cursor node", () => {
   it("mounts a non-interactive hollow node only after the first point", () => {
     const manager = makeManagerMock() as any;
@@ -388,5 +425,61 @@ describe("PolygonMode — preview cursor node", () => {
 
     contextmenu({ latlng: { lat: 34, lng: 124 }, originalEvent: {} });
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+  });
+
+  it("removes the node when the draw is aborted mid-way", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    const contextmenu = manager.map.on.mock.calls.find(
+      ([event]) => event === "contextmenu",
+    )?.[1];
+
+    click({ latlng: { lat: 30, lng: 120 } });
+    handlers({ latlng: { lat: 31, lng: 121 } });
+    const cursor = window.L.circleMarker.mock.results.at(-1).value;
+
+    // Right-clicking with fewer than three vertices is not a valid polygon,
+    // so the mode aborts and cleans up instead of finalizing. The cursor node
+    // must leave the map with the other drawing scaffolding.
+    manager.clearActiveMode = vi.fn();
+    contextmenu({ latlng: { lat: 31, lng: 121 }, originalEvent: {} });
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.clearActiveMode).toHaveBeenCalled();
+  });
+
+  it("places an interactive node marker on each confirmed vertex", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MODE.POLYGON;
+    mode.start();
+
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    click({ latlng: { lat: 30, lng: 120 } });
+    const firstNode = window.L.circleMarker.mock.results.at(-1).value;
+    // A hollow node that is still interactive: this is a placed vertex, not
+    // the transient cursor dot, so the marker must be front-most.
+    expect(window.L.circleMarker.mock.calls.at(-1)[1].interactive).not.toBe(false);
+    expect(firstNode.bringToFront).toHaveBeenCalled();
+
+    // Re-clicking the last placed vertex finishes the polygon.
+    const markerClick = firstNode.on.mock.calls.find(
+      ([event]) => event === "click",
+    )?.[1];
+    manager.store.add.mockClear();
+    markerClick({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
+    expect(manager.store.add).not.toHaveBeenCalled();
+
+    click({ latlng: { lat: 31, lng: 121 } });
+    click({ latlng: { lat: 32, lng: 122 } });
+    manager.store.add.mockClear();
+    markerClick({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
+    expect(manager.store.add).toHaveBeenCalled();
   });
 });

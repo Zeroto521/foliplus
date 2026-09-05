@@ -250,11 +250,8 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
-      if (!cursorNode) {
-        cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
-      } else {
-        cursorNode.setLatLng(event.latlng);
-      }
+      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      else cursorNode.setLatLng(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);

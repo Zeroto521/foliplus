@@ -193,11 +193,8 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
-      if (!cursorNode) {
-        cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
-      } else {
-        cursorNode.setLatLng(event.latlng);
-      }
+      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      else cursorNode.setLatLng(event.latlng);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
