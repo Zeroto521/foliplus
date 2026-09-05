@@ -247,7 +247,10 @@ class ExportRenderer {
             await this.renderTileLayer(rc, geoBounds, layer, handled => {
               tilesDone += handled;
               rc.onProgress?.(
-                ExportRenderer.mapPhase(tilesDone / grandTotal, ExportRenderer.PHASES.tiles),
+                ExportRenderer.mapPhase(
+                  tilesDone / grandTotal,
+                  ExportRenderer.PHASES.tiles,
+                ),
               );
             });
           }
