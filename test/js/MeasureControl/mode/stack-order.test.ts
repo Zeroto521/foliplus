@@ -3,7 +3,9 @@
 // keep a later sibling from covering an earlier one is to attach once, in that
 // order — there is no `bringToFront()` left to re-order after the fact. The
 // preview stack breaks in the same way, so the circle preview flow is checked
-// through the same helper.
+// through the same helper. Re-attaching a preview layer cannot fix its order
+// either: `L.SVG._initPath` re-creates the `<path>`, which lands first in the
+// renderer's layer map and so paints first.
 //
 // `LAYER_STACK` itself is not imported: it is an inline declaration in
 // MeasureControl/const.ts that esbuild tree-shakes out of the bundle because
@@ -63,11 +65,12 @@ const graphStack = (manager: any): Slot[] =>
     .map(([layer]: any[]) => layer.__slot);
 
 // `sequence` = the slots this measurement draws, in the order it attaches
-// them. `atLeast(i)` = the prefix assertion, for the flows that add layers as
-// they go. The order is the only thing asserted; the count is a consequence.
-const expectStack = (manager: any, sequence: readonly Slot[], atLeast = false) => {
+// them. `prefix = true` = the prefix assertion, for the flows that add layers
+// as they go. The order is the only thing asserted; the count is a
+// consequence.
+const expectStack = (manager: any, sequence: readonly Slot[], prefix = false) => {
   const seen = graphStack(manager);
-  expect(atLeast ? seen.slice(0, sequence.length) : seen).toEqual([...sequence]);
+  expect(prefix ? seen.slice(0, sequence.length) : seen).toEqual([...sequence]);
 };
 
 beforeEach(() => {
@@ -130,7 +133,9 @@ describe("MeasureControl — LAYER_STACK attachment order", () => {
       const click = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
       const move = manager.map.on.mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
-      // Phase 1: only the center dot, the final stack entry.
+      // Phase 1: only the center dot. It is not last in the stack — the
+      // radius line and node land above it, so the dot reads as a marker
+      // under the line rather than as the line's origin.
       click({ latlng: { lat: 31.2, lng: 121.5 } });
       expectStack(manager, ["node"]);
 

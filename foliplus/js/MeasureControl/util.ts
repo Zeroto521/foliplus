@@ -98,23 +98,38 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
   );
 };
 
-/** Create a measure node circle marker. */
-const makeNode = (
-  latlng: L.LatLng,
-  className: string = CONST.CLASSES.NODE_HOLLOW,
-): L.CircleMarker => {
-  return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+/**
+ * Create a measure node circle marker. `variant` is a modifier added to the
+ * base node class — `NODE_SOLID` recolors an accent fill with a neutral
+ * outline, while `NODE_HOLLOW` alone keeps the base styles (neutral fill,
+ * accent outline). Every node carries the base class: the modifiers only
+ * recolor, so a node without it would render as an unstyled circle.
+ */
+const makeNode = (latlng: L.LatLng, variant?: string): L.CircleMarker => {
+  return L.circleMarker(latlng, {
+    radius: CONST.MARKER.RADIUS,
+    className: `${CONST.CLASSES.NODE_HOLLOW}${variant ? ` ${variant}` : ""}`,
+  });
 };
 
+<<<<<<< HEAD
 /** A non-interactive node used for transient previews (center, centroid and
  *  the live cursor dot while a shape is being drawn). */
 const makePreviewNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
+=======
+/** A non-interactive node used for transient previews (center, centroid and
+ *  the live cursor dot while a shape is being drawn). */
+const makePreviewNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
+>>>>>>> 7442b00e (fix(MeasureControl): route preview labels to the label pane and restore the node base class)
   return L.circleMarker(latlng, {
     radius: CONST.MARKER.RADIUS,
-    className,
+    className: `${CONST.CLASSES.NODE_HOLLOW}${variant ? ` ${variant}` : ""}`,
     interactive: false,
   });
 };

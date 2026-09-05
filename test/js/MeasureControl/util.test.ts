@@ -121,7 +121,7 @@ describe("label div icons", () => {
 });
 
 describe("makeNode", () => {
-  it("creates a circle marker with default class", () => {
+  it("creates a circle marker with the base node class", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
@@ -129,9 +129,29 @@ describe("makeNode", () => {
     );
   });
 
-  it("accepts a custom className", () => {
+  // The variant is appended to the base, never used alone: the base class is
+  // what gives the marker its fill/stroke, and the variant only recolors.
+  it("appends the variant class to the base", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
-    expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+    expect(window.L.circleMarker.mock.calls[0][1].className).toBe(
+      "foliplus-measure-node custom",
+    );
+  });
+
+  it("previews a hollow node when no variant is given", () => {
+    Util.makePreviewNode({ lat: 1, lng: 2 });
+    expect(window.L.circleMarker.mock.calls[0][1]).toEqual({
+      radius: 5,
+      className: "foliplus-measure-node",
+      interactive: false,
+    });
+  });
+
+  it("honours the variant on a preview node", () => {
+    Util.makePreviewNode({ lat: 1, lng: 2 }, "custom");
+    expect(window.L.circleMarker.mock.calls[0][1].className).toBe(
+      "foliplus-measure-node custom",
+    );
   });
 });
 

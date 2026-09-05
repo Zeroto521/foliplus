@@ -195,11 +195,17 @@ class CircleMode extends PreviewMode {
         previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
         // Keep the radius node glued to the cursor while drawing. The node is
         // last in the stack, so the radius line and circle can never cover it.
+        previews.node = this.addPreview(
+          L.circleMarker(event.latlng, {
+            radius: CONST.MARKER.RADIUS,
+            className: CONST.CLASSES.NODE_HOLLOW,
+            interactive: false,
+          }),
+        );
       } else previews.node.setLatLng(event.latlng);
 
-      // The label is re-anchored on the label pane only, so the preview stack
-      // never re-runs: re-attaching the shape each frame is what let the radius
-      // node cover the label and the radius line cover the center.
+      // Only the label is re-anchored afterwards, so every shape is attached
+      // exactly once and the stack is settled: fill → radius line → radius node.
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
@@ -210,7 +216,7 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         });
-        previews.label = this.addPreview(previewLabel);
+        previews.label = this.addPreview(previewLabel, true);
       } else {
         previews.label.setLatLng(mid);
         Util.setLabelText(previews.label, Util.formatDistance(r));

@@ -569,10 +569,12 @@ describe("attachPolygonUI", () => {
     const opts = makeOpts();
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
-    // The centroid dot is a CircleMarker with NODE_SOLID (same as circle
-    // center) — no divIcon needed, avoids the SVG z-index collision.
+    // The centroid dot is a CircleMarker whose className carries the node base
+    // plus NODE_SOLID (same as circle center) — no divIcon needed, avoids the
+    // SVG z-index collision.
     const centroidCalls = (window.L.circleMarker as any).mock.calls.filter(
-      ([, opts]) => opts?.className === CONST.CLASSES.NODE_SOLID,
+      ([, opts]) =>
+        opts?.className === `${CONST.CLASSES.NODE_HOLLOW} ${CONST.CLASSES.NODE_SOLID}`,
     );
     expect(centroidCalls.length).toBe(1);
   });
