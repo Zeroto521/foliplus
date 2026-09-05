@@ -382,8 +382,8 @@ describe("MeasureManager — setEditMode", () => {
     manager.registerEditOverlayCloser(vi.fn(), "m1");
     manager.registerEditDragToggle(vi.fn(), "m1");
 
-    expect(manager.editHandles.size).toBe(1);
-    expect(manager.editHandles.has("m1")).toBe(true);
+    expect((manager as any).editHandles.size).toBe(1);
+    expect((manager as any).editHandles.has("m1")).toBe(true);
   });
 
   it("keeps separate handles for different ids", () => {
@@ -392,7 +392,7 @@ describe("MeasureManager — setEditMode", () => {
     manager.registerEditOverlayCloser(vi.fn(), "m2");
     manager.registerEditDragToggle(vi.fn(), "m3");
 
-    expect(manager.editHandles.size).toBe(3);
+    expect((manager as any).editHandles.size).toBe(3);
   });
 
   it("clearAll drops all handles and runs each dispose once", () => {
@@ -406,7 +406,7 @@ describe("MeasureManager — setEditMode", () => {
 
     expect(d1).toHaveBeenCalledTimes(1);
     expect(d2).toHaveBeenCalledTimes(1);
-    expect(manager.editHandles.size).toBe(0);
+    expect((manager as any).editHandles.size).toBe(0);
   });
 
   it("unregisterFinalized removes the handle (delete drops one entry)", () => {
@@ -416,10 +416,35 @@ describe("MeasureManager — setEditMode", () => {
     manager.registerEditDragToggle(vi.fn(), "m1");
 
     const unregister = manager.registerFinalized(vi.fn(), "m1");
-    expect(manager.editHandles.size).toBe(1);
+    expect((manager as any).editHandles.size).toBe(1);
 
     unregister();
-    expect(manager.editHandles.size).toBe(0);
+    expect((manager as any).editHandles.size).toBe(0);
+  });
+
+  it("registers under ANON_HANDLE when no id is given (fallback)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn());
+
+    const handles = (manager as any).editHandles;
+    expect(handles.size).toBe(1);
+    expect(handles.has(" anon-edit-handle")).toBe(true);
+  });
+
+  it("clearAll runs dispose but NOT closeOverlay or toggleDrag", () => {
+    const { manager } = makeManager();
+    const dispose = vi.fn();
+    const closeOverlay = vi.fn();
+    const toggleDrag = vi.fn();
+    manager.registerFinalized(dispose, "m1");
+    manager.registerEditOverlayCloser(closeOverlay, "m1");
+    manager.registerEditDragToggle(toggleDrag, "m1");
+
+    manager.clearAll();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(closeOverlay).not.toHaveBeenCalled();
+    expect(toggleDrag).not.toHaveBeenCalled();
   });
 
   it("setMode EDIT enters edit mode when off", () => {

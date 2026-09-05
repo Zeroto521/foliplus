@@ -128,6 +128,7 @@ describe("CircleMode — restore", () => {
     expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
     expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_r1").dispose).toBe("function");
   });
 });
 
@@ -175,7 +176,7 @@ describe("CircleMode — start drawing flow", () => {
 });
 
 describe("CircleMode — restore wiring", () => {
-  it("wires finalizedClickHandlers and saves data", () => {
+  it("registers edit handles via registerFinalized and saves data", () => {
     const manager = makeManagerMock() as any;
     const saveSpy = vi.spyOn(manager, "saveMeasurements");
     CircleMode.restore(manager, {
@@ -187,6 +188,7 @@ describe("CircleMode — restore wiring", () => {
     });
     // Verify the handler is wired (regression check)
     expect(manager.editHandles.size).toBe(1);
+    expect(typeof manager.editHandles.get("c_wire").dispose).toBe("function");
     // Verify the onDelete callback works by calling it directly
     manager.measurements.push({ id: "c_wire", type: "circle" });
     // The onDelete callback is inside attachCircleUI's closure.

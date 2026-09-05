@@ -65,7 +65,7 @@ class MeasureManager {
   /** Per-measurement edit handles, keyed by measurement id (see EditHandle).
    *  registerFinalized / registerEditOverlayCloser / registerEditDragToggle all
    *  merge into the one handle for their id. */
-  editHandles: Map<string, EditHandle> = new Map();
+  private editHandles: Map<string, EditHandle> = new Map();
   /** Central store for measurement data + persistence + count emission. */
   readonly store: MeasureStore;
   /** Every rendered label chip, so collision detection plans all measurements

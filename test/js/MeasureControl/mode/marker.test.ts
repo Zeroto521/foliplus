@@ -123,7 +123,7 @@ describe("MarkerMode — start + click", () => {
     expect(window.L.marker).toHaveBeenCalled();
   });
 
-  it("pushes pin-drag cleanup into finalizedClickHandlers (regression: cleanup must run on clearAll)", () => {
+  it("registers pin-drag cleanup via registerFinalized (regression: cleanup must run on clearAll)", () => {
     const manager = makeManagerMock() as any;
     MarkerMode.restore(manager, {
       id: "m_wire",

@@ -102,7 +102,7 @@ describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
 });
 
 describe("DistanceMode — restore registers overlay cleanup", () => {
-  it("pushes the overlay cleanup into finalizedClickHandlers", () => {
+  it("registers the overlay cleanup via registerFinalized", () => {
     const manager = makeManagerMock() as any;
     DistanceMode.restore(manager, {
       id: "d_reg",
