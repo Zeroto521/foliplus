@@ -90,11 +90,6 @@ describe("formatArea", () => {
   it("uses the comma separator for 4-digit areas", () => {
     expect(Util.formatArea(123_456)).toBe("123,456 m²");
   });
-
-  it("keeps the locale-native thousands separator for zh", () => {
-    window.CONF = { ...window.CONF, locale_code: "zh" };
-    expect(Util.formatArea(123_456)).toBe("123,456 m²");
-  });
 });
 
 describe("label div icons", () => {

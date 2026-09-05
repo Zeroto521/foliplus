@@ -12,18 +12,12 @@ import * as CONST from "./const.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
-/** Active locale code, resolved once so each label only pays for it once. */
-const getLocale = () => CONF.locale_code ?? "en";
-
-/** Whole numbers for on-map unit labels, using the locale's thousands
- *  separator so a long value reads as one group instead of a run of digits. */
-const int = (val: number) => formatNumber(val, "comma", getLocale());
 
 /** Format meters to human-readable string (e.g. "1.2 km", "5,000 m"). */
 const formatDistance = (meters: number): string => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
-    : `${formatNumber(meters, "comma", getLocale())} m`;
+    : `${formatNumber(meters, "comma")} m`;
 };
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
@@ -41,7 +35,7 @@ const formatSegmentLabel = (
 /** Format area: "1,234 m²" or "1.23 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000) return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
-  return `${formatNumber(sqMeters, "comma", getLocale())} m²`;
+  return `${formatNumber(sqMeters, "comma")} m²`;
 };
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
