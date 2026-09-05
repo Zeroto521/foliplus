@@ -82,16 +82,25 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-50KB)", () => {
+  it("common JS has reasonable size (20-100KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     expect(size).toBeLessThan(100000);
   });
 
-  // LayerControl is the largest component (~98KB local, ~102KB CI after feature
-  // additions: rename, focus, reorder, fold). Per-component ceiling gives room
-  // for the ~4KB cross-platform build delta while still catching runaway growth.
+  // Per-component upper bounds. These are sanity checks against accidental
+  // bloat (e.g. an inline'd shared module or duplicated logic), not hard
+  // budgets — the lower bound of >500 B guards against an empty bundle.
+  // NOTE: CI runs make test -> npm run build:dev, which writes UNMINIFIED
+  // output to the .min.js artifacts (the production minified build overwrites
+  // them later). So these caps must accommodate the unminified dev size, not
+  // the minified size — each carries ~20% headroom for future growth.
   const MAX_COMPONENT_SIZE = {
+    // MeasureControl bundles its own label-collision geometry (placeLabels)
+    // inline.
+    "foliplus-MeasureControl.min.js": 120000,
+    // LayerControl is otherwise the largest component (~98KB local, ~102KB CI
+    // after feature additions: rename, focus, reorder, fold).
     "foliplus-LayerControl.min.js": 110000,
   };
   it("component JS has reasonable size", () => {

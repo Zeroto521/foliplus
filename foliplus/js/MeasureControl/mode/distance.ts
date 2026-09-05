@@ -167,7 +167,7 @@ class DistanceMode extends PreviewMode {
       this._cleanup = () => {};
       // Settle on the start node so the readout still reports a measurement.
       this.m.setCoordReadoutVisible(true);
-      this.m.setCoordReadoutWgs(points[0].lat, points[0].lng);
+      this.m.setCoordReadoutWgs(points[0].lng, points[0].lat);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);

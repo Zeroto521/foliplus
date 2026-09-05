@@ -84,6 +84,20 @@ describe("formatCoord", () => {
   });
 });
 
+describe("formatLatLng", () => {
+  it("leads with the longitude, matching every other location display", () => {
+    expect(Util.formatLatLng(121.473701, 31.230955)).toBe("121.473701, 31.230955");
+  });
+  it("rounds both values to the persisted precision", () => {
+    expect(Util.formatLatLng(121.987654321, -31.123456789)).toBe(
+      "121.987654, -31.123457",
+    );
+  });
+  it("keeps trailing zeros on round numbers", () => {
+    expect(Util.formatLatLng(0, 0)).toBe("0.000000, 0.000000");
+  });
+});
+
 describe("formatDistance", () => {
   it("formats meters below the km threshold", () => {
     expect(Util.formatDistance(500)).toBe("500 m");
@@ -316,8 +330,8 @@ describe("coord readout", () => {
   it("updates the chip text and returns it", () => {
     const { map, container } = makeMap();
     const el = Util.buildCoordReadout(map);
-    const text = Util.setCoordReadout(el, "31.230955, 121.473701");
-    expect(text).toBe("31.230955, 121.473701");
+    const text = Util.setCoordReadout(el, "121.473701, 31.230955");
+    expect(text).toBe("121.473701, 31.230955");
     expect(el.querySelector(".foliplus-measure-coord")?.textContent).toBe(text);
     el.remove();
     container.remove();
@@ -347,7 +361,7 @@ describe("coordText", () => {
   it("formats a display-CRS lat/lng to the WGS84 readout string", () => {
     const map = { options: {}, _layers: {} } as any;
     expect(Util.coordText(map, { lat: 31.230955, lng: 121.473701 })).toBe(
-      "31.230955, 121.473701",
+      "121.473701, 31.230955",
     );
   });
   it("detects a non-WGS84 map so the conversion path is taken", () => {

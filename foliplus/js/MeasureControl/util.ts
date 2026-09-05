@@ -42,11 +42,18 @@ const formatArea = (sqMeters: number): string => {
 // so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
 // through the Util namespace without a follow-up rename.
 
+/** Resolve the label chip inside a marker's icon element, or null when the
+ *  marker has no rendered element. Callers that read the chip must go through
+ *  this rather than caching a reference — a setIcon during a drag replaces
+ *  the element. */
+const labelChipOf = (marker: L.Layer): HTMLElement | null => {
+  const el = (marker as L.Marker).getElement();
+  return el ? (el.querySelector(CONST.SEL.LABEL) ?? null) : null;
+};
+
 /** Update a label marker's text content. Always gets fresh DOM reference. */
 const setLabelText = (marker: L.Layer, text: string) => {
-  const el = (marker as L.Marker).getElement();
-  if (!el) return;
-  const labelEl = el.querySelector(CONST.SEL.LABEL);
+  const labelEl = labelChipOf(marker);
   if (labelEl) labelEl.textContent = text;
 };
 
@@ -187,9 +194,10 @@ const formatCoord = (n: number): string => {
   return (v === 0 ? 0 : v).toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
 };
 
-/** Format a lat/lng pair as the readout string. */
-const formatLatLng = (lat: number, lng: number): string =>
-  `${formatCoord(lat)}, ${formatCoord(lng)}`;
+/** Format an lng/lat pair as the readout string. Longitude leads, matching
+ *  `buildPopupHtml` and every other location display in the project. */
+const formatLatLng = (lng: number, lat: number): string =>
+  `${formatCoord(lng)}, ${formatCoord(lat)}`;
 
 /** A point already in the map's display CRS that should be read out. Accepts
  *  both Leaflet's `lat/lng` shape and Leaflet's plain-object `latitude/longitude`
@@ -219,7 +227,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
 const coordText = (map: L.Map, pt: DisplayLatLng): string => {
   const [lat, lng] = readLatLng(pt);
   const [wlng, wlat] = toWgs84(map, lng, lat);
-  return formatLatLng(wlat, wlng);
+  return formatLatLng(wlng, wlat);
 };
 
 /** Build the persistent readout element, appended to the map container. */
@@ -263,6 +271,7 @@ export {
   formatDistance,
   formatLatLng,
   formatSegmentLabel,
+  labelChipOf,
   getEventTarget,
   geocodeAddress,
   makeLabelDivIcon,

@@ -285,7 +285,7 @@ class CircleMode extends PreviewMode {
 
       const circleId = this.nextMeasurementId();
       this.m.setCoordReadoutVisible(true);
-      this.m.setCoordReadoutWgs(centerLatLng.lat, centerLatLng.lng);
+      this.m.setCoordReadoutWgs(centerLatLng.lng, centerLatLng.lat);
       this.m.store.add({
         id: circleId,
         type: this.type,

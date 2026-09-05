@@ -142,6 +142,9 @@ export function makeManagerMock() {
     cleanMapEvents: vi.fn(),
     registerEditOverlayCloser: vi.fn(() => () => {}),
     registerEditDragToggle: vi.fn(() => () => {}),
+    // Label collision wiring is exercised by collision.test.ts; the mode/UI
+    // tests only need the registration to be a no-op that can be unregistered.
+    registerLabel: vi.fn(() => () => {}),
     registerFinalized: vi.fn((cleanup: () => void) => {
       finalizedClickHandlers.push(cleanup);
       return () => {

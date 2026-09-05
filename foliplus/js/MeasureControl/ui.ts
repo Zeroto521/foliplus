@@ -62,11 +62,48 @@ interface AttachOpts {
   points: L.LatLng[];
 }
 
+/**
+ * Track a mutable set of segment labels in the collision planner. `refresh()`
+ * re-issues the registrations so they cover exactly the current set — a deleted
+ * inner node splices the segLabels array, and a registration left over from a
+ * removed marker would point at a dead chip. Returns the unregister function
+ * the caller's dispose runs.
+ *
+ * `priority` may vary per index: distance mode's final label also carries the
+ * cumulative total, which must out-rank a plain segment in a collision.
+ *
+ * Shared by distance and polygon: both recreate their segment labels on every
+ * relabel (drag, node delete), which is what makes re-registration necessary.
+ */
+const bindSegmentLabels = (
+  mgr: MeasureManager,
+  segLabels: L.Marker[],
+  priority: (index: number) => number = () => CONST.LABEL_PRIORITY.SEGMENT,
+): (() => void) => {
+  let unregisters: Array<() => void> = [];
+  const refresh = () => {
+    unregisters.forEach(f => f());
+    unregisters = segLabels.map((label, i) => mgr.registerLabel(label, priority(i)));
+  };
+  refresh();
+  return () => {
+    unregisters.forEach(f => f());
+    unregisters = [];
+  };
+};
+
 const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
+  // The last label ends with the cumulative total, so it wins a collision
+  // against any per-segment label — losing it would drop the line's length.
+  const totalPriority = (i: number): number =>
+    i === segLabels.length - 1
+      ? CONST.LABEL_PRIORITY.TOTAL
+      : CONST.LABEL_PRIORITY.SEGMENT;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
+  let unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
 
   const relabel = () => {
     let cumulative = 0;
@@ -80,6 +117,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         ),
       );
     });
+    unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
 
   const onOpen = () => {
@@ -99,6 +137,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterSegLabels();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -147,8 +186,13 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         if (points.length === 2 && nodeDelMarkers.length === 2) {
           const lastDelMarker = nodeDelMarkers[1];
           if (lastDelMarker) {
+            // The last endpoint's ✕ previously delegated to "delete a single
+            // node" + "open the overlay". After collapsing to 2 points it must
+            // switch to "delete the whole distance" while keeping the overlay
+            // opener — mirroring how polygon rebinds both in the 3pt case.
             lastDelMarker.off("click");
             attachDelClick(lastDelMarker, deleteMeasurement);
+            bindOpenOverlay(lastDelMarker, openOverlay);
             const iconEl = lastDelMarker.getElement();
             if (iconEl) iconEl.title = T("del_all");
           }
@@ -180,7 +224,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           nodeDelMarkers.forEach((d, i) => d.setLatLng(points[i]));
           relabel();
           mgr.setCoordReadoutVisible(true);
-          mgr.setCoordReadoutWgs(points[0].lat, points[0].lng);
+          mgr.setCoordReadoutWgs(points[0].lng, points[0].lat);
         },
         onEnd: () => {
           markDragSyntheticClick();
@@ -202,7 +246,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           if (pIdx === -1) return;
           points[pIdx] = latlng;
           mgr.setCoordReadoutVisible(true);
-          mgr.setCoordReadoutWgs(points[0].lat, points[0].lng);
+          mgr.setCoordReadoutWgs(points[0].lng, points[0].lat);
           if (onUpdate) onUpdate(points);
         },
       });
@@ -245,6 +289,11 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
 
   let unregisterDragToggle: () => void = () => {};
   const dragBinds: DragBind[] = [];
+  // The single radius label persists as a marker (updateLabel() only moves and
+  // restyles it), so one registration survives for the measurement's life.
+  const unregisterRadiusLabel = radiusLabel
+    ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY.RADIUS)
+    : () => {};
 
   const onOpen = () => {
     toggleDelIcon(delMarker, true);
@@ -258,6 +307,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterRadiusLabel();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -299,7 +349,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
       updateLabel();
       mgr.setCoordReadoutVisible(true);
-      mgr.setCoordReadoutWgs(latlng.lat, latlng.lng);
+      mgr.setCoordReadoutWgs(latlng.lng, latlng.lat);
     },
     onEnd: (latlng: L.LatLng) => {
       markDragSyntheticClick();
@@ -371,6 +421,10 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   let centroidDot: L.CircleMarker | null = null;
   let centroidLabel: L.Marker | null = null;
   let centroidDelMarker: L.Marker | null = null;
+  // The initial labels arrive from the drawing mode; relabel() re-issues the
+  // registrations when a drag or node delete recreates the markers.
+  let unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+  let unregisterCentroid: () => void = () => {};
 
   const onOpen = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
@@ -386,6 +440,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+    unregisterSegLabels();
+    unregisterCentroid();
     overlay.cleanup();
     unregisterDragToggle();
   };
@@ -411,6 +467,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       segLabels.push(label);
       label.on("click", openOverlay);
     }
+    unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
     const centroid = Util.centroid(points);
     if (centroidDot) centroidDot.setLatLng(centroid);
     if (centroidLabel) centroidLabel.setLatLng(centroid);
@@ -442,6 +499,10 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       }),
       true,
     ) as L.Marker;
+    unregisterCentroid = mgr.registerLabel(
+      centroidLabel,
+      CONST.LABEL_PRIORITY.CENTROID,
+    );
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
     ) as L.Marker;
@@ -564,7 +625,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         finalPoly.setLatLngs(points);
         relabel();
         mgr.setCoordReadoutVisible(true);
-        mgr.setCoordReadoutWgs(Util.centroid(points).lat, Util.centroid(points).lng);
+        mgr.setCoordReadoutWgs(Util.centroid(points).lng, Util.centroid(points).lat);
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();

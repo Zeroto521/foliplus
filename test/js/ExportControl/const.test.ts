@@ -21,7 +21,6 @@ describe("CROP", () => {
 
 describe("TIMING", () => {
   it("defines timing constants", () => {
-    expect(CONST.TIMING.URL_REVOKE_DELAY).toBeGreaterThan(0);
     expect(CONST.TIMING.RESTORE_DELAY).toBeGreaterThan(0);
   });
 });

@@ -7,6 +7,7 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
@@ -27,6 +28,13 @@ const T = createScopedTranslator(CONF);
  *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
 
+/** Map events that change pixel geometry and therefore invalidate placements. */
+const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
+  "moveend",
+  "zoomend",
+  "resize",
+];
+
 // ==================== Core Manager ====================
 /** Central manager for all measurements. */
 class MeasureManager {
@@ -41,6 +49,9 @@ class MeasureManager {
   /** Per-measurement dispose functions, registered via registerFinalized —
    *   each unbinds its drag binds, edit overlay, and edit-drag toggle. */
   finalizedClickHandlers: Array<() => void>;
+  /** Next measurement id counter; increments per session so persisted ids are
+   *   unique even when two measurements are created in the same millisecond. */
+  private measurementIdCounter = 0;
   /** Close callbacks for each measurement's edit overlay, so exiting edit mode
    *   hides any open ✕ handles. */
   private editOverlayClosers: Array<() => void> = [];
@@ -49,6 +60,13 @@ class MeasureManager {
   private editDragToggles: Array<(enabled: boolean) => void> = [];
   /** Central store for measurement data + persistence + count emission. */
   readonly store: MeasureStore;
+  /** Every rendered label chip, so collision detection plans all measurements
+   *   together instead of one measurement at a time. */
+  private collidableLabels: CollidableLabel[] = [];
+  /** Deferred re-plan; coalesces bursts of label updates into one pass. */
+  private labelPlanFrame: number | null = null;
+  /** Bound map-move/zoom/resize listener that invalidates label placements. */
+  private onLabelMapMove: (() => void) | null = null;
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
@@ -57,10 +75,10 @@ class MeasureManager {
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
-  offLayerRemoved!: () => void;
-  onMapClick!: (event: L.LeafletMouseEvent) => void;
+  private offLayerRemoved!: () => void;
+  private onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
-  onUnload!: () => void;
+  private onUnload!: () => void;
 
   /** Handle export button click — delegates to the export module. */
   onExportClick(event: Event) {
@@ -318,6 +336,84 @@ class MeasureManager {
     };
   };
 
+  // ── Label collision detection ─────────────────────────────────
+
+  /** True unless collision detection was switched off by the Python config. */
+  get labelsCollide(): boolean {
+    return CONF.collide_labels !== false;
+  }
+
+  /**
+   * Register a label chip for collision detection. `priority` says how much
+   * this label matters: the lowest values drop out first when two chips
+   * overlap heavily. The chip is re-read on every plan, so a `setIcon` during
+   * a drag cannot leave a stale element reference.
+   *
+   * Returns an unregister function; measurements call it when a label is
+   * removed from the map.
+   */
+  registerLabel = (marker: L.Marker, priority: number): (() => void) => {
+    const label: CollidableLabel = { marker, priority };
+    this.collidableLabels.push(label);
+    this.bindLabelMapEvents();
+    this.scheduleLabelPlan();
+
+    return () => {
+      this.collidableLabels = this.collidableLabels.filter(l => l !== label);
+      if (this.collidableLabels.length) {
+        // A surviving label lost a competitor, so re-plan to possibly restore
+        // a chip that was hidden because of this one.
+        this.scheduleLabelPlan();
+      } else {
+        this.unbindLabelMapEvents();
+      }
+    };
+  };
+
+  /** Defer a collision re-plan to the next frame so a burst of label updates
+   *  (a drag move, a node delete, a map move) runs one planner pass, not one
+   *  per update. */
+  private scheduleLabelPlan(): void {
+    if (this.labelPlanFrame !== null) return;
+    // Mark in-flight before the rAF call so the guard coalesces even when a
+    // synchronous test stub returns 0 (falsy but not null).
+    this.labelPlanFrame = 1;
+    requestAnimationFrame(() => {
+      this.labelPlanFrame = null;
+      this.planLabels();
+    });
+  }
+
+  /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
+   *  last plan stale. Bound lazily on the first label, released when the
+   *  last one is removed. */
+  private bindLabelMapEvents(): void {
+    if (this.onLabelMapMove) return;
+    const handler = () => this.scheduleLabelPlan();
+    this.onLabelMapMove = handler;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.on(ev, handler));
+  }
+
+  private unbindLabelMapEvents(): void {
+    if (!this.onLabelMapMove) return;
+    const handler = this.onLabelMapMove;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.off(ev, handler));
+    this.onLabelMapMove = null;
+  }
+
+  /** Re-plan every label placement. With collision off every chip simply
+   *  returns to its anchor; labels themselves are hidden by the container
+   *  class, which also keeps them out of PNG exports. */
+  private planLabels(): void {
+    if (this.collidableLabels.length === 0) return;
+    placeLabels(
+      this.collidableLabels,
+      mapProjector(this.map),
+      this.labelsCollide,
+      Util.labelChipOf,
+    );
+  }
+
   /** Show or hide the live coordinate readout. No-op when disabled by config. */
   setCoordReadoutVisible(visible: boolean) {
     Util.setCoordReadoutVisible(this.coordReadoutEl, visible);
@@ -331,9 +427,9 @@ class MeasureManager {
   }
 
   /** Update the readout with an already-WGS84 point (persisted measurements). */
-  setCoordReadoutWgs(lat: number, lng: number) {
+  setCoordReadoutWgs(lng: number, lat: number) {
     if (!this.coordReadoutEl) return;
-    Util.setCoordReadout(this.coordReadoutEl, Util.formatLatLng(lat, lng));
+    Util.setCoordReadout(this.coordReadoutEl, Util.formatLatLng(lng, lat));
   }
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
@@ -401,6 +497,12 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
     this.editDragToggles = [];
+    // Safety net: each measurement's dispose (run above) drains its labels
+    // through the unregister, but clearing the array here is O(1) insurance
+    // against a measurement that skips its dispose, and unbinding the map
+    // events guarantees no plan fires after clearAll.
+    this.collidableLabels = [];
+    this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -423,6 +525,8 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.editOverlayClosers = [];
     this.editDragToggles = [];
+    this.unbindLabelMapEvents();
+    this.collidableLabels = [];
   }
 
   /**

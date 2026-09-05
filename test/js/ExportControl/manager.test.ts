@@ -817,6 +817,47 @@ describe("ExportManager — download paths", () => {
     }
   });
 
+  it("releases the export state when the download step throws", async () => {
+    // createObjectURL / createElement can throw (e.g. Safari quirks). Without a
+    // guard around the download call, the cleanup block would be skipped and
+    // the map would stay locked behind the blocker overlay.
+    manager.isExporting = true;
+    const events = ensureEvents(manager.map);
+    const emitSpy = vi.spyOn(events, "emit");
+    vi.spyOn(manager, "removeExportOverlay");
+
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    const origCreateObjectURL = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = vi.fn(() => {
+      throw new Error("boom");
+    });
+
+    try {
+      HTMLCanvasElement.prototype.toBlob = function (cb) {
+        cb(new Blob(["fake"], { type: "image/png" }));
+      };
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+
+      // Export state released even though the download threw.
+      expect(manager.isExporting).toBe(false);
+      expect(emitSpy).toHaveBeenCalledWith("foliplus:export:after", {
+        component: "ExportControl",
+      });
+      expect(manager.removeExportOverlay).toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("export failed"),
+        expect.any(Error),
+      );
+      warnSpy.mockRestore();
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      URL.createObjectURL = origCreateObjectURL;
+      vi.restoreAllMocks();
+    }
+  });
+
   it("downloadGeoTiff uses DEFLATE-compressed RGB (compression round-trips)", async () => {
     // Verify the compression primitive works end-to-end: DEFLATE-compressed
     // RGB bytes must decompress back to the original pixel data. This is
