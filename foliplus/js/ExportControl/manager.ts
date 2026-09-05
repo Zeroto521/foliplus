@@ -728,13 +728,11 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    // render() stops at 90 on purpose — the raster still has to be encoded
-    // before it can be saved, and that is the one step the user cannot see.
-    // A full bar here would mean the export is finished while the download
-    // is still pending, so the 100 is claimed at the download instead.
-    // This label covers the gap: it names what the browser is doing, which
-    // is what the pause is caused by.
-    this.showGlobalHint(T("status_encoding"), HINT_DURATION.PERSIST, true);
+    // The persistent hint already reads "Exporting map... (N%)" from the
+    // last render() report, and it never expires — so the encode phase
+    // between here and the download is not label-less, and it does not read
+    // as finished.  100 stays reserved for claimDownload, where the file
+    // actually goes out.
     // Awaited inline so a rejection cannot escape as an unhandled promise
     // rejection — endExport() has to run on every path or the map stays
     // locked behind the blocker overlay.

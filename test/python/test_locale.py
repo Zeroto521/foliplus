@@ -52,7 +52,6 @@ _JS_USED_KEYS = {
     "ExportControl.hint_restore",
     "ExportControl.status_exporting",
     "ExportControl.status_progress",
-    "ExportControl.status_encoding",
     "ExportControl.status_success",
     "ExportControl.status_fail",
     "ExportControl.err_crop_too_small",

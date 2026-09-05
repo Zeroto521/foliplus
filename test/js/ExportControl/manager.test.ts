@@ -23,7 +23,6 @@ vi.mock("#common/locale.js", async () => {
   const TABLES: Record<string, string> = {
     status_exporting: "Exporting map...",
     status_progress: "Exporting map... ({pct}%)",
-    status_encoding: "Rendering map image...",
     status_success: "Export successful",
   };
   return {
@@ -1507,19 +1506,16 @@ describe("ExportManager — export progress", () => {
     );
   });
 
-  it("onRenderSuccess does not claim 100: the raster is still being encoded", async () => {
-    // render() stops at 90 on purpose. A full bar here would mean the export
-    // is finished while the canvas is still being encoded, so this handler
-    // only names what the browser is doing — the download claims the 100.
+  it("onRenderSuccess neither claims 100 nor relabels: the render hint stays", async () => {
+    // render() stops at 90 on purpose and the hint it left on screen is
+    // PERSIST, so it is still up during the encode.  Nothing here has to
+    // replace it — a relabel would only swap "loading at 90%" for a
+    // message that says nothing more.
     manager.finishExport = vi.fn(async () => {});
 
     manager.onRenderSuccess(document.createElement("canvas"), []);
 
-    expect(manager.showGlobalHint.mock.calls[0][0]).toBe("Rendering map image...");
-    const percentCalls = manager.showGlobalHint.mock.calls
-      .map(c => c[0])
-      .filter(text => typeof text === "string" && text.includes("%"));
-    expect(percentCalls).toEqual([]);
+    expect(manager.showGlobalHint).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
   });
 
@@ -1533,15 +1529,11 @@ describe("ExportManager — export progress", () => {
       manager.onRenderSuccess(document.createElement("canvas"), []);
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
-      // The 100 lands between the encode and the download, never before: the
-      // encode is the step that used to sit behind a full bar with nothing to
+      // The 100 lands right before the download and nothing claims it
+      // earlier: the encode used to sit behind a full bar with nothing to
       // show for it.
       const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
-      const encoding = hints.indexOf("Rendering map image...");
-      const full = hints.indexOf("Exporting map... (100%)");
-      expect(encoding).toBeGreaterThanOrEqual(0);
-      expect(full).toBeGreaterThan(encoding);
-      expect(hints.slice(full + 1)).toEqual(["Export successful"]);
+      expect(hints).toEqual(["Exporting map... (100%)", "Export successful"]);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
       downloadSpy.mockRestore();
