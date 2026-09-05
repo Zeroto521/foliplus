@@ -11,8 +11,9 @@ const { attachDistanceUIMock } = vi.hoisted(() => ({
     // Simulate the real attachDistanceUI, which self-registers its dispose via
     // registerFinalized (delete and clearAll both run it).
     const cleanup = () => {};
-    (mgr as { registerFinalized?: (c: () => void, id?: string) => void })
-      .registerFinalized?.(cleanup, opts?.id);
+    (
+      mgr as { registerFinalized?: (c: () => void, id?: string) => void }
+    ).registerFinalized?.(cleanup, opts?.id);
     return cleanup;
   }),
 }));
