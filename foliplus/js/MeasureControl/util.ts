@@ -1,8 +1,8 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { formatNumber } from "#common/format.js";
+import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -11,7 +11,6 @@ import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
-
 
 /** Format meters to human-readable string (e.g. "1.2 km", "5,000 m"). */
 const formatDistance = (meters: number): string => {
