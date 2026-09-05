@@ -177,6 +177,10 @@ interface ExportFormatSpec {
   serialize: (measurements: MeasureData[]) => string;
 }
 
+/** UTF-8 BOM — Excel needs it to detect UTF-8, or the i18n type labels come
+ * back as mojibake. Written as an escape so it is visible in the source. */
+const CSV_BOM = "﻿";
+
 const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
   [CONST.EXPORT_FORMAT.GEOJSON]: {
     ext: "geojson",
@@ -187,7 +191,7 @@ const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
     ext: "csv",
     mime: "text/csv",
     // BOM so Excel detects UTF-8; the serialized body itself is unchanged.
-    serialize: measurements => "﻿" + toCSV(measurements),
+    serialize: measurements => CSV_BOM + toCSV(measurements),
   },
 };
 

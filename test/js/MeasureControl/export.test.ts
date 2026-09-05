@@ -668,15 +668,26 @@ describe("Export.handleExportClick", () => {
     expect(dl.anchors[1].download).toBe("meas.csv");
   });
 
-  it("logs instead of throwing when a serializer fails", () => {
+  it("resolves the format from CONF", () => {
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
+    expect(dl.anchors[0].download).toBe("meas.geojson");
+
+    (window as any).CONF = { name: "MeasureControl", filename: "meas", export_format: "csv" };
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
+    expect(dl.anchors[1].download).toBe("meas.csv");
+  });
+
+  it("warns instead of throwing when the export fails", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mgr = makeMgr([{ id: "x" } as MeasureData]);
-    // Only id + no type → serialize returns an empty FeatureCollection / header-only CSV,
-    // so nothing is downloaded; the guard is the empty-store branch, not this one.
+    vi.spyOn(URL, "createObjectURL").mockImplementation(() => {
+      throw new Error("boom");
+    });
     expect(() =>
       Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any),
     ).not.toThrow();
-    warn.mockRestore();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("export failed");
   });
 });
 
