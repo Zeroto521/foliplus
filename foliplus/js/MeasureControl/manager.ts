@@ -28,6 +28,22 @@ const T = createScopedTranslator(CONF);
  *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
 
+/** Group key for edit registrations that carry no measurement id (tests,
+ *  one-off call sites) — each such handle stays isolated. A string literal is
+ *  valid as a Map key, unlike a Symbol. */
+const ANON_HANDLE = " anon-edit-handle";
+
+/** Per-measurement edit-mode resource bundle: the three things a finalized
+ *  measurement registers with the manager — its dispose (unbinds drag binds,
+ *  edit overlay and the drag toggle), the ✕ overlay close callback, and the
+ *  node-drag toggle. Keyed by measurement id so delete drops one handle and
+ *  setEditMode/clearAll/destroy each walk one collection. */
+interface EditHandle {
+  dispose: () => void;
+  closeOverlay: () => void;
+  toggleDrag: (enabled: boolean) => void;
+}
+
 /** Map events that change pixel geometry and therefore invalidate placements. */
 const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
   "moveend",
@@ -46,18 +62,10 @@ class MeasureManager {
   currentMode: string | null;
   modeInstance: MeasureMode | null;
   toolBtns: HTMLElement[];
-  /** Per-measurement dispose functions, registered via registerFinalized —
-   *   each unbinds its drag binds, edit overlay, and edit-drag toggle. */
-  finalizedClickHandlers: Array<() => void>;
-  /** Next measurement id counter; increments per session so persisted ids are
-   *   unique even when two measurements are created in the same millisecond. */
-  private measurementIdCounter = 0;
-  /** Close callbacks for each measurement's edit overlay, so exiting edit mode
-   *   hides any open ✕ handles. */
-  private editOverlayClosers: Array<() => void> = [];
-  /** Toggles for each measurement's node drag binds, so entering/leaving edit
-   *   mode enables/disables dragging directly (no click-first required). */
-  private editDragToggles: Array<(enabled: boolean) => void> = [];
+  /** Per-measurement edit handles, keyed by measurement id (see EditHandle).
+   *  registerFinalized / registerEditOverlayCloser / registerEditDragToggle all
+   *  merge into the one handle for their id. */
+  editHandles: Map<string, EditHandle> = new Map();
   /** Central store for measurement data + persistence + count emission. */
   readonly store: MeasureStore;
   /** Every rendered label chip, so collision detection plans all measurements
@@ -117,7 +125,6 @@ class MeasureManager {
       }
     });
     this.toolBtns = [];
-    this.finalizedClickHandlers = [];
     this.ctrl = null;
     this.isEditMode = false;
 
@@ -203,8 +210,7 @@ class MeasureManager {
       (this.onUnload = () => {
         this.clearActiveMode();
         this.layers.clearLayers();
-        this.finalizedClickHandlers.forEach(h => h());
-        this.finalizedClickHandlers = [];
+        this.disposeAllHandles();
       });
     this.map.on("unload", this.onUnload);
   }
@@ -293,42 +299,65 @@ class MeasureManager {
     this.modeInstance?.start();
   }
 
+  /** Get-or-create the EditHandle for a measurement id. Three registrations for
+   *  the same id (dispose + overlay close + drag toggle) merge into one handle,
+   *  so delete drops one entry and clearAll/destroy walk one collection. */
+  private handleFor(id: string): EditHandle {
+    let handle = this.editHandles.get(id);
+    if (!handle) {
+      handle = {
+        dispose: () => {},
+        closeOverlay: () => {},
+        toggleDrag: () => {},
+      };
+      this.editHandles.set(id, handle);
+    }
+    return handle;
+  }
+
+  /** Run every handle's dispose, then clear the map. Iterating a snapshot keeps
+   *  handles that dispose() detaches from mid-walk from leaking. */
+  private disposeAllHandles() {
+    [...this.editHandles.values()].forEach(h => h.dispose());
+    this.editHandles.clear();
+  }
+
   /** Register an overlay close callback so setEditMode(false) can hide ✕.
+   *  `id` groups the closer with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
-  registerEditOverlayCloser = (close: () => void): (() => void) => {
-    this.editOverlayClosers.push(close);
-    return () => {
-      this.editOverlayClosers = this.editOverlayClosers.filter(c => c !== close);
-    };
+  registerEditOverlayCloser = (close: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).closeOverlay = close;
+    return () => this.editHandles.delete(key);
   };
 
-  /** Close every open edit overlay except the given one, so selecting a new
-   *  measurement hides the previously selected one's ✕ handles. */
-  closeOtherEditOverlays = (except: () => void) => {
-    this.editOverlayClosers.forEach(c => {
-      if (c !== except) c();
+  /** Close every open edit overlay except the one keyed by `exceptId`, so
+   *  selecting a new measurement hides the previously selected one's ✕. */
+  closeOtherEditOverlays = (exceptId: string) => {
+    this.editHandles.forEach((h, id) => {
+      if (id !== exceptId) h.closeOverlay();
     });
   };
 
   /** Register a node-drag toggle so setEditMode toggles dragging directly.
+   *  `id` groups the toggle with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
-  registerEditDragToggle = (toggle: (enabled: boolean) => void): (() => void) => {
-    this.editDragToggles.push(toggle);
-    return () => {
-      this.editDragToggles = this.editDragToggles.filter(t => t !== toggle);
-    };
+  registerEditDragToggle = (
+    toggle: (enabled: boolean) => void,
+    id?: string,
+  ): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).toggleDrag = toggle;
+    return () => this.editHandles.delete(key);
   };
 
   /** Register a finalized measurement's dispose so clearAll/destroy run it.
-   *  Returns an unregister function so deleting one measurement drops its entry
-   *  (mirrors registerEditOverlayCloser / registerEditDragToggle). */
-  registerFinalized = (cleanup: () => void): (() => void) => {
-    this.finalizedClickHandlers.push(cleanup);
-    return () => {
-      this.finalizedClickHandlers = this.finalizedClickHandlers.filter(
-        h => h !== cleanup,
-      );
-    };
+   *  `id` groups the dispose with the measurement's other edit registrations.
+   *  Returns an unregister function so deleting one measurement drops its entry. */
+  registerFinalized = (cleanup: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).dispose = cleanup;
+    return () => this.editHandles.delete(key);
   };
 
   // ── Label collision detection ─────────────────────────────────
@@ -428,15 +457,15 @@ class MeasureManager {
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
     // nodes directly draggable, leaving disables them.
-    this.editDragToggles.forEach(t => t(on));
+    this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
       this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
     } else {
       this.map.foliplus!.hideHint(CONF.name);
       // Close any open overlays so ✕ handles don't linger after leaving edit
-      // mode. Keep the closers registered so a later edit session can close
+      // mode. Keep the handles registered so a later edit session can close
       // them again; each overlay unregisters itself on delete.
-      this.editOverlayClosers.forEach(c => c());
+      this.editHandles.forEach(h => h.closeOverlay());
     }
   }
 
@@ -466,12 +495,9 @@ class MeasureManager {
     this.layers.clearLayers();
     this.store.clear();
     this.clearActiveMode();
-    // Run each overlay's cleanup to unbind its map-click listener; clearLayers
+    // Run each handle's dispose to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.
-    this.finalizedClickHandlers.forEach(h => h());
-    this.finalizedClickHandlers = [];
-    this.editOverlayClosers = [];
-    this.editDragToggles = [];
+    this.disposeAllHandles();
     // Safety net: each measurement's dispose (run above) drains its labels
     // through the unregister, but clearing the array here is O(1) insurance
     // against a measurement that skips its dispose, and unbinding the map
@@ -494,10 +520,6 @@ class MeasureManager {
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-    this.finalizedClickHandlers.forEach(h => h());
-    this.finalizedClickHandlers = [];
-    this.editOverlayClosers = [];
-    this.editDragToggles = [];
     this.unbindLabelMapEvents();
     this.collidableLabels = [];
   }
