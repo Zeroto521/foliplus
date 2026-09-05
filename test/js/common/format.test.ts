@@ -17,7 +17,7 @@ describe("formatNumber", () => {
   });
 
   it("uses thousands separator for comma style", () => {
-    expect(formatNumber(6000, "comma", 0)).toBe("6,000");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
   });
 
   it("respects locale (auto style)", () => {
@@ -77,12 +77,12 @@ describe("formatNumber", () => {
     // Both min and max are set, so decimals stay fixed (1.0, 2.50) rather
     // than trailing-digit-trimmed. The locale is ignored here — grouping is
     // pinned to en and language-agnostic.
-    expect(formatNumber(1.5, "comma", 2)).toBe("1.50");
-    expect(formatNumber(10, "comma", 2)).toBe("10.00");
-    expect(formatNumber(0.1, "comma", 2)).toBe("0.10");
-    expect(formatNumber(1000, "comma", 1)).toBe("1,000.0");
-    expect(formatNumber(6000, "comma", 0)).toBe("6,000");
-    expect(formatNumber(6000, "comma", 1)).toBe("6,000.0");
+    expect(formatNumber(1.5, "comma", "en", 2)).toBe("1.50");
+    expect(formatNumber(10, "comma", "en", 2)).toBe("10.00");
+    expect(formatNumber(0.1, "comma", "en", 2)).toBe("0.10");
+    expect(formatNumber(1000, "comma", "en", 1)).toBe("1,000.0");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
+    expect(formatNumber(6000, "comma", "en", 1)).toBe("6,000.0");
   });
 
   it("handles zero and negative values", () => {

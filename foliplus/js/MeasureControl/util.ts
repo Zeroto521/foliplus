@@ -16,8 +16,8 @@ const T = createScopedTranslator(CONF);
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
 const formatDistance = (meters: number): string => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${formatNumber(meters / 1000, "comma", CONST.FORMAT.KM_DECIMALS)} km`
-    : `${formatNumber(meters, "comma", 0)} m`;
+    ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
+    : `${formatNumber(meters, "comma", "en", 0)} m`;
 };
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
@@ -35,8 +35,8 @@ const formatSegmentLabel = (
 /** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.56 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000)
-    return `${formatNumber(sqMeters / 1_000_000, "comma", 2)} km²`;
-  return `${formatNumber(sqMeters, "comma", 0)} m²`;
+    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", 2)} km²`;
+  return `${formatNumber(sqMeters, "comma", "en", 0)} m²`;
 };
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
