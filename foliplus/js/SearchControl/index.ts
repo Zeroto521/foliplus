@@ -163,6 +163,4 @@ class SearchControl extends BaseControl {
   }
 }
 
-export { SearchControl };
-
 new SearchControl({ position: CONF.position }).addTo(map);
