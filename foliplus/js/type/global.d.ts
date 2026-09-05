@@ -1,16 +1,3 @@
-import type * as ChromaJs from "chroma-js";
-import type * as GeoJSON from "geojson";
-import type * as Leaflet from "leaflet";
-import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
-import type {
-  CreateCanvasAPI as CoreCreateCanvasAPI,
-  CreateLayersAPI as CoreCreateLayersAPI,
-  LayerAPI as CoreLayerAPI,
-  LayerInfo as CoreLayerInfo,
-} from "#core/layer/type.js";
-import type { ModeManager as CoreModeManager } from "#core/mode.js";
-import type { NumberStyle } from "#common/format.js";
-
 /**
  * Ambient declarations for globals injected at runtime by the foliplus
  * Python↔JS bridge (Leaflet, the foliplus runtime, per-control config).
@@ -27,6 +14,19 @@ import type { NumberStyle } from "#common/format.js";
  * Third-party libraries with no available @types (turf v7, gcoord,
  * simple-statistics) have their used subset described inline.
  */
+import type * as ChromaJs from "chroma-js";
+import type * as GeoJSON from "geojson";
+import type * as Leaflet from "leaflet";
+import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
+import type {
+  CreateCanvasAPI as CoreCreateCanvasAPI,
+  CreateLayersAPI as CoreCreateLayersAPI,
+  LayerAPI as CoreLayerAPI,
+  LayerInfo as CoreLayerInfo,
+} from "#core/layer/type.js";
+import type { ModeManager as CoreModeManager } from "#core/mode.js";
+import type { NumberStyle } from "#common/format.js";
+
 // ── Runtime helpers ────────────────────────────────────────────
 
 // ── CDN globals (no @types available) ──────────────────────────
