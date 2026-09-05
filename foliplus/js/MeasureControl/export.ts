@@ -208,6 +208,11 @@ const resolveExportFormat = (raw: unknown): ExportFormat =>
 const currentExportFormat = (): ExportFormatSpec =>
   EXPORT_FORMAT_META[resolveExportFormat(CONF.export_format)];
 
+/** Filename the export writes to — shared with the success hint so
+ * the two cannot drift. */
+const exportFilename = (format: ExportFormat): string =>
+  `${CONF?.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
+
 /**
  * Convert measurements to a Blob and trigger a file download.
  * `format` must already be resolved — callers go through
@@ -241,13 +246,31 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     mgr.map.foliplus?.showHint?.(CONF.name, T("export_no_data"), HINT_DURATION.LONG);
     return;
   }
-  // Serialization + <a download> are pure local operations; failures here are
-  // developer errors, not user-facing conditions — log instead of alerting.
+  // Serialization and the download anchor are pure local operations, so a
+  // failure is a developer error rather than a user error — but it is
+  // still reported to the user, since the file was not saved.
+  const format = resolveExportFormat(CONF.export_format);
   try {
-    exportMeasurements(measurements, resolveExportFormat(CONF.export_format));
+    exportMeasurements(measurements, format);
   } catch (err) {
     console.warn(`[${CONF.name}] export failed:`, err);
+    mgr.map.foliplus?.showHint?.(
+      CONF.name,
+      T("export_fail") + T("err_export"),
+      HINT_DURATION.LONG,
+    );
+    return;
   }
+  // Reported only after the download call returns: a throwing export never
+  // wrote the file, so success is not claimed on that path.
+  mgr.map.foliplus?.showHint?.(
+    CONF.name,
+    T("export_success") +
+      T("export_file")
+        .replace("{n}", String(measurements.length))
+        .replace("{f}", exportFilename(format)),
+    HINT_DURATION.LONG,
+  );
 };
 
 export {
