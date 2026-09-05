@@ -195,7 +195,8 @@ const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
  * `MeasureControl` rejects anything outside `EXPORT_FORMAT`, so this only
  * guards misconfiguration. */
 const resolveExportFormat = (raw: unknown): ExportFormat =>
-  typeof raw === "string" && Object.prototype.hasOwnProperty.call(EXPORT_FORMAT_META, raw)
+  typeof raw === "string" &&
+  Object.prototype.hasOwnProperty.call(EXPORT_FORMAT_META, raw)
     ? (raw as ExportFormat)
     : CONST.DEFAULT_EXPORT_FORMAT;
 
@@ -208,13 +209,19 @@ const currentExportFormat = (): ExportFormatSpec =>
  * `format` must already be resolved — callers go through
  * `resolveExportFormat` / `currentExportFormat`.
  */
-const exportMeasurements = (measurements: MeasureData[], format: ExportFormat): void => {
+const exportMeasurements = (
+  measurements: MeasureData[],
+  format: ExportFormat,
+): void => {
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
   const base = CONF?.filename || "measurements";
 
-  download(new Blob([meta.serialize(measurements)], { type: meta.mime }), `${base}.${meta.ext}`);
+  download(
+    new Blob([meta.serialize(measurements)], { type: meta.mime }),
+    `${base}.${meta.ext}`,
+  );
 };
 
 /**
