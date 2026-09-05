@@ -4,9 +4,9 @@
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
 import type { EventPayloadMap } from "./const.js";
 
-export type EventHandler = (...args: unknown[]) => void;
+type EventHandler = (...args: unknown[]) => void;
 
-export class EventBus {
+class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
 
   /** Number of events with at least one listener (diagnostics/tests). */
@@ -64,3 +64,5 @@ export class EventBus {
     this.listeners.clear();
   }
 }
+
+export { type EventHandler, EventBus };
