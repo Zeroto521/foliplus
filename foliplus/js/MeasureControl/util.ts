@@ -1,7 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
-import { toWgs84 } from "#common/coord.js";
 import { toggleDelIcon } from "#common/delicon.js";
-import { buildPopupHtml, dom } from "#common/dom.js";
+import { buildPopupHtml } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -184,83 +183,6 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 const roundCoord = (n: number): number =>
   parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
 
-// ── Live coordinate readout ─────────────────────────────────────────
-/** One coordinate formatted to the persisted precision. Rendering the full
- *  fixed-decimal string avoids "-0.000000" on a west/south of equator point,
- *  and keeps the chip from shifting width as the cursor moves. */
-const formatCoord = (n: number): string => {
-  const v = parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
-  return (v === 0 ? 0 : v).toFixed(CONST.FORMAT.LAT_LNG_PRECISION);
-};
-
-/** Format an lng/lat pair as the readout string. Longitude leads, matching
- *  `buildPopupHtml` and every other location display in the project. */
-const formatLatLng = (lng: number, lat: number): string =>
-  `${formatCoord(lng)}, ${formatCoord(lat)}`;
-
-/** A point in the map's display CRS that should be read out. Accepts
- *  both Leaflet's `lat/lng` shape and Leaflet's plain-object `latitude/longitude`
- *  alias so callers can pass either without wrapping. */
-type DisplayLatLng =
-  L.LatLng | { lat: number; lng: number } | { latitude: number; longitude: number };
-
-/** Collapse the two Leaflet coordinate shapes into a plain lat/lng pair. */
-const readLatLng = (pt: DisplayLatLng): [number, number] => {
-  const raw = pt as {
-    lat?: number;
-    lng?: number;
-    latitude?: number;
-    longitude?: number;
-  };
-  const lat = raw.lat ?? raw.latitude;
-  const lng = raw.lng ?? raw.longitude;
-  if (lat === undefined || lng === undefined) {
-    throw new TypeError("[foliplus] MeasureControl: point has no lat/lng");
-  }
-  return [lat, lng];
-};
-
-/** Format `pt` (display CRS) as a WGS84 readout string. Conversion happens here
- *  so callers never have to remember it — every entry point that accepts a map
- *  coordinate goes through this one function. */
-const coordText = (map: L.Map, pt: DisplayLatLng): string => {
-  const [lat, lng] = readLatLng(pt);
-  const [wlng, wlat] = toWgs84(map, lng, lat);
-  return formatLatLng(wlng, wlat);
-};
-
-/** Build the persistent readout element, appended to the map container. */
-const buildCoordReadout = (map: L.Map): HTMLElement => {
-  const el = dom.el("div", {
-    class: CONST.LABEL.CLASS_READOUT,
-    parent: map.getContainer(),
-    role: "status",
-    "aria-live": "off",
-    hidden: true,
-  });
-  el.append(
-    dom.el("span", { class: CONST.LABEL.CLASS_LABEL, textContent: T("readout_label") }),
-    dom.el("span", { class: CONST.LABEL.CLASS_COORD, textContent: "" }),
-  );
-  return el;
-};
-
-/** Update the readout chip, showing it if needed. Returning the text lets
- *  callers assert on it. Visibility lives here so no caller can forget to make
- *  the element appear — hidden-at-start is required because nothing shows until
- *  a measurement exists. */
-const setCoordReadout = (el: HTMLElement | null, text: string): string => {
-  if (!el) return text;
-  el.hidden = false;
-  el.querySelector(CONST.SEL.COORD_LABEL)?.replaceChildren(text);
-  return text;
-};
-
-/** Hide the readout. Separate from `setCoordReadout`, which shows on write. */
-const setCoordReadoutHidden = (el: HTMLElement | null) => {
-  if (el) el.hidden = true;
-};
-
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
   ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
@@ -269,15 +191,11 @@ export {
   animateDashSweep,
   area,
   bearing,
-  buildCoordReadout,
   buildPopup,
   centroid,
-  coordText,
   distance,
   formatArea,
-  formatCoord,
   formatDistance,
-  formatLatLng,
   formatSegmentLabel,
   labelChipOf,
   getEventTarget,
@@ -291,6 +209,4 @@ export {
   recalculateSegments,
   roundCoord,
   setLabelText,
-  setCoordReadout,
-  setCoordReadoutHidden,
 };

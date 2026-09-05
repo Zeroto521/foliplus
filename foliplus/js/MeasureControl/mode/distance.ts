@@ -167,9 +167,6 @@ class DistanceMode extends PreviewMode {
       // The drawing-phase cleanup (set in start()) would remove the finalized
       // polyline/nodes, so replace it with a no-op.
       this._cleanup = () => {};
-      // Settle on the start node so the readout still reports a measurement
-      // after the drawing mode is torn down below.
-      this.m.setCoordReadout(points[0]);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);
@@ -183,7 +180,6 @@ class DistanceMode extends PreviewMode {
 
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
-      this.m.setCoordReadout(event.latlng);
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;

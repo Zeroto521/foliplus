@@ -144,9 +144,6 @@ class CircleMode extends PreviewMode {
           T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
-        // The center is the only circle point that survives finalization, so
-        // the readout stays pinned to it while the radius tracks the cursor.
-        this.m.setCoordReadout(center);
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
         // Ignore clicks too close to center — radius 0 creates an invisible
@@ -284,7 +281,6 @@ class CircleMode extends PreviewMode {
       );
 
       const circleId = this.nextMeasurementId();
-      this.m.setCoordReadout(centerLatLng);
       this.m.store.add({
         id: circleId,
         type: this.type,

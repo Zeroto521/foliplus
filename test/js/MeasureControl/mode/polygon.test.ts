@@ -190,33 +190,6 @@ describe("PolygonMode — finish saves centroid", () => {
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
     expect(manager.measurements.length).toBe(0);
   });
-
-  it("settles the readout on the centroid so it survives clearing the mode", () => {
-    const manager = makeManagerMock();
-    const mode = new PolygonMode(manager as any);
-    manager.currentMode = CONST.MODE.POLYGON;
-    mode.start();
-
-    const clickHandler = manager.map.on.mock.calls.find(
-      ([event]) => event === "click",
-    )?.[1];
-    clickHandler({ latlng: { lat: 30, lng: 120 } });
-    clickHandler({ latlng: { lat: 31, lng: 121 } });
-    clickHandler({ latlng: { lat: 32, lng: 120 } });
-    const dblHandler = manager.map.on.mock.calls.find(
-      ([event]) => event === "dblclick",
-    )?.[1];
-    dblHandler({ latlng: { lat: 32, lng: 120 } });
-
-    // Finalize clears the drawing mode, so the readout must be written before
-    // clearActiveMode to keep reporting the finished measurement.
-    const last = (manager.setCoordReadout as any).mock.calls.at(-1)[0];
-    expect(last.lat).toBeCloseTo(31);
-    expect(last.lng).toBeCloseTo(120.33);
-    expect(
-      (manager.setCoordReadout as any).mock.invocationCallOrder.at(-1)!,
-    ).toBeLessThan((manager.clearActiveMode as any).mock.invocationCallOrder.at(-1)!);
-  });
 });
 
 describe("PolygonMode — toGeoFeature", () => {

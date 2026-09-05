@@ -6,11 +6,6 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import {
-  type MapEventHandlers,
-  bindMapEvents,
-  unbindMapEvents,
-} from "#common/mapEvent.js";
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -53,7 +48,6 @@ class MarkerMode extends MeasureMode {
         delMarker.setLatLng(latlng);
         measurement.lng = Util.roundCoord(latlng.lng);
         measurement.lat = Util.roundCoord(latlng.lat);
-        manager.setCoordReadout(latlng);
         // Throttle persists: live-update the coords but batch the write so
         // each mousemove doesn't do its own localStorage round-trip. The
         // measurement object is the store's backing entry (passed by ref),
@@ -191,13 +185,8 @@ class MarkerMode extends MeasureMode {
 
   start() {
     this.onMarkerClickRef = this.handleMarkerClick.bind(this);
-    const onMove = (event: L.LeafletMouseEvent) => this.m.setCoordReadout(event.latlng);
-    const markerEvents = [
-      ["click", this.onMarkerClickRef],
-      ["mousemove", onMove],
-    ] as MapEventHandlers;
-    bindMapEvents(this.map, markerEvents);
-    this._cleanup = () => unbindMapEvents(this.map, markerEvents);
+    this.map.on("click", this.onMarkerClickRef);
+    this._cleanup = () => this.map.off("click", this.onMarkerClickRef);
   }
 
   /** Handle marker click. */

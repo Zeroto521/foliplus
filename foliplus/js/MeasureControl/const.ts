@@ -32,9 +32,6 @@ const LABEL = {
   CLASS: "foliplus-measure-label",
   CLASS_RADIUS: "foliplus-measure-label-radius",
   CLASS_MID: "foliplus-measure-label-mid",
-  CLASS_READOUT: "foliplus-measure-readout",
-  CLASS_LABEL: "foliplus-measure-readout-label",
-  CLASS_COORD: "foliplus-measure-coord",
 };
 
 /** Label collision priority — the lowest values are hidden first when labels
@@ -93,7 +90,6 @@ const SEL = {
   LABEL: ".foliplus-measure-label",
   DEL_ICON: DEL_ICON_SELECTOR,
   TOOL_BTN: ".foliplus-tool-btn[data-mode]",
-  COORD_LABEL: ".foliplus-measure-coord",
 };
 
 /** Persistent storage key. */

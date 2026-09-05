@@ -136,8 +136,6 @@ export function makeManagerMock() {
     nextMeasurementId: vi.fn(() => "test-id"),
     saveMeasurements: vi.fn(),
     clearActiveMode: vi.fn(),
-    setCoordReadout: vi.fn(),
-    setCoordReadoutHidden: vi.fn(),
     cleanMapEvents: vi.fn(),
     registerEditOverlayCloser: vi.fn(() => () => {}),
     registerEditDragToggle: vi.fn(() => () => {}),

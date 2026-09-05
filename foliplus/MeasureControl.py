@@ -75,16 +75,6 @@ class MeasureControl(BaseControl):
         on-screen layout, never exports (CSV / GeoJSON always read persisted
         measurements).
 
-    show_live_coords : bool, default True
-        Whether to show a live longitude/latitude readout at the bottom of the map.
-        While measuring it tracks the cursor; once a measurement is finalized it
-        shows that measurement's coordinates (start node for distance, centroid for
-        area, center for circle) and updates as its nodes are dragged in edit mode.
-        The marker mode already reports its coordinates in the popup, so the readout
-        settles on the pin and follows it while dragged in edit mode. Coordinates are
-        converted to WGS84 before display, so the readout matches the exported data
-        even on GCJ02 / BD09 maps.
-
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
         appended automatically: ``measurements.geojson`` or ``measurements.csv``.
@@ -123,10 +113,6 @@ class MeasureControl(BaseControl):
     stops the event from propagating to the map). This prevents duplicate points and
     overlapping labels.
 
-    **Live coordinates.** The readout reports WGS84 longitude/latitude regardless of the
-    map's display CRS (GCJ02 / BD09 are converted on the way out), using the same
-    six-decimal precision that measurement data is stored at.
-
     Examples
     --------
     >>> import folium
@@ -138,7 +124,6 @@ class MeasureControl(BaseControl):
     _export_fields = (
         "show_bearing",
         "collide_labels",
-        "show_live_coords",
         "filename",
         "export_format",
     )
@@ -151,7 +136,6 @@ class MeasureControl(BaseControl):
         position: Position = "bottomright",
         show_bearing: bool = True,
         collide_labels: bool = True,
-        show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
@@ -164,7 +148,6 @@ class MeasureControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self.collide_labels = collide_labels
-        self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format
         self._template = self._get_template()

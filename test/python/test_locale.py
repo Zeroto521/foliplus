@@ -205,7 +205,6 @@ _JS_USED_KEYS = {
     "MeasureControl.export_fail",
     "MeasureControl.err_export",
     "MeasureControl.export_paused",
-    "MeasureControl.readout_label",
     # ScaleControl
     "ScaleControl.zoom_label",
 }

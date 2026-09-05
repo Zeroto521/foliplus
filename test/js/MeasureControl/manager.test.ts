@@ -547,59 +547,6 @@ describe("MeasureManager — persistence edge cases", () => {
   });
 });
 
-describe("MeasureManager — coordinate readout", () => {
-  it("renders a display-CRS point as a WGS84 string, lng first", () => {
-    // show_live_coords defaults to true, so the element is built at construction.
-    const { manager, container } = makeManager();
-    const el = container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)!;
-    expect(el.hidden).toBe(true);
-
-    manager.setCoordReadout({ lat: 31.230955, lng: 121.473701 });
-    // Writing shows the chip; the text is the persisted 6-decimal WGS84 pair.
-    expect(el.hidden).toBe(false);
-    expect(el.querySelector(`.${CONST.LABEL.CLASS_COORD}`)!.textContent).toBe(
-      "121.473701, 31.230955",
-    );
-  });
-
-  it("clearAll hides the readout since no measurement remains", () => {
-    const { manager, container } = makeManager();
-    const el = container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)!;
-    manager.setCoordReadout({ lat: 1, lng: 1 });
-    expect(el.hidden).toBe(false);
-    manager.clearAll();
-    expect(el.hidden).toBe(true);
-  });
-
-  it("destroy removes the readout element from the map container", () => {
-    const { manager, container } = makeManager();
-    expect(container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)).not.toBeNull();
-    manager.destroy();
-    expect(container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)).toBeNull();
-  });
-
-  it("is a no-op for the write path when show_live_coords is off", () => {
-    const saved = window.CONF.show_live_coords;
-    window.CONF.show_live_coords = false;
-    try {
-      const { manager, container } = makeManager();
-      expect(container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)).toBeNull();
-      expect(() => manager.setCoordReadout({ lat: 1, lng: 1 })).not.toThrow();
-      expect(() => manager.clearAll()).not.toThrow();
-    } finally {
-      window.CONF.show_live_coords = saved;
-    }
-  });
-
-  it("clearActiveMode leaves the readout visible so a just-finalized measurement still reports", () => {
-    const { manager, container } = makeManager();
-    const el = container.querySelector(`.${CONST.LABEL.CLASS_READOUT}`)!;
-    manager.setCoordReadout({ lat: 2, lng: 2 });
-    manager.clearActiveMode();
-    expect(el.hidden).toBe(false);
-  });
-});
-
 describe("MeasureManager — global events", () => {
   it("onUnload clears active mode and layers without wiping measurements", () => {
     const { manager, map, layers } = makeManager();

@@ -333,26 +333,6 @@ describe("DistanceMode — finish saves measurement", () => {
     expect(manager.editHandles.size).toBe(1);
     expect(() => manager.clearAll()).not.toThrow();
   });
-
-  it("settles the readout on the start node so it survives clearing the mode", () => {
-    const manager = makeManagerMock() as any;
-    const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
-    mode.start();
-
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
-    const dblHandler = manager.map.on.mock.calls.find(([ev]) => ev === "dblclick")?.[1];
-    clickHandler({ latlng: { lat: 30, lng: 120 } });
-    clickHandler({ latlng: { lat: 31, lng: 121 } });
-    dblHandler({ latlng: { lat: 31, lng: 121 } });
-
-    // Finalize clears the drawing mode, so the readout must be written before
-    // clearActiveMode to keep reporting the finished measurement.
-    expect(manager.setCoordReadout).toHaveBeenCalledWith({ lat: 30, lng: 120 });
-    expect(manager.setCoordReadout.mock.invocationCallOrder.at(-1)!).toBeLessThan(
-      manager.clearActiveMode.mock.invocationCallOrder.at(-1)!,
-    );
-  });
 });
 
 describe("DistanceMode — cleanup", () => {
