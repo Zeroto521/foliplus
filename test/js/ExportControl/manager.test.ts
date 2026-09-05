@@ -22,7 +22,9 @@ vi.mock("#common/locale.js", async () => {
   const real = await vi.importActual("#common/locale.js");
   const TABLES: Record<string, string> = {
     status_exporting: "Exporting map...",
-    status_loading_tiles: "Exporting map... ({pct}%)",
+    status_progress: "Exporting map... ({pct}%)",
+    status_encoding: "Rendering map image...",
+    status_success: "Export successful",
   };
   return {
     ...real,
@@ -1505,20 +1507,45 @@ describe("ExportManager — export progress", () => {
     );
   });
 
-  it("claims 100 in onRenderSuccess, before the canvas is encoded", async () => {
-    // render() stops at 90 on purpose. The final claim happens here, before
-    // finishExport() encodes the raster, so a full bar means the download has
-    // started — not that the tiles have finished loading, which is what it
-    // used to mean.
+  it("onRenderSuccess does not claim 100: the raster is still being encoded", async () => {
+    // render() stops at 90 on purpose. A full bar here would mean the export
+    // is finished while the canvas is still being encoded, so this handler
+    // only names what the browser is doing — the download claims the 100.
     manager.finishExport = vi.fn(async () => {});
-    const canvas = document.createElement("canvas");
 
-    manager.onRenderSuccess(canvas, []);
+    manager.onRenderSuccess(document.createElement("canvas"), []);
 
-    // The 100 is the very first hint this handler shows: the caller sees it as
-    // "saving now", not "tiles finished loading".
-    expect(manager.showGlobalHint.mock.calls[0][0]).toBe("Exporting map... (100%)");
-    await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalledWith(canvas));
+    expect(manager.showGlobalHint.mock.calls[0][0]).toBe("Rendering map image...");
+    const percentCalls = manager.showGlobalHint.mock.calls
+      .map(c => c[0])
+      .filter(text => typeof text === "string" && text.includes("%"));
+    expect(percentCalls).toEqual([]);
+    await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
+  });
+
+  it("claims 100 at the download, after the canvas is encoded", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+      // The 100 lands between the encode and the download, never before: the
+      // encode is the step that used to sit behind a full bar with nothing to
+      // show for it.
+      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      const encoding = hints.indexOf("Rendering map image...");
+      const full = hints.indexOf("Exporting map... (100%)");
+      expect(encoding).toBeGreaterThanOrEqual(0);
+      expect(full).toBeGreaterThan(encoding);
+      expect(hints.slice(full + 1)).toEqual(["Export successful"]);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
   });
 
   it("doRender re-computes the rect from geoBounds before rendering", () => {
