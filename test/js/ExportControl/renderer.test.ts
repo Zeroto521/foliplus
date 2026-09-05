@@ -26,7 +26,6 @@ afterEach(() => {
 });
 
 describe("pooledEach", () => {
-
   it("returns empty array for empty input", async () => {
     expect(await pooledEach([], 3, () => 42)).toEqual([]);
   });
