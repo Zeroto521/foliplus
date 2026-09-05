@@ -21,6 +21,7 @@
 - `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227))
+- `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing
 
 ### Changed
 

@@ -43,14 +43,17 @@ describe("DistanceMode — marker click stops map propagation", () => {
     )?.[1];
     expect(clickHandler).toBeDefined();
 
+    // The preview cursor dot is the first circleMarker; confirmed nodes are
+    // the rest (see the NODE_SOLID case below for the full ordering).
+    const confirmedMarkers = () =>
+      window.L.circleMarker.mock.results.slice(1).map(r => r.value);
     const pt1 = { lat: 30, lng: 120 };
     const pt2 = { lat: 31, lng: 121 };
     clickHandler({ latlng: pt1 });
     clickHandler({ latlng: pt2 });
-    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
+    expect(confirmedMarkers()).toHaveLength(2);
 
-    const markerOnCalls = window.L.circleMarker.mock.results;
-    const marker2 = markerOnCalls[markerOnCalls.length - 1]?.value;
+    const marker2 = confirmedMarkers()[1];
     const markerClickHandler = marker2.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
@@ -61,7 +64,7 @@ describe("DistanceMode — marker click stops map propagation", () => {
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
     expect(leafletEvent.originalEvent._stopped).toBe(true);
-    expect(window.L.circleMarker).toHaveBeenCalledTimes(2);
+    expect(confirmedMarkers()).toHaveLength(2);
   });
 });
 
@@ -78,12 +81,16 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
     expect(clickHandler).toBeDefined();
 
     clickHandler({ latlng: { lat: 30, lng: 120 } });
-    const firstCall = window.L.circleMarker.mock.calls[0];
-    expect(firstCall[1].className).toContain("foliplus-measure-node-solid");
-
     clickHandler({ latlng: { lat: 31, lng: 121 } });
-    const secondCall = window.L.circleMarker.mock.calls[1];
-    expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+
+    // The preview cursor dot is also a NODE_HOLLOW circleMarker (the very
+    // first one, created at mode start), so the confirmed nodes sit at index
+    // 1 and 2 of the circleMarker calls.
+    const calls = window.L.circleMarker.mock.calls;
+    expect(calls[0][1].interactive).toBe(false);
+    expect(calls[0][1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+    expect(calls[1][1].className).toContain("foliplus-measure-node-solid");
+    expect(calls[2][1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
   });
 });
 
@@ -347,5 +354,59 @@ describe("DistanceMode — cleanup", () => {
     expect(mode._cleanup).toBeNull(); // cleanup consumed the callback
     // next cleanup is a safe no-op
     expect(() => mode.cleanup()).not.toThrow();
+  });
+});
+
+describe("DistanceMode — preview cursor node", () => {
+  it("creates a non-interactive hollow node above the preview line", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const addLayerCalls = (manager.layers as any).addLayer.mock.calls;
+    // addLayer is called with poly, previewLine, cursorNode, finalPoly.
+    expect(addLayerCalls).toHaveLength(4);
+
+    const cursor = (addLayerCalls[2] as [unknown])[0];
+    expect(cursor).toBe(window.L.circleMarker.mock.results[0].value);
+
+    // Rendered after the preview line, so it paints above the preview stroke
+    // (SVG render order is DOM order in the shared vector renderer).
+    expect(addLayerCalls[1][0]).not.toBe(cursor);
+
+    const cursorCall = window.L.circleMarker.mock.calls[0] as [unknown, object];
+    expect(cursorCall[1].interactive).toBe(false);
+    expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+  });
+
+  it("moves the node with the cursor and removes it when the shape is finished", () => {
+    const manager = makeManagerMock() as any;
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MODE.DISTANCE;
+    mode.start();
+
+    const handlers = manager.map.on.mock.calls.find(
+      ([event]) => event === "mousemove",
+    )?.[1];
+    const cursor = window.L.circleMarker.mock.results[0].value;
+
+    // No movement before the first point is placed.
+    handlers({ latlng: { lat: 29, lng: 118 } });
+    expect(cursor.setLatLng).not.toHaveBeenCalled();
+
+    const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+    click({ latlng: { lat: 30, lng: 120 } });
+    click({ latlng: { lat: 31, lng: 121 } });
+
+    handlers({ latlng: { lat: 32, lng: 122 } });
+    expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 32, lng: 122 });
+
+    // Context-menu finishes: the node leaves the map with the other preview
+    // artifacts, while the confirmed nodes stay.
+    manager.map.on.mock.calls.find(([event]) => event === "contextmenu")?.[1]({
+      latlng: { lat: 32, lng: 122 },
+    });
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
   });
 });

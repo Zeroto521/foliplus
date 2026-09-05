@@ -119,6 +119,7 @@ export function makeManagerMock() {
       off: vi.fn(),
       removeLayer: vi.fn(),
       getContainer: () => document.createElement("div"),
+      getCenter: () => ({ lat: 26.08, lng: 119.3 }),
       mouseEventToContainerPoint: vi.fn(
         (raw: { clientX: number; clientY: number }) => ({
           x: raw.clientX,

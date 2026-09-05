@@ -98,6 +98,16 @@ class PolygonMode extends PreviewMode {
         interactive: false,
       }),
     );
+    // Created after the preview polygon so the node paints above it. The cursor
+    // dot is the same hollow node as the circle mode's radius endpoint. It
+    // starts one tile north-west of the map centre purely to give the marker a
+    // finite position — it is never shown until the first point is placed.
+    const cursorNode = this.addPreview(
+      Util.makePreviewNode(
+        L.latLng(this.map.getCenter().lat + 1e-4, this.map.getCenter().lng - 1e-4),
+        CONST.CLASSES.NODE_HOLLOW,
+      ),
+    );
     const nodeMarkers: L.CircleMarker[] = [];
     const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
@@ -112,6 +122,7 @@ class PolygonMode extends PreviewMode {
       unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(poly);
+      this.layers.removeLayer(cursorNode);
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(finalPoly);
       if (previewDistLabel) {
@@ -132,6 +143,7 @@ class PolygonMode extends PreviewMode {
       this.isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
+      this.layers.removeLayer(cursorNode);
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -238,6 +250,7 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
+      cursorNode.setLatLng(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);

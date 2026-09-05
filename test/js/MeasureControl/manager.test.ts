@@ -77,6 +77,7 @@ function makeManager(opts?: { id?: string }) {
   const container = document.createElement("div");
   const map = {
     getContainer: () => container,
+    getCenter: () => ({ lat: 26.08, lng: 119.3 }),
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),
@@ -1014,6 +1015,7 @@ function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
   container.id = "test-map";
   const map = {
     getContainer: () => container,
+    getCenter: () => ({ lat: 26.08, lng: 119.3 }),
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),
