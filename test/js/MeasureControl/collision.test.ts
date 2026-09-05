@@ -458,7 +458,6 @@ describe("mapProjector", () => {
   });
 });
 
-
 const PERF_REPEATS = 5;
 const PERF_CONTAINER_LEFT = 100;
 const PERF_CONTAINER_TOP = 60;
@@ -470,7 +469,13 @@ const PERF_CHIP_H = 18;
 
 /** Mock a chip's rect. jsdom reports all zeros, so the geometry must come
  *  from here for the planner's boxes to be realistic. */
-const perfRectOf = (el: HTMLElement, left: number, top: number, w: number, h: number): void => {
+const perfRectOf = (
+  el: HTMLElement,
+  left: number,
+  top: number,
+  w: number,
+  h: number,
+): void => {
   vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
     left,
     top,
@@ -494,21 +499,12 @@ const makePerfContainer = (): HTMLElement => {
 };
 
 /** Real DOM chip at `box` (container-relative). */
-const labelAt = (
-  box: Box,
-  perfContainer: HTMLElement,
-): Collision.CollidableLabel => {
+const labelAt = (box: Box, perfContainer: HTMLElement): Collision.CollidableLabel => {
   const el = document.createElement("div");
   document.body.appendChild(el);
-  perfRectOf(
-    el,
-    box.x + PERF_CONTAINER_LEFT,
-    box.y + PERF_CONTAINER_TOP,
-    box.w,
-    box.h,
-  );
+  perfRectOf(el, box.x + PERF_CONTAINER_LEFT, box.y + PERF_CONTAINER_TOP, box.w, box.h);
   return {
-    marker: ({ _el: el, getElement: () => el } as unknown as L.Marker),
+    marker: { _el: el, getElement: () => el } as unknown as L.Marker,
     priority: 60,
   };
 };
@@ -538,9 +534,9 @@ const meanMs = (
   labels: Collision.CollidableLabel[],
   perfContainer: HTMLElement,
 ): number => {
-  const projector = Collision.mapProjector(
-    { getContainer: () => perfContainer } as unknown as L.Map,
-  );
+  const projector = Collision.mapProjector({
+    getContainer: () => perfContainer,
+  } as unknown as L.Map);
   Collision.placeLabels(labels, projector, true, chipOf);
   const t0 = performance.now();
   for (let i = 0; i < PERF_REPEATS; i++) {
@@ -550,7 +546,10 @@ const meanMs = (
 };
 
 const bench = (boxes: Box[], perfContainer: HTMLElement): number =>
-  meanMs(boxes.map(b => labelAt(b, perfContainer)), perfContainer);
+  meanMs(
+    boxes.map(b => labelAt(b, perfContainer)),
+    perfContainer,
+  );
 
 describe("collision.perf", () => {
   let perfContainer: HTMLElement;
@@ -582,4 +581,3 @@ describe("collision.perf", () => {
     expect(bench(ribbon(200), perfContainer)).toBeLessThan(20);
   });
 });
-
