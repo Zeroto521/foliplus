@@ -434,6 +434,83 @@ describe("attachDistanceUI", () => {
     expect(onUpdate).toHaveBeenCalled();
     expect(registerLabel.mock.calls.length).toBeGreaterThan(beforeCalls);
   });
+
+  it("gives the last segment label (the cumulative total) a higher priority than the others", () => {
+    // The final distance label ends with the line's total length, so losing it in a
+    // collision would drop the number a user most often wants read off.
+    const registerLabel = vi.fn(() => () => {});
+    const mkLabel = () => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() });
+    const points = [0, 1, 2, 3].map(i => ({ lat: i, lng: i }));
+
+    UI.attachDistanceUI(
+      { ...makeMgr(), registerLabel } as any,
+      {
+        layers: { removeLayer: vi.fn(), addLayer: vi.fn(l => l), unregister: vi.fn() },
+        finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+        nodeMarkers: points.map(pt => ({
+          on: vi.fn(),
+          off: vi.fn(),
+          getLatLng: vi.fn(() => pt),
+          setLatLng: vi.fn(),
+        })),
+        segLabels: points.slice(0, -1).map(() => mkLabel()),
+        points,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    const priorities = registerLabel.mock.calls.map(c => c[1]);
+    expect(priorities).toEqual([
+      CONST.LABEL_PRIORITY.SEGMENT,
+      CONST.LABEL_PRIORITY.SEGMENT,
+      CONST.LABEL_PRIORITY.TOTAL,
+    ]);
+    expect(CONST.LABEL_PRIORITY.TOTAL).toBeGreaterThan(CONST.LABEL_PRIORITY.SEGMENT);
+    expect(CONST.LABEL_PRIORITY.TOTAL).toBeLessThan(CONST.LABEL_PRIORITY.CENTROID);
+  });
+
+  it("re-registers the total priority after deleting an inner node", () => {
+    // Deleting an inner node recreates the label set and re-issues the
+    // registrations, so the new final label must keep the elevated priority.
+    const registerLabel = vi.fn(() => () => {});
+    const mkLabel = () => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() });
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ];
+
+    UI.attachDistanceUI(
+      { ...makeMgr(), registerLabel } as any,
+      {
+        layers: { removeLayer: vi.fn(), addLayer: vi.fn(l => l), unregister: vi.fn() },
+        finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+        nodeMarkers: points.map(pt => ({
+          on: vi.fn(),
+          off: vi.fn(),
+          getLatLng: vi.fn(() => pt),
+          setLatLng: vi.fn(),
+        })),
+        segLabels: [0, 1].map(() => mkLabel()),
+        points,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    // Initial: [SEGMENT, TOTAL].
+    expect(registerLabel.mock.calls.map(c => c[1])).toEqual([
+      CONST.LABEL_PRIORITY.SEGMENT,
+      CONST.LABEL_PRIORITY.TOTAL,
+    ]);
+
+    // Delete the middle node → one segment left, which is now the total.
+    (makeDelIcon.mock.results[1].value as any)._delClick();
+
+    const lastCall = registerLabel.mock.calls.at(-1);
+    expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY.TOTAL);
+  });
 });
 
 describe("attachPolygonUI", () => {

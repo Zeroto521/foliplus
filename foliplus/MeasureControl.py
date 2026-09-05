@@ -32,10 +32,8 @@ class MeasureControl(BaseControl):
     - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
       centroid, or radius) and are never nudged. When dense, the collision
       detector hides the least-important overlapping chips so labels remain
-      readable — a label is hidden only when two chips intersect on the
-      y-axis AND overlap at least 75% of the narrower chip's width on the
-      x-axis, so chips that share a screen column but are stacked vertically
-      stay visible. Disable with ``collide_labels=False``.
+      readable — see ``collide_labels`` for the exact hiding rule and
+      priority order.
 
     **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
     clicking a measurement does not reveal its × handles. Edit mode and the drawing
@@ -66,13 +64,16 @@ class MeasureControl(BaseControl):
     collide_labels : bool, default True
         Whether to run the label collision detector. When enabled, a label is
         hidden only when two chips **intersect on the y-axis AND** overlap at
-        least 75% of the narrower chip's width on the x-axis (least important
-        chip first by priority, then width). Chips that share a screen column
-        but are stacked vertically (e.g. labels on two near-vertical polygon
-        edges at very different y) stay visible, and a light edge graze is
-        left alone. When disabled, every label stays visible on its anchor
-        regardless of overlap. Only affects on-screen layout, never exports
-        (CSV / GeoJSON always read persisted measurements).
+        least 75% of the narrower chip's width on the x-axis, so chips that
+        share a screen column but are stacked vertically (e.g. labels on two
+        near-vertical polygon edges at very different y) stay visible and a
+        light edge graze is left alone. Hiding sweeps labels from strongest
+        to weakest — centroid and radius, then the distance mode's final
+        total, then plain segments; a tie goes to the wider chip — so the
+        most important label always keeps its anchor. When disabled, every
+        label stays visible on its anchor regardless of overlap. Only affects
+        on-screen layout, never exports (CSV / GeoJSON always read persisted
+        measurements).
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is

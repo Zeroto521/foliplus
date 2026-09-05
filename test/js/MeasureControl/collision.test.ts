@@ -1,3 +1,7 @@
+// The "collision.perf" describe block at the bottom is wall-clock. Run those
+// alone with `-t perf`: under `vitest run --coverage` the v8-instrumented
+// placeLabels would distort the timing, so the bars are calibrated against an
+// uninstrumented run (n=500 worst case measures ~5 ms).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
 
@@ -453,3 +457,129 @@ describe("mapProjector", () => {
     expect(box.h).toBe(20);
   });
 });
+
+
+const PERF_REPEATS = 5;
+const PERF_CONTAINER_LEFT = 100;
+const PERF_CONTAINER_TOP = 60;
+const PERF_COLS = 25;
+const PERF_STEP_X = 400;
+const PERF_STEP_Y = 60;
+const PERF_CHIP_W = 100;
+const PERF_CHIP_H = 18;
+
+/** Mock a chip's rect. jsdom reports all zeros, so the geometry must come
+ *  from here for the planner's boxes to be realistic. */
+const perfRectOf = (el: HTMLElement, left: number, top: number, w: number, h: number): void => {
+  vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+    left,
+    top,
+    width: w,
+    height: h,
+    right: left + w,
+    bottom: top + h,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect);
+};
+
+/** The map container. Its offset feeds the chip coords so container-relative
+ *  math in mapProjector is exercised for real. */
+const makePerfContainer = (): HTMLElement => {
+  const el = document.createElement("div");
+  perfRectOf(el, PERF_CONTAINER_LEFT, PERF_CONTAINER_TOP, 1600, 900);
+  document.body.appendChild(el);
+  return el;
+};
+
+/** Real DOM chip at `box` (container-relative). */
+const labelAt = (
+  box: Box,
+  perfContainer: HTMLElement,
+): Collision.CollidableLabel => {
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  perfRectOf(
+    el,
+    box.x + PERF_CONTAINER_LEFT,
+    box.y + PERF_CONTAINER_TOP,
+    box.w,
+    box.h,
+  );
+  return {
+    marker: ({ _el: el, getElement: () => el } as unknown as L.Marker),
+    priority: 60,
+  };
+};
+
+/** Worst case for the sweep: every chip in one x band and one y band, so
+ *  nothing hides early and `shown` grows to n. Each chip compares against all. */
+const ribbon = (n: number): Box[] =>
+  Array.from({ length: n }, (_, i) => ({
+    x: i * 60, // 60px step on a 100px chip → overlapping
+    y: Math.floor(i / 40) * 2, // same y band, tiny jitter
+    w: PERF_CHIP_W,
+    h: PERF_CHIP_H,
+  }));
+
+/** Best case: chips well clear of each other. `shown` still grows to n, but
+ *  every comparison short-circuits on the vertical-overlap test. */
+const grid = (n: number): Box[] =>
+  Array.from({ length: n }, (_, i) => ({
+    x: (i % PERF_COLS) * PERF_STEP_X,
+    y: Math.floor(i / PERF_COLS) * PERF_STEP_Y,
+    w: PERF_CHIP_W,
+    h: PERF_CHIP_H,
+  }));
+
+/** Mean wall-clock of a few plans, after one warm-up that absorbs JIT setup. */
+const meanMs = (
+  labels: Collision.CollidableLabel[],
+  perfContainer: HTMLElement,
+): number => {
+  const projector = Collision.mapProjector(
+    { getContainer: () => perfContainer } as unknown as L.Map,
+  );
+  Collision.placeLabels(labels, projector, true, chipOf);
+  const t0 = performance.now();
+  for (let i = 0; i < PERF_REPEATS; i++) {
+    Collision.placeLabels(labels, projector, true, chipOf);
+  }
+  return (performance.now() - t0) / PERF_REPEATS;
+};
+
+const bench = (boxes: Box[], perfContainer: HTMLElement): number =>
+  meanMs(boxes.map(b => labelAt(b, perfContainer)), perfContainer);
+
+describe("collision.perf", () => {
+  let perfContainer: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    perfContainer = makePerfContainer();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  // 500 labels in one band is not a real foliplus map — a distance of 100
+  // segments is already an extreme session. These bars assert the order of
+  // magnitude at that scale, not a frame budget.
+  it("plans 500 heavily-overlapping labels in under 100ms", () => {
+    expect(bench(ribbon(500), perfContainer)).toBeLessThan(100);
+  });
+
+  it("plans 500 well-separated labels in under 50ms", () => {
+    expect(bench(grid(500), perfContainer)).toBeLessThan(50);
+  });
+
+  // n=200 is the bound documented in collision.ts. Without this test the
+  // bound would be asserted in a comment only.
+  it("plans 200 labels — the documented bound — in under 20ms", () => {
+    expect(bench(ribbon(200), perfContainer)).toBeLessThan(20);
+  });
+});
+

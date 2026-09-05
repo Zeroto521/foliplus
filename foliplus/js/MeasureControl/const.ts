@@ -40,6 +40,8 @@ const LABEL = {
  *  value first. */
 const LABEL_PRIORITY = {
   SEGMENT: 60,
+  /** The distance mode's final label also carries the cumulative total. */
+  TOTAL: 70,
   CENTROID: 80,
   RADIUS: 80,
 };

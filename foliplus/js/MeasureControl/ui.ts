@@ -69,19 +69,21 @@ interface AttachOpts {
  * removed marker would point at a dead chip. Returns the unregister function
  * the caller's dispose runs.
  *
+ * `priority` may vary per index: distance mode's final label also carries the
+ * cumulative total, which must out-rank a plain segment in a collision.
+ *
  * Shared by distance and polygon: both recreate their segment labels on every
  * relabel (drag, node delete), which is what makes re-registration necessary.
  */
 const bindSegmentLabels = (
   mgr: MeasureManager,
   segLabels: L.Marker[],
+  priority: (index: number) => number = () => CONST.LABEL_PRIORITY.SEGMENT,
 ): (() => void) => {
   let unregisters: Array<() => void> = [];
   const refresh = () => {
     unregisters.forEach(f => f());
-    unregisters = segLabels.map(label =>
-      mgr.registerLabel(label, CONST.LABEL_PRIORITY.SEGMENT),
-    );
+    unregisters = segLabels.map((label, i) => mgr.registerLabel(label, priority(i)));
   };
   refresh();
   return () => {
@@ -93,9 +95,15 @@ const bindSegmentLabels = (
 const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points } =
     opts;
+  // The last label ends with the cumulative total, so it wins a collision
+  // against any per-segment label — losing it would drop the line's length.
+  const totalPriority = (i: number): number =>
+    i === segLabels.length - 1
+      ? CONST.LABEL_PRIORITY.TOTAL
+      : CONST.LABEL_PRIORITY.SEGMENT;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
-  let unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+  let unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
 
   const relabel = () => {
     let cumulative = 0;
@@ -109,7 +117,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         ),
       );
     });
-    unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+    unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
 
   const onOpen = () => {
