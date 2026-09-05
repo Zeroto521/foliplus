@@ -373,19 +373,20 @@ class MeasureManager {
       const { x, y } = this.map.latLngToContainerPoint(event.latlng);
       const size = this.map.getSize();
       const gap = CONST.READOUT.ANCHOR_GAP;
-      // The chip is centered on the cursor and lifted `gap` px above it; when
-      // that would push it past the container edge, keep it inside. This is the
-      // same [0, -10] anchor a measurement label uses on its point.
+      // The chip is centered on the cursor and dropped `gap` px below it —
+      // due south of it, the same way the area label sits south of the centroid
+      // dot. When that would push it past the bottom edge, the flip re-anchors
+      // it above the cursor instead.
+      const h = container.offsetHeight;
       const cx = Math.max(
         container.offsetWidth / 2,
         Math.min(size.x - container.offsetWidth / 2, x),
       );
       container.style.left = `${cx}px`;
       container.style.top = `${y}px`;
-      // Near the top edge there is no room above the cursor, so sit below it.
       container.classList.toggle(
         CONST.READOUT.CLASS_FLIP,
-        y < container.offsetHeight + gap,
+        y + h + gap > size.y && y >= h,
       );
       container.textContent = Util.coordText(this.map, event.latlng);
       // Reveal only once it has a real position. Showing it before the first

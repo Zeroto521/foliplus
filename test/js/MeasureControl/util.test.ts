@@ -700,13 +700,13 @@ describe("bindNodeDrag", () => {
 });
 
 describe("readLatLng", () => {
-  it("reads the lat/lng pair", () => {
-    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([31.2, 121.5]);
+  it("reads the lng/lat pair with longitude leading", () => {
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([121.5, 31.2]);
   });
 
   it("reads the latitude/longitude alias", () => {
     expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
-      31.2, 121.5,
+      121.5, 31.2,
     ]);
   });
 

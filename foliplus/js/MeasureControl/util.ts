@@ -201,7 +201,9 @@ const formatLatLng = (lng: number, lat: number): string =>
 type DisplayLatLng =
   L.LatLng | { lat: number; lng: number } | { latitude: number; longitude: number };
 
-/** Collapse the two Leaflet coordinate shapes into a plain lat/lng pair. */
+/** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
+ *  Longitude leads, matching `formatLatLng`, `toWgs84` and every other
+ *  location display in the project. */
 const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const raw = pt as {
     lat?: number;
@@ -212,16 +214,16 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lat = raw.lat ?? raw.latitude;
   const lng = raw.lng ?? raw.longitude;
   if (lat === undefined || lng === undefined) {
-    throw new TypeError("[foliplus] MeasureControl: point has no lat/lng");
+    throw new TypeError("[foliplus] MeasureControl: point has no lng/lat");
   }
-  return [lat, lng];
+  return [lng, lat];
 };
 
 /** Format `pt` (display CRS) as a WGS84 readout string. The conversion lives
  *  here so callers never have to remember it, and the readout reports the same
  *  CRS as the export regardless of which tiles the map serves. */
 const coordText = (map: L.Map, pt: DisplayLatLng): string => {
-  const [lat, lng] = readLatLng(pt);
+  const [lng, lat] = readLatLng(pt);
   const [wlng, wlat] = toWgs84(map, lng, lat);
   return formatLatLng(wlng, wlat);
 };

@@ -79,11 +79,13 @@ class MeasureControl(BaseControl):
         Whether to show a live longitude/latitude readout while measuring. A small
         chip trails the cursor for the whole time a drawing mode is armed — including
         before the first click — so the coordinate about to be placed is visible
-        instead of only the ones already placed. It disappears as soon as the
-        measurement is finalized: a finished measurement is described by its shape
-        and segment labels, not by a coordinate under the pointer. Coordinates are
-        converted to WGS84 before display, so the readout matches the exported data
-        even on GCJ02 / BD09 maps.
+        instead of only the ones already placed. It hangs due south of the pointer,
+        the same way the area label sits south of the centroid dot, and is flipped
+        above the pointer near the bottom edge of the map. It disappears as soon as
+        the measurement is finalized: a finished measurement is described by its
+        shape and segment labels, not by a coordinate under the pointer. Coordinates
+        are converted to WGS84 before display, so the readout matches the exported
+        data even on GCJ02 / BD09 maps.
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is

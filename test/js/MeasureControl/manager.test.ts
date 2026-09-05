@@ -227,15 +227,19 @@ describe("MeasureManager — mode switching", () => {
     expect(readout.hidden).toBe(true);
   });
 
-  it("tracks the cursor and anchors the chip above it ([0, -10])", () => {
+  it("tracks the cursor and anchors the chip below it (due south)", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
     let px = { x: 500, y: 400 };
     map.latLngToContainerPoint = () => px;
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
+    // jsdom reports no layout, so the flip decision (which depends on the
+    // chip's measured height) has no signal without a stubbed size.
+    Object.defineProperty(readout, "offsetHeight", { value: 24 });
+    Object.defineProperty(readout, "offsetWidth", { value: 140 });
 
-    // The lift lives in CSS (translate), so the inline style is just the
+    // The offset lives in CSS (translate), so the inline style is just the
     // cursor's container point; the horizontal clamp keeps it on-screen.
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
     move({ latlng: { lat: 31, lng: 121 } });
@@ -245,10 +249,15 @@ describe("MeasureManager — mode switching", () => {
     expect(readout.textContent).toBe("121.000000, 31.000000");
     expect(readout.hidden).toBe(false);
 
-    // Near the top edge with no room above, the chip re-anchors below the cursor.
-    px = { x: 500, y: 2 };
+    // Near the bottom edge with no room below, the chip re-anchors above it.
+    px = { x: 500, y: 790 };
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
+
+    // In the open middle it never flips.
+    px = { x: 500, y: 400 };
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(false);
   });
 
   it("hides the chip on mouseout", () => {
