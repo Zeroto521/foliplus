@@ -95,7 +95,11 @@ const SPEC = {
   emit: { type: "string", desc: "Write the current sizes to this JSON file" },
   baseline: { type: "string", desc: "JSON file to diff against" },
   report: { type: "string", desc: "Also write the Markdown table here" },
-  threshold: { type: "number", default: DEFAULT_THRESHOLD, desc: "Max growth before failing, in %" },
+  threshold: {
+    type: "number",
+    default: DEFAULT_THRESHOLD,
+    desc: "Max growth before failing, in %",
+  },
   root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
 };
 
