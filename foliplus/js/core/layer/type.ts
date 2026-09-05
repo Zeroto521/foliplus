@@ -23,6 +23,14 @@ export interface RegisterLayerOpts {
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Optional data provenance (file name or URL) shown in the attributes panel. */
+  source?: string | null;
+  /** Optional last-update time (ISO string or epoch ms) shown in the attributes
+   *  panel. The panel is display-only — no timestamp is derived at runtime. */
+  updatedAt?: string | number | null;
+  /** Optional third-party attributes appended to the attributes panel as
+   *  label/value rows. Display-only; keys are rendered verbatim. */
+  meta?: Record<string, string | number | null | undefined> | null;
   [key: string]: unknown;
 }
 
@@ -49,6 +57,12 @@ export interface LayerInfo {
   featureCountProvider?: (() => number) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Data provenance (file name or URL) for the attributes panel. */
+  source?: string | null;
+  /** Last-update time (ISO string or epoch ms) for the attributes panel. */
+  updatedAt?: string | number | null;
+  /** Third-party attributes appended to the attributes panel. */
+  meta?: Record<string, string | number | null | undefined> | null;
   [key: string]: unknown;
 }
 

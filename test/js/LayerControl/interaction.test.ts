@@ -208,6 +208,19 @@ describe("LayerControl handleMoreMenuClick", () => {
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
+  it("dispatches the attributes action → calls openAttrsPanel with the menu's row", () => {
+    const { ui, li } = buildMenu();
+    ui.openAttrsPanel = vi.fn();
+    li.dataset.action = CONST.ACTION.ATTRS_LAYER;
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.activeMenu.item);
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
   it("skips focusLayer when the menu item is disabled (hidden layer)", () => {
     const { ui, li } = buildMenu(true);
 

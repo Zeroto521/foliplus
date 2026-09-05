@@ -26,6 +26,21 @@ import * as Util from "./util.js";
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
+/** Format an update timestamp for the attributes panel.
+ *  Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
+ *  input returns "" so the caller omits the row instead of showing a
+ *  "Invalid Date" literal. */
+const formatTimestamp = (value: string | number): string => {
+  const date = new Date(
+    typeof value === "number" ? value : Date.parse(value),
+  );
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(CONF.locale_code, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
   manager: LayerManager;
@@ -70,6 +85,12 @@ class LayerUI {
     menu: HTMLElement;
     layerId: string;
   } | null;
+  /** Currently visible attributes panel (or null). */
+  activeAttrsPanel: {
+    item: HTMLElement;
+    panel: HTMLElement;
+    layerId: string;
+  } | null;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -102,6 +123,7 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.activeMenu = null;
+    this.activeAttrsPanel = null;
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -793,7 +815,10 @@ class LayerUI {
     // works for rows created after bindEvents (registerLayer at runtime).
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
-    this.onMoreMapClick = () => this.closeMoreMenu(false);
+    this.onMoreMapClick = () => {
+      this.closeMoreMenu(false);
+      this.closeAttrsPanel(false);
+    };
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -892,6 +917,8 @@ class LayerUI {
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
+    this.closeMoreMenu(false);
+    this.closeAttrsPanel(false);
     this.interactionCleanup?.();
     this.m.persistence.cancelSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
@@ -1264,6 +1291,8 @@ class LayerUI {
           }
           if (action === CONST.ACTION.RENAME_LAYER)
             this.renameLayer(this.activeMenu.layerId);
+          else if (action === CONST.ACTION.ATTRS_LAYER)
+            this.openAttrsPanel(this.activeMenu.item);
           else {
             this.focusLayer(this.activeMenu.layerId);
             this.closeMoreMenu(true);
@@ -1275,6 +1304,7 @@ class LayerUI {
         break;
       case "Escape":
         if (this.activeMenu) this.closeMoreMenu(true);
+        else if (this.activeAttrsPanel) this.closeAttrsPanel(true);
         else this.clearActiveItem();
         break;
     }
@@ -1516,6 +1546,20 @@ class LayerUI {
       ),
     );
 
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": CONST.ACTION.ATTRS_LAYER,
+          role: "menuitem",
+          tabindex: "0",
+          title: T("attributes_layer_tooltip"),
+        },
+        { html: SVGs.INFO },
+        T("attributes_layer"),
+      ),
+    );
+
     item.style.position = "relative";
     item.appendChild(menu);
 
@@ -1532,6 +1576,140 @@ class LayerUI {
     const item = this.activeMenu.item;
     this.activeMenu.menu.remove();
     this.activeMenu = null;
+    if (setFocus) item.focus();
+  }
+
+  /**
+   * Open the attributes panel for a given layer row: display-only metadata
+   * (name, provenance, feature count, last update, visibility) plus any
+   * third-party `meta` entries passed to registerLayer.
+   *
+   * Rows are omitted when they carry no value — a panel is not padded with
+   * "—". The color basemap is included (it carries no provider data, but the
+   * fixed rows still read).
+   */
+  openAttrsPanel(item: HTMLElement) {
+    this.finishRename();
+    this.closeMoreMenu(true);
+    this.closeAttrsPanel(false);
+
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
+    const layerInfo = isColor
+      ? null
+      : this.manager.layerRegistry.get(layerId);
+
+    const rows: Array<[string, string]> = [
+      [
+        T("attr_name"),
+        isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId),
+      ],
+    ];
+    if (layerInfo?.source) rows.push([T("attr_source"), layerInfo.source]);
+    if (!isColor) {
+      const count = layerInfo ? this.manager.getFeatureCount(layerId) : null;
+      rows.push([
+        T("attr_feature_count"),
+        count == null
+          ? T("attr_empty")
+          : formatNumber(count, "auto", CONF.locale_code),
+      ]);
+      if (layerInfo?.updatedAt != null)
+        rows.push([T("attr_updated_at"), formatTimestamp(layerInfo.updatedAt)]);
+    }
+    rows.push([
+      T("attr_visible"),
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
+        ?.checked === false
+        ? T("attr_no")
+        : T("attr_yes"),
+    ]);
+
+    const panel = dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.ATTRS_PANEL,
+        role: "dialog",
+        "aria-label": T("attributes_layer"),
+      },
+      dom.el(
+        "h3",
+        { class: "foliplus-layer-attrs-title" },
+        T("attributes_layer"),
+      ),
+      dom.el(
+        "dl",
+        { class: "foliplus-layer-attrs-list" },
+        ...rows.map(([label, value]) =>
+          dom.el(
+            "div",
+            { class: CONST.CLASSES.ATTRS_ROW },
+            dom.el(
+              "dt",
+              { class: CONST.CLASSES.ATTRS_LABEL },
+              label,
+            ),
+            dom.el(
+              "dd",
+              { class: CONST.CLASSES.ATTRS_VALUE, title: value },
+              value,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Third-party meta rows append below a separator so the built-in block
+    // and the extension block stay visually distinct.
+    const meta = layerInfo?.meta;
+    if (meta) {
+      const metaKeys = Object.entries(meta).filter(([, v]) => v != null && v !== "");
+      if (metaKeys.length) {
+        panel.lastElementChild!.appendChild(
+          dom.el("hr", { class: "foliplus-layer-attrs-sep" }),
+        );
+        panel.lastElementChild!.appendChild(
+          dom.el("h3", { class: "foliplus-layer-attrs-title" }, T("attr_custom")),
+        );
+        for (const [key, value] of metaKeys) {
+          const text =
+            typeof value === "number"
+              ? formatNumber(value, "auto", CONF.locale_code)
+              : String(value);
+          panel.lastElementChild!.appendChild(
+            dom.el(
+              "div",
+              {
+                class: `${CONST.CLASSES.ATTRS_ROW} ${CONST.CLASSES.ATTRS_META_ROW}`,
+              },
+              dom.el(
+                "dt",
+                { class: CONST.CLASSES.ATTRS_LABEL, title: key },
+                key,
+              ),
+              dom.el(
+                "dd",
+                { class: CONST.CLASSES.ATTRS_VALUE, title: text },
+                text,
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    item.style.position = "relative";
+    item.appendChild(panel);
+
+    this.activeAttrsPanel = { item, panel, layerId };
+  }
+
+  /** Close the attributes panel. setFocus = true returns focus to the row. */
+  closeAttrsPanel(setFocus: boolean) {
+    if (!this.activeAttrsPanel) return;
+    const item = this.activeAttrsPanel.item;
+    this.activeAttrsPanel.panel.remove();
+    this.activeAttrsPanel = null;
     if (setFocus) item.focus();
   }
 

@@ -524,6 +524,57 @@ path.foliplus-focus-mask {
     color: var(--text-primary);
   }
 
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. Shares the unified dropdown shell
+     (common.css); this block owns the label/value layout. */
+  .foliplus-layer-attrs-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 280px;
+    max-height: 320px;
+    padding: var(--space-sm);
+    overflow-x: hidden;
+  }
+  .foliplus-layer-attrs-title {
+    margin: var(--space-xs) 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .foliplus-layer-attrs-list {
+    margin: 0;
+  }
+  .foliplus-layer-attrs-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-md);
+    align-items: baseline;
+    padding: var(--space-xs) 0;
+  }
+  .foliplus-layer-attrs-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .foliplus-layer-attrs-value {
+    font-size: var(--font-size-xs);
+    color: var(--text-primary);
+    margin: 0;
+    word-break: break-word;
+  }
+  .foliplus-layer-attrs-sep {
+    border: none;
+    border-top: var(--border-thin) solid var(--input-border);
+    margin: var(--space-sm) 0 0;
+    padding: 0;
+  }
+
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
   .foliplus-layer-item.foliplus-layer-focusing {
     border-left-color: var(--accent-primary);

@@ -48,6 +48,8 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (li.getAttribute("disabled")) return;
   if (action === "focus-layer") ui.focusLayer(ui.activeMenu?.layerId ?? "");
   if (action === "rename-layer") ui.renameLayer(ui.activeMenu?.layerId ?? "");
+  if (action === CONST.ACTION.ATTRS_LAYER)
+    ui.openAttrsPanel(ui.activeMenu?.item ?? li);
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
   ui.closeMoreMenu(action !== "rename-layer");

@@ -54,6 +54,40 @@ describe("LayerRegistry", () => {
       expect(info.name).toBe("Existing");
       expect(info.visible).toBe(false);
     });
+
+    it("defaults the attributes fields to null", () => {
+      const info = registry.createLayerInfo({ id: "test" });
+      expect(info.source).toBeNull();
+      expect(info.updatedAt).toBeNull();
+      expect(info.meta).toBeNull();
+    });
+
+    it("carries attributes fields through and keeps them across re-registration", () => {
+      const attrs = {
+        source: "https://example.com/parcels.geojson",
+        updatedAt: "2026-09-01T08:00:00Z",
+        meta: { parcel_count: 42 },
+      };
+      const created = registry.createLayerInfo({ id: "test", ...attrs });
+      expect(created.source).toBe(attrs.source);
+      expect(created.updatedAt).toBe(attrs.updatedAt);
+      expect(created.meta).toEqual(attrs.meta);
+
+      // Re-registration without the fields must not drop what was set.
+      const info = registry.createLayerInfo({ id: "test" }, created);
+      expect(info.source).toBe(attrs.source);
+      expect(info.updatedAt).toBe(attrs.updatedAt);
+      expect(info.meta).toEqual(attrs.meta);
+
+      // A fresh registration with new fields replaces the old ones.
+      const updated = registry.createLayerInfo(
+        { id: "test", source: "https://example.com/new.geojson" },
+        created,
+      );
+      expect(updated.source).toBe("https://example.com/new.geojson");
+      expect(updated.updatedAt).toBe(attrs.updatedAt);
+      expect(updated.meta).toEqual(attrs.meta);
+    });
   });
 
   describe("upsert", () => {
