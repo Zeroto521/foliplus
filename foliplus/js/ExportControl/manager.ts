@@ -591,16 +591,15 @@ class ExportManager {
       return;
     }
 
-    this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
-
-    // The crop-box size/limit hints are PERSIST (duration 0 sets no timer), so
-    // nothing else clears them once the box is removed. Without this the
-    // "100 × 100 px" label sits under the "exporting…" spinner for the whole
-    // export, and outliving the export itself — the same kind of registry leak
-    // as the object-URL leak. Clear them here so only the exporting status is
-    // visible.
+    // Clear the crop-box hints before showing the exporting status, so the
+    // status isn't announced on top of a stale "100 × 100 px" label. They are
+    // PERSIST (duration 0 sets no timer), so nothing else removes them once
+    // the box is gone — they'd outlive the export entirely, the same registry
+    // leak as the object-URL one.
     ensureHint(this.map).hideHint(CONF.name, "size");
     ensureHint(this.map).hideHint(CONF.name, "limit");
+
+    this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
