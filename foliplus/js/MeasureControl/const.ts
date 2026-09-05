@@ -149,30 +149,12 @@ const MODE = {
   CLEAR: "clear",
 };
 
-/** Layer-attachment stack: the order a component adds graph layers so the
- *  SVG renderer paints them in the intended order. `L.SVG._update` clones an
- *  existing `<path>` into a new layer instead of creating one, and its
- *  `appendChild` on the path is unconditional, so any second attach
- *  (`addLayer`, `bringToFront`, `L.svg().addTo(map)`) throws
- *  `Element.appendChild` on a path that already holds one element and kills
- *  the whole renderer. Attaching each layer exactly once in this order is the
- *  structural guarantee; the order is the z-order — first is bottom, last is
- *  top — so a later sibling never covers an earlier one. Nodes are the final
- *  layer: they overlap the paths and the center dot is the only circle point
- *  that survives finalization, so it must stay on top. Labels are divIcon
- *  markers in a separate pane that already sits above this one, so they are
- *  outside the stack. */
-const LAYER_STACK = ["shape", "radiusLine", "node"] as const;
-type MeasureStack = (typeof LAYER_STACK)[number];
-
 export {
   TIMING,
   MARKER,
   LABEL,
   READOUT,
   LABEL_PRIORITY,
-  LAYER_STACK,
-  type MeasureStack,
   FORMAT,
   ID,
   PANES,
