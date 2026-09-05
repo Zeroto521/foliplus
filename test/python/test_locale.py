@@ -201,6 +201,7 @@ _JS_USED_KEYS = {
     "MeasureControl.name_circle",
     "MeasureControl.export_no_data",
     "MeasureControl.export_paused",
+    "MeasureControl.readout_label",
     # ScaleControl
     "ScaleControl.zoom_label",
 }
