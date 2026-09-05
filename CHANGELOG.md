@@ -52,6 +52,7 @@
 
 ### Fixed
 
+- `ExportControl`: long click-to-download delay on large exports — `canvas.toDataURL()` base64-encoded the full raster into a multi-MB string for the 1.2s preview, and `toBlob()` then encoded the same pixels a second time. The canvas is now encoded once into a Blob that feeds both the preview and the download. The transient crop-box size/limit hints are also cleared on export start (they are `PERSIST` and nothing else removes them), so the "exporting…" status is not read on top of a stale "100 × 100 px" label
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))

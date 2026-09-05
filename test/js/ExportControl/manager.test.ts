@@ -1,7 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
+import { ensureHint } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
 import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
@@ -467,6 +468,62 @@ describe("ExportManager — shortcut lifecycle", () => {
 
     manager.unregisterShortcuts();
     expect(manager.interactionCleanup).toBeUndefined();
+  });
+});
+
+describe("ExportManager — hint lifecycle", () => {
+  // The crop-box size/limit hints are PERSIST (duration 0 sets no timer), so
+  // nothing clears them on its own. Before this, they stayed on screen through
+  // the whole export and outlived it — a stale "100 × 100 px" label under the
+  // "exporting…" spinner.
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.showGlobalHint = vi.fn();
+  });
+
+  it("doExport clears the crop-box hints before exporting", () => {
+    const hint = ensureHint(manager.map);
+    vi.spyOn(hint, "hideHint");
+    hint.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    hint.showHint(CONF.name, "too large", 0, undefined, "limit");
+
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
+
+    try {
+      manager.doExport();
+      expect(hint.hideHint).toHaveBeenCalledWith(CONF.name, "size");
+      expect(hint.hideHint).toHaveBeenCalledWith(CONF.name, "limit");
+      expect(hint.hideHint).not.toHaveBeenCalledWith(CONF.name);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      hint.hideHint.mockRestore();
+    }
+  });
+
+  it("clears the crop-box hints when the pixel limit aborts the export", () => {
+    const hint = ensureHint(manager.map);
+    const hideHint = vi.spyOn(hint, "hideHint");
+    hint.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    hint.showHint(CONF.name, "too large", 0, undefined, "limit");
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    // CONF.max_pixels is captured by const.ts at import time, so it cannot be
+    // set per-test here — set the flag checkPixelLimit() normally produces.
+    manager.pixelOverLimit = true;
+
+    try {
+      manager.doExport();
+      // An aborted export must not wedge the button, and must clear the whole
+      // component's hints rather than just the two subkeys.
+      expect(manager.isExporting).toBe(false);
+      expect(hideHint).toHaveBeenCalledWith(CONF.name);
+    } finally {
+      manager.pixelOverLimit = false;
+      hideHint.mockRestore();
+    }
   });
 });
 
@@ -1049,10 +1106,6 @@ describe("ExportManager — download paths", () => {
       HTMLCanvasElement.prototype.toBlob = function (cb) {
         cb(new Blob(["fake"]));
       };
-      const origToDataUrl = HTMLCanvasElement.prototype.toDataURL;
-      HTMLCanvasElement.prototype.toDataURL = vi
-        .fn()
-        .mockReturnValue("data:image/png,");
 
       const img = document.createElement("img") as HTMLImageElement & {
         _removeCalled: boolean;
@@ -1075,18 +1128,73 @@ describe("ExportManager — download paths", () => {
       });
 
       manager.onRenderSuccess(document.createElement("canvas"), []);
+      // canvasToBlob resolves via a promise chain, so flush microtasks before
+      // the SHORT timer becomes eligible.
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(false);
 
+      // Advance to SHORT and fire the preview dismissal. Only flush timers —
+      // a bare runOnlyPendingTimers() would also trip the revoke timer
+      // scheduled in the same tick.
       vi.advanceTimersByTime(1200);
       vi.runOnlyPendingTimers();
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(true);
 
       HTMLCanvasElement.prototype.toBlob = origToBlob;
-      HTMLCanvasElement.prototype.toDataURL = origToDataUrl;
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
     }
+  });
+
+  it("onRenderSuccess does not base64-encode the canvas for the preview", async () => {
+    // Preview and download must share one encoding. toDataURL() used to copy
+    // the whole raster into a base64 string just for the preview, and toBlob()
+    // then encoded the same pixels a second time — the dominant chunk of the
+    // click-to-download delay on HD exports.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(new Blob(["fake"]));
+    };
+    const toDataURL = vi.fn();
+    HTMLCanvasElement.prototype.toDataURL = toDataURL;
+    vi.stubGlobal("createImageBitmap", undefined);
+
+    const img = document.createElement("img") as HTMLImageElement;
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "img") return img;
+      return origCreate(tag);
+    });
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(toDataURL).not.toHaveBeenCalled();
+      expect(img.src).not.toBe("");
+      expect(img.src.startsWith("blob:")).toBe(true);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      HTMLCanvasElement.prototype.toDataURL = origToDataURL;
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("canvasToBlob passes the format through to toBlob and surfaces null", async () => {
+    const canvas = document.createElement("canvas");
+    const toBlob = vi.fn(cb => cb(new Blob(["png"])));
+    canvas.toBlob = toBlob;
+
+    expect(await canvasToBlob(canvas, "image/jpeg", 0.8)).toBeInstanceOf(Blob);
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.8);
+
+    // `toBlob` signalling failure (callback with null) must resolve to null so
+    // onRenderSuccess reports the failure instead of throwing past endExport().
+    canvas.toBlob = vi.fn(cb => cb(null));
+    expect(await canvasToBlob(canvas, "image/png")).toBeNull();
   });
 });
 
