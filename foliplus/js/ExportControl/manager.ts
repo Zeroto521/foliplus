@@ -20,6 +20,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
+import { download } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -713,15 +714,7 @@ class ExportManager {
           // Export as a single GeoTIFF file with embedded georeferencing.
           await this.downloadGeoTiff(canvas, name);
         } else {
-          const link = document.createElement("a");
-          const url = URL.createObjectURL(blob);
-          link.download = `${name}.${CONF.format}`;
-          link.href = url;
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+          download(blob, `${name}.${CONF.format}`);
         }
         this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
         this.isExporting = false;
@@ -806,15 +799,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${name}.tif`;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+    download(blob, `${name}.tif`);
   }
 
   /** Handle render failure. */

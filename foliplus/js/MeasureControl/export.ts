@@ -10,6 +10,7 @@
 // translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { download } from "../ExportControl/util.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
@@ -195,12 +196,7 @@ const exportMeasurements = (
       content = toGeoJSON(measurements);
   }
 
-  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
+  download(new Blob([content], { type: mimeType }), filename);
 };
 
 /**

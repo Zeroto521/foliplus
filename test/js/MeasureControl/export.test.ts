@@ -330,8 +330,10 @@ describe("Export.exportMeasurements", () => {
         const anchor = {
           href: "",
           download: "",
+          rel: "",
           style: {},
           click: vi.fn(),
+          remove: vi.fn(),
         };
         lastAnchor = anchor;
         return anchor as any;
@@ -606,7 +608,14 @@ describe("Export.handleExportClick", () => {
     originalCreateElement = document.createElement;
     document.createElement = vi.fn((tag: string) => {
       if (tag === "a") {
-        const anchor = { href: "", download: "", click: vi.fn(), appendChild: vi.fn() };
+        const anchor = {
+          href: "",
+          download: "",
+          rel: "",
+          style: {},
+          click: vi.fn(),
+          remove: vi.fn(),
+        };
         lastAnchor = anchor;
         return anchor as any;
       }
@@ -675,7 +684,10 @@ describe("Export.exportMeasurements — default format", () => {
     document.createElement = vi.fn(() => ({
       href: "",
       download: "",
+      rel: "",
+      style: {},
       click: vi.fn(),
+      remove: vi.fn(),
     })) as any;
     const origAppendChild = HTMLBodyElement.prototype.appendChild;
     HTMLBodyElement.prototype.appendChild = vi.fn() as any;
