@@ -1184,7 +1184,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("New Name");
+      expect(ui.renamedNames.overlay1).toBe("New Name");
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
     });
 
@@ -1199,7 +1199,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new Event("blur"));
 
       expect(label.textContent).toBe("Via Blur");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Via Blur");
+      expect(ui.renamedNames.overlay1).toBe("Via Blur");
     });
 
     it("Escape cancels and restores the original label text", () => {
@@ -1265,7 +1265,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(label.textContent).toBe("Trimmed");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Trimmed");
+      expect(ui.renamedNames.overlay1).toBe("Trimmed");
     });
 
     it("committing an unchanged name does not write to renamedNames", () => {
@@ -1490,7 +1490,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.applyNamesState();
 
       const item = findItem(ui, "overlay1");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      expect(ui.renamedNames.overlay1).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");

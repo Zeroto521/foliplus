@@ -141,8 +141,11 @@ class LayerUI {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
-    this.applyNamesState();
     this.reindexItems();
+    // Last in the attach sequence: late-registered (third-party) layers
+    // already had their rename applied by insertLayerItem, so this pass
+    // covers only rows rendered from the initial registry.
+    this.applyNamesState();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -187,15 +190,15 @@ class LayerUI {
   /**
    * Overwrite each registered layer's display name with the user-assigned
    * value and refresh the affected label in the UI. Called once from
-   * attachUI() after the initial list + pending registrations are rendered.
+   * attachUI() as the final step, and after any later registry mutation
+   * (LayerManager.renameLayer) that would otherwise resurrect a stale name.
    */
   applyNamesState() {
     if (!this.uiContainer) return;
     for (const [id, name] of Object.entries(this.renamedNames)) {
+      if (id !== CONST.COLOR.MAP_ID && this.m.layerRegistry.get(id) == null)
+        continue;
       const layerInfo = this.m.layerRegistry.get(id);
-      const isColorLayer = id === CONST.COLOR.MAP_ID;
-      if (!layerInfo && !isColorLayer) continue;
-      if (layerInfo && layerInfo.name === name) continue;
       if (layerInfo) layerInfo.name = name;
       const item = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
@@ -413,25 +416,11 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
-    // If the layer has a persisted rename, apply it before reindexing so
-    // the label + checkbox aria reflect the user-assigned name immediately.
-    this.applyPersistedRename(layerInfo, item);
-
     if (reindex) this.reindexItems();
-  }
-
-  /**
-   * Apply a persisted rename to a just-inserted layer item.
-   *
-   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
-   * from the registry — the Python-supplied original name. This mirrors the
-   * logic in applyNamesState so the inline label + checkbox aria match.
-   */
-  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
-    const name = this.renamedNames[layerInfo.id];
-    if (!name) return;
-    if (layerInfo.name !== name) layerInfo.name = name;
-    updateItemLabel(item, name);
+    // insertLayerItem is also where a late-registered (third-party) layer
+    // first shows up, so its rename lands with the row instead of waiting
+    // for the next applyNamesState pass.
+    this.applyNamesState();
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -440,16 +429,26 @@ class LayerUI {
     ) as HTMLElement | null;
     if (!item) return;
     item.dataset.index = String(idx);
-    const label = item.querySelector("label");
-    if (label) label.textContent = layerInfo.name;
+    const name = this.displayName(layerInfo.id);
+    updateItemLabel(item, name);
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
     if (checkbox) {
       checkbox.dataset.index = String(idx);
-      checkbox.setAttribute("aria-label", layerInfo.name);
-      checkbox.title = layerInfo.name;
+      checkbox.setAttribute("aria-label", name);
+      checkbox.title = name;
     }
+  }
+
+  /**
+   * Effective panel display name for a layer: the user-assigned rename wins,
+   * falling back to the registry name. Every render path resolves names
+   * through here so a registry mutation (re-registration, type refresh) can
+   * no longer resurrect the original third-party name over a rename.
+   */
+  displayName(id: string): string {
+    return this.renamedNames[id] ?? this.m.layerRegistry.get(id)?.name ?? "";
   }
 
   renderToggleAllRow(group: string, labelKey: string) {
@@ -496,7 +495,7 @@ class LayerUI {
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    const name = layerInfo.name;
+    const name = this.displayName(layerInfo.id);
 
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -612,6 +611,7 @@ class LayerUI {
   initLayerItem(layerInfo: LayerInfo): boolean {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return false;
+    const name = this.displayName(layerInfo.id);
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
     ) as NodeListOf<HTMLInputElement>;
@@ -636,6 +636,10 @@ class LayerUI {
       if (item) {
         if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
+        // The rename must survive a full init pass — initLayerItem is the
+        // only incremental path that refreshes a row without re-rendering it.
+        input.setAttribute("aria-label", name);
+        input.title = name;
       }
     }
 
@@ -1578,9 +1582,12 @@ class LayerUI {
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
-          if (layerInfo) layerInfo.name = trimmed;
+          // The rename lives in renamedNames only — never in the registry,
+          // which re-registers from the third-party layer's own metadata and
+          // would silently clobber the display name on the next re-add.
           this.renamedNames[layerId] = trimmed;
           this.saveNamesState();
+          this.applyNamesState();
         }
         this.finishRename(true);
       },
