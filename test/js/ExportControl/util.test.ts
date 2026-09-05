@@ -309,4 +309,35 @@ describe("download", () => {
     download(new Blob(["x"], { type: "text/plain" }), "x.txt");
     expect(lastAnchor.style.display).toBe("none");
   });
+
+  it("detaches the anchor and schedules revoke when click() throws", () => {
+    vi.useFakeTimers();
+    // The anchor only exists once createElement runs, so the throwing click is
+    // injected at creation time rather than patched on afterwards.
+    vi.spyOn(document, "createElement").mockImplementationOnce(tag => {
+      const a = document.createElement(String(tag)) as HTMLAnchorElement;
+      a.click = vi.fn(() => {
+        throw new Error("blocked by browser");
+      });
+      lastAnchor = a;
+      return a;
+    });
+
+    // Captured rather than .toThrow(): that matcher rethrows the original
+    // error, which would mask the cleanup finally already performed.
+    let thrown: unknown = null;
+    try {
+      download(new Blob(["x"], { type: "text/plain" }), "x.txt");
+    } catch (err) {
+      thrown = err;
+    }
+    expect(String(thrown)).toContain("blocked by browser");
+
+    // The error still reaches the caller, but the URL must be released on
+    // schedule — a throw is exactly the case the leak would otherwise hit.
+    expect(document.body.contains(lastAnchor)).toBe(false);
+    expect(revokedUrls).toHaveLength(0);
+    vi.advanceTimersByTime(DEFAULT_REVOKE_DELAY);
+    expect(revokedUrls).toEqual([createdUrls[0]]);
+  });
 });
