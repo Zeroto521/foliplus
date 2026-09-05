@@ -17,7 +17,7 @@ const T = createScopedTranslator(CONF);
 const formatDistance = (meters: number): string => {
   return meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
-    : `${formatNumber(meters, "comma", "en", 0)} m`;
+    : `${formatNumber(meters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
 };
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
@@ -35,8 +35,8 @@ const formatSegmentLabel = (
 /** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000)
-    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", 2)} km²`;
-  return `${formatNumber(sqMeters, "comma", "en", 0)} m²`;
+    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
+  return `${formatNumber(sqMeters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
 };
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
