@@ -43,7 +43,6 @@
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
-- `LayerControl`: persisting renames and hidden layers are now one `LayerUI.applyUserState()` pass instead of two separate apply methods, so a layer added at runtime gets its name and visibility projection in a single targeted call ([#254](https://github.com/Zeroto521/foliplus/pull/254))
 
 ### Removed
 
@@ -61,7 +60,6 @@
 - `SearchControl`: `Enter` now adopts the keyboard-highlighted suggestion (previously it always re-geocoded and took the first Nominatim result) ([#216](https://github.com/Zeroto521/foliplus/pull/216))
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
-- `LayerControl`: a rename reverted to the original name on a re-render or page reload for any layer re-registered by a third party — `createLayerInfo` took the caller's own metadata over the existing value, so the registry projection went stale; the user's rename is now the single source of truth and registry/row names are refreshed from it. The layer-visibility checkbox kept its Select/Deselect tooltip instead of being overwritten with the layer name, which now reaches assistive tech via `aria-label` ([#254](https://github.com/Zeroto521/foliplus/pull/254))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 
 ## [v0.3.0] (2026-08-02)

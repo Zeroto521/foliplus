@@ -280,7 +280,11 @@ class LayerUI {
     }
 
     // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Stale ids occur when a layer is removed at runtime after being hidden.
+    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
+    // to write the projection into. Renames are pruned in unregisterLayer
+    // instead — a rename whose id is not in the registry yet belongs to a
+    // component that will register later, so sweeping it here would drop it
+    // on the very first attach and the user would see the default name.
     const staleIds = [...this.hiddenIds].filter(
       layerId => registry.get(layerId) == null,
     );

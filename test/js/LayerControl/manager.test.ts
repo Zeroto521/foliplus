@@ -1548,23 +1548,48 @@ describe("LayerManager user-assigned names", () => {
   });
 
   it("applies a persisted rename at startup", () => {
-    // The user renamed the layer; after a reload the registry is rebuilt from
-    // the author's original names and the persisted rename must be re-applied.
-    window.localStorage.setItem(
-      CONST.STORAGE.NAMES_KEY,
-      JSON.stringify({ ext: "My Layer" }),
-    );
-
+    // `attachUI` reads the names key at call time, so the seed has to land
+    // before `attachUI` — but after the LayerManager constructor, which has
+    // already built the registry that loadNames validates against.
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh);
+    window.localStorage.setItem(
+      CONST.STORAGE.NAMES_KEY,
+      JSON.stringify({ ext: "My Layer" }),
+    );
     fresh.attachUI(document.createElement("div"));
 
     // The registry is the projection, so the sweep pushes the rename into it
     // too; displayName is the render contract either way.
     expect(fresh.layerRegistry.get("ext")?.name).toBe("My Layer");
     expect(fresh.ui.displayName("ext")).toBe("My Layer");
+  });
+
+  it("keeps a rename for a layer that registers after the UI attaches", () => {
+    // A component whose bundle loads after LayerControl registers its layer
+    // in its own constructor — HeatmapControl's createCanvas and
+    // MeasureControl's createLayers both run after attachUI has already
+    // loaded the persisted names. loadNames filters value types only, so the
+    // rename survives the attach and is projected the moment the layer
+    // registers. A registry filter here would have reverted it on every reload.
+    const fresh = new LayerManager(map, [
+      { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
+    ]);
+    fresh.ui = new LayerUI(fresh);
+    window.localStorage.setItem(
+      CONST.STORAGE.NAMES_KEY,
+      JSON.stringify({ heatmap1: "POI Density" }),
+    );
+    fresh.attachUI(document.createElement("div"));
+
+    // The heatmap registers late, still advertising its own title.
+    fresh.registerLayer({ id: "heatmap1", name: "Heatmap" });
+    fresh.ui.applyUserState();
+
+    expect(fresh.ui.displayName("heatmap1")).toBe("POI Density");
+    expect(fresh.layerRegistry.get("heatmap1")?.name).toBe("POI Density");
   });
 
   it("accepts a caller-supplied name for a fresh layer", () => {
@@ -1577,17 +1602,45 @@ describe("LayerManager user-assigned names", () => {
     expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
   });
 
-  it("ignores stored names for ids that are not registered", () => {
+  it("keeps a stored rename for an id that no longer exists", () => {
+    // The sweep must not drop a rename whose id is absent from the registry:
+    // that id may belong to a component that registers later. unregisterLayer
+    // is the only place that prunes a rename, since it knows the layer is
+    // gone for good.
     window.localStorage.setItem(
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ "no-such-id": "Ghost" }),
     );
-
     manager.ui.loadNamesState();
-    manager.ui.applyUserState();
 
-    // A stale id is pruned by loadNames and stays out of the render contract.
-    expect(manager.ui.renamedNames["no-such-id"]).toBeUndefined();
-    expect(manager.ui.displayName("no-such-id")).toBe("");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    manager.ui.applyUserState();
+    warn.mockRestore();
+
+    expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("stale rename ids"),
+    );
+  });
+
+  it("prunes a rename when its layer is unregistered", () => {
+    // The prune lives on unregisterLayer because only that call knows the
+    // layer is gone for good rather than merely not registered yet.
+    manager.ui.renamedNames["ext"] = "My Layer";
+    const save = vi.fn();
+    manager.ui.saveNamesState = save;
+
+    expect(manager.unregisterLayer("ext")).toBe(true);
+
+    expect(manager.ui.renamedNames["ext"]).toBeUndefined();
+    expect(save).toHaveBeenCalled();
+  });
+
+  it("does not touch the rename map when unregistering an unknown id", () => {
+    const save = vi.fn();
+    manager.ui.saveNamesState = save;
+
+    expect(manager.unregisterLayer("never-registered")).toBe(false);
+    expect(save).not.toHaveBeenCalled();
   });
 });
