@@ -1618,9 +1618,7 @@ describe("LayerManager user-assigned names", () => {
     warn.mockRestore();
 
     expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
-    expect(warn).not.toHaveBeenCalledWith(
-      expect.stringContaining("stale rename ids"),
-    );
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
   });
 
   it("prunes a rename when its layer is unregistered", () => {
