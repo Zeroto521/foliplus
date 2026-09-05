@@ -91,9 +91,6 @@ export const CLASSES = {
   ATTRS_ROW: "foliplus-layer-attrs-row",
   ATTRS_LABEL: "foliplus-layer-attrs-label",
   ATTRS_VALUE: "foliplus-layer-attrs-value",
-  /** Marks attribute rows that came from third-party `meta`, so the panel can
-   *  draw a separator before them (built-in rows stay in one block). */
-  ATTRS_META_ROW: "foliplus-layer-attrs-meta-row",
 };
 
 /** Data attribute names. */

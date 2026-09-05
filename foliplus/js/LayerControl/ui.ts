@@ -26,6 +26,10 @@ import * as Util from "./util.js";
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
+/** Above this length a value overflows the value column at the panel's fixed
+ *  10px type and is rendered below its label on the full panel width. */
+const ATTRS_ROW_WRAP_CHARS = 32;
+
 /** Format an update timestamp for the attributes panel.
  *  Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
  *  input returns "" so the caller omits the row instead of showing a
@@ -1595,25 +1599,78 @@ class LayerUI {
     const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
     const layerInfo = isColor ? null : this.manager.layerRegistry.get(layerId);
 
-    const rows: Array<[string, string]> = [
-      [T("attr_name"), isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId)],
-    ];
-    if (layerInfo?.source) rows.push([T("attr_source"), layerInfo.source]);
+    // Row kinds: the name row leads the panel at a larger size ("hero"), and a
+    // value that runs long (a URL source) drops below its label and takes the
+    // full panel width instead of squeezing the label column. Width is measured
+    // in the panel's own fixed type size, so a short filename like `roads.shp`
+    // stays in the right-aligned value column.
+    type AttrRow = [string, string, "hero" | "wide" | ""];
+
+    const isLong = (value: string): boolean => value.length > ATTRS_ROW_WRAP_CHARS;
+
+    const rows: AttrRow[] = [];
+
+    // Every row is built as label + resolved value; a row whose value is an
+    // empty string is dropped. That covers both "no data registered" and
+    // "updatedAt parses to nothing" — formatTimestamp returns "" for invalid
+    // input, so an unparseable timestamp vanishes instead of leaving an
+    // empty-value row.
+    const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {
+      if (value) rows.push([label, value, kind]);
+    };
+
+    addRow(
+      T("attr_name"),
+      isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId),
+      "hero",
+    );
+    addRow(T("attr_source"), layerInfo?.source ?? "", isLong(layerInfo?.source ?? "") ? "wide" : "");
     if (!isColor) {
       const count = layerInfo ? this.manager.getFeatureCount(layerId) : null;
-      rows.push([
+      addRow(
         T("attr_feature_count"),
         count == null ? T("attr_empty") : formatNumber(count, "auto", CONF.locale_code),
-      ]);
-      if (layerInfo?.updatedAt != null)
-        rows.push([T("attr_updated_at"), formatTimestamp(layerInfo.updatedAt)]);
+      );
+      addRow(T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
     }
-    rows.push([
+    addRow(
       T("attr_visible"),
       (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
         ?.checked === false
         ? T("attr_no")
         : T("attr_yes"),
+    );
+
+    const renderList = (listRows: AttrRow[]): HTMLElement =>
+      dom.el(
+        "dl",
+        { class: "foliplus-layer-attrs-list" },
+        ...listRows.map(([label, value, kind]) =>
+          dom.el(
+            "div",
+            { class: [CONST.CLASSES.ATTRS_ROW, kind].filter(Boolean).join(" ") },
+            dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL }, label),
+            dom.el(
+              "dd",
+              { class: [CONST.CLASSES.ATTRS_VALUE, kind].filter(Boolean).join(" "), title: value },
+              value,
+            ),
+          ),
+        ),
+      );
+
+    // Third-party meta rows live in their own <dl>, with the separator and
+    // heading as siblings in the panel — <hr>/<h3> inside a definition list
+    // is invalid markup and can break assistive-tech structure.
+    const metaEntries = Object.entries(layerInfo?.meta ?? {}).filter(
+      ([, v]) => v != null && v !== "",
+    );
+    const metaRows: AttrRow[] = metaEntries.map(([key, value]) => [
+      key,
+      typeof value === "number"
+        ? formatNumber(value, "auto", CONF.locale_code)
+        : String(value),
+      "",
     ]);
 
     const panel = dom.el(
@@ -1624,50 +1681,15 @@ class LayerUI {
         "aria-label": T("attributes_layer"),
       },
       dom.el("h3", { class: "foliplus-layer-attrs-title" }, T("attributes_layer")),
-      dom.el(
-        "dl",
-        { class: "foliplus-layer-attrs-list" },
-        ...rows.map(([label, value]) =>
-          dom.el(
-            "div",
-            { class: CONST.CLASSES.ATTRS_ROW },
-            dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL }, label),
-            dom.el("dd", { class: CONST.CLASSES.ATTRS_VALUE, title: value }, value),
-          ),
-        ),
-      ),
+      renderList(rows),
+      ...(metaRows.length
+        ? [
+            dom.el("hr", { class: "foliplus-layer-attrs-sep" }),
+            dom.el("h3", { class: "foliplus-layer-attrs-title" }, T("attr_custom")),
+            renderList(metaRows),
+          ]
+        : []),
     );
-
-    // Third-party meta rows append below a separator so the built-in block
-    // and the extension block stay visually distinct.
-    const meta = layerInfo?.meta;
-    if (meta) {
-      const metaKeys = Object.entries(meta).filter(([, v]) => v != null && v !== "");
-      if (metaKeys.length) {
-        panel.lastElementChild!.appendChild(
-          dom.el("hr", { class: "foliplus-layer-attrs-sep" }),
-        );
-        panel.lastElementChild!.appendChild(
-          dom.el("h3", { class: "foliplus-layer-attrs-title" }, T("attr_custom")),
-        );
-        for (const [key, value] of metaKeys) {
-          const text =
-            typeof value === "number"
-              ? formatNumber(value, "auto", CONF.locale_code)
-              : String(value);
-          panel.lastElementChild!.appendChild(
-            dom.el(
-              "div",
-              {
-                class: `${CONST.CLASSES.ATTRS_ROW} ${CONST.CLASSES.ATTRS_META_ROW}`,
-              },
-              dom.el("dt", { class: CONST.CLASSES.ATTRS_LABEL, title: key }, key),
-              dom.el("dd", { class: CONST.CLASSES.ATTRS_VALUE, title: text }, text),
-            ),
-          );
-        }
-      }
-    }
 
     item.style.position = "relative";
     item.appendChild(panel);

@@ -1044,7 +1044,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         "https://example.com/parks.geojson",
       ]);
       expect(rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1]).toBe(
-        "Sep 1, 2026, 4:00 PM",
+        // Expectation built with the same formatTimestamp options, so the
+        // assertion holds regardless of the runner's timezone / ICU data.
+        new Date("2026-09-01T08:00:00Z").toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
       );
       expect(rendered).toContainEqual(["area_km2", "12.5"]);
       // Third-party rows follow a separator.
@@ -1058,7 +1063,40 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.openAttrsPanel(item);
 
       expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
-      expect(item.querySelector(".foliplus-layer-attrs-meta-row")).toBeNull();
+      // One block only: a single heading and a single list.
+      expect(item.querySelectorAll(".foliplus-layer-attrs-title").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-list").length).toBe(1);
+    });
+
+    it("marks meta rows separately so the separator lands before them", () => {
+      manager.registerLayer({ id: "overlay1", meta: { area_km2: 12.5 } });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const lists = item.querySelectorAll(".foliplus-layer-attrs-list");
+      expect(lists.length).toBe(2);
+      expect(lists[1]!.querySelector(".foliplus-layer-attrs-label")!.textContent).toBe(
+        "area_km2",
+      );
+    });
+
+    it("flags the name row as hero and the source row as wide", () => {
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Parks",
+        source: "https://example.com/parks.geojson",
+      });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const hero = item.querySelector(".foliplus-layer-attrs-row.hero");
+      expect(hero!.querySelector(".foliplus-layer-attrs-value")!.textContent).toBe(
+        "Parks",
+      );
+      const wide = item.querySelector(".foliplus-layer-attrs-value.wide");
+      expect(wide!.textContent).toBe("https://example.com/parks.geojson");
     });
 
     it("formats the timestamp from epoch ms", () => {
@@ -1074,7 +1112,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
           ([k]) => k === "LayerControl.attr_updated_at",
         )?.[1],
-      ).toBe("Sep 1, 2026, 4:00 PM");
+        // Derived from the same Date + options the implementation formats, so
+        // this passes under any runner timezone or ICU build.
+      ).toBe(
+        new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
     });
 
     it("reflects the hidden state", () => {
