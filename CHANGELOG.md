@@ -43,7 +43,6 @@
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
-- `type/global.d.ts`: `ComponentConfig.label_format` now uses `NumberStyle` from `common/format.ts` instead of a hand-written `"auto" | "comma" | "int"` union — the styles live in one place, so adding a style no longer means editing two files ([#249](https://github.com/Zeroto521/foliplus/pull/249))
 
 ### Removed
 
