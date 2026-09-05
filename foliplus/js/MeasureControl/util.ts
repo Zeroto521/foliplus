@@ -112,24 +112,15 @@ const makeNode = (latlng: L.LatLng, variant?: string): L.CircleMarker => {
   });
 };
 
-<<<<<<< HEAD
 /** A non-interactive node used for transient previews (center, centroid and
  *  the live cursor dot while a shape is being drawn). */
 const makePreviewNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
-=======
-/** A non-interactive node used for transient previews (center, centroid and
- *  the live cursor dot while a shape is being drawn). */
-const makePreviewNode = (
-  latlng: L.LatLng,
-  className: string = CONST.CLASSES.NODE_HOLLOW,
-): L.CircleMarker => {
->>>>>>> 7442b00e (fix(MeasureControl): route preview labels to the label pane and restore the node base class)
   return L.circleMarker(latlng, {
     radius: CONST.MARKER.RADIUS,
-    className: `${CONST.CLASSES.NODE_HOLLOW}${variant ? ` ${variant}` : ""}`,
+    className,
     interactive: false,
   });
 };
