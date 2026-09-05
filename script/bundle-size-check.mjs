@@ -13,6 +13,7 @@
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
  *   node script/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
+ *   node script/bundle-size-check.mjs --help                          # all flags
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
@@ -20,7 +21,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
-import { OK, STATUS, WARN } from "./glyphs.mjs";
+import { help, parseArgs as parseArgsCore } from "./args.mjs";
+import { FAIL, OK, STATUS, WARN } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -29,27 +31,79 @@ const LOW_MARGIN_PCT = 5;
 
 const distDir = root => resolve(root, "foliplus/dist");
 
-const parseArgs = argv => {
-  const args = {
-    emit: null,
-    threshold: DEFAULT_THRESHOLD,
-    baseline: null,
-    report: null,
-    root: null,
-    unknown: [],
-  };
-  for (const a of argv) {
-    if (a.startsWith("--emit=")) args.emit = a.split("=")[1];
-    else if (a.startsWith("--threshold=")) {
-      const v = parseInt(a.split("=")[1], 10);
-      args.threshold = Number.isFinite(v) ? v : DEFAULT_THRESHOLD;
-    } else if (a.startsWith("--baseline=")) args.baseline = a.split("=")[1];
-    else if (a.startsWith("--report=")) args.report = a.split("=")[1];
-    else if (a.startsWith("--root=")) args.root = a.split("=")[1];
-    else args.unknown.push(a);
+// Build tooling that rewrites the emitted bytes. `esbuild` owns the minifier
+// and the bundle structure; `svgo` rewrites the inline SVG inside JS sources;
+// `postcss`, `postcss-nesting` and `autoprefixer` rewrite the CSS; `browserslist`
+// selects the browsers they target. `package-lock.json` is not committed, so a
+// PR and the base branch each run their own `npm install` against the live
+// registry and can resolve different versions — the diff would then measure tool
+// drift instead of code. Observed within the same session: svgo 4.0.2 → 4.1.0,
+// postcss 8.5.26 → 8.5.28, browserslist 4.28.8 → 4.28.9, esbuild 0.24.2 (pinned).
+const BUILD_TOOLS = [
+  "esbuild",
+  "svgo",
+  "postcss",
+  "postcss-nesting",
+  "autoprefixer",
+  "browserslist",
+];
+
+/** Resolve a package's version from a root's node_modules, or null when the
+ *  package is absent (e.g. a tool that is no longer needed by the build). */
+const toolVersion = (root, pkg) => {
+  const path = resolve(root, "node_modules", pkg, "package.json");
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf-8")).version ?? null;
+  } catch {
+    return null;
   }
-  return args;
 };
+
+/** Diff the build tool versions of the current checkout against the baseline
+ *  capture. Both were built with the versions named here — a mismatch means the
+ *  two size samples were produced by different toolchains.
+ *
+ *  `emit` records an explicit `null` for a tool the build no longer needs, so
+ *  the test is whether the key is *present*, not whether the value is truthy:
+ *  a `null → version` change means the tool came back into the build. */
+const toolMismatch = (_current, baseline) => {
+  const recorded = baseline.tools || {};
+  const rows = [];
+  for (const pkg of BUILD_TOOLS) {
+    if (!Object.prototype.hasOwnProperty.call(recorded, pkg)) continue;
+    const prev = recorded[pkg];
+    const curr = toolVersion(ROOT, pkg);
+    if (prev !== curr) rows.push({ pkg, prev, curr });
+  }
+  return rows;
+};
+
+// Drop the leading block comment — esbuild's `banner`. It is emitted by both
+// builds being compared and carries no runtime code, and its byte count drifts
+// with the build config, so counting it is pure diff noise. It stays in the
+// shipped bundle: it is how a served asset is tied to the version that built it.
+const stripLeadingBlockComment = src => {
+  const body = src.replace(/^﻿?\/\*[\s\S]*?\*\/\s*/, "");
+  return body !== src ? body : src;
+};
+
+/** Flag spec — parsed by the shared `args.mjs` parser used by the other build
+ *  scripts. It defaults flags it does not see to `false`, so the `?`/`!`
+ *  checks below keep their usual meaning. */
+const SPEC = {
+  emit: { type: "string", desc: "Write the current sizes to this JSON file" },
+  baseline: { type: "string", desc: "JSON file to diff against" },
+  report: { type: "string", desc: "Also write the Markdown table here" },
+  threshold: {
+    type: "number",
+    default: DEFAULT_THRESHOLD,
+    desc: "Max growth before failing, in %",
+  },
+  root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
+};
+
+const parseArgs = argv => parseArgsCore(argv, SPEC);
 
 const readSizes = (root = ROOT) => {
   const dir = distDir(root);
@@ -57,8 +111,10 @@ const readSizes = (root = ROOT) => {
     .filter(f => /\.min\.(js|css)$/.test(f))
     .sort();
   const sizes = {};
-  for (const f of files)
-    sizes[f] = brotliCompressSync(readFileSync(resolve(dir, f))).length;
+  for (const f of files) {
+    const src = readFileSync(resolve(dir, f), "utf-8");
+    sizes[f] = brotliCompressSync(stripLeadingBlockComment(src)).length;
+  }
   return sizes;
 };
 
@@ -119,6 +175,8 @@ const buildRows = (current, baseline, threshold) => {
     const prev = baseline ? (baseline.files?.[f] ?? null) : null;
     if (curr === null) return absent(f, null, prev, "missing");
     if (prev === null) return absent(f, curr, null, "new");
+    // A non-numeric entry renders "NaN%" in the table; treat it as absent.
+    if (!Number.isFinite(prev)) return absent(f, curr, null, "new");
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
     const over = pct > threshold;
@@ -183,10 +241,14 @@ const renderTable = (rows, threshold) => {
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
+    `Sizes exclude the build banner.`,
+    "",
     `**Total:** ${curr} · **Δ** ${delta} (${pct}) · ${changed} of ${rows.length} bundles changed`,
     "",
     "<details>",
-    `<summary>📦 Per-bundle breakdown${over ? ` — ${WARN} ${over} over threshold` : ""}</summary>`,
+    `<summary>📦 Per-bundle breakdown${
+      over ? ` — ${WARN} **${over} over threshold**` : ""
+    }</summary>`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",
     "|:-----|--------:|---------:|-----:|----:|--------|",
@@ -248,7 +310,17 @@ const emit = (args, root = ROOT) => {
   }
   const path = resolve(args.emit);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify({ files: sizes }, null, 2) + "\n");
+  // Recorded from ROOT, the tree that is diffed against this capture — the
+  // capture root (`--root=/tmp/base`) is a bare checkout with no node_modules.
+  const tools = Object.fromEntries(
+    BUILD_TOOLS.map(pkg => [pkg, toolVersion(ROOT, pkg)]),
+  );
+  try {
+    writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
+  } catch (err) {
+    console.error(`${FAIL} Cannot write ${path}: ${err.message}`);
+    return 1;
+  }
   const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
@@ -272,14 +344,37 @@ const check = (args, root = ROOT) => {
   const rows = buildRows(current, baseline, threshold);
   const failures = rows.filter(r => r.over);
   const lowMargin = rows.filter(r => r.status === "low");
+  // Toolchain drift is not a code-size signal: flag it instead of failing, and
+  // point at the capture step so the base can be re-sampled.
+  const drift = toolMismatch(current, baseline);
 
   const table = renderTable(rows, threshold);
   console.log(renderConsole(rows));
   appendSummary(table);
   if (args.report) {
     const reportPath = resolve(args.report);
-    mkdirSync(dirname(reportPath), { recursive: true });
-    writeFileSync(reportPath, table + "\n");
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true });
+      writeFileSync(reportPath, table + "\n");
+    } catch (err) {
+      console.error(`${FAIL} Cannot write ${reportPath}: ${err.message}`);
+    }
+  }
+
+  if (drift.length) {
+    const parts = drift.map(d => {
+      const next = d.curr == null ? "absent" : `→ ${d.curr}`;
+      return `${d.pkg} ${d.prev} ${next}`;
+    });
+    console.warn(
+      `\n${WARN}  Build tools differ from the baseline capture — this diff mixes tool drift with code:` +
+        "\n  " +
+        parts.join(", ") +
+        "\n  The base branch and this PR resolve devDependencies separately, so they can pick up different versions between runs.",
+    );
+    console.warn(
+      `${WARN}  re-run the capture step against this toolchain to get a clean comparison.`,
+    );
   }
 
   if (failures.length > 0) {
@@ -314,7 +409,10 @@ export {
   fmtPct,
   parseArgs,
   rowCells,
+  stripLeadingBlockComment,
   summarize,
+  toolMismatch,
+  toolVersion,
 };
 
 // CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
@@ -322,8 +420,18 @@ export {
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2));
-  if (args.unknown.length)
-    console.warn(`${WARN}  Unknown argument(s) ignored: ${args.unknown.join(", ")}`);
+  if (args.help) {
+    console.log(help(SPEC));
+    process.exit(0);
+  }
+  // Malformed input (an unknown flag, a non-numeric threshold) is an error —
+  // running anyway would compare against the wrong threshold and report
+  // success.
+  if (args.errors.length) {
+    console.error(args.errors.join("\n"));
+    console.error(help(SPEC));
+    process.exit(1);
+  }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = args.emit ? emit(args, root) : check(args, root);
   process.exit(code ?? 0);
