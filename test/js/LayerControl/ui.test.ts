@@ -380,25 +380,22 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("focuses a canvas layer via its getBounds provider", () => {
-      // Canvas layers (e.g. HeatmapControl) have no Leaflet layer, only a
-      // canvas element + a getBounds provider. Focus must use the provider
-      // and boost the canvas element itself.
       const canvas = document.createElement("canvas");
       canvas.style.filter = "";
       manager.registerLayer({
-        id: "heatmap1",
-        name: "Heatmap",
+        id: "heat1",
+        name: "Heat",
         canvas,
         onToggle: () => {},
-        getBounds: () =>
-          ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }) as unknown as L.LatLngBounds,
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
       });
-
-      ui.focusLayer("heatmap1");
+      // A never-touched late registration must not be force-hidden by the
+      // targeted applyUserState(id) drain — that is what keeps this focusable.
+      ui.focusLayer("heat1");
 
       expect(map.fitBounds).toHaveBeenCalled();
       expect(L.rectangle).toHaveBeenCalled();
@@ -1433,7 +1430,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
       );
       ui.loadNamesState();
-      ui.applyNamesState();
+      ui.applyUserState();
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
@@ -1487,14 +1484,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
     });
 
-    it("applyNamesState overwrites the registry name and the label text", () => {
+    it("applyUserState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
 
       ui.loadNamesState();
-      ui.applyNamesState();
+      ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
       expect(ui.renamedNames.overlay1).toBe("Persisted Name");
@@ -1513,7 +1510,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
       ui.loadNamesState();
-      ui.applyNamesState();
+      ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -1528,7 +1525,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
 
       try {
-        ui.applyNamesState();
+        ui.applyUserState();
 
         // Everything already matches, so nothing is re-written.
         expect(attrWrites).toBe(0);
@@ -1546,7 +1543,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.loadNamesState();
 
       manager.layerRegistry.get("overlay1")!.name = "Renamed";
-      ui.applyNamesState("overlay1");
+      ui.applyUserState("overlay1");
 
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("Renamed");
       // The other layer was left alone — the targeted call must not sweep the
@@ -1555,7 +1552,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("a targeted apply for an un-renamed id leaves the registry untouched", () => {
-      // insertLayerItem calls applyNamesState(id) for every late registration,
+      // insertLayerItem calls applyUserState(id) for every late registration,
       // including layers the user never renamed. A missing rename must be a
       // no-op, not a write of undefined over the registry's own name.
       ui.renamedNames = {};
@@ -1564,7 +1561,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const label = findItem(ui, "base1")!.querySelector("label")!;
       const labelBefore = label.textContent;
 
-      ui.applyNamesState("base1");
+      ui.applyUserState("base1");
 
       expect(manager.layerRegistry.get("base1")!.name).toBe(before);
       expect(label.textContent).toBe(labelBefore);
@@ -2019,7 +2016,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   // ─────────────────── load / apply on attach ───────────────────
 
-  describe("loadHiddenIds / applyHiddenState", () => {
+  describe("loadHiddenIds / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
@@ -2028,7 +2025,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
       expect(u.hiddenIds).toContain("overlay1");
@@ -2044,7 +2041,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
       expect(warnSpy).toHaveBeenCalledTimes(1);
@@ -2064,7 +2061,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       vi.useFakeTimers();
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
+      u.applyUserState();
       warnSpy.mockRestore();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
@@ -2092,7 +2089,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds.add("canvas1");
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(onToggle).toHaveBeenCalledWith(false);
     });
@@ -2325,7 +2322,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         { id: "base2", name: "B2", isBase: true, layer: base2, paneName: "tilePane" },
       ]);
 
-      // Both bases were removed from the map by applyHiddenState.
+      // Both bases were removed from the map by applyUserState().
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
@@ -2386,9 +2383,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     });
   });
 
-  // ─────────────────── applyHiddenState with multiple layers ───────────────────
+  // ─────────────────── applyUserState with multiple layers ───────────────────
 
-  describe("applyHiddenState with multiple hidden layers", () => {
+  describe("applyUserState with multiple hidden layers", () => {
     it("handles overlay, base, and callback-only layers in one pass", () => {
       const poly = {
         options: {},
@@ -2425,7 +2422,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);

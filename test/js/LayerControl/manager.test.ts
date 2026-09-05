@@ -1439,7 +1439,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 // User-assigned display names (rename persistence)
 //
 // `LayerUI.renamedNames` is the source of truth; the registry's
-// `LayerInfo.name` is a projection refreshed by `applyNamesState()`. A
+// `LayerInfo.name` is a projection refreshed by `applyUserState()`. A
 // third-party layer that re-registers itself re-advertises its own metadata,
 // so a re-registration used to reset `name` back to the provider's original
 // and the rename reverted visibly. `attachUI()` applies the persisted names at
@@ -1541,7 +1541,7 @@ describe("LayerManager user-assigned names", () => {
     // Re-registration rebuilds the registry entry from the caller's metadata,
     // then the incremental refresh pushes the rename back out.
     manager.registerLayer({ id: "ext", name: "Provider Layer" });
-    manager.ui.applyNamesState();
+    manager.ui.applyUserState();
 
     expect(manager.ui.displayName("ext")).toBe("My Layer");
     expect(manager.layerRegistry.get("ext")?.name).toBe("My Layer");
@@ -1584,7 +1584,7 @@ describe("LayerManager user-assigned names", () => {
     );
 
     manager.ui.loadNamesState();
-    manager.ui.applyNamesState();
+    manager.ui.applyUserState();
 
     // A stale id is pruned by loadNames and stays out of the render contract.
     expect(manager.ui.renamedNames["no-such-id"]).toBeUndefined();
