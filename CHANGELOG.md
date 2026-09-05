@@ -43,7 +43,7 @@
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
-- `HeatmapControl`: move point aggregation and feature classification off the main thread into a Web Worker — the component builds a Blob URL from an embedded, self-contained worker source (own h3 build, no CDN globals, no `window.foliplus`), so 100k+ point datasets render without blocking the UI; falls back to synchronous aggregation when the worker is unavailable (CSP, `file://`, unsupported browser)
+- `HeatmapControl`: move point aggregation and feature classification off the main thread into a Web Worker — the component builds a Blob URL from an embedded, self-contained worker source (own h3 build, no CDN globals, no `window.foliplus`), so 100k+ point datasets render without blocking the UI; falls back to synchronous aggregation when the worker is unavailable (CSP, `file://`, unsupported browser) ([#258](https://github.com/Zeroto521/foliplus/pull/258))
 
 ### Removed
 
