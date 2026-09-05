@@ -43,6 +43,15 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
+    def test_default_show_live_coords(self):
+        assert MeasureControl().show_live_coords is True
+
+    def test_custom_show_live_coords(self):
+        assert MeasureControl(show_live_coords=False).show_live_coords is False
+
+    def test_show_live_coords_in_export_fields(self):
+        assert "show_live_coords" in MeasureControl._export_fields
+
     def test_default_export_format(self):
         assert MeasureControl().export_format == "geojson"
 
@@ -88,6 +97,16 @@ class TestMeasureControlRendering:
         """show_bearing=False renders false and disables bearing labels."""
         html = render_control(MeasureControl(show_bearing=False))
         assert_config_value(html, "show_bearing", False)
+
+    def test_show_live_coords_default_true(self):
+        """show_live_coords defaults to true and renders as a JS boolean."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "show_live_coords", True)
+
+    def test_show_live_coords_false(self):
+        """show_live_coords=False renders false."""
+        html = render_control(MeasureControl(show_live_coords=False))
+        assert_config_value(html, "show_live_coords", False)
 
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))

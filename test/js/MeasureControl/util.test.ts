@@ -6,6 +6,7 @@ import {
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
+import { getMapCrsType } from "#common/coord.js";
 import { stopEvent } from "#common/dom.js";
 
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
@@ -65,6 +66,21 @@ describe("roundCoord", () => {
   it("preserves whole numbers and trailing zeros", () => {
     expect(Util.roundCoord(122)).toBe(122);
     expect(Util.roundCoord(121.5)).toBe(121.5);
+  });
+});
+
+describe("formatCoord", () => {
+  it("rounds to the persisted 6-decimal precision and keeps trailing zeros", () => {
+    expect(Util.formatCoord(121.987654321)).toBe("121.987654");
+    expect(Util.formatCoord(122)).toBe("122.000000");
+  });
+  it("renders negative zero as a plain zero", () => {
+    expect(Util.formatCoord(-0.0000001)).toBe("0.000000");
+    expect(Util.formatCoord(-0.0000004)).toBe("0.000000");
+  });
+
+  it("formats negatives", () => {
+    expect(Util.formatCoord(-31.123456789)).toBe("-31.123457");
   });
 });
 
@@ -275,6 +291,76 @@ describe("getEventTarget", () => {
   it("returns null when originalEvent is missing", () => {
     const event = {} as L.LeafletMouseEvent;
     expect(Util.getEventTarget(event)).toBeNull();
+  });
+});
+
+describe("coord readout", () => {
+  // buildCoordReadout appends into the map container, so each test owns a
+  // real detached container (document.body is proxied by jsdom and rejects
+  // the append path).
+  function makeMap() {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    return { map: { getContainer: () => container } as any, container };
+  }
+
+  it("builds a hidden readout inside the map container", () => {
+    const { map, container } = makeMap();
+    const el = Util.buildCoordReadout(map);
+    expect(el.parentElement).toBe(container);
+    expect(el.hidden).toBe(true);
+    expect(el.querySelector(".foliplus-measure-coord")).not.toBeNull();
+    container.remove();
+  });
+
+  it("updates the chip text and returns it", () => {
+    const { map, container } = makeMap();
+    const el = Util.buildCoordReadout(map);
+    const text = Util.setCoordReadout(el, "31.230955, 121.473701");
+    expect(text).toBe("31.230955, 121.473701");
+    expect(el.querySelector(".foliplus-measure-coord")?.textContent).toBe(text);
+    el.remove();
+    container.remove();
+  });
+
+  it("toggles visibility", () => {
+    const { map, container } = makeMap();
+    const el = Util.buildCoordReadout(map);
+    Util.setCoordReadoutVisible(el, true);
+    expect(el.hidden).toBe(false);
+    Util.setCoordReadoutVisible(el, false);
+    expect(el.hidden).toBe(true);
+    el.remove();
+    container.remove();
+  });
+
+  it("ignores a missing element without throwing", () => {
+    expect(() => Util.setCoordReadout(null, "x")).not.toThrow();
+    expect(() => Util.setCoordReadoutVisible(null, true)).not.toThrow();
+  });
+});
+
+describe("coordText", () => {
+  // No domestic tile URL → CRS resolves to WGS84, so the value passes through
+  // unchanged. This locks in the "readout matches export" contract without a
+  // gcoord dependency; the pass-through is the WGS84 branch, not a fallback.
+  it("formats a display-CRS lat/lng to the WGS84 readout string", () => {
+    const map = { options: {}, _layers: {} } as any;
+    expect(Util.coordText(map, { lat: 31.230955, lng: 121.473701 })).toBe(
+      "31.230955, 121.473701",
+    );
+  });
+  it("detects a non-WGS84 map so the conversion path is taken", () => {
+    // getMapCrsType keys off the CRS code, not the tile URL string.
+    const map = { options: { crs: { code: "GCJ02" } }, _layers: {} } as any;
+    expect(getMapCrsType(map)).toBe("GCJ02");
+    // and the same string through the domestic-tile URL patterns:
+    expect(
+      getMapCrsType({
+        options: {},
+        _layers: { x: { _url: "https://webrd02.is.autonavi.com/" } },
+      } as any),
+    ).toBe("GCJ02");
   });
 });
 

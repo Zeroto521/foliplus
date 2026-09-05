@@ -13,6 +13,7 @@
   "MeasureControl.name_distance": "距离测量",
   "MeasureControl.name_polygon": "面积测量",
   "MeasureControl.name_circle": "圆形测量",
+  "MeasureControl.readout_label": "位置",
   "MeasureControl.hint_marker": "点击地图放置定位标记",
   "MeasureControl.hint_dist_start": "点击地图开始测量距离，双击 / 右键 / 点击末点结束",
   "MeasureControl.hint_polygon": "点击地图开始测量面积，双击 / 右键 / 点击起点或末点结束",

@@ -162,3 +162,55 @@ path.foliplus-measure-node-solid {
     transform: var(--label-center) scale(1);
   }
 }
+
+/* ── Live coordinate readout ──
+   A persistent strip pinned to the bottom-center of the map, mirroring the
+   measure-label chips so coordinates and segment labels read as one system.
+   It sits on the container (not a Leaflet pane), so it is unaffected by
+   panning and zooming; `pointer-events: none` keeps map interaction intact. */
+.foliplus-measure-readout {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 600;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, var(--alpha-50));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--neutral-0);
+  animation: foliplus-measure-readout-in 0.2s ease-out;
+}
+
+@keyframes foliplus-measure-readout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.foliplus-measure-readout-label {
+  opacity: var(--alpha-70);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: calc(var(--font-size-sm) - 1px);
+}
+
+.foliplus-measure-coord {
+  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(var(--font-size-sm) - 1px);
+}

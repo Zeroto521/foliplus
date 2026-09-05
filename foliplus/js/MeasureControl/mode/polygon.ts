@@ -219,6 +219,9 @@ class PolygonMode extends PreviewMode {
       // Replace the drawing-phase cleanup with a no-op (it would remove the
       // finalized polygon/nodes).
       this._cleanup = () => {};
+      // Settle on the centroid so the readout reports the shape's anchor.
+      this.m.setCoordReadoutVisible(true);
+      this.m.setCoordReadoutWgs(centroid.lat, centroid.lng);
 
       // Cleanup drawing mode
       unbindMapEvents(this.map, polyEvents);
@@ -234,6 +237,7 @@ class PolygonMode extends PreviewMode {
 
     const onPolyMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
+      this.m.setCoordReadout(event.latlng);
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
       confirmedPoly.setLatLngs(points);

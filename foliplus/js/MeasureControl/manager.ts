@@ -52,6 +52,8 @@ class MeasureManager {
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
+  /** Persistent coordinate readout element, or null when show_live_coords is off. */
+  private coordReadoutEl: HTMLElement | null;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
@@ -102,6 +104,9 @@ class MeasureManager {
     this.finalizedClickHandlers = [];
     this.ctrl = null;
     this.isEditMode = false;
+    this.coordReadoutEl = CONF.show_live_coords
+      ? Util.buildCoordReadout(mapInstance)
+      : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -313,6 +318,24 @@ class MeasureManager {
     };
   };
 
+  /** Show or hide the live coordinate readout. No-op when disabled by config. */
+  setCoordReadoutVisible(visible: boolean) {
+    Util.setCoordReadoutVisible(this.coordReadoutEl, visible);
+  }
+
+  /** Update the readout with a map-display-coordinate point. The WGS84
+   *  conversion lives inside coordText, so the readout always matches export. */
+  setCoordReadout(pt: L.LatLng | { lat: number; lng: number }) {
+    if (!this.coordReadoutEl) return;
+    Util.setCoordReadout(this.coordReadoutEl, Util.coordText(this.map, pt));
+  }
+
+  /** Update the readout with an already-WGS84 point (persisted measurements). */
+  setCoordReadoutWgs(lat: number, lng: number) {
+    if (!this.coordReadoutEl) return;
+    Util.setCoordReadout(this.coordReadoutEl, Util.formatLatLng(lat, lng));
+  }
+
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
@@ -358,6 +381,8 @@ class MeasureManager {
     // (LayerControl/ExportControl) can respond again.
     this.measureEscapeCleanup?.();
     this.measureEscapeCleanup = undefined;
+    // Stop tracking the cursor once a drawing session ends.
+    this.setCoordReadoutVisible(false);
     // NOTE: the low-priority Escape (interactionCleanup) stays registered for
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
@@ -389,6 +414,8 @@ class MeasureManager {
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
     this.clearAll();
+    this.coordReadoutEl?.remove();
+    this.coordReadoutEl = null;
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);

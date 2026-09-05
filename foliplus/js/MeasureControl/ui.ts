@@ -179,6 +179,8 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           nodeMarkers.forEach((m, i) => m.setLatLng(points[i]));
           nodeDelMarkers.forEach((d, i) => d.setLatLng(points[i]));
           relabel();
+          mgr.setCoordReadoutVisible(true);
+          mgr.setCoordReadoutWgs(points[0].lat, points[0].lng);
         },
         onEnd: () => {
           markDragSyntheticClick();
@@ -199,6 +201,8 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
           points[pIdx] = latlng;
+          mgr.setCoordReadoutVisible(true);
+          mgr.setCoordReadoutWgs(points[0].lat, points[0].lng);
           if (onUpdate) onUpdate(points);
         },
       });
@@ -294,6 +298,8 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
         });
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
       updateLabel();
+      mgr.setCoordReadoutVisible(true);
+      mgr.setCoordReadoutWgs(latlng.lat, latlng.lng);
     },
     onEnd: (latlng: L.LatLng) => {
       markDragSyntheticClick();
@@ -557,6 +563,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         });
         finalPoly.setLatLngs(points);
         relabel();
+        mgr.setCoordReadoutVisible(true);
+        mgr.setCoordReadoutWgs(Util.centroid(points).lat, Util.centroid(points).lng);
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
