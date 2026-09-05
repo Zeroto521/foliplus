@@ -510,19 +510,14 @@ class LayerUI {
     ) as HTMLElement | null;
     if (!item) return;
     item.dataset.index = String(idx);
-    const name = this.displayName(layerInfo.id);
-    updateItemLabel(item, name);
+    // updateItemLabel sets both the row label and the checkbox's aria-label,
+    // so the name reaches assistive tech here without touching `title` — the
+    // row's tooltip slot keeps the feature count + type.
+    updateItemLabel(item, this.displayName(layerInfo.id));
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
-    if (checkbox) {
-      checkbox.dataset.index = String(idx);
-      // The checkbox keeps its Select/Deselect tooltip: the name already
-      // reaches assistive tech via aria-label, and the row's own title
-      // carries the feature count + type. Overwriting it here would put the
-      // layer name in a slot the tooltip is meant to occupy.
-      checkbox.setAttribute("aria-label", name);
-    }
+    if (checkbox) checkbox.dataset.index = String(idx);
   }
 
   /**
@@ -617,8 +612,11 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
+          // The name reaches assistive tech via aria-label. `title` is the
+          // Select/Deselect slot — initLayerItem sets it per checked state
+          // before this row can be hovered, so leave it unseeded rather than
+          // flashing the layer name.
           "aria-label": name,
-          title: name,
         }),
       ),
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
@@ -651,11 +649,14 @@ class LayerUI {
   }
 
   renderColorLayerItem() {
+    // The input announces the same name as the row's label cell below, so a
+    // rename reaches assistive tech on both — not just the visible text.
+    const colorName = this.colorLayerName();
     const colorInput = dom.el("input", {
       type: "color",
       class: CONST.CLASSES.COLOR_INPUT,
       value: this.currentColor,
-      "aria-label": T("color_map_label"),
+      "aria-label": colorName,
     });
 
     // Color layer lives outside layerRegistry — rename is the only overflow

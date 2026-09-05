@@ -1311,6 +1311,39 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(checkbox.title).toBe(tooltip);
     });
 
+    it("renaming the color basemap updates the color input's aria-label too", () => {
+      // The color row has no checkbox — its toggle is the type="color" input.
+      // Both the label cell and the input must announce the rename, otherwise
+      // assistive tech keeps reading the locale default after a rename.
+      const item = findItem(ui, CONST.COLOR.MAP_ID);
+      const colorInput = item.querySelector(
+        `input[type="color"]`,
+      ) as HTMLInputElement;
+      // Capture the pre-rename value from the source of truth, not the DOM:
+      // the aria-label and the label cell are both projections of
+      // displayName(), so comparing them against each other would pass either
+      // way — vacuously if neither propagated, and without ever observing a
+      // rename at all.
+      const before = ui.displayName(CONST.COLOR.MAP_ID);
+
+      expect(colorInput.getAttribute("aria-label")).toBe(before);
+
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+      const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
+        "input",
+      ) as HTMLInputElement;
+      input.value = "My Colour";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(item.querySelector("label")!.textContent).toBe("My Colour");
+      expect(colorInput.getAttribute("aria-label")).toBe("My Colour");
+      // The row tooltip is the TYPE label, a different slot from the name —
+      // a rename must not move into it.
+      const tooltip = item.getAttribute("title");
+      expect(tooltip).not.toBe("My Colour");
+      expect(tooltip).not.toBe("");
+    });
+
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
       ui.renameLayer("no-such-layer");
 

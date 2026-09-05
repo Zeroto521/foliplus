@@ -408,9 +408,27 @@ describe("updateItemLabel", () => {
     // The tooltip slot stays the Select/Deselect label — a layer name in
     // there reads as a tooltip for the wrong control.
     expect(checkbox.title).toBe("");
-    // The color row's type input is untouched: its tooltip is the palette
-    // name, owned by the caller that builds that row.
+    // A row with both toggles keeps the color input as a separate control.
     expect(colorInput.getAttribute("aria-label")).toBeNull();
+    expect(colorInput.title).toBe("");
+  });
+
+  it("updates the color input's aria-label when the row has no checkbox", () => {
+    // The color basemap row's only toggle is the swatch, so it must be the
+    // one that announces the rename — otherwise assistive tech keeps reading
+    // the locale default after a rename.
+    const item = dom.el("div", { "data-layer-id": "color" });
+    item.appendChild(dom.el("label", null, "Old"));
+    const colorInput = dom.el("input", { type: "color" }) as HTMLInputElement;
+    colorInput.setAttribute("aria-label", "Old");
+    item.appendChild(colorInput);
+    document.body.appendChild(item);
+
+    updateItemLabel(item, "New");
+
+    expect(colorInput.getAttribute("aria-label")).toBe("New");
+    // `title` is the tooltip slot, not the name — a rename must not move
+    // into it.
     expect(colorInput.title).toBe("");
   });
 
