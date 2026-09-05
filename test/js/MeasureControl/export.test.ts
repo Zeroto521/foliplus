@@ -445,7 +445,12 @@ describe("Export.getNameForType", () => {
   });
 
   it("returns the label regardless of the marker's address", () => {
-    const noAddress = { id: "1", type: CONST.MODE.MARKER, lat: 0, lng: 0 } as MeasureData;
+    const noAddress = {
+      id: "1",
+      type: CONST.MODE.MARKER,
+      lat: 0,
+      lng: 0,
+    } as MeasureData;
     expect(Export.getNameForType(noAddress)).toBe("Location Marker");
   });
 
