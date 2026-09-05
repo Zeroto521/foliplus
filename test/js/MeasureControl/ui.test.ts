@@ -290,7 +290,7 @@ describe("attachDistanceUI", () => {
 
     expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
       expect.any(Function),
-      expect.any(String),
+      "test-id",
     );
     // The registered toggle must not throw when fired (setEditMode toggling).
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
@@ -564,7 +564,7 @@ describe("attachPolygonUI", () => {
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(mgr.registerFinalized).toHaveBeenCalledWith(
       expect.any(Function),
-      expect.any(String),
+      "test-id",
     );
   });
 
@@ -616,7 +616,7 @@ describe("attachPolygonUI", () => {
 
     expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
       expect.any(Function),
-      expect.any(String),
+      "test-id",
     );
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
     expect(() => toggle(true)).not.toThrow();
