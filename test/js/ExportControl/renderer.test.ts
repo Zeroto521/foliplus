@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import * as CONST from "#foliplus/ExportControl/const.js";
-
 import { ExportRenderer } from "#foliplus/ExportControl/renderer.js";
-
 import * as UTIL from "#foliplus/ExportControl/util.js";
-
-
 
 // ===========================================================================
 
@@ -21,15 +16,12 @@ import * as UTIL from "#foliplus/ExportControl/util.js";
 // ===========================================================================
 
 async function pooledEach<T, R>(
-
   items: T[],
 
   maxConcurrency: number,
 
   fn: (item: T, index: number) => Promise<R | null> | R | null,
-
 ): Promise<Array<R | null>> {
-
   if (items.length === 0) return [];
 
   const cap = Math.max(1, maxConcurrency);
@@ -39,103 +31,70 @@ async function pooledEach<T, R>(
   let next = 0;
 
   const enqueue = async (): Promise<void> => {
-
     const idx = next++;
 
     if (idx >= items.length) return;
 
     try {
-
       const value = await fn(items[idx], idx);
 
       results[idx] = value ?? null;
-
     } catch (err) {
-
       console.warn(err);
 
       results[idx] = null;
-
     }
 
     await enqueue();
-
   };
 
   await Promise.all(Array.from({ length: cap }, enqueue));
 
   return results;
-
 }
 
-
-
 describe("pooledEach", () => {
-
   afterEach(() => {
-
     vi.restoreAllMocks();
-
   });
-
-
 
   it("returns empty array for empty input", async () => {
-
     expect(await pooledEach([], 3, () => 42)).toEqual([]);
-
   });
 
-
-
   it("processes all items and preserves order", async () => {
-
     const input = [10, 20, 30];
 
     const result = await pooledEach(input, 2, item => item * 2);
 
     expect(result).toEqual([20, 40, 60]);
-
   });
 
-
-
   it("converts returned undefined/null to null in results", async () => {
-
     const input = [1, 2, 3];
 
     const result = await pooledEach(input, 3, item => (item === 2 ? null : item));
 
     expect(result).toEqual([1, null, 3]);
-
   });
 
-
-
   it("swallows per-item errors and records null", async () => {
-
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const input = [1, 2, 3];
 
     const result = await pooledEach(input, 3, item => {
-
       if (item === 2) throw new Error("boom");
 
       return item;
-
     });
 
     expect(result).toEqual([1, null, 3]);
 
     expect(warnSpy).toHaveBeenCalledWith(expect.any(Error));
-
   });
 
-
-
   it("caps concurrency at 1 (serial)", async () => {
-
     let active = 0;
 
     let maxActive = 0;
@@ -143,7 +102,6 @@ describe("pooledEach", () => {
     const input = [1, 2, 3, 4];
 
     await pooledEach(input, 1, async item => {
-
       active++;
 
       maxActive = Math.max(maxActive, active);
@@ -153,17 +111,12 @@ describe("pooledEach", () => {
       active--;
 
       return item;
-
     });
 
     expect(maxActive).toBe(1);
-
   });
 
-
-
   it("honors concurrency cap > 1", async () => {
-
     let active = 0;
 
     let maxActive = 0;
@@ -171,7 +124,6 @@ describe("pooledEach", () => {
     const input = Array.from({ length: 8 }, (_, i) => i);
 
     await pooledEach(input, 3, async () => {
-
       active++;
 
       maxActive = Math.max(maxActive, active);
@@ -179,54 +131,35 @@ describe("pooledEach", () => {
       await new Promise(r => setTimeout(r, 8));
 
       active--;
-
     });
 
     expect(maxActive).toBe(3);
-
   });
 
-
-
   it("handles negative concurrency gracefully (cap = 1)", async () => {
-
     const result = await pooledEach([1, 2], -5, item => item);
 
     expect(result).toEqual([1, 2]);
-
   });
 
-
-
   it("handles async null correctly", async () => {
-
     const result = await pooledEach([1, 2], 2, async () => null);
 
     expect(result).toEqual([null, null]);
-
   });
 
-
-
   it("receives correct index argument", async () => {
-
     const indices: number[] = [];
 
     await pooledEach([10, 20, 30], 5, (_item, idx) => {
-
       indices.push(idx);
 
       return null;
-
     });
 
     expect(indices.sort()).toEqual([0, 1, 2]);
-
   });
-
 });
-
-
 
 // ===========================================================================
 
@@ -235,7 +168,6 @@ describe("pooledEach", () => {
 // ===========================================================================
 
 function makeEPSG3857Mock() {
-
   // Correct Web Mercator latLngToPoint.  At zoom z the world is 256·2^z
 
   // pixels wide/high.  lng=−180→x=0, lng=+180→x=worldSize.  lat=+85.051129°
@@ -245,7 +177,6 @@ function makeEPSG3857Mock() {
   const worldSize = (z: number) => 256 * Math.pow(2, z);
 
   return {
-
     infinite: false,
 
     wrapLat: [-90, 90],
@@ -253,7 +184,6 @@ function makeEPSG3857Mock() {
     wrapLng: [-180, 180],
 
     latLngToPoint(ll: { lat: number; lng: number }, zoom: number) {
-
       const w = worldSize(zoom);
 
       const d = Math.PI / 180;
@@ -263,14 +193,9 @@ function makeEPSG3857Mock() {
       const y = (1 - Math.log(Math.tan(Math.PI / 4 + (ll.lat * d) / 2)) / Math.PI) * w;
 
       return { x, y };
-
     },
-
   };
-
 }
-
-
 
 // Provide L.CRS.EPSG3857 for the renderer's fallback path (map.options.crs
 
@@ -281,27 +206,18 @@ function makeEPSG3857Mock() {
 // reference throws so the whole layer loop is swallowed.
 
 class MockTileLayer {
-
   _url = "";
 
   options: Record<string, unknown> = {};
-
 }
 
-
-
 beforeEach(() => {
-
   (L as any).CRS = { EPSG3857: makeEPSG3857Mock() };
 
   (L as any).TileLayer = MockTileLayer;
-
 });
 
-
-
 function makeTileLayer(overrides: Partial<any> = {}) {
-
   const url = overrides._url ?? "https://{s}.tile.example.com/{z}/{x}/{y}.png";
 
   delete (overrides as any)._url;
@@ -311,203 +227,147 @@ function makeTileLayer(overrides: Partial<any> = {}) {
   layer._url = url;
 
   layer.options = {
-
     tileSize: 256,
 
     subdomains: "abc",
 
     ...overrides,
-
   };
 
   return layer as any;
-
 }
 
-
-
 function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
-
   const container = document.createElement("div");
 
   container.id = "test";
 
   const map = {
-
     options: { crs },
 
     getContainer: () => container,
 
     foliplus: {
-
       LayerAPI: { layers: [], getLayerPanes: () => [] },
-
     },
-
   };
 
   return new ExportRenderer(map as any);
-
 }
 
-
-
 describe("calcTiles", () => {
-
   it("throws without a valid CRS", () => {
-
     const renderer = makeRenderer({ latLngToPoint: undefined });
 
     expect(() =>
-
       renderer.calcTiles(
-
         makeTileLayer(),
 
         {
-
           nw: { lat: 10, lng: 10 },
 
           se: { lat: 5, lng: 15 },
-
         },
 
         5,
 
         1,
-
       ),
-
     ).toThrow();
-
   });
 
-
-
   it("does not throw when map has no crs option (falls back to L.CRS.EPSG3857)", () => {
-
     const container = document.createElement("div");
 
     container.id = "test";
 
     const map = {
-
       options: {},
 
       getContainer: () => container,
 
       foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
-
     };
 
     const renderer = new ExportRenderer(map as any);
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 10, lng: 10 },
 
         se: { lat: 5, lng: 15 },
-
       },
 
       5,
 
       1,
-
     );
 
     expect(Array.isArray(tiles)).toBe(true);
-
   });
 
-
-
   it("produces one tile for a zoom-0 full-extent bounding box", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles.length).toBe(1);
 
     expect(tiles[0]).toMatchObject({ x: 0, y: 0, z: 0 });
-
   });
 
-
-
   it("produces 4 tiles for zoom-1 full extent", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       1,
 
       1,
-
     );
 
     expect(tiles.length).toBe(4);
-
   });
 
-
-
   it("clamps tile coords to maxTile for finite CRS", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       1,
 
       1,
-
     );
 
     for (const t of tiles) {
-
       expect(t.x).toBeLessThan(2);
 
       expect(t.y).toBeLessThan(2);
@@ -515,15 +375,10 @@ describe("calcTiles", () => {
       expect(t.x).toBeGreaterThanOrEqual(0);
 
       expect(t.y).toBeGreaterThanOrEqual(0);
-
     }
-
   });
 
-
-
   it("skips negative tile coords", () => {
-
     const renderer = makeRenderer();
 
     // Very small lat/lng box that falls between tile boundaries — no negative
@@ -531,382 +386,276 @@ describe("calcTiles", () => {
     // coords should leak through the filter.
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 45, lng: -180 },
 
         se: { lat: 44, lng: -179 },
-
       },
 
       5,
 
       1,
-
     );
 
     for (const t of tiles) {
-
       expect(t.x).toBeGreaterThanOrEqual(0);
 
       expect(t.y).toBeGreaterThanOrEqual(0);
-
     }
-
   });
 
-
-
   it("substitutes {s} from subdomains string", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ subdomains: "abc" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles.length).toBe(1);
 
     expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
-
   });
 
-
-
   it("substitutes {s} from subdomains array", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ subdomains: ["a", "b", "c"] }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
-
   });
 
-
-
   it("uses 256 default tileSize when not specified", () => {
-
     const renderer = makeRenderer();
 
     // TileLayer with options but no tileSize → defaults to 256
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ subdomains: "abc" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].size).toBe(256);
-
   });
 
-
-
   it("uses numeric tileSize from options", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ tileSize: 512 }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].size).toBe(512);
-
   });
 
-
-
   it("uses empty string urlTemplate when _url is missing", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ _url: "" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].url).toBe("");
-
   });
 
-
-
   it("substitutes {z} with zoom value", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}.png" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       7,
 
       1,
-
     );
 
     expect(tiles[0].url).toMatch(/\/7\/0\/0\.png$/);
-
   });
 
-
-
   it("appends @2x to {r} when scale > 1", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       2,
-
     );
 
     expect(tiles[0].url).toContain("@2x");
-
   });
 
-
-
   it("replaces {r} with empty string when scale is 1", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].url).toBe("https://tile.example.com/0/0/0.png");
 
     expect(tiles[0].url).not.toContain("@2x");
-
   });
 
-
-
   it("sets left and top to tile pixel positions", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ tileSize: 256 }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].left).toBe(0);
 
     expect(tiles[0].top).toBe(0);
-
   });
 
-
-
   it("produces 16 tiles for zoom 2 full extent", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer(),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       2,
 
       1,
-
     );
 
     expect(tiles.length).toBe(16);
-
   });
 
-
-
   it("uses subdomains[0] when subdomains array has single entry", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ subdomains: ["x"] }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       0,
 
       1,
-
     );
 
     expect(tiles[0].url).toBe("https://x.tile.example.com/0/0/0.png");
-
   });
 
-
-
   it("cycles subdomains deterministically via (x+y) % len", () => {
-
     const renderer = makeRenderer();
 
     const tiles = renderer.calcTiles(
-
       makeTileLayer({ subdomains: "ab" }),
 
       {
-
         nw: { lat: 85.051129, lng: -180 },
 
         se: { lat: -85.051129, lng: 180 },
-
       },
 
       1,
 
       1,
-
     );
 
     const subdomainSets = new Set(tiles.map(t => t.url.match(/\/\/([ab])\./)![1]));
 
     expect(subdomainSets).toEqual(new Set(["a", "b"]));
-
   });
-
 });
-
-
 
 // ===========================================================================
 
@@ -915,21 +664,16 @@ describe("calcTiles", () => {
 // ===========================================================================
 
 describe("ExportRenderer.render — canvas creation", () => {
-
   let renderer: ExportRenderer;
 
   let container: HTMLDivElement;
 
-
-
   beforeEach(() => {
-
     container = document.createElement("div");
 
     container.id = "test";
 
     container.getBoundingClientRect = () => ({
-
       left: 0,
 
       top: 0,
@@ -941,35 +685,24 @@ describe("ExportRenderer.render — canvas creation", () => {
       right: 800,
 
       bottom: 600,
-
     });
 
     const map = {
-
       options: { crs: makeEPSG3857Mock() },
 
       getContainer: () => container,
 
       foliplus: {
-
         LayerAPI: { layers: [], getLayerPanes: () => [] },
-
       },
-
     };
 
     renderer = new ExportRenderer(map as any);
-
   });
 
-
-
   it("throws when scaled width < 1", async () => {
-
     await expect(
-
       renderer.render(
-
         { left: 0, top: 0, width: 0, height: 100 },
 
         1,
@@ -977,21 +710,13 @@ describe("ExportRenderer.render — canvas creation", () => {
         undefined,
 
         undefined,
-
       ),
-
     ).rejects.toThrow();
-
   });
 
-
-
   it("throws when scaled height < 1", async () => {
-
     await expect(
-
       renderer.render(
-
         { left: 0, top: 0, width: 100, height: 0 },
 
         1,
@@ -999,19 +724,12 @@ describe("ExportRenderer.render — canvas creation", () => {
         undefined,
 
         undefined,
-
       ),
-
     ).rejects.toThrow();
-
   });
 
-
-
   it("succeeds with a valid rect and scale (no layers)", async () => {
-
     const canvas = await renderer.render(
-
       { left: 0, top: 0, width: 200, height: 150 },
 
       1,
@@ -1019,7 +737,6 @@ describe("ExportRenderer.render — canvas creation", () => {
       undefined,
 
       undefined,
-
     );
 
     expect(canvas).toBeInstanceOf(HTMLCanvasElement);
@@ -1027,15 +744,10 @@ describe("ExportRenderer.render — canvas creation", () => {
     expect(canvas.width).toBe(200);
 
     expect(canvas.height).toBe(150);
-
   });
 
-
-
   it("rounds scaled dimensions to integers", async () => {
-
     const canvas = await renderer.render(
-
       { left: 0, top: 0, width: 100.4, height: 80.9 },
 
       2,
@@ -1043,7 +755,6 @@ describe("ExportRenderer.render — canvas creation", () => {
       undefined,
 
       undefined,
-
     );
 
     // 100.4 * 2 = 200.8 → 201; 80.9 * 2 = 161.8 → 162
@@ -1051,27 +762,20 @@ describe("ExportRenderer.render — canvas creation", () => {
     expect(canvas.width).toBe(201);
 
     expect(canvas.height).toBe(162);
-
   });
 
-
-
   it("does not iterate layers when LayerAPI is undefined", async () => {
-
     const map = {
-
       options: { crs: makeEPSG3857Mock() },
 
       getContainer: () => container,
 
       foliplus: {},
-
     };
 
     const r = new ExportRenderer(map as any);
 
     const canvas = await r.render(
-
       { left: 0, top: 0, width: 100, height: 100 },
 
       1,
@@ -1079,16 +783,11 @@ describe("ExportRenderer.render — canvas creation", () => {
       undefined,
 
       undefined,
-
     );
 
     expect(canvas).toBeInstanceOf(HTMLCanvasElement);
-
   });
-
 });
-
-
 
 // ===========================================================================
 
@@ -1101,13 +800,9 @@ describe("ExportRenderer.render — canvas creation", () => {
 // ===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
-
   let renderer: ExportRenderer;
 
-
-
   beforeEach(() => {
-
     // renderTileLayer reads getZoom/getCenter; the calcTiles spy below makes
 
     // the map otherwise irrelevant.
@@ -1117,25 +812,16 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     (renderer.map as any).getZoom = () => 2;
 
     (renderer.map as any).getCenter = () => ({ lat: 26.08, lng: 119.3 });
-
   });
-
-
 
   afterEach(() => {
-
     vi.restoreAllMocks();
-
   });
 
-
-
   it("reports the cumulative tiles handled after each batch", async () => {
-
     vi.spyOn(UTIL, "loadImageBitmap").mockResolvedValue(null);
 
     const tiles = Array.from({ length: 8 }, (_, i) => ({
-
       x: i % 4,
 
       y: 0,
@@ -1149,19 +835,15 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       top: 0,
 
       size: 256,
-
     }));
 
     vi.spyOn(renderer, "calcTiles").mockReturnValue(tiles);
-
-
 
     const canvas = document.createElement("canvas");
 
     canvas.width = canvas.height = 4096;
 
     const rc = {
-
       ctx: canvas.getContext("2d")!,
 
       rect: { left: 0, top: 0, width: 4096, height: 4096 },
@@ -1177,15 +859,11 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       sw: 4096,
 
       sh: 4096,
-
     };
 
     const onProgress = vi.fn();
 
-
-
     await renderer.renderTileLayer(
-
       rc,
 
       { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
@@ -1193,10 +871,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       makeTileLayer(),
 
       onProgress,
-
     );
-
-
 
     const batches = Math.ceil(8 / CONST.TILE_CONCURRENCY);
 
@@ -1207,13 +882,9 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // Each batch adds the concurrency count, capped at the layer's tile count.
 
     expect(seen).toEqual([CONST.TILE_CONCURRENCY, 8]);
-
   });
 
-
-
   it("never calls onProgress when no tiles are visible", async () => {
-
     vi.spyOn(UTIL, "loadImageBitmap").mockResolvedValue(null);
 
     vi.spyOn(renderer, "calcTiles").mockReturnValue([]);
@@ -1223,7 +894,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     canvas.width = canvas.height = 100;
 
     const rc = {
-
       ctx: canvas.getContext("2d")!,
 
       rect: { left: 0, top: 0, width: 100, height: 100 },
@@ -1239,15 +909,11 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       sw: 100,
 
       sh: 100,
-
     };
 
     const onProgress = vi.fn();
 
-
-
     await renderer.renderTileLayer(
-
       rc,
 
       { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
@@ -1255,19 +921,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       makeTileLayer(),
 
       onProgress,
-
     );
 
-
-
     expect(onProgress).not.toHaveBeenCalled();
-
   });
 
-
-
   it("returns early without touching the tile API when geoBounds is invalid", async () => {
-
     const calcTiles = vi.spyOn(renderer, "calcTiles");
 
     const canvas = document.createElement("canvas");
@@ -1276,12 +935,8 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
 
     const onProgress = vi.fn();
 
-
-
     await renderer.renderTileLayer(
-
       {
-
         ctx: canvas.getContext("2d")!,
 
         rect: { left: 0, top: 0, width: 100, height: 100 },
@@ -1297,7 +952,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
         sw: 100,
 
         sh: 100,
-
       },
 
       {} as any,
@@ -1305,25 +959,17 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       makeTileLayer(),
 
       onProgress,
-
     );
-
-
 
     expect(calcTiles).not.toHaveBeenCalled();
 
     expect(onProgress).not.toHaveBeenCalled();
-
   });
 
-
-
   it("drops tiles that fall outside the crop rect, so the count tracks what is drawn", async () => {
-
     vi.spyOn(UTIL, "loadImageBitmap").mockResolvedValue(null);
 
     const tiles = Array.from({ length: 8 }, (_, i) => ({
-
       x: i,
 
       y: 0,
@@ -1339,7 +985,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       top: 0,
 
       size: 256,
-
     }));
 
     vi.spyOn(renderer, "calcTiles").mockReturnValue(tiles);
@@ -1351,7 +996,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     canvas.height = 512;
 
     const rc = {
-
       ctx: canvas.getContext("2d")!,
 
       rect: { left: 0, top: 0, width: 1536, height: 512 },
@@ -1367,7 +1011,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       sw: 1536,
 
       sh: 512,
-
     };
 
     const onProgress = vi.fn();
@@ -1377,7 +1020,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // is the surviving count rather than the concurrency cap.
 
     const survivors = Array.from({ length: CONST.TILE_CONCURRENCY + 1 }, (_, k) => ({
-
       url: `url${k}`,
 
       left: k * 256,
@@ -1399,15 +1041,11 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       dw: 256,
 
       dh: 256,
-
     }));
 
     vi.spyOn(renderer, "tilePositions").mockReturnValue(survivors as any);
 
-
-
     await renderer.renderTileLayer(
-
       rc,
 
       { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
@@ -1415,10 +1053,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       makeTileLayer(),
 
       onProgress,
-
     );
-
-
 
     // Two batches: a full one, then the single leftover survivor.  The final
 
@@ -1433,19 +1068,14 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     expect(got[0]).toBe(CONST.TILE_CONCURRENCY);
 
     expect(got[got.length - 1]).toBe(survivors.length);
-
   });
 
-
-
   it("caps the final batch at the tile count when it is not a multiple of the concurrency", async () => {
-
     vi.spyOn(UTIL, "loadImageBitmap").mockResolvedValue(null);
 
     const total = CONST.TILE_CONCURRENCY + 1; // always > 1 batch, never a multiple
 
     const tiles = Array.from({ length: total }, (_, i) => ({
-
       x: i,
 
       y: 0,
@@ -1459,7 +1089,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       top: 0,
 
       size: 256,
-
     }));
 
     vi.spyOn(renderer, "calcTiles").mockReturnValue(tiles);
@@ -1469,7 +1098,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     canvas.width = canvas.height = 4096;
 
     const rc = {
-
       ctx: canvas.getContext("2d")!,
 
       rect: { left: 0, top: 0, width: 4096, height: 4096 },
@@ -1485,15 +1113,11 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       sw: 4096,
 
       sh: 4096,
-
     };
 
     const onProgress = vi.fn();
 
-
-
     await renderer.renderTileLayer(
-
       rc,
 
       { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
@@ -1501,26 +1125,17 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       makeTileLayer(),
 
       onProgress,
-
     );
-
-
 
     // Exactly 2 batches: the first full batch, then the single leftover tile.
 
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
-
       CONST.TILE_CONCURRENCY,
 
       total,
-
     ]);
-
   });
-
 });
-
-
 
 // ===========================================================================
 
@@ -1576,17 +1191,12 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
   // on the prototype lets every pass complete without asserting on what gets
   // painted, since render() creates its own canvas per call.
   const stubDrawImage = () => {
-    vi.spyOn(
-      HTMLCanvasElement.prototype,
-      "getContext",
-    ).mockReturnValue(
-      {
-        drawImage: vi.fn(),
-        fillRect: vi.fn(),
-        save: vi.fn(),
-        restore: vi.fn(),
-      } as unknown as CanvasRenderingContext2D,
-    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
   };
 
   // render() clips every layer to the crop, so the fixture keeps a real
@@ -1609,10 +1219,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // closed, which is what renderTileLayer does per tile.  A null bitmap is
     // skipped before the counter advances, so it would suppress the report.
     const bitmap = { close: () => undefined } as unknown as ImageBitmap;
-    vi.stubGlobal(
-      "createImageBitmap",
-      vi.fn().mockResolvedValue(bitmap),
-    );
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -1684,9 +1291,9 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     bigCenter();
     const visible = makeTileLayer();
     const hidden = makeTileLayer();
-    const calcTiles = vi.spyOn(renderer, "calcTiles").mockReturnValue(
-      tilesNearCenter(CONST.TILE_CONCURRENCY),
-    );
+    const calcTiles = vi
+      .spyOn(renderer, "calcTiles")
+      .mockReturnValue(tilesNearCenter(CONST.TILE_CONCURRENCY));
     stubDrawImage();
     stubBitmaps();
     renderer.map.foliplus = {
@@ -1771,9 +1378,8 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     stubDrawImage();
     const emptyLayer = makeTileLayer();
     const realLayer = makeTileLayer();
-    vi.spyOn(renderer, "calcTiles").mockImplementation(
-      (tileLayer: unknown) =>
-        tileLayer === emptyLayer ? [] : tilesNearCenter(CONST.TILE_CONCURRENCY),
+    vi.spyOn(renderer, "calcTiles").mockImplementation((tileLayer: unknown) =>
+      tileLayer === emptyLayer ? [] : tilesNearCenter(CONST.TILE_CONCURRENCY),
     );
     stubBitmaps();
     renderer.map.foliplus = {
@@ -1871,7 +1477,13 @@ describe("ExportRenderer.tilePositions", () => {
   // occupy 0-1024 in both axes.  The crop at 0,0/1000x600 therefore reaches
   // into tile 3 on the right and row 2 at the bottom.
   const tile = (url: string, x: number, y: number) => ({
-    x, y, z: 2, url, left: x * 256, top: y * 256, size: 256,
+    x,
+    y,
+    z: 2,
+    url,
+    left: x * 256,
+    top: y * 256,
+    size: 256,
   });
 
   it("keeps overlapping tiles with their destination rect and drops the rest", () => {
@@ -1906,9 +1518,27 @@ describe("ExportRenderer.tilePositions", () => {
     expect(calcTiles).toHaveBeenCalledWith(makeTileLayer(), bounds, 2, 1);
     expect(survivors.length).toBe(3);
     // The destination rect is the viewport position scaled into crop pixels.
-    expect(survivors[0]).toMatchObject({ url: "keep", dx: 512, dy: 128, dw: 256, dh: 256 });
-    expect(survivors[1]).toMatchObject({ url: "inner", dx: 512, dy: -128, dw: 256, dh: 256 });
-    expect(survivors[2]).toMatchObject({ url: "partial", dx: 512, dy: 384, dw: 256, dh: 256 });
+    expect(survivors[0]).toMatchObject({
+      url: "keep",
+      dx: 512,
+      dy: 128,
+      dw: 256,
+      dh: 256,
+    });
+    expect(survivors[1]).toMatchObject({
+      url: "inner",
+      dx: 512,
+      dy: -128,
+      dw: 256,
+      dh: 256,
+    });
+    expect(survivors[2]).toMatchObject({
+      url: "partial",
+      dx: 512,
+      dy: 384,
+      dw: 256,
+      dh: 256,
+    });
     for (const url of ["right", "above", "below"])
       expect(survivors.map((t: any) => t.url)).not.toContain(url);
   });
@@ -1931,7 +1561,13 @@ describe("ExportRenderer.tilePositions", () => {
     );
 
     expect(survivors.length).toBe(1);
-    expect(survivors[0]).toMatchObject({ url: "keep", dx: 512, dy: 256, dw: 512, dh: 512 });
+    expect(survivors[0]).toMatchObject({
+      url: "keep",
+      dx: 512,
+      dy: 256,
+      dw: 512,
+      dh: 512,
+    });
   });
 
   it("returns an empty list when every tile is outside the crop rect", () => {
