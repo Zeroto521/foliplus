@@ -562,10 +562,7 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
-    expect(mgr.registerFinalized).toHaveBeenCalledWith(
-      expect.any(Function),
-      "test-id",
-    );
+    expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function), "test-id");
   });
 
   it("rebuilds the centroid dot alongside the label and delete icon", () => {
