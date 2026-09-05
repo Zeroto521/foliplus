@@ -264,7 +264,7 @@ describe("LayerUI focusLayer() — interaction lock", () => {
   });
 
   it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
-    let { manager, ui, map } = initFixture();
+    const { manager, ui, map } = initFixture();
 
     ui.focusLayer("overlay1");
     expect(getModeSpy("LayerControl")).toBe("focusing");

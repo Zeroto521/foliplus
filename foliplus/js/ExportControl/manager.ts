@@ -629,7 +629,7 @@ class ExportManager {
 
     if (needsBigger && geoBounds && geoBounds.nw)
       this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
-    else this.doRender(r, scaleValue, bg, geoBounds, onProgress);
+    else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -720,8 +720,10 @@ class ExportManager {
     this.map.invalidateSize(false);
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
-      this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds, onProgress).finally(restore);
+      void this.mapContainer.offsetHeight; // Force synchronous reflow
+      void this.doRender(r, scaleValue, bg, geoBounds, onProgress)
+        .finally(restore)
+        .catch(() => undefined);
     });
   }
 
@@ -758,11 +760,8 @@ class ExportManager {
       this.showPreview(blob);
       // GeoTIFF needs embedded georeferencing, so it ships as its own
       // container file; every other format is the encoded blob itself.
-      if (format.geotiff) {
-        await this.downloadGeoTiff(canvas, name);
-      } else {
-        this.claimDownload(blob, `${name}.${format.ext}`);
-      }
+      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
+      else this.claimDownload(blob, `${name}.${format.ext}`);
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
@@ -821,7 +820,7 @@ class ExportManager {
    * and ModelPixelScale tags for WGS84 (EPSG:4326).
    * Falls back to a plain image download if geo bounds are unavailable.
    */
-  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+  downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
     // doExport() clears cropState via removeCropBox() before the render
     // callback fires, so cropState.geoBounds is gone by the time we
     // reach downloadGeoTiff.  Use the geoBounds saved in doExport
