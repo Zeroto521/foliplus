@@ -1,7 +1,7 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { ensureHint, HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION, ensureHint } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
