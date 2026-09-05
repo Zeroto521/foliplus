@@ -50,7 +50,13 @@ const LABEL_PRIORITY = {
 const FORMAT = {
   LAT_LNG_PRECISION: 6,
   KM_THRESHOLD: 1000,
+  // Area gets one extra digit: the unit conversion squares, so error grows
+  // faster and a 2nd digit carries real information.
+  // 0 decimals for the small-unit branches: they cap below the threshold, so a
+  // fractional digit would read as false precision.
+  SMALL_DECIMALS: 0,
   KM_DECIMALS: 1,
+  KM2_DECIMALS: 2,
 };
 
 /** IDs and pane names. */
