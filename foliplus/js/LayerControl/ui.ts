@@ -85,6 +85,9 @@ class LayerUI {
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
+  /** Document mousedown handler — clears the keyboard cursor when the user clicks
+   *  outside the panel (the cursor is a panel-local navigation marker). */
+  declare onOutsideMousedown: ((event: MouseEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -124,6 +127,7 @@ class LayerUI {
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onOutsideMousedown = null;
     this.activeMenu = null;
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -849,13 +853,7 @@ class LayerUI {
       }
       const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
       if (!row || el.closest('[data-role="toggle-all"]')) return;
-      const group = row.dataset.group ?? "";
-      if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
-      else this.foldedGroups.add(group);
-      this.renderInitialList();
-      this.initTypesAndVisibility();
-      this.refreshAllCounts();
-      this.saveFoldState();
+      this.toggleFold(row.dataset.group ?? "");
     };
 
     this.onDragStart = event => this.handleDragStart(event);
@@ -892,6 +890,17 @@ class LayerUI {
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
+    // Clicking OUTSIDE the panel drops the keyboard cursor. It is a panel-local
+    // navigation marker (arrow/Tab), so once the user clicks the map or another
+    // control the highlight must not linger on the last navigated row. mousedown
+    // (not click) is what makes this safe: it fires before the click-driven list
+    // rebuild, so the target is still connected when we test it — clicking a fold
+    // button (which rebuilds the list) stays inside the panel and won't clear it.
+    this.onOutsideMousedown = event => {
+      const target = event.target as HTMLElement | null;
+      if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+    };
+    document.addEventListener("mousedown", this.onOutsideMousedown);
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -989,6 +998,8 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+    if (this.onOutsideMousedown)
+      document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
     this.m.persistence.cancelSaveHiddenIds();
@@ -998,6 +1009,7 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onOutsideMousedown = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -1135,20 +1147,19 @@ class LayerUI {
   }
 
   /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
-   *  order. The color item is excluded (it is a picker, not a layer). */
+   *  order. The color item is excluded (it is a picker, not a layer).
+   *
+   *  Enumerates the row elements themselves, not their checkboxes. The old
+   *  checkbox-first traversal silently dropped any row without a checkbox, so
+   *  arrow-key navigation and Tab order could disagree about which rows exist.
+   *  Rows are selected by class rather than `[tabindex]` because the inline
+   *  rename input is also `tabindex=0` and is not a navigable row. */
   getNavigableItems(): HTMLElement[] {
     return Array.from(
-      this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
-    )
-      .map(
-        cb =>
-          (cb.closest(CONST.SEL.LAYER_ITEM) ??
-            cb.closest(CONST.SEL.TOGGLE_ALL)) as HTMLElement | null,
-      )
-      .filter(
-        (el): el is HTMLElement =>
-          el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
-      );
+      this.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
+      ),
+    ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
   }
 
   /** Index of the nearest row in `step` direction that is not folded away,
@@ -1332,8 +1343,8 @@ class LayerUI {
       case "ArrowRight":
       case " ":
       case "Enter":
-        // Do not toggle the checkbox when the more (⋮) button is focused —
-        // that key opens the overflow menu instead.
+        // A ⋮ button is focused — that key opens the overflow menu, not the
+        // row checkbox.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
           event.preventDefault();
           event.stopPropagation();
@@ -1341,6 +1352,18 @@ class LayerUI {
             CONST.SEL.LAYER_ITEM,
           ) as HTMLElement | null;
           if (item) this.openMoreMenu(item);
+          break;
+        }
+        // The chevron button is focused — that key folds the group, not
+        // select-all. Left untouched, resolveActiveIdx() walks up from the
+        // button to its toggle-all row and the row checkbox flips instead.
+        if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.TOGGLE_ALL,
+          ) as HTMLElement | null;
+          if (row) this.toggleFold(row.dataset.group ?? "");
           break;
         }
         // Menu item (li) is focused — trigger the focus-layer action.
@@ -1403,6 +1426,17 @@ class LayerUI {
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** Fold or unfold one group. Shared by the pointer (row click) and the
+   *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
+  private toggleFold(group: string): void {
+    if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+    else this.foldedGroups.add(group);
+    this.renderInitialList();
+    this.initTypesAndVisibility();
+    this.refreshAllCounts();
+    this.saveFoldState();
   }
 
   handleDragStart(event: DragEvent) {
