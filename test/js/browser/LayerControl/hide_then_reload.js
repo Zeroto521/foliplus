@@ -21,7 +21,8 @@
   }
   return {
     rows: rows.length,
-    stillChecked: document.querySelectorAll(`${SEL} input[type="checkbox"]:checked`).length,
+    stillChecked: document.querySelectorAll(`${SEL} input[type="checkbox"]:checked`)
+      .length,
     ids: Array.from(rows).map(r => r.getAttribute("data-layer-id")),
   };
 };

@@ -36,9 +36,8 @@
     // in here, so this is what decides whether a "hidden" layer is actually off
     // the map.
     mapCount: map ? Object.keys(map._layers).length : null,
-    storage: Object.keys(localStorage).filter(k => k.includes("foliplus")).reduce(
-      (a, k) => (a[k] = localStorage.getItem(k), a),
-      {},
-    ),
+    storage: Object.keys(localStorage)
+      .filter(k => k.includes("foliplus"))
+      .reduce((a, k) => ((a[k] = localStorage.getItem(k)), a), {}),
   };
 };
