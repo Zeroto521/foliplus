@@ -899,7 +899,6 @@ describe("LayerManager", () => {
     expect(parent.options.paneSet).toBe(true);
   });
 
->>>>>>> 6209ab7b (fix(LayerControl): persist the last toggle and reorder on destroy)
   it("applyLayerZIndex calls setZIndex for visible TileLayers", () => {
     const tile = new TileLayer();
     manager.map.hasLayer.mockReturnValue(true);
