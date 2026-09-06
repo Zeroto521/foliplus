@@ -4,6 +4,7 @@
 // it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
+import { formatCoord } from "./format.js";
 import * as SVGs from "./icon.js";
 
 // ── DOM constants ───────────────────────────────────────────────
@@ -177,7 +178,10 @@ const escapeHTML = (str: string | number | boolean | null | undefined): string =
 };
 
 /**
- * Build a popup HTML string for a location marker.
+ * Build a popup HTML string for a location marker. Coordinates are pinned to
+ * the shared readout precision, so a popup never echoes the raw stored value —
+ * a history entry saved from "121.47" used to render "120.47,30" instead of the
+ * six decimals every other location readout shows.
  */
 const buildPopupHtml = (
   lng: number,
@@ -198,7 +202,7 @@ const buildPopupHtml = (
     { class: "foliplus-popup-content" },
     dom.el("b", null, titleText),
     { html: "<br>" },
-    `${locLabelText}${lng},${lat}`,
+    `${locLabelText}${formatCoord(lng)}, ${formatCoord(lat)}`,
     { html: "<br>" },
     addrLabelText,
     addrHtml as Child,

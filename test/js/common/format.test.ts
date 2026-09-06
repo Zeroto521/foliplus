@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import { formatCoord, formatLatLng, formatNumber, LAT_LNG_PRECISION } from "#common/format.js";
 
 describe("formatNumber", () => {
   it("defaults to 'auto' style and 'en' locale", () => {
@@ -103,6 +103,32 @@ describe("formatNumber", () => {
   it("auto rounds up across the grouping boundary (999.9 -> 1,000)", () => {
     expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
     expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
+  });
+});
+
+describe("formatCoord / formatLatLng", () => {
+  it("pins six decimals so a short stored value still reads at full precision", () => {
+    // A history entry saved from "121.47" stores 121.47, not 121.470000. The
+    // shared formatter is what keeps every readout at the same width.
+    expect(formatCoord(121.47)).toBe("121.470000");
+    expect(formatCoord(0)).toBe("0.000000");
+  });
+
+  it("groups the integer part with the en comma", () => {
+    // En grouping only shows up once the integer part crosses 99,999 — unreachable
+    // for a real lng (±180) / lat (±90) value, but it is what the measure chip
+    // relies on, so the shared formatter must agree with it.
+    expect(formatCoord(123456.789)).toBe("123,456.789000");
+    expect(formatLatLng(1234.5, 987.654)).toBe("1,234.500000, 987.654000");
+  });
+
+  it("accepts an explicit precision", () => {
+    expect(formatCoord(1.5, 2)).toBe("1.50");
+    expect(formatLatLng(1.5, -2.25, 0)).toBe("2, -2");
+  });
+
+  it("exposes the precision so persistence and display cannot drift apart", () => {
+    expect(LAT_LNG_PRECISION).toBe(6);
   });
 });
 

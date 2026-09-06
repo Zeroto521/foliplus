@@ -60,4 +60,18 @@ const formatNumber = (
   return intStr.length >= 3 ? fmt(0).format(val) : nf.format(val);
 };
 
+/** Coordinate precision shared by every location readout. Kept here rather
+ *  than duplicated in each component: an uncoordinated change to either side
+ *  makes the same point display differently in two places. */
+export const LAT_LNG_PRECISION = 6;
+
+/** One coordinate for a location readout: fixed decimals, en grouping,
+ *  language-agnostic — the operator reads the number itself, not the locale. */
+export const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
+  formatNumber(n, "comma", "en", digits);
+
+/** An lng/lat pair as the readout string, longitude leading. */
+export const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): string =>
+  `${formatCoord(lng, digits)}, ${formatCoord(lat, digits)}`;
+
 export { type NumberStyle, formatNumber };

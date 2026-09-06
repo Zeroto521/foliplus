@@ -114,10 +114,40 @@ describe("buildPopupHtml", () => {
     );
     expect(html).toContain("foliplus-popup-content");
     expect(html).toContain("Location");
-    expect(html).toContain("120.5,30.2");
+    expect(html).toContain("120.500000, 30.200000");
     expect(html).toContain("Some Address");
     expect(html).toContain("Lng,Lat:");
     expect(html).toContain("Address:");
+  });
+
+  it("pins coordinates to the shared readout precision instead of echoing the raw value", () => {
+    // A history entry saved from "121.47" holds 121.47, not 121.470000 — the
+    // popup must still show six decimals so it matches the search panel and the
+    // live readout.
+    const html = buildPopupHtml(
+      121.47,
+      31.23,
+      null,
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(html).toContain("121.470000, 31.230000");
+    expect(html).not.toContain("121.47,");
+  });
+
+  it("groups long coordinates with the same comma style as the other readouts", () => {
+    const html = buildPopupHtml(
+      123.456789,
+      -33.123456,
+      null,
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(html).toContain("123.456789, -33.123456");
   });
 
   it("shows loading indicator when addr is null", () => {

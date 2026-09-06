@@ -1,7 +1,7 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
+import { formatCoord, formatLatLng, formatNumber, LAT_LNG_PRECISION } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -182,18 +182,11 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 /** Round a coordinate to the persisted precision, so a dragged pin displays
  *  identically to a freshly placed one (which is rounded on placement). */
 const roundCoord = (n: number): number =>
-  parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
+  parseFloat(n.toFixed(LAT_LNG_PRECISION));
 
 // ── Live coordinate readout ─────────────────────────────────────────
-/** One coordinate to the persisted precision. Fixed decimals keep the chip
- *  from shifting width as the cursor moves. */
-const formatCoord = (n: number): string =>
-  formatNumber(n, "comma", "en", CONST.FORMAT.LAT_LNG_PRECISION);
-
-/** Format an lng/lat pair as the readout string. Longitude leads, matching
- *  `buildPopup` and every other location display in the project. */
-const formatLatLng = (lng: number, lat: number): string =>
-  `${formatCoord(lng)}, ${formatCoord(lat)}`;
+// The readout formatter (`formatCoord` / `formatLatLng`) lives in #common/format.js
+// so it is the one definition shared with the popup and the search panel.
 
 /** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
  *  the plain-object `latitude/longitude` alias, so callers can pass either. */
