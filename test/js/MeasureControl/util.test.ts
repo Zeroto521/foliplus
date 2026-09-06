@@ -832,6 +832,7 @@ describe("formatCoord / formatLatLng", () => {
 describe("coordText", () => {
   it("reports the pointer's coordinate as the map holds it", () => {
     const map = {} as L.Map;
+
     expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
       "121.500000, 31.200000",
     );
@@ -839,6 +840,7 @@ describe("coordText", () => {
 
   it("reads the latitude/longitude alias", () => {
     const map = {} as L.Map;
+
     expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
       "120.000000, 30.000000",
     );
@@ -846,6 +848,7 @@ describe("coordText", () => {
 
   it("rounds to the persisted precision", () => {
     const map = {} as L.Map;
+
     expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
       "121.987654, 31.123457",
     );
@@ -856,6 +859,7 @@ describe("coordText", () => {
     // The readout must echo it unchanged — a WGS84 round trip would move the
     // number the operator is looking at.
     const map = {} as L.Map;
+
     expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
       "121.510000, 31.210000",
     );

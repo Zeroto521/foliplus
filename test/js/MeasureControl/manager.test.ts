@@ -228,78 +228,113 @@ describe("MeasureManager — mode switching", () => {
     // Regression: showing the chip before the first mousemove left it at the
     // container's default spot (by the hint) with no inline left/top.
     const { manager, container } = makeManager();
+
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
+
     expect(readout.hidden).toBe(true);
   });
 
   it("reveals the chip on mousemove and hides it on clearActiveMode", () => {
     const { manager, map, container } = makeManager();
+
     map.getSize = () => ({ x: 1000, y: 800 });
+
     map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
+
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
     move({ latlng: { lat: 31, lng: 121 } });
+
     expect(readout.hidden).toBe(false);
+
     manager.clearActiveMode();
+
     expect(readout.hidden).toBe(true);
   });
 
   it("shows the readout in edit mode too", () => {
     const { manager, map, container } = makeManager();
+
     map.getSize = () => ({ x: 1000, y: 800 });
+
     map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
+
     manager.setEditMode(true);
     const readout = container.querySelector(".foliplus-measure-readout")!;
+
     expect(readout.hidden).toBe(true); // not positioned yet
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
     move({ latlng: { lat: 31, lng: 121 } });
+
     expect(readout.hidden).toBe(false);
+
     // Leaving edit mode hides it.
     manager.setEditMode(false);
+
     expect(readout.hidden).toBe(true);
   });
 
   it("tracks the cursor and anchors the chip below it (due south)", () => {
     const { manager, map, container } = makeManager();
+
     map.getSize = () => ({ x: 1000, y: 800 });
     let px = { x: 500, y: 400 };
+
     map.latLngToContainerPoint = () => px;
+
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
+
     // jsdom reports no layout, so the flip decision (which depends on the
     // chip's measured height) has no signal without a stubbed size.
     Object.defineProperty(readout, "offsetHeight", { value: 24 });
+
     Object.defineProperty(readout, "offsetWidth", { value: 140 });
 
     // The offset lives in CSS (translate), so the inline style is just the
     // cursor's container point; the horizontal clamp keeps it on-screen.
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+
     move({ latlng: { lat: 31, lng: 121 } });
+
     expect(readout.style.left).toBe("500px");
+
     expect(readout.style.top).toBe("400px");
+
     expect(readout.style.transform).toBe("");
+
     expect(readout.textContent).toBe("121.000000, 31.000000");
+
     expect(readout.hidden).toBe(false);
 
     // Near the bottom edge with no room below, the chip re-anchors above it.
     px = { x: 500, y: 790 };
+
     move({ latlng: { lat: 31, lng: 121 } });
+
     expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
 
     // In the open middle it never flips.
     px = { x: 500, y: 400 };
+
     move({ latlng: { lat: 31, lng: 121 } });
+
     expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(false);
   });
 
   it("hides the chip on mouseout", () => {
     const { manager, map, container } = makeManager();
+
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
     const out = (map.on as any).mock.calls.find(([ev]) => ev === "mouseout")?.[1];
+
     out();
+
     expect(readout.hidden).toBe(true);
   });
 
@@ -308,23 +343,33 @@ describe("MeasureManager — mode switching", () => {
     // Programmatic `map.fire("mousemove", { latlng })` (as the browser tests do)
     // must not throw — the handler reads the pixel point from `latlng`.
     const { manager, map, container } = makeManager();
+
     map.getSize = () => ({ x: 1000, y: 800 });
+
     map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
+
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector(".foliplus-measure-readout")!;
     const move = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     expect(() => move({ latlng: { lat: 31, lng: 121 } })).not.toThrow();
+
     expect(map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 31, lng: 121 });
+
     expect(readout.style.left).toBe("120px");
+
     expect(readout.style.top).toBe("240px");
+
     expect(readout.hidden).toBe(false);
   });
 
   it("removes the readout element on destroy", () => {
     const { manager, container } = makeManager();
+
     expect(container.querySelector(".foliplus-measure-readout")).not.toBeNull();
+
     manager.destroy();
+
     expect(container.querySelector(".foliplus-measure-readout")).toBeNull();
   });
 
