@@ -25,6 +25,12 @@ import {
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
+/** Format a progress percentage with the locale text, for the persistent hint. */
+const formatProgress = (percent: number) => {
+  const pct = String(percent);
+  return T("status_progress").replace(/\{pct\}/g, pct);
+};
+
 /**
  * Encode a rendered canvas to a Blob, resolving to `null` when encoding fails.
  * `toBlob` already encodes the raster exactly once, so this is deliberately
@@ -185,7 +191,7 @@ class ExportManager {
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
-      showGlobalHint(this, text, duration, withLoadingIcon);
+      showGlobalHint(text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
@@ -601,6 +607,14 @@ class ExportManager {
 
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
+    // Progress callback: format the percentage with locale text and refresh
+    // the persistent hint.  render() reports 0..90 over the drawing passes;
+    // this callback owns the final stretch, so 100 is reserved for the
+    // download having started rather than the tiles having finished.
+    const onProgress = (percent: number) => {
+      this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
+    };
+
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
     const needsBigger =
@@ -612,8 +626,8 @@ class ExportManager {
       r.top + r.height > vpH * 1.02;
 
     if (needsBigger && geoBounds && geoBounds.nw)
-      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
-    else this.doRender(r, scaleValue, bg, geoBounds);
+      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
+    else this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -624,6 +638,7 @@ class ExportManager {
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds | undefined,
+    onProgress?: (percent: number) => void,
   ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
@@ -645,7 +660,7 @@ class ExportManager {
     }
 
     return new ExportRenderer(this.map)
-      .render(r, scaleValue, bg || undefined, geoBounds)
+      .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
       .then(canvas => {
         this.onRenderSuccess(canvas, hideEls);
       })
@@ -662,6 +677,7 @@ class ExportManager {
     geoBounds: GeoBounds,
     vpW: number,
     vpH: number,
+    onProgress?: (percent: number) => void,
   ) {
     const savedStyles: Record<string, string> = {};
     const style = this.mapContainer.style;
@@ -703,7 +719,7 @@ class ExportManager {
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
       this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+      this.doRender(r, scaleValue, bg, geoBounds, onProgress).finally(restore);
     });
   }
 
@@ -712,6 +728,11 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
+    // The persistent hint already reads "Exporting map... (N%)" from the
+    // last render() report, and it never expires — so the encode phase
+    // between here and the download is not label-less, and it does not read
+    // as finished.  100 stays reserved for claimDownload, where the file
+    // actually goes out.
     // Awaited inline so a rejection cannot escape as an unhandled promise
     // rejection — endExport() has to run on every path or the map stays
     // locked behind the blocker overlay.
@@ -735,8 +756,11 @@ class ExportManager {
       this.showPreview(blob);
       // GeoTIFF needs embedded georeferencing, so it ships as its own
       // container file; every other format is the encoded blob itself.
-      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
-      else download(blob, `${name}.${format.ext}`);
+      if (format.geotiff) {
+        await this.downloadGeoTiff(canvas, name);
+      } else {
+        this.claimDownload(blob, `${name}.${format.ext}`);
+      }
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
@@ -747,6 +771,19 @@ class ExportManager {
     } finally {
       this.endExport();
     }
+  }
+
+  /**
+   * Start the download, claiming the 100 the user expects on the way in.
+   * render() stops at 90 because the canvas still has to be encoded before
+   * it can be saved — that encode is the delay the user sees with nothing
+   * happening.  Claiming the 100 here means a full bar means the file is
+   * actually going out, and the label shown in the meantime says what the
+   * browser is doing.
+   */
+  private claimDownload(blob: Blob, filename: string) {
+    this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
+    download(blob, filename);
   }
 
   /** Show the transient preview overlay for an encoded export artifact.
@@ -848,7 +885,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
+    this.claimDownload(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
