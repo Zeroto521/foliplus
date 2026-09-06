@@ -1,0 +1,93 @@
+/* ════════════════════════════════════════════════════════════
+  CSS Reset & Leaflet Overrides
+  Baseline animations and hidden state, the foliplus-input breathing glow,
+  and the Leaflet-owned chrome we override (leaflet-bar z-index,
+  attribution, scale wrapper).
+  ════════════════════════════════════════════════════════════ */
+
+/* Raise the entire leaflet-bar container when a fold/panel is expanded,
+  so it stays above geopandas legends and other sibling controls.
+  Leaflet's .leaflet-control has z-index:800, override with !important. */
+.leaflet-bar:has(.expanded) {
+  z-index: var(--z-index-floating);
+}
+
+/* ── Animations ── */
+@keyframes foliplus-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.foliplus-spin {
+  animation: foliplus-spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Shared hidden state ──
+  Used by ExportControl (hide controls during render) and FullscreenControl
+  (hide sibling controls when entering fullscreen). Components that need to
+  hide elements during transient states should reuse this class instead of
+  defining their own. */
+.foliplus-hidden {
+  display: none !important;
+}
+
+@keyframes foliplus-input-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 var(--border-thick) var(--accent-soft-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--size-4) var(--accent-soft-shadow);
+  }
+}
+
+/* ── Focus: breathing glow ──
+  Only non-checkbox inputs get the breathing animation, using :focus so it
+  triggers on both mouse click and keyboard Tab — important for color inputs
+  and scheme bars which have no visible cursor.
+  Checkbox intentionally excluded: its :focus would persist after mouse click,
+  causing the animation to run indefinitely.
+  `.foliplus-input` is the shared text-input class (SearchControl + LayerControl
+  rename); heatmap controls keep their own classes. Add any new focusable text
+  input / scheme bar here — it must be added to BOTH the animation rule and the
+  reduced-motion override below. */
+:is(
+  .foliplus-input,
+  .foliplus-heatmap-ctrl select,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+):focus,
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+  animation: foliplus-input-breathe 2s ease-in-out infinite;
+}
+
+/* Respect reduced motion: disable breathing animation for all inputs */
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .foliplus-input,
+    .foliplus-heatmap-ctrl select,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+  ):focus,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+    animation: none;
+  }
+}
+
+/* ── Leaflet attribution & foliplus scale wrapper styling ──
+  Shared rounded, translucent look for the bottom-corner controls. */
+.leaflet-control.foliplus-scale-wrap,
+.leaflet-control-attribution {
+  line-height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg-translucent);
+  border: var(--border-thin) solid var(--divider-color);
+  box-shadow: var(--shadow-xs);
+}

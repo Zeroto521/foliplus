@@ -4,7 +4,7 @@
  *
  * Pipeline:
  *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/compress.mjs``)
- *   2. Merge ``common.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
+ *   2. Merge ``common/*.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
  *
  *   Source transforms run at bundle time via esbuild onLoad — no .build/ mirror needed.
  *
@@ -200,6 +200,40 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
+/** Concatenate the shared stylesheet sources into one string, or null if the
+ *  folder is absent.
+ *
+ *  Order is meaningful, not alphabetical: `tokens.css` defines the custom
+ *  properties the rest of the modules read, so it must be first; `panel.css`
+ *  extends `ctrl-fold.css` and must be last. An alphabetical sort would put
+ *  `button.css` ahead of `tokens.css` and silently break every `var(--…)`. */
+const COMMON_CSS_ORDER = [
+  "tokens.css",
+  "reset.css",
+  "button.css",
+  "hint.css",
+  "icons.css",
+  "ctrl-fold.css",
+];
+const mergeCommonCss = () => {
+  const dir = resolve(cssDir, "common");
+  if (!existsSync(dir)) return null;
+  const present = readdirSync(dir).filter(f => f.endsWith(".css"));
+  // Files present but absent from the manifest are a build-shaping error, not
+  // something to silently append at the end.
+  const unlisted = present.filter(f => !COMMON_CSS_ORDER.includes(f));
+  if (unlisted.length)
+    throw new Error(
+      `build: unlisted stylesheet(s) in ${dir}: ${unlisted.join(", ")} — add them to COMMON_CSS_ORDER`,
+    );
+  const parts = COMMON_CSS_ORDER.filter(f => present.includes(f)).map(f =>
+    readFileSync(resolve(dir, f), "utf-8"),
+  );
+  const panel = resolve(cssDir, "panel.css");
+  if (existsSync(panel)) parts.push(readFileSync(panel, "utf-8"));
+  return parts.length ? parts.join("\n") : null;
+};
+
 /** Build the full list of esbuild artifacts (components + merged common CSS).
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
@@ -219,12 +253,9 @@ const buildEntries = (components, withSonda) => {
     }
   }
 
-  // Merge common.css + panel.css into a single artifact
-  const commonCss = resolve(cssDir, "common.css");
-  const panelCss = resolve(cssDir, "panel.css");
-  if (existsSync(commonCss)) {
-    let css = readFileSync(commonCss, "utf-8");
-    if (existsSync(panelCss)) css += "\n" + readFileSync(panelCss, "utf-8");
+  // Merge the common/ module stylesheets + panel.css into a single artifact
+  const css = mergeCommonCss();
+  if (css) {
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
     writeFileSync(tmpCss, css, "utf-8");
