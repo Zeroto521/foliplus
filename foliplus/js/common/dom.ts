@@ -287,9 +287,13 @@ const createLocationMarker = (
 };
 
 /**
- * Update a layer item's label and associated inputs (checkbox / color input)
- * with a new display name. Finds the label via `data-layer-id` attribute on
- * the item, then updates label text + checkbox/color-input aria-label and title.
+ * Update a layer item's label and its toggle input's aria-label with a new
+ * display name.
+ *
+ * Only the toggle input is touched: it is the one toggle control on a row,
+ * so the name must reach assistive tech — but via aria-label, never via
+ * `title`, because `title` is the Select/Deselect tooltip slot (Select/Deselect
+ * for a data row, the type label for the color basemap row).
  *
  * @param item Parent item element with `data-layer-id` (optional).
  * @param name New display name to apply.
@@ -305,23 +309,15 @@ const updateItemLabel = (
 
   label.textContent = name;
 
-  const checkbox = item.querySelector(
-    'input[type="checkbox"]',
+  // The row's toggle input announces the same name as the label cell. A data
+  // row's toggle is its checkbox; the color basemap row's is the color swatch,
+  // and it has no checkbox — without this the basemap swatch would keep
+  // announcing the locale default after a rename.
+  const toggle = item.querySelector(
+    'input[type="checkbox"], input[type="color"]',
   ) as HTMLInputElement | null;
-  if (checkbox) {
-    checkbox.setAttribute("aria-label", name);
-
-    checkbox.title = name;
-  }
-
-  const colorInput = item.querySelector(
-    'input[type="color"]',
-  ) as HTMLInputElement | null;
-  if (colorInput) {
-    colorInput.setAttribute("aria-label", name);
-
-    colorInput.title = name;
-  }
+  if (toggle && toggle.getAttribute("aria-label") !== name)
+    toggle.setAttribute("aria-label", name);
   return label;
 };
 

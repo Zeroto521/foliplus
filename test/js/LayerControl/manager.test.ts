@@ -1864,33 +1864,50 @@ describe("LayerManager user-assigned names", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
+
     window.L.TileLayer = TileLayer;
+
     window.L.GridLayer = GridLayer;
+
     window.L.Renderer = Renderer;
+
     window.L.Path = Path;
+
     window.L.Polygon = Polygon;
+
     window.L.Polyline = Polyline;
+
     window.L.Marker = Marker;
+
     window.L.CircleMarker = CircleMarker;
+
     window.L.stamp = vi.fn();
+
     window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
 
     const makePane = () => {
       const el = document.createElement("div");
+
       el.style.zIndex = "0";
       return el;
     };
@@ -1905,11 +1922,13 @@ describe("LayerManager user-assigned names", () => {
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
+
         p.style.zIndex = "0";
         return p;
       }),
       createPane: vi.fn(() => {
         const p = makePane();
+
         p.classList.add("foliplus-layer-pane");
         return p;
       }),
@@ -1926,7 +1945,9 @@ describe("LayerManager user-assigned names", () => {
     manager = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: extLayer },
     ]);
+
     manager.ui = new LayerUI(manager);
+
     manager.attachUI(document.createElement("div"));
   });
 
@@ -1936,21 +1957,27 @@ describe("LayerManager user-assigned names", () => {
     // `opts.name` over the existing value, reverting the panel to the
     // original on the next render or reload.
     manager.ui.renameLayer("ext");
+
     const item = manager.ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;
     const input = label.querySelector("input") as HTMLInputElement;
+
     input.value = "My Layer";
+
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
     expect(manager.ui.displayName("ext")).toBe("My Layer");
 
     // Re-registration rebuilds the registry entry from the caller's metadata,
     // then the incremental refresh pushes the rename back out.
     manager.registerLayer({ id: "ext", name: "Provider Layer" });
+
     manager.ui.applyUserState();
 
     expect(manager.ui.displayName("ext")).toBe("My Layer");
+
     expect(manager.layerRegistry.get("ext")?.name).toBe("My Layer");
   });
 
@@ -1961,16 +1988,20 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
+
     fresh.ui = new LayerUI(fresh);
+
     window.localStorage.setItem(
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ ext: "My Layer" }),
     );
+
     fresh.attachUI(document.createElement("div"));
 
     // The registry is the projection, so the sweep pushes the rename into it
     // too; displayName is the render contract either way.
     expect(fresh.layerRegistry.get("ext")?.name).toBe("My Layer");
+
     expect(fresh.ui.displayName("ext")).toBe("My Layer");
   });
 
@@ -1984,18 +2015,23 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
+
     fresh.ui = new LayerUI(fresh);
+
     window.localStorage.setItem(
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ heatmap1: "POI Density" }),
     );
+
     fresh.attachUI(document.createElement("div"));
 
     // The heatmap registers late, still advertising its own title.
     fresh.registerLayer({ id: "heatmap1", name: "Heatmap" });
+
     fresh.ui.applyUserState();
 
     expect(fresh.ui.displayName("heatmap1")).toBe("POI Density");
+
     expect(fresh.layerRegistry.get("heatmap1")?.name).toBe("POI Density");
   });
 
@@ -2018,13 +2054,17 @@ describe("LayerManager user-assigned names", () => {
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ "no-such-id": "Ghost" }),
     );
+
     manager.ui.loadNamesState();
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     manager.ui.applyUserState();
+
     warn.mockRestore();
 
     expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
+
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
   });
 
@@ -2033,19 +2073,23 @@ describe("LayerManager user-assigned names", () => {
     // layer is gone for good rather than merely not registered yet.
     manager.ui.renamedNames["ext"] = "My Layer";
     const save = vi.fn();
+
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("ext")).toBe(true);
 
     expect(manager.ui.renamedNames["ext"]).toBeUndefined();
+
     expect(save).toHaveBeenCalled();
   });
 
   it("does not touch the rename map when unregistering an unknown id", () => {
     const save = vi.fn();
+
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("never-registered")).toBe(false);
+
     expect(save).not.toHaveBeenCalled();
   });
 });

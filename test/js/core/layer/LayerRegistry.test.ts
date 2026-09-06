@@ -77,11 +77,13 @@ describe("LayerRegistry", () => {
         { id: "overlay1", name: "Provider Name" },
         registry.get("overlay1"),
       );
+
       expect(info.name).toBe("Points");
     });
 
     it("accepts opts.name for a fresh id", () => {
       const info = registry.createLayerInfo({ id: "new1", name: "Fresh" });
+
       expect(info.name).toBe("Fresh");
     });
   });

@@ -189,16 +189,28 @@ describe("LayerPersistence", () => {
   // ── Names (user-assigned display names) ──────────────────────────
 
   describe("names", () => {
-    it("loads renamed names and drops unknown ids", () => {
+    it("keeps renames for ids that are not registered yet", () => {
+      // Load order is the opposite of the order/visibility loaders on purpose.
+      // loadNames runs from attachUI, which lands at the tail of the
+      // LayerControl bundle — after some component bundles have registered and
+      // before others have. HeatmapControl and MeasureControl register their
+      // layers in their own constructor, so filtering against the registry
+      // here dropped their renames on the first attach and the user saw the
+      // component default name after every reload. Stale-id cleanup lives in
+      // unregisterLayer instead, the only call that knows a layer is gone for
+      // good rather than merely not registered yet.
       vi.spyOn(Storage, "load").mockReturnValue({
         a: "A2",
-        ghost: "G",
+        "not-registered-yet": "Pending",
         b: "B2",
-        gone: "Z",
       });
       const p = makePersistence(["a", "b", "c"]);
 
-      expect(p.loadNames()).toEqual({ a: "A2", b: "B2" });
+      expect(p.loadNames()).toEqual({
+        a: "A2",
+        "not-registered-yet": "Pending",
+        b: "B2",
+      });
     });
 
     it("returns empty object for missing or non-object storage", () => {
