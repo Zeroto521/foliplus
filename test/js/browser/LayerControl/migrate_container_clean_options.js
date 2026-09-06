@@ -60,9 +60,11 @@
     // creates its graph sub-group lazily and an empty sub-group must never
     // be pinned as a top-level layer on the map.
     addedCount: added.length,
-    leakedPanes: added.filter(l => !ids.has(stamp(l))).map(l => ({
-      pane: (l.options && l.options.pane) || null,
-      children: l.getLayers ? l.getLayers().length : null,
-    })),
+    leakedPanes: added
+      .filter(l => !ids.has(stamp(l)))
+      .map(l => ({
+        pane: (l.options && l.options.pane) || null,
+        children: l.getLayers ? l.getLayers().length : null,
+      })),
   };
 };

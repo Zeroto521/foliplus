@@ -8,8 +8,7 @@
   // that the icon is one element, rotated by CSS instead of being swapped.
   return {
     svgCount: btn.querySelectorAll("svg").length,
-    shapeCount: btn.querySelectorAll(
-      "svg polyline, svg path, svg polygon, svg line",
-    ).length,
+    shapeCount: btn.querySelectorAll("svg polyline, svg path, svg polygon, svg line")
+      .length,
   };
 };

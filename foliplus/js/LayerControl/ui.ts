@@ -541,7 +541,8 @@ class LayerUI {
       {
         class:
           `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ` +
-          `foliplus-toggle-all-${group}` + (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
+          `foliplus-toggle-all-${group}` +
+          (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
         tabindex: "0",
         "data-group": group,
         title: T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
