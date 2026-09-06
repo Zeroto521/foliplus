@@ -247,7 +247,7 @@ const renderTable = (rows, threshold) => {
     "",
     "<details>",
     `<summary>📦 Per-bundle breakdown${
-      over ? ` — ${WARN} **${over} over threshold**` : ""
+      over ? ` — ${WARN} <b>${over} over threshold</b>` : ""
     }</summary>`,
     "",
     "| File | Current | Baseline | Δ | Δ% | Status |",

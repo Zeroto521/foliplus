@@ -702,7 +702,7 @@ describe("HeatmapManager — persistence", () => {
         expect(() => m.clearSavedConfig()).not.toThrow();
         expect(removeItem).toHaveBeenCalledWith(KEY);
         expect(warn).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to clear saved data"),
+          expect.stringContaining("failed to clear saved data"),
           expect.any(Error),
         );
       } finally {

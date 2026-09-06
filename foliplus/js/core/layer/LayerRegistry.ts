@@ -1,7 +1,11 @@
 // core/LayerRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
+import { createLogger } from "#common/log.js";
 import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
+
+// Mutating methods blocked on the read-only view.
+const log = createLogger("LayerRegistry");
 
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
@@ -103,27 +107,19 @@ class LayerRegistry {
   createReadonlyView() {
     return new Proxy(this.items, {
       set() {
-        throw new TypeError(
-          "[foliplus] LayerRegistry: layers is read-only, mutate via API",
-        );
+        throw new TypeError(log.msg("layers is read-only, mutate via API"));
       },
       deleteProperty() {
-        throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
+        throw new TypeError(log.msg("cannot delete layers directly"));
       },
       defineProperty() {
         // Without this trap, Object.defineProperty(view, '0', {...}) forwarded
         // to the internal mutable array and bypassed the read-only guarantee.
-        throw new TypeError(
-          "[foliplus] LayerRegistry: cannot define properties on layers",
-        );
+        throw new TypeError(log.msg("cannot define properties on layers"));
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
-          return () => {
-            throw new TypeError(
-              `[foliplus] LayerRegistry: read-only method "${String(prop)}" is blocked`,
-            );
-          };
+          throw new TypeError(log.msg(`read-only method "${String(prop)}" is blocked`));
         }
         return Reflect.get(target, prop, receiver);
       },
