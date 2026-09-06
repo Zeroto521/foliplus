@@ -1002,7 +1002,12 @@ class LayerUI {
       document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHiddenIds();
+    // Persist the last pending write. A 100ms debounce is wide enough that the
+    // control can be removed (or the page unloaded) before the timer fires;
+    // dropping the write there is what loses a toggle across a reload.
+    this.m.persistence.flushSaveOrder();
+    this.m.persistence.flushSaveHiddenIds();
+>>>>>>> a7f7020 (test(LayerControl): assert toggle-all survives a page reload)
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
