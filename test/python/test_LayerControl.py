@@ -920,6 +920,46 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
 
+    def test_toggle_all_survives_reload(self, browser, tmp_path):
+        """Toggle-all off, then reload: the hidden set must come back from localStorage.
+
+        The write is debounced at 100ms, so the reload has to wait past the
+        timer. A reload inside that window previously restored the initial
+        map state because the pending write was still queued.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            slug="toggle_all_reload",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(600)
+            before = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert before is not None and before["rows"], f"panel state: {before}"
+            assert all(before["rows"]), f"expected all overlays on initially: {before}"
+
+            # Deselect the whole overlay group, then wait past the 100ms debounce.
+            page.evaluate(_js("LayerControl/click_toggle_all"))
+            page.wait_for_timeout(400)
+            after_toggle = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert after_toggle["rows"] == [False] * len(before["rows"]), (
+                f"toggle-all did not deselect the group: {after_toggle}"
+            )
+
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_timeout(1200)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(400)
+            restored = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert restored["rows"] == [False] * len(before["rows"]), (
+                f"reload restored the initial map state: {restored} "
+                f"(before reload: {after_toggle})"
+            )
+            assert not errors, f"console errors: {errors}"
+
     # ── title / tooltip browser tests ──
 
     def test_layer_item_title_shows_type(self, browser, tmp_path):

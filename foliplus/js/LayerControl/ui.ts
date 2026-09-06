@@ -991,8 +991,9 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    // Flush, never cancel: the last change may still be sitting in a debounce
-    // queue (100ms), and cancelling here would drop it on unload.
+    // Persist the last pending write. A 100ms debounce is wide enough that the
+    // control can be removed (or the page unloaded) before the timer fires;
+    // dropping the write there is what loses a toggle across a reload.
     this.m.persistence.flushSaveOrder();
     this.m.persistence.flushSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
