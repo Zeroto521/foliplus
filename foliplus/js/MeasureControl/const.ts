@@ -34,6 +34,16 @@ const LABEL = {
   CLASS_MID: "foliplus-measure-label-mid",
 };
 
+/** Cursor-following readout. The chip is anchored to the pointer exactly like
+ *  the area label is anchored to the centroid dot — centered horizontally, its
+ *  top edge `ANCHOR_GAP` px below the anchor, due south. `CLASS_FLIP` re-anchors
+ *  it above the cursor when there is no room below. */
+const READOUT = {
+  ANCHOR_GAP: 10,
+  CLASS_PREFIX: "foliplus-measure-readout",
+  CLASS_FLIP: "foliplus-measure-readout-flip",
+};
+
 /** Label collision priority — the lowest values are hidden first when labels
  *  overlap heavily. Segment labels are the most numerous (a dense polygon
  *  stacks dozens of them), so they give way to the unique centroid / radius
@@ -48,9 +58,14 @@ const LABEL_PRIORITY = {
 
 /** Formatting. */
 const FORMAT = {
-  LAT_LNG_PRECISION: 6,
   KM_THRESHOLD: 1000,
+  // Area gets one extra digit: the unit conversion squares, so error grows
+  // faster and a 2nd digit carries real information.
+  // 0 decimals for the small-unit branches: they cap below the threshold, so a
+  // fractional digit would read as false precision.
+  SMALL_DECIMALS: 0,
   KM_DECIMALS: 1,
+  KM2_DECIMALS: 2,
 };
 
 /** IDs and pane names. */
@@ -97,6 +112,11 @@ const EXPORT_FORMAT = {
 
 type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
+/** Default format for `CONF.export_format` — used when the value is missing
+ * or unknown. Python's `MeasureControl` rejects anything outside
+ * `EXPORT_FORMAT`, so this only guards misconfiguration. */
+const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;
+
 /** Standard GeoJSON type names (RFC 7946). */
 const GEOJSON = {
   FEATURE: "Feature",
@@ -120,6 +140,7 @@ export {
   TIMING,
   MARKER,
   LABEL,
+  READOUT,
   LABEL_PRIORITY,
   FORMAT,
   ID,
@@ -129,6 +150,7 @@ export {
   SEL,
   STORAGE,
   EXPORT_FORMAT,
+  DEFAULT_EXPORT_FORMAT,
   type ExportFormat,
   GEOJSON,
   MODE,

@@ -16,6 +16,8 @@ interface RenderCtx {
   ch: number;
   sw: number;
   sh: number;
+  /** Reports how far the render has progressed, 0..90.  Never decreases. */
+  onProgress?: (percent: number) => void;
 }
 
 /** A tile descriptor computed by calcTiles. */
@@ -131,11 +133,36 @@ class ExportRenderer {
     return tiles;
   }
 
+  /** Share of the progress range each phase of render() may occupy.
+   *
+   *  Tiles get the most, since they are the only phase that waits on the
+   *  network and therefore dominates real export time; the vector/marker
+   *  passes are fast but still happen before the canvas is done.  The top
+   *  10 points are deliberately unused here — they belong to the manager,
+   *  which owns the blob encoding.  That way 100 means the download has
+   *  started, not that tiles have finished loading, which is when the
+   *  download was previously reported as complete. */
+  private static readonly PHASES = {
+    tiles: [0, 70],
+    layers: [71, 90],
+  } as const;
+
+  /** Map a [0,1] fraction to the given percent range, monotonically. */
+  private static mapPhase(fraction: number, [lo, hi]: readonly [number, number]) {
+    return Math.min(hi, lo + Math.round(fraction * (hi - lo)));
+  }
+
   /** Orchestrate all rendering passes in painter's-algorithm order.
    *  Passes: tiles → SVG → canvas → markers → FA → text → remaining.
    *  Overlay layers iterate via `api.layers` (read-only view of
    *  LayerRegistry's ordered array) bottom-to-top so cross-technology
-   *  z-ordering is preserved per layer. */
+   *  z-ordering is preserved per layer.
+   *
+   *  onProgress reports 0..90 over those passes, monotonically.  It never
+   *  reports 100: the canvas still has to be encoded before it can be
+   *  saved, and that belongs to the caller.  ExportRenderer does not
+   *  interpret the value — it forwards it so the caller can format it
+   *  (e.g. with locale text) however it likes. */
   async render(
     rect: { left: number; top: number; width: number; height: number },
     scale: number,
@@ -143,10 +170,23 @@ class ExportRenderer {
     geoBounds:
       | { nw: { lat: number; lng: number }; se: { lat: number; lng: number } }
       | undefined,
+    onProgress?: (percent: number) => void,
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
     if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
+
+    // Progress must be reportable from the moment the canvas is created, so it
+    // lives here rather than on the render context: the background fill below
+    // is the first step that costs anything, and no layers can be sized yet.
+    let lastPercent = 0;
+    const reportProgress = (percent: number) => {
+      // Only ever move forward: reporting a lower value than one already
+      // shown would make the bar look stuck and regress.
+      if (percent <= lastPercent) return;
+      lastPercent = percent;
+      onProgress?.(percent);
+    };
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;
@@ -169,6 +209,7 @@ class ExportRenderer {
       ch: rect.height * scale,
       sw,
       sh,
+      onProgress: reportProgress,
     };
 
     // 2. All layers — iterate in LayerControl API order bottom-to-top.
@@ -178,45 +219,98 @@ class ExportRenderer {
     const api = map.foliplus!.LayerAPI;
     const layers = api?.layers;
     if (layers) {
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const li = layers[i];
-        if (!li.visible) continue;
-
-        // Tile layers (e.g. basemaps) — render tiles via geo bounds.
-        // Only TileLayer subclasses carry the private _url template; other
-        // layer types (e.g. L.ImageOverlay) are skipped.
-        if (li.layer instanceof L.TileLayer && li.layer._url) {
-          if (geoBounds && geoBounds.nw)
-            await this.renderTileLayer(rc, geoBounds, li.layer);
-
-          continue;
+      // Progress is reported as a share of every tile across all visible tile
+      // layers, not per layer: with several visible TileLayers each of a
+      // different tile count, per-layer percentages would restart at 0 and the
+      // indicator would jump backwards.
+      //
+      // The denominator is the tiles renderTileLayer is actually going to
+      // draw — its pre-filtered, viewport-clip list — not the raw calcTiles
+      // extent.  Using the extent would make the numerator and denominator
+      // disagree: a clipped layer draws fewer tiles than it enumerated, so the
+      // running total could never reach tilesTotal and the last batch would
+      // report 80-95% instead of 100.  Each layer is therefore sized (which
+      // does the same filtering as the draw pass) and counted, and its own
+      // total is reported against the running cross-layer sum.
+      if (geoBounds && geoBounds.nw) {
+        // Size every tile layer up front: the sum is the progress denominator
+        // and the surviving entries are the layers that get drawn, so the
+        // numerator and denominator describe the same set of tiles.
+        const zoom = this.map.getZoom();
+        const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
+        for (const li of layers) {
+          if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url)
+            continue;
+          const tiles = this.tilePositions(
+            rc,
+            this.calcTiles(li.layer, geoBounds, zoom, scale),
+          );
+          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length });
         }
+        const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
+
+        if (grandTotal > 0) {
+          let tilesDone = 0;
+          for (const { tiles } of sizedTiles) {
+            await this.renderTileLayer(rc, tiles, handled => {
+              tilesDone += handled;
+              rc.onProgress?.(
+                ExportRenderer.mapPhase(
+                  tilesDone / grandTotal,
+                  ExportRenderer.PHASES.tiles,
+                ),
+              );
+            });
+          }
+        } else {
+          // No tiles to download, so the remaining phases start from the top
+          // of their range instead of from 0.
+          rc.onProgress?.(ExportRenderer.PHASES.layers[0]);
+        }
+      }
+
+      // Only layers that can actually paint are in the denominator: an entry
+      // with no layer and no canvas contributes nothing, and counting it would
+      // leave the layer range permanently short of its top.  The filter must
+      // stay in step with what the loop body consumes, since every surviving
+      // entry is counted as one unit of progress.
+      const passable = layers.filter(
+        li =>
+          li.visible &&
+          (li.canvas ||
+            (li.layer && !(li.layer instanceof L.TileLayer && li.layer._url))),
+      );
+      let done = 0;
+      for (let i = passable.length - 1; i >= 0; i--) {
+        const li = passable[i];
 
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
         if (li.canvas) {
           await this.renderCanvasElement(rc, li.canvas);
-          continue;
-        }
-        // Use the layer reference from layerInfo (resolved at init or register)
-        if (!li.layer) continue;
+          done++;
+        } else if (li.layer) {
+          // SVG paths, Canvas elements, and Markers in this layer's panes
+          const panes = api.getLayerPanes(li.layer);
+          for (const paneName of panes) {
+            const pane = this.map.getPane(paneName);
+            if (!pane) continue;
+            await this.renderPaneSVG(rc, pane);
+            await this.renderPaneCanvas(rc, pane);
+          }
 
-        // SVG paths, Canvas elements, and Markers in this layer's panes
-        const panes = api.getLayerPanes(li.layer);
-        for (const paneName of panes) {
-          const pane = this.map.getPane(paneName);
-          if (!pane) continue;
-          await this.renderPaneSVG(rc, pane);
-          await this.renderPaneCanvas(rc, pane);
+          // Markers and divIcons in this layer
+          const markerRoots = this.collectLayerMarkers(li.layer);
+          if (markerRoots.length) {
+            await this.renderMarkers(rc, markerRoots);
+            await this.renderFontAwesome(rc, markerRoots);
+            await this.renderTextLabels(rc, markerRoots);
+            await this.renderRemaining(rc, markerRoots);
+          }
         }
-
-        // Markers and divIcons in this layer
-        const markerRoots = this.collectLayerMarkers(li.layer);
-        if (markerRoots.length) {
-          await this.renderMarkers(rc, markerRoots);
-          await this.renderFontAwesome(rc, markerRoots);
-          await this.renderTextLabels(rc, markerRoots);
-          await this.renderRemaining(rc, markerRoots);
-        }
+        done++;
+        rc.onProgress?.(
+          ExportRenderer.mapPhase(done / passable.length, ExportRenderer.PHASES.layers),
+        );
       }
     }
 
@@ -237,8 +331,7 @@ class ExportRenderer {
     const dw = w * scale;
     const dh = h * scale;
     if (!isVisible(dx, dy, dw, dh, cw, ch)) return;
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-    const dataUrl = ce.toDataURL(mimeType);
+    const dataUrl = ce.toDataURL(CONST.MIME_LOSSLESS);
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
@@ -248,27 +341,24 @@ class ExportRenderer {
     }
   }
 
-  /** Render a single tile layer from geo bounds with concurrent tile loading. */
-  async renderTileLayer(
-    rc: RenderCtx,
-    geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
-    tileLayer: L.TileLayer,
-  ) {
-    const { ctx, rect, scale, contRect, cw, ch } = rc;
-    const contW = contRect.width;
-    const contH = contRect.height;
-
-    if (!geoBounds || !geoBounds.nw) return;
+  /**
+   * Compute each tile's destination rectangle within the crop area and keep
+   * only the ones the export will actually draw.
+   *
+   * render() calls this once per layer to size the progress denominator,
+   * threads the result into renderTileLayer, and that pass draws exactly it.
+   * The list is a value computed here rather than a stateful read of the
+   * map, so the denominator is the same set the drawing pass iterates even
+   * though it runs a frame later.
+   */
+  private tilePositions(rc: RenderCtx, tiles: TileDesc[]): TileDesc[] {
+    const { rect, scale, contRect, cw, ch } = rc;
     const zoom = this.map.getZoom();
-    const tiles = this.calcTiles(tileLayer, geoBounds, zoom, scale);
     const crs = this.map.options.crs || L.CRS.EPSG3857;
     const viewportCenter = crs.latLngToPoint(this.map.getCenter(), zoom);
-    const halfVpW = contW / 2;
-    const halfVpH = contH / 2;
-    const vpLeft = viewportCenter.x - halfVpW;
-    const vpTop = viewportCenter.y - halfVpH;
+    const vpLeft = viewportCenter.x - contRect.width / 2;
+    const vpTop = viewportCenter.y - contRect.height / 2;
 
-    // Pre-filter visible tiles and compute their draw positions once.
     const visibleTiles: TileDesc[] = [];
     for (const tile of tiles) {
       const tileVpX = tile.left - vpLeft;
@@ -283,7 +373,24 @@ class ExportRenderer {
         continue;
       visibleTiles.push({ ...tile, dx, dy, dw, dh });
     }
+    return visibleTiles;
+  }
 
+  /** Render a single tile layer from geo bounds with concurrent tile loading.
+   *  onProgress reports the cumulative tiles actually drawn for this layer
+   *  (not a percentage, and not tiles merely fetched), so the caller can
+   *  accumulate a share of the whole export instead of re-basing the bar at
+   *  the start of every layer.  Failing tiles do not advance it: they are
+   *  still missing from the picture, which is what the bar is for. */
+  async renderTileLayer(
+    rc: RenderCtx,
+    visibleTiles: TileDesc[],
+    onProgress?: (tilesDrawn: number) => void,
+  ) {
+    const ctx = rc.ctx;
+    if (visibleTiles.length === 0) return;
+
+    let drawn = 0;
     // Load and draw tiles in concurrent batches to avoid overwhelming the
     // browser connection limit (~6 per domain) while still parallelizing.
     const concurrency = CONST.TILE_CONCURRENCY;
@@ -299,6 +406,7 @@ class ExportRenderer {
         const t = batch[j];
         try {
           ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+          drawn++;
         } catch {
           /* skip tile on draw error */
         } finally {
@@ -310,6 +418,11 @@ class ExportRenderer {
           }
         }
       }
+
+      // Report the tiles painted this batch so the caller can accumulate a
+      // share of the whole export instead of re-basing per layer.  Counting
+      // the batch position would credit tiles whose download failed.
+      if (onProgress) onProgress(drawn);
     }
   }
 
@@ -404,8 +517,7 @@ class ExportRenderer {
         const dw = w * scale;
         const dh = h * scale;
         if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-        const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
-        const dataUrl = (ce as HTMLCanvasElement).toDataURL(mimeType);
+        const dataUrl = (ce as HTMLCanvasElement).toDataURL(CONST.MIME_LOSSLESS);
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
@@ -799,4 +911,4 @@ class ExportRenderer {
   }
 }
 
-export { ExportRenderer };
+export { pooledEach, ExportRenderer };

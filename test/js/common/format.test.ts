@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import {
+  LAT_LNG_PRECISION,
+  formatCoord,
+  formatLatLng,
+  formatNumber,
+} from "#common/format.js";
 
 describe("formatNumber", () => {
+  it("defaults to 'auto' style and 'en' locale", () => {
+    // Every real caller passes the style explicitly, so the default is only
+    // reached here.
+    expect(formatNumber(1234)).toBe("1.2K");
+    expect(formatNumber(6000)).toBe("6K");
+    expect(formatNumber(150)).toBe("150");
+  });
+
   it("formats small numbers as-is (auto style)", () => {
     expect(formatNumber(42)).toBe("42");
   });
@@ -17,8 +30,7 @@ describe("formatNumber", () => {
   });
 
   it("uses thousands separator for comma style", () => {
-    // Intl rounds to integer when abs >= 100 in comma style
-    expect(formatNumber(1234.5, "comma")).toBe("1,235");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
   });
 
   it("respects locale (auto style)", () => {
@@ -52,10 +64,11 @@ describe("formatNumber", () => {
     expect(formatNumber(12000, "auto", "en")).toBe("12K");
   });
 
-  it("comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
-    // comma is user-requested; the locale is not consulted for grouping.
-    expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
-    expect(formatNumber(6000, "comma", "en")).toBe("6,000");
+  it("comma style groups regardless of locale and always uses en separators", () => {
+    // comma is language-agnostic: the locale code is not consulted at all, so
+    // zh renders with an en comma instead of 万-based 4-digit grouping.
+    expect(formatNumber(6000, "comma", "zh")).toBe("6,000.0");
+    expect(formatNumber(6000, "comma", "en")).toBe("6,000.0");
   });
 
   it("int style is a plain integer with no grouping (6000 in zh)", () => {
@@ -65,21 +78,65 @@ describe("formatNumber", () => {
     expect(formatNumber(6000, "int", "en")).toBe("6000");
   });
 
-  it("comma style keeps one decimal below 100", () => {
+  it("comma style groups and keeps one decimal by default", () => {
+    // Default is a fixed 1 fraction digit, so the decimal never gets trimmed.
     expect(formatNumber(42.7, "comma")).toBe("42.7");
     expect(formatNumber(99.9, "comma")).toBe("99.9");
+    expect(formatNumber(1234.5, "comma")).toBe("1,234.5");
+    expect(formatNumber(5, "comma")).toBe("5.0");
+  });
+
+  it("comma style takes a numeric fraction-digit count", () => {
+    // Both min and max are set, so decimals stay fixed (1.0, 2.50) rather
+    // than trailing-digit-trimmed. The locale is ignored here — grouping is
+    // pinned to en and language-agnostic.
+    expect(formatNumber(1.5, "comma", "en", 2)).toBe("1.50");
+    expect(formatNumber(10, "comma", "en", 2)).toBe("10.00");
+    expect(formatNumber(0.1, "comma", "en", 2)).toBe("0.10");
+    expect(formatNumber(1000, "comma", "en", 1)).toBe("1,000.0");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
+    expect(formatNumber(6000, "comma", "en", 1)).toBe("6,000.0");
   });
 
   it("handles zero and negative values", () => {
     expect(formatNumber(0, "auto")).toBe("0");
     expect(formatNumber(-6000, "auto", "zh")).toBe("-6000");
-    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000");
+    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000.0");
     expect(formatNumber(-1234.5, "int", "zh")).toBe("-1235");
   });
 
   it("auto rounds up across the grouping boundary (999.9 -> 1,000)", () => {
     expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
     expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
+  });
+});
+
+describe("formatCoord / formatLatLng", () => {
+  it("pins six decimals so a short stored value still reads at full precision", () => {
+    // A history entry saved from "121.47" stores 121.47, not 121.470000. The
+    // shared formatter is what keeps every readout at the same width.
+    expect(formatCoord(121.47)).toBe("121.470000");
+    expect(formatCoord(0)).toBe("0.000000");
+  });
+
+  it("groups the integer part with the en comma from 1000 up", () => {
+    // Intl en grouping needs 4+ integer digits — 999.5 rounds to "999.5",
+    // 1000.0 to "1,000.0". Since grouping is inherited from formatNumber's
+    // comma style, the measure chip's distances and these coordinates cannot
+    // disagree on the separator.
+    expect(formatCoord(121.123456)).toBe("121.123456");
+    expect(formatCoord(999.5)).toBe("999.500000");
+    expect(formatCoord(1000)).toBe("1,000.000000");
+    expect(formatLatLng(121.123456, 31.234567)).toBe("121.123456, 31.234567");
+  });
+
+  it("accepts an explicit precision", () => {
+    expect(formatCoord(1.5, 2)).toBe("1.50");
+    expect(formatLatLng(1.5, -2.25, 0)).toBe("2, -2");
+  });
+
+  it("exposes the precision so persistence and display cannot drift apart", () => {
+    expect(LAT_LNG_PRECISION).toBe(6);
   });
 });
 

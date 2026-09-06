@@ -25,6 +25,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
+import type { NumberStyle } from "#common/format.js";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ declare global {
     border_color?: string;
     border_opacity?: number;
     fill_opacity?: number;
-    label_format?: "auto" | "comma" | "int";
+    label_format?: NumberStyle;
     label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
@@ -331,5 +332,3 @@ declare global {
     map: Leaflet.Map;
   }
 }
-
-export {};

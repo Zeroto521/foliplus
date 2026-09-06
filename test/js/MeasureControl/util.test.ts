@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
   buildEditOverlay,
@@ -76,6 +77,10 @@ describe("formatDistance", () => {
   it("formats km above the threshold", () => {
     expect(Util.formatDistance(1500)).toBe("1.5 km");
   });
+
+  it("groups km values with a thousands separator", () => {
+    expect(Util.formatDistance(1_234_567)).toBe("1,234.6 km");
+  });
 });
 
 describe("formatArea", () => {
@@ -85,6 +90,10 @@ describe("formatArea", () => {
 
   it("formats km² at or above 1e6", () => {
     expect(Util.formatArea(2_500_000)).toBe("2.50 km²");
+  });
+
+  it("groups km² values with a thousands separator", () => {
+    expect(Util.formatArea(1_234_567_890)).toBe("1,234.57 km²");
   });
 });
 
@@ -237,6 +246,43 @@ describe("formatArea boundary", () => {
 
   it("formats 999999 m² with locale thousands separator", () => {
     expect(Util.formatArea(999_999)).toBe("999,999 m²");
+  });
+});
+
+describe("formatting constants", () => {
+  // The unit ladder the renderers depend on. These pin the precision contract:
+  // sub-threshold units show no false decimals, and the km/km² branches carry
+  // more digits than the raw meters do.
+  it("small-unit branches carry no decimals", () => {
+    expect(CONST.FORMAT.SMALL_DECIMALS).toBe(0);
+  });
+
+  it("the km branch carries one more digit than the meters branch", () => {
+    expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
+    expect(CONST.FORMAT.KM_DECIMALS).toBeGreaterThan(CONST.FORMAT.SMALL_DECIMALS);
+  });
+
+  it("the km² branch carries two decimals", () => {
+    expect(CONST.FORMAT.KM2_DECIMALS).toBe(2);
+  });
+
+  it("the km threshold matches the divisor used by formatDistance", () => {
+    // formatDistance divides by a hard-coded 1000, so a changed threshold here
+    // would silently desynchronise the unit label from the magnitude.
+    expect(CONST.FORMAT.KM_THRESHOLD).toBe(1000);
+  });
+
+  it("every fraction-digit constant is a non-negative integer", () => {
+    // formatNumber pins minimumFractionDigits === maximumFractionDigits, so a
+    // fractional or negative value would throw a RangeError at runtime.
+    for (const n of [
+      CONST.FORMAT.SMALL_DECIMALS,
+      CONST.FORMAT.KM_DECIMALS,
+      CONST.FORMAT.KM2_DECIMALS,
+    ]) {
+      expect(Number.isInteger(n)).toBe(true);
+      expect(n).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 
@@ -643,6 +689,59 @@ describe("bindNodeDrag", () => {
     // No startPt was set, so a later move must not drag
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
     expect(onDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe("readLatLng", () => {
+  it("reads the lng/lat pair with longitude leading", () => {
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([121.5, 31.2]);
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
+      121.5, 31.2,
+    ]);
+  });
+
+  it("throws when the point has no coordinate", () => {
+    expect(() => Util.readLatLng({} as any)).toThrow(TypeError);
+  });
+
+  it("throws when only one coordinate is present", () => {
+    expect(() => Util.readLatLng({ lat: 31.2 } as any)).toThrow(TypeError);
+  });
+});
+
+describe("coordText", () => {
+  it("reports the pointer's coordinate as the map holds it", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
+      "121.500000, 31.200000",
+    );
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
+      "120.000000, 30.000000",
+    );
+  });
+
+  it("rounds to the persisted precision", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
+      "121.987654, 31.123457",
+    );
+  });
+
+  it("does not apply a CRS conversion, so a shifted tile set is reported as seen", () => {
+    // The map serves GCJ02 tiles, so its latlng is already offset from WGS84.
+    // The readout must echo it unchanged — a WGS84 round trip would move the
+    // number the operator is looking at.
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
+      "121.510000, 31.210000",
+    );
   });
 });
 

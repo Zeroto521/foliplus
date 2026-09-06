@@ -62,7 +62,12 @@ class LayerRegistry {
     map?: L.Map,
   ): LayerInfo {
     return {
-      name: opts.name ?? existingLi?.name ?? opts.id,
+      // A re-registration's caller name is the provider's own metadata, which
+      // resets `name` and would clobber a user rename on the next render or
+      // reload. The caller's explicit name only applies to a fresh id; an
+      // existing layer keeps its current name (it is the registry's single
+      // source of truth for what the user last saw).
+      name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       visible: opts.visible ?? existingLi?.visible ?? true,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
