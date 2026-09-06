@@ -60,7 +60,7 @@ class PolygonMode extends PreviewMode {
       finalPoly,
       nodeMarkers,
       segLabels,
-      points: points,
+      points,
       area: data.area ?? 0,
       id: data.id!,
       onDelete: () => manager.store.remove(data.id!),

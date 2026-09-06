@@ -165,12 +165,11 @@ const globalNamespacePlugin = sourceRoot => ({
       // - Star-imported with known usage: include only used props (auto-analysis)
       // - Named-imported: include only those names (auto-analysis)
       // - Unknown (e.g. dynamic import): fall back to all exports
-      let namesToShim;
       // Merge named + star imports — a module can be consumed both ways.
       const merged = new Set();
       if (usedExports.has(spec)) usedExports.get(spec).forEach(n => merged.add(n));
       if (starUsed.has(spec)) starUsed.get(spec).forEach(n => merged.add(n));
-      namesToShim = merged.size > 0 ? [...merged] : collectExports(sourcePath);
+      const namesToShim = merged.size > 0 ? [...merged] : collectExports(sourcePath);
 
       if (namesToShim.length === 0) return { contents: "", loader: "js" };
 

@@ -11,6 +11,7 @@ describe("BaseControl", () => {
 
   it("calls init() at construction", () => {
     const init = vi.fn();
+
     class TestCtrl extends BaseControl {
       init() {
         init();
@@ -22,6 +23,7 @@ describe("BaseControl", () => {
 
   it("calls buildDOM() in onAdd and returns the container", () => {
     const container = document.createElement("div");
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return container;
@@ -48,6 +50,7 @@ describe("BaseControl", () => {
 
   it("calls destroy() in onRemove", () => {
     const destroy = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -83,6 +86,7 @@ describe("BaseControl", () => {
 
   it("listenMap tracks and unbinds map listeners", () => {
     const fn = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -120,6 +124,7 @@ describe("BaseControl", () => {
 
   it("listenDOM does not double-bind the same listener", () => {
     window.L.DomEvent.on = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");

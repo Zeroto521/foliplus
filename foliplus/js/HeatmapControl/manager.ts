@@ -490,12 +490,11 @@ class HeatmapManager {
       for (let i = 1; i < nClasses; i++)
         b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
       return b.concat(hi);
-    } else {
-      const step = (hi - lo) / nClasses;
-      const b: number[] = [];
-      for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-      return b;
     }
+    const step = (hi - lo) / nClasses;
+    const b: number[] = [];
+    for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
+    return b;
   }
 
   renderHexagons() {
@@ -594,8 +593,8 @@ class HeatmapManager {
         const coords = boundary.map(p => [p[1], p[0]]);
         coords.push(coords[0]);
         if (!centroid) {
-          let cx = 0,
-            cy = 0;
+          let cx = 0;
+          let cy = 0;
           for (let j = 0; j < coords.length - 1; j++) {
             cx += coords[j][0];
             cy += coords[j][1];

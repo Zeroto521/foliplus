@@ -1,26 +1,35 @@
 // ESLint config for the foliplus JS/TS runtime and test suite.
-// Prettier handles typography (indent, width, quotes, import order);
-// eslint handles structural rules prettier cannot express:
-//   - blank lines between statements (Python E302 / E305 equivalent)
-//   - Promise discipline (no-floating-promises, require-await, no-misused-promises)
-// Both run in pre-commit.ci via the format-prettier / format-eslint hooks.
+//
+// Division of labour with prettier (see .prettierrc.cjs):
+//   - prettier owns typography (indent, width, quotes, import order) and
+//     preserves existing blank lines but never adds or removes them.
+//   - eslint owns code quality (eqeqeq, no-implicit-coercion, ...) and two
+//     things prettier cannot express: blank lines before function/class
+//     definitions (Python E302/E305 equivalent) and Promise discipline.
+//
+// The blank-line rule is deliberately scoped to function/class definitions
+// only. Mainstream configs (Airbnb, Google, Microsoft's FluidFramework,
+// prettier's own repo) leave padding-line-between-statements off entirely;
+// jellyfin-vue groups by block/category. None of them pad every expression
+// statement — that is what the old `next: "expression"` rule did and it
+// inflated the tree with blank lines around every `this.method()` call.
 //
 // Two passes over the TS sources:
-//   1. Non-type-aware rules (padding-line-between-statements) — fast, AST only.
-//   2. Type-aware rules (Promise discipline) — slower, needs tsconfig program.
-// test/js is not in tsconfig include (see tsconfig.json comment), so the
-// type-aware pass only covers foliplus/js.
-import js from "@eslint/js";
+//   1. Non-type-aware rules — fast, AST only (covers all files).
+//   2. Type-aware rules (Promise discipline) — slower, needs the tsconfig
+//      program (only covers foliplus/js; test/js is not in tsconfig include,
+//      see tsconfig.json comment). Skipped when the project-local typescript
+//      is absent — that is the pre-commit.ci isolated env, whose node_modules
+//      live under NODE_PATH, not next to package.json. `npm run lint` runs
+//      the full set with the program available.
 import eslintConfigPrettier from "eslint-config-prettier";
-import { dirname } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 const root = dirname(fileURLToPath(import.meta.url));
-
-// pre-commit runs eslint in an isolated env without the full tsconfig
-// program; type-aware rules are enforced by `npm run lint` in CI instead.
-const skipTypecheck = process.env.FOLIPLUS_PRE_COMMIT === "1";
+const skipTypecheck = !existsSync(join(root, "node_modules", "typescript"));
 
 export default [
   // Build output, vendored deps, browser tests (use CDN globals)
@@ -37,7 +46,7 @@ export default [
   // Base TS rules (no type info — covers all TS/JS files).
   ...tseslint.configs.recommended,
 
-  // ── Pass 1: structural rules prettier cannot enforce (no type info) ──
+  // ── Pass 1: quality + structural rules prettier cannot express ──
   {
     files: [
       "foliplus/js/**/*.ts",
@@ -47,23 +56,36 @@ export default [
       "script/**/*.js",
     ],
     rules: {
-      // Blank lines between statements (Python E302 / E305).
-      // Prettier preserves existing blank lines but never adds or removes them;
-      // this rule enforces the project convention.
-      // Legal `next` values (see rule source): *, block-like, expression, iife,
-      // function, class, const, import, for, if, switch, try, while, var, let,
-      // export, return, break, case, continue, default, do, debugger, throw,
-      // with, block, empty, multiline-const, multiline-let, multiline-var,
-      // singleline-const, singleline-let, singleline-var,
-      // multiline-block-like, multiline-expression, cjs-import, cjs-export,
-      // directive. There is NO "comment" or "call" value.
+      // Python E302 / E305: blank line before function / class definitions.
       "padding-line-between-statements": [
         "error",
         { blankLine: "always", prev: "*", next: "function" },
         { blankLine: "always", prev: "*", next: "class" },
-        { blankLine: "always", prev: "*", next: "expression" },
-        { blankLine: "always", prev: "*", next: "multiline-const" },
-        { blankLine: "always", prev: "*", next: "multiline-expression" },
+      ],
+
+      // ── Quality rules (mirroring prettier's own repo) ──
+      // `smart` keeps the idiomatic `x == null` null-check (matches both
+      // null and undefined) while banning loose equality elsewhere — the
+      // project uses `== null` as a deliberate nullish guard.
+      eqeqeq: ["error", "smart"],
+      curly: "error",
+      "no-else-return": "error",
+      // `!!x` is the project's idiom for boolean narrowing inside
+      // short-circuits (`!!opts?.pane && panes.includes(opts.pane)`) —
+      // the tsc-narrowing form that `Boolean(x) && ...` cannot express.
+      "no-implicit-coercion": ["error", { allow: ["!!"] }],
+      "no-unneeded-ternary": "error",
+      "no-useless-return": "error",
+      "object-shorthand": ["error", "always"],
+      "one-var": ["error", "never"],
+      "prefer-const": "error",
+      // Project convention uses `a && b()` and `cond ? x() : y()` as
+      // statement expressions (reindexAfterMove, add/removeLayer branches),
+      // so allow short-circuit and ternary — same option set as prettier's
+      // own eslint config.
+      "@typescript-eslint/no-unused-expressions": [
+        "error",
+        { allowShortCircuit: true, allowTernary: true },
       ],
 
       // tsc --noEmit already checks unused vars (noUnusedLocals)
@@ -76,10 +98,6 @@ export default [
 
       // Test scripts exercise the CJS build tooling via require().
       "@typescript-eslint/no-require-imports": "off",
-
-      // Project convention: `a && b()` / `cond ? x() : y()` statement
-      // expressions (reindexAfterMove, add/removeLayer branches).
-      "@typescript-eslint/no-unused-expressions": "off",
     },
   },
 
