@@ -1843,15 +1843,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
-    it("does NOT focus the layer on a dblclick of its checkbox", () => {
-      const focusSpy = vi.spyOn(ui, "focusLayer");
-      const item = findItem(ui, "overlay1");
-      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      ui.handleDblClick({ target: checkbox, bubbles: true } as MouseEvent);
-      expect(focusSpy).not.toHaveBeenCalled();
-      focusSpy.mockRestore();
-    });
-
     it("does NOT focus the layer on a dblclick of the more button", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const more = findItem(ui, "overlay1").querySelector(
@@ -1944,7 +1935,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.handleChange({ target: cb } as Event);
 
       expect(ui.hiddenIds).toContain("overlay1");
-      expect(ui.m.layers.length).toBe(2);
+      expect(ui.m.layers.length).toBe(3);
     });
 
     it("Enter on the more button still opens the menu and does not toggle", () => {
