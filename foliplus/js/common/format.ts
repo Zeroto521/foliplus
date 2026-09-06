@@ -71,7 +71,10 @@ export const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
   formatNumber(n, "comma", "en", digits);
 
 /** An lng/lat pair as the readout string, longitude leading. */
-export const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): string =>
-  `${formatCoord(lng, digits)}, ${formatCoord(lat, digits)}`;
+export const formatLatLng = (
+  lng: number,
+  lat: number,
+  digits = LAT_LNG_PRECISION,
+): string => `${formatCoord(lng, digits)}, ${formatCoord(lat, digits)}`;
 
 export { type NumberStyle, formatNumber };

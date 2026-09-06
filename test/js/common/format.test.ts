@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
-import { formatCoord, formatLatLng, formatNumber, LAT_LNG_PRECISION } from "#common/format.js";
+import {
+  LAT_LNG_PRECISION,
+  formatCoord,
+  formatLatLng,
+  formatNumber,
+} from "#common/format.js";
 
 describe("formatNumber", () => {
   it("defaults to 'auto' style and 'en' locale", () => {

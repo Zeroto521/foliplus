@@ -1,7 +1,12 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import { formatCoord, formatLatLng, formatNumber, LAT_LNG_PRECISION } from "#common/format.js";
+import {
+  LAT_LNG_PRECISION,
+  formatCoord,
+  formatLatLng,
+  formatNumber,
+} from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -181,8 +186,7 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 
 /** Round a coordinate to the persisted precision, so a dragged pin displays
  *  identically to a freshly placed one (which is rounded on placement). */
-const roundCoord = (n: number): number =>
-  parseFloat(n.toFixed(LAT_LNG_PRECISION));
+const roundCoord = (n: number): number => parseFloat(n.toFixed(LAT_LNG_PRECISION));
 
 // ── Live coordinate readout ─────────────────────────────────────────
 // The readout formatter (`formatCoord` / `formatLatLng`) lives in #common/format.js
