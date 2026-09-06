@@ -1,5 +1,4 @@
 // MeasureControl utility functions — standalone, no manager dependency.
-import { toWgs84 } from "#common/coord.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -202,7 +201,7 @@ type DisplayLatLng =
   L.LatLng | { lat: number; lng: number } | { latitude: number; longitude: number };
 
 /** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
- *  Longitude leads, matching `formatLatLng`, `toWgs84` and every other
+ *  Longitude leads, matching `formatLatLng` and every other
  *  location display in the project. */
 const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const raw = pt as {
@@ -219,13 +218,13 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   return [lng, lat];
 };
 
-/** Format `pt` (display CRS) as a WGS84 readout string. The conversion lives
- *  here so callers never have to remember it, and the readout reports the same
- *  CRS as the export regardless of which tiles the map serves. */
+/** Format the pointer's coordinate as the readout string. No CRS conversion: the
+ *  map is already in whatever CRS its tiles serve, so what the operator is looking
+ *  at is what the readout reports — pointing the chip at the same spot on a
+ *  GCJ02 or BD09 map must not show a shifted number. */
 const coordText = (map: L.Map, pt: DisplayLatLng): string => {
   const [lng, lat] = readLatLng(pt);
-  const [wlng, wlat] = toWgs84(map, lng, lat);
-  return formatLatLng(wlng, wlat);
+  return formatLatLng(lng, lat);
 };
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */

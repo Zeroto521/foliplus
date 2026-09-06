@@ -22,12 +22,6 @@ const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
 
-// coordText converts through toWgs84; stub it to an identity so the readout
-// positioning tests don't need a real CRS on the mocked map.
-vi.mock("#common/coord.js", () => ({
-  toWgs84: vi.fn((_map: unknown, lng: number, lat: number) => [lng, lat]),
-}));
-
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
   return {

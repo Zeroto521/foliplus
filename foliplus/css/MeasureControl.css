@@ -176,12 +176,14 @@ path.foliplus-measure-node-solid {
    anchor is specific to it — the cursor, not a measurement point. That anchor
    mirrors the area label on its centroid dot: centered horizontally, top edge
    this many px below the anchor point, due south. It sits on the container (not
-   a Leaflet pane), so panning and zooming never move it. `left` / `top` are
+   a Leaflet pane), so panning and zooming never move it. That also puts it above
+   the whole Leaflet pane ladder and the controls — `600` sat inside the data
+   panes, under tooltips and popups. `left` / `top` are
    driven inline by the mousemove handler; the offset and the near-bottom-edge
    flip live here. */
 .foliplus-measure-readout {
   position: absolute;
-  z-index: 600;
+  z-index: var(--z-index-floating);
   font-variant-numeric: tabular-nums;
   transform: translate(-50%, 10px);
   /* No entrance animation: the chip is repositioned on every mousemove, so

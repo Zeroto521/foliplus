@@ -7,14 +7,7 @@ import {
   markDragSyntheticClick,
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
-import { toWgs84 } from "#common/coord.js";
 import { stopEvent } from "#common/dom.js";
-
-// coordText converts through toWgs84; stub it to an identity by default so the
-// readout tests can exercise formatting without a real CRS conversion.
-vi.mock("#common/coord.js", () => ({
-  toWgs84: vi.fn((_map: unknown, lng: number, lat: number) => [lng, lat]),
-}));
 
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
@@ -730,28 +723,35 @@ describe("formatCoord / formatLatLng", () => {
 });
 
 describe("coordText", () => {
-  it("reports the WGS84 conversion result", () => {
+  it("reports the pointer's coordinate as the map holds it", () => {
     const map = {} as L.Map;
-    vi.mocked(toWgs84).mockReturnValue([121.5, 31.2]);
     expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
       "121.500000, 31.200000",
     );
-    expect(toWgs84).toHaveBeenCalledWith(map, 121.5, 31.2);
   });
 
-  it("reads the latitude/longitude alias and forwards it", () => {
+  it("reads the latitude/longitude alias", () => {
     const map = {} as L.Map;
-    vi.mocked(toWgs84).mockReturnValue([120.0, 30.0]);
     expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
       "120.000000, 30.000000",
     );
-    expect(toWgs84).toHaveBeenCalledWith(map, 120, 30);
   });
 
-  it("rounds the converted value to the persisted precision", () => {
+  it("rounds to the persisted precision", () => {
     const map = {} as L.Map;
-    vi.mocked(toWgs84).mockReturnValue([121.987654321, 31.123456789]);
-    expect(Util.coordText(map, { lng: 121, lat: 31 })).toBe("121.987654, 31.123457");
+    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
+      "121.987654, 31.123457",
+    );
+  });
+
+  it("does not apply a CRS conversion, so a shifted tile set is reported as seen", () => {
+    // The map serves GCJ02 tiles, so its latlng is already offset from WGS84.
+    // The readout must echo it unchanged — a WGS84 round trip would move the
+    // number the operator is looking at.
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
+      "121.510000, 31.210000",
+    );
   });
 });
 
