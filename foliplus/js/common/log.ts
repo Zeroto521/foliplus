@@ -17,31 +17,32 @@ type LogFn = (message: string, ...args: unknown[]) => void;
  * A logger with a fixed namespaced prefix.
  *
  * `warn` / `error` write to the console with `[<name>] `.
- * `err` returns the message for a `throw new Error(...)` — the colon separator
- * marks it as a stack-trace heading. Call sites keep an explicit `throw new`
- * so the control-flow break stays visible.
+ * `msg` returns the message for a `throw new Error(...)` — the colon separator
+ * marks it as a stack-trace heading, so it returns a string and never calls
+ * console. Call sites keep an explicit `throw new` so the control-flow break
+ * stays visible.
  */
 interface Logger {
   warn: LogFn;
   error: LogFn;
-  err: (message: string) => string;
+  msg: (message: string) => string;
 }
 
 /**
  * Create a logger bound to a `[<name>]` prefix.
  * e.g. createLogger("MeasureControl").warn("export failed:", err)
  *      → console.warn("[MeasureControl] export failed:", err)
- *      → createLogger("MeasureControl").err("crop too small")
+ *      → createLogger("MeasureControl").msg("crop too small")
  *      → "[MeasureControl]: crop too small"
  */
 const createLogger = (name: string): Logger => {
-  const msg = (message: string, separator: " " | ": "): string =>
+  const namespaced = (message: string, separator: " " | ": "): string =>
     `[${name}]${separator}${message}`;
 
   return {
-    warn: (message, ...args) => console.warn(msg(message, " "), ...args),
-    error: (message, ...args) => console.error(msg(message, " "), ...args),
-    err: message => msg(message, ": "),
+    warn: (message, ...args) => console.warn(namespaced(message, " "), ...args),
+    error: (message, ...args) => console.error(namespaced(message, " "), ...args),
+    msg: message => namespaced(message, ": "),
   };
 };
 

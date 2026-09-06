@@ -330,7 +330,7 @@ class LayerManager implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(log.err(T("id_required")));
+    if (!opts?.id) throw new Error(log.msg(T("id_required")));
 
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;

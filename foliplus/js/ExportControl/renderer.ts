@@ -148,7 +148,7 @@ class ExportRenderer {
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
-    if (sw < 1 || sh < 1) throw new Error(log.err(T("err_crop_too_small")));
+    if (sw < 1 || sh < 1) throw new Error(log.msg(T("err_crop_too_small")));
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;

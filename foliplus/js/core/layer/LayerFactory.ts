@@ -193,10 +193,10 @@ class LayerFactory {
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
-    if (!opts?.id) throw new Error(log.err("createCanvas requires an id"));
+    if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
 
     const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane) throw new Error(log.err("mapPane not available"));
+    if (!mapPane) throw new Error(log.msg("mapPane not available"));
 
     const canvas = dom.el("canvas", {
       class: "foliplus-heatmap-canvas",

@@ -215,7 +215,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lng = raw.lng ?? raw.longitude;
   const lat = raw.lat ?? raw.latitude;
   if (lng === undefined || lat === undefined) {
-    throw new TypeError(log.err("point has no lng/lat"));
+    throw new TypeError(log.msg("point has no lng/lat"));
   }
   return [lng, lat];
 };

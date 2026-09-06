@@ -52,7 +52,7 @@ class MeasureMode {
 
   /** Start the mode — bind events, create UI. Subclasses must override. */
   start(): void {
-    throw new Error(log.err(`start not implemented for ${this.type}`));
+    throw new Error(log.msg(`start not implemented for ${this.type}`));
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
@@ -73,13 +73,13 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
-    throw new Error(log.err(`restore not implemented for ${this.TYPE}`));
+    throw new Error(log.msg(`restore not implemented for ${this.TYPE}`));
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
   static toGeoFeature(_data: MeasureData): GeoJSON.Feature {
-    throw new Error(log.err(`toGeoFeature not implemented for ${this.TYPE}`));
+    throw new Error(log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }
 

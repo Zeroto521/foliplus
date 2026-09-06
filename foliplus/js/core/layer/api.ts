@@ -104,7 +104,7 @@ const requireLayerAPI = (
   if (!isRealLayerControl(api)) {
     const msg = T("no_layercontrol");
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
-    throw new Error(createLogger(componentName).err(msg));
+    throw new Error(createLogger(componentName).msg(msg));
   }
   // isRealLayerControl returned true, so `api` is non-null (a real
   // LayerManager).  Use the narrowed local to satisfy TS control-flow.

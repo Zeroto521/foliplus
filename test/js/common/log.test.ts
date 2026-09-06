@@ -9,17 +9,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("err", () => {
+describe("msg", () => {
   it("joins with a colon separator", () => {
-    expect(createLogger("MeasureControl").err("point has no lng/lat")).toBe(
+    expect(createLogger("MeasureControl").msg("point has no lng/lat")).toBe(
       "[MeasureControl]: point has no lng/lat",
     );
   });
 
   it("keeps the prefix on quoted messages", () => {
-    expect(
-      createLogger("LayerRegistry").err('read-only method "push" is blocked'),
-    ).toBe('[LayerRegistry]: read-only method "push" is blocked');
+    expect(createLogger("LayerRegistry").msg('read-only method "push" is blocked')).toBe(
+      '[LayerRegistry]: read-only method "push" is blocked',
+    );
   });
 });
 
@@ -61,7 +61,7 @@ describe("separator contrast", () => {
     vi.stubGlobal("console", { warn });
     createLogger("LayerControl").warn("dropped stale ids");
     expect(warn).toHaveBeenCalledWith("[LayerControl] dropped stale ids");
-    expect(createLogger("LayerControl").err("dropped stale ids")).toBe(
+    expect(createLogger("LayerControl").msg("dropped stale ids")).toBe(
       "[LayerControl]: dropped stale ids",
     );
   });
