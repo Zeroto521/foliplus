@@ -398,6 +398,31 @@ class TestLayerControlRendering:
         # Regression guard: no scale transform may be reintroduced on the icon
         assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
 
+        # ── More (⋮) menu icon: identity wakes gray → black on hover/keyboard
+        # focus, matching the LayerControl type-icon language (NOT accent) — the
+        # main text goes black → red via the unified dropdown hover (common.css),
+        # so "icon black + text red" reads like every other dropdown. ──
+        more_icon = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "more-menu li svg" in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--text-muted)" in b for b in more_icon), (
+            "more-menu icon must be muted at rest"
+        )
+        more_icon_hover = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "more-menu li:not([disabled]):hover svg"
+            in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--text-primary)" in b for b in more_icon_hover), (
+            "more-menu icon must wake to black on hover"
+        )
+        assert not any(
+            "color: var(--accent-primary)" in b for b in more_icon_hover
+        ), "more-menu icon must not tint accent"
+
         # Count column: stays muted in every state — no hover/active brightening.
         count_hover = [
             html[i : html.index("}", i)]

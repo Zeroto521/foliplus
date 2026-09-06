@@ -586,10 +586,15 @@ path.foliplus-focus-mask {
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  /* Icon answers with accent on hover, matching the search result icon and
-     the "actions accent on hover" language. Disabled stays muted. */
-  .foliplus-layer-more-menu li:not([disabled]):hover svg {
-    color: var(--accent-primary);
+  /* Icon wakes to black on hover AND keyboard focus, matching the LayerControl
+     type-icon language (identity wakes to black, not accent — accent is reserved
+     for actions/status). Disabled stays muted. */
+  .foliplus-layer-more-menu li:not([disabled]) svg {
+    transition: color var(--transition-fast);
+  }
+  .foliplus-layer-more-menu li:not([disabled]):hover svg,
+  .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
+    color: var(--text-primary);
   }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
