@@ -145,6 +145,32 @@ describe("LayerPersistence", () => {
       save.mockRestore();
       vi.useRealTimers();
     });
+
+    it("flushSaveHiddenIds commits the pending write synchronously", () => {
+      // Teardown calls this instead of cancelSaveHiddenIds: the write is
+      // debounced at 100ms and a control can be removed inside that window,
+      // so cancelling would silently drop the last toggle.
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a"]);
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.flushSaveHiddenIds();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][1]).toEqual(["a"]);
+      // The timer is consumed, so advancing it writes nothing else.
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).toHaveBeenCalledTimes(1);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("flushSaveHiddenIds is a no-op when nothing is pending", () => {
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a"]);
+      p.flushSaveHiddenIds();
+      expect(save).not.toHaveBeenCalled();
+      save.mockRestore();
+    });
   });
 
   // ── Names (user-assigned display names) ──────────────────────────

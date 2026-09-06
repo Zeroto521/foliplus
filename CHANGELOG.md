@@ -96,6 +96,7 @@
 
 ### Fixed
 
+- `LayerControl`: a row double-click no longer focuses the layer when it lands on the checkbox or the ⋮ button, and the last checkbox change is now flushed on removal instead of cancelled so it survives the 100ms save debounce ([#252](https://github.com/Zeroto521/foliplus/pull/252))
 - `LayerControl`: drag-and-drop reordering restricted to within the same group (overlay ↔ overlay, base ↔ base) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28), [#89](https://github.com/Zeroto521/foliplus/pull/89), [#100](https://github.com/Zeroto521/foliplus/pull/100))
 - `LayerControl`: `handleDrop` uses `data-layer-id` instead of stale index to locate moved DOM element ([#48](https://github.com/Zeroto521/foliplus/pull/48))
