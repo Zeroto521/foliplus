@@ -480,13 +480,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
   if (domCount !== results.length) {
     throw new Error(
-<<<<<<< HEAD
-      log.err(
-        `result panel drift: DOM has ${domCount} items but retained ${results.length}`,
-      ),
-=======
       log.msg(`result panel drift: DOM has ${domCount} items but retained ${results.length}`),
->>>>>>> 23d23365 (refactor(js): rename Logger.err to Logger.msg)
     );
   }
 };
