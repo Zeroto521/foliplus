@@ -3,6 +3,11 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportRenderer, pooledEach } from "#foliplus/ExportControl/renderer.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
+// renderer.ts binds its logger to CONF.name at module-import time, so the
+// component name has to be set before the import resolves — setup.ts leaves it
+// at "SearchControl".  Must run before the import, not in beforeEach.
+window.CONF = { ...window.CONF, name: "ExportControl" };
+
 // renderer.ts captures loadImageBitmap at import time, and the module's
 // exports are getters — vi.spyOn(UTIL, "loadImageBitmap") throws inside
 // batch.map, the rejection is swallowed by .catch(() => null), and no tile
@@ -50,7 +55,10 @@ describe("pooledEach", () => {
       return item;
     });
     expect(result).toEqual([1, null, 3]);
-    expect(warnSpy).toHaveBeenCalledWith(expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("tile load failed"),
+      expect.any(Error),
+    );
   });
 
   it("caps concurrency at 1 (serial)", async () => {
