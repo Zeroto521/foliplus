@@ -22,7 +22,6 @@
 - `LayerControl`: persist layer configuration to localStorage across page reloads — three independently-debounced dimensions (order, fold, visibility) with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `MeasureControl`: `show_live_coords` parameter (default `true`) — a chip trails the cursor while a drawing mode or edit mode is armed, showing the coordinate about to be placed, and disappears once the measurement is finalized ([#246](https://github.com/Zeroto521/foliplus/pull/246))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227), [#254](https://github.com/Zeroto521/foliplus/pull/254))
-- `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 
 ### Changed
 
@@ -134,7 +133,3 @@
 [v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.1.0
-
-## Unreleased
-
-- fix(`MeasureControl`): rebase onto main and resolve the `makePreviewNode` conflict — cursor nodes now route to the node pane (`isNode`) so they paint above the preview shapes, and the duplicate `addPreview` call in circle mode is removed (#252)
