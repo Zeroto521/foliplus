@@ -1996,7 +1996,9 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, (
                 f"fold-cursor snippet failed: {result}"
             )
-            assert result["isFold"] is True, f"cursor should be on the fold row, got {result}"
+            assert result["isFold"] is True, (
+                f"cursor should be on the fold row, got {result}"
+            )
             assert result["bg"] == "rgb(255, 255, 255)", (
                 f"fold row must turn white, got {result['bg']}"
             )
