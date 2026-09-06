@@ -1812,7 +1812,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
-  describe("Enter toggles only a focused checkbox", () => {
+  describe("Enter toggles the cursor row", () => {
     const toggleSpy = (ui: LayerUI) => {
       const orig = HTMLInputElement.prototype.dispatchEvent;
       const spy = vi.fn();
@@ -1845,50 +1845,21 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       restore();
     });
 
-    it("Enter on a focused checkbox toggles its own layer, not the cursor row", () => {
-      const checkbox = findItem(ui, "overlay1").querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement;
+    it("Enter on the row div toggles that row without native side effects", () => {
+      // Row-level Enter is the keyboard contract: Space toggles a focused
+      // checkbox natively, Enter must not double-fire it.
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       const { spy, restore } = toggleSpy(ui);
       const before = checkbox.checked;
 
-      // Cursor sits on a different row: the old toggleFocusedLayer path
-      // resolved the row from the cursor, so it could act on a layer the
-      // user never touched.
-      ui.activeIdx = 0;
-      checkbox.focus();
+      item.focus();
       ui.handleKeyDown(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }) as KeyboardEvent,
       );
 
       expect(spy).toHaveBeenCalledTimes(1);
       expect(checkbox.checked).toBe(!before);
-      restore();
-    });
-
-    it("Enter with focus on a non-checkbox panel element does NOT toggle", () => {
-      const item = findItem(ui, "overlay1");
-      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const { spy, restore } = toggleSpy(ui);
-      const before = checkbox.checked;
-
-      // Focus must land inside the panel for handleKeyDown to act at all;
-      // put it on a sibling row's own checkbox so the panel is hot but the
-      // focused input belongs to a different row than the cursor.
-      const otherCheckbox = findItem(ui, "base1").querySelector(
-        'input[type="checkbox"]',
-      )!;
-      const otherBefore = otherCheckbox.checked;
-      otherCheckbox.focus();
-      ui.activeIdx = ui.getNavigableItems().indexOf(item);
-      ui.handleKeyDown(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }) as KeyboardEvent,
-      );
-
-      // The cursor row is never touched; the focused row toggles as usual.
-      expect(checkbox.checked).toBe(before);
-      expect(otherCheckbox.checked).toBe(!otherBefore);
-      expect(spy).toHaveBeenCalledTimes(1);
       restore();
     });
 

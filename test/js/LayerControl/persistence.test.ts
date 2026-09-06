@@ -58,12 +58,28 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("cancelSaveOrder suppresses a pending write", () => {
+    it("flushSaveOrder commits the pending write synchronously", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
-      const p = makePersistence(["a"]);
-      p.saveOrder(() => ["a"]);
-      p.cancelSaveOrder();
+      const p = makePersistence(["a", "b"]);
+      p.saveOrder(() => ["a", "b"]);
+      p.flushSaveOrder();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][1]).toEqual(["a", "b"]);
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).toHaveBeenCalledTimes(1);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("cancels a pending write when the debounce is never flushed", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveOrder(() => ["a", "b"]);
+      // destroy() cancels: an order change made as the control is being torn
+      // down is discarded rather than written.
+      p.destroy();
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
       expect(save).not.toHaveBeenCalled();
       save.mockRestore();
@@ -134,22 +150,10 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("cancelSaveHiddenIds suppresses a pending write", () => {
-      vi.useFakeTimers();
-      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
-      const p = makePersistence(["a"]);
-      p.saveHiddenIds(() => new Set(["a"]));
-      p.cancelSaveHiddenIds();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      expect(save).not.toHaveBeenCalled();
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
     it("flushSaveHiddenIds commits the pending write synchronously", () => {
-      // Teardown calls this instead of cancelSaveHiddenIds: the write is
-      // debounced at 100ms and a control can be removed inside that window,
-      // so cancelling would silently drop the last toggle.
+      // Teardown calls this: the write is debounced at 100ms and a control can
+      // be removed inside that window, so cancelling would silently drop the
+      // last toggle.
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);

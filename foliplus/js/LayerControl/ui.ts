@@ -991,8 +991,9 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    // Flush, never cancel: the last checkbox change may still be sitting in
-    // the debounce queue (100ms), and cancelling here would drop it on unload.
+    // Flush, never cancel: the last change may still be sitting in a debounce
+    // queue (100ms), and cancelling here would drop it on unload.
+    this.m.persistence.flushSaveOrder();
     this.m.persistence.flushSaveHiddenIds();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
@@ -1323,6 +1324,12 @@ class LayerUI {
         break;
       case "ArrowLeft":
       case "ArrowRight":
+        // A keypress inside the toggle-all row must not reorder the layers:
+        // the group row is focusable, so pressing ArrowLeft/Right there would
+        // call moveLayerUp/Down on the group's own data-layer-id and return
+        // false — read as a reordering hint. Space and Enter belong to that
+        // checkbox and are handled by the toggle-all change listener.
+        if (item.closest(CONST.SEL.TOGGLE_ALL)) break;
       case " ":
       case "Enter":
         // Do not toggle the checkbox when the more (⋮) button is focused —
@@ -1361,19 +1368,14 @@ class LayerUI {
           }
           break;
         }
-        // Enter only toggles visibility when the row's own checkbox holds the
-        // keyboard focus. Space already toggles natively, and the row div must
-        // stay inert — routing Enter through the row re-resolves it from the
-        // cursor, so it could act on a row the user has since left.
-        const input = document.activeElement;
-        if (
-          input instanceof HTMLInputElement &&
-          item.contains(input) &&
-          input.type === "checkbox"
-        ) {
-          event.preventDefault();
-          this.handleEnterRow(item);
-        }
+        // All four keys toggle the cursor row, so the row's own checkbox never
+        // has to be the focus target. The cursor is resolved from DOM focus
+        // above (or falls back to the last clicked row), so a row the mouse has
+        // since moved onto does not steal the action. InteractionManager already
+        // prevented the default, so Space cannot also flip a focused checkbox
+        // natively — this branch is the only thing that will.
+        event.preventDefault();
+        this.toggleRowVisibility(item);
         break;
       case "Escape":
         if (this.activeMenu) this.closeMoreMenu(true);
@@ -1411,8 +1413,10 @@ class LayerUI {
     this.focusLayer(layerId);
   }
 
-  /** Toggle a row's checkbox from a keyboard event. */
-  private handleEnterRow(item: HTMLElement): void {
+  /** Toggle a row's checkbox from a keyboard event (Space / ArrowLeft /
+   *  ArrowRight / Enter all land here). Flips the box and raises a bubbling
+   *  `change` so the existing change listener drives the visibility update. */
+  private toggleRowVisibility(item: HTMLElement): void {
     const checkbox = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
