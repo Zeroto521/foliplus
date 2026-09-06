@@ -205,14 +205,14 @@ type DisplayLatLng =
  *  location display in the project. */
 const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const raw = pt as {
-    lat?: number;
     lng?: number;
-    latitude?: number;
+    lat?: number;
     longitude?: number;
+    latitude?: number;
   };
-  const lat = raw.lat ?? raw.latitude;
   const lng = raw.lng ?? raw.longitude;
-  if (lat === undefined || lng === undefined) {
+  const lat = raw.lat ?? raw.latitude;
+  if (lng === undefined || lat === undefined) {
     throw new TypeError("[foliplus] MeasureControl: point has no lng/lat");
   }
   return [lng, lat];
