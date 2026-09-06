@@ -786,7 +786,12 @@ class TestLayerControlBrowser:
             hint_text = page.evaluate(
                 'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
             )
-            assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+            # Accept the translated wording too — CI is locale-neutral but a
+            # local browser can resolve `zh`. The contract is that the hint is
+            # the cross-group reorder blocker, never a random hint.
+            assert ("same group" in hint_text.lower()) or ("同一分组" in hint_text), (
+                f"Expected the cross-group reorder hint, got {hint_text!r}"
+            )
 
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
@@ -1164,20 +1169,22 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Expanded → should show "Collapse layers"
+            # Expanded → should show the "collapse" tooltip. Accept the
+            # translated wording too: CI is locale-neutral but a local browser
+            # can resolve `zh`.
             initial = page.evaluate(_js("LayerControl/read_toggle_all_row_title"))
-            assert initial and "Collapse" in initial, (
-                f"Expected 'Collapse layers', got '{initial}'"
+            assert initial and ("Collapse" in initial or "收起" in initial), (
+                f"Expected the 'collapse' tooltip, got '{initial}'"
             )
 
             # Click fold button
             page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
-            # Folded → should show "Expand layers"
+            # Folded → should show the "expand" tooltip (locale-neutral, same as above)
             folded = page.evaluate(_js("LayerControl/read_toggle_all_row_title"))
-            assert folded and "Expand" in folded, (
-                f"Expected 'Expand layers', got '{folded}'"
+            assert folded and ("Expand" in folded or "展开" in folded), (
+                f"Expected the 'expand' tooltip, got '{folded}'"
             )
 
     def test_color_layer_item_title(self, browser, tmp_path):
@@ -1273,6 +1280,12 @@ class TestLayerControlBrowser:
             assert info["mapCount"] == len(info["rows"]) + 1, (
                 f"map holds {info['mapCount']} layers, expected "
                 f"{len(info['rows'])} overlays + 1 visible base: {info}"
+            )
+            # The registry holds the same ids the panel renders, so the count
+            # column and the row list cannot disagree about which layers exist.
+            assert len(info["registry"]) == len(info["rows"]) + 2, (
+                f"registry holds {len(info['registry'])} layers, expected "
+                f"{len(info['rows'])} overlays + 2 base rows: {info}"
             )
             # The page's own show=False is honoured on load -- one overlay is
             # declared hidden and one is declared visible, so the registry and
@@ -1744,18 +1757,30 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Single SVG, 1 path before fold (SVGO converts polyline → path)
-            elem_count = page.evaluate(_js("LayerControl/count_fold_paths"))
-            assert elem_count == 1, f"Expected 1 path (FOLD SVG), got {elem_count}"
+            # Single SVG element, holding one shape, before and after the fold
+            # toggle. The test asserts element counts rather than shape kinds so
+            # it does not depend on the build pipeline's SVG optimizer: a bare
+            # esbuild build leaves <polyline>, while the minified release build
+            # (SVGO) rewrites it to <path>.
+            elem = page.evaluate(_js("LayerControl/count_fold_paths"))
+            assert elem["svgCount"] == 1, (
+                f"Expected 1 svg (FOLD ICON), got {elem['svgCount']}"
+            )
+            assert elem["shapeCount"] == 1, (
+                f"Expected 1 shape element, got {elem['shapeCount']}"
+            )
 
             # Click to fold
             page.evaluate(_js("LayerControl/click_overlay_fold_button"))
             page.wait_for_timeout(300)
 
-            # Still 1 path — icon is rotated by CSS, not swapped
-            elem_count = page.evaluate(_js("LayerControl/count_fold_paths"))
-            assert elem_count == 1, (
-                f"Expected 1 path (CSS-rotated, not swapped), got {elem_count}"
+            # Still 1 svg with 1 shape — the icon is rotated by CSS, not swapped
+            elem = page.evaluate(_js("LayerControl/count_fold_paths"))
+            assert elem["svgCount"] == 1, (
+                f"Expected 1 svg (CSS-rotated, not swapped), got {elem['svgCount']}"
+            )
+            assert elem["shapeCount"] == 1, (
+                f"Expected 1 shape element, got {elem['shapeCount']}"
             )
             # Row must carry the folded class so CSS rotation kicks in
             is_folded = page.evaluate(_js("LayerControl/read_fold_row_class"))
@@ -2033,6 +2058,17 @@ class TestLayerControlBrowser:
             )
             # Leaf path must be rendered
             assert result["leafHasPath"] is True, "Leaf path not rendered"
+            # Only the container's own layer group may be added to the map --
+            # registration must not pin the factory's empty sub-groups
+            # (graph / node / label) as top-level layers.
+            assert result["mainLayerOnMap"] is True, "mainLayer should be on the map"
+            assert result["addedCount"] >= 1, "mainLayer should be added to the map"
+            assert not result["leakedPanes"], (
+                f"Container registration added {len(result['leakedPanes'])} "
+                f"unexpected layers to the map: {result['leakedPanes']} -- an "
+                f"empty registration must not pin the factory's sub-groups "
+                f"into map._layers"
+            )
 
     def test_register_idempotent_keeps_order(self, browser, tmp_path):
         """Re-registering an existing layer must not reorder the list.

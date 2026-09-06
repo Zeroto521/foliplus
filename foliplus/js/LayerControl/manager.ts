@@ -367,6 +367,21 @@ class LayerManager implements LayerAPI {
     // (avoiding onAdd side effects), and a callback-only hidden layer
     // (no Leaflet layer, onToggle only) still gets its callback fired so
     // canvas/heatmap can hide itself.
+    //
+    // A registration that carries no content must stay unregistered, so
+    // LayerFactory does not run its own map.addLayer inside the wrapped
+    // addLayer before any of its sub-groups exist: every empty
+    // createLayers() would otherwise pin three empty sub-groups to
+    // map._layers, which is what makes the map hold one layer per pane
+    // instead of one per registered layer.
+    if (layerInfo.contentEmpty) {
+      return this.uiContainer
+        ? this.uiContainer.querySelector(
+            `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
+          )
+        : null;
+    }
+
     if (this.ui?.hiddenIds?.has(opts.id)) {
       layerInfo.visible = false;
       if (layerInfo.onToggle) layerInfo.onToggle(false);

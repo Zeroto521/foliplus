@@ -30,8 +30,12 @@
       `registry has no entry for ${missing.length} rendered row(s): ${missing.join(", ")}`,
     );
   }
+  const api = map?.foliplus?.LayerAPI;
   return {
     rows: out,
+    // How many layers the registry thinks exist -- one per rendered row, and
+    // the count column and row list must never disagree.
+    registry: api ? api.layers.map(l => ({ id: l.id, name: l.name })) : null,
     // Layers the map thinks it holds, by stamp -- the registry id never appears
     // in here, so this is what decides whether a "hidden" layer is actually off
     // the map.
