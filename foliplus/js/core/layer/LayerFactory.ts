@@ -2,6 +2,7 @@
 // Pure logic, no CONF / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
 import { dom } from "#common/dom.js";
+import { failError } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
 import type { RegisterLayerOpts } from "./type.js";
@@ -188,11 +189,10 @@ class LayerFactory {
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
-    if (!opts?.id)
-      throw new Error("[foliplus] LayerFactory: createCanvas requires an id");
+    if (!opts?.id) failError("foliplus", "LayerFactory: createCanvas requires an id");
 
     const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane) throw new Error("[foliplus] LayerFactory: mapPane not available");
+    if (!mapPane) failError("foliplus", "LayerFactory: mapPane not available");
 
     const canvas = dom.el("canvas", {
       class: "foliplus-heatmap-canvas",

@@ -28,10 +28,9 @@ const generateId = (prefix: string, namespace?: string): string =>
  *  Call early in component initialisation (constructor / onAdd). */
 const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
-    log.error(
-      `invalid component name: "${name}". ` +
-        `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
-    );
+    log.error(`invalid component name: "${name}"`, {
+      expected: Object.keys(COMPONENTS),
+    });
   }
 };
 

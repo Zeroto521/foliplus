@@ -4,6 +4,7 @@ import { buildPopupHtml } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { failType } from "#common/log.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
@@ -213,7 +214,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lng = raw.lng ?? raw.longitude;
   const lat = raw.lat ?? raw.latitude;
   if (lng === undefined || lat === undefined) {
-    throw new TypeError(`[${CONF.name}] point has no lng/lat`);
+    return failType(CONF.name, "point has no lng/lat");
   }
   return [lng, lat];
 };

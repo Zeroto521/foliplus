@@ -2,10 +2,11 @@
 // Throws a clear error when runtime is missing, stopping the component early
 // rather than letting it fail later at an obscure DOM access.
 import { registerHintIcon } from "#core/hint.js";
+import { failError } from "#common/log.js";
 
 const requireRuntime = (componentName: string): void => {
   if (!window.foliplus)
-    throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
+    failError(componentName, "foliplus runtime not found, plugin disabled.");
 };
 
 /**

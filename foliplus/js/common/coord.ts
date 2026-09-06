@@ -7,6 +7,10 @@
 // These functions operate on Leaflet maps and coordinate systems.
 import { createLogger } from "./log.js";
 
+// coord.ts has no CONF — it is shared by five components — so the library
+// name is the only prefix that is correct here.
+const log = createLogger("foliplus");
+
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
 /** WGS84 longitude/latitude limits, shared by coordinate validation. */
@@ -82,7 +86,7 @@ const ensureGcoord = (): boolean => {
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
   if (typeof gcoord === "undefined") {
-    createLogger("foliplus").warn(
+    log.warn(
       "gcoord library failed to load, coordinate transformation unavailable",
     );
     return false;

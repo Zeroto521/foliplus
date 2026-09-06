@@ -1,4 +1,5 @@
 import { createTranslator } from "#common/locale.js";
+import { failError } from "#common/log.js";
 import type { MeasureManager } from "../manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
@@ -49,7 +50,7 @@ class MeasureMode {
 
   /** Start the mode — bind events, create UI. Subclasses must override. */
   start(): void {
-    throw new Error(`[${CONF.name}] start not implemented for ${this.type}`);
+    return failError(CONF.name, `start not implemented for ${this.type}`);
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
@@ -70,13 +71,13 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
-    throw new Error(`[${CONF.name}] restore not implemented for ${this.TYPE}`);
+    return failError(CONF.name, `restore not implemented for ${this.TYPE}`);
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
   static toGeoFeature(_data: MeasureData): GeoJSON.Feature {
-    throw new Error(`[${CONF.name}] toGeoFeature not implemented for ${this.TYPE}`);
+    return failError(CONF.name, `toGeoFeature not implemented for ${this.TYPE}`);
   }
 }
 

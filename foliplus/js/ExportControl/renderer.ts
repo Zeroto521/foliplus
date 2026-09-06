@@ -1,6 +1,6 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { createLogger, failError } from "#common/log.js";
 import * as CONST from "./const.js";
 import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
@@ -148,7 +148,7 @@ class ExportRenderer {
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
-    if (sw < 1 || sh < 1) throw new Error(`[${CONF.name}] ${T("err_crop_too_small")}`);
+    if (sw < 1 || sh < 1) failError(CONF.name, T("err_crop_too_small"));
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;

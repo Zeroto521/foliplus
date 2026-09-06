@@ -11,6 +11,7 @@ import {
   makeDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
+import { failError } from "#common/log.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
@@ -477,8 +478,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   // the lockstep that the Enter handler depends on.
   const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
   if (domCount !== results.length) {
-    throw new Error(
-      `[${CONF.name}] result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+    return failError(
+      CONF.name,
+      `result panel drift: DOM has ${domCount} items but retained ${results.length}`,
     );
   }
 };

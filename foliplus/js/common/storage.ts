@@ -3,6 +3,9 @@
 // Stateless over window.localStorage, so it is safe to inline per-component.
 import { createLogger } from "./log.js";
 
+// Both `load` and `save` take a caller name by parameter rather than from CONF,
+// so the logger is created at the call site — there is no module-level logger.
+
 /**
  * Read and parse a value from localStorage.
  * @param key - localStorage key.

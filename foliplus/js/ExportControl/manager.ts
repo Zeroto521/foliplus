@@ -860,7 +860,7 @@ class ExportManager {
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    log.warn(`${T("err_render")}:`, err);
+    log.error(`${T("err_render")}:`, err);
     this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }

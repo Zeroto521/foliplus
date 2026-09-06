@@ -1,6 +1,7 @@
 // core/layer/api — LayerAPI facade management.
 // ensureLayerAPI creates a lightweight stub when no LayerControl exists;
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
+import { failError } from "#common/log.js";
 import { ensureHint } from "#core/hint.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
@@ -103,7 +104,7 @@ const requireLayerAPI = (
   if (!isRealLayerControl(api)) {
     const msg = T("no_layercontrol");
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
-    throw new Error(`[${componentName}] ${msg}`);
+    failError(componentName, msg);
   }
   // isRealLayerControl returned true, so `api` is non-null (a real
   // LayerManager).  Use the narrowed local to satisfy TS control-flow.

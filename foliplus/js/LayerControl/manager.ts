@@ -21,7 +21,7 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { createLogger, failError } from "#common/log.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
@@ -330,7 +330,7 @@ class LayerManager implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(`[${CONF.name}] ${T("id_required")}`);
+    if (!opts?.id) failError(CONF.name, T("id_required"));
 
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
