@@ -104,8 +104,14 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
  *  the outer diameter — the DOM handles/center set `width` / `height` in
  *  border-box, and Leaflet paints a marker's stroke within its geometry (the
  *  bounding box ignores stroke-width), so `--dot-size / 2` is the radius for
- *  both. Keeping the read here means a token change sizes every dot at once —
- *  `CONST.MARKER.RADIUS` is only the token-less fallback. */
+ *  both.
+ *
+ *  `L.circleMarker` rounds `radius` to an integer pixel when it writes the SVG
+ *  `d` attribute (1.9.3's `_projectCircle`: `Math.round(t._radiusY)`), so keep
+ *  `--dot-size` even — an odd value such as 11.5px renders as 12px on the SVG
+ *  side but 11.5px on the DOM side. Keeping the read here means a token change
+ *  sizes every dot at once — `CONST.MARKER.RADIUS` is only the token-less
+ *  fallback. */
 const nodeRadius = (): number => {
   const size = parseFloat(cssVar(document.documentElement, "--dot-size", ""));
   return Number.isFinite(size) ? size / 2 : CONST.MARKER.RADIUS;

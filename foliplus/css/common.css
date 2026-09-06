@@ -137,7 +137,10 @@
     `width` / `height` (border-box, so the border is inside it) and the SVG
     node's circleMarker radius is --dot-size / 2 = 5. Radius is
     not CSS-addressable, so `nodeRadius` in MeasureControl's `util.ts` reads
-    the token at marker-creation time instead of repeating it. */
+    the token at marker-creation time instead of repeating it.
+    Keep it EVEN: Leaflet rounds a circleMarker's radius to an integer pixel
+    when it writes the SVG path, so an odd value would render as a different
+    size than the DOM anchors that read the token directly. */
   --dot-size: 10px;
   --dot-stroke: 2px;
 
