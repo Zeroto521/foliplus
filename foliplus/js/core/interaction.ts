@@ -41,8 +41,10 @@ const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const km = new InteractionManager(map);
+
   instances.set(map, km);
   if (!map.foliplus) (map as any).foliplus = {};
+
   map.foliplus!.interaction = km;
   return km;
 };
@@ -64,12 +66,14 @@ class InteractionManager {
 
   constructor(map: L.Map) {
     this.map = map;
+
     map.on("unload" as any, () => this.clear());
   }
 
   /** Start observing DOM for element/container removal to auto-cleanup. */
   private ensureObserver(): void {
     if (this.observer) return;
+
     this.observer = new MutationObserver(mutations => {
       for (const m of mutations) {
         for (const removed of m.removedNodes) {
@@ -79,12 +83,14 @@ class InteractionManager {
             if (!document.body.contains(el)) {
               // Element was removed from DOM — unregister all its components
               for (const c of components) this.unregister(c);
+
               this.trackedElements.delete(el);
             }
           }
         }
       }
     });
+
     this.observer.observe(document.body, { childList: true, subtree: true });
   }
 
@@ -93,7 +99,9 @@ class InteractionManager {
     if (!this.trackedElements.has(el)) {
       this.trackedElements.set(el, new Set());
     }
+
     this.trackedElements.get(el)!.add(component);
+
     this.ensureObserver();
   }
 
@@ -116,6 +124,7 @@ class InteractionManager {
       }
       if (def.element) {
         const eventType = def.event ?? "keydown";
+
         const handler = (event: Event) => {
           if ((eventType === "keydown" || eventType === "keyup") && def.key) {
             const ke = event as KeyboardEvent;
@@ -125,25 +134,35 @@ class InteractionManager {
             if (def.shift && !ke.shiftKey) return;
             if (def.alt && !ke.altKey) return;
           }
+
           event.preventDefault();
+
           event.stopPropagation();
+
           def.handler(event);
         };
+
         def.element.addEventListener(
           eventType,
           handler,
           def.once ? { once: true } : undefined,
         );
+
         (def as any).elementHandler = handler;
+
         (def as any).elementType = eventType;
+
         this.trackElement(def.element, component);
       }
       if (def.container && !def.element) {
         this.trackElement(def.container, component);
       }
+
       (def as any).order = this.order++;
+
       this.shortcuts.push(def);
     }
+
     this.ensureListener();
     // Return cleanup function
     return () => this.unregister(component);
@@ -155,9 +174,11 @@ class InteractionManager {
     for (const s of removed) {
       if (s.element && (s as any).elementHandler) {
         const eventType = (s as any).elementType ?? "keydown";
+
         s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
+
     this.shortcuts = this.shortcuts.filter(s => s.component !== component);
     if (this.shortcuts.length === 0) this.removeListener();
   }
@@ -167,15 +188,20 @@ class InteractionManager {
     for (const s of this.shortcuts) {
       if (s.element && (s as any).elementHandler) {
         const eventType = (s as any).elementType ?? "keydown";
+
         s.element.removeEventListener(eventType, (s as any).elementHandler);
       }
     }
+
     this.shortcuts = [];
+
     this.trackedElements.clear();
     if (this.observer) {
       this.observer.disconnect();
+
       this.observer = null;
     }
+
     this.removeListener();
   }
 
@@ -190,7 +216,9 @@ class InteractionManager {
     for (const type of eventTypes) {
       if (this.docListeners.has(type)) continue;
       const handler = (event: Event) => this.handleEvent(event);
+
       document.addEventListener(type, handler);
+
       this.docListeners.set(type, handler);
     }
   }
@@ -199,6 +227,7 @@ class InteractionManager {
     for (const [type, handler] of this.docListeners) {
       document.removeEventListener(type, handler);
     }
+
     this.docListeners.clear();
   }
 
@@ -209,6 +238,7 @@ class InteractionManager {
     // contains activeElement should win when priorities are tied — matches
     // how native DOM focus/keyboard events work.
     const active = document.activeElement;
+
     const sort = (a: InteractionDef, b: InteractionDef) => {
       const pDiff = (b.priority ?? 0) - (a.priority ?? 0);
       if (pDiff !== 0) return pDiff;
@@ -223,6 +253,7 @@ class InteractionManager {
           let cur: HTMLElement | null = active;
           while (cur && cur !== c) {
             n++;
+
             cur = cur.parentElement;
           }
           return n;
@@ -235,6 +266,7 @@ class InteractionManager {
     // Separate element-bound shortcuts (they use direct element listeners,
     // not document-level dispatch) from document-level ones.
     const docShortcuts = this.shortcuts.filter(s => !s.element);
+
     const matches = docShortcuts
       .filter(s => {
         // Match event type
@@ -257,13 +289,17 @@ class InteractionManager {
     if (matches.length === 0) return;
 
     const best = matches[0];
+
     event.preventDefault();
+
     event.stopPropagation();
+
     best.handler(event);
   }
 
   destroy(): void {
     this.clear();
+
     instances.delete(this.map);
   }
 }

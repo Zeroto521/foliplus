@@ -53,6 +53,7 @@ const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
     const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
     if (t?.closest?.(`[data-${DEL_ICON_ROLE}]`)) {
       stopEvent(event);
+
       callback();
     }
   });
@@ -79,7 +80,9 @@ const hideDelIcons = () => {
  */
 const bindDelIconToPopup = (marker: L.Marker | null, delIcon: L.Layer) => {
   if (!marker) return;
+
   marker.on("popupopen", () => toggleDelIcon(delIcon, true));
+
   marker.on("popupclose", () => toggleDelIcon(delIcon, false));
 };
 

@@ -61,10 +61,12 @@ const findTemplateEnd = (code, start) => {
     if (ch === "`" && depth === 0) return i;
     if (ch === "$" && code[i + 1] === "{" && depth === 0) {
       depth = 1;
+
       i += 2;
     } else if (depth > 0) {
       if (ch === "{") depth++;
       else if (ch === "}") depth--;
+
       i++;
     } else i++;
   }
@@ -93,9 +95,11 @@ const compressHtmlStrings = code => {
       const raw = code.slice(i + 1, end);
       if (HTML_RE.test(raw)) result.push("`" + collapseHtml(raw) + "`");
       else result.push(code.slice(i, end + 1));
+
       i = end + 1;
     } else {
       result.push(code[i]);
+
       i++;
     }
   }

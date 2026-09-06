@@ -25,7 +25,9 @@ const {
 
 vi.mock("#common/delicon.js", async importOriginal => {
   const actual = await importOriginal<typeof import("#common/delicon.js")>();
+
   realMakeDelIcon.value = actual.makeDelIcon;
+
   realAttachDelClick.value = actual.attachDelClick;
   return {
     ...actual,
@@ -38,6 +40,7 @@ vi.mock("#common/delicon.js", async importOriginal => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   window.L = {
     marker: vi.fn(() => ({
       getElement: vi.fn(() => null),
@@ -59,6 +62,7 @@ beforeEach(() => {
     divIcon: vi.fn(() => ({})),
     DomEvent: { stopPropagation: vi.fn() },
   };
+
   globalThis.turf = {
     point: coords => ({ coords }),
     distance: vi.fn(() => 100),
@@ -92,6 +96,7 @@ describe("resortLayers", () => {
     UI.resortLayers(layers, [a, b]);
 
     expect(layers.removeLayer).toHaveBeenCalledTimes(2);
+
     expect(layers.addLayer).toHaveBeenCalledTimes(2);
   });
 
@@ -106,6 +111,7 @@ describe("resortLayers", () => {
       ...layers.removeLayer.mock.calls.map(c => c[0]._id),
       ...layers.addLayer.mock.calls.map(c => c[0]._id),
     ];
+
     expect(callOrder).toEqual(["first", "second", "first", "second"]);
   });
 
@@ -118,6 +124,7 @@ describe("resortLayers", () => {
     UI.resortLayers(layers, [a, b], [c]);
 
     expect(layers.removeLayer).toHaveBeenCalledTimes(3);
+
     expect(layers.addLayer).toHaveBeenCalledTimes(3);
   });
 });
@@ -152,6 +159,7 @@ describe("attachCircleUI — delete flow", () => {
     };
     const delMarker = makeLayer("delMarker");
     const onDelete = vi.fn();
+
     const opts = {
       layers,
       circle: makeLayer("circle"),
@@ -168,32 +176,44 @@ describe("attachCircleUI — delete flow", () => {
 
   it("attaches the X delete callback to delMarker", () => {
     const { delMarker, opts } = makeOpts();
+
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
     expect(attachDelClick).toHaveBeenCalledWith(delMarker, expect.any(Function));
+
     expect(typeof (delMarker as any)._delClick).toBe("function");
   });
 
   it("removes all circle layers and calls onDelete on X click", () => {
     const { layers, delMarker, onDelete, opts } = makeOpts();
+
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
     (delMarker as any)._delClick();
 
     expect(layers.removeLayer).toHaveBeenCalledWith(opts.circle);
+
     expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusLine);
+
     expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusNode);
+
     expect(layers.removeLayer).toHaveBeenCalledWith(opts.centerFinal);
+
     expect(layers.removeLayer).toHaveBeenCalledWith(delMarker);
+
     expect(layers.removeLayer).toHaveBeenCalledWith(opts.radiusLabel);
+
     expect(onDelete).toHaveBeenCalled();
+
     expect(layers.unregister).toHaveBeenCalled();
   });
 
   it("unbinds the overlay map-click listener on deletion", () => {
     const { delMarker, opts } = makeOpts();
     const mgr = makeMgr();
+
     UI.attachCircleUI(mgr as any, opts as any);
+
     expect(mgr.map.on).toHaveBeenCalledWith("click", expect.any(Function));
 
     (delMarker as any)._delClick();
@@ -204,12 +224,15 @@ describe("attachCircleUI — delete flow", () => {
 
   it("attaches click handlers that open the edit overlay on circle parts", () => {
     const { opts } = makeOpts();
+
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
     const clickHandler = (opts.circle.on as any).mock.calls.find(
       (c: any[]) => c[0] === "click",
     )?.[1];
+
     expect(clickHandler).toBeDefined();
+
     // Clicking the circle opens the overlay (stops event, no throw).
     clickHandler({ originalEvent: { target: null } } as any);
   });
@@ -217,21 +240,25 @@ describe("attachCircleUI — delete flow", () => {
   it("registers the radius label with RADIUS priority", () => {
     const { opts } = makeOpts();
     const mgr = makeMgr();
+
     UI.attachCircleUI(mgr as any, opts as any);
 
     const labelCall = (mgr.registerLabel as any).mock.calls.find(
       (c: any[]) => c[1] === CONST.LABEL_PRIORITY.RADIUS,
     );
+
     expect(labelCall).toBeDefined();
   });
 
   it("shows the circle delete ✕ when the overlay opens (regression)", () => {
     const { delMarker, opts } = makeOpts();
+
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
     const clickHandler = (opts.circle.on as any).mock.calls.find(
       (c: any[]) => c[0] === "click",
     )?.[1];
+
     clickHandler({ originalEvent: { target: null } } as any);
 
     expect(toggleDelIcon).toHaveBeenCalledWith(delMarker, true);
@@ -272,20 +299,26 @@ describe("attachDistanceUI", () => {
 
   it("binds click handlers on the polyline and nodes", () => {
     const opts = makeOpts();
+
     UI.attachDistanceUI(makeMgr() as any, opts as any);
+
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
+
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
   });
 
   it("creates a delete icon per node", () => {
     const opts = makeOpts();
+
     UI.attachDistanceUI(makeMgr() as any, opts as any);
+
     expect(makeDelIcon).toHaveBeenCalled();
   });
 
   it("registers a drag toggle so edit mode enables node drag directly", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
+
     UI.attachDistanceUI(mgr as any, opts as any);
 
     expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
@@ -294,7 +327,9 @@ describe("attachDistanceUI", () => {
     );
     // The registered toggle must not throw when fired (setEditMode toggling).
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+
     expect(() => toggle(true)).not.toThrow();
+
     expect(() => toggle(false)).not.toThrow();
   });
 
@@ -313,11 +348,13 @@ describe("attachDistanceUI", () => {
       { lat: 2, lng: 2 },
     ];
     const mgr = makeMgr();
+
     const layers = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(l => l),
       unregister: vi.fn(),
     };
+
     const segLabels = [0, 1].map(() => ({
       on: vi.fn(),
       setLatLng: vi.fn(),
@@ -349,10 +386,12 @@ describe("attachDistanceUI", () => {
     // Spy on the last del marker's on() — record any click handler bound
     // AFTER this point (i.e. from the rebind path).
     const postBindClickHandlers: Array<(e: any) => void> = [];
+
     (lastDel.on as any).mockImplementation((ev: string, fn: (e: any) => void) => {
       if (ev === "click") postBindClickHandlers.push(fn);
       return lastDel;
     });
+
     (lastDel.off as any).mockImplementation(() => lastDel);
 
     // Delete the middle node via its ✕ callback → points collapses to 2,
@@ -372,6 +411,7 @@ describe("attachDistanceUI", () => {
     const onDelete = vi.fn();
     for (const fn of postBindClickHandlers) {
       const nonXEvent = { originalEvent: { target: { closest: vi.fn(() => null) } } };
+
       expect(() => fn(nonXEvent)).not.toThrow();
     }
   });
@@ -381,6 +421,7 @@ describe("attachDistanceUI", () => {
     // collapses it to a single segment, so bindSegLabels() must unregister the
     // two old registrations and register exactly one.
     const registerLabel = vi.fn(() => () => {});
+
     const mgr = {
       map: { on: vi.fn(), off: vi.fn() },
       isEditMode: true,
@@ -390,17 +431,20 @@ describe("attachDistanceUI", () => {
       registerLabel,
       closeOtherEditOverlays: vi.fn(),
     };
+
     const layers = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(l => l),
       unregister: vi.fn(),
     };
+
     const mkNode = (pt: L.LatLng) => ({
       on: vi.fn(),
       off: vi.fn(),
       getLatLng: vi.fn(() => pt),
       setLatLng: vi.fn(),
     });
+
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -409,6 +453,7 @@ describe("attachDistanceUI", () => {
 
     const onDelete = vi.fn();
     const onUpdate = vi.fn();
+
     UI.attachDistanceUI(
       mgr as any,
       {
@@ -436,7 +481,9 @@ describe("attachDistanceUI", () => {
     (middleDel as any)._delClick();
 
     expect(onDelete).not.toHaveBeenCalled();
+
     expect(onUpdate).toHaveBeenCalled();
+
     expect(registerLabel.mock.calls.length).toBeGreaterThan(beforeCalls);
   });
 
@@ -466,12 +513,15 @@ describe("attachDistanceUI", () => {
     );
 
     const priorities = registerLabel.mock.calls.map(c => c[1]);
+
     expect(priorities).toEqual([
       CONST.LABEL_PRIORITY.SEGMENT,
       CONST.LABEL_PRIORITY.SEGMENT,
       CONST.LABEL_PRIORITY.TOTAL,
     ]);
+
     expect(CONST.LABEL_PRIORITY.TOTAL).toBeGreaterThan(CONST.LABEL_PRIORITY.SEGMENT);
+
     expect(CONST.LABEL_PRIORITY.TOTAL).toBeLessThan(CONST.LABEL_PRIORITY.CENTROID);
   });
 
@@ -480,6 +530,7 @@ describe("attachDistanceUI", () => {
     // registrations, so the new final label must keep the elevated priority.
     const registerLabel = vi.fn(() => () => {});
     const mkLabel = () => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() });
+
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -514,6 +565,7 @@ describe("attachDistanceUI", () => {
     (makeDelIcon.mock.results[1].value as any)._delClick();
 
     const lastCall = registerLabel.mock.calls.at(-1);
+
     expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY.TOTAL);
   });
 });
@@ -532,6 +584,7 @@ describe("attachPolygonUI", () => {
       addLayer: vi.fn(l => l),
       unregister: vi.fn(),
     };
+
     const nodeMarkers = [
       { ...makeLayer("n1"), getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })) } as any,
       { ...makeLayer("n2"), getLatLng: vi.fn(() => ({ lat: 1, lng: 1 })) } as any,
@@ -559,14 +612,19 @@ describe("attachPolygonUI", () => {
   it("binds handlers and registers its dispose with the manager", () => {
     const opts = makeOpts();
     const mgr = makeMgr();
+
     UI.attachPolygonUI(mgr as any, opts as any);
+
     expect(opts.finalPoly.on).toHaveBeenCalledWith("click", expect.any(Function));
+
     expect(opts.nodeMarkers[0].on).toHaveBeenCalledWith("click", expect.any(Function));
+
     expect(mgr.registerFinalized).toHaveBeenCalledWith(expect.any(Function), "test-id");
   });
 
   it("rebuilds the centroid dot alongside the label and delete icon", () => {
     const opts = makeOpts();
+
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
     // The centroid dot is a CircleMarker with NODE_SOLID (same as circle
@@ -574,6 +632,7 @@ describe("attachPolygonUI", () => {
     const centroidCalls = (window.L.circleMarker as any).mock.calls.filter(
       ([, opts]) => opts?.className === CONST.CLASSES.NODE_SOLID,
     );
+
     expect(centroidCalls.length).toBe(1);
   });
 
@@ -581,10 +640,12 @@ describe("attachPolygonUI", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
     const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
+
     opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
       addLayerCalls.push({ layer, isLabel: !!isLabel });
       return layer;
     });
+
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
@@ -597,11 +658,15 @@ describe("attachPolygonUI", () => {
     // after sortLayers re-sorts by Y on zoom.
     // [0] = centroidDot (CircleMarker): isLabel=false → graph pane
     expect(addLayerCalls[0].isLabel).toBe(false);
+
     // [1] = centroidLabel: isLabel=true → label pane, has offset
     expect(addLayerCalls[1].isLabel).toBe(true);
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
+
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
+
     expect(labelOpts.interactive).toBe(false);
+
     // Del icon: no isLabel flag → graph pane.
     expect(makeDelIcon).toHaveBeenCalled();
   });
@@ -609,6 +674,7 @@ describe("attachPolygonUI", () => {
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
+
     UI.attachPolygonUI(mgr as any, opts as any);
 
     expect(mgr.registerEditDragToggle).toHaveBeenCalledWith(
@@ -616,17 +682,21 @@ describe("attachPolygonUI", () => {
       "test-id",
     );
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+
     expect(() => toggle(true)).not.toThrow();
+
     expect(() => toggle(false)).not.toThrow();
   });
 
   it("deleting a node cleans up only its drag bind and keeps the centroid (regression)", () => {
     const mgr = makeMgr();
+
     const layers = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(l => l),
       unregister: vi.fn(),
     };
+
     const mkNode = (lat: number) => ({
       on: vi.fn(),
       off: vi.fn(),
@@ -660,20 +730,27 @@ describe("attachPolygonUI", () => {
     // The centroid dot is the first L.circleMarker built (rebuildCentroid).
     const centroidDot = (window.L.circleMarker as any).mock.results[0].value;
     const centroidEl = { style: {} };
+
     centroidDot.getElement = vi.fn(() => centroidEl);
 
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
+
     toggle(true);
+
     expect(centroidEl.style.cursor).toBe("move");
 
     // Delete node 0: its drag bind must be spliced AND cleaned up (map off).
     const offBefore = mgr.map.off.mock.calls.length;
+
     node0Del._delClick();
+
     expect(mgr.map.off).toHaveBeenCalledTimes(offBefore + 2); // mousemove + mouseup
 
     // The centroid bind must survive: leaving edit mode still disables it.
     toggle(false);
+
     expect(centroidEl.style.cursor).toBe("");
+
     // And the centroid ✕ still deletes the whole measurement.
     expect(() => centroidDel._delClick()).not.toThrow();
   });

@@ -15,6 +15,7 @@ import { MeasureManager } from "./manager.js";
 
 createControlEnv(CONF, SVGs.RULER);
 const T = createScopedTranslator(CONF);
+
 ensureLayerAPI(map);
 
 const measureManager = new MeasureManager(map);
@@ -25,6 +26,7 @@ class MeasureControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+
     this.manager = measureManager;
   }
 
@@ -40,6 +42,7 @@ class MeasureControl extends BaseControl {
       toggleSvg: SVGs.RULER,
       position: CONF.position,
     });
+
     const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
       { mode: CONST.MODE.MARKER, title: T("tool_marker"), svg: Icons.LOCATE },
       { mode: CONST.MODE.DISTANCE, title: T("tool_distance"), svg: SVGs.RULER },
@@ -52,6 +55,7 @@ class MeasureControl extends BaseControl {
       { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;
+
     btnConfigs.forEach(({ mode, title, svg }) => {
       const btn = createIconButton({
         class: "foliplus-tool-btn",
@@ -64,7 +68,9 @@ class MeasureControl extends BaseControl {
     });
 
     this.m.ctrl = ctrl;
+
     this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
+
     this.m.bindExportClick(exportBtn!);
 
     bindFoldToggle({ container: ctrl, toggleBtn });
@@ -78,6 +84,7 @@ class MeasureControl extends BaseControl {
     this.m.toolBtns.forEach((btn: HTMLElement) => {
       btn.onclick = (event: MouseEvent) => {
         event.stopPropagation();
+
         this.m.setMode(btn.dataset.mode ?? null);
       };
     });

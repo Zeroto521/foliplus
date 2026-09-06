@@ -30,6 +30,7 @@ class LayerPersistence {
 
   constructor(registry: LayerRegistry) {
     this.persistName = CONF.name;
+
     this.registry = registry;
   }
 
@@ -52,9 +53,11 @@ class LayerPersistence {
     if (!this.debouncedSaveOrder) {
       this.debouncedSaveOrder = debounce(() => {
         if (!this.orderGetter) return;
+
         Storage.save(CONST.STORAGE.ORDER_KEY, this.orderGetter(), this.persistName);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveOrder();
   }
 
@@ -93,6 +96,7 @@ class LayerPersistence {
     if (!this.debouncedSaveHiddenIds) {
       this.debouncedSaveHiddenIds = debounce(() => {
         if (!this.hiddenGetter) return;
+
         Storage.save(
           CONST.STORAGE.VISIBILITY_KEY,
           Array.from(this.hiddenGetter()),
@@ -100,6 +104,7 @@ class LayerPersistence {
         );
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveHiddenIds();
   }
 
@@ -144,9 +149,11 @@ class LayerPersistence {
     if (!this.debouncedSaveNames) {
       this.debouncedSaveNames = debounce(() => {
         if (!this.namesGetter) return;
+
         Storage.save(CONST.STORAGE.NAMES_KEY, this.namesGetter(), this.persistName);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveNames();
   }
 
@@ -156,7 +163,9 @@ class LayerPersistence {
 
   destroy() {
     this.debouncedSaveOrder?.cancel();
+
     this.debouncedSaveHiddenIds?.cancel();
+
     this.debouncedSaveNames?.cancel();
   }
 }

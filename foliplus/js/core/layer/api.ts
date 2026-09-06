@@ -29,6 +29,7 @@ const ensureLayerAPI = (map: L.Map): LayerAPI => {
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
   const panes = new PaneManager(map);
+
   const factory = new LayerFactory({
     map,
     panes,
@@ -69,6 +70,7 @@ const ensureLayerAPI = (map: L.Map): LayerAPI => {
  */
 const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   if (!api) return false;
+
   // LayerManager defines `layers` as a class getter (prototype property),
   // while the lightweight stub sets it as a plain data property (own).
   // Check both the instance and the prototype chain for the getter.

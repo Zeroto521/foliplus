@@ -59,6 +59,7 @@ const isBaiduCRS = (map: L.Map | null): boolean => {
  */
 const isDomesticMap = (map: L.Map | null): boolean => {
   if (isBaiduCRS(map)) return true;
+
   const domesticPatterns = [
     "autonavi",
     "tianditu",

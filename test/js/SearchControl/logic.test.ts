@@ -31,7 +31,9 @@ beforeEach(() => {
 describe("removePanel", () => {
   it("removes panelWrap and resets state", () => {
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       panelWrap: el,
       throttleTimer: setTimeout(() => {}, 1000),
@@ -41,8 +43,11 @@ describe("removePanel", () => {
     removePanel(ctrl);
 
     expect(document.body.contains(el)).toBe(false);
+
     expect(ctrl.panelWrap).toBeNull();
+
     expect(ctrl.throttleTimer).toBeNull();
+
     expect(ctrl.selectedIdx).toBe(-1);
   });
 
@@ -52,6 +57,7 @@ describe("removePanel", () => {
       throttleTimer: null,
       selectedIdx: -1,
     };
+
     expect(() => removePanel(ctrl)).not.toThrow();
   });
 });
@@ -59,14 +65,19 @@ describe("removePanel", () => {
 describe("renderResults", () => {
   it("removes panel when results are empty", () => {
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       panelWrap: el,
       throttleTimer: null,
       selectedIdx: 0,
     };
+
     renderResults(ctrl, []);
+
     expect(ctrl.panelWrap).toBeNull();
+
     expect(ctrl.selectedIdx).toBe(-1);
   });
 
@@ -79,6 +90,7 @@ describe("renderResults", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
     };
+
     renderResults(ctrl, [
       // History item: carries its panel display as the re-entry value.
       {
@@ -100,8 +112,11 @@ describe("renderResults", () => {
       },
     ]);
     const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+
     expect(items).toHaveLength(2);
+
     expect(items[0].getAttribute("data-query")).toBe("121.4700, 31.2300");
+
     expect(items[1].hasAttribute("data-query")).toBe(false);
   });
 
@@ -118,6 +133,7 @@ describe("renderResults", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
     };
+
     renderResults(ctrl, [
       {
         source: "suggestion",
@@ -142,8 +158,11 @@ describe("renderResults", () => {
       },
     ]);
     const domItems = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+
     expect(domItems).toHaveLength(3);
+
     expect(ctrl.currentItems).toHaveLength(3);
+
     expect(ctrl.currentItems[1].primaryText).toBe("Two");
     // The dev-mode assertion in renderResults would throw on any mismatch; a
     // successful render with equal counts is the positive proof it holds.
@@ -153,21 +172,27 @@ describe("renderResults", () => {
 describe("initDebouncedFetch", () => {
   it("creates a debounced function on ctrl.debouncedFetch", () => {
     const ctrl: any = { inp: { value: "test" }, debouncedFetch: null };
+
     initDebouncedFetch(ctrl);
+
     expect(ctrl.debouncedFetch).toBeDefined();
+
     expect(typeof ctrl.debouncedFetch).toBe("function");
+
     expect(ctrl.debouncedFetch.cancel).toBeDefined();
   });
 
   it("debounced callback fires fetchSuggestions when invoked", async () => {
     try {
       vi.useFakeTimers();
+
       globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           json: () =>
             Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A" }]),
         }),
       ) as unknown as typeof fetch;
+
       const ctrl: any = {
         mode: "addr",
         inp: { value: "search" },
@@ -183,13 +208,19 @@ describe("initDebouncedFetch", () => {
           getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
         },
       };
+
       initDebouncedFetch(ctrl);
+
       expect(globalThis.fetch).not.toHaveBeenCalled();
+
       ctrl.debouncedFetch();
+
       await vi.advanceTimersByTime(AUTOCOMPLETE.DEBOUNCE_MS + 100);
+
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
+
       delete globalThis.fetch;
     }
   });
@@ -199,10 +230,15 @@ describe("buildSearchUrl", () => {
   it("includes query, limit, and center coordinates", () => {
     const ctrl: any = {};
     const url = buildSearchUrl(ctrl, "test query", 5);
+
     expect(url).toContain("q=test+query");
+
     expect(url).toContain("limit=5");
+
     expect(url).toContain("lon=119.3");
+
     expect(url).toContain("lat=26.08");
+
     expect(url).toContain("nominatim.openstreetmap.org");
   });
 
@@ -211,6 +247,7 @@ describe("buildSearchUrl", () => {
     try {
       window.CONF = { ...window.CONF, locale_code: "zh" };
       const url = buildSearchUrl({} as any, "test", 5);
+
       expect(url).toContain("accept-language=zh");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };
@@ -222,6 +259,7 @@ describe("buildSearchUrl", () => {
     try {
       window.CONF = { ...window.CONF, locale_code: undefined };
       const url = buildSearchUrl({} as any, "test", 5);
+
       expect(url).toContain("accept-language=en");
     } finally {
       window.CONF = { ...window.CONF, locale_code: original };
@@ -236,19 +274,25 @@ describe("searchCoord", () => {
 
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, "abc");
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.coord_error",
       4000,
     );
+
     expect(ctrl.inp.value).toBe("");
   });
 
   it("shows hint for out-of-range values", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, "200,100");
+
     expect(window.map.foliplus.showHint).toHaveBeenCalled();
+
     expect(ctrl.inp.value).toBe("");
   });
 
@@ -258,10 +302,15 @@ describe("searchCoord", () => {
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 16);
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
   });
 });
@@ -273,6 +322,7 @@ describe("searchAddress", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+
     delete globalThis.fetch;
   });
 
@@ -282,34 +332,46 @@ describe("searchAddress", () => {
       lng: 120.5,
       display_name: "X, Y",
     };
+
     (window.foliplus.geocode as any).mockResolvedValue(mockResult);
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
       marker: null,
     };
+
     searchAddress(ctrl, "X");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en");
   });
 
   it("shows hint and clears input when geocode returns null", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "abc" },
     };
+
     searchAddress(ctrl, "nowhere");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(window.map.foliplus.showHint).toHaveBeenLastCalledWith(
       "SearchControl",
       "SearchControl.addr_not_found",
       4000,
     );
+
     expect(ctrl.inp.value).toBe("");
   });
 
@@ -319,7 +381,9 @@ describe("searchAddress", () => {
       lng: 120.5,
       display_name: "X, Y",
     };
+
     (window.foliplus.geocode as any).mockResolvedValue(mockResult);
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
@@ -327,11 +391,17 @@ describe("searchAddress", () => {
       marker: null,
       searchHistory: [],
     };
+
     searchAddress(ctrl, "X");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+
     expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
+
     expect(ctrl.marker).not.toBeNull();
   });
 });
@@ -349,8 +419,11 @@ describe("positionPanel", () => {
         }),
       },
     };
+
     positionPanel(ctrl);
+
     expect(ctrl.panelWrap.style.left).toBe("10px");
+
     expect(ctrl.panelWrap.style.top).toBe("100px");
   });
 
@@ -362,6 +435,7 @@ describe("positionPanel", () => {
         value: 300,
         configurable: true,
       });
+
       const ctrl: any = {
         panelWrap: { style: {} },
         ctrl: {
@@ -373,9 +447,12 @@ describe("positionPanel", () => {
           }),
         },
       };
+
       positionPanel(ctrl);
+
       // Would normally be left=250, but clipped to 300-200=100
       expect(ctrl.panelWrap.style.left).toBe("100px");
+
       expect(ctrl.panelWrap.style.top).toBe("100px");
     } finally {
       Object.defineProperty(window, "innerWidth", {
@@ -394,7 +471,9 @@ describe("fetchSuggestions", () => {
       throttleTimer: null,
       selectedIdx: -1,
     };
+
     fetchSuggestions(ctrl, "abc");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
@@ -405,14 +484,18 @@ describe("fetchSuggestions", () => {
       throttleTimer: null,
       selectedIdx: -1,
     };
+
     fetchSuggestions(ctrl, "ab");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
   it("renders cached suggestions without fetching", () => {
     globalThis.fetch = vi.fn();
     const cache = new Cache<string, object>(50);
+
     cache.set("abc", [{ display_name: "Cached" }]);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: cache,
@@ -424,15 +507,20 @@ describe("fetchSuggestions", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     expect(globalThis.fetch).not.toHaveBeenCalled();
+
     expect(ctrl.panelWrap).not.toBeNull();
   });
 
   it("is blocked by MeasureControl active mode", () => {
     globalThis.fetch = vi.fn();
+
     // Simulate MeasureControl being in active mode
     ensureModes(window.map).setMode("MeasureControl", "distance");
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -444,9 +532,13 @@ describe("fetchSuggestions", () => {
       },
       inp: { value: "Paris" },
     };
+
     fetchSuggestions(ctrl, "Paris");
+
     expect(globalThis.fetch).not.toHaveBeenCalled();
+
     expect(ctrl.panelWrap).toBeNull();
+
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 
@@ -455,10 +547,12 @@ describe("fetchSuggestions", () => {
     const original = window.CONF.locale_code;
     try {
       window.CONF = { ...window.CONF, locale_code: "zh" };
+
       const ctrl: any = {
         mode: "addr",
         cachedSuggestions: (() => {
           const c = new Cache<string, object>(50);
+
           c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
           return c;
         })(),
@@ -470,7 +564,9 @@ describe("fetchSuggestions", () => {
         },
         inp: { value: "abc" },
       };
+
       fetchSuggestions(ctrl, "abc");
+
       // zh: reverse order (large → small), postal code filtered
       expect(ctrl.panelWrap.textContent).toContain("France,Paris,Rue de Rivoli");
     } finally {
@@ -485,6 +581,7 @@ describe("fetchSuggestions", () => {
           Promise.resolve([{ lat: "30.0", lon: "120.0", display_name: "A, Place" }]),
       }),
     ) as unknown as typeof fetch;
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -499,12 +596,19 @@ describe("fetchSuggestions", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(globalThis.fetch).toHaveBeenCalled();
+
     expect(ctrl.cachedSuggestions.get("abc")).toHaveLength(1);
+
     expect(ctrl.panelWrap).not.toBeNull();
+
     // First suggestion is written into global geocode cache
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
@@ -522,9 +626,12 @@ describe("attachSearchDelIcon", () => {
   // same wrap element, so ctrl.marker and the del icon are distinct objects.
   const makeMarkerWithEl = () => {
     const span = document.createElement("span");
+
     span.setAttribute("data-del-icon", "");
     const wrap = document.createElement("div");
+
     wrap.appendChild(span);
+
     const makeMarker = () => ({
       bindPopup: vi.fn(),
       openPopup: vi.fn(),
@@ -533,6 +640,7 @@ describe("attachSearchDelIcon", () => {
       on: vi.fn(),
       getElement: () => wrap,
     });
+
     window.L.marker = vi.fn(makeMarker);
     const marker = makeMarker();
     return { marker, span };
@@ -540,23 +648,31 @@ describe("attachSearchDelIcon", () => {
 
   it("shows the ✕ while the popup is open, hides on close", () => {
     const { marker, span } = makeMarkerWithEl();
+
     const ctrl: any = {
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
     };
+
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
 
     expect(ctrl.delIcon).not.toBeNull();
+
     expect(map.addLayer).toHaveBeenCalledWith(ctrl.delIcon);
 
     const popupOpen = marker.on.mock.calls.find(c => c[0] === "popupopen")?.[1];
+
     expect(popupOpen).toBeDefined();
+
     popupOpen();
+
     expect(span.classList.contains("visible")).toBe(true);
 
     const popupClose = marker.on.mock.calls.find(c => c[0] === "popupclose")?.[1];
+
     popupClose();
+
     expect(span.classList.contains("visible")).toBe(false);
   });
 
@@ -565,54 +681,74 @@ describe("attachSearchDelIcon", () => {
     // listener is attached — the ✕ must stay hidden until the user actually
     // opens the popup again, matching MeasureControl / LocateControl.
     const { marker, span } = makeMarkerWithEl();
+
     const ctrl: any = {
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
     };
+
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
+
     expect(span.classList.contains("visible")).toBe(false);
 
     const popupOpen = marker.on.mock.calls.find(c => c[0] === "popupopen")?.[1];
+
     popupOpen();
+
     expect(span.classList.contains("visible")).toBe(true);
   });
 
   it("clicking the ✕ removes the pin and clears the search input", () => {
     const { marker } = makeMarkerWithEl();
+
     const ctrl: any = {
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
     };
+
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
     const delIcon = ctrl.delIcon;
 
     const delClick = delIcon.on.mock.calls.find(c => c[0] === "click")?.[1];
+
     expect(delClick).toBeDefined();
     const x = document.createElement("span");
+
     x.setAttribute("data-del-icon", "");
+
     delClick({ originalEvent: { target: x } });
 
     expect(map.removeLayer).toHaveBeenCalledWith(marker);
+
     expect(map.removeLayer).toHaveBeenCalledWith(delIcon);
+
     expect(ctrl.marker).toBeNull();
+
     expect(ctrl.delIcon).toBeNull();
+
     expect(ctrl.inp.value).toBe("");
+
     expect(ctrl.inp.focus).toHaveBeenCalled();
   });
 
   it("replaces any previous del icon when called again", () => {
     const { marker } = makeMarkerWithEl();
+
     const ctrl: any = {
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
     };
+
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
     const first = ctrl.delIcon;
+
     attachSearchDelIcon(ctrl, [31.24, 121.48]);
+
     expect(map.removeLayer).toHaveBeenCalledWith(first);
+
     expect(ctrl.delIcon).not.toBe(first);
   });
 });
@@ -625,15 +761,25 @@ describe("searchCoord — history recording", () => {
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
+
     expect(ctrl.searchHistory[0].type).toBe("coord");
+
     expect(ctrl.searchHistory[0].coordDisplay).toBe("121.470000, 31.230000");
+
     expect(ctrl.searchHistory[0].lat).toBe(31.23);
+
     expect(ctrl.searchHistory[0].lng).toBe(121.47);
+
     expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
   });
 
@@ -642,53 +788,83 @@ describe("searchCoord — history recording", () => {
     // "120,32" and its whitespace / full-width-comma variants resolve to the
     // same lng/lat, so they must collapse into one entry instead of two.
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, "120,32");
+
     await tick();
+
     await tick();
+
     searchCoord(ctrl, "120, 32");
+
     await tick();
+
     await tick();
+
     searchCoord(ctrl, "120，32");
+
     await tick();
+
     await tick();
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].query).toBe("120,32");
+
     expect(ctrl.searchHistory[0].count).toBe(3);
+
     expect(ctrl.searchHistory[0].lng).toBe(120);
+
     expect(ctrl.searchHistory[0].lat).toBe(32);
   });
 
   it("stores a canonical coord key, not the raw input", async () => {
     const tick = () => new Promise(r => setTimeout(r, 0));
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, " 120 , 32 ");
+
     await tick();
+
     await tick();
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].query).toBe("120,32");
+
     expect(ctrl.searchHistory[0].coordDisplay).toBe("120.000000, 32.000000");
   });
 
   it("does not record history for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, "abc");
+
     expect(ctrl.searchHistory).toEqual([]);
   });
 
   it("reverse geocode success: addrDisplay updated, count stays 1", async () => {
     // Mock reverse geocode to return an address after the initial save
     (window.foliplus.reverseGeocode as any).mockResolvedValue("Shanghai, China");
+
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].addrDisplay).toBe("Shanghai, China");
+
     // Key invariant: reverse-geocode update must NOT increment count
     expect(ctrl.searchHistory[0].count).toBe(1);
   });
@@ -697,63 +873,90 @@ describe("searchCoord — history recording", () => {
     // First call is from createLocationMarker (popup), let it succeed.
     // Second call is from searchCoord's history update — reject it.
     let callCount = 0;
+
     (window.foliplus.reverseGeocode as any).mockImplementation(() =>
       Promise.resolve(
         ++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr",
       ),
     );
+
     // Reset: first call resolves to "", second rejects
     callCount = 0;
+
     (window.foliplus.reverseGeocode as any).mockImplementation(() =>
       callCount++ === 0
         ? Promise.resolve("")
         : Promise.reject(new Error("network timeout")),
     );
+
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+
     expect(ctrl.searchHistory[0].count).toBe(1);
   });
 
   it("reverse geocode resolves null: keeps coord-only entry", async () => {
     (window.foliplus.reverseGeocode as any).mockResolvedValue(null);
+
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+
     expect(ctrl.searchHistory[0].count).toBe(1);
   });
 
   it("history entry missing: reverse geocode does not crash", async () => {
     (window.foliplus.reverseGeocode as any).mockResolvedValue("Some Addr");
+
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
+
     // Clear history after searchCoord saves the entry so the lookup fails
     searchCoord(ctrl, "121.47,31.23");
+
     ctrl.searchHistory = [];
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     // The entry was removed before reverse-geocode resolved, so it stays empty
     expect(ctrl.searchHistory).toEqual([]);
+
     // No unhandled rejection — this promise resolves cleanly
     expect(await Promise.resolve(true)).toBe(true);
   });
@@ -774,6 +977,7 @@ describe("searchAddress — history recording", () => {
       lng: 2.3,
       display_name: "Paris, France",
     });
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
@@ -781,27 +985,40 @@ describe("searchAddress — history recording", () => {
       marker: null,
       searchHistory: [],
     };
+
     searchAddress(ctrl, "Paris");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].query).toBe("Paris");
+
     expect(ctrl.searchHistory[0].type).toBe("addr");
+
     expect(ctrl.searchHistory[0].lat).toBe(48.8);
+
     expect(ctrl.searchHistory[0].lng).toBe(2.3);
   });
 
   it("does not record history when no results are found", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "abc" },
       searchHistory: [],
     };
+
     searchAddress(ctrl, "nowhere");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.searchHistory).toEqual([]);
   });
 });
@@ -813,7 +1030,9 @@ describe("searchCoord edge cases", () => {
 
   it("converts fullwidth comma to halfwidth", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+
     searchCoord(ctrl, "121，31");
+
     expect(map.flyTo).toHaveBeenCalledWith([31, 121], 16);
   });
 
@@ -821,12 +1040,15 @@ describe("searchCoord edge cases", () => {
     const original = window.CONF.zoom;
     try {
       window.CONF = { ...window.CONF, zoom: 14 };
+
       const ctrl: any = {
         inp: { value: "121.47,31.23" },
         marker: null,
         searchHistory: [],
       };
+
       searchCoord(ctrl, "121.47,31.23");
+
       expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
     } finally {
       window.CONF = { ...window.CONF, zoom: original };
@@ -837,12 +1059,15 @@ describe("searchCoord edge cases", () => {
     const original = window.CONF.zoom;
     try {
       window.CONF = { ...window.CONF, zoom: undefined };
+
       const ctrl: any = {
         inp: { value: "121.47,31.23" },
         marker: null,
         searchHistory: [],
       };
+
       searchCoord(ctrl, "121.47,31.23");
+
       expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], ZOOM.MAX);
     } finally {
       window.CONF = { ...window.CONF, zoom: original };
@@ -851,18 +1076,23 @@ describe("searchCoord edge cases", () => {
 
   it("is blocked when MeasureControl is active", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
+
     const ctrl: any = {
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
     };
+
     searchCoord(ctrl, "121.47,31.23");
+
     expect(map.flyTo).not.toHaveBeenCalled();
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.blocked",
       expect.any(Number),
     );
+
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 });
@@ -878,15 +1108,21 @@ describe("searchAddress error paths", () => {
 
   it("shows addr_error hint on geocode rejection", async () => {
     (window.foliplus.geocode as any).mockRejectedValue(new Error("fail"));
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
     };
+
     searchAddress(ctrl, "X");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.addr_error",
@@ -896,20 +1132,27 @@ describe("searchAddress error paths", () => {
 
   it("is blocked when MeasureControl is active", async () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
+
     (window.foliplus.geocode as any).mockResolvedValue({
       lat: 30,
       lng: 120,
       display_name: "X",
     });
+
     const ctrl: any = {
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
     };
+
     searchAddress(ctrl, "X");
+
     await new Promise(r => setTimeout(r, 0));
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(window.foliplus.geocode).not.toHaveBeenCalled();
+
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 });
@@ -922,14 +1165,18 @@ describe("fetchSuggestions: throttle and abort", () => {
       }),
     ) as unknown as typeof fetch;
   });
+
   afterEach(() => {
     vi.useRealTimers();
+
     delete globalThis.fetch;
   });
 
   it("fires the throttled fetch when the throttle timer elapses", async () => {
     vi.useFakeTimers();
+
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -944,24 +1191,34 @@ describe("fetchSuggestions: throttle and abort", () => {
       },
       inp: { value: "abc" },
     };
+
     // First call — immediate fetch.
     fetchSuggestions(ctrl, "abc");
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
     // Second call — throttled, schedules a timer.
     fetchSuggestions(ctrl, "abc");
+
     expect(ctrl.throttleTimer).toBeDefined();
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
     // Advance time past throttle window → callback fires and re-invokes
     // fetchSuggestions. Cache hit → no second fetch.
     await vi.advanceTimersByTimeAsync(1000);
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
     // lastSuggestFetch updated by the callback's re-invocation.
     expect(ctrl.lastSuggestFetch).toBeGreaterThan(0);
   });
 
   it("clears the pending throttle timer when a third rapid call arrives", async () => {
     vi.useFakeTimers();
+
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -976,15 +1233,21 @@ describe("fetchSuggestions: throttle and abort", () => {
       },
       inp: { value: "abc" },
     };
+
     // First call — immediate fetch.
     fetchSuggestions(ctrl, "abc");
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
     // Second call — throttled, schedules a timer.
     fetchSuggestions(ctrl, "abc");
+
     expect(ctrl.throttleTimer).toBeDefined();
     const timerBefore = ctrl.throttleTimer;
+
     // Third call before the timer fires — must clear the previous timer.
     fetchSuggestions(ctrl, "abc");
+
     expect(ctrl.throttleTimer).not.toBe(timerBefore);
   });
 
@@ -1003,11 +1266,16 @@ describe("fetchSuggestions: throttle and abort", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
     const prev = ctrl.suggestAbortController;
+
     expect(prev).toBeInstanceOf(AbortController);
+
     ctrl.lastSuggestFetch = Date.now() - 2000;
+
     fetchSuggestions(ctrl, "def");
+
     expect(prev.signal.aborted).toBe(true);
   });
 
@@ -1026,9 +1294,13 @@ describe("fetchSuggestions: throttle and abort", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     ctrl.suggestSeq += 1;
+
     ctrl.inp.value = "xyz";
+
     expect(ctrl.panelWrap).toBeNull();
   });
 });
@@ -1057,14 +1329,19 @@ describe("fetchSuggestions: empty query shows history", () => {
       },
       inp: { value: "" },
     };
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).not.toBeNull();
+
     expect(ctrl.panelWrap.textContent).toContain("121.4700, 31.2300");
   });
 
   it("removes panel when query is empty and history is empty", () => {
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       mode: "coord",
       panelWrap: el,
@@ -1076,7 +1353,9 @@ describe("fetchSuggestions: empty query shows history", () => {
       },
       inp: { value: "" },
     };
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
@@ -1103,8 +1382,10 @@ describe("fetchSuggestions: empty query shows history", () => {
       },
       inp: { value: "" },
     };
+
     // Addr mode with only coord history → panel removed
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 });
@@ -1120,6 +1401,7 @@ describe("fetchSuggestions: render behavior", () => {
           ]),
       }),
     ) as unknown as typeof fetch;
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1134,9 +1416,13 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.panelWrap.querySelectorAll("[data-index='0']")).toHaveLength(1);
+
     expect(ctrl.panelWrap.querySelectorAll("[data-index='1']")).toHaveLength(1);
   });
 
@@ -1145,7 +1431,9 @@ describe("fetchSuggestions: render behavior", () => {
       Promise.resolve({ json: () => Promise.resolve([]) }),
     ) as unknown as typeof fetch;
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1160,10 +1448,14 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 50));
+
     // No first result → cacheSuggestion is not called.
     expect(window.foliplus.cacheSuggestion).not.toHaveBeenCalled();
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
@@ -1174,6 +1466,7 @@ describe("fetchSuggestions: render behavior", () => {
           Promise.resolve([{ lat: "48.8", lng: "2.3", display_name: "Paris" }]),
       }),
     ) as unknown as typeof fetch;
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1188,8 +1481,11 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "paris" },
     };
+
     fetchSuggestions(ctrl, "paris");
+
     await new Promise(r => setTimeout(r, 50));
+
     // The lng fallback was used and the suggestion was cached with lng=2.3.
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
@@ -1198,6 +1494,7 @@ describe("fetchSuggestions: render behavior", () => {
       2.3,
       expect.any(String),
     );
+
     expect(
       ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item"),
     ).toHaveLength(1);
@@ -1213,6 +1510,7 @@ describe("fetchSuggestions: render behavior", () => {
       }),
     ) as unknown as typeof fetch;
     const cacheSuggestionSpy = vi.spyOn(window.foliplus, "cacheSuggestion");
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1227,8 +1525,11 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 50));
+
     expect(cacheSuggestionSpy).toHaveBeenCalledWith(
       map,
       "abc",
@@ -1236,6 +1537,7 @@ describe("fetchSuggestions: render behavior", () => {
       120,
       "abc", // formatAddress("12345") returns "" → falls back to the query
     );
+
     cacheSuggestionSpy.mockRestore();
   });
 
@@ -1252,7 +1554,9 @@ describe("fetchSuggestions: render behavior", () => {
           ]),
       }),
     ) as unknown as typeof fetch;
+
     vi.spyOn(console, "warn").mockImplementation(() => {});
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1269,18 +1573,29 @@ describe("fetchSuggestions: render behavior", () => {
       marker: null,
       searchHistory: [],
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
     const item = ctrl.panelWrap.querySelector("[data-index='0']");
+
     expect(item).not.toBeNull();
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+
     (item as HTMLElement).onmousedown!(evt);
+
     expect(evt.stopPropagation).toHaveBeenCalled();
+
     expect(evt.preventDefault).toHaveBeenCalled();
+
     expect(ctrl.marker).not.toBeNull();
+
     expect(ctrl.searchHistory).toHaveLength(1);
+
     expect(ctrl.searchHistory[0].query).toBe("abc");
+
     expect(ctrl.searchHistory[0].type).toBe("addr");
+
     vi.restoreAllMocks();
   });
 
@@ -1289,7 +1604,9 @@ describe("fetchSuggestions: render behavior", () => {
       Promise.reject(new TypeError("Network error")),
     ) as unknown as typeof fetch;
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1304,19 +1621,26 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     // Wait for the promise chain (fetch → then → catch) to settle so the
     // removePanel call in the non-abort catch handler actually executes.
     await new Promise(r => setTimeout(r, 50));
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
   it("silently ignores AbortError fetch errors without clearing the panel", async () => {
     const abortErr = new Error("Aborted");
+
     abortErr.name = "AbortError";
+
     globalThis.fetch = vi.fn(() => Promise.reject(abortErr)) as unknown as typeof fetch;
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1331,8 +1655,11 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 50));
+
     // AbortError is expected (user typed faster) — do not remove the panel.
     expect(ctrl.panelWrap).toBe(el);
   });
@@ -1342,7 +1669,9 @@ describe("fetchSuggestions: render behavior", () => {
       Promise.resolve({ json: () => Promise.resolve([]) }),
     ) as unknown as typeof fetch;
     const el = document.createElement("div");
+
     document.body.appendChild(el);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1357,8 +1686,11 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
@@ -1375,6 +1707,7 @@ describe("fetchSuggestions: render behavior", () => {
           ]),
       }),
     ) as unknown as typeof fetch;
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1389,12 +1722,17 @@ describe("fetchSuggestions: render behavior", () => {
       },
       inp: { value: "abc" },
     };
+
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
+
     expect(ctrl.panelWrap).not.toBeNull();
     const evt = new MouseEvent("click", { bubbles: true });
     const stopSpy = vi.spyOn(evt, "stopPropagation");
+
     ctrl.panelWrap.dispatchEvent(evt);
+
     expect(stopSpy).toHaveBeenCalled();
   });
 });
@@ -1413,7 +1751,9 @@ describe("mode-lock guards in renderAddressResult and renderHistory", () => {
           ]),
       }),
     ) as unknown as typeof fetch;
+
     vi.spyOn(console, "warn").mockImplementation(() => {});
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
@@ -1430,27 +1770,37 @@ describe("mode-lock guards in renderAddressResult and renderHistory", () => {
       marker: null,
       searchHistory: [],
     };
+
     // Render the panel first without a held mode.
     fetchSuggestions(ctrl, "abc");
+
     await new Promise(r => setTimeout(r, 0));
     const item = ctrl.panelWrap.querySelector("[data-index='0']");
+
     expect(item).not.toBeNull();
 
     // Now hold a mode and click — the click should be blocked.
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+
     (item as HTMLElement).onmousedown!(evt);
+
     // Panel stays open — blocked click must not remove it.
     expect(ctrl.panelWrap).not.toBeNull();
+
     // No marker placed, no history recorded.
     expect(ctrl.marker).toBeNull();
+
     expect(ctrl.searchHistory).toHaveLength(0);
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.blocked",
       expect.any(Number),
     );
+
     ensureModes(window.map).setMode("MeasureControl", null);
+
     vi.restoreAllMocks();
   });
 
@@ -1478,24 +1828,33 @@ describe("mode-lock guards in renderAddressResult and renderHistory", () => {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
       },
     };
+
     // Render the history panel first without a held mode.
     fetchSuggestions(ctrl, "");
     const item = ctrl.panelWrap.querySelector("[data-index='0']");
+
     expect(item).not.toBeNull();
 
     // Now hold a mode and click — the click should be blocked.
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
+
     (item as HTMLElement).onmousedown!(evt);
+
     expect(ctrl.panelWrap).not.toBeNull();
+
     expect(map.flyTo).not.toHaveBeenCalled();
+
     expect(ctrl.marker).toBeNull();
+
     expect(ctrl.inp.value).toBe("");
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
       "SearchControl.blocked",
       expect.any(Number),
     );
+
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 });
@@ -1523,9 +1882,13 @@ describe("fetchSuggestions — empty input renders history", () => {
         },
       ],
     };
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).not.toBeNull();
+
     expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
+
     expect(
       ctrl.panelWrap.querySelector(".foliplus-search-result-content"),
     ).not.toBeNull();
@@ -1539,7 +1902,9 @@ describe("fetchSuggestions — empty input renders history", () => {
       selectedIdx: -1,
       searchHistory: [],
     };
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 
@@ -1566,10 +1931,15 @@ describe("fetchSuggestions — empty input renders history", () => {
         },
       ],
     };
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).not.toBeNull();
+
     ctrl.mode = "coord";
+
     fetchSuggestions(ctrl, "");
+
     expect(ctrl.panelWrap).toBeNull();
   });
 });
@@ -1577,7 +1947,9 @@ describe("fetchSuggestions — empty input renders history", () => {
 describe("fetchSuggestions — history does not interfere with suggestions", () => {
   it("shows suggestions instead of history when input has text", () => {
     const cache = new Cache<string, object>(50);
+
     cache.set("abc", [{ display_name: "Result" }]);
+
     const ctrl: any = {
       mode: "addr",
       cachedSuggestions: cache,
@@ -1601,8 +1973,11 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
         },
       ],
     };
+
     fetchSuggestions(ctrl, "abc");
+
     expect(ctrl.panelWrap.innerHTML).toContain("Result");
+
     expect(
       ctrl.panelWrap.querySelector(".foliplus-search-history-group-header"),
     ).toBeNull();
@@ -1615,6 +1990,7 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
 describe("SearchControl history", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
     localStorage.clear();
   });
 
@@ -1630,9 +2006,12 @@ describe("SearchControl history", () => {
 
     it("fills defaults for fields older versions never wrote", () => {
       vi.useFakeTimers();
+
       vi.setSystemTime(1234567);
+
       store([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]);
       const [entry] = loadHistory();
+
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -1648,8 +2027,11 @@ describe("SearchControl history", () => {
     it("leaves the display fields empty when a coord entry has no label", () => {
       store([{ query: "120, 32", type: MODE.COORD, ts: 1000 }]);
       const [entry] = loadHistory();
+
       expect(entry.query).toBe("120,32");
+
       expect(entry.coordDisplay).toBe("");
+
       expect(entry.addrDisplay).toBe("");
     });
 
@@ -1664,13 +2046,16 @@ describe("SearchControl history", () => {
         { query: "120,32", type: MODE.COORD, coordDisplay: "", ts: 900 },
       ]);
       const [entry] = loadHistory();
+
       expect(entry.coordDisplay).toBe("120.000000, 32.000000");
+
       expect(entry.count).toBe(2);
     });
 
     it("drops null and non-object rows instead of crashing", () => {
       store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }]);
       const [entry] = loadHistory();
+
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -1686,6 +2071,7 @@ describe("SearchControl history", () => {
     it("downgrades a row with no usable fields to a defaulted addr entry", () => {
       store([{}]);
       const [entry] = loadHistory();
+
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -1700,6 +2086,7 @@ describe("SearchControl history", () => {
 
     it("loads empty array when nothing is stored", () => {
       const entries = loadHistory();
+
       expect(entries).toEqual([]);
     });
 
@@ -1726,17 +2113,21 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ];
+
       saveHistory(entries);
+
       expect(loadHistory()).toEqual(entries);
     });
 
     it("returns empty array for corrupt data", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, "not json");
+
       expect(loadHistory()).toEqual([]);
     });
 
     it("returns empty array for non-array data", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, '"string"');
+
       expect(loadHistory()).toEqual([]);
     });
 
@@ -1763,14 +2154,23 @@ describe("SearchControl history", () => {
         ]),
       );
       const loaded = loadHistory();
+
       expect(loaded).toHaveLength(2);
+
       expect(loaded[0].query).toBe("Paris");
+
       expect(loaded[0].addrDisplay).toBe("Paris, France");
+
       expect(loaded[0].coordDisplay).toBe("");
+
       expect(loaded[0].count).toBe(1);
+
       expect(loaded[1].query).toBe("121.47,31.23");
+
       expect(loaded[1].coordDisplay).toBe("121.4700, 31.2300");
+
       expect(loaded[1].addrDisplay).toBe("");
+
       expect(loaded[1].count).toBe(1);
     });
 
@@ -1787,9 +2187,13 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ];
+
       saveHistory(entries);
+
       expect(loadHistory()).toHaveLength(1);
+
       saveHistory([]);
+
       expect(loadHistory()).toEqual([]);
     });
 
@@ -1832,11 +2236,16 @@ describe("SearchControl history", () => {
         ]),
       );
       const loaded = loadHistory();
+
       expect(loaded).toHaveLength(1);
+
       expect(loaded[0].query).toBe("120,32");
+
       expect(loaded[0].count).toBe(4);
+
       // Empty display fields fall back to an older entry's value
       expect(loaded[0].addrDisplay).toBe("Hangzhou, China");
+
       expect(loaded[0].coordDisplay).toBe("120.000000, 32.000000");
     });
 
@@ -1867,8 +2276,11 @@ describe("SearchControl history", () => {
         ]),
       );
       const loaded = loadHistory();
+
       expect(loaded).toHaveLength(2);
+
       expect(loaded[0].query).toBe("121.47,31.23");
+
       // Address queries are never rewritten
       expect(loaded.find(e => e.type === "addr")?.query).toBe("Paris");
     });
@@ -1902,9 +2314,12 @@ describe("SearchControl history", () => {
         ]),
       );
       const loaded = loadHistory();
+
       expect(loaded).toHaveLength(2);
+
       // Stored in insertion order, as loadHistory preserves it
       expect(loaded.map(e => e.lng)).toEqual([1, 2]);
+
       // Keys that fail to parse are never rewritten
       expect(loaded.map(e => e.query)).toEqual(["200,32", "999,32"]);
     });
@@ -1936,8 +2351,11 @@ describe("SearchControl history", () => {
         ]),
       );
       const loaded = loadHistory();
+
       expect(loaded).toHaveLength(2);
+
       expect(loaded.filter(e => e.type === "coord")).toHaveLength(1);
+
       expect(loaded.filter(e => e.type === "addr")).toHaveLength(1);
     });
 
@@ -1964,7 +2382,9 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ];
+
       saveHistory(entries);
+
       expect(loadHistory()).toEqual(entries);
     });
   });
@@ -1972,6 +2392,7 @@ describe("SearchControl history", () => {
   describe("addHistoryEntry", () => {
     it("prepends a new entry and persists", () => {
       const ctrl: any = { searchHistory: [] };
+
       addHistoryEntry(ctrl, {
         query: "Paris",
         type: "addr",
@@ -1982,9 +2403,13 @@ describe("SearchControl history", () => {
         ts: 1000,
         count: 1,
       });
+
       expect(ctrl.searchHistory).toHaveLength(1);
+
       expect(ctrl.searchHistory[0].query).toBe("Paris");
+
       expect(ctrl.searchHistory[0].count).toBe(1);
+
       expect(localStorage.getItem(HISTORY.STORAGE_KEY)).toBeDefined();
     });
 
@@ -2023,6 +2448,7 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       addHistoryEntry(ctrl, {
         query: "Paris",
         type: "addr",
@@ -2033,14 +2459,21 @@ describe("SearchControl history", () => {
         ts: 9999,
         count: 1, // will be ignored; existing count is incremented
       });
+
       expect(ctrl.searchHistory).toHaveLength(3);
+
       // Paris moved to front with updated displays and incremented count
       expect(ctrl.searchHistory[0].query).toBe("Paris");
+
       expect(ctrl.searchHistory[0].count).toBe(4); // 3 + 1
+
       expect(ctrl.searchHistory[0].addrDisplay).toBe("Paris, France");
+
       expect(ctrl.searchHistory[0].coordDisplay).toBe("1.5, 2.5");
+
       // Other entries retain their relative order
       expect(ctrl.searchHistory[1].query).toBe("A");
+
       expect(ctrl.searchHistory[2].query).toBe("B");
     });
 
@@ -2059,6 +2492,7 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       addHistoryEntry(ctrl, {
         query: "Paris",
         type: "addr",
@@ -2070,8 +2504,11 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
+
       expect(stored[0].addrDisplay).toBe("Paris, France");
+
       expect(stored[0].count).toBe(3);
+
       expect(stored).toHaveLength(1);
     });
 
@@ -2088,6 +2525,7 @@ describe("SearchControl history", () => {
           count: 1,
         })),
       };
+
       addHistoryEntry(ctrl, {
         query: "new",
         type: "addr",
@@ -2098,11 +2536,15 @@ describe("SearchControl history", () => {
         ts: 9999,
         count: 1,
       });
+
       expect(ctrl.searchHistory).toHaveLength(HISTORY.MAX_ENTRIES);
+
       expect(ctrl.searchHistory[0].query).toBe("new");
+
       expect(
         ctrl.searchHistory.find((e: SearchHistoryEntry) => e.query === "q19"),
       ).toBeUndefined();
+
       expect(
         ctrl.searchHistory.find((e: SearchHistoryEntry) => e.query === "q0"),
       ).toBeDefined();
@@ -2121,6 +2563,7 @@ describe("SearchControl history", () => {
           count: 1,
         })),
       };
+
       addHistoryEntry(ctrl, {
         query: "new",
         type: "addr",
@@ -2132,7 +2575,9 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
+
       expect(stored).toHaveLength(HISTORY.MAX_ENTRIES);
+
       expect(stored[0].query).toBe("new");
     });
   });
@@ -2163,11 +2608,16 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       deleteHistoryEntry(ctrl, "A");
+
       expect(ctrl.searchHistory).toHaveLength(1);
+
       expect(ctrl.searchHistory[0].query).toBe("B");
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
+
       expect(stored).toHaveLength(1);
+
       expect(stored[0].query).toBe("B");
     });
 
@@ -2186,7 +2636,9 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       deleteHistoryEntry(ctrl, "Z");
+
       expect(ctrl.searchHistory).toHaveLength(1);
     });
 
@@ -2205,9 +2657,12 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       deleteHistoryEntry(ctrl, "Only");
+
       expect(ctrl.searchHistory).toEqual([]);
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
+
       expect(stored).toEqual([]);
     });
   });
@@ -2238,15 +2693,20 @@ describe("SearchControl history", () => {
           },
         ],
       };
+
       clearHistory(ctrl);
+
       expect(ctrl.searchHistory).toEqual([]);
       const loaded = loadHistory();
+
       expect(loaded).toEqual([]);
     });
 
     it("is a no-op when history is already empty", () => {
       const ctrl: any = { searchHistory: [] };
+
       clearHistory(ctrl);
+
       expect(ctrl.searchHistory).toEqual([]);
     });
   });
@@ -2254,6 +2714,7 @@ describe("SearchControl history", () => {
   describe("recordHistorySearch", () => {
     it("records a completed coord search", () => {
       const ctrl: any = { searchHistory: [] };
+
       recordHistorySearch(
         ctrl,
         "121.47,31.23",
@@ -2263,17 +2724,25 @@ describe("SearchControl history", () => {
         121.47,
         31.23,
       );
+
       expect(ctrl.searchHistory).toHaveLength(1);
+
       expect(ctrl.searchHistory[0].type).toBe("coord");
+
       expect(ctrl.searchHistory[0].coordDisplay).toBe("121.4700, 31.2300");
+
       expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+
       expect(ctrl.searchHistory[0].lat).toBe(31.23);
+
       expect(ctrl.searchHistory[0].lng).toBe(121.47);
+
       expect(ctrl.searchHistory[0].count).toBe(1);
     });
 
     it("records a completed addr search", () => {
       const ctrl: any = { searchHistory: [] };
+
       recordHistorySearch(
         ctrl,
         "Paris",
@@ -2283,23 +2752,31 @@ describe("SearchControl history", () => {
         2.3,
         48.8,
       );
+
       expect(ctrl.searchHistory).toHaveLength(1);
+
       expect(ctrl.searchHistory[0].type).toBe("addr");
+
       expect(ctrl.searchHistory[0].addrDisplay).toBe("Paris, France");
+
       expect(ctrl.searchHistory[0].coordDisplay).toBe("2.3, 48.8");
     });
 
     it("records the current timestamp", () => {
       const ctrl: any = { searchHistory: [] };
       const before = Date.now();
+
       recordHistorySearch(ctrl, "A", "addr", "", "A", 0, 0);
       const after = Date.now();
+
       expect(ctrl.searchHistory[0].ts).toBeGreaterThanOrEqual(before);
+
       expect(ctrl.searchHistory[0].ts).toBeLessThanOrEqual(after);
     });
 
     it("stores raw query as key for deduplication", () => {
       const ctrl: any = { searchHistory: [] };
+
       recordHistorySearch(
         ctrl,
         "Paris",
@@ -2309,7 +2786,9 @@ describe("SearchControl history", () => {
         2.3,
         48.8,
       );
+
       expect(ctrl.searchHistory[0].query).toBe("Paris");
+
       // Re-record with same query — dedup should apply and increment count
       recordHistorySearch(
         ctrl,
@@ -2320,7 +2799,9 @@ describe("SearchControl history", () => {
         2.3,
         48.8,
       );
+
       expect(ctrl.searchHistory).toHaveLength(1);
+
       expect(ctrl.searchHistory[0].count).toBe(2);
     });
   });
@@ -2341,7 +2822,9 @@ describe("SearchControl history", () => {
 
     it("removes suggestions when history is empty", () => {
       const ctrl = makeHistoryCtrl([]);
+
       renderHistory(ctrl, "addr");
+
       expect(ctrl.panelWrap).toBeNull();
     });
 
@@ -2368,14 +2851,21 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "addr");
+
       expect(ctrl.panelWrap).not.toBeNull();
+
       expect(ctrl.panelWrap.innerHTML).toContain("Paris, France");
+
       // Only addr items shown, coord items filtered out
       expect(ctrl.panelWrap.innerHTML).not.toContain("121.4700, 31.2300");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+
       expect(items).toHaveLength(1);
+
       expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
+
       expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
         "2.3, 48.8",
       );
@@ -2404,15 +2894,22 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
+
       expect(ctrl.panelWrap).not.toBeNull();
+
       expect(ctrl.panelWrap.innerHTML).toContain("121.4700, 31.2300");
+
       // Only coord items shown, addr items filtered out
       expect(ctrl.panelWrap.innerHTML).not.toContain("Paris, France");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+
       expect(items).toHaveLength(1);
+
       // Coord entries also show coord-display for consistent two-line layout
       expect(items[0].querySelector(".foliplus-search-result-coord")).not.toBeNull();
+
       expect(items[0].querySelector(".foliplus-search-result-coord")?.textContent).toBe(
         "121.4700, 31.2300",
       );
@@ -2451,10 +2948,14 @@ describe("SearchControl history", () => {
           count: 5,
         },
       ]);
+
       renderHistory(ctrl, "addr");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+
       expect(items[0].textContent).toBe("C");
+
       expect(items[1].textContent).toBe("B");
+
       expect(items[2].textContent).toBe("A");
     });
 
@@ -2463,6 +2964,7 @@ describe("SearchControl history", () => {
       const original = window.CONF.zoom;
       try {
         window.CONF = { ...window.CONF, zoom: undefined };
+
         const ctrl = makeHistoryCtrl([
           {
             query: "Paris",
@@ -2475,15 +2977,20 @@ describe("SearchControl history", () => {
             count: 1,
           },
         ]);
+
         renderHistory(ctrl, "addr");
         const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
+
         item.dispatchEvent(
           new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
         );
+
         expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
+
         // The input gets the panel's display so the input matches the entry
         // the user clicked (addrDisplay), not the original keyword.
         expect(ctrl.inp.value).toBe("Paris, France");
+
         // The addr entry carries its display for keyboard nav too.
         expect(item.getAttribute("data-query")).toBe("Paris, France");
       } finally {
@@ -2504,22 +3011,27 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
+
       // The item displays the reverse-geocoded address as its primary text...
       expect(
         ctrl.panelWrap.querySelector(".foliplus-search-result-text")?.textContent,
       ).toBe("Shanghai, China");
+
       // ...and the coord display rides along as data-query for keyboard nav.
       expect(
         ctrl.panelWrap
           .querySelector(".foliplus-search-result-item")
           ?.getAttribute("data-query"),
       ).toBe("121.4700, 31.2300");
+
       ctrl.panelWrap
         .querySelector(".foliplus-search-result-item")!
         .dispatchEvent(
           new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
         );
+
       // The input is filled with the coord display so it matches the panel
       // and a follow-up Enter re-searches the same point.
       expect(ctrl.inp.value).toBe("121.4700, 31.2300");
@@ -2538,18 +3050,22 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
+
       // With both displays empty, data-query falls back to entry.query.
       expect(
         ctrl.panelWrap
           .querySelector(".foliplus-search-result-item")
           ?.getAttribute("data-query"),
       ).toBe("121.47,31.23");
+
       ctrl.panelWrap
         .querySelector(".foliplus-search-result-item")!
         .dispatchEvent(
           new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
         );
+
       expect(ctrl.inp.value).toBe("121.47,31.23");
     });
 
@@ -2566,9 +3082,12 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+
       expect(items).toHaveLength(1);
+
       expect(items[0].textContent).toBe("121.4700, 31.2300");
     });
 
@@ -2585,7 +3104,9 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
+
       expect(ctrl.panelWrap).toBeNull();
     });
 
@@ -2601,8 +3122,10 @@ describe("SearchControl history", () => {
         count: 1,
       }));
       const ctrl = makeHistoryCtrl(entries);
+
       renderHistory(ctrl, "addr");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
+
       expect(items.length).toBeLessThanOrEqual(5);
     });
 
@@ -2619,11 +3142,14 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+
       // Primary (title) shows address when available
       expect(items[0].textContent).toBe("Shanghai, China");
       const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
+
       expect(coord?.textContent).toBe("121.4700, 31.2300");
     });
 
@@ -2640,8 +3166,10 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "coord");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+
       // No address → primary falls back to coord display
       expect(items[0].textContent).toBe("121.4700, 31.2300");
     });
@@ -2659,10 +3187,13 @@ describe("SearchControl history", () => {
           count: 1,
         },
       ]);
+
       renderHistory(ctrl, "addr");
       const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-text");
+
       expect(items[0].textContent).toBe("Paris, France");
       const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
+
       expect(coord?.textContent).toBe("2.3, 48.8");
     });
   });

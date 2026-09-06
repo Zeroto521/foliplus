@@ -29,25 +29,34 @@ class BaseControl extends L.Control {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+
     this.events = [];
+
     this.mapListeners = [];
+
     this.init?.();
   }
 
   onAdd(): HTMLElement {
     const container =
       this.buildDOM?.() ?? this.build?.() ?? document.createElement("div");
+
     L.DomEvent.disableClickPropagation(container);
+
     L.DomEvent.disableScrollPropagation(container);
     return container;
   }
 
   onRemove(): void {
     this.destroy();
+
     // Auto-unbind tracked listeners — always runs, cannot be skipped by subclasses.
     this.events.forEach(([el, event, fn]) => L.DomEvent.off(el, event, fn));
+
     this.events = [];
+
     this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
+
     this.mapListeners = [];
   }
 
@@ -58,7 +67,9 @@ class BaseControl extends L.Control {
   listenDOM(el: HTMLElement, event: string, fn: (event: Event) => void): void {
     const item: [HTMLElement, string, (event: Event) => void] = [el, event, fn];
     if (alreadyBound(this.events, item)) return;
+
     L.DomEvent.on(el, event, fn);
+
     this.events.push(item);
   }
 
@@ -66,7 +77,9 @@ class BaseControl extends L.Control {
   listenMap(event: string, fn: L.LeafletEventHandlerFn): void {
     const item: [string, L.LeafletEventHandlerFn] = [event, fn];
     if (alreadyBound(this.mapListeners, item)) return;
+
     this._map.on(event, fn);
+
     this.mapListeners.push(item);
   }
 }

@@ -32,8 +32,11 @@ class MeasureMode {
 
   constructor(manager: MeasureManager) {
     this.manager = manager;
+
     this.map = manager.map;
+
     this.layers = manager.layers;
+
     this._cleanup = null;
   }
 
@@ -56,6 +59,7 @@ class MeasureMode {
   cleanup(): void {
     if (this._cleanup) {
       this._cleanup();
+
       this._cleanup = null;
     }
   }
@@ -91,13 +95,16 @@ class PreviewMode extends MeasureMode {
 
   constructor(manager: MeasureManager) {
     super(manager);
+
     this.previewLayers = [];
+
     this.isFinished = false;
   }
 
   /** Track a preview layer (adds to layer group + tracks for cleanup). */
   addPreview<T extends L.Layer>(layer: T): T {
     this.previewLayers.push(layer);
+
     this.layers.addLayer(layer);
     return layer;
   }
@@ -106,12 +113,14 @@ class PreviewMode extends MeasureMode {
   removePreview(layer: L.Layer): void {
     const idx = this.previewLayers.indexOf(layer);
     if (idx !== -1) this.previewLayers.splice(idx, 1);
+
     this.layers.removeLayer(layer);
   }
 
   /** Remove all tracked preview layers. */
   clearPreviews(): void {
     this.previewLayers.forEach(l => this.layers.removeLayer(l));
+
     this.previewLayers = [];
   }
 }

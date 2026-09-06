@@ -20,10 +20,13 @@ afterEach(() => {
 
 function mkDir(name: string, files: Record<string, string>): string {
   tmpDir = PATH.join(OS.tmpdir(), "scan-registry-test-" + Date.now());
+
   mkdirSync(tmpDir, { recursive: true });
   for (const [relative, content] of Object.entries(files)) {
     const filePath = PATH.join(tmpDir, relative);
+
     mkdirSync(PATH.dirname(filePath), { recursive: true });
+
     writeFileSync(filePath, content, "utf-8");
   }
   return tmpDir;
@@ -36,8 +39,11 @@ describe("scanImports", () => {
       "Component2/index.ts": `import { debounce } from "#common/debounce.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["common/dom"]).toContain("dom");
+
     expect(result["common/dom"]).toContain("cssVar");
+
     expect(result["common/debounce"]).toContain("debounce");
   });
 
@@ -47,7 +53,9 @@ describe("scanImports", () => {
       "Component1/util.ts": `import { bar } from "#common/bar.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["common/foo"]).toContain("foo");
+
     expect(result["common/bar"]).toContain("bar");
   });
 
@@ -56,7 +64,9 @@ describe("scanImports", () => {
       "Component1/index.ts": `import { type SomeType, dom } from "#common/dom.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["common/dom"]).toContain("dom");
+
     expect(result["common/dom"]).not.toContain("SomeType");
   });
 
@@ -74,9 +84,13 @@ describe("scanImports", () => {
       `,
     });
     const result = scanImports(dir);
+
     expect(result["common/icon"]).toContain("CLOSE");
+
     expect(result["common/icon"]).toContain("OPEN");
+
     expect(result["common/storage"]).toContain("load");
+
     expect(result["common/storage"]).toContain("save");
   });
 
@@ -91,10 +105,14 @@ describe("scanImports", () => {
       `,
     });
     const result = scanImports(dir);
+
     expect(result["common/icon"]).toContain("CLOSE");
+
     // Should NOT contain array methods
     expect(result["common/icon"]).not.toContain("forEach");
+
     expect(result["common/icon"]).not.toContain("push");
+
     expect(result["common/icon"]).not.toContain("length");
   });
 
@@ -107,8 +125,11 @@ describe("scanImports", () => {
       `,
     });
     const result = scanImports(dir);
+
     expect(result["core/component"]).toContain("COMPONENTS");
+
     expect(result["core/hint"]).toContain("ensureHint");
+
     expect(result["core/event"]).toContain("EventBus");
   });
 
@@ -117,6 +138,7 @@ describe("scanImports", () => {
       "Component1/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["foliplus/BaseControl"]).toContain("BaseControl");
   });
 
@@ -126,12 +148,14 @@ describe("scanImports", () => {
       "Component2/index.ts": `import { cssVar, escapeHTML } from "#common/dom.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["common/dom"]).toEqual(["cssVar", "dom", "escapeHTML"]);
   });
 
   it("handles empty directory", () => {
     const dir = mkDir("empty", {});
     const result = scanImports(dir);
+
     expect(result).toEqual({});
   });
 
@@ -141,6 +165,7 @@ describe("scanImports", () => {
       "Component1/types.d.ts": `import { dom } from "#common/dom.js";`,
     });
     const result = scanImports(dir);
+
     expect(result["common/dom"]).toEqual(["dom"]);
   });
 });
@@ -150,10 +175,13 @@ describe("generateRegistry", () => {
   function buildFakeTree(files: Record<string, string>): [string, string] {
     tmpDir = PATH.join(OS.tmpdir(), "scan-registry-gen-" + Date.now());
     const jsDir = PATH.join(tmpDir, "js");
+
     mkdirSync(jsDir, { recursive: true });
     for (const [relative, content] of Object.entries(files)) {
       const filePath = PATH.join(jsDir, relative);
+
       mkdirSync(PATH.dirname(filePath), { recursive: true });
+
       writeFileSync(filePath, content, "utf-8");
     }
     return [jsDir, tmpDir];
@@ -171,10 +199,14 @@ describe("generateRegistry", () => {
       "MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
       "MyComponent/util.ts": `import { EventBus } from "#core/event/index.js";`,
     });
+
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
+
     expect(output).toContain('window.foliplus.core["event"]');
+
     expect(output).toContain("#core/event/index.js");
+
     expect(output).toContain("window.foliplus.common");
   });
 
@@ -192,11 +224,15 @@ describe("generateRegistry", () => {
         import { dom } from "#common/dom.js";
       `,
     });
+
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
+
     // component/hint/mode are registered manually in runtime/index.ts → skipped.
     expect(output).not.toContain("core/component");
+
     expect(output).not.toContain("core/hint");
+
     expect(output).not.toContain("core/mode");
   });
 
@@ -208,9 +244,12 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "MyComponent/index.ts": `import { EventBus } from "#core/event/index.js";`,
     });
+
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
+
     expect(output).toContain("core/event");
+
     expect(output).not.toContain("core/component");
   });
 
@@ -221,9 +260,12 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "MyComponent/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
     });
+
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
+
     expect(output).toContain("window.foliplus.BaseControl");
+
     expect(output).toContain("#foliplus/BaseControl.js");
   });
 
@@ -233,9 +275,12 @@ describe("generateRegistry", () => {
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
     });
+
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
+
     expect(output).toContain("// AUTO-GENERATED");
+
     expect(output).toContain("window.foliplus = window.foliplus || {};");
   });
 });

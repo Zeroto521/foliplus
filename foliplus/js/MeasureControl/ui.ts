@@ -16,6 +16,7 @@ const T = createScopedTranslator(CONF);
  */
 const resortLayers = (layers: CreateLayersAPI, ...collections: L.Layer[][]): void => {
   collections.forEach(c => c.forEach(l => layers.removeLayer(l)));
+
   collections.forEach(c => c.forEach(l => layers.addLayer(l)));
 };
 
@@ -31,6 +32,7 @@ const bindOpenOverlay = (
   layer.on("click", (event: L.LeafletMouseEvent) => {
     const t = Util.getEventTarget(event);
     if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+
     openOverlay(event);
   });
 };
@@ -83,13 +85,17 @@ const bindSegmentLabels = (
   priority: (index: number) => number = () => CONST.LABEL_PRIORITY.SEGMENT,
 ): (() => void) => {
   let unregisters: Array<() => void> = [];
+
   const refresh = () => {
     unregisters.forEach(f => f());
+
     unregisters = segLabels.map((label, i) => mgr.registerLabel(label, priority(i)));
   };
+
   refresh();
   return () => {
     unregisters.forEach(f => f());
+
     unregisters = [];
   };
 };
@@ -97,6 +103,7 @@ const bindSegmentLabels = (
 const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points, id } =
     opts;
+
   // The last label ends with the cumulative total, so it wins a collision
   // against any per-segment label — losing it would drop the line's length.
   const totalPriority = (i: number): number =>
@@ -109,31 +116,38 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
 
   const relabel = () => {
     let cumulative = 0;
+
     segLabels.forEach((label, i) => {
       cumulative += Util.distance(points[i], points[i + 1]);
       const mid = Util.midpoint(points[i], points[i + 1]);
+
       label.setLatLng([mid.lat, mid.lng]);
+
       label.setIcon(
         Util.makeMidLabelDivIcon(
           Util.formatSegmentLabel(points[i], points[i + 1], cumulative),
         ),
       );
     });
+
     // Unregister the previous registrations before re-binding, otherwise the
     // old entries leak into collidableLabels and the planner hides the
     // duplicates — labels vanish after the first node drag.
     unregisterSegLabels();
+
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
 
   const onOpen = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
   };
+
   const onEmpty = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
   };
   const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
   const openOverlay = overlay.open;
+
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
   // soon as edit mode is on — no click-first required.
   const unregisterDragToggle = mgr.registerEditDragToggle(
@@ -144,28 +158,37 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+
     unregisterSegLabels();
+
     overlay.cleanup();
+
     unregisterDragToggle();
   };
   const unregisterFinalized = mgr.registerFinalized(dispose, id);
 
   const deleteMeasurement = () => {
     unregisterFinalized();
+
     dispose();
+
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
+
     onDelete();
+
     layers.unregister();
   };
 
   nodeMarkers.forEach((node, idx) => {
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
+
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
         title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
       }),
     ) as L.Marker;
+
     nodeDelMarkers.push(delMarker);
 
     if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeasurement);
@@ -175,14 +198,20 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         const ptIdx = findPointIndex(points, latlng);
         if (ptIdx === -1) return;
         const lblIdx = ptIdx - 1;
+
         points.splice(ptIdx, 1);
+
         layers.removeLayer(node, delMarker);
         if (lblIdx >= 0 && lblIdx < segLabels.length) {
           layers.removeLayer(segLabels[lblIdx]);
+
           segLabels.splice(lblIdx, 1);
         }
+
         nodeMarkers.splice(ptIdx, 1);
+
         nodeDelMarkers.splice(ptIdx, 1);
+
         dragBinds.splice(ptIdx, 1)[0]?.cleanup();
 
         if (points.length < 2) {
@@ -198,7 +227,9 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
             // switch to "delete the whole distance" while keeping the overlay
             // opener — mirroring how polygon rebinds both in the 3pt case.
             lastDelMarker.off("click");
+
             attachDelClick(lastDelMarker, deleteMeasurement);
+
             bindOpenOverlay(lastDelMarker, openOverlay);
             const iconEl = lastDelMarker.getElement();
             if (iconEl) iconEl.title = T("del_all");
@@ -206,6 +237,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         }
 
         finalPoly.setLatLngs(points);
+
         relabel();
         if (onUpdate) onUpdate(points);
       });
@@ -226,9 +258,13 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           for (let i = 0; i < points.length; i++) {
             points[i] = L.latLng(points[i].lat + dLat, points[i].lng + dLng);
           }
+
           finalPoly.setLatLngs(points);
+
           nodeMarkers.forEach((m, i) => m.setLatLng(points[i]));
+
           nodeDelMarkers.forEach((d, i) => d.setLatLng(points[i]));
+
           relabel();
         },
         onEnd: () => {
@@ -241,24 +277,31 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         onDrag: (latlng: L.LatLng) => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
+
           points[pIdx] = latlng;
+
           finalPoly.setLatLngs(points);
+
           relabel();
         },
         onEnd: (latlng: L.LatLng) => {
           markDragSyntheticClick();
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
+
           points[pIdx] = latlng;
           if (onUpdate) onUpdate(points);
         },
       });
     }
+
     dragBinds.push(db);
   });
 
   finalPoly.on("click", openOverlay);
+
   nodeMarkers.forEach(m => m.on("click", openOverlay));
+
   segLabels.forEach(l => l.on("click", openOverlay));
 
   resortLayers(layers, nodeMarkers, nodeDelMarkers, segLabels);
@@ -295,6 +338,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
 
   let unregisterDragToggle: () => void = () => {};
   const dragBinds: DragBind[] = [];
+
   // The single radius label persists as a marker (updateLabel() only moves and
   // restyles it), so one registration survives for the measurement's life.
   const unregisterRadiusLabel = radiusLabel
@@ -304,6 +348,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   const onOpen = () => {
     toggleDelIcon(delMarker, true);
   };
+
   const onEmpty = () => {
     toggleDelIcon(delMarker, false);
   };
@@ -313,22 +358,30 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+
     unregisterRadiusLabel();
+
     overlay.cleanup();
+
     unregisterDragToggle();
   };
   const unregisterFinalized = mgr.registerFinalized(dispose, id);
 
   const deleteMeasurement = () => {
     unregisterFinalized();
+
     dispose();
+
     layers.removeLayer(circle);
     if (radiusLine) layers.removeLayer(radiusLine);
     if (radiusNode) layers.removeLayer(radiusNode);
     if (centerFinal) layers.removeLayer(centerFinal);
+
     layers.removeLayer(delMarker);
     if (radiusLabel) layers.removeLayer(radiusLabel);
+
     onDelete();
+
     layers.unregister();
   };
 
@@ -336,7 +389,9 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     if (!radiusLabel) return;
     const r = circle.getRadius();
     const mid = Util.midpoint(circle.getLatLng(), radiusNode!.getLatLng());
+
     radiusLabel.setLatLng([mid.lat, mid.lng]);
+
     Util.setLabelText(radiusLabel, Util.formatDistance(r));
   };
 
@@ -344,8 +399,11 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     onDrag: (latlng: L.LatLng) => {
       const dx = latlng.lng - circle.getLatLng().lng;
       const dy = latlng.lat - circle.getLatLng().lat;
+
       circle.setLatLng(latlng);
+
       centerFinal.setLatLng(latlng);
+
       delMarker.setLatLng(latlng);
       if (radiusNode)
         radiusNode.setLatLng({
@@ -353,28 +411,35 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
           lng: radiusNode.getLatLng().lng + dx,
         });
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
+
       updateLabel();
     },
     onEnd: (latlng: L.LatLng) => {
       markDragSyntheticClick();
+
       onEnd?.(latlng);
     },
   });
+
   dragBinds.push(centerDrag);
 
   if (radiusNode) {
     const radiusDrag = bindNodeDrag(radiusNode, null, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         radiusNode.setLatLng(latlng);
+
         circle.setRadius(Util.distance(circle.getLatLng(), latlng));
         if (radiusLine) radiusLine.setLatLngs([circle.getLatLng(), latlng]);
+
         updateLabel();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
+
         onEnd?.(latlng);
       },
     });
+
     dragBinds.push(radiusDrag);
   }
 
@@ -394,6 +459,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   if (radiusLabel) attachInteraction(radiusLabel);
 
   attachDelClick(delMarker, deleteMeasurement);
+
   bindOpenOverlay(delMarker, openOverlay);
 };
 
@@ -438,6 +504,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
     if (centroidDelMarker) toggleDelIcon(centroidDelMarker, true);
   };
+
   const onEmpty = () => {
     nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
     if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
@@ -448,9 +515,13 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   // Single dispose owns every binding; delete and clearAll/destroy both run it.
   const dispose = () => {
     dragBinds.forEach(db => db.cleanup());
+
     unregisterSegLabels();
+
     unregisterCentroid();
+
     overlay.cleanup();
+
     unregisterDragToggle();
   };
   const unregisterFinalized = mgr.registerFinalized(dispose, id);
@@ -458,12 +529,15 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const relabel = () => {
     const area = Util.area(points);
     if (centroidLabel) Util.setLabelText(centroidLabel, Util.formatArea(area));
+
     segLabels.forEach(l => layers.removeLayer(l));
+
     segLabels.length = 0;
     const n = points.length;
     for (let i = 0; i < n; i++) {
       const next = (i + 1) % n;
       const mid = Util.midpoint(points[i], points[next]);
+
       const label = layers.addLayer(
         L.marker([mid.lat, mid.lng], {
           icon: Util.makeMidLabelDivIcon(
@@ -472,10 +546,14 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         }),
         true,
       ) as L.Marker;
+
       segLabels.push(label);
+
       label.on("click", openOverlay);
     }
+
     unregisterSegLabels();
+
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
     const centroid = Util.centroid(points);
     if (centroidDot) centroidDot.setLatLng(centroid);
@@ -486,6 +564,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
+
     // The centroid dot is a CircleMarker (SVG path) in the graph pane —
     // same approach as the circle center. Both share the SVG renderer with
     // the fill, so no zIndexOffset is needed; DOM order within the SVG
@@ -497,6 +576,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     centroidDot = layers.addLayer(
       Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
     ) as L.CircleMarker;
+
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
         icon: Util.makeLabelDivIcon(
@@ -508,24 +588,31 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       }),
       true,
     ) as L.Marker;
+
     unregisterCentroid = mgr.registerLabel(
       centroidLabel,
       CONST.LABEL_PRIORITY.CENTROID,
     );
+
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
     ) as L.Marker;
+
     attachDelClick(centroidDelMarker, deleteMeasurement);
   };
 
   const deleteMeasurement = () => {
     unregisterFinalized();
+
     dispose();
+
     layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
     if (centroidDot) layers.removeLayer(centroidDot);
     if (centroidLabel) layers.removeLayer(centroidLabel);
     if (centroidDelMarker) layers.removeLayer(centroidDelMarker);
+
     onDelete();
+
     layers.unregister();
   };
 
@@ -537,20 +624,26 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   );
 
   finalPoly.on("click", openOverlay);
+
   nodeMarkers.forEach(m => m.on("click", openOverlay));
+
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
+
   centroidDot!.on("click", openOverlay);
+
   (centroidDelMarker as L.Marker | null)?.on("click", openOverlay);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
+
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
         title: is3pt ? T("del_all") : T("del_node"),
       }),
     ) as L.Marker;
+
     nodeDelMarkers.push(delMarker);
 
     if (is3pt) attachDelClick(delMarker, deleteMeasurement);
@@ -559,10 +652,15 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         const latlng = node.getLatLng();
         const ptIdx = findPointIndex(points, latlng);
         if (ptIdx === -1) return;
+
         points.splice(ptIdx, 1);
+
         layers.removeLayer(node, delMarker);
+
         nodeMarkers.splice(ptIdx, 1);
+
         nodeDelMarkers.splice(ptIdx, 1);
+
         dragBinds.splice(ptIdx, 1)[0]?.cleanup();
 
         if (points.length < 3) {
@@ -573,10 +671,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         if (points.length === 3) {
           nodeDelMarkers.forEach(d => {
             d.off("click");
+
             d.on("click", (event: L.LeafletMouseEvent) => {
               const t = Util.getEventTarget(event);
               if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                 stopEvent(event);
+
                 deleteMeasurement();
               } else openOverlay(event);
             });
@@ -586,9 +686,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         }
 
         finalPoly.setLatLngs(points);
+
         relabel();
         if (onUpdate) {
           opts.area = Util.area(points);
+
           onUpdate();
         }
       });
@@ -596,25 +698,32 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     bindOpenOverlay(delMarker, openOverlay);
 
     const findPtIdx = () => findPointIndex(points, node.getLatLng());
+
     const db = bindNodeDrag(node, delMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
+
         points[pIdx] = latlng;
+
         finalPoly.setLatLngs(points);
+
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
+
         points[pIdx] = latlng;
         if (onUpdate) {
           opts.area = Util.area(points);
+
           onUpdate();
         }
       },
     });
+
     dragBinds.push(db);
   });
 
@@ -626,19 +735,26 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       onDrag: (latlng: L.LatLng) => {
         const dx = latlng.lng - centroidDot!.getLatLng().lng;
         const dy = latlng.lat - centroidDot!.getLatLng().lat;
+
         points.forEach((p, i) => {
           p.lat += dy;
+
           p.lng += dx;
+
           nodeMarkers[i]?.setLatLng(p);
+
           nodeDelMarkers[i]?.setLatLng(p);
         });
+
         finalPoly.setLatLngs(points);
+
         relabel();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
         if (onUpdate) {
           opts.area = Util.area(points);
+
           onUpdate();
         }
       },

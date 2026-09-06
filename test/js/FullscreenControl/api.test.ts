@@ -9,10 +9,15 @@ import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {
     expect(CLASSES.PSEUDO_FULLSCREEN).toBe("leaflet-pseudo-fullscreen");
+
     expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
+
     expect(CLASSES.ZOOM_IN).toBe("foliplus-zoom-in");
+
     expect(CLASSES.ZOOM_OUT).toBe("foliplus-zoom-out");
+
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
+
     expect(CLASSES.HIDDEN).toBe("foliplus-hidden");
   });
 
@@ -20,6 +25,7 @@ describe("const.js", () => {
     expect(containerId("FullscreenControl", "topleft")).toBe(
       "FullscreenControl_topleft_container",
     );
+
     expect(containerId("Test", "bottomright")).toBe("Test_bottomright_container");
   });
 });

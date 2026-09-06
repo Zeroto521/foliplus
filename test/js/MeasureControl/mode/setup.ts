@@ -5,6 +5,7 @@ import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 
 export function initMocks() {
   vi.clearAllMocks();
+
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into the next test's click handler.
   isDragSyntheticClick();
@@ -58,10 +59,13 @@ export function initMocks() {
       addTo: vi.fn(() => m),
       getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
     };
+
     m.on = vi.fn(() => m);
+
     m.off = vi.fn(() => m);
     return m;
   });
+
   window.L.marker = markerFactory;
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
@@ -144,11 +148,13 @@ export function makeManagerMock() {
     registerLabel: vi.fn(() => () => {}),
     registerFinalized: vi.fn((cleanup: () => void, id?: string) => {
       const key = id ?? "";
+
       editHandles.set(key, { ...editHandles.get(key), dispose: cleanup });
       return () => editHandles.delete(key);
     }),
     clearAll: vi.fn(() => {
       editHandles.forEach(h => h.dispose?.());
+
       editHandles.clear();
     }),
     store: {
@@ -160,6 +166,7 @@ export function makeManagerMock() {
       remove: vi.fn((id: string) => {
         // Remove all matches — mirrors the real store's behavior.
         const matches = measurements.map((m: any) => m.id === id);
+
         measurements.splice(
           0,
           measurements.length,
@@ -173,6 +180,7 @@ export function makeManagerMock() {
       load: vi.fn(() => measurements),
       hydrate: vi.fn((data: any[]) => {
         measurements.length = 0;
+
         measurements.push(...data);
       }),
       persist: vi.fn(),
@@ -189,6 +197,7 @@ export function makeManagerMock() {
     },
     set measurements(v: any[]) {
       measurements.length = 0;
+
       measurements.push(...v);
     },
     editHandles,

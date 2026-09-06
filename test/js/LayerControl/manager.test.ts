@@ -33,16 +33,24 @@ describe("bringToFront patch refcounting", () => {
     const base = proto.bringToFront;
     try {
       patchBringToFront();
+
       patchBringToFront();
+
       expect(proto.bringToFront).not.toBe(base);
+
       unpatchBringToFront();
+
       expect(proto.bringToFront).not.toBe(base); // second instance still patched
+
       unpatchBringToFront();
+
       expect(proto.bringToFront).toBe(base); // last instance restored
     } finally {
       // leave the module counter at zero even if an assertion failed
       unpatchBringToFront();
+
       unpatchBringToFront();
+
       proto.bringToFront = base;
     }
   });
@@ -50,16 +58,22 @@ describe("bringToFront patch refcounting", () => {
   it("guarded bringToFront skips detached paths without throwing", () => {
     const proto = window.L.Path.prototype;
     const base = proto.bringToFront;
+
     patchBringToFront();
     try {
       const guarded = proto.bringToFront as unknown as (this: unknown) => unknown;
+
       // _path missing / detached → no-op, returns this
       expect(() => guarded.call({})).not.toThrow();
+
       expect(() => guarded.call({ _path: null })).not.toThrow();
+
       expect(() => guarded.call({ _path: { parentNode: null } })).not.toThrow();
+
       expect(() => guarded.call({ _path: { parentNode: {} } })).not.toThrow();
     } finally {
       unpatchBringToFront();
+
       proto.bringToFront = base;
     }
   });
@@ -77,25 +91,34 @@ describe("LayerManager", () => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
+
     const stamp = (() => {
       let id = 0;
       return vi.fn(() => ++id);
     })();
 
     window.L.TileLayer = TileLayer;
+
     window.L.GridLayer = GridLayer;
+
     window.L.Renderer = Renderer;
+
     window.L.layerGroup = vi.fn(() => ({
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
@@ -104,16 +127,24 @@ describe("LayerManager", () => {
       clearLayers: vi.fn(),
       options: {},
     }));
+
     window.L.Path = Path;
+
     window.L.Polygon = Polygon;
+
     window.L.Polyline = Polyline;
+
     window.L.Marker = Marker;
+
     window.L.CircleMarker = CircleMarker;
+
     window.L.stamp = stamp;
+
     window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
 
     const makePane = () => {
       const el = document.createElement("div");
+
       el.style.zIndex = "0";
       return el;
     };
@@ -128,11 +159,13 @@ describe("LayerManager", () => {
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
+
         p.style.zIndex = "0";
         return p;
       }),
       createPane: vi.fn(() => {
         const p = makePane();
+
         p.classList.add("foliplus-layer-pane");
         return p;
       }),
@@ -160,10 +193,15 @@ describe("LayerManager", () => {
 
   it("non-TileLayer GridLayer gets options.zIndex and no fallback pane", () => {
     const grid = new GridLayer();
+
     manager.map.hasLayer.mockReturnValue(true);
+
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
+
     manager.enforceOrder();
+
     expect(grid.options.zIndex).toBeDefined();
+
     expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
   });
 
@@ -172,8 +210,11 @@ describe("LayerManager", () => {
     // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
     const base = Z_INDEX.BASE;
     const step = Z_INDEX.STEP;
+
     expect(manager.computeZIndex(0, false)).toBe(base + 2 * step);
+
     expect(manager.computeZIndex(1, false)).toBe(base + 1 * step);
+
     // Tile layers use TILE_BASE
     expect(manager.computeZIndex(0, true)).toBe(Z_INDEX.TILE_BASE + 2 * step);
   });
@@ -188,7 +229,9 @@ describe("LayerManager", () => {
 
   it("getLayersByType filters by type", () => {
     const bases = manager.getLayersByType("base");
+
     expect(bases).toHaveLength(1);
+
     expect(bases[0].id).toBe("base1");
   });
 
@@ -198,7 +241,9 @@ describe("LayerManager", () => {
 
   it("destroy clears registry and unbinds events", () => {
     manager.destroy();
+
     expect(manager.layerRegistry.size).toBe(0);
+
     expect(map.off).toHaveBeenCalled();
   });
 
@@ -208,20 +253,26 @@ describe("LayerManager", () => {
 
   it("unregisterLayer sweeps label panes no longer referenced", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     const api = manager.createLayers({
       id: "g1",
       name: "Group",
       labelPane: "g1_label",
     });
+
     api.register();
+
     expect(manager.panes.labelPanes.has("g1_label")).toBe(true);
+
     expect(manager.unregisterLayer("g1")).toBe(true);
+
     expect(manager.panes.labelPanes.has("g1_label")).toBe(false);
   });
 
   it("unregisterLayer returns true when layer is found and removed", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const result = manager.unregisterLayer("test_layer");
+
     expect(result).toBe(true);
   });
 
@@ -232,31 +283,47 @@ describe("LayerManager", () => {
     const paneA = document.createElement("div");
     const paneB = document.createElement("div");
     const paneRegistry = { foliplus_pane_a: paneA, foliplus_pane_b: paneB };
+
     map._panes = paneRegistry;
+
     // Stable fallback so a debounced enforceOrder firing after this test's
     // teardown does not read a deleted registry.
     map.getPane = vi.fn(name => paneRegistry[name] ?? document.createElement("div"));
     const layerA = { options: {} };
     const layerB = { options: {} };
+
     window["fb_a"] = layerA;
+
     window["fb_b"] = layerB;
+
     manager.registerLayer({ id: "fb_a", name: "A", layer: layerA });
+
     manager.registerLayer({ id: "fb_b", name: "B", layer: layerB });
+
     // The shared stamp mock is a counter, so stamps would shift between the
     // sweep and the assertion. Use an identity-stable stamp like Leaflet's.
     window.L.stamp = stableStamp;
     const stampA = window.L.stamp(layerA);
     const stampB = window.L.stamp(layerB);
+
     manager.panes.fallbackPaneMap.set(stampA, "foliplus_pane_a");
+
     manager.panes.fallbackPaneMap.set(stampB, "foliplus_pane_b");
+
     expect(manager.unregisterLayer("fb_a")).toBe(true);
+
     // A is gone from both the records and the map DOM.
     expect(manager.panes.fallbackPaneMap.size).toBe(1);
+
     expect(paneRegistry.foliplus_pane_a).toBeUndefined();
+
     // B is still registered, so its pane survives the sweep.
     expect(paneRegistry.foliplus_pane_b).toBe(paneB);
+
     expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus_pane_b"]);
+
     delete window["fb_a"];
+
     delete window["fb_b"];
   });
 
@@ -264,17 +331,20 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const bus = map.foliplus!.events;
     const handler = vi.fn();
+
     bus.on(EVENTS.LAYER_REMOVED, handler);
 
     manager.unregisterLayer("test_layer");
 
     expect(handler).toHaveBeenCalledTimes(1);
+
     expect(handler).toHaveBeenCalledWith({ id: "test_layer" });
   });
 
   it("unregisterLayer does NOT emit EVENTS.LAYER_REMOVED for unknown id", () => {
     const bus = map.foliplus!.events;
     const handler = vi.fn();
+
     bus.on(EVENTS.LAYER_REMOVED, handler);
 
     manager.unregisterLayer("nonexistent");
@@ -289,7 +359,9 @@ describe("LayerManager", () => {
   it("clearAllLayers handles eachLayer recursively", () => {
     const child = { clearLayers: vi.fn() };
     const parent = { eachLayer: vi.fn(cb => cb(child)) };
+
     manager.clearAllLayers(parent);
+
     expect(child.clearLayers).toHaveBeenCalled();
   });
 
@@ -301,19 +373,24 @@ describe("LayerManager", () => {
       name: "Poly",
       layer: new window.L.Polygon(),
     });
+
     expect(manager.getLayerType("poly")).toBe(GEOM_TYPE.POLYGON);
   });
 
   it("getLayerType returns custom for iconSvg layers", () => {
     manager.registerLayer({ id: "icon", name: "Icon", iconSvg: "<svg/>" });
+
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 
   it("invalidateType clears the cached type; refreshType re-infers", () => {
     // overlay1 has no layer — getLayerType returns null without caching a type.
     manager.layerRegistry.get("overlay1")!.type = GEOM_TYPE.POINT;
+
     manager.invalidateType("overlay1");
+
     expect(manager.layerRegistry.get("overlay1")!.type).toBeNull();
+
     expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
   });
 
@@ -323,8 +400,11 @@ describe("LayerManager", () => {
       name: "Poly",
       layer: new window.L.Polygon(),
     });
+
     expect(manager.getLayerType("poly2")).toBe(GEOM_TYPE.POLYGON);
+
     expect(manager.getLayerType("poly2")).toBe(GEOM_TYPE.POLYGON);
+
     expect(manager.layerRegistry.get("poly2").type).toBe(GEOM_TYPE.POLYGON);
   });
 
@@ -332,19 +412,25 @@ describe("LayerManager", () => {
 
   it("findLayer resolves a layer by string id", () => {
     const layer = new window.L.TileLayer();
+
     manager.registerLayer({ id: "x", name: "X", layer });
+
     expect(manager.findLayer("x")).toBe(layer);
   });
 
   it("findLayer returns null after unregisterLayer", () => {
     manager.registerLayer({ id: "x", name: "X", layer: new window.L.TileLayer() });
+
     manager.unregisterLayer("x");
+
     expect(manager.findLayer("x")).toBeNull();
   });
 
   it("registerLayer uses incremental item init instead of full re-scan", () => {
     manager.map.hasLayer.mockReturnValue(true);
+
     manager.uiContainer = document.createElement("div");
+
     manager.ui = {
       insertLayerItem: vi.fn(),
       updateLayerItem: vi.fn(),
@@ -352,33 +438,44 @@ describe("LayerManager", () => {
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
     } as any;
+
     manager.registerLayer({
       id: "new1",
       name: "New",
       layer: { options: {} },
     } as any);
+
     expect(manager.ui.initLayerItem).toHaveBeenCalled();
+
     expect(manager.ui.initTypesAndVisibility).not.toHaveBeenCalled();
+
     expect(manager.ui.syncToggleAll).toHaveBeenCalled();
   });
 
   it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
     const layer = { options: {} };
+
     manager.map.hasLayer.mockReturnValue(false);
     const addLayer = vi.fn();
     const removeLayer = vi.fn();
+
     manager.map.addLayer = addLayer;
+
     manager.map.removeLayer = removeLayer;
+
     manager.ui = {
       hiddenIds: new Set(["new1"]),
       saveHiddenIds: vi.fn(),
     } as any;
+
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layer is kept off the map entirely (no add, no remove) so
     // onAdd side effects never fire, and visible is set to false.
     expect(addLayer).not.toHaveBeenCalled();
+
     expect(removeLayer).not.toHaveBeenCalled();
+
     expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
@@ -386,13 +483,17 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const addLayer = vi.fn();
     const removeLayer = vi.fn();
+
     manager.map.addLayer = addLayer;
+
     manager.map.removeLayer = removeLayer;
     const onToggle = vi.fn();
+
     manager.ui = {
       hiddenIds: new Set(["canvas1"]),
       saveHiddenIds: vi.fn(),
     } as any;
+
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
@@ -404,50 +505,68 @@ describe("LayerManager", () => {
     // skips addLayer and removeLayer, and fires onToggle so the canvas/heatmap
     // hides itself.
     expect(addLayer).not.toHaveBeenCalled();
+
     expect(removeLayer).not.toHaveBeenCalled();
+
     expect(onToggle).toHaveBeenCalledWith(false);
+
     expect(manager.layerRegistry.get("canvas1")!.visible).toBe(false);
   });
 
   it("does not add a hidden layer to the map before removing it", () => {
     const layer = { options: {} };
+
     manager.map.hasLayer.mockReturnValue(false);
     const addLayer = vi.fn();
     const removeLayer = vi.fn();
+
     manager.map.addLayer = addLayer;
+
     manager.map.removeLayer = removeLayer;
+
     manager.ui = {
       hiddenIds: new Set(["new1"]),
       saveHiddenIds: vi.fn(),
     } as any;
+
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layers must be kept off the map entirely (skip addLayer) so
     // onAdd side effects never fire.
     expect(addLayer).not.toHaveBeenCalled();
+
     expect(removeLayer).not.toHaveBeenCalled();
+
     expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
   it("does not re-apply hidden state when the layer is not in the hidden set", () => {
     const layer = { options: {} };
+
     manager.map.hasLayer.mockReturnValue(false);
     const removeLayer = vi.fn();
+
     manager.map.removeLayer = removeLayer;
+
     manager.ui = {
       hiddenIds: new Set(["other"]),
       saveHiddenIds: vi.fn(),
     } as any;
+
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
 
     expect(removeLayer).not.toHaveBeenCalled();
+
     expect(manager.layerRegistry.get("visible1")!.visible).toBe(true);
   });
 
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
     const layer = new window.L.TileLayer();
+
     map._layers["resolved"] = layer;
+
     manager.registerLayer({ id: "resolved", name: "R" });
+
     expect(manager.findLayer("resolved")).toBe(layer);
   });
 
@@ -455,12 +574,17 @@ describe("LayerManager", () => {
 
   it("destroy reverts to lightweight LayerAPI", () => {
     expect(map.foliplus.LayerAPI).toBeDefined();
+
     expect(map.foliplus.LayerAPI.layers.length).toBe(2);
+
     manager.destroy();
+
     // After destroy, LayerAPI is still valid (lightweight default) but
     // layers is empty and registerLayer is a no-op.
     expect(map.foliplus.LayerAPI).toBeDefined();
+
     expect(map.foliplus.LayerAPI.layers).toEqual([]);
+
     expect(map.foliplus.LayerAPI.registerLayer({ id: "x" })).toBeNull();
   });
 
@@ -468,9 +592,12 @@ describe("LayerManager", () => {
 
   it("syncAttribution skips _update when attribution is unchanged", () => {
     const update = map.attributionControl._update;
+
     manager.syncAttribution();
     const afterFirst = update.mock.calls.length;
+
     manager.syncAttribution();
+
     expect(update.mock.calls.length).toBe(afterFirst);
   });
 
@@ -478,18 +605,26 @@ describe("LayerManager", () => {
 
   it("registerLayer does not run enforceOrder synchronously", () => {
     const spy = vi.spyOn(manager, "enforceOrder");
+
     manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+
     manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+
     expect(spy).not.toHaveBeenCalled();
   });
 
   it("batch registration coalesces into a single debounced enforceOrder", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
+
     manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+
     manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+
     expect(spy).toHaveBeenCalledTimes(1);
+
     vi.useRealTimers();
   });
 
@@ -498,16 +633,22 @@ describe("LayerManager", () => {
   it("layeradd during enforceOrder does NOT reschedule debouncedEnforce (prevents freeze loop)", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
+
     manager.isEnforcing = true;
+
     manager.onLayerAdd({ layer: new window.L.Path() });
+
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+
     expect(spy).not.toHaveBeenCalled();
+
     vi.useRealTimers();
   });
 
   it("getNavigableItems returns layer items and toggle-all rows", () => {
     // 模拟 uiContainer 和 ui
     const container = document.createElement("div");
+
     container.innerHTML = `
       <div class="foliplus-layer-toggle-all" data-group="overlay">
         <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
@@ -522,16 +663,23 @@ describe("LayerManager", () => {
         <input type="color" />
       </div>
     `;
+
     manager.uiContainer = container;
+
     manager.ui = { reindexAfterMove: vi.fn() } as any;
+
     // verify DOM structure includes toggle-all rows and layer items
     // (getNavigableItems is tested via browser tests)
     const items = container.querySelectorAll(
       ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
     );
+
     expect(items.length).toBe(3);
+
     expect(items[0].classList.contains("foliplus-layer-toggle-all")).toBe(true);
+
     expect(items[1].classList.contains("foliplus-layer-item")).toBe(true);
+
     expect(items[2].classList.contains("foliplus-layer-toggle-all")).toBe(true);
   });
 
@@ -542,33 +690,48 @@ describe("LayerManager", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
     const container = { options: {}, eachLayer: vi.fn() };
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({ id: "fg", name: "FG", layer: container });
+
     manager.onLayerAdd({ layer: container });
+
     manager.onLayerAdd({ layer: container });
+
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+
     expect(spy).toHaveBeenCalledTimes(1);
+
     vi.useRealTimers();
   });
 
   it("onLayerAdd ignores unrelated layers once all registered layers are resolved", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
+
     // Resolve every registered layer so the managed-layer filter is active.
     manager.registerLayer({ id: "overlay1", name: "Points", layer: { options: {} } });
+
     manager.registerLayer({
       id: "base1",
       name: "OSM",
       layer: new TileLayer(),
       isBase: true,
     });
+
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+
     spy.mockClear();
+
     // An unrelated layeradd (e.g. ExportControl crossOrigin re-add) must NOT
     // trigger a full enforceOrder pass.
     manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+
     expect(spy).not.toHaveBeenCalled();
+
     vi.useRealTimers();
   });
 
@@ -577,43 +740,61 @@ describe("LayerManager", () => {
   it("syncAttribution picks the topmost visible base tile and stops early", () => {
     const tile1 = new TileLayer(); // attribution: © OpenStreetMap (default)
     const tile2 = new TileLayer();
+
     manager.map.hasLayer.mockImplementation(l => l === tile1);
+
     // Re-register base1 with the test instance; base2 registers ahead of it
     // (insertAt firstBaseIdx) but is invisible, so base1 is the topmost
     // visible tile whose attribution wins.
     manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, isBase: true });
+
     manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, isBase: true });
+
     manager.enforceOrder();
+
     expect(manager.lastAttribution).toBe("© OpenStreetMap");
   });
 
   it("syncAttribution returns empty when no base tile is visible", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.enforceOrder();
+
     expect(manager.lastAttribution).toBe("");
   });
 
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(Storage, "save");
+
     manager.saveOrder();
+
     manager.saveOrder();
+
     manager.saveOrder();
+
     expect(spy).not.toHaveBeenCalled();
+
     vi.advanceTimersByTime(100);
+
     expect(spy).toHaveBeenCalledTimes(1);
+
     spy.mockRestore();
+
     vi.useRealTimers();
   });
 
   describe("loadSavedOrder", () => {
     it("restores a persisted overlay/base order", () => {
       const spy = vi.spyOn(Storage, "load").mockReturnValue(["overlay1", "base1"]);
+
       const m = new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
         { id: "overlay1", name: "O", isBase: false },
       ]);
+
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+
       spy.mockRestore();
     });
 
@@ -621,19 +802,24 @@ describe("LayerManager", () => {
       const spy = vi
         .spyOn(Storage, "load")
         .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
+
       const m = new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
         { id: "overlay1", name: "O", isBase: false },
       ]);
+
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+
       spy.mockRestore();
     });
 
     it("ignores non-array storage data", () => {
       const spy = vi.spyOn(Storage, "load").mockReturnValue("nope");
       const m = new LayerManager(map, [{ id: "overlay1", name: "O", isBase: false }]);
+
       // falls back to the initial (insertion) order
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
+
       spy.mockRestore();
     });
   });
@@ -643,6 +829,7 @@ describe("LayerManager", () => {
       { id: "a", name: "A", visible: true, isBase: false },
     ]);
     const li = m2.layers[0];
+
     expect(li).toMatchObject({ id: "a", name: "A", visible: true, isBase: false });
     for (const key of [
       "paneName",
@@ -684,15 +871,21 @@ describe("LayerManager", () => {
 
   it("bringLayerToFront moves layer to front of z-order", () => {
     const spy = vi.spyOn(manager, "enforceOrder");
+
     manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+
     manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+
     manager.bringLayerToFront("a");
+
     expect(spy).toHaveBeenCalled();
   });
 
   it("bringLayerToFront is a no-op for unknown id", () => {
     const spy = vi.spyOn(manager, "enforceOrder");
+
     manager.bringLayerToFront("nonexistent");
+
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -707,8 +900,11 @@ describe("LayerManager", () => {
   it("migrateLayers skips container layers (those with eachLayer)", () => {
     const container = { options: {}, eachLayer: vi.fn() };
     const leaf = { options: { pane: "overlayPane" } };
+
     manager.registerLayer({ id: "c", name: "C", layer: container });
+
     manager.registerLayer({ id: "l", name: "L", layer: leaf });
+
     expect(container.options.pane).toBeUndefined();
   });
 
@@ -716,7 +912,9 @@ describe("LayerManager", () => {
 
   it("unregisterLayer does not call invalidateSize", () => {
     const spy = vi.spyOn(map, "invalidateSize");
+
     manager.unregisterLayer("nonexistent");
+
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -729,11 +927,16 @@ describe("LayerManager", () => {
 
   it("createCanvas delegates to the factory", () => {
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
+
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
     const api = manager.createCanvas({ id: "canvas1" });
+
     expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
+
     expect(typeof api.register).toBe("function");
+
     expect(typeof api.bringToFront).toBe("function");
+
     api.destroy();
   });
 
@@ -741,95 +944,134 @@ describe("LayerManager", () => {
     const m2 = new LayerManager(map, [
       { id: "only_overlay", name: "O", isBase: false },
     ]);
+
     map.hasLayer.mockReturnValue(false);
+
     m2.registerLayer({ id: "first_base", name: "B", isBase: true });
+
     expect(m2.layerRegistry.firstBaseIdx).toBe(1);
   });
 
   it("registerLayer sets pane options for non-Path/Marker layers", () => {
     const layer = { options: {} } as any;
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({ id: "p", name: "P", layer, paneName: "my_pane" });
+
     expect(layer.options.pane).toBe("my_pane");
+
     expect(layer.options.paneSet).toBe(true);
   });
 
   it("re-registering an existing layer updates the UI row", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.uiContainer = document.createElement("div");
+
     manager.ui = {
       updateLayerItem: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),
     } as any;
+
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
+
     expect(manager.ui.updateLayerItem).toHaveBeenCalled();
+
     expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
   });
 
   it("unregisterLayer removes the UI row and reindexes", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const row = document.createElement("div");
+
     row.setAttribute("data-layer-id", "overlay1");
+
     manager.uiContainer = document.createElement("div");
+
     manager.uiContainer.appendChild(row);
+
     manager.ui = {
       reindexItems: vi.fn(),
       saveHiddenIds: vi.fn(),
     } as any;
+
     expect(manager.unregisterLayer("overlay1")).toBe(true);
+
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
+
     expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
   it("unregisterLayer removes the layer id from the persisted hidden set", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveHiddenIds = vi.fn();
+
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       reindexItems: vi.fn(),
       saveHiddenIds,
     } as any;
+
     manager.unregisterLayer("overlay1");
 
     expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+
     expect(saveHiddenIds).toHaveBeenCalledTimes(1);
   });
 
   it("attachUI delegates to the UI", () => {
     manager.ui = { attachUI: vi.fn() } as any;
     const div = document.createElement("div");
+
     manager.attachUI(div);
+
     expect(manager.ui.attachUI).toHaveBeenCalledWith(div);
   });
 
   it("destroy cleans up the UI container and unbinds", () => {
     manager.uiContainer = document.createElement("div");
     const ui = { unbindEvents: vi.fn() } as any;
+
     manager.ui = ui;
+
     manager.destroy();
+
     expect(ui.unbindEvents).toHaveBeenCalled();
+
     expect(manager.uiContainer).toBeNull();
+
     expect(manager.isDestroyed).toBe(true);
   });
 
   it("applyLayerZIndex calls setZIndex for visible TileLayers", () => {
     const tile = new TileLayer();
+
     manager.map.hasLayer.mockReturnValue(true);
+
     manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
+
     manager.enforceOrder();
+
     expect(tile.setZIndex).toHaveBeenCalled();
   });
 
   it("extractPoints collects markers with features", () => {
     class Marker {}
+
     window.L.Marker = Marker;
     const marker = new Marker() as any;
+
     marker.feature = { type: "Feature" };
+
     marker.getLatLng = () => ({ lat: 1, lng: 2 });
+
     marker.options = {};
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({
       id: "pts",
       name: "Pts",
@@ -839,34 +1081,47 @@ describe("LayerManager", () => {
       } as any,
     });
     const pts = manager.extractPoints("pts");
+
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
   });
 
   it("extractPoints excludes label markers (no double-counting)", () => {
     class Marker {}
+
     window.L.Marker = Marker;
     const data = new Marker() as any;
+
     data.feature = { type: "Feature" };
+
     data.getLatLng = () => ({ lat: 1, lng: 2 });
+
     data.options = {};
     const label = new Marker() as any;
+
     label.feature = { type: "Feature" };
+
     label.getLatLng = () => ({ lat: 9, lng: 9 });
+
     label.options = {};
+
     label.isLabel = true;
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({
       id: "el",
       name: "El",
       layer: {
         eachLayer: (cb: (l: unknown) => void) => {
           cb(data);
+
           cb(label);
         },
         options: {},
       } as any,
     });
     const pts = manager.extractPoints("el");
+
     expect(pts).toEqual([{ lat: 1, lng: 2, marker: data }]);
   });
 
@@ -879,64 +1134,92 @@ describe("LayerManager", () => {
     // A Marker WITH .feature (consumable) is extracted, proving the gate is
     // specifically the missing envelope, not Marker identity.
     class Marker {}
+
     window.L.Marker = Marker;
     const plain = new Marker() as any; // no .feature
+
     plain.getLatLng = () => ({ lat: 1, lng: 2 });
+
     plain.options = {};
     const consumed = new Marker() as any;
+
     consumed.feature = { type: "Feature", properties: {} };
+
     consumed.getLatLng = () => ({ lat: 3, lng: 4 });
+
     consumed.options = {};
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({
       id: "mixed",
       name: "Mixed",
       layer: {
         eachLayer: (cb: (l: unknown) => void) => {
           cb(plain);
+
           cb(consumed);
         },
         options: {},
       } as any,
     });
+
     // count treats both as points (count==2), but extractPoints returns only
     // the consumable one — the count-vs-consumable contract held.
     expect(manager.getFeatureCount("mixed")).toBe(2);
     const pts = manager.extractPoints("mixed");
+
     expect(pts.length).toBe(1);
+
     expect(pts[0].marker).toBe(consumed);
   });
 
   it("bringLayerToFront re-renders the list when a UI is attached", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     // register bottom first so top lands at index 0; bottom is then movable
     manager.registerLayer({ id: "bottom", name: "Bottom", layer: { options: {} } });
+
     manager.registerLayer({ id: "top", name: "Top", layer: { options: {} } });
+
     manager.uiContainer = document.createElement("div");
+
     manager.ui = {
       renderInitialList: vi.fn(),
       initTypesAndVisibility: vi.fn(),
     } as any;
+
     manager.bringLayerToFront("bottom");
+
     expect(manager.layers[0].id).toBe("bottom");
+
     expect(manager.ui.renderInitialList).toHaveBeenCalled();
+
     expect(manager.ui.initTypesAndVisibility).toHaveBeenCalled();
   });
 
   it("bringLayerToFront ignores base layers", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({ id: "b", name: "B", layer: new TileLayer(), isBase: true });
     const orderBefore = manager.layers.map(l => l.id);
+
     manager.bringLayerToFront("b");
+
     expect(manager.layers.map(l => l.id)).toEqual(orderBefore);
   });
 
   it("applyLayerZIndex lands ordinary layers in a fallback pane", () => {
     const layer = { options: {} } as any;
+
     manager.map.hasLayer.mockReturnValue(true);
+
     manager.registerLayer({ id: "fb", name: "Fb", layer });
+
     manager.enforceOrder();
+
     expect(layer.options.pane).toMatch(/^foliplus_pane_/);
+
     expect(layer.options.paneSet).toBe(true);
   });
 
@@ -946,6 +1229,7 @@ describe("LayerManager", () => {
     // the constructor identity forEachLeaf's instanceof checks need.
     const makeLeaf = (ctor: any, extra: unknown = {}) =>
       Object.assign(Object.create(ctor.prototype), { options: {}, ...extra });
+
     const wrap = (...leaves: unknown[]) =>
       ({
         options: {},
@@ -963,6 +1247,7 @@ describe("LayerManager", () => {
         layer: { options: {} },
         isBase: true,
       });
+
       expect(manager.getFeatureCount("b1")).toBe(null);
     });
 
@@ -972,23 +1257,28 @@ describe("LayerManager", () => {
 
     it("returns null for a canvas/unknown layer without a provider", () => {
       manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
+
       expect(manager.getFeatureCount("c1")).toBe(null);
     });
 
     it("prefers the third-party featureCountProvider over forEachLeaf", () => {
       const provider = vi.fn(() => 999);
+
       manager.registerLayer({
         id: "pv",
         name: "PV",
         layer: { options: {} },
         featureCountProvider: provider,
       });
+
       expect(manager.getFeatureCount("pv")).toBe(999);
+
       expect(provider).toHaveBeenCalledTimes(1);
     });
 
     it("passes featureCountProvider through createLayerInfo (survives registration)", () => {
       const provider = vi.fn(() => 7);
+
       manager.registerLayer({
         id: "surv",
         name: "Surv",
@@ -996,7 +1286,9 @@ describe("LayerManager", () => {
         featureCountProvider: provider,
       });
       const li = manager.layerRegistry.get("surv");
+
       expect(typeof li?.featureCountProvider).toBe("function");
+
       expect(manager.getFeatureCount("surv")).toBe(7);
     });
 
@@ -1005,21 +1297,28 @@ describe("LayerManager", () => {
         throw new Error("provider boom");
       });
       const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
       manager.registerLayer({
         id: "boom",
         name: "Boom",
         layer: { options: {} },
         featureCountProvider: provider,
       });
+
       expect(manager.getFeatureCount("boom")).toBe(null);
+
       expect(logSpy).toHaveBeenCalled();
+
       expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
+
       logSpy.mockRestore();
     });
 
     it("counts polygons in a feature container via forEachLeaf fallback", () => {
       const layer = wrap(makeLeaf(window.L.Polygon), makeLeaf(window.L.Polygon));
+
       manager.registerLayer({ id: "poly", name: "Poly", layer });
+
       expect(manager.getFeatureCount("poly")).toBe(2);
     });
 
@@ -1028,25 +1327,32 @@ describe("LayerManager", () => {
       const m1 = makeLeaf(window.L.Marker, { feature: {} });
       const m2 = makeLeaf(window.L.Marker);
       const layer = wrap(m1, m2);
+
       manager.registerLayer({ id: "mk", name: "Mk", layer });
+
       expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
     it("returns null for a container layer that is not present (findLayer null)", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
+
       expect(manager.getFeatureCount("absent")).toBe(null);
     });
 
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
       const dataPoly = makeLeaf(window.L.Polygon);
       const labelPoly = makeLeaf(window.L.Polygon);
+
       (labelPoly as unknown as { isLabel: boolean }).isLabel = true;
+
       const labelGroup = {
         options: {},
         eachLayer: (cb: (l: unknown) => void) => cb(labelPoly),
       };
       const mainLayer = wrap(dataPoly, labelGroup);
+
       manager.registerLayer({ id: "nested", name: "Nested", layer: mainLayer });
+
       expect(manager.getFeatureCount("nested")).toBe(1);
     });
   });
@@ -1054,16 +1360,21 @@ describe("LayerManager", () => {
   describe("refreshCount", () => {
     it("emits LAYER_ITEM_COUNT_CHANGE for a registered overlay layer", () => {
       manager.map.hasLayer.mockReturnValue(false);
+
       manager.registerLayer({ id: "rc1", name: "RC", layer: { options: {} } });
       const bus = map.foliplus!.events;
       const handler = vi.fn();
+
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+
       manager.refreshCount("rc1");
+
       expect(handler).toHaveBeenCalledWith({ id: "rc1" });
     });
 
     it("does not emit for a base layer", () => {
       manager.map.hasLayer.mockReturnValue(false);
+
       manager.registerLayer({
         id: "b1",
         name: "B",
@@ -1072,43 +1383,58 @@ describe("LayerManager", () => {
       });
       const bus = map.foliplus!.events;
       const handler = vi.fn();
+
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+
       manager.refreshCount("b1");
+
       expect(handler).not.toHaveBeenCalled();
     });
 
     it("invalidates the layer's cached type before emitting, so mixed geometry at runtime is re-detected", () => {
       manager.map.hasLayer.mockReturnValue(false);
+
       const poly = Object.assign(Object.create(window.L.Polygon.prototype), {
         options: {},
       });
+
       const polyLayer = {
         options: {},
         eachLayer: (cb: (l: unknown) => void) => cb(poly),
       };
+
       manager.registerLayer({ id: "rt", name: "RT", layer: polyLayer });
+
       expect(manager.getLayerType("rt")).toBe(GEOM_TYPE.POLYGON);
+
       // refreshCount must clear the cached type so a subsequent runtime geometry
       // mix is re-detected by getLayerType/getGeometryType
       manager.refreshCount("rt");
       const layerInfo = manager.layerRegistry.get("rt");
+
       expect(layerInfo?.type).toBeNull();
     });
 
     it("emits for an unknown layer id (no-op subscriber; defensive)", () => {
       const bus = map.foliplus!.events;
       const handler = vi.fn();
+
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+
       manager.refreshCount("ghost");
+
       expect(handler).toHaveBeenCalledWith({ id: "ghost" });
     });
   });
 
   it("canReorderBetween delegates to the registry", () => {
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({ id: "o2", name: "O2", layer: { options: {} } });
+
     // layers: [o2, overlay1, base1] — 0↔1 same overlay group, 0↔2 cross-group
     expect(manager.canReorderBetween(0, 1)).toBe(true);
+
     expect(manager.canReorderBetween(0, 2)).toBe(false);
   });
 
@@ -1118,27 +1444,41 @@ describe("LayerManager", () => {
       eachLayer: (cb: (l: unknown) => void) =>
         cb({ options: { pane: "custom_child" } }),
     } as any;
+
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.registerLayer({ id: "cp", name: "Cp", layer: childPaneLayer });
+
     expect(manager.panes.paneCache.size).toBeGreaterThanOrEqual(0); // no crash
     // ensurePane was reached — the pane should exist in defaultPanes set? just verify no throw
   });
 
   it("syncAttribution removes the previous attribution via removeAttribution", () => {
     const tile = new TileLayer();
+
     map.attributionControl.removeAttribution = vi.fn();
+
     map.attributionControl.addAttribution = vi.fn();
+
     manager.map.hasLayer.mockImplementation(l => l === tile);
+
     manager.registerLayer({ id: "b1", name: "B1", layer: tile, isBase: true });
+
     manager.enforceOrder();
+
     expect(manager.lastAttribution).toBe("© OpenStreetMap");
+
     expect(map.attributionControl.addAttribution).toHaveBeenCalledWith(
       "© OpenStreetMap",
     );
+
     // flip visibility off → top becomes empty → prev removed
     manager.map.hasLayer.mockReturnValue(false);
+
     manager.enforceOrder();
+
     expect(manager.lastAttribution).toBe("");
+
     expect(map.attributionControl.removeAttribution).toHaveBeenCalledWith(
       "© OpenStreetMap",
     );
@@ -1155,17 +1495,23 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
+
     const stamp = (() => {
       let id = 0;
       return vi.fn(() => ++id);
@@ -1175,13 +1521,17 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       options = { attribution: "© OpenStreetMap" };
       setZIndex = vi.fn();
     }
+
     class GridLayer {
       options = {};
     }
 
     window.L.TileLayer = TileLayer;
+
     window.L.GridLayer = GridLayer;
+
     window.L.Renderer = Renderer;
+
     window.L.layerGroup = vi.fn(() => ({
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
@@ -1190,16 +1540,24 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       clearLayers: vi.fn(),
       options: {},
     }));
+
     window.L.Path = Path;
+
     window.L.Polygon = Polygon;
+
     window.L.Polyline = Polyline;
+
     window.L.Marker = Marker;
+
     window.L.CircleMarker = CircleMarker;
+
     window.L.stamp = stamp;
+
     window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
 
     const makePane = () => {
       const el = document.createElement("div");
+
       el.style.zIndex = "0";
       return el;
     };
@@ -1214,11 +1572,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
+
         p.style.zIndex = "0";
         return p;
       }),
       createPane: vi.fn(() => {
         const p = makePane();
+
         p.classList.add("foliplus-layer-pane");
         return p;
       }),
@@ -1234,9 +1594,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "b", name: "B", isBase: false },
       { id: "c", name: "C", isBase: false },
     ]);
+
     expect(manager.moveLayerUp("b")).toBe(true);
+
     expect(manager.layers[0].id).toBe("b");
+
     expect(manager.layers[1].id).toBe("a");
+
     expect(manager.layers[2].id).toBe("c");
   });
 
@@ -1245,11 +1609,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
     ]);
+
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
   it("returns false for unknown layer id", () => {
     manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+
     expect(manager.moveLayerUp("unknown")).toBe(false);
   });
 
@@ -1260,8 +1626,11 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "base1", name: "Base", isBase: true },
       { id: "base2", name: "Base2", isBase: true },
     ]);
+
     expect(manager.moveLayerUp("base2")).toBe(true);
+
     expect(manager.layers[2].id).toBe("base2");
+
     expect(manager.moveLayerUp("base2")).toBe(false);
   });
 
@@ -1271,9 +1640,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "b", name: "B", isBase: false },
       { id: "c", name: "C", isBase: false },
     ]);
+
     expect(manager.moveLayerDown("a")).toBe(true);
+
     expect(manager.layers[0].id).toBe("b");
+
     expect(manager.layers[1].id).toBe("a");
+
     expect(manager.layers[2].id).toBe("c");
   });
 
@@ -1282,6 +1655,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
     ]);
+
     expect(manager.moveLayerDown("b")).toBe(false);
   });
 
@@ -1291,6 +1665,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "base1", name: "Base", isBase: true },
       { id: "base2", name: "Base2", isBase: true },
     ]);
+
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
@@ -1300,8 +1675,11 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "base1", name: "Base1", isBase: true },
       { id: "base2", name: "Base2", isBase: true },
     ]);
+
     expect(manager.moveLayerDown("base1")).toBe(true);
+
     expect(manager.layers[1].id).toBe("base2");
+
     expect(manager.layers[2].id).toBe("base1");
   });
 
@@ -1311,7 +1689,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "b", name: "B", isBase: false },
       { id: "c", name: "C", isBase: false },
     ]);
+
     manager.moveLayerUp("c");
+
     expect(manager.layers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "b" }),
@@ -1319,7 +1699,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
         expect.objectContaining({ id: "a" }),
       ]),
     );
+
     manager.moveLayerDown("c");
+
     expect(manager.layers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "a" }),
@@ -1334,21 +1716,27 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
     ]);
+
     manager.moveLayerUp("b");
+
     const zB = manager.computeZIndex(
       manager.layerRegistry.indexOf(manager.layerRegistry.get("b")!),
       false,
     );
+
     const zA = manager.computeZIndex(
       manager.layerRegistry.indexOf(manager.layerRegistry.get("a")!),
       false,
     );
+
     expect(zB).toBeGreaterThan(zA);
   });
 
   it("returns false when only one layer exists", () => {
     manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+
     expect(manager.moveLayerUp("a")).toBe(false);
+
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
@@ -1359,10 +1747,15 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "c", name: "C", isBase: false },
       { id: "base1", name: "Base1", isBase: true },
     ]);
+
     expect(manager.moveLayerUp("b")).toBe(true);
+
     expect(manager.layers[0].id).toBe("b");
+
     expect(manager.moveLayerUp("c")).toBe(true);
+
     expect(manager.moveLayerUp("c")).toBe(true);
+
     expect(manager.layers[0].id).toBe("c");
   });
 
@@ -1371,6 +1764,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "base1", name: "Base1", isBase: true },
     ]);
+
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
@@ -1382,11 +1776,17 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "base2", name: "Base2", isBase: true },
       { id: "base3", name: "Base3", isBase: true },
     ]);
+
     expect(manager.moveLayerDown("base1")).toBe(true);
+
     expect(manager.moveLayerDown("base1")).toBe(true);
+
     expect(manager.layers[2].id).toBe("base2");
+
     expect(manager.layers[3].id).toBe("base3");
+
     expect(manager.layers[4].id).toBe("base1");
+
     expect(manager.moveLayerDown("base1")).toBe(false);
   });
 
@@ -1396,7 +1796,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "b", name: "B", isBase: false },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
+
     manager.moveLayerUp("b");
+
     expect(enforceSpy).toHaveBeenCalled();
   });
 
@@ -1405,6 +1807,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "base1", name: "Base1", isBase: true },
     ]);
+
     expect(manager.moveLayerDown("base1")).toBe(false);
   });
 
@@ -1413,6 +1816,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "base1", name: "Base1", isBase: true },
     ]);
+
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
@@ -1421,6 +1825,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "a", name: "A", isBase: false },
       { id: "base1", name: "Base1", isBase: true },
     ]);
+
     expect(manager.moveLayerUp("base1")).toBe(false);
   });
 
@@ -1430,7 +1835,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       { id: "b", name: "B", isBase: false },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
+
     manager.moveLayerDown("a");
+
     expect(enforceSpy).toHaveBeenCalled();
   });
 });
@@ -1457,33 +1864,50 @@ describe("LayerManager user-assigned names", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
+
     window.L.TileLayer = TileLayer;
+
     window.L.GridLayer = GridLayer;
+
     window.L.Renderer = Renderer;
+
     window.L.Path = Path;
+
     window.L.Polygon = Polygon;
+
     window.L.Polyline = Polyline;
+
     window.L.Marker = Marker;
+
     window.L.CircleMarker = CircleMarker;
+
     window.L.stamp = vi.fn();
+
     window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
 
     const makePane = () => {
       const el = document.createElement("div");
+
       el.style.zIndex = "0";
       return el;
     };
@@ -1498,11 +1922,13 @@ describe("LayerManager user-assigned names", () => {
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
+
         p.style.zIndex = "0";
         return p;
       }),
       createPane: vi.fn(() => {
         const p = makePane();
+
         p.classList.add("foliplus-layer-pane");
         return p;
       }),
@@ -1519,7 +1945,9 @@ describe("LayerManager user-assigned names", () => {
     manager = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: extLayer },
     ]);
+
     manager.ui = new LayerUI(manager);
+
     manager.attachUI(document.createElement("div"));
   });
 
@@ -1529,21 +1957,27 @@ describe("LayerManager user-assigned names", () => {
     // `opts.name` over the existing value, reverting the panel to the
     // original on the next render or reload.
     manager.ui.renameLayer("ext");
+
     const item = manager.ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;
     const input = label.querySelector("input") as HTMLInputElement;
+
     input.value = "My Layer";
+
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
     expect(manager.ui.displayName("ext")).toBe("My Layer");
 
     // Re-registration rebuilds the registry entry from the caller's metadata,
     // then the incremental refresh pushes the rename back out.
     manager.registerLayer({ id: "ext", name: "Provider Layer" });
+
     manager.ui.applyUserState();
 
     expect(manager.ui.displayName("ext")).toBe("My Layer");
+
     expect(manager.layerRegistry.get("ext")?.name).toBe("My Layer");
   });
 
@@ -1554,16 +1988,20 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
+
     fresh.ui = new LayerUI(fresh);
+
     window.localStorage.setItem(
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ ext: "My Layer" }),
     );
+
     fresh.attachUI(document.createElement("div"));
 
     // The registry is the projection, so the sweep pushes the rename into it
     // too; displayName is the render contract either way.
     expect(fresh.layerRegistry.get("ext")?.name).toBe("My Layer");
+
     expect(fresh.ui.displayName("ext")).toBe("My Layer");
   });
 
@@ -1577,18 +2015,23 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
+
     fresh.ui = new LayerUI(fresh);
+
     window.localStorage.setItem(
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ heatmap1: "POI Density" }),
     );
+
     fresh.attachUI(document.createElement("div"));
 
     // The heatmap registers late, still advertising its own title.
     fresh.registerLayer({ id: "heatmap1", name: "Heatmap" });
+
     fresh.ui.applyUserState();
 
     expect(fresh.ui.displayName("heatmap1")).toBe("POI Density");
+
     expect(fresh.layerRegistry.get("heatmap1")?.name).toBe("POI Density");
   });
 
@@ -1611,13 +2054,17 @@ describe("LayerManager user-assigned names", () => {
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ "no-such-id": "Ghost" }),
     );
+
     manager.ui.loadNamesState();
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     manager.ui.applyUserState();
+
     warn.mockRestore();
 
     expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
+
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
   });
 
@@ -1626,19 +2073,23 @@ describe("LayerManager user-assigned names", () => {
     // layer is gone for good rather than merely not registered yet.
     manager.ui.renamedNames["ext"] = "My Layer";
     const save = vi.fn();
+
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("ext")).toBe(true);
 
     expect(manager.ui.renamedNames["ext"]).toBeUndefined();
+
     expect(save).toHaveBeenCalled();
   });
 
   it("does not touch the rename map when unregistering an unknown id", () => {
     const save = vi.fn();
+
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("never-registered")).toBe(false);
+
     expect(save).not.toHaveBeenCalled();
   });
 });

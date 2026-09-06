@@ -28,6 +28,7 @@ class PaneManager {
 
   constructor(map: L.Map) {
     this.map = map;
+
     this.defaultPanes = new Set([
       "overlayPane",
       "markerPane",
@@ -35,8 +36,11 @@ class PaneManager {
       "shadowPane",
       "mapPane",
     ]);
+
     this.labelPanes = new Set();
+
     this.paneCache = new Map();
+
     this.fallbackPaneMap = new Map();
   }
 
@@ -52,16 +56,21 @@ class PaneManager {
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
+
       pane.classList.add("foliplus-layer-pane");
+
       pane.style.zIndex = String(CONST.Z_INDEX.BASE);
     }
     let renderer: L.SVG | null = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;
+
       renderer = (this.map as L.Map & PaneRendererMap)[key] ?? null;
       if (!renderer) {
         renderer = L.svg({ pane: paneName });
+
         renderer.addTo(this.map);
+
         (this.map as L.Map & PaneRendererMap)[key] = renderer;
       }
     }
@@ -85,15 +94,20 @@ class PaneManager {
       // add/remove cycle; the DOM teardown below is the cheap half.
       // Renderer.onRemove detaches the SVG root.
       if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
+
       delete (this.map as L.Map & PaneRendererMap)[key];
     }
+
     // Leaflet's own per-pane registry is separate: getRenderer() fills it
     // lazily, so it can exist without our key. Clearing it keeps getRenderer()
     // from re-adding a dead renderer to the removed pane.
     delete this.map._paneRenderers[paneName];
+
     this.map.getPane(paneName)?.remove();
+
     // getPane() must not keep returning a detached node.
     delete this.map._panes[paneName];
+
     this.fallbackPaneMap.delete(stamp);
   }
 
@@ -103,13 +117,16 @@ class PaneManager {
    *  deleting their panes would drop them off the map. */
   destroy() {
     this.paneCache.clear();
+
     this.fallbackPaneMap.clear();
+
     this.labelPanes.clear();
   }
 
   /** Bump label panes for a layer so labels render above paths. */
   bumpLabelPanes(layer: L.Layer, z: number): void {
     const childPanes = this.discoverChildPanes(layer);
+
     childPanes.forEach(cp => {
       if (this.labelPanes.has(cp)) {
         const lp = this.ensurePane(cp, false);
@@ -133,6 +150,7 @@ class PaneManager {
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
+
       const container = (renderer as (L.SVG & { _container?: HTMLElement }) | null)
         ?._container;
       if (!container) {
@@ -141,11 +159,13 @@ class PaneManager {
         // still be marked handled — otherwise applyLayerZIndex re-queues it on
         // every enforceOrder pass (options.pane never matches paneName).
         layer.options.pane = paneName;
+
         layer.options.paneSet = true;
         continue;
       }
       const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
+
       const collect = (l: L.Layer): void => {
         if (
           (l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void }).eachLayer
@@ -155,7 +175,9 @@ class PaneManager {
           );
           return;
         }
+
         l.options.pane = paneName;
+
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
@@ -165,27 +187,32 @@ class PaneManager {
           const marker = l as MarkerWithShadow;
           if (marker._shadow && marker._shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+
             markerGroups.get(paneEl)!.push(marker._shadow);
           }
           const iconEl = l.getElement();
           if (iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+
             markerGroups.get(paneEl)!.push(iconEl);
           }
         }
       };
+
       collect(layer);
     }
     for (const [container, paths] of groups) {
       if (!paths.length) continue;
       const frag = document.createDocumentFragment();
       for (const p of paths) frag.appendChild(p);
+
       container.appendChild(frag);
     }
     for (const [paneEl, markers] of markerGroups) {
       if (!markers.length) continue;
       const frag = document.createDocumentFragment();
       for (const m of markers) frag.appendChild(m);
+
       paneEl.appendChild(frag);
     }
   }
@@ -198,6 +225,7 @@ class PaneManager {
       this.paneCache.delete(id);
       return;
     }
+
     this.paneCache.clear();
   }
 
@@ -222,6 +250,7 @@ class PaneManager {
     const key = L.stamp(layer);
     if (this.paneCache.has(key)) return this.paneCache.get(key) as string[];
     const panes = new Set<string>();
+
     forEachLayer(
       layer,
       (l: L.Layer) => {
@@ -231,6 +260,7 @@ class PaneManager {
       depth,
     );
     const result = Array.from(panes);
+
     this.paneCache.set(key, result);
     return result;
   }

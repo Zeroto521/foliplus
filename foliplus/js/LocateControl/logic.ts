@@ -31,10 +31,12 @@ const setLocating = (ctrl: LocateCtrl, locating: boolean): void => {
 const removeMarker = (ctrl: LocateCtrl) => {
   if (ctrl.delIcon) {
     map.removeLayer(ctrl.delIcon);
+
     ctrl.delIcon = null;
   }
   if (ctrl.marker) {
     map.removeLayer(ctrl.marker);
+
     ctrl.marker = null;
   }
 };
@@ -42,8 +44,11 @@ const removeMarker = (ctrl: LocateCtrl) => {
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
 const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: string) => {
   map.foliplus!.hideHint(CONF.name);
+
   map.flyTo([lat, lng], CONF.zoom || 15);
+
   removeMarker(ctrl);
+
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -66,10 +71,13 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     title: _("foliplus.close_label"),
     iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the pin's bottom tip
   });
+
   map.addLayer(ctrl.delIcon);
 
   const delIcon = ctrl.delIcon;
+
   attachDelClick(delIcon, () => removeMarker(ctrl));
+
   bindDelIconToPopup(ctrl.marker, delIcon);
 };
 
@@ -81,26 +89,35 @@ const locateMe = (ctrl: LocateCtrl) => {
     map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     return;
   }
+
   setLocating(ctrl, true);
+
   map.foliplus!.showHint(
     CONF.name,
     `${Icons.LOADING} ${T("locating")}`,
     HINT_DURATION.PERSIST,
   );
+
   geo.getCurrentPosition(
     pos => {
       setLocating(ctrl, false);
+
       map.foliplus!.hideHint(CONF.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
+
       lng = Number(converted[0].toFixed(6));
+
       lat = Number(converted[1].toFixed(6));
+
       placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
     },
     () => {
       setLocating(ctrl, false);
+
       map.foliplus!.hideHint(CONF.name);
+
       map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
     },
   );

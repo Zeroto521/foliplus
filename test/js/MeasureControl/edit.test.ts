@@ -17,7 +17,9 @@ const resetDragFlag = () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   resetDragFlag();
+
   window.L.DomEvent = {
     ...window.L.DomEvent,
     stopPropagation: vi.fn(),
@@ -30,6 +32,7 @@ describe("buildEditOverlay", () => {
   function makeMap() {
     return { on: vi.fn(), off: vi.fn() } as any;
   }
+
   function makeHost(overrides: Record<string, unknown> = {}) {
     return { map: makeMap(), isEditMode: true, ...overrides };
   }
@@ -39,6 +42,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(makeHost() as any, { onOpen });
 
     overlay.open({ originalEvent: {} } as any);
+
     overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).toHaveBeenCalledTimes(1);
@@ -49,7 +53,9 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(makeHost() as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({ originalEvent: {} } as any);
+
     overlay.close();
+
     overlay.close();
 
     expect(onEmpty).toHaveBeenCalledTimes(1);
@@ -61,6 +67,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(host, { onOpen: vi.fn() });
 
     markDragSyntheticClick();
+
     overlay.open(ev);
 
     // Synthetic click is fully neutralized — the same event object must not
@@ -75,12 +82,15 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(host, { onOpen });
 
     overlay.open({ originalEvent: {} } as any);
+
     expect(onOpen).toHaveBeenCalledTimes(1);
 
     host.isEditMode = false;
+
     // Close so the overlay is no longer "open"; the next open call re-reads
     // the host's isEditMode gate.
     overlay.close();
+
     overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).toHaveBeenCalledTimes(1); // still 1 — the second open was gated
@@ -88,6 +98,7 @@ describe("buildEditOverlay", () => {
 
   it("cleanup is a no-op on the closer unregister when called twice", () => {
     const closers: Array<() => void> = [];
+
     const host = {
       map: makeMap(),
       isEditMode: true,
@@ -102,6 +113,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(host as any, { onOpen: vi.fn() });
 
     overlay.cleanup();
+
     overlay.cleanup(); // must not throw, must not double-unregister
 
     expect(closers).toHaveLength(0);
@@ -113,7 +125,9 @@ describe("buildEditOverlay", () => {
 describe("markDragSyntheticClick / isDragSyntheticClick", () => {
   it("returns true once after markDragSyntheticClick", () => {
     markDragSyntheticClick();
+
     expect(isDragSyntheticClick()).toBe(true);
+
     expect(isDragSyntheticClick()).toBe(false);
   });
 });
@@ -123,6 +137,7 @@ describe("markDragSyntheticClick / isDragSyntheticClick", () => {
 describe("bindNodeDrag", () => {
   it("cleanup unbinds both the node mousedown AND mouseup handlers", () => {
     const node = { on: vi.fn(), off: vi.fn() };
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -132,6 +147,7 @@ describe("bindNodeDrag", () => {
     const mousedownHandler = (node.on as any).mock.calls.find(
       ([ev]) => ev === "mousedown",
     )?.[1];
+
     const mouseupHandler = (node.on as any).mock.calls.find(
       ([ev]) => ev === "mouseup",
     )?.[1];
@@ -139,6 +155,7 @@ describe("bindNodeDrag", () => {
     cleanup();
 
     expect(node.off).toHaveBeenCalledWith("mousedown", mousedownHandler);
+
     expect(node.off).toHaveBeenCalledWith("mouseup", mouseupHandler);
   });
 
@@ -155,16 +172,19 @@ describe("bindNodeDrag", () => {
     cleanup();
 
     expect(map.off).toHaveBeenCalledWith("mousemove", moveHandler);
+
     expect(map.off).toHaveBeenCalledWith("mouseup", upHandler);
   });
 
   it("delMarker is not moved when absent (null)", () => {
     const onDrag = vi.fn();
+
     const node = {
       on: vi.fn(),
       off: vi.fn(),
       setLatLng: vi.fn(),
     };
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -177,20 +197,24 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
+
     setEnabled(true);
 
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+
     onMove({
       originalEvent: { clientX: 10, clientY: 0 },
       latlng: { lat: 2, lng: 2 },
     } as any);
 
     expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
     // With no delMarker, only node.setLatLng is called (exactly once).
     expect(node.setLatLng).toHaveBeenCalledTimes(1);
+
     expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
   });
 });

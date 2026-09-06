@@ -73,10 +73,13 @@ class ModeManager {
   ): void {
     assertComponentName(component);
     if (this.modes.get(component) === mode) return;
+
     this.modes.set(component, mode);
     if (mode !== null && suspendSkip) this.modeSkips.set(component, suspendSkip);
     else this.modeSkips.delete(component);
+
     this.bus.emit(EVENTS.MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
+
     this.syncInteractionLock();
   }
 
@@ -97,8 +100,10 @@ class ModeManager {
     if (active.length === 0) {
       if (this.interactionLock) {
         this.interactionLock();
+
         this.interactionLock = null;
       }
+
       this.interactionSkipSignature = "";
       return;
     }
@@ -108,6 +113,7 @@ class ModeManager {
     // effective suspension policy actually changes — a switch between two
     // all-suspending modes reuses the existing lock.
     const hasSuspender = active.some(([component]) => !this.modeSkips.has(component));
+
     const signature = hasSuspender
       ? "suspend-all"
       : active
@@ -116,10 +122,13 @@ class ModeManager {
           .join(",");
     if (this.interactionLock && this.interactionSkipSignature === signature) return;
     if (this.interactionLock) this.interactionLock();
+
     const skip = (leaf: L.Layer) =>
       !hasSuspender &&
       active.every(([component]) => this.modeSkips.get(component)?.(leaf) ?? false);
+
     this.interactionLock = suspendMapInteractions(this.map, skip);
+
     this.interactionSkipSignature = signature;
   }
 
@@ -146,7 +155,9 @@ class ModeManager {
 
   clear(): void {
     this.modes.clear();
+
     this.modeSkips.clear();
+
     this.syncInteractionLock();
   }
 }
@@ -159,9 +170,12 @@ const ensureModes = (map: L.Map): ModeManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map), map);
+
   instances.set(map, manager);
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
+
   map.foliplus!.modes = manager;
+
   // On map unload, clear modes and release the interaction lock so manager
   // state and the disabled-layers closure do not outlive the map (mirrors the
   // per-map cleanup pattern used by core/interaction).
@@ -191,6 +205,7 @@ const guardBlocked = (
       if (candidate) text = candidate.text;
     }
   }
+
   map.foliplus?.showHint?.(name, text, HINT_DURATION.SHORT);
   return true;
 };

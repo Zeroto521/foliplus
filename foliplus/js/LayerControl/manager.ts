@@ -40,6 +40,7 @@ let bringToFrontPatchRefs = 0;
 const patchBringToFront = () => {
   bringToFrontPatchRefs++;
   if (bringToFrontPatchRefs > 1) return;
+
   L.Path.prototype.bringToFront = function () {
     if (this._path && this._path.parentNode) origBringToFront.call(this);
     return this;
@@ -48,8 +49,10 @@ const patchBringToFront = () => {
 
 const unpatchBringToFront = () => {
   if (bringToFrontPatchRefs <= 0) return;
+
   bringToFrontPatchRefs--;
   if (bringToFrontPatchRefs > 0) return;
+
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
@@ -78,23 +81,36 @@ class LayerManager implements LayerAPI {
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+
     this.layerRegistry = new LayerRegistry(data, this.map);
+
     this.pendingRegistrations = [];
+
     this.uiContainer = null;
 
     // Bind method context
     this.registerLayer = this.registerLayer.bind(this);
+
     this.unregisterLayer = this.unregisterLayer.bind(this);
+
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
+
     this.getLayerType = this.getLayerType.bind(this);
+
     this.getLayersByType = this.getLayersByType.bind(this);
+
     this.findLayer = this.findLayer.bind(this);
+
     this.forEachLeaf = this.forEachLeaf.bind(this);
+
     this.extractPoints = this.extractPoints.bind(this);
+
     this.isEnforcing = false;
+
     this.isDestroyed = false;
 
     this.panes = new PaneManager(mapInstance);
+
     this.getLayerPanes = this.panes.getLayerPanes.bind(this.panes);
 
     this.factory = new LayerFactory({
@@ -110,10 +126,12 @@ class LayerManager implements LayerAPI {
     });
 
     this.lastAttribution = null;
+
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
       if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
+
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
@@ -127,11 +145,15 @@ class LayerManager implements LayerAPI {
 
       if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
+
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+
     this.loadSavedOrder();
+
     this.layerRegistry.normalizeGroups();
+
     this.enforceOrder();
 
     // Before any export, flush pending debounced enforceOrder so the
@@ -142,6 +164,7 @@ class LayerManager implements LayerAPI {
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerManager itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
+
     this.map.foliplus!.LayerAPI = this;
   }
 
@@ -177,9 +200,11 @@ class LayerManager implements LayerAPI {
     for (const id of data) {
       if (layerMap.has(id)) {
         ordered.push(layerMap.get(id)!);
+
         layerMap.delete(id);
       }
     }
+
     this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
@@ -203,6 +228,7 @@ class LayerManager implements LayerAPI {
     if (layerInfo.iconSvg) return GEOM_TYPE.CUSTOM;
     const layer = this.findLayer(layerInfo);
     if (!layer) return null;
+
     layerInfo.type = getGeometryType(layer);
     return layerInfo.type;
   }
@@ -274,10 +300,12 @@ class LayerManager implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.isBase) return;
+
     // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
     // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
     this.invalidateType(id);
+
     ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
@@ -314,14 +342,17 @@ class LayerManager implements LayerAPI {
     const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
       [];
     const seen = new Set();
+
     this.forEachLeaf(id, (l: L.Layer) => {
       if ((l as LabelAwareLayer).isLabel) return;
       if (!(l instanceof L.Marker || l instanceof L.CircleMarker)) return;
       if (!l.feature) return;
       const stamp = L.stamp(l);
       if (seen.has(stamp)) return;
+
       seen.add(stamp);
       const ll = l.getLatLng();
+
       pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
     });
     return pts;
@@ -346,6 +377,7 @@ class LayerManager implements LayerAPI {
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer))
         this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+
       // options.pane is updated below — invalidate only this layer's cache.
       this.panes.reset(L.stamp(opts.layer));
     }
@@ -356,6 +388,7 @@ class LayerManager implements LayerAPI {
       !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)
     ) {
       opts.layer.options.pane = opts.paneName;
+
       opts.layer.options.paneSet = true;
     }
 
@@ -374,6 +407,7 @@ class LayerManager implements LayerAPI {
 
     if (!this.uiContainer) {
       this.pendingRegistrations.push(layerInfo);
+
       this.debouncedEnforce();
       return null;
     }
@@ -381,14 +415,19 @@ class LayerManager implements LayerAPI {
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
       else this.ui.updateLayerItem(layerInfo, existingIdx);
+
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
+
       this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
+
     this.saveOrder();
+
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
@@ -405,12 +444,17 @@ class LayerManager implements LayerAPI {
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
     if (item?.isBase) return;
+
     this.layerRegistry.moveToFront(id);
+
     this.enforceOrder();
+
     this.saveOrder();
+
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
+
       this.ui.initTypesAndVisibility();
     }
   }
@@ -427,13 +471,16 @@ class LayerManager implements LayerAPI {
     const layer = this.findLayer(layerInfo);
     if (layer) {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
+
       this.clearAllLayers(layer);
     }
     const layerStamp = layer ? L.stamp(layer) : null;
     if (layerStamp !== null) this.panes.reset(layerStamp);
+
     // The layer is off the map first (above), so the pane teardown never
     // touches a live layer's renderer or path nodes.
     this.panes.releaseFallbackPane(layerStamp);
+
     // Drop label-pane bookkeeping for layers that no longer use it.
     this.panes.sweepLabelPanes(this.layers);
 
@@ -446,6 +493,7 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
+
     // Remove the layer's id from the persisted hidden set and rename map so
     // a removed layer doesn't carry stale state into a future session.
     // The rename prune has to happen here rather than in applyUserState:
@@ -455,12 +503,16 @@ class LayerManager implements LayerAPI {
     // already attached), and pruning there would revert the rename on the
     // first attach — every reload.
     this.ui?.hiddenIds?.delete(id);
+
     this.ui?.saveHiddenIds();
     if (this.ui?.renamedNames?.[id] != null) {
       delete this.ui.renamedNames[id];
+
       this.ui.saveNamesState();
     }
+
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
     ensureEvents(this.map).emit(EVENTS.LAYER_REMOVED, { id });
@@ -488,7 +540,9 @@ class LayerManager implements LayerAPI {
 
   enforceOrder() {
     if (this.isEnforcing) return;
+
     this.debouncedEnforce?.cancel();
+
     this.isEnforcing = true;
     try {
       const layersToMove: Array<{
@@ -531,6 +585,7 @@ class LayerManager implements LayerAPI {
       if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
 
       this.panes.migrateLayers(layersToMove);
+
       this.syncAttribution();
     } finally {
       this.isEnforcing = false;
@@ -559,9 +614,11 @@ class LayerManager implements LayerAPI {
     const paneName = layerInfo.paneName;
     if (paneName) {
       const paneEntry = this.panes.ensurePane(paneName, !isTile);
+
       paneEntry.pane.style.zIndex = String(z);
       if (layer.options.pane !== paneName || !layer.options.paneSet)
         layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
+
       this.panes.bumpLabelPanes(layer, z);
       return;
     }
@@ -583,16 +640,21 @@ class LayerManager implements LayerAPI {
       childPanes.forEach((cp: string) => {
         const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
         const paneEntry = this.panes.ensurePane(cp, needRenderer);
+
         paneEntry.pane.style.zIndex = String(z);
       });
+
       this.panes.bumpLabelPanes(layer, z);
+
       layer.options.paneSet = true;
       return;
     }
 
     const fbName = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
+
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
     const paneEntry = this.panes.ensurePane(fbName, !isTile);
+
     paneEntry.pane.style.zIndex = String(z);
     if (layer.options.pane !== fbName || !layer.options.paneSet)
       layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
@@ -624,6 +686,7 @@ class LayerManager implements LayerAPI {
     if (topAttr === this.lastAttribution) return;
 
     const prev = this.lastAttribution;
+
     this.lastAttribution = topAttr;
     if (prev) {
       if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
@@ -659,9 +722,13 @@ class LayerManager implements LayerAPI {
     if (!this.canReorderBetween(idx, idx - 1)) return false;
 
     this.layerRegistry.reorder(idx, idx - 1);
+
     this.enforceOrder();
+
     this.saveOrder();
+
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -681,9 +748,13 @@ class LayerManager implements LayerAPI {
     if (!this.canReorderBetween(idx, idx + 1)) return false;
 
     this.layerRegistry.reorder(idx, idx + 1);
+
     this.enforceOrder();
+
     this.saveOrder();
+
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -692,18 +763,25 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
+
     this.persistence.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
+
       this.ui = null;
     }
     if (this.uiContainer) {
       this.uiContainer.innerHTML = "";
+
       this.uiContainer = null;
     }
+
     this.layerRegistry.clear();
+
     this.pendingRegistrations = [];
+
     this.panes.destroy();
+
     // Revert to the lightweight LayerAPI (no registry, no panel).
     // ensureLayerAPI guarantees a valid object, so consumers can always
     // call `map.foliplus.LayerAPI.xxx` without null checks.

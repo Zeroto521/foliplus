@@ -6,6 +6,7 @@ describe("cssVar", () => {
 
   beforeEach(() => {
     el = document.createElement("div");
+
     el.style.setProperty("--test-color", "red");
   });
 
@@ -19,7 +20,9 @@ describe("cssVar", () => {
 
   it("returns fallback when property is empty", () => {
     const empty = document.createElement("div");
+
     empty.style.setProperty("--empty", "  ");
+
     expect(cssVar(empty, "--empty", "default")).toBe("default");
   });
 

@@ -35,11 +35,14 @@ const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
 /* v8 ignore start -- help/error handling only runs when invoked as a CLI */
 if (_raw.help) {
   console.log(help(SCAN_SPEC));
+
   process.exit(0);
 }
 if (_raw.errors.length) {
   console.error(_raw.errors.join("\n"));
+
   console.error(help(SCAN_SPEC));
+
   process.exit(1);
 }
 /* v8 ignore stop */
@@ -48,6 +51,7 @@ const opts = _raw;
 const ROOT = resolve(opts.root);
 const srcDir = resolve(ROOT, "foliplus/js");
 const buildJs = resolve(ROOT, "foliplus/.build/js");
+
 mkdirSync(buildJs, { recursive: true });
 
 const scanImports = dir => {
@@ -61,6 +65,7 @@ const scanImports = dir => {
       if (entry.isDirectory()) walk(full);
       else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
         const src = readFileSync(full, "utf-8");
+
         allSrc.set(full, src);
 
         const namedRe =
@@ -71,6 +76,7 @@ const scanImports = dir => {
             .replace(/^#/, "")
             .replace(/\.js$/, "")
             .replace(/\/index$/, "");
+
           const names = m[1]
             .split(",")
             .map(n => n.trim())
@@ -78,6 +84,7 @@ const scanImports = dir => {
             .map(n => n.replace(/[\s]+as[\s]+.*/g, ""))
             .filter(Boolean);
           if (!imported.has(spec)) imported.set(spec, new Set());
+
           names.forEach(n => imported.get(spec).add(n));
         }
 
@@ -89,6 +96,7 @@ const scanImports = dir => {
             .replace(/\.js$/, "")
             .replace(/\/index$/, "");
           if (!starImported.has(spec)) starImported.set(spec, new Set());
+
           starImported.get(spec).add(m[1]);
         }
       }
@@ -123,14 +131,17 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const buildDir = buildJsParam;
   const commonDir = resolve(sourceDir, "common");
   const coreDir = resolve(sourceDir, "core");
+
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
     .sort();
+
   const coreSubs = readdirSync(coreDir, { withFileTypes: true })
     .filter(d => d.isDirectory())
     .map(d => d.name)
     .sort();
+
   const coreSingleFiles = readdirSync(coreDir, { withFileTypes: true })
     .filter(f => f.isFile() && f.name.endsWith(".ts") && f.name !== "index.ts")
     .map(f => f.name.replace(/\.ts$/, ""))
@@ -147,6 +158,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     const scanned = scanImports(dir);
     for (const [spec, names] of Object.entries(scanned)) {
       if (!usedExports[spec]) usedExports[spec] = [];
+
       usedExports[spec].push(...names);
     }
   }
@@ -166,10 +178,13 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     const names = usedExports["core/" + sub] || [];
     if (names.length === 0) continue;
     const alias = "core" + sub;
+
     lines.push(
       "import { " + names.join(", ") + ' } from "#core/' + sub + '/index.js";',
     );
+
     lines.push("const " + alias + " = { " + names.join(", ") + " };");
+
     lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
   }
 
@@ -180,16 +195,22 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     const names = usedExports["core/" + name] || [];
     if (names.length === 0) continue;
     const alias = "core" + name;
+
     lines.push("import { " + names.join(", ") + ' } from "#core/' + name + '.js";');
+
     lines.push("const " + alias + " = { " + names.join(", ") + " };");
+
     lines.push('window.foliplus.core["' + name + '"] = ' + alias + ";");
   }
 
   for (const name of commonModules) {
     const names = usedExports["common/" + name] || [];
     if (names.length === 0) continue;
+
     lines.push("import { " + names.join(", ") + ' } from "#common/' + name + '.js";');
+
     lines.push("const " + name + "NS = { " + names.join(", ") + " };");
+
     lines.push('window.foliplus.common["' + name + '"] = ' + name + "NS;");
   }
 
@@ -198,7 +219,9 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     lines.push(
       "import { " + baseNames.join(", ") + ' } from "#foliplus/BaseControl.js";',
     );
+
     lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
+
     lines.push("window.foliplus.BaseControl = BaseControlNS;");
   }
 

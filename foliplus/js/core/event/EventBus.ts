@@ -25,8 +25,10 @@ class EventBus {
     let set = this.listeners.get(event);
     if (!set) {
       set = new Set();
+
       this.listeners.set(event, set);
     }
+
     set.add(handler);
     return () => this.off(event, handler);
   }
@@ -41,6 +43,7 @@ class EventBus {
   off(event: string, handler: EventHandler): void {
     const set = this.listeners.get(event);
     if (!set) return;
+
     set.delete(handler);
     if (set.size === 0) this.listeners.delete(event);
   }

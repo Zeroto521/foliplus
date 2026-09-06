@@ -14,7 +14,9 @@ const T = createScopedTranslator(CONF);
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   const isFull = !!getFullscreenEl() || map.isFullscreen;
+
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
+
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
   if (CONF.hide_others) {
@@ -24,6 +26,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
     const cid = containerId(CONF.name, CONF.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
+
       c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
   }
@@ -55,13 +58,16 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
+
           updateUI(map, fsBtn, container);
         });
       return;
     } else {
       map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+
       map.invalidateSize();
     }
+
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
@@ -73,15 +79,19 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = !!getFullscreenEl();
+
           updateUI(map, fsBtn, container);
         });
       return;
     } else {
       map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
+
       map.invalidateSize();
     }
+
     map.isFullscreen = true;
   }
+
   updateUI(map, fsBtn, container);
 };
 
@@ -95,10 +105,12 @@ const bindFullscreenEvents = (
 ) => {
   const handleFSChange = () => {
     map.isFullscreen = !!getFullscreenEl();
+
     updateUI(map, fsBtn, container);
   };
 
   if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
+
   map.on("unload", () => {
     if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
   });

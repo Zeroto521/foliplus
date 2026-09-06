@@ -115,11 +115,16 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
       byKey.set(key, { ...entry });
       continue;
     }
+
     const [newer, older] =
       existing.ts >= entry.ts ? [existing, entry] : [entry, existing];
+
     newer.count = existing.count + entry.count;
+
     newer.coordDisplay = newer.coordDisplay || older.coordDisplay;
+
     newer.addrDisplay = newer.addrDisplay || older.addrDisplay;
+
     // newer may be the incoming entry (not the one in the map) when
     // existing.ts < entry.ts, so we must update the map reference.
     byKey.set(key, newer);
@@ -135,6 +140,7 @@ const loadHistory = (): SearchHistoryEntry[] => {
   // Drop non-object rows ([null], strings, numbers) that a corrupted store
   // can produce; reading `row.type` on them would throw.
   const rows = data.filter(row => row != null && typeof row === "object");
+
   // Migrate stored entries to the current format, supplying the defaults that
   // older versions never wrote.
   const migrated = rows.map(e => {
@@ -165,18 +171,23 @@ const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): v
     0,
     HISTORY.MAX_ENTRIES,
   );
+
   ctrl.searchHistory = updated;
+
   saveHistory(updated);
 };
 
 const deleteHistoryEntry = (ctrl: SearchControlState, query: string): void => {
   const updated = ctrl.searchHistory.filter(e => e.query !== query);
+
   ctrl.searchHistory = updated;
+
   saveHistory(updated);
 };
 
 const clearHistory = (ctrl: SearchControlState): void => {
   ctrl.searchHistory = [];
+
   saveHistory([]);
 };
 
@@ -211,27 +222,35 @@ const recordHistorySearch = (
 const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpression) => {
   if (ctrl.delIcon) {
     map.removeLayer(ctrl.delIcon);
+
     ctrl.delIcon = null;
   }
+
   ctrl.delIcon = makeDelIcon(latlng, {
     title: _("foliplus.close_label"),
     iconAnchor: DEL_ICON_MARKER_ANCHOR,
   });
+
   map.addLayer(ctrl.delIcon);
   const delIcon = ctrl.delIcon;
 
   const clearSearch = () => {
     if (ctrl.marker) {
       map.removeLayer(ctrl.marker);
+
       ctrl.marker = null;
     }
     if (ctrl.delIcon) {
       map.removeLayer(ctrl.delIcon);
+
       ctrl.delIcon = null;
     }
+
     ctrl.inp.value = "";
+
     ctrl.inp.focus();
   };
+
   attachDelClick(delIcon, clearSearch);
 
   // The ✕ is hidden by default and only appears while the popup is open,
@@ -251,6 +270,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   const parsed = parseCoord(raw);
   if (!parsed) {
     map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
+
     ctrl.inp.value = "";
     return;
   }
@@ -258,8 +278,11 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // Canonical key, not the raw input: otherwise "120,32" and "120, 32"
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
+
   map.foliplus!.hideHint(CONF.name);
+
   map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
+
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -273,14 +296,17 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
     CONF.locale_code,
     ctrl.marker,
   );
+
   attachSearchDelIcon(ctrl, [lat, lng]);
 
   const coordDisplay = `${lng.toFixed(FORMAT.LAT_LNG_PRECISION)}, ${lat.toFixed(FORMAT.LAT_LNG_PRECISION)}`;
+
   // Save coord entry immediately, then update address via reverse geocode.
   // NOTE: reverse-geocode updates the existing entry in-place to avoid
   // incrementing the count (a later addHistoryEntry for the same type:query
   // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
+
   window.foliplus
     .reverseGeocode(map, lng, lat, CONF.locale_code)
     .then(addr => {
@@ -288,6 +314,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
         const entry = ctrl.searchHistory.find(e => e.query === key);
         if (entry) {
           entry.addrDisplay = addr;
+
           saveHistory(ctrl.searchHistory);
         }
       }
@@ -304,6 +331,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  */
 const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
+
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
     CONF.name,
@@ -317,6 +345,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       map.foliplus!.hideHint(CONF.name);
       if (!result) {
         map.foliplus!.showHint(CONF.name, T("addr_not_found"), HINT_DURATION.LONG);
+
         ctrl.inp.value = "";
         return;
       }
@@ -328,8 +357,10 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       if (!renderAddressResult(ctrl, result)) return;
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
+
       const addrDisplay =
         formatAddress(result.display_name, map, CONF.locale_code) || query;
+
       recordHistorySearch(
         ctrl,
         query,
@@ -342,6 +373,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
     })
     .catch(() => {
       map.foliplus!.hideHint(CONF.name);
+
       map.foliplus!.showHint(CONF.name, T("addr_error"), HINT_DURATION.LONG);
     });
 };
@@ -361,13 +393,18 @@ const renderAddressResult = (
 
   if ("display_name" in result) {
     displayName = result.display_name;
+
     lng = result.lng;
+
     lat = result.lat;
   } else {
     const item = (result as AddressResult).item;
+
     displayName = (result as AddressResult).displayName ?? "";
     const converted = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
+
     lng = converted[0];
+
     lat = converted[1];
   }
 
@@ -375,7 +412,9 @@ const renderAddressResult = (
     ZOOM.MAX,
     Math.max(ZOOM.MIN, ZOOM.BASE - Math.floor(displayName.length / ZOOM.DIVISOR)),
   );
+
   map.flyTo([lat, lng], zoom);
+
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -389,6 +428,7 @@ const renderAddressResult = (
     CONF.locale_code,
     ctrl.marker,
   );
+
   attachSearchDelIcon(ctrl, [lat, lng]);
   return true;
 };
@@ -398,13 +438,17 @@ const renderAddressResult = (
 const removePanel = (ctrl: SearchControlState) => {
   if (ctrl.throttleTimer) {
     clearTimeout(ctrl.throttleTimer);
+
     ctrl.throttleTimer = null;
   }
   if (ctrl.panelWrap) {
     ctrl.panelWrap.remove();
+
     ctrl.panelWrap = null;
   }
+
   ctrl.selectedIdx = -1;
+
   ctrl.currentItems = [];
 };
 
@@ -414,7 +458,9 @@ const positionPanel = (ctrl: SearchControlState) => {
   let left = rect.left + window.scrollX;
   if (left + rect.width > window.innerWidth)
     left = window.innerWidth - rect.width + window.scrollX;
+
   ctrl.panelWrap.style.left = `${left}px`;
+
   ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
@@ -433,7 +479,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   }
 
   ctrl.panelWrap.innerHTML = "";
+
   ctrl.selectedIdx = -1;
+
   positionPanel(ctrl);
 
   // Retained so Enter reuses the keyboard selection instead of re-geocoding.
@@ -452,6 +500,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
         parent: ctrl.panelWrap,
         onmousedown: (event: Event) => {
           event.stopPropagation();
+
           event.preventDefault();
           // Panel closes only if the click actually places a marker. A
           // mode-lock refusal leaves the panel open so the user sees the
@@ -506,6 +555,7 @@ const renderSuggestions = (
       coordDisplay,
       onClick: () => {
         if (!renderAddressResult(ctrl, { item, displayName })) return false;
+
         recordHistorySearch(
           ctrl,
           query,
@@ -533,6 +583,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
 
   // Sort by search count (desc), then recency (desc) as tiebreaker
   const sorted = [...entries].sort((a, b) => b.count - a.count || b.ts - a.ts);
+
   const sectionEntries = sorted
     .filter(e => e.type === targetType)
     .slice(0, HISTORY.MAX_DISPLAY);
@@ -556,11 +607,14 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
         if (guardBlocked(map, CONF.name, T("blocked"))) return false;
+
         ctrl.inp.value = reEntry;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
+
         map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
+
         ctrl.marker = createLocationMarker(
           map,
           lng,
@@ -574,6 +628,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
           CONF.locale_code,
           ctrl.marker,
         );
+
         attachSearchDelIcon(ctrl, [lat, lng]);
         return true;
       },
@@ -610,15 +665,19 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const now = Date.now();
   if (now - ctrl.lastSuggestFetch < NOMINATIM.THROTTLE_MS) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
+
     ctrl.throttleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
       NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
     );
     return;
   }
+
   ctrl.lastSuggestFetch = Date.now();
   if (ctrl.suggestAbortController) ctrl.suggestAbortController.abort();
+
   ctrl.suggestAbortController = new AbortController();
+
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
@@ -649,10 +708,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
           formatAddress(first.display_name, map, CONF.locale_code) || query,
         );
       }
+
       renderSuggestions(ctrl, results, query);
     })
     .catch(err => {
       if (err.name === "AbortError") return;
+
       removePanel(ctrl);
     });
 };

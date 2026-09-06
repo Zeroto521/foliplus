@@ -37,6 +37,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   const srcPath = existsSync(filePath) ? filePath : filePath.replace(/\.js$/, ".ts");
   if (depth > 6 || seen.has(srcPath) || !existsSync(srcPath)) return [];
   if (exportCache.has(srcPath)) return exportCache.get(srcPath);
+
   seen.add(srcPath);
   const src = readFileSync(srcPath, "utf-8");
   const names = new Set();
@@ -49,10 +50,12 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   }
   while ((m = RE_EXPORT_RE.exec(src))) {
     const sub = resolve(dirname(srcPath), m[2]);
+
     exportNames(m[1]).forEach(n => names.add(n));
     for (const n of collectExports(sub, seen, depth + 1)) names.add(n);
   }
   const result = [...names];
+
   exportCache.set(srcPath, result);
   return result;
 };
@@ -144,7 +147,9 @@ const globalNamespacePlugin = sourceRoot => ({
     let starUsed = new Map();
     if (scanDir) {
       const result = scanSharedImports(scanDir);
+
       usedExports = result.used;
+
       starUsed = result.starUsed;
     }
 
@@ -152,8 +157,10 @@ const globalNamespacePlugin = sourceRoot => ({
       path: args.path,
       namespace: "foliplus-shared",
     }));
+
     build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, args => {
       const spec = args.path;
+
       const rel = spec
         .replace(/^#core\//, "core/")
         .replace(/^#common\//, "common/")
@@ -170,15 +177,18 @@ const globalNamespacePlugin = sourceRoot => ({
       const merged = new Set();
       if (usedExports.has(spec)) usedExports.get(spec).forEach(n => merged.add(n));
       if (starUsed.has(spec)) starUsed.get(spec).forEach(n => merged.add(n));
+
       namesToShim = merged.size > 0 ? [...merged] : collectExports(sourcePath);
 
       if (namesToShim.length === 0) return { contents: "", loader: "js" };
 
       const shimName = ns.replace(/\./g, "_") + "_shim";
       const shimDecl = "var " + shimName + " = globalThis." + ns + ";";
+
       const lines = namesToShim.map(
         n => "export const " + n + " = " + shimName + '["' + n + '"];',
       );
+
       lines.unshift(shimDecl);
       return { contents: lines.join("\n"), loader: "js" };
     });

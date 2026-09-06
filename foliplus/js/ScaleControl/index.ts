@@ -11,8 +11,10 @@ const T = createScopedTranslator(CONF);
 class ScaleControl extends BaseControl {
   buildDOM() {
     const scaleCtrl = L.control.scale({ metric: true, imperial: false });
+
     Reflect.set(scaleCtrl, "_map", this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
+
     ctrl.classList.add("foliplus-scale-wrap");
 
     // ==================== Zoom Label ====================
@@ -21,13 +23,16 @@ class ScaleControl extends BaseControl {
         class: "foliplus-scale-zoom-label",
         parent: ctrl,
       });
+
       const updateZoom = () => {
         zoomLabel.textContent = T("zoom_label").replace(
           "{zoom}",
           String(this._map.getZoom()),
         );
       };
+
       updateZoom();
+
       // Tracked via listenMap — auto-unbound in onRemove.
       this.listenMap("zoomend", updateZoom);
     }

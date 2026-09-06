@@ -16,6 +16,7 @@ const BOOL_PROPS = new Set([
   "defaultChecked",
 ]);
 const PROPS = new Set(["value", "defaultValue"]);
+
 const EVENTS = new Set([
   "onclick",
   "ondblclick",
@@ -42,6 +43,7 @@ const EVENTS = new Set([
   "onmousemove",
   "onmouseup",
 ]);
+
 const PIN: {
   SIZE: [number, number];
   ANCHOR: [number, number];
@@ -96,6 +98,7 @@ const dom = {
         else if (key === "style") {
           if (typeof val === "object" && val !== null && !("appendChild" in val)) {
             const styleObj: Record<string, string> = val as Record<string, string>;
+
             Object.assign(el.style, styleObj);
           } else el.style.cssText = String(val);
         } else if (key === "parent") (val as HTMLElement).appendChild(el);
@@ -104,6 +107,7 @@ const dom = {
         else if (PROPS.has(key)) Reflect.set(el, key, val);
         else if (EVENTS.has(key)) {
           const handler = val as EventListener;
+
           Reflect.set(el, "on" + key.slice(2), handler);
         } else el.setAttribute(key, String(val));
       }
@@ -156,9 +160,11 @@ const createIconButton = (opts: {
  */
 const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   const d = (event as { originalEvent?: Event }).originalEvent ?? (event as Event);
+
   (
     d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
   )?.stopPropagation?.();
+
   (
     d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
   )?.preventDefault?.();
@@ -226,6 +232,7 @@ const createLocationMarker = (
 ): L.Marker => {
   if (existing) map.removeLayer(existing);
   const target = (layerGroup ?? map) as L.Map | L.LayerGroup;
+
   const marker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
@@ -236,7 +243,9 @@ const createLocationMarker = (
     }),
     zIndexOffset: PIN.Z_OFFSET,
   });
+
   target.addLayer(marker);
+
   marker.bindPopup(
     buildPopupHtml(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
     { maxWidth: POPUP_MAX_WIDTH },
@@ -253,22 +262,25 @@ const createLocationMarker = (
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus;
     if (foliplus?.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
-        if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-          marker.setPopupContent(
-            buildPopupHtml(
-              lng,
-              lat,
-              resolved,
-              titleText,
-              loadingText,
-              locLabelText,
-              addrLabelText,
-            ),
-          );
-        }
-      });
+      void foliplus
+        .reverseGeocode(map, lng, lat, code)
+        .then((resolved: string) => {
+          if (onAddress) onAddress(resolved);
+          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
+            marker.setPopupContent(
+              buildPopupHtml(
+                lng,
+                lat,
+                resolved,
+                titleText,
+                loadingText,
+                locLabelText,
+                addrLabelText,
+              ),
+            );
+          }
+        })
+        .catch(() => undefined);
     }
   }
   return marker;
@@ -294,7 +306,9 @@ const updateItemLabel = (
   if (!item) return null;
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
+
   label.textContent = name;
+
   // The row's toggle input announces the same name as the label cell. A data
   // row's toggle is its checkbox; the color basemap row's is the color swatch,
   // and it has no checkbox — without this the basemap swatch would keep
@@ -370,21 +384,29 @@ const createInlineEditInput = (opts: {
     // the user edits the name. The browser keeps its default caret/typing.
     if (event.key === "Enter") {
       event.preventDefault();
+
       event.stopPropagation();
+
       commit(input.value);
     } else if (event.key === "Escape") {
       event.preventDefault();
+
       event.stopPropagation();
+
       opts.onCancel("escape");
     } else {
       event.stopPropagation();
     }
   });
+
   input.addEventListener("blur", () => commit(input.value));
 
   opts.label.textContent = "";
+
   opts.label.appendChild(input);
+
   input.focus();
+
   input.select();
   return input;
 };

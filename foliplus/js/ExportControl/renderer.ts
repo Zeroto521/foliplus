@@ -48,18 +48,23 @@ const pooledEach = async <T, R>(
   const cap = Math.max(1, maxConcurrency);
   const results = new Array<R | null>(items.length);
   let next = 0;
+
   const enqueue = async (): Promise<void> => {
     const idx = next++;
     if (idx >= items.length) return;
     try {
       const value = await fn(items[idx], idx);
+
       results[idx] = value ?? null;
     } catch (err) {
       console.warn(err);
+
       results[idx] = null;
     }
+
     await enqueue();
   };
+
   await Promise.all(Array.from({ length: cap }, enqueue));
   return results;
 };
@@ -70,6 +75,7 @@ class ExportRenderer {
 
   constructor(map: L.Map) {
     this.map = map;
+
     this.container = map.getContainer();
   }
 
@@ -106,9 +112,11 @@ class ExportRenderer {
         if (tx < 0 || ty < 0 || tx >= maxTile || ty >= maxTile) continue;
         // Build URL
         let url = urlTemplate;
+
         const subIdx =
           (tx + ty) % (typeof subdomains === "string" ? subdomains.length : 1);
         const sub = typeof subdomains === "string" ? subdomains[subIdx] : subdomains[0];
+
         url = url
           .replace("{s}", sub)
           .replace("{x}", tx.toString())
@@ -116,6 +124,7 @@ class ExportRenderer {
           .replace("{z}", zoom.toString())
           // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
           .replace("{r}", scaleVal > 1 ? "@2x" : "");
+
         tiles.push({
           x: tx,
           y: ty,
@@ -149,12 +158,15 @@ class ExportRenderer {
     if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
 
     const canvas = document.createElement("canvas");
+
     canvas.width = sw;
+
     canvas.height = sh;
     const ctx = canvas.getContext("2d")!;
 
     if (bg) {
       ctx.fillStyle = bg;
+
       ctx.fillRect(0, 0, sw, sh);
     }
 
@@ -205,7 +217,9 @@ class ExportRenderer {
         for (const paneName of panes) {
           const pane = this.map.getPane(paneName);
           if (!pane) continue;
+
           await this.renderPaneSVG(rc, pane);
+
           await this.renderPaneCanvas(rc, pane);
         }
 
@@ -213,8 +227,11 @@ class ExportRenderer {
         const markerRoots = this.collectLayerMarkers(li.layer);
         if (markerRoots.length) {
           await this.renderMarkers(rc, markerRoots);
+
           await this.renderFontAwesome(rc, markerRoots);
+
           await this.renderTextLabels(rc, markerRoots);
+
           await this.renderRemaining(rc, markerRoots);
         }
       }
@@ -241,6 +258,7 @@ class ExportRenderer {
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
+
       ctx.drawImage(img, dx, dy, dw, dh);
     } catch {
       /* skip */
@@ -280,6 +298,7 @@ class ExportRenderer {
       if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
       if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
         continue;
+
       visibleTiles.push({ ...tile, dx, dy, dw, dh });
     }
 
@@ -288,6 +307,7 @@ class ExportRenderer {
     const concurrency = CONST.TILE_CONCURRENCY;
     for (let i = 0; i < visibleTiles.length; i += concurrency) {
       const batch = visibleTiles.slice(i, i + concurrency);
+
       const bitmaps = await Promise.all(
         batch.map(t => loadImageBitmap(t.url).catch(() => null)),
       );
@@ -315,6 +335,7 @@ class ExportRenderer {
   /** Render SVG content from a single pane. */
   async renderPaneSVG(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, sw, sh } = rc;
+
     const props = [
       "fill",
       "stroke",
@@ -330,6 +351,7 @@ class ExportRenderer {
     ];
     for (const svgEl of pane.querySelectorAll("svg")) {
       const svgG = svgEl.querySelector("g");
+
       const hasContent =
         (svgG && svgG.children.length > 0) ||
         svgEl.querySelector(
@@ -343,8 +365,11 @@ class ExportRenderer {
       if (svgRect.width < 1 || svgRect.height < 1) continue;
 
       const clone = svgEl.cloneNode(true) as SVGElement;
+
       clone.removeAttribute("style");
+
       clone.setAttribute("width", String(svgRect.width));
+
       clone.setAttribute("height", String(svgRect.height));
 
       const allEls = clone.querySelectorAll("*");
@@ -357,6 +382,7 @@ class ExportRenderer {
           if (!v || v === "none") continue;
           if (p === "fill" && v === "rgb(0, 0, 0)") continue;
           if (p === "stroke" && v === "none") continue;
+
           inline.style.setProperty(p, v);
         }
       }
@@ -370,6 +396,7 @@ class ExportRenderer {
       const url = URL.createObjectURL(blob);
       try {
         const svgImg = await loadImage(url);
+
         ctx.drawImage(
           svgImg as HTMLImageElement,
           rect.left - svgL,
@@ -407,6 +434,7 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
+
           ctx.drawImage(img, dx, dy, dw, dh);
         } catch {
           /* skip */
@@ -441,7 +469,9 @@ class ExportRenderer {
         )
           continue;
         if (seen.has(el)) continue;
+
         seen.add(el);
+
         roots.push(el);
       }
     }
@@ -475,6 +505,7 @@ class ExportRenderer {
       if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
     }
     const spriteMap = new Map<string, ImageBitmap>();
+
     await pooledEach<string, ImageBitmap>(
       [...spriteUrls],
       CONST.TILE_CONCURRENCY,
@@ -511,12 +542,15 @@ class ExportRenderer {
         let cssBgW: number, cssBgH: number;
         if (bgs === "auto" || bgs === "auto auto") {
           cssBgW = sprite.width / (window.devicePixelRatio || 1);
+
           cssBgH = sprite.height / (window.devicePixelRatio || 1);
         } else if (bgs.includes("%")) {
           cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
+
           cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
         } else {
           cssBgW = parseFloat(bgsParts[0]) || sprite.width;
+
           cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
         }
         const ratioX = sprite.width / cssBgW;
@@ -595,19 +629,31 @@ class ExportRenderer {
       const it = ir.top - contRect.top;
       if (ir.width > 0 && ir.height > 0) {
         iconDX = (il - rect.left) * scale;
+
         iconDY = (it - rect.top) * scale;
+
         iconDW = ir.width * scale;
+
         iconDH = ir.height * scale;
       }
+
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
+
       await ensureFont(fontSpec);
+
       ctx.save();
+
       ctx.font = fontSpec;
+
       ctx.textAlign = "center";
+
       ctx.textBaseline = "middle";
+
       ctx.fillStyle = color;
+
       ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
+
       ctx.restore();
     }
   }
@@ -647,24 +693,31 @@ class ExportRenderer {
       const bg = textCS.backgroundColor;
       if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
         ctx.save();
+
         ctx.fillStyle = bg;
         const br = parseFloat(textCS.borderRadius) || 0;
         if (br > 0) {
           ctx.beginPath();
+
           ctx.roundRect(dx, dy, dw, dh, br * scale);
+
           ctx.fill();
         } else ctx.fillRect(dx, dy, dw, dh);
 
         const bw = parseFloat(textCS.borderWidth) || 0;
         if (bw > 0 && textCS.borderStyle !== "none") {
           ctx.strokeStyle = textCS.borderColor || bg;
+
           ctx.lineWidth = bw * scale;
           if (br > 0) {
             ctx.beginPath();
+
             ctx.roundRect(dx, dy, dw, dh, br * scale);
+
             ctx.stroke();
           } else ctx.strokeRect(dx, dy, dw, dh);
         }
+
         ctx.restore();
       }
 
@@ -674,13 +727,20 @@ class ExportRenderer {
       let fontWeight = textCS.fontWeight || "400";
       if (fontWeight === "normal") fontWeight = "400";
       if (fontWeight === "bold") fontWeight = "700";
+
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
+
       await ensureFont(fontSpec);
+
       ctx.save();
+
       ctx.font = fontSpec;
+
       ctx.textAlign = "center";
+
       ctx.textBaseline = "middle";
+
       ctx.fillStyle = color;
       const cx = dx + dw / 2;
       const cy = dy + dh / 2;
@@ -719,6 +779,7 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
+
           ctx.drawImage(img, dx, dy, dw, dh);
           continue;
         } catch {
@@ -736,11 +797,15 @@ class ExportRenderer {
       if (svgEl) {
         try {
           const clone = svgEl.cloneNode(true) as SVGElement;
+
           clone.removeAttribute("style");
           const sr = svgEl.getBoundingClientRect();
+
           clone.setAttribute("width", String(sr.width || 24));
+
           clone.setAttribute("height", String(sr.height || 24));
           const colorParent = svgEl.parentElement;
+
           const rootColor = colorParent
             ? window.getComputedStyle(colorParent).color
             : "";
@@ -753,6 +818,7 @@ class ExportRenderer {
           const url = URL.createObjectURL(blob);
           try {
             const img = (await loadImage(url)) as HTMLImageElement;
+
             ctx.drawImage(img, dx, dy, dw, dh);
           } finally {
             URL.revokeObjectURL(url);
@@ -769,28 +835,36 @@ class ExportRenderer {
       const bgImg = rootCS.backgroundImage;
       const hasSprite = bgImg && bgImg !== "none" && bgImg.includes("url(");
       const bgColor = rootCS.backgroundColor;
+
       const hasBgColor =
         bgColor && bgColor !== "transparent" && bgColor !== "rgba(0, 0, 0, 0)";
       if (hasBgColor && !hasSprite && !root.querySelector(CONST.SEL.LABEL)) {
         ctx.save();
+
         ctx.fillStyle = bgColor;
         const br = parseFloat(rootCS.borderRadius) || 0;
         if (br > 0) {
           ctx.beginPath();
+
           ctx.roundRect(dx, dy, dw, dh, br * scale);
+
           ctx.fill();
         } else ctx.fillRect(dx, dy, dw, dh);
 
         const bw = parseFloat(rootCS.borderWidth) || 0;
         if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
           ctx.strokeStyle = rootCS.borderColor;
+
           ctx.lineWidth = bw * scale;
           if (br > 0) {
             ctx.beginPath();
+
             ctx.roundRect(dx, dy, dw, dh, br * scale);
+
             ctx.stroke();
           } else ctx.strokeRect(dx, dy, dw, dh);
         }
+
         ctx.restore();
       }
     }

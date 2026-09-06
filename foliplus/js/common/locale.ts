@@ -91,6 +91,7 @@ const resolveLocale = (
 const resolveLocaleCode = (conf: ComponentConfig): string => {
   if (conf.locale_code) return conf.locale_code;
   const table = resolveLocale("", conf.locale_tables as LocaleTables | null);
+
   conf.locale_code = (table && table["locale.code"]) || "en";
   return conf.locale_code;
 };
@@ -107,6 +108,7 @@ const createTranslator = (conf: ComponentConfig): ((key: string) => string) => {
   const common = (window.foliplus._TABLES || {})[code] || {};
   const own = ((conf.locale_tables as LocaleTables | null) || {})[code] || {};
   const table = { ...common, ...own };
+
   table["locale.code"] = code;
 
   return k => (table[k] !== undefined ? table[k] : k);

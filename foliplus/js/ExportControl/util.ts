@@ -28,6 +28,7 @@ const loadImageBitmap = async (url: string) => {
     });
     if (!resp.ok) return null;
     const blob = await resp.blob();
+
     bitmap = await createImageBitmap(blob);
     return bitmap;
   } catch {
@@ -49,13 +50,18 @@ const loadImage = (src: string, crossOrigin?: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     if (crossOrigin) i.crossOrigin = crossOrigin;
+
     i.onload = () => {
       i.onload = null;
+
       i.onerror = null;
+
       resolve(i);
     };
+
     i.onerror = () => {
       i.onload = null;
+
       i.onerror = null;
       if (src.startsWith("blob:")) {
         try {
@@ -64,8 +70,10 @@ const loadImage = (src: string, crossOrigin?: string) =>
           /* ignore */
         }
       }
+
       reject(new Error(T("err_image_load")));
     };
+
     i.src = src;
   });
 

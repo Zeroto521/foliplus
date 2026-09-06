@@ -8,6 +8,7 @@ import { ExportManager } from "./manager.js";
 
 createControlEnv(CONF, SVGs.CAMERA);
 const T = createScopedTranslator(CONF);
+
 requireLayerAPI(CONF.name, T, map);
 
 // ==================== CORS Pre-setup ====================
@@ -24,6 +25,7 @@ map.eachLayer((layer: L.Layer) => {
       opts.crossOrigin = "anonymous";
       if (map.hasLayer(layer)) {
         map.removeLayer(layer);
+
         map.addLayer(layer);
       }
     }
@@ -46,6 +48,7 @@ class ExportControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+
     this.manager = exportManager;
   }
 
@@ -61,7 +64,9 @@ class ExportControl extends BaseControl {
       toggleSvg: SVGs.CAMERA,
       position: CONF.position,
     });
+
     this.m.attachUI(ctrl, toolBar);
+
     toggleBtn.onclick = () => {
       if (this.m.cropState) this.m.removeCropBox();
       else if (this.m.savedBounds) this.m.restoreFromSavedBounds();
@@ -72,6 +77,7 @@ class ExportControl extends BaseControl {
 
   destroy() {
     if (this.m.cropState) this.m.removeCropBox();
+
     this.m.unregisterShortcuts();
   }
 }
