@@ -13,21 +13,29 @@ type Debounced = ((...args: unknown[]) => void) & {
 
 const debounce = (func: (...args: unknown[]) => void, delayMs: number): Debounced => {
   let timer: ReturnType<typeof setTimeout> | null = null;
+
   const debounced = (...args: unknown[]) => {
     if (timer) clearTimeout(timer);
+
     timer = setTimeout(() => {
       timer = null;
+
       func(...args);
     }, delayMs);
   };
+
   debounced.cancel = () => {
     if (timer) clearTimeout(timer);
+
     timer = null;
   };
+
   debounced.flush = () => {
     if (timer) {
       clearTimeout(timer);
+
       timer = null;
+
       func();
     }
   };

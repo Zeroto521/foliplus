@@ -15,7 +15,9 @@ describe("LayerRegistry", () => {
   describe("constructor", () => {
     it("builds items and byId index", () => {
       expect(registry.size).toBe(3);
+
       expect(registry.get("overlay1").name).toBe("Points");
+
       expect(registry.get("base1").isBase).toBe(true);
     });
 
@@ -28,6 +30,7 @@ describe("LayerRegistry", () => {
         { id: "a", isBase: false },
         { id: "b", isBase: false },
       ]);
+
       expect(r.firstBaseIdx).toBe(-1);
     });
   });
@@ -35,14 +38,23 @@ describe("LayerRegistry", () => {
   describe("createLayerInfo", () => {
     it("fills missing fields with defaults", () => {
       const info = registry.createLayerInfo({ id: "test" });
+
       expect(info.id).toBe("test");
+
       expect(info.name).toBe("test");
+
       expect(info.visible).toBe(true);
+
       expect(info.isBase).toBe(false);
+
       expect(info.paneName).toBeNull();
+
       expect(info.iconSvg).toBeNull();
+
       expect(info.canvas).toBeNull();
+
       expect(info.onToggle).toBeNull();
+
       expect(info.onZIndex).toBeNull();
     });
 
@@ -51,7 +63,9 @@ describe("LayerRegistry", () => {
         { id: "test" },
         { name: "Existing", visible: false },
       );
+
       expect(info.name).toBe("Existing");
+
       expect(info.visible).toBe(false);
     });
 
@@ -75,13 +89,17 @@ describe("LayerRegistry", () => {
   describe("upsert", () => {
     it("adds a new layer", () => {
       registry.upsert(registry.createLayerInfo({ id: "new", name: "New" }));
+
       expect(registry.has("new")).toBe(true);
+
       expect(registry.size).toBe(4);
     });
 
     it("updates an existing layer in place", () => {
       registry.upsert(registry.createLayerInfo({ id: "overlay1", name: "Updated" }));
+
       expect(registry.get("overlay1").name).toBe("Updated");
+
       expect(registry.size).toBe(3);
     });
   });
@@ -89,7 +107,9 @@ describe("LayerRegistry", () => {
   describe("prepend", () => {
     it("adds a layer at the front", () => {
       registry.prepend(registry.createLayerInfo({ id: "new", name: "New" }));
+
       expect(registry.at(0).id).toBe("new");
+
       expect(registry.size).toBe(4);
     });
   });
@@ -97,7 +117,9 @@ describe("LayerRegistry", () => {
   describe("insertAt", () => {
     it("inserts a layer at a specific index", () => {
       registry.insertAt(registry.createLayerInfo({ id: "new", name: "New" }), 1);
+
       expect(registry.at(1).id).toBe("new");
+
       expect(registry.size).toBe(4);
     });
   });
@@ -105,7 +127,9 @@ describe("LayerRegistry", () => {
   describe("remove", () => {
     it("removes a layer by id", () => {
       registry.remove("overlay1");
+
       expect(registry.has("overlay1")).toBe(false);
+
       expect(registry.size).toBe(2);
     });
 
@@ -117,11 +141,13 @@ describe("LayerRegistry", () => {
   describe("moveToFront (bringLayerToFront)", () => {
     it("moves the layer to index 0", () => {
       registry.moveToFront("base1");
+
       expect(registry.at(0).id).toBe("base1");
     });
 
     it("does nothing when layer is already at front", () => {
       registry.moveToFront("overlay1");
+
       expect(registry.at(0).id).toBe("overlay1");
     });
 
@@ -133,8 +159,11 @@ describe("LayerRegistry", () => {
   describe("reorder", () => {
     it("moves an element from fromIdx to toIdx", () => {
       registry.reorder(0, 2);
+
       expect(registry.at(0).id).toBe("overlay2");
+
       expect(registry.at(1).id).toBe("base1");
+
       expect(registry.at(2).id).toBe("overlay1");
     });
   });
@@ -146,9 +175,13 @@ describe("LayerRegistry", () => {
         { id: "overlay1", name: "O1", isBase: false },
         { id: "base2", name: "B2", isBase: true },
       ]);
+
       r.normalizeGroups();
+
       expect(r.at(0).id).toBe("overlay1");
+
       expect(r.at(1).isBase).toBe(true);
+
       expect(r.at(2).isBase).toBe(true);
     });
   });
@@ -156,7 +189,9 @@ describe("LayerRegistry", () => {
   describe("clear", () => {
     it("removes all layers", () => {
       registry.clear();
+
       expect(registry.size).toBe(0);
+
       expect(registry.firstBaseIdx).toBe(-1);
     });
   });
@@ -164,6 +199,7 @@ describe("LayerRegistry", () => {
   describe("canReorderBetween", () => {
     it("allows same-group reorder", () => {
       expect(registry.canReorderBetween(0, 1)).toBe(true);
+
       expect(registry.canReorderBetween(2, 2)).toBe(true);
     });
 
@@ -173,6 +209,7 @@ describe("LayerRegistry", () => {
 
     it("returns false for out-of-range indices", () => {
       expect(registry.canReorderBetween(0, 99)).toBe(false);
+
       expect(registry.canReorderBetween(-1, 0)).toBe(false);
     });
   });
@@ -217,7 +254,9 @@ describe("LayerRegistry", () => {
       registry.prepend(
         registry.createLayerInfo({ id: "new1", name: "New", isBase: false }),
       );
+
       expect(registry.layers[0].id).toBe("new1");
+
       expect(registry.layers.length).toBe(4);
     });
   });
@@ -228,10 +267,15 @@ describe("LayerRegistry", () => {
         registry.createLayerInfo({ id: "a", name: "A", isBase: false }),
         registry.createLayerInfo({ id: "b", name: "B", isBase: true }),
       ];
+
       registry.replace(newList);
+
       expect(registry.size).toBe(2);
+
       expect(registry.at(0).id).toBe("a");
+
       expect(registry.get("b").isBase).toBe(true);
+
       expect(registry.firstBaseIdx).toBe(1);
     });
   });
@@ -239,6 +283,7 @@ describe("LayerRegistry", () => {
   describe("indexOf", () => {
     it("returns the index of a layer info", () => {
       const li = registry.get("overlay1");
+
       expect(registry.indexOf(li)).toBe(0);
     });
 

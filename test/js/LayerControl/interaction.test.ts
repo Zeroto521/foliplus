@@ -25,6 +25,7 @@ function getRegisterSpy(): any {
 
 function makeUI(): any {
   const container = document.createElement("div");
+
   container.innerHTML = `
     <div class="foliplus-layer-item" tabindex="0" data-layer-id="layer1">
       <input type="checkbox" checked />
@@ -35,6 +36,7 @@ function makeUI(): any {
       <button class="${CONST.CLASSES.MORE_BTN}">⋯</button>
     </div>
   `;
+
   const map: any = {
     foliplus: {},
     getContainer: vi.fn(() => document.createElement("div")),
@@ -56,22 +58,28 @@ function makeUI(): any {
 describe("LayerControl registerInteractions", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+
     vi.clearAllMocks();
   });
 
   it("returns a cleanup function", () => {
     const ui = makeUI();
     const cleanup = registerInteractions(ui);
+
     expect(typeof cleanup).toBe("function");
+
     cleanup();
   });
 
   it("registers all 7 keyboard shortcuts via InteractionManager", () => {
     const ui = makeUI();
+
     registerInteractions(ui);
 
     const reg = getRegisterSpy();
+
     expect(reg).toHaveBeenCalledTimes(1);
+
     expect(reg).toHaveBeenCalledWith(
       expect.any(String),
       expect.arrayContaining([
@@ -88,6 +96,7 @@ describe("LayerControl registerInteractions", () => {
 
   it("all shortcuts share the uiContainer as their container", () => {
     const ui = makeUI();
+
     registerInteractions(ui);
 
     const defs = getRegisterSpy().mock.calls[0][1];
@@ -98,20 +107,24 @@ describe("LayerControl registerInteractions", () => {
 
   it("each shortcut handler forwards its event to ui.handleKeyDown", () => {
     const ui = makeUI();
+
     registerInteractions(ui);
 
     const defs = getRegisterSpy().mock.calls[0][1];
     for (const d of defs) {
       const event = { key: d.key } as unknown as KeyboardEvent;
+
       d.handler(event);
     }
 
     // Every handler is a pass-through to ui.handleKeyDown — one call per key.
     expect(ui.handleKeyDown).toHaveBeenCalledTimes(defs.length);
+
     // Spot-check that the event (and thus its key) is forwarded as-is.
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "ArrowUp" }),
     );
+
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "Escape" }),
     );
@@ -126,6 +139,7 @@ describe("LayerControl handleMoreClick", () => {
 
   it("calls openMoreMenu with the closest layer item", () => {
     const ui = makeUI();
+
     document.body.appendChild(ui.uiContainer);
 
     const btn = ui.uiContainer.querySelector(
@@ -136,25 +150,34 @@ describe("LayerControl handleMoreClick", () => {
     const stopPropagationSpy = vi.fn();
     const preventDefaultSpy = vi.fn();
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: btn });
+
     Object.defineProperty(event, "stopPropagation", { value: stopPropagationSpy });
+
     Object.defineProperty(event, "preventDefault", { value: preventDefaultSpy });
+
     handleMoreClick(ui, event);
 
     expect(ui.openMoreMenu).toHaveBeenCalledWith(item);
+
     expect(stopPropagationSpy).toHaveBeenCalled();
+
     expect(preventDefaultSpy).toHaveBeenCalled();
   });
 
   it("does nothing when the target is not a more button", () => {
     const ui = makeUI();
+
     document.body.appendChild(ui.uiContainer);
 
     const item = ui.uiContainer.querySelector(
       `.${CONST.CLASSES.LAYER_ITEM}`,
     ) as HTMLElement;
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: item });
+
     handleMoreClick(ui, event);
 
     expect(ui.openMoreMenu).not.toHaveBeenCalled();
@@ -163,11 +186,15 @@ describe("LayerControl handleMoreClick", () => {
   it("does nothing when the button is not inside a layer item", () => {
     const ui = makeUI();
     const btn = document.createElement("button");
+
     btn.className = CONST.CLASSES.MORE_BTN;
+
     document.body.appendChild(btn);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: btn });
+
     handleMoreClick(ui, event);
 
     expect(ui.openMoreMenu).not.toHaveBeenCalled();
@@ -182,10 +209,13 @@ describe("LayerControl handleMoreMenuClick", () => {
   } {
     const ui = makeUI();
     const menu = document.createElement("ul");
+
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("li");
+
     li.dataset.action = "focus-layer";
     if (disabled) li.setAttribute("disabled", "disabled");
+
     menu.appendChild(li);
 
     ui.activeMenu = {
@@ -193,6 +223,7 @@ describe("LayerControl handleMoreMenuClick", () => {
       menu,
       layerId: "layer1",
     };
+
     document.body.appendChild(menu);
     return { ui, li };
   }
@@ -201,10 +232,13 @@ describe("LayerControl handleMoreMenuClick", () => {
     const { ui, li } = buildMenu();
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: li });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).toHaveBeenCalledWith("layer1");
+
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
@@ -212,10 +246,13 @@ describe("LayerControl handleMoreMenuClick", () => {
     const { ui, li } = buildMenu(true);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: li });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
+
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
   });
 
@@ -224,70 +261,95 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ul = li.parentElement!;
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: ul });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
+
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
   });
 
   it("does not call focusLayer for an unknown action", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
+
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("li");
+
     li.dataset.action = "unknown-action";
+
     menu.appendChild(li);
+
     ui.activeMenu = {
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
     };
+
     document.body.appendChild(menu);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: li });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
+
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
   it("does not call focusLayer for a li without data-action", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
+
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("li");
+
     menu.appendChild(li);
+
     ui.activeMenu = {
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
     };
+
     document.body.appendChild(menu);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: li });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
+
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
   it("focus-layer action with no active menu falls back to an empty layer id", () => {
     const ui = makeUI(); // activeMenu stays null
     const menu = document.createElement("ul");
+
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("li");
+
     li.dataset.action = "focus-layer";
+
     menu.appendChild(li);
+
     document.body.appendChild(menu);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+
     Object.defineProperty(event, "target", { value: li });
+
     handleMoreMenuClick(ui, event);
 
     expect(ui.focusLayer).toHaveBeenCalledWith("");
+
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 });

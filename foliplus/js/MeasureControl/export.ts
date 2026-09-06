@@ -254,6 +254,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     exportMeasurements(measurements, format);
   } catch (err) {
     console.warn(`[${CONF.name}] export failed:`, err);
+
     mgr.map.foliplus?.showHint?.(
       CONF.name,
       T("export_fail") + T("err_export"),
@@ -261,6 +262,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     );
     return;
   }
+
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
   mgr.map.foliplus?.showHint?.(

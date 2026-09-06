@@ -25,6 +25,7 @@ const BTN_HTML = `
 
 createControlEnv(CONF, LOCATE);
 const T = createScopedTranslator(CONF);
+
 ensureHint(map);
 
 // ==================== Control Definition ====================
@@ -37,6 +38,7 @@ class LocateControl extends BaseControl {
   buildDOM() {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
     const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
+
     this.btn = createIconButton({
       class: "foliplus-tool-btn foliplus-locate-btn",
       title: T("title"),
@@ -45,11 +47,15 @@ class LocateControl extends BaseControl {
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
+
         locateMe(this);
       },
     });
+
     L.DomEvent.disableClickPropagation(outer);
+
     L.DomEvent.disableScrollPropagation(outer);
+
     this.container = outer;
     return outer;
   }

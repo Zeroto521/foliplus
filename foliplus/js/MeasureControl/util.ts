@@ -122,13 +122,19 @@ const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
   const len = (path as SVGPathElement).getTotalLength?.() || 0;
   if (len <= 0) return;
+
   path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, String(len));
+
   path.classList.add(CONST.CLASSES.DASH_SWEEP);
+
   const onEnd = () => {
     path.removeEventListener("animationend", onEnd);
+
     path.classList.remove(CONST.CLASSES.DASH_SWEEP);
+
     path.style.removeProperty(CONST.STYLE.SWEEP_LENGTH);
   };
+
   path.addEventListener("animationend", onEnd);
 };
 
@@ -169,7 +175,9 @@ const recalculateSegments = (
   for (let i = 1; i < points.length; i++) {
     const d = distance(points[i - 1], points[i]);
     const b = bearing(points[i - 1], points[i]);
+
     segments.push({ lng: points[i].lng, lat: points[i].lat, distance: d, bearing: b });
+
     totalDistance += d;
   }
   return { segments, totalDistance };

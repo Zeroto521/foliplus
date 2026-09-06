@@ -96,6 +96,7 @@ window.CONF = {
   position: "topleft",
   mode: "coord",
 };
+
 window.map = {
   foliplus: {
     showHint: vi.fn(),
@@ -106,7 +107,9 @@ window.map = {
   getCenter: () => ({ lng: 119.3, lat: 26.08 }),
   getContainer: () => {
     const el = document.createElement("div");
+
     el.id = "test-map";
+
     document.body.appendChild(el);
     return el;
   },

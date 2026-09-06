@@ -12,6 +12,7 @@ let versionCache = null;
 
 export const resolveVersion = () => {
   if (versionCache) return versionCache;
+
   const git = spawnSync("git", ["describe", "--tags", "--always"], {
     encoding: "utf-8",
   });
@@ -19,6 +20,7 @@ export const resolveVersion = () => {
     versionCache = git.stdout.trim();
     return versionCache;
   }
+
   versionCache = "unknown";
   return versionCache;
 };

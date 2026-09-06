@@ -13,14 +13,18 @@ const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() }
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
+
   window.L.circleMarker = vi.fn(() => ({}));
+
   window.L.DomEvent = {
     ...window.L.DomEvent,
     stopPropagation: vi.fn(),
   };
+
   globalThis.turf = {
     point: coords => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
@@ -41,10 +45,12 @@ afterEach(() => {
 describe("pointsToLatLngs", () => {
   it("converts {lng,lat} points to LatLng array", () => {
     window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+
     const result = Util.pointsToLatLngs([
       { lng: 119.3, lat: 26.08 },
       { lng: 119.31, lat: 26.09 },
     ]);
+
     expect(result).toEqual([
       { lat: 26.08, lng: 119.3 },
       { lat: 26.09, lng: 119.31 },
@@ -53,6 +59,7 @@ describe("pointsToLatLngs", () => {
 
   it("handles empty array", () => {
     window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
+
     expect(Util.pointsToLatLngs([])).toEqual([]);
   });
 });
@@ -60,11 +67,13 @@ describe("pointsToLatLngs", () => {
 describe("roundCoord", () => {
   it("rounds to the persisted 6-decimal precision", () => {
     expect(Util.roundCoord(121.987654321)).toBe(121.987654);
+
     expect(Util.roundCoord(31.123456789)).toBe(31.123457);
   });
 
   it("preserves whole numbers and trailing zeros", () => {
     expect(Util.roundCoord(122)).toBe(122);
+
     expect(Util.roundCoord(121.5)).toBe(121.5);
   });
 });
@@ -100,22 +109,28 @@ describe("formatArea", () => {
 describe("label div icons", () => {
   it("makeLabelDivIcon builds a divIcon with label html", () => {
     Util.makeLabelDivIcon("hi", [0, -10], "extra");
+
     expect(window.L.divIcon).toHaveBeenCalled();
     const opts = window.L.divIcon.mock.calls[0][0];
+
     expect(opts.html).toContain("foliplus-measure-label");
+
     expect(opts.html).toContain("extra");
+
     expect(opts.html).toContain("hi");
   });
 
   it("makeMidLabelDivIcon uses the mid anchor and class", () => {
     Util.makeMidLabelDivIcon("mid");
     const opts = window.L.divIcon.mock.calls[0][0];
+
     expect(opts.html).toContain("foliplus-measure-label-mid");
   });
 
   it("makeLabelDivIcon falls back to the default anchor when none is given", () => {
     Util.makeLabelDivIcon("hi");
     const opts = window.L.divIcon.mock.calls[0][0];
+
     expect(opts.iconAnchor).toEqual([0, -10]);
   });
 });
@@ -123,6 +138,7 @@ describe("label div icons", () => {
 describe("makeNode", () => {
   it("creates a circle marker with default class", () => {
     Util.makeNode({ lat: 1, lng: 2 });
+
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
       { radius: 5, className: "foliplus-measure-node" },
@@ -131,6 +147,7 @@ describe("makeNode", () => {
 
   it("accepts a custom className", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
+
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
   });
 });
@@ -139,17 +156,21 @@ describe("setLabelText", () => {
   it("updates the label element text", () => {
     const labelEl = document.createElement("span");
     const marker = { getElement: () => ({ querySelector: () => labelEl }) };
+
     Util.setLabelText(marker, "new text");
+
     expect(labelEl.textContent).toBe("new text");
   });
 
   it("does nothing when the marker has no element", () => {
     const marker = { getElement: () => null };
+
     expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
   });
 
   it("does nothing when the label element is absent", () => {
     const marker = { getElement: () => ({ querySelector: () => null }) };
+
     expect(() => Util.setLabelText(marker, "new text")).not.toThrow();
   });
 });
@@ -163,19 +184,26 @@ describe("animateDashSweep", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     };
+
     Util.animateDashSweep(path as any);
+
     expect(path.style.setProperty).toHaveBeenCalledWith("--sweep-length", "120");
+
     expect(path.classList.add).toHaveBeenCalledWith("foliplus-measure-dash-sweep");
 
     // Fire animationend → cleanup runs
     const onEnd = path.addEventListener.mock.calls[0][1];
+
     onEnd();
+
     expect(path.classList.remove).toHaveBeenCalled();
+
     expect(path.style.removeProperty).toHaveBeenCalled();
   });
 
   it("does nothing for zero-length paths", () => {
     const path = { getTotalLength: () => 0 };
+
     expect(() => Util.animateDashSweep(path as any)).not.toThrow();
   });
 });
@@ -188,8 +216,11 @@ describe("recalculateSegments", () => {
       { lng: 2, lat: 2 },
     ];
     const result = Util.recalculateSegments(points);
+
     expect(result.segments).toHaveLength(2);
+
     expect(result.totalDistance).toBe(200);
+
     expect(result.segments[0].distance).toBe(100);
   });
 });
@@ -197,15 +228,18 @@ describe("recalculateSegments", () => {
 describe("formatSegmentLabel", () => {
   it("returns only distance when show_bearing is off", () => {
     window.CONF = { ...window.CONF, show_bearing: false };
+
     expect(Util.formatSegmentLabel({} as any, {} as any, 500)).toBe("500 m");
   });
 
   it("includes bearing when show_bearing is on", () => {
     window.CONF = { ...window.CONF, show_bearing: true };
+
     globalThis.turf.bearing = vi.fn(() => 45);
     const a = { lng: 0, lat: 0 };
     const b = { lng: 0, lat: 1 };
     const label = Util.formatSegmentLabel(a, b, 500);
+
     expect(label).toBe("45° | 500 m");
   });
 });
@@ -213,6 +247,7 @@ describe("formatSegmentLabel", () => {
 describe("buildPopup", () => {
   it("delegates to buildPopupHtml", () => {
     const result = Util.buildPopup(1, 2, "addr");
+
     expect(result).toBeDefined();
   });
 });
@@ -223,8 +258,11 @@ describe("stopEvent", () => {
       preventDefault: vi.fn(),
       stopPropagation: vi.fn(),
     } as unknown as Event;
+
     stopEvent(event);
+
     expect(event.preventDefault).toHaveBeenCalled();
+
     expect(event.stopPropagation).toHaveBeenCalled();
   });
 });
@@ -259,6 +297,7 @@ describe("formatting constants", () => {
 
   it("the km branch carries one more digit than the meters branch", () => {
     expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
+
     expect(CONST.FORMAT.KM_DECIMALS).toBeGreaterThan(CONST.FORMAT.SMALL_DECIMALS);
   });
 
@@ -281,6 +320,7 @@ describe("formatting constants", () => {
       CONST.FORMAT.KM2_DECIMALS,
     ]) {
       expect(Number.isInteger(n)).toBe(true);
+
       expect(n).toBeGreaterThanOrEqual(0);
     }
   });
@@ -289,13 +329,17 @@ describe("formatting constants", () => {
 describe("recalculateSegments edge cases", () => {
   it("returns empty segments for single point", () => {
     const result = Util.recalculateSegments([{ lat: 0, lng: 0 }] as any);
+
     expect(result.segments).toHaveLength(0);
+
     expect(result.totalDistance).toBe(0);
   });
 
   it("returns empty segments for empty array", () => {
     const result = Util.recalculateSegments([] as any);
+
     expect(result.segments).toHaveLength(0);
+
     expect(result.totalDistance).toBe(0);
   });
 
@@ -304,7 +348,9 @@ describe("recalculateSegments edge cases", () => {
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
     ] as any);
+
     expect(result.segments).toHaveLength(1);
+
     expect(result.totalDistance).toBe(result.segments[0].distance);
   });
 });
@@ -312,14 +358,17 @@ describe("recalculateSegments edge cases", () => {
 describe("getEventTarget", () => {
   it("returns the target from a LeafletMouseEvent", () => {
     const el = document.createElement("div");
+
     const event = {
       originalEvent: { target: el },
     } as unknown as L.LeafletMouseEvent;
+
     expect(Util.getEventTarget(event)).toBe(el);
   });
 
   it("returns null when originalEvent is missing", () => {
     const event = {} as L.LeafletMouseEvent;
+
     expect(Util.getEventTarget(event)).toBeNull();
   });
 });
@@ -331,6 +380,7 @@ describe("buildEditOverlay", () => {
       off: vi.fn(),
     } as any;
   }
+
   function makeMgr(overrides: Record<string, unknown> = {}) {
     return { map: makeMap(), isEditMode: true, ...overrides };
   }
@@ -340,12 +390,15 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(mgr as any, {});
 
     expect(typeof overlay.open).toBe("function");
+
     expect(typeof overlay.cleanup).toBe("function");
+
     expect(typeof overlay.close).toBe("function");
   });
 
   it("close() is a no-op when the overlay is not open", () => {
     const onEmpty = vi.fn();
+
     const overlay = buildEditOverlay(makeMgr() as any, {
       onOpen: vi.fn(),
       onEmpty,
@@ -365,6 +418,7 @@ describe("buildEditOverlay", () => {
     overlay.open(ev);
 
     expect(onOpen).toHaveBeenCalledTimes(1);
+
     // Stops layer→map propagation so the overlay's own map-click handler
     // (which closes it) doesn't fire right after open.
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
@@ -373,6 +427,7 @@ describe("buildEditOverlay", () => {
   it("closes other open overlays on open (single ✕ set at a time)", () => {
     const closeOtherEditOverlays = vi.fn();
     const mgr = makeMgr({ closeOtherEditOverlays });
+
     const overlay = buildEditOverlay(mgr as any, {
       onOpen: vi.fn(),
       id: "m42",
@@ -381,6 +436,7 @@ describe("buildEditOverlay", () => {
     overlay.open({ originalEvent: {} } as any);
 
     expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
+
     expect(closeOtherEditOverlays).toHaveBeenCalledWith("m42");
   });
 
@@ -399,6 +455,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(makeMgr() as any, { onOpen });
 
     markDragSyntheticClick();
+
     overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).not.toHaveBeenCalled();
@@ -410,6 +467,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
+
     overlay.open({} as any);
 
     expect(onOpen).toHaveBeenCalledTimes(1);
@@ -424,8 +482,11 @@ describe("buildEditOverlay", () => {
     // find the map-click handler registered by buildEditOverlay
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+
     expect(mapClickHandler).toBeDefined();
+
     mapClickHandler();
+
     expect(onEmpty).toHaveBeenCalledTimes(1);
   });
 
@@ -437,8 +498,11 @@ describe("buildEditOverlay", () => {
 
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+
     markDragSyntheticClick();
+
     mapClickHandler();
+
     expect(onEmpty).not.toHaveBeenCalled();
   });
 
@@ -448,6 +512,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open(fakeEv());
+
     overlay.cleanup();
 
     expect(map.off).toHaveBeenCalledWith("click", expect.any(Function));
@@ -455,6 +520,7 @@ describe("buildEditOverlay", () => {
 
   it("registers a closer and close() hides the overlay via onEmpty", () => {
     const closers: Array<() => void> = [];
+
     const mgr = {
       map: makeMap(),
       isEditMode: true,
@@ -470,14 +536,17 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
+
     expect(closers).toHaveLength(1);
 
     closers[0]();
+
     expect(onEmpty).toHaveBeenCalledTimes(1);
   });
 
   it("cleanup unregisters the closer so deleted measurements drop their entry", () => {
     const closers: Array<() => void> = [];
+
     const mgr = {
       map: makeMap(),
       isEditMode: true,
@@ -490,9 +559,11 @@ describe("buildEditOverlay", () => {
       },
     };
     const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+
     expect(closers).toHaveLength(1);
 
     overlay.cleanup();
+
     expect(closers).toHaveLength(0);
   });
 });
@@ -500,7 +571,9 @@ describe("buildEditOverlay", () => {
 describe("markDragSyntheticClick / isDragSyntheticClick", () => {
   it("returns true once after markDragSyntheticClick", () => {
     markDragSyntheticClick();
+
     expect(isDragSyntheticClick()).toBe(true);
+
     expect(isDragSyntheticClick()).toBe(false); // consumed-on-read
   });
 
@@ -514,12 +587,14 @@ describe("bindNodeDrag", () => {
     // resortLayers() re-creates a node's SVG path, so a cursor captured at
     // bind time would go stale and the "move" cursor would silently stop.
     let current: { style: { cursor: string } } = { style: { cursor: "" } };
+
     const node = {
       on: vi.fn(),
       off: vi.fn(),
       getElement: vi.fn(() => current),
       setLatLng: vi.fn(),
     };
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -531,6 +606,7 @@ describe("bindNodeDrag", () => {
     current = { style: { cursor: "" } };
 
     setEnabled(true);
+
     expect(current.style.cursor).toBe("move");
   });
 
@@ -544,6 +620,7 @@ describe("bindNodeDrag", () => {
     const del = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
     const onDrag = vi.fn();
     const onEnd = vi.fn();
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -560,6 +637,7 @@ describe("bindNodeDrag", () => {
       onDrag,
       onEnd,
     });
+
     setEnabled(true);
 
     // find handlers
@@ -568,11 +646,15 @@ describe("bindNodeDrag", () => {
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
+
     expect(map.dragging.disable).toHaveBeenCalled();
 
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+
     expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
     expect(del.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
     expect(onDrag).toHaveBeenCalledWith({ lat: 2, lng: 2 });
 
     // node-level mouseup delegates to the shared onUp handler
@@ -580,10 +662,13 @@ describe("bindNodeDrag", () => {
       originalEvent: { clientX: 10, clientY: 0 },
       latlng: { lat: 2, lng: 2 },
     });
+
     expect(onEnd).toHaveBeenCalledWith({ lat: 2, lng: 2 });
+
     expect(map.dragging.enable).toHaveBeenCalled();
 
     cleanup();
+
     expect(node.off).toHaveBeenCalledWith("mousedown", expect.any(Function));
   });
 
@@ -592,6 +677,7 @@ describe("bindNodeDrag", () => {
     // node.getLatLng(); if the node is moved first, they can't find it and the
     // drag silently no-ops.
     let currentLatLng = { lat: 1, lng: 1 };
+
     const node = {
       on: vi.fn(),
       off: vi.fn(),
@@ -601,9 +687,11 @@ describe("bindNodeDrag", () => {
       }),
     };
     const seen: Array<{ lat: number; lng: number }> = [];
+
     const onDrag = vi.fn(() => {
       seen.push(node.getLatLng());
     });
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -616,21 +704,25 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
+
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
 
     // During onDrag the node still reports its ORIGINAL position.
     expect(seen).toEqual([{ lat: 1, lng: 1 }]);
+
     // After onDrag, the node is moved.
     expect(node.setLatLng).toHaveBeenCalledWith({ lat: 2, lng: 2 });
   });
 
   it("does not drag when enabled is false", () => {
     const node = { on: vi.fn(), off: vi.fn() };
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -640,16 +732,22 @@ describe("bindNodeDrag", () => {
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
     // enabled defaults to false
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+
     onDown({});
+
     expect(map.dragging.disable).not.toHaveBeenCalled();
+
     setEnabled(true);
+
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+
     expect(map.dragging.disable).toHaveBeenCalled();
   });
 
   it("skips onEnd when movement stayed inside the tap threshold", () => {
     const node = { on: vi.fn(), off: vi.fn() };
     const onEnd = vi.fn();
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -658,21 +756,26 @@ describe("bindNodeDrag", () => {
     };
 
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onEnd });
+
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
     const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+
     // movement of 2px < DRAG_THRESHOLD (4px)
     onMove({ originalEvent: { clientX: 2, clientY: 0 } });
+
     onUp({ originalEvent: { clientX: 2, clientY: 0 } });
+
     expect(onEnd).not.toHaveBeenCalled();
   });
 
   it("gracefully ignores a synthesized mousedown with no originalEvent", () => {
     const node = { on: vi.fn(), off: vi.fn() };
     const onDrag = vi.fn();
+
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -680,14 +783,18 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
+
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
 
     onDown({ originalEvent: undefined, latlng: { lat: 1, lng: 1 } });
+
     expect(map.dragging.disable).not.toHaveBeenCalled();
+
     // No startPt was set, so a later move must not drag
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
+
     expect(onDrag).not.toHaveBeenCalled();
   });
 });
@@ -758,12 +865,15 @@ describe("coordText", () => {
 describe("geocodeAddress", () => {
   it("calls reverseGeocode and returns the resolved address", async () => {
     const resolvedAddr = "123 Main St";
+
     window.foliplus = {
       reverseGeocode: vi.fn(() => Promise.resolve(resolvedAddr)),
     } as any;
     const mgr = { map: {} };
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", null);
+
     expect(window.foliplus.reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
+
     expect(result).toBe(resolvedAddr);
   });
 
@@ -774,6 +884,7 @@ describe("geocodeAddress", () => {
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+
     expect(result).toBe(prev);
   });
 
@@ -784,6 +895,7 @@ describe("geocodeAddress", () => {
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+
     expect(result).toBe(prev);
   });
 
@@ -792,6 +904,7 @@ describe("geocodeAddress", () => {
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
+
     expect(result).toBe(prev);
   });
 });

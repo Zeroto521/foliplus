@@ -30,10 +30,13 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
     `.foliplus-layer-more-btn`,
   ) as HTMLButtonElement | null;
   if (!btn) return;
+
   event.stopPropagation();
+
   event.preventDefault();
   const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
+
   ui.openMoreMenu(item);
 };
 
@@ -48,6 +51,7 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (li.getAttribute("disabled")) return;
   if (action === "focus-layer") ui.focusLayer(ui.activeMenu?.layerId ?? "");
   if (action === "rename-layer") ui.renameLayer(ui.activeMenu?.layerId ?? "");
+
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
   ui.closeMoreMenu(action !== "rename-layer");

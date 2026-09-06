@@ -50,12 +50,15 @@ const buildEditOverlay = (
 
   const close = () => {
     if (!isOpen) return;
+
     isOpen = false;
+
     onEmpty?.();
   };
 
   const onMapClick = () => {
     if (isDragSyntheticClick()) return;
+
     close();
   };
 
@@ -74,13 +77,17 @@ const buildEditOverlay = (
       L.DomEvent.stopPropagation(ev);
       return;
     }
+
     // Only one measurement shows ✕ at a time: close any other open overlay.
     host.closeOtherEditOverlays?.(id ?? "");
+
     // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.
     L.DomEvent.stopPropagation(ev);
+
     isOpen = true;
+
     onOpen();
   };
 
@@ -89,6 +96,7 @@ const buildEditOverlay = (
     close,
     cleanup: () => {
       host.map.off("click", onMapClick);
+
       unregister?.();
     },
   };
@@ -126,10 +134,15 @@ const bindNodeDrag = (
     if (!enabled) return;
     const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
     if (!raw) return;
+
     startPt = map.mouseEventToContainerPoint(raw);
+
     dragging = true;
+
     moved = false;
+
     setCursor("move");
+
     map.dragging.disable();
   };
 
@@ -143,19 +156,25 @@ const bindNodeDrag = (
       Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD
     )
       return;
+
     moved = true;
+
     // Notify handlers BEFORE repositioning the node so handlers that locate
     // the node by its current latlng (distance/polygon `findPtIdx`) can still
     // find the original point before it moves.
     handlers.onDrag?.(ev.latlng);
+
     (node as L.Marker).setLatLng(ev.latlng);
     if (delMarker) (delMarker as L.Marker).setLatLng(ev.latlng);
   };
 
   const onUp = (ev: L.LeafletMouseEvent) => {
     if (!dragging) return;
+
     dragging = false;
+
     setCursor(enabled ? "move" : "");
+
     map.dragging.enable();
     if (moved) handlers.onEnd?.(ev.latlng);
   };
@@ -165,19 +184,26 @@ const bindNodeDrag = (
   };
 
   node.on("mousedown", onDown);
+
   node.on("mouseup", onNodeUp);
+
   map.on("mousemove", onMove);
+
   map.on("mouseup", onUp);
 
   const setEnabled = (v: boolean) => {
     enabled = v;
+
     setCursor(v ? "move" : "");
   };
 
   const cleanup = () => {
     node.off("mousedown", onDown);
+
     node.off("mouseup", onNodeUp);
+
     map.off("mousemove", onMove);
+
     map.off("mouseup", onUp);
   };
 
@@ -199,6 +225,7 @@ const markDragSyntheticClick = () => {
 /** Consume the one-shot flag; returns true once after mark, then false. */
 const isDragSyntheticClick = (): boolean => {
   const v = dragSyntheticClick;
+
   dragSyntheticClick = false;
   return v;
 };

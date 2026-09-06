@@ -44,17 +44,21 @@ describe("build artifacts", () => {
 
   it("common JS contains BaseControl class", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+
     expect(content).toContain("BaseControl");
   });
 
   it("common JS contains L.Control (Leaflet base)", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+
     expect(content).toContain("L.Control");
   });
 
   it("common JS has version banner", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+
     expect(content).toContain("foliplus@");
+
     expect(content).toMatch(/\/\*!/);
   });
 
@@ -63,6 +67,7 @@ describe("build artifacts", () => {
       resolve(distDir, "foliplus-ScaleControl.min.js"),
       "utf-8",
     );
+
     expect(content).toContain("foliplus.BaseControl");
   });
 
@@ -71,6 +76,7 @@ describe("build artifacts", () => {
       resolve(distDir, "foliplus-ExportControl.min.js"),
       "utf-8",
     );
+
     expect(content).toContain("foliplus.common");
   });
 
@@ -79,12 +85,15 @@ describe("build artifacts", () => {
       resolve(distDir, "foliplus-ScaleControl.min.js"),
       "utf-8",
     );
+
     expect(content).not.toContain("class BaseControl");
   });
 
   it("common JS has reasonable size (20-100KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
+
     expect(size).toBeGreaterThan(20000);
+
     expect(size).toBeLessThan(100000);
   });
 
@@ -103,11 +112,14 @@ describe("build artifacts", () => {
     // after feature additions: rename, focus, reorder, fold).
     "foliplus-LayerControl.min.js": 110000,
   };
+
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
       const size = readFileSync(resolve(distDir, artifact)).length;
+
       expect(size, artifact).toBeGreaterThan(500);
       const limit = MAX_COMPONENT_SIZE[artifact] ?? 100000;
+
       expect(size, artifact).toBeLessThan(limit);
     }
   });
@@ -115,17 +127,20 @@ describe("build artifacts", () => {
   it("CSS files are non-empty", () => {
     for (const artifact of CSS_ARTIFACTS) {
       const size = readFileSync(resolve(distDir, artifact)).length;
+
       expect(size, artifact).toBeGreaterThan(0);
     }
   });
 
   it("has correct number of JS artifacts", () => {
     const jsFiles = readdirSync(distDir).filter(f => f.endsWith(".min.js"));
+
     expect(jsFiles.length).toBeGreaterThanOrEqual(JS_ARTIFACTS.length);
   });
 
   it("has correct number of CSS artifacts", () => {
     const cssFiles = readdirSync(distDir).filter(f => f.endsWith(".min.css"));
+
     expect(cssFiles.length).toBeGreaterThanOrEqual(CSS_ARTIFACTS.length);
   });
 });

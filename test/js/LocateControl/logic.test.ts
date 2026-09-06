@@ -20,7 +20,9 @@ const makeCtrl = () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
+
   // placeMarker attaches popup/del-icon handlers via `.on` on both markers.
   window.L.marker = vi.fn(() => ({
     bindPopup: vi.fn(),
@@ -43,6 +45,7 @@ describe("locateMe", () => {
 
   const geoStub = () => {
     const getCurrentPosition = vi.fn();
+
     Object.defineProperty(navigator, "geolocation", {
       value: { getCurrentPosition },
       configurable: true,
@@ -54,9 +57,13 @@ describe("locateMe", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();
+
     locateMe(ctrl);
+
     ensureModes(window.map).setMode("MeasureControl", null);
+
     expect(ctrl.hasLoading()).toBe(false);
+
     expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 
@@ -66,12 +73,15 @@ describe("locateMe", () => {
       configurable: true,
     });
     const ctrl = makeCtrl();
+
     locateMe(ctrl);
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
       "geo_error",
       4000,
     );
+
     expect(ctrl.hasLoading()).toBe(false);
   });
 
@@ -80,14 +90,20 @@ describe("locateMe", () => {
     const ctrl = makeCtrl();
 
     locateMe(ctrl);
+
     expect(ctrl.hasLoading()).toBe(true);
+
     expect(getCurrentPosition).toHaveBeenCalledTimes(1);
     const [success] = getCurrentPosition.mock.calls[0];
 
     success({ coords: { longitude: 119.3, latitude: 26.08 } });
+
     expect(ctrl.hasLoading()).toBe(false);
+
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
+
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 16);
+
     expect(ctrl.marker).not.toBeNull();
   });
 
@@ -97,9 +113,13 @@ describe("locateMe", () => {
 
     locateMe(ctrl);
     const [, error] = getCurrentPosition.mock.calls[0];
+
     error({ code: 1, message: "Permission denied" });
+
     expect(ctrl.hasLoading()).toBe(false);
+
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
+
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
       "geo_error",
@@ -110,8 +130,11 @@ describe("locateMe", () => {
   it("keeps loading while geolocation is still pending", () => {
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();
+
     locateMe(ctrl);
+
     expect(ctrl.hasLoading()).toBe(true);
+
     expect(getCurrentPosition.mock.calls[0]).toHaveLength(2);
   });
 
@@ -121,8 +144,11 @@ describe("locateMe", () => {
 
     locateMe(ctrl);
     const [, error] = getCurrentPosition.mock.calls[0];
+
     error({ code: 1, message: "Permission denied" });
+
     expect(ctrl.marker).toBeNull();
+
     expect(ctrl.delIcon).toBeNull();
   });
 });

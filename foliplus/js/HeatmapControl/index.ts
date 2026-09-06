@@ -10,6 +10,7 @@ import { bindControls, initScan, setupObserver } from "./ui.js";
 
 createControlEnv(CONF, SVGs.HEXAGON);
 const T = createScopedTranslator(CONF);
+
 ensureLayerAPI(map);
 
 const heatmapManager = new HeatmapManager(map);
@@ -40,8 +41,11 @@ class HeatmapControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+
     this.manager = heatmapManager;
+
     this.schemeDropdown = null;
+
     this.expandHookDone = false;
   }
 
@@ -58,9 +62,13 @@ class HeatmapControl extends BaseControl {
       panelTitle: T("title"),
       closeTitle: T("close_title"),
     });
+
     this.ctrl = ctrl;
+
     this.m.ui = this;
+
     bindControls(this, panelContent);
+
     setupObserver(this);
     return container;
   }
@@ -70,6 +78,7 @@ class HeatmapControl extends BaseControl {
     if (this.m.mapCleanup) this.m.mapCleanup();
     if (this.m.onZoomEnd) {
       this.m.onZoomEnd.cancel();
+
       this.m.map.off("zoomend", this.m.onZoomEnd);
     }
     if (this.m.onLayerChange) {
@@ -82,6 +91,7 @@ class HeatmapControl extends BaseControl {
 
     this.m.clearHeatmapCanvas();
     if (this.m.overlay) this.m.overlay.destroy();
+
     this.m.ui = null;
   }
 }
@@ -91,4 +101,5 @@ class HeatmapControl extends BaseControl {
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
+
 initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);

@@ -10,16 +10,21 @@
  */
 const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void } => {
   let rafId: number | null = null;
+
   const wrapped = () => {
     if (rafId) return;
+
     rafId = requestAnimationFrame(() => {
       rafId = null;
+
       fn();
     });
   };
+
   wrapped.cancel = () => {
     if (rafId) {
       cancelAnimationFrame(rafId);
+
       rafId = null;
     }
   };

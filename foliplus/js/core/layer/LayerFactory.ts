@@ -56,9 +56,11 @@ class LayerFactory {
     // redundant UI refreshes of an unchanged count. Skip it.
     const onDataChangeSkip = !!opts.featureCountProvider;
     const mainLayer = L.layerGroup();
+
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
       : null;
+
     const labelLayer = opts.labelPane
       ? L.layerGroup([], { pane: opts.labelPane })
       : null;
@@ -77,21 +79,25 @@ class LayerFactory {
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
     };
+
     const register = () => {
       if (!registered) {
         registered = true;
         if (opts.labelPane) panes.labelPanes.add(opts.labelPane);
       }
+
       registerLayer(layerOpts);
     };
 
     const unregister = () => {
       if (!registered) return;
+
       const hasContent =
         (graphLayer && graphLayer.getLayers().length > 0) ||
         (labelLayer && labelLayer.getLayers().length > 0);
       if (!hasContent) {
         registered = false;
+
         unregisterLayer(opts.id);
       }
     };
@@ -105,16 +111,21 @@ class LayerFactory {
       if (target) {
         if (!map.hasLayer(mainLayer)) register();
         const paneName = isLabel ? opts.labelPane : opts.graphPane;
+
         layer.options.pane = paneName;
         if (layer instanceof L.Path) {
           const { renderer } = panes.ensurePane(opts.graphPane!);
+
           layer.options.renderer = renderer ?? undefined;
         } else if (paneName) panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
+
         // The mainLayer subtree changed and the added layer's options.pane was
         // set above — invalidate both discovery-cache entries (targeted).
         panes.reset(L.stamp(mainLayer));
+
         panes.reset(L.stamp(layer));
+
         invalidateType(opts.id);
         if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
@@ -125,16 +136,22 @@ class LayerFactory {
     mainLayer.removeLayer = (layer: LabelAwareLayer) => {
       if (graphLayer && graphLayer.hasLayer(layer)) {
         const result = graphLayer.removeLayer(layer);
+
         panes.reset(L.stamp(mainLayer));
+
         panes.reset(L.stamp(layer));
+
         invalidateType(opts.id);
         if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
       }
       if (labelLayer && labelLayer.hasLayer(layer)) {
         const result = labelLayer.removeLayer(layer);
+
         panes.reset(L.stamp(mainLayer));
+
         panes.reset(L.stamp(layer));
+
         invalidateType(opts.id);
         if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
@@ -148,6 +165,7 @@ class LayerFactory {
       // Count only actual content, not the sub-layer containers themselves.
       const directCount =
         mainLayer.getLayers().length - (graphLayer ? 1 : 0) - (labelLayer ? 1 : 0);
+
       const hadContent =
         directCount > 0 ||
         (graphLayer ? graphLayer.getLayers().length > 0 : false) ||
@@ -156,20 +174,24 @@ class LayerFactory {
       if (labelLayer) labelLayer.clearLayers();
       if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
       if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
+
       unregister();
       return mainLayer;
     };
 
     const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
       if (isLabel) layer.isLabel = true;
+
       mainLayer.addLayer(layer);
       return layer;
     };
+
     const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
       items.forEach(l => {
         if (l != null) mainLayer.removeLayer(l);
       });
     };
+
     const clearLayers = () => {
       mainLayer.clearLayers();
     };
@@ -209,13 +231,17 @@ class LayerFactory {
       const h = container.clientHeight;
       if (canvas.width !== w * dpr) canvas.width = w * dpr;
       if (canvas.height !== h * dpr) canvas.height = h * dpr;
+
       canvas.style.width = `${w}px`;
+
       canvas.style.height = `${h}px`;
     };
 
     const updatePosition = () => {
       const pos = L.DomUtil.getPosition(mapPane);
+
       canvas.style.left = `${-pos.x}px`;
+
       canvas.style.top = `${-pos.y}px`;
     };
 
@@ -225,6 +251,7 @@ class LayerFactory {
     };
 
     resize();
+
     updatePosition();
 
     let registered = false;
@@ -244,10 +271,15 @@ class LayerFactory {
 
     const unregister = () => {
       if (!registered) return;
+
       registered = false;
+
       ctx!.setTransform(1, 0, 0, 1, 0, 0);
+
       ctx!.clearRect(0, 0, canvas.width, canvas.height);
+
       canvas.classList.add(HIDDEN);
+
       unregisterLayer(opts.id);
     };
 
@@ -261,19 +293,27 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? null,
     };
+
     const register = () => {
       if (registered) return;
+
       registered = true;
+
       resize();
+
       updatePosition();
+
       canvas.classList.remove(HIDDEN);
+
       registerLayer(layerOpts);
     };
 
     const onMove = throttleRaf(() => updatePosition());
+
     map.on("move", onMove);
 
     const onResize = () => resize();
+
     map.on("resize", onResize);
 
     return {
@@ -287,9 +327,13 @@ class LayerFactory {
       registered: () => registered,
       destroy: () => {
         map.off("move", onMove);
+
         map.off("resize", onResize);
+
         onMove.cancel();
+
         unregister();
+
         canvas.remove();
       },
       bringToFront: () => bringLayerToFront(opts.id),

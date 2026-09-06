@@ -27,12 +27,15 @@ describe("sharedGlobalNamespace", () => {
 
   it("maps core subdirectory to foliplus.core.sub", () => {
     expect(sharedGlobalNamespace("#core/layer/index.js")).toBe("foliplus.core.layer");
+
     expect(sharedGlobalNamespace("#core/event/index.js")).toBe("foliplus.core.event");
   });
 
   it("maps common modules to foliplus.common.mod", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
+
     expect(sharedGlobalNamespace("#common/storage.js")).toBe("foliplus.common.storage");
+
     expect(sharedGlobalNamespace("#common/coord.js")).toBe("foliplus.common.coord");
   });
 });
@@ -51,11 +54,17 @@ describe("collectExports", () => {
     const tmpDir = createTempFile("collect.test.ts", code);
     try {
       const exports = collectExports(tmpDir.path);
+
       expect(exports).toContain("FOO");
+
       expect(exports).toContain("BAR");
+
       expect(exports).toContain("BAZ");
+
       expect(exports).toContain("QUX");
+
       expect(exports).toContain("WIDGET");
+
       expect(exports).toContain("ASYNC");
     } finally {
       tmpDir.cleanup();
@@ -72,6 +81,7 @@ describe("collectExports", () => {
     const tmpDir = createTempFile("named.test.ts", code);
     try {
       expect(collectExports(tmpDir.path)).toContain("A");
+
       expect(collectExports(tmpDir.path)).toContain("B");
     } finally {
       tmpDir.cleanup();
@@ -86,7 +96,9 @@ describe("collectExports", () => {
     const tmpDir = createTempFile("reexport.test.ts", code);
     try {
       const exports = collectExports(tmpDir.path);
+
       expect(exports).toContain("X");
+
       expect(exports).toContain("Y");
     } finally {
       tmpDir.cleanup();
@@ -105,11 +117,15 @@ describe("collectExports", () => {
     const barrelFile = createTempFile("barrel.test.ts", barrel);
     try {
       const exports = collectExports(barrelFile.path);
+
       expect(exports).toContain("A");
+
       expect(exports).toContain("B");
     } finally {
       aModule.cleanup();
+
       bModule.cleanup();
+
       barrelFile.cleanup();
     }
   });
@@ -123,7 +139,9 @@ describe("collectExports", () => {
     const tmpDir = createTempFile("types.test.ts", code);
     try {
       const exports = collectExports(tmpDir.path);
+
       expect(exports).not.toContain("TypeName");
+
       expect(exports).toContain("value");
     } finally {
       tmpDir.cleanup();
@@ -136,6 +154,7 @@ describe("collectExports", () => {
     try {
       // Ask for .js, should find .ts
       const exports = collectExports(tmpDir.path.replace(/.ts$/, ".js"));
+
       expect(exports).toContain("FOO");
     } finally {
       tmpDir.cleanup();
@@ -154,7 +173,9 @@ describe("collectExports with as alias", () => {
     const tmpDir = createTempFile("alias.test.ts", code);
     try {
       const exports = collectExports(tmpDir.path);
+
       expect(exports).toContain("OUTER");
+
       expect(exports).toContain("INNER");
     } finally {
       tmpDir.cleanup();
@@ -171,8 +192,10 @@ describe("collectExports with as alias", () => {
     try {
       fs.writeFileSync(otherPath, "export const DEFAULT_TIMEOUT_MS = 5000;", "utf-8");
       const exports = collectExports(tmpDir.path);
+
       // The alias name is present (from the re-export line)
       expect(exports).toContain("GEODECODE_TIMEOUT_MS");
+
       // The local name is also present (recursive resolution of the target)
       expect(exports).toContain("DEFAULT_TIMEOUT_MS");
     } finally {
@@ -190,15 +213,23 @@ describe("collectSources", () => {
     const path = require("path");
     const os = require("os");
     const base = path.join(os.tmpdir(), "dsh-test-cs-" + Date.now());
+
     fs.mkdirSync(base, { recursive: true });
+
     fs.mkdirSync(path.join(base, "sub"), { recursive: true });
+
     fs.writeFileSync(path.join(base, "a.ts"), "export const A = 1;", "utf-8");
+
     fs.writeFileSync(path.join(base, "sub", "b.ts"), "export const B = 2;", "utf-8");
+
     fs.writeFileSync(path.join(base, "c.d.ts"), "export type C = string;", "utf-8");
     try {
       const sources = collectSources(base);
+
       expect(sources).toHaveLength(2);
+
       expect(sources[0]).toContain("A");
+
       expect(sources[1]).toContain("B");
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -212,7 +243,9 @@ describe("scanSharedImports", () => {
     const path = require("path");
     const os = require("os");
     const base = path.join(os.tmpdir(), "dsh-test-si-" + Date.now());
+
     fs.mkdirSync(base, { recursive: true });
+
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       [
@@ -223,6 +256,7 @@ describe("scanSharedImports", () => {
       ].join("\n"),
       "utf-8",
     );
+
     fs.writeFileSync(
       path.join(base, "helper.ts"),
       'import { fromWgs84 } from "#common/coord.js";',
@@ -230,18 +264,29 @@ describe("scanSharedImports", () => {
     );
     try {
       const { used, starUsed } = scanSharedImports(base);
+
       expect(used.has("#core/hint.js")).toBe(true);
+
       expect(used.get("#core/hint.js")).toEqual(
         new Set(["ensureHint", "HINT_DURATION"]),
       );
+
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
+
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
+
       expect(used.has("#common/dom.js")).toBe(true);
+
       expect(used.get("#common/dom.js")).toEqual(new Set(["dom", "createIconButton"]));
+
       expect(used.has("#common/coord.js")).toBe(true);
+
       expect(used.get("#common/coord.js")).toEqual(new Set(["fromWgs84"]));
+
       expect(used.has("#common/locale.js")).toBe(true);
+
       expect(used.get("#common/locale.js")).toEqual(new Set(["createTranslator"]));
+
       expect(starUsed.size).toBe(0);
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -253,7 +298,9 @@ describe("scanSharedImports", () => {
     const path = require("path");
     const os = require("os");
     const base = path.join(os.tmpdir(), "dsh-test-si2-" + Date.now());
+
     fs.mkdirSync(base, { recursive: true });
+
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       [
@@ -265,8 +312,11 @@ describe("scanSharedImports", () => {
     );
     try {
       const { used, starUsed } = scanSharedImports(base);
+
       expect(used.size).toBe(0);
+
       expect(starUsed.has("#common/icon.js")).toBe(true);
+
       expect(starUsed.get("#common/icon.js")).toEqual(new Set(["LOADING", "CLOSE"]));
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -278,7 +328,9 @@ describe("scanSharedImports", () => {
     const path = require("path");
     const os = require("os");
     const base = path.join(os.tmpdir(), "dsh-test-si3-" + Date.now());
+
     fs.mkdirSync(base, { recursive: true });
+
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       'import { ensureHint as H } from "#core/hint.js";',
@@ -286,7 +338,9 @@ describe("scanSharedImports", () => {
     );
     try {
       const { used } = scanSharedImports(base);
+
       expect(used.has("#core/hint.js")).toBe(true);
+
       expect(used.get("#core/hint.js")).toEqual(new Set(["ensureHint"]));
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -302,6 +356,7 @@ function createTempFile(name, content) {
   const fs = require("fs");
   const path = require("path");
   const filePath = path.join(tmpDir, "dsh-test-" + tmpCount++ + "-" + name);
+
   fs.writeFileSync(filePath, content, "utf-8");
   return {
     path: filePath,

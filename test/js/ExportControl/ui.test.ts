@@ -6,6 +6,7 @@ import { removeCropBox, showCropBox } from "#foliplus/ExportControl/ui.js";
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
 function makeMapMock() {
   const container = document.createElement("div");
+
   // getBoundingClientRect is used by showCropBox to size the default crop box.
   container.getBoundingClientRect = () => ({
     left: 0,
@@ -46,6 +47,7 @@ function makeManager() {
   };
   const manager = new ExportManager(makeMapMock());
   const toolBar = document.createElement("div");
+
   manager.attachUI(null, toolBar);
   return manager;
 }
@@ -63,13 +65,17 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
 
   it("showCropBox sets ModeManager mode to 'selecting'", () => {
     showCropBox(manager);
+
     expect(manager.map.foliplus.modes.getMode("ExportControl")).toBe("selecting");
   });
 
   it("removeCropBox resets ModeManager mode to null", () => {
     showCropBox(manager);
+
     expect(manager.map.foliplus.modes.getMode("ExportControl")).toBe("selecting");
+
     removeCropBox(manager);
+
     expect(manager.map.foliplus.modes.getMode("ExportControl")).toBeNull();
   });
 
@@ -80,22 +86,29 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
     // removed. Missing any of these four transitions would either let the
     // map fight the nudging or leave the map permanently without keyboard panning.
     showCropBox(manager);
+
     expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(1);
+
     expect(manager.map.keyboard.enable).not.toHaveBeenCalled();
 
     manager.lockCropBox();
+
     expect(manager.map.keyboard.enable).toHaveBeenCalledTimes(1);
 
     manager.unlockCropBox();
+
     expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(2);
 
     manager.removeCropBox();
+
     expect(manager.map.keyboard.enable).toHaveBeenCalledTimes(2);
   });
 
   it("crop 'selecting' mode suspends layer interaction, removeCropBox restores it", () => {
     const el = document.createElement("path");
+
     el.classList.add("leaflet-interactive");
+
     const leaf = {
       options: { interactive: true },
       _map: manager.map,
@@ -105,6 +118,7 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
       addInteractiveTarget: vi.fn(),
       removeInteractiveTarget: vi.fn(),
     };
+
     manager.map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
       fn({ eachLayer: (c: (l: unknown) => void) => c(leaf) }),
     );
@@ -113,14 +127,20 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
     // ModeManager lock disables the feature layer so the crop drag isn't
     // interrupted by popups / feature handlers.
     showCropBox(manager);
+
     expect(leaf.options.interactive).toBe(false);
+
     expect(el.classList.contains("leaflet-interactive")).toBe(false);
+
     expect(leaf.removeInteractiveTarget).toHaveBeenCalledWith(el);
 
     // Cancelling / finishing the crop restores interaction.
     removeCropBox(manager);
+
     expect(leaf.options.interactive).toBe(true);
+
     expect(el.classList.contains("leaflet-interactive")).toBe(true);
+
     expect(leaf.addInteractiveTarget).toHaveBeenCalledWith(el);
   });
 });

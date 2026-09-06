@@ -4,8 +4,11 @@ import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CLASSES.PSEUDO_FULLSCREEN).toBe("leaflet-pseudo-fullscreen");
+
     expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
+
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
+
     expect(CLASSES.HIDDEN).toBe("foliplus-hidden");
   });
 });

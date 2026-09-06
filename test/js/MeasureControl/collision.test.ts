@@ -10,7 +10,9 @@ type Box = { x: number; y: number; w: number; h: number };
 /** A real DOM chip so `style.visibility` behaves as it does in a browser. */
 const makeChip = (): HTMLElement => {
   const el = document.createElement("div");
+
   el.className = "foliplus-measure-label";
+
   document.body.appendChild(el);
   return el;
 };
@@ -37,6 +39,7 @@ const label = (
   priority: number,
 ): { lb: Collision.CollidableLabel; el: HTMLElement } => {
   const el = makeChip();
+
   boxes.set(el, box);
   return { el, lb: { marker: markerFor(el), priority } };
 };
@@ -58,6 +61,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+
   document.body.innerHTML = "";
 });
 
@@ -65,7 +69,9 @@ describe("placeLabels", () => {
   it("keeps a label on its anchor and visible when nothing overlaps it", () => {
     const { lb, el } = label(ANCHOR, 60);
     const { hidden } = plan([lb]);
+
     expect(hidden).toBe(0);
+
     expect(el.style.visibility).toBe("");
   });
 
@@ -73,8 +79,11 @@ describe("placeLabels", () => {
     const { lb: high, el: highEl } = label(ANCHOR, 80);
     const { lb: low, el: lowEl } = label(ANCHOR, 60); // same box, fully overlapping
     const { hidden } = plan([high, low]);
+
     expect(hidden).toBe(1);
+
     expect(highEl.style.visibility).toBe("");
+
     expect(lowEl.style.visibility).toBe("hidden");
   });
 
@@ -82,8 +91,11 @@ describe("placeLabels", () => {
     const { lb: a, el: aEl } = label(ANCHOR, 60);
     const { lb: b, el: bEl } = label(GRAZE, 60); // only 5px of 60px horizontal overlap = 8.3%
     const { hidden } = plan([a, b]);
+
     expect(hidden).toBe(0);
+
     expect(aEl.style.visibility).toBe("");
+
     expect(bEl.style.visibility).toBe("");
   });
 
@@ -94,6 +106,7 @@ describe("placeLabels", () => {
     const { lb: visible } = label(ANCHOR, 60);
     const unrenderedMarker = {} as unknown as L.Marker; // no _el → chipOf → null
     const { hidden } = plan([visible, { marker: unrenderedMarker, priority: 90 }]);
+
     expect(hidden).toBe(0);
   });
 
@@ -106,8 +119,11 @@ describe("placeLabels", () => {
     const { lb: big, el: bigEl } = label(bigBox, 60);
     const { lb: tiny, el: tinyEl } = label(tinyBox, 60);
     const { hidden } = plan([big, tiny]);
+
     expect(hidden).toBe(1);
+
     expect(bigEl.style.visibility).toBe("");
+
     expect(tinyEl.style.visibility).toBe("hidden");
   });
 
@@ -118,8 +134,11 @@ describe("placeLabels", () => {
     const { lb: big, el: bigEl } = label(bigBox, 60);
     const { lb: small, el: smallEl } = label(smallBox, 60);
     const { hidden } = plan([big, small]);
+
     expect(hidden).toBe(1);
+
     expect(bigEl.style.visibility).toBe("");
+
     expect(smallEl.style.visibility).toBe("hidden");
 
     // Priority trumps width: a small high-priority chip beats a large
@@ -129,8 +148,11 @@ describe("placeLabels", () => {
     const { lb: large, el: largeEl } = label(largeBox, 60);
     const { lb: tiny, el: tinyEl } = label(tinyBox, 90);
     const { hidden: hidden2 } = plan([large, tiny]);
+
     expect(hidden2).toBe(1);
+
     expect(largeEl.style.visibility).toBe("hidden");
+
     expect(tinyEl.style.visibility).toBe("");
   });
 
@@ -144,8 +166,11 @@ describe("placeLabels", () => {
     const { lb: big, el: bigEl } = label(bigBox, 80);
     const { lb: small, el: smallEl } = label(smallBox, 60);
     const { hidden } = plan([big, small]);
+
     expect(hidden).toBe(1);
+
     expect(bigEl.style.visibility).toBe("");
+
     expect(smallEl.style.visibility).toBe("hidden");
   });
 
@@ -158,33 +183,46 @@ describe("placeLabels", () => {
     const { lb: la, el: aEl } = label(a, 80);
     const { lb: lb_, el: bEl } = label(b, 60);
     const { hidden } = plan([la, lb_]);
+
     expect(hidden).toBe(0);
+
     expect(aEl.style.visibility).toBe("");
+
     expect(bEl.style.visibility).toBe("");
   });
 
   it("recomputes boxes per plan from the projector", () => {
     const { lb, el } = label(ANCHOR, 60);
+
     plan([lb]);
+
     // A second plan that moves the chip clear reads the new box.
     boxes.set(el, { x: 300, y: 0, w: 60, h: 20 });
     const { lb: other, el: otherEl } = label(ANCHOR, 60);
     const { hidden } = plan([lb, other]);
+
     expect(hidden).toBe(0);
+
     expect(el.style.visibility).toBe("");
+
     expect(otherEl.style.visibility).toBe("");
   });
 
   it("shows every visible label and hides nothing when collision is off", () => {
     const { lb: high, el: highEl } = label(ANCHOR, 80);
     const { lb: low, el: lowEl } = label(ANCHOR, 60);
+
     // A prior plan that hid `low`.
     plan([high, low], true);
+
     expect(lowEl.style.visibility).toBe("hidden");
 
     const { hidden } = plan([high, low], false);
+
     expect(hidden).toBe(0);
+
     expect(highEl.style.visibility).toBe("");
+
     expect(lowEl.style.visibility).toBe("");
   });
 
@@ -193,11 +231,15 @@ describe("placeLabels", () => {
     // re-enter the competition. Here it overlaps `late`, so the lower-priority
     // `late` is hidden and `hiddenLabel` comes back.
     const { lb: hiddenLabel, el: hiddenEl } = label(ANCHOR, 60);
+
     hiddenEl.style.visibility = "hidden";
     const { lb: late, el: lateEl } = label(ANCHOR, 50);
     const { hidden } = plan([hiddenLabel, late]);
+
     expect(hidden).toBe(1);
+
     expect(hiddenEl.style.visibility).toBe("");
+
     expect(lateEl.style.visibility).toBe("hidden");
   });
 
@@ -207,16 +249,23 @@ describe("placeLabels", () => {
 
     // Zoom level A: boxes fully overlap → low hides.
     const { hidden: hidden1 } = plan([high, low]);
+
     expect(hidden1).toBe(1);
+
     expect(highEl.style.visibility).toBe("");
+
     expect(lowEl.style.visibility).toBe("hidden");
 
     // Zoom level B: boxes move clear → both show.
     boxes.set(highEl, { x: 0, y: 0, w: 60, h: 20 });
+
     boxes.set(lowEl, { x: 300, y: 0, w: 60, h: 20 });
     const { hidden: hidden2 } = plan([high, low]);
+
     expect(hidden2).toBe(0);
+
     expect(highEl.style.visibility).toBe("");
+
     expect(lowEl.style.visibility).toBe("");
   });
 
@@ -224,14 +273,19 @@ describe("placeLabels", () => {
     const { lb: a, el: aEl } = label(ANCHOR, 80);
     // `b` starts clear of the anchor, so it shows on the first plan.
     const { lb: b, el: bEl } = label(GRAZE, 60);
+
     plan([a, b]);
+
     expect(bEl.style.visibility).toBe("");
 
     // Move `b` onto the anchor; the next plan must re-hide it.
     boxes.set(bEl, ANCHOR);
     const { hidden } = plan([a, b]);
+
     expect(hidden).toBe(1);
+
     expect(aEl.style.visibility).toBe("");
+
     expect(bEl.style.visibility).toBe("hidden");
   });
 
@@ -244,9 +298,12 @@ describe("placeLabels", () => {
     const { lb: la, el: aEl } = label(a, 60);
     const { lb: lb_, el: bEl } = label(b, 60);
     const { hidden } = plan([la, lb_]);
+
     expect(hidden).toBe(1);
+
     const visible =
       (aEl.style.visibility === "" ? 1 : 0) + (bEl.style.visibility === "" ? 1 : 0);
+
     expect(visible).toBe(1);
   });
 
@@ -261,8 +318,11 @@ describe("placeLabels", () => {
     const { lb: la, el: aEl } = label(a, 60);
     const { lb: lb_, el: bEl } = label(b, 60);
     const { hidden } = plan([la, lb_]);
+
     expect(hidden).toBe(0);
+
     expect(aEl.style.visibility).toBe("");
+
     expect(bEl.style.visibility).toBe("");
   });
 
@@ -288,7 +348,9 @@ describe("placeLabels", () => {
     const bac = resultOf([mid.lb, wide.lb, narrow.lb]);
 
     expect(cba).toEqual(abc);
+
     expect(bac).toEqual(abc);
+
     // Widest claims space; the two narrower (mutually overlapping it) hide.
     expect(abc).toEqual([true, false, false]);
   });
@@ -300,9 +362,13 @@ describe("placeLabels", () => {
     const far: Box = { x: 300, y: 0, w: 60, h: 20 };
     const { lb: farLabel, el: farEl } = label(far, 70);
     const { hidden } = plan([a, b, farLabel]);
+
     expect(hidden).toBe(1);
+
     expect(bEl.style.visibility).toBe("hidden");
+
     expect(aEl.style.visibility).toBe("");
+
     expect(farEl.style.visibility).toBe("");
   });
 
@@ -321,6 +387,7 @@ describe("placeLabels", () => {
 
     // Plan 1: chips overlap heavily → victim hides.
     plan([anchor, victim]);
+
     expect(victimEl.style.visibility).toBe("hidden");
 
     // Plan 2: geometry moved clear (zoom out). But chipOf for the victim
@@ -329,25 +396,34 @@ describe("placeLabels", () => {
     // and must leave the anchor visible.
     const missingChipOf: Collision.ChipOf = marker =>
       marker === victimMarker ? null : marker === anchorMarker ? anchorEl : null;
+
     boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
+
     boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
+
     const plan2 = Collision.placeLabels(
       [anchor, victim],
       projector,
       true,
       missingChipOf,
     );
+
     expect(plan2.hidden).toBe(0);
+
     expect(anchorEl.style.visibility).toBe("");
 
     // Plan 3: chipOf recovers. Geometry is still clean. The victim must be
     // restored — if the planner leaks the hidden state across a chipOf-null
     // plan, this is the "one edge never shows" bug.
     boxes.set(anchorEl, { x: 0, y: 0, w: 60, h: 20 });
+
     boxes.set(victimEl, { x: 300, y: 0, w: 60, h: 20 });
     const plan3 = plan([anchor, victim]);
+
     expect(plan3.hidden).toBe(0);
+
     expect(anchorEl.style.visibility).toBe("");
+
     expect(victimEl.style.visibility).toBe("");
   });
 
@@ -363,7 +439,9 @@ describe("placeLabels", () => {
     const segD = label({ x: 0, y: 120, w: 80, h: 20 }, 60); // left edge
     const center = label({ x: 160, y: 120, w: 90, h: 20 }, 80); // centroid
     const { hidden } = plan([segA.lb, segB.lb, segC.lb, segD.lb, center.lb]);
+
     expect(hidden).toBe(0);
+
     [segA, segB, segC, segD, center].forEach(l =>
       expect(l.el.style.visibility).toBe(""),
     );
@@ -379,8 +457,11 @@ describe("placeLabels", () => {
     const { lb: la, el: aEl } = label(a, 80);
     const { lb: lb_, el: bEl } = label(b, 60);
     const { hidden } = plan([la, lb_]);
+
     expect(hidden).toBe(0);
+
     expect(aEl.style.visibility).toBe("");
+
     expect(bEl.style.visibility).toBe("");
   });
 
@@ -388,9 +469,13 @@ describe("placeLabels", () => {
     const { lb: high, el: highEl } = label(ANCHOR, 80);
     const { lb: low, el: lowEl } = label(ANCHOR, 60);
     const result = plan([high, low]);
+
     expect(result.hidden).toBe(1);
+
     expect(result.elements.has(highEl)).toBe(false);
+
     expect(result.elements.has(lowEl)).toBe(true);
+
     expect([...result.elements]).toEqual([lowEl]);
   });
 });
@@ -401,6 +486,7 @@ describe("mapProjector", () => {
     // getBoundingClientRect; mapProjector must return sensible minimums so
     // the planner never treats an unrendered chip as sizeless.
     const container = document.createElement("div");
+
     document.body.appendChild(container);
     const map = { getContainer: () => container } as unknown as L.Map;
 
@@ -411,6 +497,7 @@ describe("mapProjector", () => {
     const box = proj.box(unrendered);
 
     expect(box.w).toBe(64);
+
     expect(box.h).toBe(18);
   });
 
@@ -420,7 +507,9 @@ describe("mapProjector", () => {
     // real dimensions. jsdom reports 0 from getBoundingClientRect, so we stub
     // it to exercise the real offset math.
     const container = document.createElement("div");
+
     document.body.appendChild(container);
+
     vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
       left: 100,
       top: 50,
@@ -434,7 +523,9 @@ describe("mapProjector", () => {
     } as DOMRect);
 
     const chip = document.createElement("div");
+
     container.appendChild(chip);
+
     vi.spyOn(chip, "getBoundingClientRect").mockReturnValue({
       left: 110,
       top: 70,
@@ -452,8 +543,11 @@ describe("mapProjector", () => {
     const box = proj.box(chip);
 
     expect(box.x).toBe(10);
+
     expect(box.y).toBe(20);
+
     expect(box.w).toBe(60);
+
     expect(box.h).toBe(20);
   });
 });
@@ -493,7 +587,9 @@ const perfRectOf = (
  *  math in mapProjector is exercised for real. */
 const makePerfContainer = (): HTMLElement => {
   const el = document.createElement("div");
+
   perfRectOf(el, PERF_CONTAINER_LEFT, PERF_CONTAINER_TOP, 1600, 900);
+
   document.body.appendChild(el);
   return el;
 };
@@ -501,7 +597,9 @@ const makePerfContainer = (): HTMLElement => {
 /** Real DOM chip at `box` (container-relative). */
 const labelAt = (box: Box, perfContainer: HTMLElement): Collision.CollidableLabel => {
   const el = document.createElement("div");
+
   document.body.appendChild(el);
+
   perfRectOf(el, box.x + PERF_CONTAINER_LEFT, box.y + PERF_CONTAINER_TOP, box.w, box.h);
   return {
     marker: { _el: el, getElement: () => el } as unknown as L.Marker,
@@ -537,6 +635,7 @@ const meanMs = (
   const projector = Collision.mapProjector({
     getContainer: () => perfContainer,
   } as unknown as L.Map);
+
   Collision.placeLabels(labels, projector, true, chipOf);
   const t0 = performance.now();
   for (let i = 0; i < PERF_REPEATS; i++) {
@@ -556,11 +655,13 @@ describe("collision.perf", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
+
     perfContainer = makePerfContainer();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+
     document.body.innerHTML = "";
   });
 

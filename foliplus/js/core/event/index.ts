@@ -10,8 +10,10 @@ const ensureEvents = (map: L.Map): EventBus => {
   const existing = instances.get(map);
   if (existing) return existing;
   const bus = new EventBus();
+
   instances.set(map, bus);
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
+
   map.foliplus!.events = bus;
   return bus;
 };

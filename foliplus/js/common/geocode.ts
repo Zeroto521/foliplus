@@ -25,6 +25,7 @@ const nominatimUrl = (
   code = "en",
 ): string => {
   const url = new URL(endpoint || "", NOMINATIM.URL);
+
   url.searchParams.set("format", NOMINATIM.FORMAT);
   for (const [k, v] of Object.entries(params))
     if (v != null) url.searchParams.set(k, String(v));
@@ -49,6 +50,7 @@ const nominatimUrl = (
  */
 const formatAddress = (displayName: string, map?: L.Map, code = "en"): string => {
   if (!displayName) return "";
+
   const parts = displayName
     .split(",")
     .map(s => s.trim())

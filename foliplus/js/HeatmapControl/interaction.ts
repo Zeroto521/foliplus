@@ -3,9 +3,11 @@ import { ensureInteraction } from "#core/interaction.js";
 
 const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   const schemes = CONF.schemes ?? [];
+
   const setScheme = (name: string) => {
     ctrl.m.currentScheme = name;
     if (ctrl.schemeSelectHidden) ctrl.schemeSelectHidden.value = name;
+
     ctrl.updateScheme();
   };
   return ensureInteraction(map).register(CONF.name, [
@@ -57,6 +59,7 @@ const registerDropdownEvents = (
       element: ctrl.schemeDropdown,
       handler: () => {
         const activeIdx = items.indexOf(document.activeElement as HTMLElement);
+
         items[(activeIdx + 1) % items.length].focus();
       },
     },
@@ -65,6 +68,7 @@ const registerDropdownEvents = (
       element: ctrl.schemeDropdown,
       handler: () => {
         const activeIdx = items.indexOf(document.activeElement as HTMLElement);
+
         items[(activeIdx - 1 + items.length) % items.length].focus();
       },
     },
@@ -75,6 +79,7 @@ const registerDropdownEvents = (
         const active = document.activeElement;
         if (active?.classList.contains("foliplus-heatmap-scheme-dropdown-item")) {
           const idx = items.indexOf(active as HTMLElement);
+
           ctrl.selectScheme?.(idx);
         }
       },
@@ -84,8 +89,11 @@ const registerDropdownEvents = (
       element: ctrl.schemeDropdown,
       handler: () => {
         ctrl.schemeDropdown?.remove();
+
         ctrl.schemeDropdown = null;
+
         ctrl.schemeBar?.classList.remove("foliplus-scheme-bar-open");
+
         ctrl.schemeBar?.focus();
       },
     },

@@ -33,7 +33,9 @@ const renderToolbarActions = (
 ) => {
   const actions = mgr.cropState?.actions || mgr.exportToolBar;
   if (!actions) return;
+
   actions.innerHTML = "";
+
   createIconButton({
     class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
     title: confirm.title,
@@ -41,9 +43,11 @@ const renderToolbarActions = (
     parent: actions,
     onclick: event => {
       event.stopPropagation();
+
       confirm.onclick(mgr);
     },
   });
+
   createIconButton({
     class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
     title: cancel.title,
@@ -51,6 +55,7 @@ const renderToolbarActions = (
     parent: actions,
     onclick: event => {
       event.stopPropagation();
+
       cancel.onclick(mgr);
     },
   });
@@ -59,8 +64,11 @@ const renderToolbarActions = (
 /** Update crop box element position/size. */
 const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: Rect) => {
   el.style.left = `${r.left}px`;
+
   el.style.top = `${r.top}px`;
+
   el.style.width = `${r.width}px`;
+
   el.style.height = `${r.height}px`;
 };
 
@@ -85,12 +93,14 @@ const showGlobalHint = (
   withLoadingIcon = false,
 ) => {
   const loading = withLoadingIcon ? Icons.LOADING + " " : "";
+
   map.foliplus!.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
 };
 
 /** Show a hint with crop box size info. */
 const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
   mgr.checkPixelLimit(r);
+
   map.foliplus!.showHint(
     CONF.name,
     `${T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
@@ -126,6 +136,7 @@ const showCropBox = (mgr: ExportManager) => {
     ])
   )
     return;
+
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
   ensureModes(mgr.map).setMode(CONF.name, "selecting");
@@ -136,9 +147,11 @@ const showCropBox = (mgr: ExportManager) => {
     const nw = mgr.map.latLngToContainerPoint(
       L.latLng(mgr.savedBounds.nw.lat, mgr.savedBounds.nw.lng),
     );
+
     const se = mgr.map.latLngToContainerPoint(
       L.latLng(mgr.savedBounds.se.lat, mgr.savedBounds.se.lng),
     );
+
     box = {
       left: Math.min(nw.x, se.x),
       top: Math.min(nw.y, se.y),
@@ -158,10 +171,12 @@ const showCropBox = (mgr: ExportManager) => {
       width: mgr.lastScreenRect.width,
       height: mgr.lastScreenRect.height,
     };
+
     box.width = Math.max(
       CONST.CROP.MIN_SIZE,
       Math.min(box.width, mapRect.width - box.left),
     );
+
     box.height = Math.max(
       CONST.CROP.MIN_SIZE,
       Math.min(box.height, mapRect.height - box.top),
@@ -175,7 +190,9 @@ const showCropBox = (mgr: ExportManager) => {
     class: `foliplus-export-overlay active`,
     parent: mgr.mapContainer,
   });
+
   mgr.mapContainer.classList.add(CONST.CLASSES.MODE);
+
   document.body.classList.add(CONST.CLASSES.MODE);
   const cropBox = dom.el("div", { class: CONST.CLASSES.BOX, parent: mgr.mapContainer });
 
@@ -186,6 +203,7 @@ const showCropBox = (mgr: ExportManager) => {
       "data-pos": pos,
     });
   });
+
   dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
 
   renderToolbarActions(mgr, {
@@ -200,7 +218,9 @@ const showCropBox = (mgr: ExportManager) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
+
   mgr.exportCtrl?.classList.remove(CONST.CLASSES.COLLAPSED);
+
   mgr.exportCtrl?.classList.add(CONST.CLASSES.EXPANDED);
 
   mgr.cropState = {
@@ -210,10 +230,15 @@ const showCropBox = (mgr: ExportManager) => {
     locked: false,
     actions: mgr.exportToolBar!,
   };
+
   updateBoxStyle(mgr, cropBox, box);
+
   showHintWithInfo(mgr, box, T("hint_unlocked"));
+
   mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
+
   mgr.registerShortcuts();
+
   // Unlocked editing → disable Leaflet's keyboard so arrows nudge, not pan.
   syncCropKeyboard(mgr);
 };
@@ -221,17 +246,23 @@ const showCropBox = (mgr: ExportManager) => {
 /** Update toolbar for locked state (export button). */
 const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
+
   mgr.cropState.locked = true;
+
   mgr.cropState.box.classList.add("locked");
+
   // Drop the editing class if an arrow-key nudge is still in flight — nudging
   // suppresses the box transition, which a locked box should not keep.
   mgr.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
   const r = mgr.cropState.rect;
+
   mgr.cropState.savedGeoBounds = {
     nw: mgr.map.containerPointToLatLng(L.point(r.left, r.top)),
     se: mgr.map.containerPointToLatLng(L.point(r.left + r.width, r.top + r.height)),
   };
+
   mgr.cropState.geoBounds = mgr.cropState.savedGeoBounds;
+
   renderToolbarActions(mgr, {
     confirm: {
       title: T("btn_export"),
@@ -244,6 +275,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
       onclick: () => mgr.unlockCropBox(),
     },
   });
+
   mgr.mapMoveCleanup = bindMapSync({
     map: mgr.map,
     updateEvents: ["zoomend"],
@@ -254,7 +286,9 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
       if (mgr.cropState?.locked) mgr.onMapChange();
     },
   });
+
   mgr.onMapChange();
+
   // Locked (geo-anchored) → re-enable Leaflet's keyboard for the +/- zoom hint.
   syncCropKeyboard(mgr);
   if (!skipHint) showHintWithInfo(mgr, r, T("hint_locked"));
@@ -263,9 +297,12 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
 /** Update toolbar for unlocked state (confirm button). */
 const unlockCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
+
   mgr.cropState.locked = false;
+
   mgr.cropState.box.classList.remove("locked");
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
+
   renderToolbarActions(mgr, {
     confirm: {
       title: T("btn_confirm"),
@@ -278,24 +315,35 @@ const unlockCropBox = (mgr: ExportManager) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
+
   updateBoxStyle(mgr, mgr.cropState.box, mgr.cropState.rect);
+
   // Back to editing → disable Leaflet's keyboard so arrows nudge, not pan.
   syncCropKeyboard(mgr);
+
   showHintWithInfo(mgr, mgr.cropState.rect, T("hint_unlocked"));
 };
 
 /** Remove crop box DOM and restore UI state. */
 const removeCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState) return;
+
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
+
   mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
+
   document.body.classList.remove(CONST.CLASSES.MODE);
+
   mgr.unregisterShortcuts();
+
   mgr.dragCleanup?.();
+
   mgr.dragState.dragging = false;
+
   mgr.dragState.dragType = null;
   if (mgr.mapMoveCleanup) {
     mgr.mapMoveCleanup();
+
     mgr.mapMoveCleanup = null;
   }
   if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
@@ -304,12 +352,17 @@ const removeCropBox = (mgr: ExportManager) => {
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
   if (mgr.exportCtrl) {
     mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
+
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
   }
+
   mgr.cropState = null;
+
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).
   syncCropKeyboard(mgr);
+
   ensureModes(mgr.map).setMode(CONF.name, null);
+
   map.foliplus!.hideHint(CONF.name);
 };
 

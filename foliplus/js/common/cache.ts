@@ -17,6 +17,7 @@ class Cache<K, V> {
     if (!entry) return undefined;
     if (this.ttlMs > 0 && Date.now() - entry.ts > this.ttlMs) {
       this.map.delete(key);
+
       this.onEvict?.(entry.value);
       return undefined;
     }
@@ -27,11 +28,13 @@ class Cache<K, V> {
   set(key: K, value: V): void {
     const existing = this.map.get(key);
     if (existing) this.onEvict?.(existing.value);
+
     this.map.set(key, { value, ts: Date.now() });
     if (this.map.size > this.max) {
       const oldest = this.map.keys().next().value;
       if (oldest !== undefined) {
         const evicted = this.map.get(oldest);
+
         this.map.delete(oldest);
         if (evicted) this.onEvict?.(evicted.value);
       }
@@ -46,6 +49,7 @@ class Cache<K, V> {
     if (this.onEvict) {
       for (const entry of this.map.values()) this.onEvict(entry.value);
     }
+
     this.map.clear();
   }
 

@@ -4,6 +4,7 @@ import * as SVGs from "#foliplus/MeasureControl/icon.js";
 describe("RULER", () => {
   it("is an SVG string", () => {
     expect(SVGs.RULER).toContain("<svg");
+
     expect(SVGs.RULER).toContain("</svg>");
   });
 });
@@ -11,6 +12,7 @@ describe("RULER", () => {
 describe("POLYGON", () => {
   it("is an SVG string", () => {
     expect(SVGs.POLYGON).toContain("<svg");
+
     expect(SVGs.POLYGON).toContain("</svg>");
   });
 });
@@ -18,6 +20,7 @@ describe("POLYGON", () => {
 describe("CIRCLE", () => {
   it("is an SVG string", () => {
     expect(SVGs.CIRCLE).toContain("<svg");
+
     expect(SVGs.CIRCLE).toContain("</svg>");
   });
 });
@@ -25,6 +28,7 @@ describe("CIRCLE", () => {
 describe("TRASH", () => {
   it("is an SVG string", () => {
     expect(SVGs.TRASH).toContain("<svg");
+
     expect(SVGs.TRASH).toContain("</svg>");
   });
 });

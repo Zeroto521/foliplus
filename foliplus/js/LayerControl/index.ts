@@ -13,6 +13,7 @@ const T = createScopedTranslator(CONF);
 
 // ==================== Initialize Manager with Data ====================
 const layerManager = new LayerManager(map, CONF.data as LayerInfo[]);
+
 layerManager.ui = new LayerUI(layerManager);
 
 // ==================== Leaflet Control Definition ====================
@@ -21,6 +22,7 @@ class LayerControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+
     this.manager = layerManager;
   }
 
@@ -32,9 +34,11 @@ class LayerControl extends BaseControl {
   buildDOM() {
     patchBringToFront();
     const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
+
     container.innerHTML = panelHTML(T);
 
     L.DomEvent.disableClickPropagation(container);
+
     L.DomEvent.disableScrollPropagation(container);
 
     bindPanelToggle({
@@ -50,6 +54,7 @@ class LayerControl extends BaseControl {
 
   destroy() {
     this.m.destroy();
+
     unpatchBringToFront();
   }
 }

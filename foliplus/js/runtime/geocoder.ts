@@ -47,6 +47,7 @@ const reverseGeocode = (
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
+
   const url = nominatimUrl(
     "/reverse",
     { lon: wgs[0], lat: wgs[1], zoom: NOMINATIM.ZOOM },
@@ -60,6 +61,7 @@ const reverseGeocode = (
       .then(r => r.json())
       .then(data => {
         const addr = formatAddress(data.display_name, map, code) || notFound;
+
         geoCache.set(key, addr);
         return addr;
       })
@@ -107,15 +109,18 @@ const geocode = (
         // downstream code (SearchControl, etc.) always gets coordinates
         // in the same CRS as map-displayed coordinates.
         const [lng, lat] = fromWgs84(map, parseFloat(first.lon), parseFloat(first.lat));
+
         const result: GeocodeResult = {
           lat,
           lng,
           display_name: first.display_name,
         };
+
         geoCache.set(
           key,
           `${result.lat}\u0001${result.lng}\u0001${result.display_name}`,
         );
+
         // Safe: (lng, lat) is unique - no collision risk
         geoCache.set(`reverse:${lng},${lat}`, first.display_name);
         return result;
@@ -134,7 +139,9 @@ const cacheSuggestion = (
 ) => {
   const crs = getMapCrsType(map);
   const key = `forward:${address}:${crs}`;
+
   geoCache.set(key, `${lat}\u0001${lng}\u0001${displayName}`);
+
   // Also populate the reverse entry for the same safety
   geoCache.set(`reverse:${lng},${lat}`, displayName);
 };

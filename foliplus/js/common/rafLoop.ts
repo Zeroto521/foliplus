@@ -50,6 +50,7 @@ const rafLoop = (
     running = false;
     if (pending) {
       clearTimeout(pending);
+
       pending = null;
     }
   };
@@ -67,10 +68,12 @@ const rafLoop = (
     start(newKey?: string) {
       if (newKey) key = newKey;
       if (running) return;
+
       running = true;
       // Synchronous first frame: immediate response to the press, no wait
       // for the first timer tick that would make the first step feel delayed.
       if (tick(key)) return stop();
+
       schedule();
     },
     stop,

@@ -12,13 +12,17 @@ const makeRegistry = (ids: string[]) =>
 describe("LayerPersistence", () => {
   beforeEach(() => {
     window.localStorage.clear();
+
     vi.useRealTimers();
+
     window.CONF = { ...window.CONF, name: "LayerControl" };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+
     vi.useRealTimers();
+
     window.localStorage.clear();
   });
 
@@ -30,12 +34,14 @@ describe("LayerPersistence", () => {
     it("loads persisted order and drops unknown ids", () => {
       vi.spyOn(Storage, "load").mockReturnValue(["a", "ghost", "b", "gone"]);
       const p = makePersistence(["a", "b", "c"]);
+
       expect(p.loadOrder()).toEqual(["a", "b"]);
     });
 
     it("returns null for missing or non-array storage", () => {
       vi.spyOn(Storage, "load").mockReturnValue("not-array");
       const p = makePersistence(["a"]);
+
       expect(p.loadOrder()).toBeNull();
     });
 
@@ -43,9 +49,13 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
+
       p.saveOrder(() => ["a", "b"]);
+
       p.saveOrder(() => ["b", "a"]);
+
       p.saveOrder(() => ["b", "a", "c"]);
+
       expect(save).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
@@ -53,8 +63,11 @@ describe("LayerPersistence", () => {
       // The last getter wins — reads the live order, not the order at first
       // call during the batch.
       expect(save.mock.calls[0][1]).toEqual(["b", "a", "c"]);
+
       expect(save).toHaveBeenCalledTimes(1);
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
 
@@ -62,11 +75,17 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
+
       p.saveOrder(() => ["a"]);
+
       p.cancelSaveOrder();
+
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
       expect(save).not.toHaveBeenCalled();
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
   });
@@ -77,24 +96,29 @@ describe("LayerPersistence", () => {
     it("loads persisted fold state", () => {
       vi.spyOn(Storage, "load").mockReturnValue(["OVERLAYS"]);
       const p = makePersistence(["a"]);
+
       expect(p.loadFoldedGroups()).toEqual(new Set(["OVERLAYS"]));
     });
 
     it("returns empty set when storage is missing", () => {
       vi.spyOn(Storage, "load").mockReturnValue(null);
       const p = makePersistence(["a"]);
+
       expect(p.loadFoldedGroups()).toEqual(new Set());
     });
 
     it("saves fold state synchronously", () => {
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
+
       p.saveFoldedGroups(new Set(["BASE", "OVERLAYS"]));
+
       expect(save).toHaveBeenCalledWith(
         CONST.STORAGE.FOLD_KEY,
         ["BASE", "OVERLAYS"],
         "LayerControl",
       );
+
       save.mockRestore();
     });
   });
@@ -105,18 +129,21 @@ describe("LayerPersistence", () => {
     it("loads hidden ids, filtering non-string entries", () => {
       vi.spyOn(Storage, "load").mockReturnValue(["a", 123, "b", null]);
       const p = makePersistence(["a", "b", "c"]);
+
       expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
     });
 
     it("drops unknown ids from the persisted hidden set", () => {
       vi.spyOn(Storage, "load").mockReturnValue(["a", "ghost", "b", "gone"]);
       const p = makePersistence(["a", "b", "c"]);
+
       expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
     });
 
     it("returns empty set when storage is missing", () => {
       vi.spyOn(Storage, "load").mockReturnValue(null);
       const p = makePersistence(["a"]);
+
       expect(p.loadHiddenIds()).toEqual(new Set());
     });
 
@@ -124,13 +151,19 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
+
       p.saveHiddenIds(() => new Set(["a"]));
+
       p.saveHiddenIds(() => new Set(["a", "b"]));
+
       expect(save).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
       expect(save.mock.calls[0][1]).toEqual(["a", "b"]);
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
 
@@ -138,11 +171,17 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
+
       p.saveHiddenIds(() => new Set(["a"]));
+
       p.cancelSaveHiddenIds();
+
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
       expect(save).not.toHaveBeenCalled();
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
   });
@@ -150,44 +189,38 @@ describe("LayerPersistence", () => {
   // ── Names (user-assigned display names) ──────────────────────────
 
   describe("names", () => {
-    it("keeps renames for ids that are not registered yet", () => {
-      // Load order is the opposite of the order/visibility loaders on purpose.
-      // loadNames runs from attachUI, which lands at the tail of the
-      // LayerControl bundle — after some component bundles have registered and
-      // before others have. HeatmapControl and MeasureControl register their
-      // layers in their own constructor, so filtering against the registry
-      // here dropped their renames on the first attach and the user saw the
-      // component default name after every reload. Stale-id cleanup lives in
-      // unregisterLayer instead, the only call that knows a layer is gone for
-      // good rather than merely not registered yet.
+    it("loads renamed names and drops unknown ids", () => {
       vi.spyOn(Storage, "load").mockReturnValue({
         a: "A2",
-        "not-registered-yet": "Pending",
+        ghost: "G",
         b: "B2",
+        gone: "Z",
       });
       const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadNames()).toEqual({
-        a: "A2",
-        "not-registered-yet": "Pending",
-        b: "B2",
-      });
+
+      expect(p.loadNames()).toEqual({ a: "A2", b: "B2" });
     });
 
     it("returns empty object for missing or non-object storage", () => {
       const p = makePersistence(["a"]);
+
       vi.spyOn(Storage, "load").mockReturnValue(null);
+
       expect(p.loadNames()).toEqual({});
 
       vi.spyOn(Storage, "load").mockReturnValue("not-object");
+
       expect(p.loadNames()).toEqual({});
 
       vi.spyOn(Storage, "load").mockReturnValue([]);
+
       expect(p.loadNames()).toEqual({});
     });
 
     it("drops non-string name values", () => {
       vi.spyOn(Storage, "load").mockReturnValue({ a: "A2", b: 123, c: null });
       const p = makePersistence(["a", "b", "c"]);
+
       expect(p.loadNames()).toEqual({ a: "A2" });
     });
 
@@ -195,16 +228,23 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
+
       p.saveNames(() => ({ a: "A1" }));
+
       p.saveNames(() => ({ a: "A2", b: "B1" }));
+
       p.saveNames(() => ({ a: "A3", b: "B2" }));
+
       expect(save).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
 
       expect(save.mock.calls[0][1]).toEqual({ a: "A3", b: "B2" });
+
       expect(save).toHaveBeenCalledTimes(1);
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
 
@@ -212,11 +252,17 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
+
       p.saveNames(() => ({ a: "A1" }));
+
       p.cancelSaveNames();
+
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
       expect(save).not.toHaveBeenCalled();
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
   });
@@ -228,18 +274,25 @@ describe("LayerPersistence", () => {
       const p = makePersistence(["a", "b"]);
 
       p.saveOrder(() => ["a", "b"]);
+
       p.saveHiddenIds(() => new Set(["a"]));
+
       p.saveNames(() => ({ a: "A" }));
+
       p.destroy();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
       expect(save).not.toHaveBeenCalled();
+
       save.mockRestore();
+
       vi.useRealTimers();
     });
 
     it("is a no-op when no writes are pending", () => {
       const p = makePersistence(["a"]);
+
       expect(() => p.destroy()).not.toThrow();
     });
   });

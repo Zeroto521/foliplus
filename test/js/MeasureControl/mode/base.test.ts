@@ -14,6 +14,7 @@ describe("MeasureMode — base class", () => {
   it("m getter returns manager", () => {
     const manager = makeManagerMock();
     const mode = new MeasureMode(manager);
+
     expect(mode.m).toBe(manager);
   });
 
@@ -21,23 +22,31 @@ describe("MeasureMode — base class", () => {
     const manager = makeManagerMock();
     const mode = new MeasureMode(manager);
     const fn = vi.fn();
+
     mode._cleanup = fn;
+
     mode.cleanup();
+
     expect(fn).toHaveBeenCalledOnce();
+
     expect(mode._cleanup).toBeNull();
   });
 
   it("cleanup is safe when _cleanup is null", () => {
     const mode = new MeasureMode(makeManagerMock());
+
     expect(() => mode.cleanup()).not.toThrow();
   });
 
   it("nextMeasurementId delegates to manager", () => {
     const manager = makeManagerMock();
     const mode = new MeasureMode(manager);
+
     mode.cleanup = vi.fn();
     const id = mode.nextMeasurementId();
+
     expect(manager.nextMeasurementId).toHaveBeenCalled();
+
     expect(id).toBe("test-id");
   });
 
@@ -51,8 +60,11 @@ describe("PreviewMode — tracking preview layers", () => {
     const manager = makeManagerMock();
     const mode = new PreviewMode(manager);
     const fakeLayer = {};
+
     mode.addPreview(fakeLayer);
+
     expect(mode.previewLayers).toContain(fakeLayer);
+
     expect(manager.layers.addLayer).toHaveBeenCalledWith(fakeLayer);
   });
 
@@ -60,32 +72,44 @@ describe("PreviewMode — tracking preview layers", () => {
     const manager = makeManagerMock();
     const mode = new PreviewMode(manager);
     const fakeLayer = {};
+
     mode.previewLayers = [fakeLayer];
+
     mode.removePreview(fakeLayer);
+
     expect(mode.previewLayers).not.toContain(fakeLayer);
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(fakeLayer);
   });
 
   it("removePreview is safe for non-tracked layer", () => {
     const manager = makeManagerMock();
     const mode = new PreviewMode(manager);
+
     expect(() => mode.removePreview({})).not.toThrow();
   });
 
   it("clearPreviews removes all tracked layers", () => {
     const manager = makeManagerMock();
     const mode = new PreviewMode(manager);
+
     const a = {},
       b = {};
+
     mode.previewLayers = [a, b];
+
     mode.clearPreviews();
+
     expect(mode.previewLayers).toHaveLength(0);
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(a);
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(b);
   });
 
   it("isFinished starts as false", () => {
     const mode = new PreviewMode(makeManagerMock());
+
     expect(mode.isFinished).toBe(false);
   });
 
@@ -94,6 +118,7 @@ describe("PreviewMode — tracking preview layers", () => {
     const mode = new PreviewMode(manager);
     const fakeLayer = {};
     const result = mode.addPreview(fakeLayer);
+
     expect(result).toBe(fakeLayer);
   });
 });

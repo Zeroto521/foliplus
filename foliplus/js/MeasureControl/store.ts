@@ -26,6 +26,7 @@ class MeasureStore {
 
   constructor(map: L.Map, layerId: string) {
     this.map = map;
+
     this.layerId = layerId;
   }
 
@@ -59,6 +60,7 @@ class MeasureStore {
    *  LayerControl refreshes its count column. */
   persist(): void {
     Storage.save(CONST.STORAGE.KEY, this.list, CONF.name);
+
     this.emitCount();
   }
 
@@ -84,6 +86,7 @@ class MeasureStore {
   /** Add a measurement and persist. */
   add(data: MeasureData): void {
     this.list.push(data);
+
     this.persist();
   }
 
@@ -92,6 +95,7 @@ class MeasureStore {
     for (let i = this.list.length - 1; i >= 0; i--) {
       if (this.list[i].id === id) this.list.splice(i, 1);
     }
+
     this.persist();
   }
 
@@ -100,13 +104,16 @@ class MeasureStore {
   update(id: string, patch: Partial<MeasureData>): void {
     const m = this.list.find(x => x.id === id);
     if (!m) return;
+
     Object.assign(m, patch);
+
     this.persist();
   }
 
   /** Remove all measurements and persist. */
   clear(): void {
     this.list.splice(0, this.list.length);
+
     this.persist();
   }
 }

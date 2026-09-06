@@ -11,6 +11,7 @@ import {
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
     expect(sharedGlobalNamespace("#core/layer/index.js")).toBe("foliplus.core.layer");
+
     expect(sharedGlobalNamespace("#core/layer/LayerFactory.js")).toBe(
       "foliplus.core.layer",
     );
@@ -28,60 +29,76 @@ describe("sharedGlobalNamespace", () => {
 
   it("maps #common/<mod>.js to foliplus.common.<mod>", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
+
     expect(sharedGlobalNamespace("#common/coord.js")).toBe("foliplus.common.coord");
   });
 });
 
 describe("collectExports", () => {
   const dir = mkdtempSync(join(tmpdir(), "foliplus-exports-"));
+
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it("collects named declarations", () => {
     const f = join(dir, "a.ts");
+
     writeFileSync(
       f,
       "export const foo = 1;\nexport function bar() {}\nexport class Baz {}\n",
     );
+
     expect(collectExports(f)).toEqual(["foo", "bar", "Baz"]);
   });
 
   it("follows export * from barrels", () => {
     const sub = join(dir, "sub.ts");
+
     writeFileSync(sub, "export const x = 1;\n");
     const barrel = join(dir, "index.ts");
+
     writeFileSync(barrel, 'export * from "./sub.js";\n');
+
     expect(collectExports(barrel)).toEqual(["x"]);
   });
 
   it("follows export { x } from re-exports", () => {
     const sub = join(dir, "src.ts");
+
     writeFileSync(sub, "export const y = 1;\n");
     const re = join(dir, "re.ts");
+
     writeFileSync(re, 'export { y } from "./src.js";\n');
+
     expect(collectExports(re)).toEqual(["y"]);
   });
 
   it("handles type exports without leaking them", () => {
     const f = join(dir, "types.ts");
+
     writeFileSync(
       f,
       "export type Foo = string;\nexport interface Bar {}\nexport const value = 1;\n",
     );
     const names = collectExports(f);
+
     expect(names).toContain("value");
+
     expect(names).not.toContain("Foo");
+
     expect(names).not.toContain("Bar");
   });
 });
 
 describe("globalNamespacePlugin", () => {
   const dir = mkdtempSync(join(tmpdir(), "foliplus-plugin-"));
+
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   // Wire the plugin to a minimal mock `build`, capturing its onResolve/onLoad
   // callbacks so they can be invoked directly (no esbuild build needed).
   const setupPlugin = () => {
     const handlers = {};
+
     globalNamespacePlugin(dir).setup({
       initialOptions: { entryPoints: [join(dir, "index.ts")] },
       onResolve: (_opts, cb) => {
@@ -96,6 +113,7 @@ describe("globalNamespacePlugin", () => {
 
   it("resolves #core/#common/#foliplus imports to the shared namespace", () => {
     const { onResolve } = setupPlugin();
+
     expect(onResolve({ path: "#core/layer.js" })).toEqual({
       path: "#core/layer.js",
       namespace: "foliplus-shared",
@@ -110,7 +128,9 @@ describe("globalNamespacePlugin", () => {
     );
     const { onLoad } = setupPlugin();
     const result = onLoad({ path: "#core/layer/foo.js" });
+
     expect(result.loader).toBe("js");
+
     expect(result.contents).toContain("export const Foo =");
   });
 
@@ -122,12 +142,14 @@ describe("globalNamespacePlugin", () => {
     );
     const { onLoad } = setupPlugin();
     const result = onLoad({ path: "#common/storage.js" });
+
     expect(result.contents).toContain("export const load =");
   });
 
   it("falls back to collectExports and returns empty for unknown files", () => {
     writeFileSync(join(dir, "index.ts"), "", "utf-8");
     const { onLoad } = setupPlugin();
+
     expect(onLoad({ path: "#common/nonexistent.js" })).toEqual({
       contents: "",
       loader: "js",

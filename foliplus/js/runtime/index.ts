@@ -61,7 +61,9 @@ if (!foliplus.isInitialized) {
 
   // Core module - single file, manually registered.
   if (!foliplus.core) foliplus.core = {};
+
   foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
+
   // Mode module - single file, manually registered.
   foliplus.core.mode = { ensureModes, guardBlocked, ModeManager };
 }

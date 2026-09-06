@@ -11,6 +11,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui.js";
 // .mockReturnValue / vi.clearAllMocks on them.
 const modeMocks = vi.hoisted(() => {
   const states = new Map<string, string | null>();
+
   const setMode = vi.fn((component: string, mode: string | null) => {
     if (mode === null) states.delete(component);
     else states.set(component, mode);
@@ -18,6 +19,7 @@ const modeMocks = vi.hoisted(() => {
   const getMode = vi.fn((component: string) => states.get(component) ?? null);
   const guardBlocked = vi.fn(() => false);
   const clear = vi.fn(() => states.clear());
+
   const ensureModes = vi.fn(() => ({
     setMode,
     getMode,
@@ -54,38 +56,51 @@ class GridLayer {
 
 const makePane = () => {
   const el = document.createElement("div");
+
   el.style.zIndex = "0";
   return el;
 };
 
 const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
   window.CONF.name = "LayerControl";
+
   window.CONF.locale_code = "en";
 
   window.L.TileLayer = TileLayer;
+
   window.L.GridLayer = GridLayer;
+
   window.L.Renderer = class {};
+
   window.L.Path = class {
     options = {};
   };
+
   window.L.Polygon = class {
     options = {};
   };
+
   window.L.Polyline = class {
     options = {};
   };
+
   window.L.Marker = class {};
+
   window.L.CircleMarker = class CircleMarker {
     constructor(_latlng: any, _opts: any) {}
     addTo(_map: any) {
       return this;
     }
   };
+
   window.L.stamp = vi.fn(() => 1);
+
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+
   window.L.polygon = vi.fn(
     (rings: any, opts: any) => ({ options: opts, _rings: rings }) as any,
   );
+
   window.L.rectangle = vi.fn(
     (_bounds: any, opts: any) =>
       ({
@@ -95,6 +110,7 @@ const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
         eachLayer: vi.fn(),
       }) as any,
   );
+
   window.L.latLngBounds = vi.fn(() => ({
     isValid: () => true,
     extend: () => ({ isValid: () => true }),
@@ -103,6 +119,7 @@ const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
   })) as unknown as typeof L.latLngBounds;
 
   const container = document.createElement("div");
+
   document.body.appendChild(container);
 
   const bounds = {
@@ -142,11 +159,13 @@ const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
     getContainer: vi.fn(() => container),
     getPane: vi.fn(() => {
       const p = makePane();
+
       p.style.zIndex = "0";
       return p;
     }),
     createPane: vi.fn(() => {
       const p = makePane();
+
       p.classList.add("foliplus-layer-pane");
       return p;
     }),
@@ -169,10 +188,14 @@ const initFixture = (): { manager: LayerManager; ui: LayerUI; map: any } => {
       paneName: "tilePane",
     },
   ]);
+
   manager.enforceOrder();
+
   manager.ui = new LayerUI(manager);
   const container2 = document.createElement("div");
+
   document.body.appendChild(container2);
+
   manager.attachUI(container2);
   const ui = manager.ui!;
 
@@ -192,16 +215,22 @@ describe("LayerUI focusLayer() — interaction lock", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+
     vi.clearAllMocks();
+
     modeMocks._reset();
     const fixture = initFixture();
+
     ui = fixture.ui;
+
     map = fixture.map;
   });
 
   afterEach(() => {
     document.body.innerHTML = "";
+
     vi.clearAllMocks();
+
     vi.useRealTimers();
   });
 
@@ -216,8 +245,11 @@ describe("LayerUI focusLayer() — interaction lock", () => {
         "LayerControl",
         expect.any(String),
       );
+
       expect(map.fitBounds).not.toHaveBeenCalled();
+
       expect(window.L.rectangle).not.toHaveBeenCalled();
+
       expect(setModeSpy).not.toHaveBeenCalled();
     });
 
@@ -231,7 +263,9 @@ describe("LayerUI focusLayer() — interaction lock", () => {
         "LayerControl",
         expect.any(String),
       );
+
       expect(map.fitBounds).toHaveBeenCalled();
+
       expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
     });
   });
@@ -250,16 +284,19 @@ describe("LayerUI focusLayer() — interaction lock", () => {
     vi.runAllTimers(); // fires the 3500ms auto-dismiss
 
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+
     expect(getModeSpy("LayerControl")).toBeNull();
   });
 
   it("cancelFocus() releases the focusing mode (manual cancel path)", () => {
     ui.focusLayer("overlay1");
+
     expect(getModeSpy("LayerControl")).toBe("focusing");
 
     ui.cancelFocus();
 
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+
     expect(getModeSpy("LayerControl")).toBeNull();
   });
 
@@ -267,25 +304,30 @@ describe("LayerUI focusLayer() — interaction lock", () => {
     const { manager, ui, map } = initFixture();
 
     ui.focusLayer("overlay1");
+
     expect(getModeSpy("LayerControl")).toBe("focusing");
 
     manager.destroy();
 
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+
     expect(getModeSpy("LayerControl")).toBeNull();
   });
 
   it("keeps the focusing mode active throughout the focus window", () => {
     ui.focusLayer("overlay1");
+
     expect(getModeSpy("LayerControl")).toBe("focusing");
 
     // Advance to well inside the 3500ms window; mode must still be held.
     vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS - 1000);
+
     expect(getModeSpy("LayerControl")).toBe("focusing");
   });
 
   it("passes LayerControl as the component key in setMode calls", () => {
     ui.focusLayer("overlay1");
+
     vi.runAllTimers();
 
     // Every setMode call must identify itself as LayerControl — the mode
@@ -294,12 +336,15 @@ describe("LayerUI focusLayer() — interaction lock", () => {
     for (const call of setModeSpy.mock.calls as Array<[string, string | null]>) {
       expect(call[0]).toBe("LayerControl");
     }
+
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
   });
 
   it("re-registers the mode on a successive focus", () => {
     ui.focusLayer("overlay1");
+
     vi.runAllTimers();
 
     ui.focusLayer("overlay1");
@@ -307,6 +352,7 @@ describe("LayerUI focusLayer() — interaction lock", () => {
     const focusingCalls = setModeSpy.mock.calls.filter(
       (c: [string, string | null]) => c[1] === "focusing",
     );
+
     expect(focusingCalls).toHaveLength(2);
   });
 
@@ -321,12 +367,15 @@ describe("LayerUI focusLayer() — interaction lock", () => {
       getCenter: () => ({ lat: 30, lng: 100 }),
     };
     const layer = ui.m.findLayer(ui.m.layerRegistry.get("overlay1")!);
+
     vi.spyOn(layer, "getBounds").mockReturnValue(tinyBounds);
 
     ui.focusLayer("overlay1");
 
     expect(map.flyTo).toHaveBeenCalled();
+
     expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+
     expect(getModeSpy("LayerControl")).toBe("focusing");
   });
 });

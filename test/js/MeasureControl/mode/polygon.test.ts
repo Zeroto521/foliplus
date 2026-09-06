@@ -21,6 +21,7 @@ vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
 
 beforeEach(() => {
   initMocks();
+
   capturedPolygonOpts = null;
 });
 
@@ -28,12 +29,15 @@ describe("PolygonMode — marker click stops map propagation", () => {
   it("does not add a duplicate point when re-clicking an existing node", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
+
     expect(clickHandler).toBeDefined();
 
     // Confirmed nodes are the only circleMarkers here — the preview cursor
@@ -41,21 +45,29 @@ describe("PolygonMode — marker click stops map propagation", () => {
     const confirmedMarkers = () => window.L.circleMarker.mock.results.map(r => r.value);
     const pt1 = { lat: 30, lng: 120 };
     const pt2 = { lat: 31, lng: 121 };
+
     clickHandler({ latlng: pt1 });
+
     clickHandler({ latlng: pt2 });
+
     expect(confirmedMarkers()).toHaveLength(2);
 
     const marker2 = confirmedMarkers()[1];
+
     const markerClickHandler = marker2.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
+
     expect(markerClickHandler).toBeDefined();
 
     const leafletEvent = { latlng: pt2, originalEvent: {} as { _stopped?: boolean } };
+
     markerClickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+
     expect(leafletEvent.originalEvent._stopped).toBe(true);
+
     expect(confirmedMarkers()).toHaveLength(2);
   });
 });
@@ -64,12 +76,15 @@ describe("PolygonMode — drawing polyline uses PATH_PREVIEW", () => {
   it("creates polygon preview lines with PATH_PREVIEW class", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const polylineCall = window.L.polyline.mock.calls.find(
       ([, opts]) => opts.className === CONST.CLASSES.PATH_PREVIEW,
     );
+
     expect(polylineCall).toBeDefined();
   });
 });
@@ -78,21 +93,26 @@ describe("PolygonMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing a point", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
+
     expect(clickHandler).toBeDefined();
 
     const leafletEvent = {
       latlng: { lat: 30, lng: 120 },
       originalEvent: {} as { _stopped?: boolean },
     };
+
     clickHandler(leafletEvent);
 
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(leafletEvent);
+
     expect(leafletEvent.originalEvent._stopped).toBe(true);
   });
 });
@@ -101,12 +121,15 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
   it("creates a polyline with PATH_DASHED class for confirmed segments", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const polylineCall = window.L.polyline.mock.calls.find(
       ([, opts]) => opts.className === CONST.CLASSES.PATH_DASHED,
     );
+
     expect(polylineCall).toBeDefined();
   });
 });
@@ -114,7 +137,9 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
 describe("PolygonMode — label count equals n-1", () => {
   function run(manager, mode) {
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
+
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
@@ -133,9 +158,13 @@ describe("PolygonMode — label count equals n-1", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
     const clickHandler = run(manager, mode);
+
     clickHandler({ latlng: { lat: 30, lng: 120 } });
+
     clickHandler({ latlng: { lat: 31, lng: 121 } });
+
     clickHandler({ latlng: { lat: 32, lng: 122 } });
+
     expect(segLabelCount()).toBe(2);
   });
 
@@ -143,10 +172,14 @@ describe("PolygonMode — label count equals n-1", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
     const clickHandler = run(manager, mode);
+
     clickHandler({ latlng: { lat: 30, lng: 120 } });
+
     clickHandler({ latlng: { lat: 31, lng: 121 } });
     const before = segLabelCount();
+
     clickHandler({ latlng: { lat: 31, lng: 121 } });
+
     expect(segLabelCount()).toBe(before);
   });
 });
@@ -155,41 +188,62 @@ describe("PolygonMode — finish saves centroid", () => {
   it("persists center when the polygon is finished", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
+
     // Draw 3 points
     clickHandler({ latlng: { lat: 30, lng: 120 } });
+
     clickHandler({ latlng: { lat: 31, lng: 121 } });
+
     clickHandler({ latlng: { lat: 32, lng: 120 } });
+
     // Double-click to finish
     const dblHandler = manager.map.on.mock.calls.find(
       ([event]) => event === "dblclick",
     )?.[1];
+
     dblHandler({ latlng: { lat: 32, lng: 120 } });
 
     expect(manager.store.add).toHaveBeenCalled();
     const saved = manager.measurements[0] as MeasureData;
+
     expect(saved.center).toBeDefined();
+
     expect(typeof saved.center!.lng).toBe("number");
+
     expect(typeof saved.center!.lat).toBe("number");
+
     expect(saved.area).toBeGreaterThan(0); // Util.area computed at finish
+
     expect(saved.segments).toBeDefined();
+
     expect(saved.segments!.length).toBe(3); // 3 sides incl. closing
+
     expect(saved.segments![0].bearing).toBeDefined(); // bearing added
 
     // Exercise the start-path onDelete/onUpdate callbacks captured by the
     // attachPolygonUI mock so the store.update/remove lines are covered.
     expect(capturedPolygonOpts).toBeDefined();
+
     manager.store.update.mockClear();
+
     capturedPolygonOpts.onUpdate();
+
     expect(manager.store.update).toHaveBeenCalledWith(saved.id, expect.anything());
+
     manager.store.remove.mockClear();
+
     capturedPolygonOpts.onDelete();
+
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
+
     expect(manager.measurements.length).toBe(0);
   });
 });
@@ -207,11 +261,17 @@ describe("PolygonMode — toGeoFeature", () => {
       ],
       area: 50000,
     });
+
     expect(feature.type).toBe("Feature");
+
     expect(feature.properties.type).toBe("polygon");
+
     expect(feature.properties.area).toBe(50000);
+
     expect(feature.geometry.type).toBe("Polygon");
+
     expect(feature.geometry.coordinates[0]).toHaveLength(5);
+
     expect(feature.geometry.coordinates[0][0]).toEqual(
       feature.geometry.coordinates[0][4],
     );
@@ -219,7 +279,9 @@ describe("PolygonMode — toGeoFeature", () => {
 
   it("has NAME_LABEL and TYPE static properties", async () => {
     const { PolygonMode } = await import("#foliplus/MeasureControl/mode/index.js");
+
     expect(PolygonMode.NAME_LABEL).toBe("Area Measurement");
+
     expect(PolygonMode.NAME_LABEL_KEY).toContain("name_polygon");
   });
 
@@ -233,6 +295,7 @@ describe("PolygonMode — toGeoFeature", () => {
       ],
       center: { lng: 121.5, lat: 31.5 },
     });
+
     expect(feature.properties.center).toEqual({ lng: 121.5, lat: 31.5 });
   });
 
@@ -245,6 +308,7 @@ describe("PolygonMode — toGeoFeature", () => {
         { lng: 122, lat: 31 },
       ],
     });
+
     expect(feature.properties.center).toBeUndefined();
   });
 });
@@ -252,6 +316,7 @@ describe("PolygonMode — toGeoFeature", () => {
 describe("PolygonMode — restore", () => {
   it("rebuilds a polygon with nodes and labels from persisted data", () => {
     const manager = makeManagerMock() as any;
+
     PolygonMode.restore(manager, {
       id: "p_r1",
       type: "polygon",
@@ -268,13 +333,17 @@ describe("PolygonMode — restore", () => {
     });
 
     expect(window.L.polygon).toHaveBeenCalled();
+
     expect(window.L.circleMarker).toHaveBeenCalled(); // nodes
+
     expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
+
     expect(manager.layers.addLayer).toHaveBeenCalled();
   });
 
   it("restores polygon without segments", () => {
     const manager = makeManagerMock() as any;
+
     PolygonMode.restore(manager, {
       id: "p_r2",
       type: "polygon",
@@ -284,11 +353,13 @@ describe("PolygonMode — restore", () => {
         { lng: 121.5, lat: 32 },
       ],
     });
+
     expect(window.L.polygon).toHaveBeenCalled();
   });
 
   it("invokes restore's onDelete and onUpdate callbacks", () => {
     const manager = makeManagerMock() as any;
+
     const data: MeasureData = {
       id: "p_cb",
       type: "polygon",
@@ -300,13 +371,16 @@ describe("PolygonMode — restore", () => {
       segments: [],
       area: 0,
     };
+
     manager.measurements = [data];
+
     PolygonMode.restore(manager, data);
 
     expect(capturedPolygonOpts).toBeDefined();
 
     // onUpdate recomputes area/segments/center and persists via store.update.
     capturedPolygonOpts.onUpdate();
+
     expect(manager.store.update).toHaveBeenCalledWith(
       data.id,
       expect.objectContaining({
@@ -317,8 +391,11 @@ describe("PolygonMode — restore", () => {
 
     // onDelete removes the measurement and persists.
     manager.store.remove.mockClear();
+
     capturedPolygonOpts.onDelete();
+
     expect(manager.store.remove).toHaveBeenCalledWith(data.id);
+
     expect(manager.measurements.length).toBe(0);
   });
 });
@@ -327,12 +404,16 @@ describe("PolygonMode — cleanup", () => {
   it("runs the registered cleanup callback", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
+
     mode.cleanup();
 
     // start() binds map events; cleanup() unbinds via _cleanup
     expect(mode._cleanup).toBeNull(); // cleanup consumed the callback
+
     // next cleanup is a safe no-op
     expect(() => mode.cleanup()).not.toThrow();
   });
@@ -340,7 +421,9 @@ describe("PolygonMode — cleanup", () => {
   it("removes the preview cursor node when the mode is aborted", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -352,10 +435,12 @@ describe("PolygonMode — cleanup", () => {
     // is aborted. This is the path the finish handler never takes: cleanup
     // runs while the node is still mounted.
     click({ latlng: { lat: 30, lng: 120 } });
+
     handlers({ latlng: { lat: 31, lng: 121 } });
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
 
     mode.cleanup();
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
   });
 });
@@ -364,84 +449,109 @@ describe("PolygonMode — preview cursor node", () => {
   it("mounts a non-interactive hollow node only after the first point", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     // Entering the mode adds only the drawing scaffolding — poly, confirmedPoly,
     // previewPoly, finalPoly. Nothing until the cursor actually moves.
     const addLayerCalls = manager.layers.addLayer.mock.calls;
+
     expect(addLayerCalls).toHaveLength(4);
+
     window.L.circleMarker.mockClear();
 
     const handlers = manager.map.on.mock.calls.find(
       ([event]) => event === "mousemove",
     )?.[1];
+
     // Before the first point the move handler bails out entirely.
     handlers({ latlng: { lat: 29, lng: 118 } });
+
     expect(window.L.circleMarker.mock.calls).toHaveLength(0);
 
     const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
     click({ latlng: { lat: 30, lng: 120 } });
+
     handlers({ latlng: { lat: 31, lng: 121 } });
 
     // Exactly one new circleMarker — the confirmed node for the first point
     // and this cursor dot — nothing else.
     const cursorCall = window.L.circleMarker.mock.calls.at(-1) as [unknown, object];
+
     expect(cursorCall[0]).toEqual({ lat: 31, lng: 121 });
+
     expect(cursorCall[1].interactive).toBe(false);
+
     expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
 
     // Mounted through addPreview, so it lands in the same layer group as the
     // preview polygon and paints above the preview fill.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
+
     expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor);
   });
 
   it("moves the node with the cursor and removes it when the shape is finished", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
       ([event]) => event === "mousemove",
     )?.[1];
     const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
     const contextmenu = manager.map.on.mock.calls.find(
       ([event]) => event === "contextmenu",
     )?.[1];
 
     click({ latlng: { lat: 30, lng: 120 } });
+
     click({ latlng: { lat: 31, lng: 121 } });
+
     click({ latlng: { lat: 32, lng: 122 } });
+
     handlers({ latlng: { lat: 33, lng: 123 } });
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
     const created = window.L.circleMarker.mock.calls.length;
 
     // Subsequent moves reuse the same node instead of stacking new ones.
     handlers({ latlng: { lat: 34, lng: 124 } });
+
     expect(window.L.circleMarker).toHaveBeenCalledTimes(created);
+
     expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 34, lng: 124 });
 
     contextmenu({ latlng: { lat: 34, lng: 124 }, originalEvent: {} });
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
   });
 
   it("removes the node when the draw is aborted mid-way", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
       ([event]) => event === "mousemove",
     )?.[1];
     const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
     const contextmenu = manager.map.on.mock.calls.find(
       ([event]) => event === "contextmenu",
     )?.[1];
 
     click({ latlng: { lat: 30, lng: 120 } });
+
     handlers({ latlng: { lat: 31, lng: 121 } });
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
 
@@ -449,37 +559,52 @@ describe("PolygonMode — preview cursor node", () => {
     // so the mode aborts and cleans up instead of finalizing. The cursor node
     // must leave the map with the other drawing scaffolding.
     manager.clearActiveMode = vi.fn();
+
     contextmenu({ latlng: { lat: 31, lng: 121 }, originalEvent: {} });
+
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+
     expect(manager.clearActiveMode).toHaveBeenCalled();
   });
 
   it("places an interactive node marker on each confirmed vertex", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
+
     manager.currentMode = CONST.MODE.POLYGON;
+
     mode.start();
 
     const click = manager.map.on.mock.calls.find(([event]) => event === "click")?.[1];
+
     click({ latlng: { lat: 30, lng: 120 } });
     const firstNode = window.L.circleMarker.mock.results.at(-1).value;
+
     // A hollow node that is still interactive: this is a placed vertex, not
     // the transient cursor dot, so the marker must be front-most.
     expect(window.L.circleMarker.mock.calls.at(-1)[1].interactive).not.toBe(false);
+
     expect(firstNode.bringToFront).toHaveBeenCalled();
 
     // Re-clicking the last placed vertex finishes the polygon.
     const markerClick = firstNode.on.mock.calls.find(
       ([event]) => event === "click",
     )?.[1];
+
     manager.store.add.mockClear();
+
     markerClick({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
+
     expect(manager.store.add).not.toHaveBeenCalled();
 
     click({ latlng: { lat: 31, lng: 121 } });
+
     click({ latlng: { lat: 32, lng: 122 } });
+
     manager.store.add.mockClear();
+
     markerClick({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
+
     expect(manager.store.add).toHaveBeenCalled();
   });
 });

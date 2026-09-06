@@ -135,22 +135,36 @@ class HeatmapManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
+
     this.pointLayers = [];
+
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
+
     this.currentField = CONF.field ?? "";
+
     this.currentScheme = CONF.color_scheme ?? "Reds";
+
     this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+
     this.autoFieldKey = null;
+
     this.fieldAuto = true;
+
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+
     this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+
     this.borderColor = CONF.border_color ?? CONST.GRAY;
+
     this.currentLabelShow = CONF.label_show ?? false;
+
     this.valueFallbackWarned = false;
+
     // Create a managed canvas via LayerControl API.
     // Canvas lives in `.leaflet-map-pane` with position offset to cancel
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
@@ -162,21 +176,32 @@ class HeatmapManager {
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
     });
+
     // Subscribe to export events for full-content capture (ExportControl).
     ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
       this.renderAll = true;
+
       this.redrawHeatmap();
     });
+
     ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
       this.renderAll = false;
+
       this.redrawHeatmap();
     });
+
     this.ui = null;
+
     this.cachedPoints = null;
+
     this.cachedFeatures = null;
+
     this.cachedAgg = null;
+
     this.cachedLabelStyle = null;
+
     this.renderAll = false;
+
     this.hasScanned = false;
 
     this.bindMapEvents();
@@ -204,19 +229,24 @@ class HeatmapManager {
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
+
         this.overlay.setVisible?.(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
+
     this.map.on("zoomend", this.onZoomEnd);
 
     this.onLayerChange = debounce(() => {
       this.cachedPoints = null;
+
       this.cachedAgg = null;
       if (this.ui) {
         this.scanMapLayers();
+
         rebuildLayerDropdown(this.ui as HeatmapControlUI);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
+
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
@@ -234,11 +264,14 @@ class HeatmapManager {
     if (!ctx) return;
     const container = this.map.getContainer();
     const dpr = window.devicePixelRatio || 1;
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
     const labelCfg = this.resolveLabelStyle();
     const bounds = this.renderAll ? null : this.map.getBounds();
+
     const isVisible = (feat: HexFeature) => {
       if (!bounds) return true;
       const c = feat.properties.centroid;
@@ -247,6 +280,7 @@ class HeatmapManager {
 
     this.cachedFeatures.forEach(feat => {
       if (!isVisible(feat)) return;
+
       this.drawHexagon(ctx, feat);
       if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
     });
@@ -257,20 +291,31 @@ class HeatmapManager {
     const pts = feat.geometry.coordinates[0].map(p =>
       this.map.latLngToContainerPoint(L.latLng(p[1], p[0])),
     );
+
     ctx.beginPath();
+
     ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+
     ctx.closePath();
+
     ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
+
     ctx.globalAlpha = CONF.fill_opacity ?? 1;
+
     ctx.fill();
+
     ctx.globalAlpha = 1;
 
     if (this.borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
       ctx.strokeStyle = this.borderColor;
+
       ctx.lineWidth = this.borderWeight;
+
       ctx.globalAlpha = CONF.border_opacity ?? 1;
+
       ctx.stroke();
+
       ctx.globalAlpha = 1;
     }
   }
@@ -280,6 +325,7 @@ class HeatmapManager {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
 
     const css = (prop: string, fb = "") => cssVar(this.ui!.ctrl, prop, fb);
+
     this.cachedLabelStyle = {
       font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
       color: css("--heatmap-label-color", "#fff"),
@@ -298,19 +344,28 @@ class HeatmapManager {
     const centroid = feat.properties.centroid;
     if (!centroid) return;
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
+
     const text = formatNumber(
       feat.properties.value ?? 0,
       CONF.label_format,
       CONF.locale_code,
     );
     if (ctx.font !== font) ctx.font = font;
+
     ctx.textAlign = "center";
+
     ctx.textBaseline = "middle";
+
     ctx.strokeStyle = stroke;
+
     ctx.lineWidth = strokeWidth;
+
     ctx.lineJoin = "round";
+
     ctx.strokeText(text, pt.x, pt.y);
+
     ctx.fillStyle = color;
+
     ctx.fillText(text, pt.x, pt.y);
   }
 
@@ -351,10 +406,12 @@ class HeatmapManager {
     const seenIds: Record<string, boolean> = {};
     for (const info of pointLayersInfo) {
       if (seenIds[info.id]) continue;
+
       seenIds[info.id] = true;
 
       const pts = map.foliplus!.LayerAPI!.extractPoints(info.id);
       if (pts.length === 0) continue;
+
       this.pointLayers.push({
         id: info.id,
         name: info.name,
@@ -367,14 +424,17 @@ class HeatmapManager {
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
+
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
         const m = pt.marker;
         if (m?.feature?.properties) {
           const props = m.feature.properties;
+
           Object.keys(props).forEach(k => {
             if (typeof props[k] === "number" && !seen.has(k)) {
               seen.add(k);
+
               fields.push(`properties.${k}`);
             }
           });
@@ -415,6 +475,7 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
+
         console.warn(
           `[${CONF.name}] Falling back to 1 for missing values, field=${this.currentField}`,
         );
@@ -443,6 +504,7 @@ class HeatmapManager {
         marker: p.marker as L.Marker,
       });
     });
+
     this.cachedPoints = { key, pts };
     return pts;
   }
@@ -465,6 +527,7 @@ class HeatmapManager {
     const sorted = data.slice().sort((a, b) => a - b);
     const n = sorted.length;
     if (n <= 2) return [sorted[0], sorted[n - 1]];
+
     nClasses = Math.max(3, Math.min(nClasses, n));
 
     const lo = sorted[0];
@@ -474,6 +537,7 @@ class HeatmapManager {
       try {
         const clusters = ss.ckmeans(data, nClasses);
         const breaks: number[] = [clusters[0][0]];
+
         clusters.forEach(c => breaks.push(c[c.length - 1]));
         return breaks;
       } catch (e) {
@@ -517,18 +581,22 @@ class HeatmapManager {
     }
     if (!aggregated) return;
     const features = this.buildFeatures(aggregated);
+
     this.renderFeatures(features);
   }
 
   aggregateData(pts: SelectedPoint[], res: number): AggregatedData | null {
     const hexCells: Record<string, HexCell> = {};
+
     pts.forEach(pt => {
       try {
         const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
         if (!hexCells[h3Idx])
           hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
         const cell = hexCells[h3Idx];
+
         cell.sum += pt.value;
+
         cell.count += 1;
         if (pt.value < cell.min) cell.min = pt.value;
         if (pt.value > cell.max) cell.max = pt.value;
@@ -563,6 +631,7 @@ class HeatmapManager {
     const nClasses = Math.min(this.numClasses, allVals.length);
     const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
     const classColors = this.getColorScale(this.currentScheme, nClasses);
+
     const valueToClassIdx = (val: number): number => {
       if (breaks.length < 2) return 0;
       for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
@@ -585,6 +654,7 @@ class HeatmapManager {
       let centroid: [number, number] | null = null;
       try {
         const c = h3.cellToLatLng(h3Idx);
+
         centroid = [c[0], c[1]];
       } catch (e) {
         /* fallback */
@@ -592,16 +662,20 @@ class HeatmapManager {
       try {
         const boundary = h3.cellToBoundary(h3Idx);
         const coords = boundary.map(p => [p[1], p[0]]);
+
         coords.push(coords[0]);
         if (!centroid) {
           let cx = 0,
             cy = 0;
           for (let j = 0; j < coords.length - 1; j++) {
             cx += coords[j][0];
+
             cy += coords[j][1];
           }
+
           centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
         }
+
         features.push({
           type: "Feature",
           geometry: { type: "Polygon", coordinates: [coords] },
@@ -619,19 +693,27 @@ class HeatmapManager {
       this.clearHeatmapCanvas();
       return;
     }
+
     this.cachedFeatures = features;
+
     this.overlay.register();
+
     this.redrawHeatmap();
+
     // Notify LayerControl to refresh the count column for this layer.
     ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   clearHeatmapCanvas() {
     this.cachedFeatures = null;
+
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
+
     (this.ui as any)?.schemeBarCleanup?.();
+
     (this.ui as any)?.dropdownCleanup?.();
+
     // Notify LayerControl to refresh the count column (now 0).
     ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
@@ -692,6 +774,7 @@ class HeatmapManager {
     if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
     if (saved.field) this.currentField = saved.field;
     if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
+
     this.selectedLayerId = saved.layerId ?? null;
   }
 }

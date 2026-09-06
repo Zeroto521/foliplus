@@ -151,17 +151,27 @@ class ExportManager {
     ) => ReturnType<typeof setTimeout> = setTimeout,
   ) {
     this.map = mapInstance;
+
     this.mapContainer = this.map.getContainer();
+
     this.scheduler = scheduler;
 
     this.cropState = null;
+
     this.exportCtrl = null;
+
     this.exportToolBar = null;
+
     this.exportOverlay = null;
+
     this.isExporting = false;
+
     this.pixelOverLimit = false;
+
     this.lastScreenRect = null;
+
     this.savedBounds = null;
+
     this.loadSavedBounds();
 
     this.dragState = {
@@ -178,31 +188,41 @@ class ExportManager {
 
     // Mount UI functions directly on this instance
     this.showCropBox = () => showCropBox(this);
+
     this.lockCropBox = (skipHint?: boolean) => lockCropBox(this, skipHint);
+
     this.unlockCropBox = () => unlockCropBox(this);
+
     this.removeCropBox = () => removeCropBox(this);
+
     this.updateBoxStyle = (el: HTMLElement, r: Rect) => updateBoxStyle(this, el, r);
+
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
+
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
       showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
     this.exportCtrl = ctrl;
+
     this.exportToolBar = toolBar;
   }
 
   loadSavedBounds() {
     const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
+
     const nw = data.nw,
       se = data.se;
+
     const validLat =
       nw.lat >= -COORD_BOUNDS.LAT &&
       nw.lat <= COORD_BOUNDS.LAT &&
       se.lat >= -COORD_BOUNDS.LAT &&
       se.lat <= COORD_BOUNDS.LAT;
+
     const validLng =
       nw.lng >= -COORD_BOUNDS.LON &&
       nw.lng <= COORD_BOUNDS.LON &&
@@ -210,12 +230,14 @@ class ExportManager {
       se.lng <= COORD_BOUNDS.LON;
     if (!validLat || !validLng) return;
     const mapB = this.map.getBounds();
+
     const overlap =
       nw.lat >= mapB.getSouth() &&
       se.lat <= mapB.getNorth() &&
       nw.lng <= mapB.getEast() &&
       se.lng >= mapB.getWest();
     if (!overlap) return;
+
     this.savedBounds = data;
   }
 
@@ -233,14 +255,18 @@ class ExportManager {
   /** Restore and lock crop box from saved geo bounds. */
   restoreFromSavedBounds() {
     this.showCropBox();
+
     requestAnimationFrame(() => {
       if (!this.cropState || this.cropState.locked) return;
       if (!this.savedBounds) return;
+
       this.cropState.savedGeoBounds = {
         nw: { lat: this.savedBounds.nw.lat, lng: this.savedBounds.nw.lng },
         se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
       };
+
       this.lockCropBox(true);
+
       map.foliplus!.showHint(CONF.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
     });
   }
@@ -248,7 +274,9 @@ class ExportManager {
   onMouseDown(event: MouseEvent) {
     const st = this.cropState;
     if (!st || st.locked) return;
+
     event.preventDefault();
+
     event.stopPropagation();
     const target = event.target as HTMLElement;
     if (target.classList.contains(CONST.CLASSES.HANDLE))
@@ -261,15 +289,20 @@ class ExportManager {
     else return;
 
     this.dragState.dragging = true;
+
     // Disable the box transition during drag so it tracks the cursor
     // instantly (the 0.15s lag made the box feel "behind" the mouse and
     // caused accidental drags). Re-enabled in onMouseUp.
     st.box.classList.add(CONST.CLASSES.DRAGGING);
+
     // Track the last mouse position for incremental deltas (avoids
     // sudden jumps from cumulative errors or stale startRect).
     this.dragState.lastX = event.clientX;
+
     this.dragState.lastY = event.clientY;
+
     this.dragState.startRect = Object.assign({}, st.rect);
+
     this.dragCleanup = registerDrag(this);
   }
 
@@ -280,7 +313,9 @@ class ExportManager {
     // error and keeps the box glued to the cursor.
     const dx = event.clientX - this.dragState.lastX;
     const dy = event.clientY - this.dragState.lastY;
+
     this.dragState.lastX = event.clientX;
+
     this.dragState.lastY = event.clientY;
     const mapRect = this.mapContainer.getBoundingClientRect();
     const st = this.cropState;
@@ -290,34 +325,43 @@ class ExportManager {
     const type = this.dragState.dragType;
     if (type === "move") {
       r.left = Math.max(0, Math.min(mapRect.width - r.width, cur.left + dx));
+
       r.top = Math.max(0, Math.min(mapRect.height - r.height, cur.top + dy));
     } else {
       if (["tl", "l", "bl"].includes(type!)) {
         const maxDx = cur.width - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.left, Math.min(dx, maxDx));
+
         r.left = cur.left + a;
+
         r.width = cur.width - a;
       }
       if (["tr", "r", "br"].includes(type!)) {
         const maxDx = mapRect.width - (cur.left + cur.width);
         const minDx = CONST.CROP.MIN_SIZE - cur.width;
         const a = Math.max(minDx, Math.min(dx, maxDx));
+
         r.width = cur.width + a;
       }
       if (["tl", "t", "tr"].includes(type!)) {
         const maxDy = cur.height - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.top, Math.min(dy, maxDy));
+
         r.top = cur.top + a;
+
         r.height = cur.height - a;
       }
       if (["bl", "b", "br"].includes(type!)) {
         const maxDy = mapRect.height - (cur.top + cur.height);
         const minDy = CONST.CROP.MIN_SIZE - cur.height;
         const a = Math.max(minDy, Math.min(dy, maxDy));
+
         r.height = cur.height + a;
       }
     }
+
     st.rect = r;
+
     this.updateBoxStyle(st.box, r);
     // Only update the hint when the size changes (resize), not on pure move
     if (type !== "move") this.showHintWithInfo(r, T("hint_unlocked"));
@@ -325,6 +369,7 @@ class ExportManager {
 
   onMouseUp() {
     this.dragState.dragging = false;
+
     this.dragState.dragType = null;
     // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
@@ -339,6 +384,7 @@ class ExportManager {
 
   unregisterShortcuts(): void {
     this.interactionCleanup?.();
+
     this.interactionCleanup = undefined;
   }
 
@@ -368,14 +414,17 @@ class ExportManager {
   /** Start the smooth-nudge loop for a held arrow key. */
   private nudgeStart(key: string) {
     if (!this.isEditing()) return;
+
     // Stop any loop running for a previous direction first, so holding Right
     // then pressing Up doesn't leave a stale loop nudging right for ~500ms.
     this.nudgeStop();
+
     // Cache the map container rect once at loop start. The map can't move
     // while the loop runs (map keyboard drag/zoom are disabled via
     // ModeManager), so getBoundingClientRect() is stable — avoids calling it
     // 60 times per second inside the rafLoop.
     this.nudgeMapRect = this.mapContainer.getBoundingClientRect();
+
     // Remember which arrow key this loop is for so a fresh press of a
     // different direction re-starts, while OS auto-repeat of the same key is
     // ignored (one tap = exactly one sync frame regardless of repeat rate).
@@ -399,18 +448,22 @@ class ExportManager {
     // require calling this.scheduler as a method and throw Illegal invocation
     // in production).
     const pressTime = performance.now();
+
     this.nudgeLoop = rafLoop(
       (k?: string) => {
         const d = nudgeDirection(k ?? key);
         if (syncFrame) {
           syncFrame = false;
+
           this.nudgeCropBoxDelta(
             d.x * CONST.CROP.NUDGE_STEP,
             d.y * CONST.CROP.NUDGE_STEP,
           );
         } else if (performance.now() - pressTime > CONST.CROP.NUDGE_HOLD_DELAY) {
           this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
+
           accX = (accX + perFrame) % 1;
+
           accY = (accY + perFrame) % 1;
         }
         // Holding but the gate has not yet passed -> stay put (no per-frame
@@ -429,6 +482,7 @@ class ExportManager {
       },
       { scheduler: this.scheduler },
     );
+
     this.nudgeLoop.start(key);
   }
 
@@ -437,10 +491,15 @@ class ExportManager {
    * next sync tick re-adds it, so there is no visible flicker. */
   private nudgeStop() {
     const loop = this.nudgeLoop;
+
     this.nudgeLoop = undefined;
+
     this.nudgeMapRect = undefined;
+
     this.nudgeActiveKey = undefined;
+
     this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
+
     loop?.stop();
   }
 
@@ -452,7 +511,9 @@ class ExportManager {
   /** Apply a new rect: update state, box style, and (optionally) the size hint. */
   private applyRect(r: Rect, withHint = true) {
     if (!this.cropState) return;
+
     this.cropState.rect = r;
+
     this.updateBoxStyle(this.cropState.box, r);
     if (withHint) this.showHintWithInfo(r, T("hint_unlocked"));
   }
@@ -460,6 +521,7 @@ class ExportManager {
   /** Reset the unlocked crop box to the default centered size. */
   resetCropBox() {
     if (!this.isEditing()) return;
+
     this.applyRect(this.defaultRect());
   }
 
@@ -467,6 +529,7 @@ class ExportManager {
   nudgeCropBox(key: string) {
     if (!this.isEditing()) return;
     const d = nudgeDirection(key);
+
     this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
   }
 
@@ -480,9 +543,13 @@ class ExportManager {
     if (!st) return;
     const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
     const r = Object.assign({}, st.rect);
+
     r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + Math.floor(dx)));
+
     r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + Math.floor(dy)));
+
     st.box.classList.add(CONST.CLASSES.DRAGGING);
+
     this.applyRect(r, false);
   }
 
@@ -516,14 +583,18 @@ class ExportManager {
     const se = this.cropState.geoBounds!.se;
     const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
     const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
+
     const newRect: Rect = {
       left: tl.x,
       top: tl.y,
       width: Math.abs(br.x - tl.x),
       height: Math.abs(br.y - tl.y),
     };
+
     this.cropState.rect = newRect;
+
     this.updateBoxStyle(this.cropState.box, newRect);
+
     // Always check pixel limit regardless of hint visibility.
     this.checkPixelLimit(newRect);
     // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
@@ -536,6 +607,7 @@ class ExportManager {
     // DPI). The override of r.width/r.height happens in doRender, so the
     // check here matches the actual exported dimensions.
     const totalPixels = Math.round(r.width) * Math.round(r.height);
+
     this.pixelOverLimit = CONF.max_pixels != null && totalPixels > CONF.max_pixels;
   }
 
@@ -551,15 +623,20 @@ class ExportManager {
       ])
     )
       return;
+
     this.isExporting = true;
+
     ensureModes(this.map).setMode(CONF.name, "exporting");
+
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
     const r = Object.assign({}, this.cropState.rect);
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
       this.saveBounds(geoBounds);
+
       this.savedBounds = geoBounds;
     }
+
     this.removeCropBox();
 
     // Place a physical overlay on document.body (NOT inside the map
@@ -572,6 +649,7 @@ class ExportManager {
       class: "foliplus-export-blocker",
       parent: document.body,
     });
+
     // Lock map interactions (pan/zoom) so layer positions stay stable.
     this.lockMap();
 
@@ -586,7 +664,9 @@ class ExportManager {
       // hints are PERSIST (duration 0 sets no timer), so they would otherwise
       // outlive the export and sit on top of whatever status appears next.
       this.map.foliplus!.hideHint(CONF.name);
+
       this.unlockMap();
+
       this.endExport();
       return;
     }
@@ -597,12 +677,14 @@ class ExportManager {
     // the box is gone — they'd outlive the export entirely, the same registry
     // leak as the object-URL one.
     this.map.foliplus!.hideHint(CONF.name, "size");
+
     this.map.foliplus!.hideHint(CONF.name, "limit");
 
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
+
     const needsBigger =
       r.width > vpW * 1.02 ||
       r.height > vpH * 1.02 ||
@@ -626,7 +708,9 @@ class ExportManager {
     geoBounds: GeoBounds | undefined,
   ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
+
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
+
     // Force a synchronous layout so getBoundingClientRect() in the
     // render passes sees the final positions after hiding controls.
     this.mapContainer.offsetHeight;
@@ -635,12 +719,17 @@ class ExportManager {
       const nw = this.map.latLngToContainerPoint(
         L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
       );
+
       const se = this.map.latLngToContainerPoint(
         L.latLng(geoBounds.se.lat, geoBounds.se.lng),
       );
+
       r.left = Math.min(nw.x, se.x);
+
       r.top = Math.min(nw.y, se.y);
+
       r.width = Math.abs(se.x - nw.x);
+
       r.height = Math.abs(se.y - nw.y);
     }
 
@@ -666,19 +755,25 @@ class ExportManager {
     const savedStyles: Record<string, string> = {};
     const style = this.mapContainer.style;
     const styleProps = ["width", "height", "min-height", "max-height", "overflow"];
+
     styleProps.forEach(p => {
       savedStyles[p] = style.getPropertyValue(p);
     });
     const savedCenter = this.map.getCenter();
     const savedZoom = this.map.getZoom();
     const savedAnim = this.map.options.zoomAnimation;
+
     this.map.options.zoomAnimation = false;
 
     const bigW = Math.max(vpW, r.left + r.width) + CONST.CROP.CONTAINER_PADDING;
     const bigH = Math.max(vpH, r.top + r.height) + CONST.CROP.CONTAINER_PADDING;
+
     this.mapContainer.style.width = `${Math.ceil(bigW)}px`;
+
     this.mapContainer.style.height = `${Math.ceil(bigH)}px`;
+
     this.mapContainer.style.minHeight = `${Math.ceil(bigH)}px`;
+
     this.mapContainer.style.overflow = "hidden";
 
     const cropCenter = L.latLngBounds(
@@ -688,10 +783,13 @@ class ExportManager {
 
     const restore = () => {
       this.map.options.zoomAnimation = savedAnim;
+
       Object.keys(savedStyles).forEach(p => {
         this.mapContainer.style.setProperty(p, savedStyles[p]);
       });
+
       this.map.invalidateSize(false);
+
       this.map.setView(savedCenter, savedZoom, { animate: false });
     };
 
@@ -700,9 +798,12 @@ class ExportManager {
     // so the map state is updated immediately.  A single rAF ensures the
     // browser has applied the layout changes before we render.
     this.map.invalidateSize(false);
+
     this.map.setView(cropCenter, savedZoom, { animate: false });
+
     requestAnimationFrame(() => {
       this.mapContainer.offsetHeight; // Force synchronous reflow
+
       this.doRender(r, scaleValue, bg, geoBounds)
         .finally(restore)
         .catch(() => undefined);
@@ -712,8 +813,11 @@ class ExportManager {
   /** Handle successful render: show preview and trigger downloads. */
   onRenderSuccess(canvas: HTMLCanvasElement, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
+
     this.removeExportOverlay();
+
     this.unlockMap();
+
     // Awaited inline so a rejection cannot escape as an unhandled promise
     // rejection — endExport() has to run on every path or the map stays
     // locked behind the blocker overlay.
@@ -734,17 +838,20 @@ class ExportManager {
         this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
         return;
       }
+
       this.showPreview(blob);
       // GeoTIFF needs embedded georeferencing, so it ships as its own
       // container file; every other format is the encoded blob itself.
       if (format.geotiff) this.downloadGeoTiff(canvas, name);
       else download(blob, `${name}.${format.ext}`);
+
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
       // leaked rejection would otherwise skip endExport below and leave the
       // map locked with the blocker overlay on screen.
       this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
+
       console.warn(`[${CONF.name}] export failed:`, err);
     } finally {
       this.endExport();
@@ -755,15 +862,23 @@ class ExportManager {
    * Click to dismiss early, otherwise auto-dismiss after SHORT. */
   private showPreview(blob: Blob) {
     const prevImg = document.createElement("img");
+
     prevImg.src = URL.createObjectURL(blob);
+
     prevImg.className = CONST.CLASSES.PREVIEW;
+
     document.body.appendChild(prevImg);
+
     const dismissPreview = () => {
       prevImg.removeEventListener("click", dismissPreview);
+
       prevImg.remove();
+
       URL.revokeObjectURL(prevImg.src);
     };
+
     prevImg.addEventListener("click", dismissPreview);
+
     setTimeout(dismissPreview, HINT_DURATION.SHORT);
   }
 
@@ -773,8 +888,11 @@ class ExportManager {
    *  disabled and the overlay still on screen. */
   endExport() {
     this.isExporting = false;
+
     ensureModes(this.map).setMode(CONF.name, null);
+
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+
     this.removeExportOverlay();
   }
 
@@ -822,7 +940,9 @@ class ExportManager {
     const rgb = new Uint8Array(canvas.width * canvas.height * 3);
     for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
       rgb[j] = rgba[i];
+
       rgb[j + 1] = rgba[i + 1];
+
       rgb[j + 2] = rgba[i + 2];
     }
 
@@ -837,6 +957,7 @@ class ExportManager {
     // pre-compressed bytes to writeArrayBuffer, which treats them as the
     // image's strip data.
     const compressed = pako.deflateRaw(rgb);
+
     const tiffBuffer = GeoTIFF.writeArrayBuffer(compressed, {
       width: canvas.width,
       height: canvas.height,
@@ -850,18 +971,26 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
+
     download(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
   onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
+
     ensureModes(this.map).setMode(CONF.name, null);
+
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+
     this.removeExportOverlay();
+
     this.unlockMap();
+
     console.error(`[${CONF.name}] ${T("err_render")}:`, err);
+
     this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
+
     this.isExporting = false;
   }
 
@@ -869,6 +998,7 @@ class ExportManager {
   removeExportOverlay() {
     if (this.exportOverlay) {
       this.exportOverlay.remove();
+
       this.exportOverlay = null;
     }
   }
@@ -878,22 +1008,34 @@ class ExportManager {
    *  offset or clipped exports). */
   lockMap() {
     if (!this.map) return;
+
     this.map.dragging.disable();
+
     this.map.scrollWheelZoom.disable();
+
     this.map.doubleClickZoom.disable();
+
     this.map.boxZoom.disable();
+
     this.map.keyboard.disable();
+
     this.map.touchZoom.disable();
   }
 
   /** Restore map interactions after export. */
   unlockMap() {
     if (!this.map) return;
+
     this.map.dragging.enable();
+
     this.map.scrollWheelZoom.enable();
+
     this.map.doubleClickZoom.enable();
+
     this.map.boxZoom.enable();
+
     this.map.keyboard.enable();
+
     this.map.touchZoom.enable();
   }
 }

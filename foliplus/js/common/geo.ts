@@ -38,6 +38,7 @@ const centroid = (points: LatLngPoint[]): L.LatLng => {
 const area = (points: LatLngPoint[]): number => {
   if (points.length < 3) return 0;
   const coords: number[][] = points.map(p => [p.lng, p.lat]);
+
   coords.push(coords[0]);
   return turf.area(turf.polygon([coords]));
 };

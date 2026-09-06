@@ -47,13 +47,17 @@ class HintManager {
 
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
+
     this.hintMap = new Map();
+
     // When the map goes fullscreen, only the fullscreen element is visible —
     // hints appended to document.body would disappear. Migrate them to the
     // fullscreen element (and back again on exit). Standard API only — the
     // webkit prefix is dropped (see FullscreenControl/api.ts).
     this.onFullscreenChange = () => this.migrateHints();
+
     document.addEventListener("fullscreenchange", this.onFullscreenChange);
+
     activeManagers.add(this);
   }
 
@@ -65,6 +69,7 @@ class HintManager {
     for (const entry of this.hintMap.values()) {
       if (entry.element.parentElement !== target) {
         target.appendChild(entry.element);
+
         moved = true;
       }
     }
@@ -96,17 +101,21 @@ class HintManager {
         : `${CLASS} ${CLASS}-${key}`;
 
     const icon = (this.hintIcons && this.hintIcons[key]) || "";
+
     const el = dom.el("div", {
       class: `${cls} ${CLASS}`,
       parent: hintTarget,
       innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
     });
+
     anchorRelative(hintTarget);
+
     const storeKey = subkey
       ? `${key}|${subkey}`
       : append
         ? `${key}-${Date.now()}`
         : key;
+
     this.hintMap.set(storeKey, { element: el, timer: null });
 
     this.repositionHints();
@@ -129,8 +138,10 @@ class HintManager {
       if (entry) {
         if (entry.timer) clearTimeout(entry.timer);
         if (entry.element) entry.element.remove();
+
         this.hintMap.delete(storeKey);
       }
+
       this.repositionHints();
       return;
     }
@@ -140,10 +151,12 @@ class HintManager {
         if (entry) {
           if (entry.timer) clearTimeout(entry.timer);
           if (entry.element) entry.element.remove();
+
           this.hintMap.delete(k);
         }
       }
     }
+
     this.repositionHints();
   }
 
@@ -151,7 +164,9 @@ class HintManager {
     let idx = 0;
     for (const v of this.hintMap.values()) {
       v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
+
       v.element.style.zIndex = String(BASE.ZINDEX + idx);
+
       idx++;
     }
   }
@@ -161,8 +176,11 @@ class HintManager {
       if (entry.timer) clearTimeout(entry.timer);
       if (entry.element) entry.element.remove();
     }
+
     this.hintMap.clear();
+
     document.removeEventListener("fullscreenchange", this.onFullscreenChange);
+
     activeManagers.delete(this);
   }
 }
@@ -172,11 +190,15 @@ const ensureHint = (map: L.Map): HintManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const mgr = new HintManager();
+
   instances.set(map, mgr);
   // Ensure map.foliplus exists so components can call map.foliplus!.showHint
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
+
   map.foliplus!.showHint = mgr.showHint.bind(mgr);
+
   map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
+
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };

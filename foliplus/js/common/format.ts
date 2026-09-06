@@ -52,6 +52,7 @@ const formatNumber = (
   // 万 unit, so 6000 comes out as "6000", not "6,000", which is exactly right
   // for zh/ja 4-digit grouping. No special fallback is needed.
   const nf = fmt(1);
+
   const intStr = nf
     .formatToParts(val)
     .filter(p => p.type === "integer")

@@ -80,6 +80,7 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
 const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   const opts = layer.options as L.LayerOptions & { interactive?: boolean };
   if (!opts || opts.interactive === interactive) return;
+
   opts.interactive = interactive;
   // _map is `protected` in @types/leaflet, so read it through a narrow cast.
   if (!(layer as unknown as { _map?: L.Map })._map) return;
@@ -97,12 +98,15 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
       if (el === layer._icon && typeof layer._initInteraction === "function") {
         continue;
       }
+
       el.classList.add("leaflet-interactive");
+
       layer.addInteractiveTarget(el);
     }
   } else {
     for (const el of els) {
       el.classList.remove("leaflet-interactive");
+
       layer.removeInteractiveTarget(el);
     }
   }
@@ -131,6 +135,7 @@ const suspendMapInteractions = (
   skip?: (leaf: L.Layer) => boolean,
 ): (() => void) => {
   const disabled: L.Layer[] = [];
+
   map.eachLayer(top => {
     forEachLeaf(top, leaf => {
       if (skip?.(leaf)) return;
@@ -138,6 +143,7 @@ const suspendMapInteractions = (
       if (opts?.interactive) disabled.push(leaf);
     });
   });
+
   disabled.forEach(leaf => setInteractive(leaf, false));
   return () => disabled.forEach(leaf => setInteractive(leaf, true));
 };
@@ -148,6 +154,7 @@ const suspendMapInteractions = (
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
 const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
+
   forEachLeaf(layer, l => leaves.push(l));
 
   let hasData = false; // any non-label leaf — labels are not data geometry
@@ -157,6 +164,7 @@ const getGeometryType = (layer: L.Layer): string => {
   for (const leaf of leaves) {
     // Labels are non-geometry nodes — same rule as countFeatureGeometry.
     if ((leaf as LabelAwareLayer).isLabel) continue;
+
     hasData = true;
     if (leaf instanceof L.Polygon) hasPoly = true;
     else if (leaf instanceof L.Polyline) hasLine = true;
@@ -189,6 +197,7 @@ const getGeometryType = (layer: L.Layer): string => {
  *  @returns {number} Number of geometric features. */
 const countFeatureGeometry = (layer: L.Layer): number => {
   let count = 0;
+
   forEachLeaf(layer, (leaf: L.Layer) => {
     if ((leaf as LabelAwareLayer).isLabel) return;
     if (leaf instanceof L.Polygon) count++;

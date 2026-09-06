@@ -10,6 +10,7 @@ import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
 
 createControlEnv(CONF, SVGs.MAXIMIZE);
 const T = createScopedTranslator(CONF);
+
 ensureHint(map);
 
 class FullscreenControl extends BaseControl {
@@ -26,6 +27,7 @@ class FullscreenControl extends BaseControl {
       class: "leaflet-bar leaflet-control",
       id: containerId(CONF.name, CONF.position as string),
     });
+
     const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
       parent: outer,
@@ -39,6 +41,7 @@ class FullscreenControl extends BaseControl {
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
+
         map.zoomIn();
       },
     });
@@ -51,6 +54,7 @@ class FullscreenControl extends BaseControl {
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
+
         map.zoomOut();
       },
     });
@@ -63,12 +67,15 @@ class FullscreenControl extends BaseControl {
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
+
         toggleFullscreen(map, fsBtn, container);
       },
     });
 
     L.DomEvent.disableClickPropagation(outer);
+
     L.DomEvent.disableScrollPropagation(outer);
+
     this.fsHandler = bindFullscreenEvents(map, fsBtn, container);
 
     return outer;

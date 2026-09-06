@@ -43,7 +43,9 @@ export const parseArgs = (argv, spec) => {
     if (meta.type === "array") result[name] = [];
     else result[name] = meta.default ?? false;
   }
+
   result.help = false;
+
   result.errors = [];
 
   let i = 0;
@@ -69,9 +71,11 @@ export const parseArgs = (argv, spec) => {
       }
       if (resolved) {
         result[resolved] = true;
+
         i++;
       } else {
         result.errors.push("Unknown short flag: " + token);
+
         i++;
       }
       continue;
@@ -84,6 +88,7 @@ export const parseArgs = (argv, spec) => {
 
     if (!token.startsWith("--")) {
       result.errors.push("Unknown argument: " + token);
+
       i++;
       continue;
     }
@@ -94,6 +99,7 @@ export const parseArgs = (argv, spec) => {
 
     if (!spec[flag]) {
       result.errors.push("Unknown flag: --" + flag);
+
       i++;
       continue;
     }
@@ -103,22 +109,27 @@ export const parseArgs = (argv, spec) => {
     if (meta.type === "bool") {
       if (value !== null) {
         result.errors.push("--" + flag + " is a boolean flag, does not take a value");
+
         i++;
       } else {
         result[flag] = true;
+
         i++;
       }
     } else if (meta.type === "array") {
       // --flag=a --flag=b --flag c
       if (value !== null) {
         result[flag].push(value);
+
         i++;
       } else {
         if (i + 1 >= argv.length) {
           result.errors.push("--" + flag + " requires a value");
+
           i++;
         } else {
           result[flag].push(argv[i + 1]);
+
           i += 2;
         }
       }
@@ -126,13 +137,16 @@ export const parseArgs = (argv, spec) => {
       let raw = null;
       if (value !== null) {
         raw = value;
+
         i++;
       } else {
         if (i + 1 >= argv.length) {
           result.errors.push("--" + flag + " requires a value");
+
           i++;
         } else {
           raw = argv[i + 1];
+
           i += 2;
         }
       }
@@ -167,10 +181,12 @@ export const help = spec => {
       meta.type === "string" ? "path" : meta.type === "number" ? "n" : "value";
     let prefix = "  ";
     if (meta.short) prefix += "-" + meta.short + ", ";
+
     prefix += "--" + name;
     if (meta.type === "array") prefix += " [repeated]";
     else if (meta.type !== "bool") prefix += " <" + typeHint + ">";
     if (meta.desc) prefix += "  # " + meta.desc;
+
     lines.push(prefix);
   }
   return lines.join("\n");

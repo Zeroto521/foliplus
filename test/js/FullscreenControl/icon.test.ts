@@ -4,6 +4,7 @@ import * as SVGs from "#foliplus/FullscreenControl/icon.js";
 describe("MAXIMIZE", () => {
   it("is an SVG string", () => {
     expect(SVGs.MAXIMIZE).toContain("<svg");
+
     expect(SVGs.MAXIMIZE).toContain("path");
   });
 });
@@ -11,6 +12,7 @@ describe("MAXIMIZE", () => {
 describe("MINIMIZE", () => {
   it("is an SVG string", () => {
     expect(SVGs.MINIMIZE).toContain("<svg");
+
     expect(SVGs.MINIMIZE).toContain("path");
   });
 });
@@ -18,6 +20,7 @@ describe("MINIMIZE", () => {
 describe("ZOOM_IN", () => {
   it("is an SVG string with lines", () => {
     expect(SVGs.ZOOM_IN).toContain("<svg");
+
     expect(SVGs.ZOOM_IN).toContain("line");
   });
 });
@@ -25,6 +28,7 @@ describe("ZOOM_IN", () => {
 describe("ZOOM_OUT", () => {
   it("is an SVG string with a line", () => {
     expect(SVGs.ZOOM_OUT).toContain("<svg");
+
     expect(SVGs.ZOOM_OUT).toContain("line");
   });
 });

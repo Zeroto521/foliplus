@@ -40,7 +40,9 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
   if (!ctrl.panelWrap) return;
   const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
   if (items.length === 0) return;
+
   ctrl.selectedIdx = Math.max(-1, Math.min(ctrl.selectedIdx + dir, items.length - 1));
+
   items.forEach((el: Element, i: number) =>
     el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
   );
@@ -57,6 +59,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
       map.foliplus!.hideHint(CONF.name);
+
       removePanel(ctrl);
     },
   });
@@ -65,12 +68,15 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     ctrl.inp.value = "";
     if (ctrl.marker) {
       map.removeLayer(ctrl.marker);
+
       ctrl.marker = null;
     }
     if (ctrl.delIcon) {
       map.removeLayer(ctrl.delIcon);
+
       ctrl.delIcon = null;
     }
+
     ctrl.inp.focus();
   };
 
@@ -81,11 +87,13 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     if (ctrl.inp.value.trim().length === 0) {
       // Input cleared — show history immediately
       ctrl.debouncedFetch.cancel();
+
       fetchSuggestions(ctrl, "");
     } else if (ctrl.mode === MODE.ADDR) {
       ctrl.debouncedFetch();
     } else {
       ctrl.debouncedFetch.cancel();
+
       removePanel(ctrl);
     }
   });
@@ -99,9 +107,13 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           removePanel(ctrl);
           return;
         }
+
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
+
         ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
+
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+
         map.foliplus!.hideHint(CONF.name);
       },
     },
@@ -137,7 +149,9 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           return;
         }
         if (guardBlocked(map, CONF.name, T("blocked"))) return;
+
         removePanel(ctrl);
+
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },
@@ -156,18 +170,23 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   const collapseObserver = new MutationObserver(() => {
     if (ctrl.ctrl.classList.contains(CLASSES.COLLAPSED)) removePanel(ctrl);
   });
+
   collapseObserver.observe(ctrl.ctrl, { attributes: true, attributeFilter: ["class"] });
 
   ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
+
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
+
   ctrl.scrollTargets.forEach((t: Element | Window) =>
     t.addEventListener("scroll", ctrl.repositionHandler, true),
   );
+
   window.addEventListener("resize", ctrl.repositionHandler);
 
   return () => {
     collapseObserver.disconnect();
+
     ensureInteraction(map).unregister(CONF.name);
   };
 };
@@ -190,10 +209,13 @@ const initFromUrl = (ctrl: SearchControl): void => {
         .map(Number);
       if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
         ctrl.setMode(MODE.COORD);
+
         searchCoord(ctrl, q);
       } else {
         ctrl.setMode(MODE.ADDR);
+
         ctrl.inp.value = q;
+
         searchAddress(ctrl, q);
       }
     } else if (latParam && lngParam) {
@@ -201,6 +223,7 @@ const initFromUrl = (ctrl: SearchControl): void => {
       const lat = parseFloat(latParam);
       if (!isNaN(lng) && !isNaN(lat)) {
         ctrl.setMode(MODE.COORD);
+
         searchCoord(ctrl, `${lng},${lat}`);
       }
     }

@@ -1,11 +1,6 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import {
-  GEOM_TYPE,
-  type LayerInfo,
-  forEachLeaf,
-  getGeometryType,
-} from "#core/layer/index.js";
+import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -30,22 +25,6 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
-
-/**
- * Push one persisted rename out to whatever projections of it exist.
- *
- * Shared by the whole-panel sweep and the targeted single-layer call so the
- * "skip unchanged" rule lives in exactly one place.
- */
-const applyNameProjection = (
-  layerInfo: LayerInfo | null,
-  item: HTMLElement | null,
-  name: string,
-): void => {
-  if (!layerInfo && !item) return;
-  if (layerInfo && layerInfo.name !== name) layerInfo.name = name;
-  updateItemLabel(item, name);
-};
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
@@ -107,27 +86,49 @@ class LayerUI {
 
   constructor(manager: LayerManager) {
     this.manager = manager;
+
     this.foldedGroups = new Set();
+
     this.hiddenIds = new Set();
+
     this.isColorActive = false;
+
     this.currentColor = CONST.COLOR.DEFAULT;
+
     this.renamedNames = {};
+
     this.activeRenameId = null;
+
     this.dragIdx = null;
+
     this.lastDragHintAt = 0;
+
     this.lastDragOverItem = null;
+
     this.activeIdx = null;
+
     this.clickedRow = null;
+
     this.unsubscribeCountChange = null;
+
     this.onMoreClick = null;
+
     this.onMoreMenuClick = null;
+
     this.onMoreMapClick = null;
+
     this.activeMenu = null;
+
     this.focusRect = null;
+
     this.focusingLayerId = null;
+
     this.onFocusMapMove = null;
+
     this.focusMask = null;
+
     this.focusRenderer = null;
+
     this.focusedPaneRestores = [];
   }
 
@@ -152,22 +153,25 @@ class LayerUI {
    */
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
+
     this.loadFoldState();
+
     this.loadHiddenIds();
+
     this.loadNamesState();
+
     this.renderInitialList();
+
     this.bindEvents();
 
     while (this.m.pendingRegistrations.length) {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
+
+    this.applyNamesState();
+
     this.reindexItems();
-    // Last in the attach sequence: applyUserState() runs the full sweep
-    // needed for rows rendered from the initial registry. Hidden ids are
-    // loaded above but only applied here, so a row can never render visible
-    // and get removed afterwards.
-    this.applyUserState();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -210,144 +214,93 @@ class LayerUI {
   }
 
   /**
-   * Propagate the user's stored state — hidden visibility and renames —
-   * into the registry and the rendered rows.
-   *
-   * `hiddenIds` and `renamedNames` are the source of truth; the registry's
-   * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
-   * are their projections, refreshed here whenever a row or the registry is
-   * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
-   * overwrite of `visible`, so it writes straight through; name is a
-   * cross-axis projection that must preserve the author's original name, so
-   * it goes through `applyNameProjection`, which writes only where the
-   * projection still differs — a repeated pass is therefore a no-op.
-   *
-   * The sweep also prunes ids whose layers no longer exist so stale
-   * persistence doesn't accumulate.
-   *
-   * @param {string} [id] Restrict to one layer id — a late-arriving row is
-   *   already rendered with the right label, so it only needs its registry
-   *   projection; a full sweep would re-rewrite every renamed row for no
-   *   gain. Both projections are membership-guarded on this path: the drain
-   *   runs for every late registration, so an unhidden layer must not be
-   *   hidden and a missing rename must not write undefined.
+   * Overwrite each registered layer's display name with the user-assigned
+   * value and refresh the affected label in the UI. Called once from
+   * attachUI() after the initial list + pending registrations are rendered.
    */
-  applyUserState(id?: string) {
-    const registry = this.m.layerRegistry;
-    const container = this.uiContainer;
+  applyNamesState() {
+    if (!this.uiContainer) return;
+    for (const [id, name] of Object.entries(this.renamedNames)) {
+      const layerInfo = this.m.layerRegistry.get(id);
+      const isColorLayer = id === CONST.COLOR.MAP_ID;
+      if (!layerInfo && !isColorLayer) continue;
+      if (layerInfo && layerInfo.name === name) continue;
+      if (layerInfo) layerInfo.name = name;
 
-    if (id) {
-      const layerInfo = registry.get(id);
-      if (!layerInfo) return; // stale id — pruned by persistence on save
-      // Both projections are membership-guarded — this path runs for every
-      // late registration, including layers the user never touched. A layer
-      // that was never hidden must not be hidden, and a missing rename is a
-      // no-op rather than a write of undefined over the registry's own name.
-      if (this.hiddenIds.has(id)) this.applyHiddenStateOne(layerInfo);
-      if (id in this.renamedNames)
-        applyNameProjection(layerInfo, null, this.renamedNames[id]);
-      return;
+      const item = this.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+      ) as HTMLElement | null;
+
+      updateItemLabel(item, name);
     }
-
-    const ids = new Set([...this.hiddenIds, ...Object.keys(this.renamedNames)]);
-    for (const layerId of ids) {
-      if (layerId in this.renamedNames) {
-        if (layerId === CONST.COLOR.MAP_ID) {
-          // The color basemap has no registry entry — only its row label.
-          applyNameProjection(
-            null,
-            container?.querySelector(
-              `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-            ) as HTMLElement | null,
-            this.renamedNames[layerId],
-          );
-          continue;
-        }
-        const layerInfo = registry.get(layerId);
-        if (!layerInfo) continue; // stale id — pruned by persistence on save
-        applyNameProjection(
-          layerInfo,
-          container?.querySelector(
-            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-          ) as HTMLElement | null,
-          this.renamedNames[layerId],
-        );
-      }
-      if (this.hiddenIds.has(layerId)) {
-        const layerInfo = registry.get(layerId);
-        if (layerInfo) this.applyHiddenOne(layerInfo, layerId);
-      }
-    }
-
-    // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
-    // to write the projection into. Renames are pruned in unregisterLayer
-    // instead — a rename whose id is not in the registry yet belongs to a
-    // component that will register later, so sweeping it here would drop it
-    // on the very first attach and the user would see the default name.
-    const staleIds = [...this.hiddenIds].filter(
-      layerId => registry.get(layerId) == null,
-    );
-    if (staleIds.length > 0) {
-      console.warn(
-        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
-      );
-      this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),
-      );
-      // Persist the cleaned set so the same stale ids don't get re-warned
-      // on the next reload.
-      this.saveHiddenIds();
-    }
-  }
-
-  /**
-   * Apply one hidden id: remove the layer from the map, fire the toggle
-   * callback (so callback-only canvas/heatmap layers hide themselves), and
-   * sync the row's checkbox and tooltip.
-   */
-  private applyHiddenOne(layerInfo: LayerInfo, id: string) {
-    const container = this.uiContainer;
-    const item = container
-      ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
-      : null;
-    const checkbox = item?.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-
-    this.applyHiddenStateOne(layerInfo);
-
-    if (checkbox) {
-      checkbox.checked = false;
-      checkbox.title = T("select_tooltip");
-    }
-    item?.classList.remove(CONST.CLASSES.ACTIVE);
-  }
-
-  /**
-   * Hide one layer without touching its row — the map removal, the callback
-   * for canvas-only layers, and the registry's `visible` flag.
-   *
-   * Split from {@link LayerUI.applyHiddenOne} because the registry projection
-   * must run before the row is rendered: a late registration gets its
-   * projection via {@link LayerUI.applyUserState}(id) before its row lands in
-   * the DOM, so a callback-only layer hidden that way would otherwise stay
-   * "visible" until the next full sweep and re-enter the map.
-   */
-  private applyHiddenStateOne(layerInfo: LayerInfo) {
-    const layer = this.m.findLayer(layerInfo);
-
-    // Callback-only layers (canvas) have no Leaflet layer to remove — fire
-    // the toggle callback so the canvas itself hides.
-    if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
-    else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
-
-    layerInfo.visible = false;
   }
 
   /** Save user-assigned names, coalescing rapid calls. */
   saveNamesState() {
     this.m.persistence.saveNames(() => this.renamedNames);
+  }
+
+  /**
+   * Apply persisted hidden state after the UI rows are rendered.
+   *
+   * Folium adds every layer to the map before the LayerControl IIFE runs,
+   * so on reload hidden layers are back on the map. This method actively
+   * removes them again so the checkboxes and the map agree.
+   *
+   * Unknown ids (removed layers) are dropped so stale persistence doesn't
+   * accumulate. Fires onToggle(false) for callback-only layers (canvas /
+   * heatmap) which have no Leaflet layer to remove.
+   */
+  applyHiddenState() {
+    const registry = this.m.layerRegistry;
+    // Guard: on attach applyHiddenState runs after renderInitialList, so the
+    // container always exists. Defensive null check keeps standalone calls
+    // (and tests) safe before attach.
+    const container = this.uiContainer;
+    for (const id of this.hiddenIds) {
+      const layerInfo = registry.get(id);
+      if (!layerInfo) continue; // stale id (layer removed) — drop it.
+
+      const item = container
+        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
+        : null;
+
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      const layer = this.m.findLayer(layerInfo);
+
+      // Callback-only layers (canvas) have no Leaflet layer to remove — fire
+      // the toggle callback so the canvas itself hides.
+      if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
+      else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
+
+      layerInfo.visible = false;
+
+      if (checkbox) {
+        checkbox.checked = false;
+
+        checkbox.title = T("select_tooltip");
+      }
+
+      item?.classList.remove(CONST.CLASSES.ACTIVE);
+    }
+    // Prune ids whose layers no longer exist, keeping persistence tidy.
+    // Stale ids occur when a layer is removed at runtime after being hidden.
+    const staleIds = [...this.hiddenIds].filter(id => registry.get(id) == null);
+    if (staleIds.length > 0) {
+      console.warn(
+        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
+      );
+
+      this.hiddenIds = new Set(
+        [...this.hiddenIds].filter(id => registry.get(id) != null),
+      );
+
+      // Persist the cleaned set so the same stale ids don't get re-warned
+      // on the next reload.
+      this.saveHiddenIds();
+    }
   }
 
   /** Full re-scan of every row (used on attach/fold-toggle). */
@@ -356,7 +309,7 @@ class LayerUI {
     // map state: folium adds every layer before the control IIFE runs, so on
     // reload hidden layers are back on the map. Hidden ids no longer in the
     // registry are dropped (their layer was removed).
-    this.applyUserState();
+    this.applyHiddenState();
 
     let anyBaseVisible = false;
     for (let i = 0; i < this.m.layers.length; i++) {
@@ -365,6 +318,7 @@ class LayerUI {
     // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
     // base-less map must not suppress the color-layer background.
     const baseIds = [...this.m.layers].filter(li => li.isBase).map(li => li.id);
+
     const allBasesHidden =
       baseIds.length > 0 && baseIds.every(id => this.hiddenIds.has(id));
 
@@ -372,8 +326,11 @@ class LayerUI {
     // *and* the user never intentionally hid every base. Otherwise the
     // fallback would undo an explicit "hide all bases" choice.
     if (!anyBaseVisible && !allBasesHidden) this.showColorLayer(this.currentColor);
+
     this.m.enforceOrder();
+
     this.syncToggleAll(CONST.GROUP.OVERLAY);
+
     this.syncToggleAll(CONST.GROUP.BASE);
   }
 
@@ -392,26 +349,31 @@ class LayerUI {
       const layerInfo = this.m.layers[i];
       if (!layerInfo.isBase && !hasOverlays) {
         hasOverlays = true;
+
         frag.appendChild(
           this.renderToggleAllRow(CONST.GROUP.OVERLAY, "data_layer_label"),
         );
       }
       if (layerInfo.isBase && !hasBaseMaps) {
         hasBaseMaps = true;
+
         frag.appendChild(this.renderToggleAllRow(CONST.GROUP.BASE, "base_map_label"));
       }
       const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
       const item = this.renderLayerItem(layerInfo, i);
       if (this.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+
       frag.appendChild(item);
     }
 
     const colorItem = this.renderColorLayerItem();
     if (this.foldedGroups.has(CONST.GROUP.BASE))
       colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
+
     frag.appendChild(colorItem);
 
     this.uiContainer.innerHTML = "";
+
     this.uiContainer.appendChild(frag);
 
     // Re-home the cursor on the rebuilt element and restore DOM focus. The
@@ -448,6 +410,7 @@ class LayerUI {
     );
     if (idx !== -1 && items[idx].classList.contains(CONST.CLASSES.GROUP_FOLDED)) {
       const group = items[idx].getAttribute("data-layer-type");
+
       idx = items.findIndex(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
@@ -484,6 +447,7 @@ class LayerUI {
     }
     const item = this.renderLayerItem(layerInfo, idx);
     if (this.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+
     frag.appendChild(item);
 
     if (!firstOfGroup) {
@@ -496,12 +460,26 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
+    // If the layer has a persisted rename, apply it before reindexing so
+    // the label + checkbox aria reflect the user-assigned name immediately.
+    this.applyPersistedRename(layerInfo, item);
+
     if (reindex) this.reindexItems();
-    // insertLayerItem is where a late-registered (third-party) layer first
-    // shows up, so the user's name and visibility land with the row instead
-    // of waiting for a later pass. Only this layer's id is applied — a full
-    // sweep would re-rewrite every renamed row on each registration.
-    this.applyUserState(layerInfo.id);
+  }
+
+  /**
+   * Apply a persisted rename to a just-inserted layer item.
+   *
+   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
+   * from the registry — the Python-supplied original name. This mirrors the
+   * logic in applyNamesState so the inline label + checkbox aria match.
+   */
+  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
+    const name = this.renamedNames[layerInfo.id];
+    if (!name) return;
+    if (layerInfo.name !== name) layerInfo.name = name;
+
+    updateItemLabel(item, name);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -509,32 +487,21 @@ class LayerUI {
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
     ) as HTMLElement | null;
     if (!item) return;
+
     item.dataset.index = String(idx);
-    // updateItemLabel sets both the row label and the checkbox's aria-label,
-    // so the name reaches assistive tech here without touching `title` — the
-    // row's tooltip slot keeps the feature count + type.
-    updateItemLabel(item, this.displayName(layerInfo.id));
+    const label = item.querySelector("label");
+    if (label) label.textContent = layerInfo.name;
+
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
-    if (checkbox) checkbox.dataset.index = String(idx);
-  }
+    if (checkbox) {
+      checkbox.dataset.index = String(idx);
 
-  /**
-   * Effective panel display name for a layer: the user-assigned rename wins,
-   * falling back to the registry name, then to the locale label for the
-   * virtual color basemap — the only row with no registry entry.
-   *
-   * Every render path resolves names through here so a registry mutation
-   * (re-registration, type refresh) can no longer resurrect the original
-   * third-party name over a rename.
-   */
-  displayName(id: string): string {
-    return (
-      this.renamedNames[id] ??
-      this.m.layerRegistry.get(id)?.name ??
-      (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
-    );
+      checkbox.setAttribute("aria-label", layerInfo.name);
+
+      checkbox.title = layerInfo.name;
+    }
   }
 
   renderToggleAllRow(group: string, labelKey: string) {
@@ -581,7 +548,7 @@ class LayerUI {
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    const name = this.displayName(layerInfo.id);
+    const name = layerInfo.name;
 
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -612,11 +579,8 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
-          // The name reaches assistive tech via aria-label. `title` is the
-          // Select/Deselect slot — initLayerItem sets it per checked state
-          // before this row can be hovered, so leave it unseeded rather than
-          // flashing the layer name.
           "aria-label": name,
+          title: name,
         }),
       ),
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
@@ -642,21 +606,19 @@ class LayerUI {
     );
   }
 
-  /** Current display name for the virtual color basemap: persisted rename if
-   *  present, else the locale label. The color layer has no registry entry. */
+  /** Current display name for the virtual color basemap: persisted rename
+   *  if present, else the locale label. The color layer has no registry
+   *  entry, so this is its only source of truth. */
   private colorLayerName(): string {
-    return this.displayName(CONST.COLOR.MAP_ID);
+    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
   }
 
   renderColorLayerItem() {
-    // The input announces the same name as the row's label cell below, so a
-    // rename reaches assistive tech on both — not just the visible text.
-    const colorName = this.colorLayerName();
     const colorInput = dom.el("input", {
       type: "color",
       class: CONST.CLASSES.COLOR_INPUT,
       value: this.currentColor,
-      "aria-label": colorName,
+      "aria-label": T("color_map_label"),
     });
 
     // Color layer lives outside layerRegistry — rename is the only overflow
@@ -702,10 +664,11 @@ class LayerUI {
   initLayerItem(layerInfo: LayerInfo): boolean {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return false;
-    const name = this.displayName(layerInfo.id);
+
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
     ) as NodeListOf<HTMLInputElement>;
+
     const typeCols = this.uiContainer.querySelectorAll(
       `.${CONST.CLASSES.TYPE_ICON_COL}`,
     );
@@ -719,6 +682,7 @@ class LayerUI {
       const isCallbackOnly = !hasLayer && layerInfo.onToggle;
       if (isCallbackOnly) input.checked = layerInfo.visible !== false;
       else input.checked = hasLayer && this.m.map.hasLayer(layer);
+
       this.syncVisibility(layerInfo, layer, input.checked);
 
       input.title = T(input.checked ? "deselect_tooltip" : "select_tooltip");
@@ -727,11 +691,6 @@ class LayerUI {
       if (item) {
         if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
-        // The rename must survive a full init pass — initLayerItem is the
-        // only incremental path that refreshes a row without re-rendering it.
-        // aria-label carries the name; the title slot stays Select/Deselect
-        // as set above.
-        input.setAttribute("aria-label", name);
       }
     }
 
@@ -740,24 +699,36 @@ class LayerUI {
       let type: string | null = null;
       if (layerInfo.isBase) {
         typeCol.innerHTML = Icons.GLOBE;
+
         typeKey = T("type_base");
+
         type = CONST.GROUP.BASE;
+
         layerInfo.type = type;
         if (input?.checked) baseVisible = true;
       } else if (layerInfo.iconSvg) {
         typeCol.innerHTML = layerInfo.iconSvg;
+
         typeKey = T("type_custom");
+
         type = GEOM_TYPE.CUSTOM;
+
         layerInfo.type = type;
       } else if (layer) {
         const gtype = getGeometryType(layer);
+
         typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
+
         typeKey = T(`type_${gtype}`);
+
         type = gtype;
+
         layerInfo.type = type;
       } else {
         typeKey = T("type_unknown");
+
         type = GEOM_TYPE.UNKNOWN;
+
         layerInfo.type = type;
       }
 
@@ -775,9 +746,11 @@ class LayerUI {
         }
         // Hover tooltip shows count + type label together.
         const typeLabel = typeKey;
+
         // Persist the type label so onLayerItemCountChange can rebuild the
         // 'count + type' tooltip without re-running type detection.
         item.setAttribute(CONST.DATA.TITLE, typeLabel);
+
         item.title =
           count !== null && count !== undefined
             ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
@@ -794,6 +767,7 @@ class LayerUI {
     ) as NodeListOf<HTMLElement>;
     for (let i = 0; i < items.length; i++) {
       items[i].dataset.index = String(i);
+
       const checkbox = items[i].querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement | null;
@@ -817,31 +791,41 @@ class LayerUI {
         // event fires, making it impossible to detect the pre-click state.
         const group = row.dataset.group ?? "";
         const items = this.getLayerItems(group);
+
         const noneChecked = Array.from(items).every((item: Element) => {
           const c = item.querySelector(
             'input[type="checkbox"]',
           ) as HTMLInputElement | null;
           return !c || !c.checked;
         });
+
         this.toggleAll(group, noneChecked);
         return;
       }
+
       this.handleChange(event);
     };
+
     this.onInput = event => this.handleInput(event);
+
     this.onClick = event => {
       const el = event.target as HTMLElement;
+
       // Record the row the pointer touched. Clicking the label or the checkbox
       // does not move DOM focus off the previously focused row, so the marker
       // has to be re-homed here or the next Space/Enter toggles the wrong row.
       this.clickedRow =
         el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
+
       this.syncActiveItem();
 
       if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
+
         this.showColorLayer(this.currentColor);
+
         this.syncToggleAll(CONST.GROUP.BASE);
+
         this.m.enforceOrder();
         return;
       }
@@ -850,18 +834,28 @@ class LayerUI {
       const group = row.dataset.group ?? "";
       if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
       else this.foldedGroups.add(group);
+
       this.renderInitialList();
+
       this.initTypesAndVisibility();
+
       this.refreshAllCounts();
+
       this.saveFoldState();
     };
 
     this.onDragStart = event => this.handleDragStart(event);
+
     this.onDragOver = event => this.handleDragOver(event);
+
     this.onDragLeave = event => this.handleDragLeave(event);
+
     this.onDrop = event => this.handleDrop(event);
+
     this.onDragEnd = () => this.handleDragEnd();
+
     this.onKeyDown = event => this.handleKeyDown(event);
+
     // A real focus move supersedes the pointer: once focus lands elsewhere, the
     // last-clicked row is stale and must not outrank it. Synthetic clicks and
     // clicks on the non-focusable label don't fire focusin, so clickedRow still
@@ -869,17 +863,27 @@ class LayerUI {
     this.onFocusIn = () => {
       this.clickedRow = null;
     };
+
     this.interactionCleanup = registerInteractions(this);
 
     container.addEventListener("change", this.onChange);
+
     container.addEventListener("input", this.onInput);
+
     container.addEventListener("click", this.onClick);
+
     container.addEventListener("focusin", this.onFocusIn);
+
     container.addEventListener("dragstart", this.onDragStart);
+
     container.addEventListener("dragover", this.onDragOver);
+
     container.addEventListener("dragleave", this.onDragLeave);
+
     container.addEventListener("drop", this.onDrop);
+
     container.addEventListener("dragend", this.onDragEnd);
+
     // Double-click on a layer row → focus the map on that layer.
     container.addEventListener("dblclick", event =>
       this.handleDblClick(event as MouseEvent),
@@ -888,12 +892,17 @@ class LayerUI {
     // Overflow ("more") button → dropdown menu. Uses event delegation so it
     // works for rows created after bindEvents (registerLayer at runtime).
     this.onMoreClick = event => handleMoreClick(this, event);
+
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
+
     this.onMoreMapClick = () => this.closeMoreMenu(false);
+
     container.addEventListener("click", this.onMoreClick);
+
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
     document.addEventListener("click", this.onMoreMenuClick);
+
     this.m.map.on("click", this.onMoreMapClick);
     // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
     // by InteractionManager via registerInteractions() in interaction.ts,
@@ -904,6 +913,7 @@ class LayerUI {
     // Subscribe to feature-count change events so a third-party provider
     // (Canvas layers) can update a single row without a full re-render.
     const bus = ensureEvents(this.m.map);
+
     this.unsubscribeCountChange = bus.on(
       EVENTS.LAYER_ITEM_COUNT_CHANGE,
       (payload: { id: string }) => this.onLayerItemCountChange(payload.id),
@@ -916,6 +926,7 @@ class LayerUI {
    *  not the one cached at initial attach. */
   onLayerItemCountChange(id: string) {
     if (!this.uiContainer) return;
+
     const item = this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
     ) as HTMLElement | null;
@@ -924,6 +935,7 @@ class LayerUI {
     if (!layerInfo || layerInfo.isBase) return;
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
+
     const typeCol = item.querySelector(
       `.${CONST.CLASSES.TYPE_ICON_COL}`,
     ) as HTMLElement | null;
@@ -933,8 +945,11 @@ class LayerUI {
     if (typeCol && !layerInfo.iconSvg) {
       const layer = this.m.findLayer(layerInfo);
       const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
+
       layerInfo.type = gtype;
+
       typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
+
       typeLabel = T(`type_${gtype}`);
     }
 
@@ -943,7 +958,9 @@ class LayerUI {
     } else if (countCol) {
       countCol.textContent = "";
     }
+
     item.setAttribute(CONST.DATA.TITLE, typeLabel);
+
     item.title =
       count !== null
         ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
@@ -953,9 +970,11 @@ class LayerUI {
   /** Refresh count column for every overlay item (no title change). */
   refreshAllCounts() {
     if (!this.uiContainer) return;
+
     const items = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}):not(${CONST.SEL.TOGGLE_ALL})`,
     );
+
     items.forEach((item: Element) => {
       const id = item.getAttribute(CONST.DATA.LAYER_ID);
       if (!id) return;
@@ -970,8 +989,11 @@ class LayerUI {
   unbindEvents() {
     const container = this.uiContainer;
     if (!container) return;
+
     this.closeMoreMenu(false);
+
     this.finishRename(true);
+
     // Remove any focus animation still in flight (rect + row highlight).
     this.dismissFocus();
     if (this.onChange) container.removeEventListener("change", this.onChange);
@@ -987,18 +1009,29 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+
     this.clearActiveItem();
+
     this.interactionCleanup?.();
+
     this.m.persistence.cancelSaveHiddenIds();
+
     this.onChange = this.onInput = this.onClick = null;
+
     this.onFocusIn = null;
+
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
+
     this.onDrop = this.onDragEnd = null;
+
     this.onMoreClick = this.onMoreMenuClick = null;
+
     this.onMoreMapClick = null;
+
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
+
       this.unsubscribeCountChange = null;
     }
   }
@@ -1011,6 +1044,7 @@ class LayerUI {
 
   toggleAll(group: string, newState: boolean) {
     const items = this.getLayerItems(group);
+
     items.forEach((item: Element) => {
       const checkbox = item.querySelector(
         'input[type="checkbox"]',
@@ -1022,6 +1056,7 @@ class LayerUI {
       const layer = this.m.findLayer(layerInfo);
 
       checkbox.checked = newState;
+
       checkbox.title = T(newState ? "deselect_tooltip" : "select_tooltip");
       if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
       else item.classList.remove(CONST.CLASSES.ACTIVE);
@@ -1029,7 +1064,9 @@ class LayerUI {
       if (layer) newState ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
       if (newState && layer) layer.options.paneSet = false;
       if (layerInfo.onToggle) layerInfo.onToggle(newState);
+
       this.syncVisibility(layerInfo, layer, newState);
+
       // No persist per iteration — schedule a single debounced write after the
       // loop so the debounce timer isn't reset for every layer.
       this.syncHiddenId(layerInfo.id, !newState, false);
@@ -1040,10 +1077,12 @@ class LayerUI {
 
     if (group === CONST.GROUP.BASE && !newState) {
       this.hideColorLayer();
+
       this.showColorLayer(this.currentColor);
     } else if (group === CONST.GROUP.BASE && newState) this.hideColorLayer();
 
     this.syncToggleAll(group);
+
     this.m.debouncedEnforce();
   }
 
@@ -1052,11 +1091,13 @@ class LayerUI {
       `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
     );
     if (!row) return;
+
     const allCb = row.querySelector(
       '[data-role="toggle-all"]',
     ) as HTMLInputElement | null;
     if (!allCb) return;
     const items = this.getLayerItems(group);
+
     const checkedCount = Array.from(items).filter((item: Element) => {
       const checkbox = item.querySelector(
         'input[type="checkbox"]',
@@ -1065,8 +1106,11 @@ class LayerUI {
     }).length;
     const allChecked = items.length > 0 && checkedCount === items.length;
     const noneChecked = checkedCount === 0;
+
     allCb.checked = allChecked;
+
     allCb.indeterminate = !allChecked && !noneChecked;
+
     allCb.title = T(
       allChecked || allCb.indeterminate
         ? "toggle_all_deselect_tooltip"
@@ -1083,8 +1127,11 @@ class LayerUI {
     const target = event.target as HTMLInputElement;
     if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
       this.deselectAllBaseMaps(-1);
+
       this.showColorLayer(target.value);
+
       this.syncToggleAll(CONST.GROUP.BASE);
+
       this.m.enforceOrder();
       return;
     }
@@ -1108,10 +1155,13 @@ class LayerUI {
     target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
     if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
+
     this.syncVisibility(layerInfo, layer, target.checked);
+
     this.syncHiddenId(layerInfo.id, !target.checked);
 
     this.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+
     this.m.debouncedEnforce();
   }
 
@@ -1174,7 +1224,9 @@ class LayerUI {
       return;
     }
     const item = items[idx];
+
     this.moveActiveMarker(item, items);
+
     item.focus();
   }
 
@@ -1189,7 +1241,9 @@ class LayerUI {
     // indexOf yields -1 for an item outside the list; normalize it to null so
     // activeIdx never holds an index getActiveLayerItem() would misread.
     const idx = item ? items.indexOf(item) : -1;
+
     this.activeIdx = idx === -1 ? null : idx;
+
     item?.classList.add(CONST.CLASSES.FOCUSED);
   }
 
@@ -1205,7 +1259,9 @@ class LayerUI {
   /** Clear the active item state. */
   clearActiveItem(): void {
     this.blurActiveItem();
+
     this.activeIdx = null;
+
     this.clickedRow = null;
   }
 
@@ -1218,6 +1274,7 @@ class LayerUI {
   private resolveActiveIdx(items: HTMLElement[]): number | null {
     const rows: (HTMLElement | null)[] = [];
     if (this.clickedRow) rows.push(this.clickedRow);
+
     rows.push(
       document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
         document.activeElement?.closest(CONST.SEL.TOGGLE_ALL) ??
@@ -1239,6 +1296,7 @@ class LayerUI {
   private syncActiveItem(): void {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
+
     this.moveActiveMarker(idx === null ? null : items[idx], items);
   }
 
@@ -1247,7 +1305,9 @@ class LayerUI {
    *  no additional focus work is needed here. */
   reindexAfterMove(): void {
     this.renderInitialList();
+
     this.initTypesAndVisibility();
+
     this.refreshAllCounts();
   }
 
@@ -1291,9 +1351,11 @@ class LayerUI {
         }
       }
       const newItems = this.getNavigableItems();
+
       const next = newItems.findIndex(
         el => el.getAttribute(CONST.DATA.LAYER_ID) === id,
       );
+
       // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
       // normalize it so activeIdx never holds an invalid index.
       this.activeIdx = next === -1 ? null : next;
@@ -1309,6 +1371,7 @@ class LayerUI {
         const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
         if (layerId) {
           event.preventDefault();
+
           this.focusLayer(layerId);
           return;
         }
@@ -1334,13 +1397,16 @@ class LayerUI {
         // that key opens the overflow menu instead.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
           event.preventDefault();
+
           event.stopPropagation();
+
           const item = (document.activeElement as HTMLElement).closest(
             CONST.SEL.LAYER_ITEM,
           ) as HTMLElement | null;
           if (item) this.openMoreMenu(item);
           break;
         }
+
         // Menu item (li) is focused — trigger the focus-layer action.
         // Skip disabled items so the hidden-layer guard applies to keyboard too.
         const menuLi = (document.activeElement as HTMLElement | null)?.closest?.(
@@ -1348,6 +1414,7 @@ class LayerUI {
         );
         if (menuLi && this.activeMenu) {
           event.preventDefault();
+
           event.stopPropagation();
           const action = menuLi.getAttribute("data-action") ?? "";
           if (menuLi.getAttribute("disabled")) {
@@ -1362,11 +1429,14 @@ class LayerUI {
             this.renameLayer(this.activeMenu.layerId);
           else {
             this.focusLayer(this.activeMenu.layerId);
+
             this.closeMoreMenu(true);
           }
           break;
         }
+
         event.preventDefault();
+
         this.toggleFocusedLayer();
         break;
       case "Escape":
@@ -1388,6 +1458,7 @@ class LayerUI {
     }
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
+
     this.focusLayer(layerId);
   }
 
@@ -1395,11 +1466,14 @@ class LayerUI {
   private toggleFocusedLayer(): void {
     const item = this.getActiveLayerItem();
     if (!item) return;
+
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
     if (!checkbox) return;
+
     checkbox.checked = !checkbox.checked;
+
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
@@ -1408,7 +1482,9 @@ class LayerUI {
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
     if (!item) return;
+
     this.dragIdx = parseInt(item.dataset.index ?? "", 10);
+
     item.classList.add(CONST.CLASSES.DRAGGING);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   }
@@ -1416,13 +1492,17 @@ class LayerUI {
   showReorderBlockedHint() {
     const now = Date.now();
     if (now - this.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
+
     this.lastDragHintAt = now;
+
     map.foliplus!.showHint(CONF.name, T("reorder_group_only"), HINT_DURATION.SHORT);
   }
 
   handleDragOver(event: DragEvent) {
     if (this.dragIdx === null) return;
+
     event.preventDefault();
+
     const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
@@ -1435,11 +1515,14 @@ class LayerUI {
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+
     item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+
     this.lastDragOverItem = item;
 
     if (!this.m.canReorderBetween(this.dragIdx, targetIdx)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+
       this.showReorderBlockedHint();
       return;
     }
@@ -1463,6 +1546,7 @@ class LayerUI {
 
   handleDrop(event: DragEvent) {
     event.preventDefault();
+
     const target = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
@@ -1499,15 +1583,20 @@ class LayerUI {
     }
 
     this.reindexItems();
+
     this.m.enforceOrder();
+
     this.m.saveOrder();
+
     this.dragIdx = null;
   }
 
   handleDragEnd() {
     this.dragIdx = null;
+
     this.lastDragOverItem = null;
     const allItems = this.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
+
     allItems.forEach((i: Element) =>
       i.classList.remove(
         CONST.CLASSES.DRAGGING,
@@ -1519,8 +1608,11 @@ class LayerUI {
 
   showColorLayer(color: string) {
     this.isColorActive = true;
+
     this.currentColor = color;
+
     mapContainer.style.setProperty("--color-layer-bg", color);
+
     mapContainer.classList.add(CONST.CLASSES.ACTIVE);
 
     for (let i = 0; i < this.m.layers.length; i++) {
@@ -1536,9 +1628,11 @@ class LayerUI {
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     ) as NodeListOf<HTMLInputElement>;
+
     inputs.forEach((input: HTMLInputElement, j: number) => {
       if (this.m.layers[j]?.isBase) {
         input.checked = false;
+
         input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
       }
     });
@@ -1547,18 +1641,23 @@ class LayerUI {
       CONST.SEL.COLOR_INPUT,
     ) as HTMLInputElement | null;
     if (ci) ci.value = color;
+
     this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.add(CONST.CLASSES.ACTIVE);
+
     this.syncToggleAll(CONST.GROUP.BASE);
   }
 
   hideColorLayer() {
     this.isColorActive = false;
+
     mapContainer.classList.remove(CONST.CLASSES.ACTIVE);
+
     mapContainer.style.removeProperty("--color-layer-bg");
     const tilePane = this.m.map.getPane("tilePane");
     if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
+
     this.uiContainer
       .querySelector(CONST.SEL.COLOR_ITEM)
       ?.classList.remove(CONST.CLASSES.ACTIVE);
@@ -1572,6 +1671,7 @@ class LayerUI {
     // Close any previously open menu first, and commit/cancel a rename so
     // the label text is fresh before we read the row.
     this.finishRename();
+
     this.closeMoreMenu(true);
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
@@ -1613,6 +1713,7 @@ class LayerUI {
     );
 
     item.style.position = "relative";
+
     item.appendChild(menu);
 
     this.activeMenu = { item, menu, layerId };
@@ -1626,7 +1727,9 @@ class LayerUI {
   closeMoreMenu(setFocus: boolean) {
     if (!this.activeMenu) return;
     const item = this.activeMenu.item;
+
     this.activeMenu.menu.remove();
+
     this.activeMenu = null;
     if (setFocus) item.focus();
   }
@@ -1642,6 +1745,7 @@ class LayerUI {
    */
   renameLayer(layerId: string): void {
     if (!layerId || !this.uiContainer) return;
+
     this.finishRename();
 
     const layerInfo = this.m.layerRegistry.get(layerId);
@@ -1654,14 +1758,16 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
-    // displayName resolves rename → registry → the color layer's locale label,
-    // so the input opens with the name the UI already shows.
-    const currentName = this.displayName(layerId);
+    // Color layer has no registry entry — default the input to the name the
+    // UI already shows (locale label), not the color hex.
+    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
 
     this.activeRenameId = layerId;
+
     // Flag the row so CSS can stretch the input across the label+count area
     // (matching the SearchControl field's full extent) while editing.
     item?.classList.add(CONST.CLASSES.RENAMING);
+
     createInlineEditInput({
       label,
       initialValue: currentName,
@@ -1674,14 +1780,13 @@ class LayerUI {
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
-          // renamedNames is the source of truth; the registry entry and the
-          // row labels are projections that applyUserState() pushes out, so
-          // a re-registration that rebuilds the registry from a third-party
-          // layer's own metadata cannot resurrect the author's original name.
+          if (layerInfo) layerInfo.name = trimmed;
+
           this.renamedNames[layerId] = trimmed;
+
           this.saveNamesState();
-          this.applyUserState();
         }
+
         this.finishRename(true);
       },
       onCancel: reason => {
@@ -1690,6 +1795,7 @@ class LayerUI {
         if (reason === "empty") {
           map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
         }
+
         this.finishRename(true);
       },
     });
@@ -1704,6 +1810,7 @@ class LayerUI {
   private finishRename(restoreText = true): void {
     if (!this.activeRenameId) return;
     const layerId = this.activeRenameId;
+
     this.activeRenameId = null;
     if (!this.uiContainer) return;
 
@@ -1715,9 +1822,15 @@ class LayerUI {
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
     ) as HTMLElement | null;
     const label = item?.querySelector("label") as HTMLLabelElement | null;
+
     item?.classList.remove(CONST.CLASSES.RENAMING);
+
     removeInlineEditInput(label);
-    if (restoreText) updateItemLabel(item, this.displayName(layerId));
+    if (restoreText) {
+      const name = layerInfo ? layerInfo.name : this.colorLayerName();
+
+      updateItemLabel(item, name);
+    }
   }
 
   /**
@@ -1754,6 +1867,7 @@ class LayerUI {
     const itemEl = this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
     ) as HTMLElement | null;
+
     const checkbox = itemEl?.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
@@ -1772,6 +1886,7 @@ class LayerUI {
     if (layer) {
       // Ensure the layer is on the map so the rectangle highlight is visible.
       if (!this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+
       bounds = this.computeLayerBounds(layer);
     } else if (typeof layerInfo.getBounds === "function") {
       bounds = layerInfo.getBounds();
@@ -1784,6 +1899,7 @@ class LayerUI {
     // Hide every other visible layer so the focused one stands out — including
     // layers that overlap the focused bounds (the mask only dims outside).
     this.hideOtherLayers();
+
     // Lift it above the hidden peers (so it can't be covered) and apply the
     // accent glow — one O(panes) pass, not a per-leaf-element loop.
     this.bringFocusedLayerToFront(layer, layerInfo.canvas ?? null);
@@ -1800,24 +1916,31 @@ class LayerUI {
     // Single-point / tiny bounds → flyTo the center.
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
+
     const area =
       Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
     if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
       const center = bounds.getCenter();
+
       const maxZoom = Math.min(
         this.m.map.getMaxZoom(),
         this.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
       );
+
       this.m.map.flyTo(center, maxZoom, {
         duration: CONST.FOCUS.FIT_DURATION,
       });
+
       this.highlightFocusedRow(itemEl, layerId);
+
       this.registerAutoCancel(layerId);
       return;
     }
 
     this.drawFocusMask(bounds);
+
     this.drawFocusRect(bounds);
+
     this.highlightFocusedRow(itemEl, layerId);
 
     this.m.map.fitBounds(bounds, {
@@ -1832,6 +1955,7 @@ class LayerUI {
 
     // Auto-remove focus visuals after the configured duration.
     const ref = this.focusRect;
+
     setTimeout(() => {
       if (this.focusRect === ref) {
         this.dismissFocus();
@@ -1851,6 +1975,7 @@ class LayerUI {
   /** Cancel an in-flight focus: remove rect + mask + row highlight. */
   cancelFocus(): void {
     this.dismissFocus();
+
     this.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
   }
 
@@ -1861,19 +1986,25 @@ class LayerUI {
     // no focus was active; setMode(null) writes a null entry that the
     // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
     ensureModes(this.m.map).setMode(CONF.name, null);
+
     this.clearAutoCancel();
+
     this.clearFocusedRowHighlight();
+
     this.restoreHiddenLayers();
     for (const restore of this.focusedPaneRestores) restore();
+
     this.focusedPaneRestores = [];
 
     if (this.focusRect) {
       this.m.map.removeLayer(this.focusRect);
+
       this.focusRect = null;
     }
 
     if (this.focusMask) {
       this.m.map.removeLayer(this.focusMask);
+
       this.focusMask = null;
     }
     // Tear down the SVG renderer too. Reusing it across focuses left the
@@ -1883,6 +2014,7 @@ class LayerUI {
     // guarantees a clean slate.
     if (this.focusRenderer) {
       this.m.map.removeLayer(this.focusRenderer);
+
       this.focusRenderer = null;
     }
 
@@ -1922,17 +2054,24 @@ class LayerUI {
     canvas: HTMLCanvasElement | null,
   ): void {
     const restores: Array<() => void> = [];
+
     const lift = (el: HTMLElement): void => {
       const orig = el.style.zIndex;
+
       el.style.zIndex = String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP);
+
       // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
       // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
       el.classList.add(CONST.CLASSES.FOCUS_PANE);
+
       // Glow: applied at pane level (one element), fading in via CSS animation.
       el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+
       restores.push(() => {
         el.style.zIndex = orig;
+
         el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+
         el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
       });
     };
@@ -1958,6 +2097,7 @@ class LayerUI {
         if (pane) lift(pane);
       }
     }
+
     this.focusedPaneRestores = restores;
   }
 
@@ -1979,10 +2119,12 @@ class LayerUI {
     }
     const acc = L.latLngBounds([]);
     let hasLeaf = false;
+
     forEachLeaf(layer, leaf => {
       const lb = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds?.();
       if (lb && lb.isValid()) {
         acc.extend(lb);
+
         hasLeaf = true;
       }
     });
@@ -2004,15 +2146,19 @@ class LayerUI {
       let pane = map.getPane(CONST.FOCUS_PANE);
       if (!pane) {
         pane = map.createPane(CONST.FOCUS_PANE);
+
         pane.style.zIndex = String(CONST.FOCUS.PANE_Z);
       }
+
       this.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
+
       this.focusRenderer.addTo(map);
     }
 
     // Outer ring: the visible view bounds, padded so the dim covers the
     // viewport (a little pan during the fitBounds animation stays covered).
     const view = map.getBounds().pad(1);
+
     const outer: L.LatLngExpression[] = [
       view.getSouthWest(),
       view.getNorthWest(),
@@ -2023,6 +2169,7 @@ class LayerUI {
     // bright while everything else is dimmed by the mask).
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
+
     const hole: L.LatLngExpression[] = [
       sw,
       L.latLng(ne.lat, sw.lng),
@@ -2038,6 +2185,7 @@ class LayerUI {
       interactive: false,
       renderer: this.focusRenderer,
     });
+
     map.addLayer(this.focusMask);
   }
 
@@ -2051,14 +2199,17 @@ class LayerUI {
       interactive: false,
       renderer: this.focusRenderer ?? undefined,
     });
+
     map.addLayer(this.focusRect);
   }
 
   /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
   private registerAutoCancel(layerId: string): void {
     this.focusingLayerId = layerId;
+
     const handler = () => {
       if (this.focusingLayerId !== layerId) return;
+
       // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
       // completion, which should NOT auto-cancel. Any move/zoom *after* the
       // grace window is a deliberate user action → cancel.
@@ -2068,8 +2219,11 @@ class LayerUI {
         }
       }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
     };
+
     this.onFocusMapMove = () => handler();
+
     this.m.map.on("moveend", this.onFocusMapMove);
+
     this.m.map.on("zoomend", this.onFocusMapMove);
   }
 
@@ -2077,7 +2231,9 @@ class LayerUI {
   private clearAutoCancel(): void {
     if (this.onFocusMapMove) {
       this.m.map.off("moveend", this.onFocusMapMove);
+
       this.m.map.off("zoomend", this.onFocusMapMove);
+
       this.onFocusMapMove = null;
     }
   }
@@ -2086,13 +2242,16 @@ class LayerUI {
   private highlightFocusedRow(itemEl: HTMLElement | null, layerId: string): void {
     this.clearFocusedRowHighlight();
     if (!itemEl) return;
+
     itemEl.classList.add(CONST.CLASSES.FOCUSING);
+
     this.focusingLayerId = layerId;
   }
 
   /** Remove the `foliplus-layer-focusing` class from the active row. */
   private clearFocusedRowHighlight(): void {
     const prev = this.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
+
     prev?.classList.remove(CONST.CLASSES.FOCUSING);
   }
 
@@ -2106,6 +2265,7 @@ class LayerUI {
         if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
         if (inputs[i]) {
           inputs[i].checked = false;
+
           inputs[i]
             .closest(CONST.SEL.LAYER_ITEM)
             ?.classList.remove(CONST.CLASSES.ACTIVE);

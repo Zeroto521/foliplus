@@ -20,18 +20,24 @@ const download = (
 ) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
+
   anchor.href = url;
+
   anchor.download = filename;
+
   anchor.rel = "noopener";
+
   anchor.style.display = "none";
   // Cleanup lives in a finally so a throw from appendChild, click, or remove
   // cannot leak the object URL or strand the anchor in the DOM — the very
   // leak centralising the anchor here is meant to prevent.
   try {
     document.body.appendChild(anchor);
+
     anchor.click();
   } finally {
     anchor.remove();
+
     setTimeout(() => URL.revokeObjectURL(url), revokeDelayMs);
   }
 };

@@ -41,9 +41,13 @@ class LayerRegistry {
 
   constructor(data: LayerInfo[] = [], map?: L.Map) {
     this.items = data.map(l => this.createLayerInfo(l, undefined, map));
+
     this.byId = new Map(this.items.map(l => [l.id, l]));
+
     this._firstBaseIdx = -1;
+
     this.refreshFirstBaseIdx();
+
     this.view = this.createReadonlyView();
   }
 
@@ -165,11 +169,14 @@ class LayerRegistry {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
       const idx = this.items.indexOf(existing);
+
       this.items[idx] = layerInfo;
     } else {
       this.items.push(layerInfo);
+
       this.refreshFirstBaseIdx();
     }
+
     this.byId.set(layerInfo.id, layerInfo);
     return layerInfo;
   }
@@ -177,7 +184,9 @@ class LayerRegistry {
   /** Insert at the front (used for new overlay layers). */
   prepend(layerInfo: LayerInfo): LayerInfo {
     this.items.unshift(layerInfo);
+
     this.byId.set(layerInfo.id, layerInfo);
+
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
@@ -185,7 +194,9 @@ class LayerRegistry {
   /** Insert before the given index (used for new base layers). */
   insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
     this.items.splice(idx, 0, layerInfo);
+
     this.byId.set(layerInfo.id, layerInfo);
+
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
@@ -195,7 +206,9 @@ class LayerRegistry {
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
+
     this.byId.delete(id);
+
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
@@ -206,7 +219,9 @@ class LayerRegistry {
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
+
     this.items.splice(idx, 1);
+
     this.items.unshift(layerInfo);
     return layerInfo;
   }
@@ -214,19 +229,24 @@ class LayerRegistry {
   /** Swap order of two positions (drag-and-drop). */
   reorder(fromIdx: number, toIdx: number) {
     const [moved] = this.items.splice(fromIdx, 1);
+
     this.items.splice(toIdx, 0, moved);
   }
 
   /** Rebuild both list and index from a new ordered array. */
   replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
+
     this.byId = new Map(this.items.map(l => [l.id, l]));
+
     this.refreshFirstBaseIdx();
   }
 
   clear() {
     this.items.splice(0, this.items.length);
+
     this.byId.clear();
+
     this.refreshFirstBaseIdx();
   }
 
@@ -238,8 +258,11 @@ class LayerRegistry {
       if (layerInfo && layerInfo.isBase) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
+
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
+
     this.byId = new Map(this.items.map(l => [l.id, l]));
+
     this.refreshFirstBaseIdx();
   }
 

@@ -107,12 +107,14 @@ const parseArgs = argv => parseArgsCore(argv, SPEC);
 
 const readSizes = (root = ROOT) => {
   const dir = distDir(root);
+
   const files = readdirSync(dir)
     .filter(f => /\.min\.(js|css)$/.test(f))
     .sort();
   const sizes = {};
   for (const f of files) {
     const src = readFileSync(resolve(dir, f), "utf-8");
+
     sizes[f] = brotliCompressSync(stripLeadingBlockComment(src)).length;
   }
   return sizes;
@@ -124,11 +126,13 @@ const readBaseline = path => {
 };
 
 const fmtKB = n => (n / 1024).toFixed(2) + " KB";
+
 const fmtDelta = (curr, prev) => {
   if (curr == null || prev == null) return "—";
   const d = curr - prev;
   return (d > 0 ? "+" : "") + (d / 1024).toFixed(2) + " KB";
 };
+
 const fmtPct = (curr, prev) => {
   if (curr == null || !prev) return "—";
   const p = ((curr - prev) / prev) * 100;
@@ -160,6 +164,7 @@ const buildRows = (current, baseline, threshold) => {
       ...(baseline ? Object.keys(baseline.files || {}) : []),
     ]),
   ].sort();
+
   // Rows with no comparison counterpart (bundle added/removed) carry no delta.
   const absent = (file, curr, prev, status) => ({
     file,
@@ -211,6 +216,7 @@ const summarize = rows => {
     if (r.curr != null) curr += r.curr;
     if (r.prev != null) {
       prev += r.prev;
+
       prevSeen = true;
     }
   }
@@ -237,6 +243,7 @@ const renderTable = (rows, threshold) => {
   const { curr, prev, delta, pct } = totalCells(summarize(rows));
   const changed = rows.filter(r => r.status !== "same").length;
   const over = rows.filter(r => r.over).length;
+
   const lines = [
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
@@ -255,11 +262,14 @@ const renderTable = (rows, threshold) => {
   ];
   for (const r of rows) {
     const { icon, currStr, prevStr, label } = rowCells(r);
+
     lines.push(
       `| ${r.file} | ${currStr} | ${prevStr} | ${fmtDelta(r.curr, r.prev)} | ${fmtPct(r.curr, r.prev)} | ${icon} ${label} |`,
     );
   }
+
   lines.push(`| **Total** | **${curr}** | **${prev}** | **${delta}** | **${pct}** | |`);
+
   lines.push("", "</details>");
   return lines.join("\n");
 };
@@ -268,11 +278,13 @@ const renderConsole = rows => {
   const lines = ["", "Bundle Size Check", "─".repeat(70)];
   for (const r of rows) {
     const { icon, currStr, prevStr, label } = rowCells(r);
+
     lines.push(
       `  ${icon} ${r.file.padEnd(42)} ${currStr.padStart(10)}  ←  ${prevStr.padStart(10)}  ${fmtDelta(r.curr, r.prev).padStart(9)}  ${fmtPct(r.curr, r.prev).padStart(6)}  ${label}`,
     );
   }
   const { curr, prev, delta, pct } = totalCells(summarize(rows));
+
   lines.push(
     `  ${"Total".padEnd(44)} ${curr.padStart(10)}  ←  ${prev.padStart(10)}  ${delta.padStart(9)}  ${pct.padStart(6)}`,
   );
@@ -286,6 +298,7 @@ const renderSizes = sizes => {
   const lines = ["", "Bundle Sizes", "─".repeat(70)];
   for (const f of files) lines.push(`  ${fmtKB(sizes[f]).padStart(10)}  ${f}`);
   const total = files.reduce((a, f) => a + sizes[f], 0);
+
   lines.push(`  ${fmtKB(total).padStart(10)}  ${files.length} bundles`);
   return lines.join("\n");
 };
@@ -294,6 +307,7 @@ const appendSummary = text => {
   if (!process.env.GITHUB_STEP_SUMMARY) return;
   try {
     const existing = readFileSync(process.env.GITHUB_STEP_SUMMARY, "utf-8");
+
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, existing + text);
   } catch {
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, text);
@@ -309,7 +323,9 @@ const emit = (args, root = ROOT) => {
     return 1;
   }
   const path = resolve(args.emit);
+
   mkdirSync(dirname(path), { recursive: true });
+
   // Recorded from ROOT, the tree that is diffed against this capture — the
   // capture root (`--root=/tmp/base`) is a bare checkout with no node_modules.
   const tools = Object.fromEntries(
@@ -322,6 +338,7 @@ const emit = (args, root = ROOT) => {
     return 1;
   }
   const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
+
   console.log(
     `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
   );
@@ -335,6 +352,7 @@ const check = (args, root = ROOT) => {
   // misleading all-"new" table.
   if (!baseline) {
     console.log(renderSizes(current));
+
     console.warn(
       `\n${WARN}  No baseline provided — pass --baseline=<sizes-file> to diff.`,
     );
@@ -349,12 +367,15 @@ const check = (args, root = ROOT) => {
   const drift = toolMismatch(current, baseline);
 
   const table = renderTable(rows, threshold);
+
   console.log(renderConsole(rows));
+
   appendSummary(table);
   if (args.report) {
     const reportPath = resolve(args.report);
     try {
       mkdirSync(dirname(reportPath), { recursive: true });
+
       writeFileSync(reportPath, table + "\n");
     } catch (err) {
       console.error(`${FAIL} Cannot write ${reportPath}: ${err.message}`);
@@ -366,12 +387,14 @@ const check = (args, root = ROOT) => {
       const next = d.curr == null ? "absent" : `→ ${d.curr}`;
       return `${d.pkg} ${d.prev} ${next}`;
     });
+
     console.warn(
       `\n${WARN}  Build tools differ from the baseline capture — this diff mixes tool drift with code:` +
         "\n  " +
         parts.join(", ") +
         "\n  The base branch and this PR resolve devDependencies separately, so they can pick up different versions between runs.",
     );
+
     console.warn(
       `${WARN}  re-run the capture step against this toolchain to get a clean comparison.`,
     );
@@ -383,6 +406,7 @@ const check = (args, root = ROOT) => {
       console.error(
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
       );
+
     console.error("\nBundle growth exceeded the threshold — review the change.");
     return 1;
   }
@@ -393,9 +417,11 @@ const check = (args, root = ROOT) => {
     for (const m of lowMargin) {
       const g = m.pct.toFixed(1);
       const remaining = (threshold - m.pct).toFixed(1);
+
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
   }
+
   console.log(`\n${OK} All bundles within threshold.`);
   return 0;
 };
@@ -422,6 +448,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(help(SPEC));
+
     process.exit(0);
   }
   // Malformed input (an unknown flag, a non-numeric threshold) is an error —
@@ -429,11 +456,14 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   // success.
   if (args.errors.length) {
     console.error(args.errors.join("\n"));
+
     console.error(help(SPEC));
+
     process.exit(1);
   }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = args.emit ? emit(args, root) : check(args, root);
+
   process.exit(code ?? 0);
 }
 /* v8 ignore stop */

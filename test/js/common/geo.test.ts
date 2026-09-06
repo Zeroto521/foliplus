@@ -19,7 +19,9 @@ afterEach(() => {
 describe("geo.distance", () => {
   it("calls turf.distance in meters with turf points", () => {
     const d = distance({ lng: 10, lat: 20 }, { lng: 11, lat: 21 });
+
     expect(d).toBe(1234);
+
     expect(turf.distance).toHaveBeenCalledWith(
       { coords: [10, 20] },
       { coords: [11, 21] },
@@ -31,6 +33,7 @@ describe("geo.distance", () => {
 describe("geo.bearing", () => {
   it("normalizes negative bearings into 0–360", () => {
     turf.bearing = vi.fn(() => -45);
+
     expect(bearing({ lng: 0, lat: 0 }, { lng: 1, lat: 1 })).toBe(315);
   });
 
@@ -42,6 +45,7 @@ describe("geo.bearing", () => {
 describe("geo.midpoint", () => {
   it("returns L.LatLng from turf midpoint coordinates", () => {
     const m = midpoint({ lng: 10, lat: 20 }, { lng: 15, lat: 49 });
+
     expect(m).toEqual({ lat: 34.5, lng: 12.5 });
   });
 });
@@ -54,6 +58,7 @@ describe("geo.centroid", () => {
       { lng: 10, lat: 10 },
       { lng: 10, lat: 0 },
     ]);
+
     expect(c).toEqual({ lat: 5, lng: 5 });
   });
 });
@@ -66,6 +71,7 @@ describe("geo.area", () => {
         { lng: 1, lat: 1 },
       ]),
     ).toBe(0);
+
     expect(turf.area).not.toHaveBeenCalled();
   });
 
@@ -75,7 +81,9 @@ describe("geo.area", () => {
       { lng: 0, lat: 10 },
       { lng: 10, lat: 10 },
     ]);
+
     expect(a).toBe(5_000_000);
+
     expect(turf.polygon).toHaveBeenCalledWith([
       [
         [0, 0],

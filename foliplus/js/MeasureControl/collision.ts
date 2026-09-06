@@ -180,6 +180,7 @@ const placeLabels = (
   for (const e of entries) {
     if (shown.some(s => hides(e.box, s))) {
       toHide.add(e.el);
+
       e.el.style.visibility = "hidden";
     } else {
       shown.push(e.box);
@@ -188,6 +189,7 @@ const placeLabels = (
 
   for (const e of entries) {
     if (toHide.has(e.el)) continue;
+
     e.el.style.visibility = "";
   }
   return { hidden: toHide.size, elements: toHide };

@@ -79,10 +79,13 @@ const composeSignal = (
 
   const onTimeout = () => {
     cleanup();
+
     controller.abort();
   };
+
   const onParentAbort = () => {
     cleanup();
+
     controller.abort(parentSignal?.reason);
   };
 
@@ -90,6 +93,7 @@ const composeSignal = (
 
   const cleanup = () => {
     clearTimeout(timeoutHandle);
+
     parentSignal?.removeEventListener("abort", onParentAbort);
   };
 

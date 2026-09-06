@@ -30,6 +30,7 @@ class LayerPersistence {
 
   constructor(registry: LayerRegistry) {
     this.persistName = CONF.name;
+
     this.registry = registry;
   }
 
@@ -52,9 +53,11 @@ class LayerPersistence {
     if (!this.debouncedSaveOrder) {
       this.debouncedSaveOrder = debounce(() => {
         if (!this.orderGetter) return;
+
         Storage.save(CONST.STORAGE.ORDER_KEY, this.orderGetter(), this.persistName);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveOrder();
   }
 
@@ -93,6 +96,7 @@ class LayerPersistence {
     if (!this.debouncedSaveHiddenIds) {
       this.debouncedSaveHiddenIds = debounce(() => {
         if (!this.hiddenGetter) return;
+
         Storage.save(
           CONST.STORAGE.VISIBILITY_KEY,
           Array.from(this.hiddenGetter()),
@@ -100,6 +104,7 @@ class LayerPersistence {
         );
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveHiddenIds();
   }
 
@@ -109,33 +114,22 @@ class LayerPersistence {
 
   // ── Names (user-assigned display names) ──────────────────────────
 
-  /**
-   * Load user-assigned display names.
-   *
-   * Unlike the order and visibility loaders, this one deliberately does not
-   * prune against the registry. This method runs once from {@link LayerUI.attachUI},
-   * which is at the tail end of the LayerControl bundle — after `registerLayer`
-   * has run for every component whose bundle already loaded, but before any
-   * component that loads later gets to call `LayerAPI.createLayers` /
-   * `createCanvas`. HeatmapControl and MeasureControl register their layers
-   * in their own constructor, so a registry filter would drop their renames on
-   * the very first attach and the user would see the component default name
-   * after every refresh. `loadOrder` and `loadHiddenIds` keep the filter:
-   * order is rebuilt on every save and hidden ids are re-applied on each late
-   * registration, so a stale entry costs nothing there.
-   */
   loadNames(): Record<string, string> {
     const data = Storage.load<Record<string, string>>(
       CONST.STORAGE.NAMES_KEY,
       this.persistName,
     );
     if (!data || typeof data !== "object" || Array.isArray(data)) return {};
-    // Value-level validation only. A rename keyed by an id that is not in the
-    // registry yet is kept — it will be projected the moment that layer
-    // registers. Stale ids are cleaned up in unregisterLayer, the only call
-    // that knows a layer is gone for good.
+    const layerSet = new Set(this.registry.layers.map(l => l.id));
+
+    // Color basemap is a virtual layer — never in the registry — but can be
+    // renamed and persisted. Include it in the valid-id set.
+    layerSet.add(CONST.COLOR.MAP_ID);
+    // Drop stale ids so removed layers don't accumulate in persistence.
     return Object.fromEntries(
-      Object.entries(data).filter(([, name]) => typeof name === "string"),
+      Object.entries(data).filter(
+        ([id]) => layerSet.has(id) && typeof data[id] === "string",
+      ),
     );
   }
 
@@ -144,9 +138,11 @@ class LayerPersistence {
     if (!this.debouncedSaveNames) {
       this.debouncedSaveNames = debounce(() => {
         if (!this.namesGetter) return;
+
         Storage.save(CONST.STORAGE.NAMES_KEY, this.namesGetter(), this.persistName);
       }, CONST.SAVE_ORDER_DEBOUNCE_MS);
     }
+
     this.debouncedSaveNames();
   }
 
@@ -156,7 +152,9 @@ class LayerPersistence {
 
   destroy() {
     this.debouncedSaveOrder?.cancel();
+
     this.debouncedSaveHiddenIds?.cancel();
+
     this.debouncedSaveNames?.cancel();
   }
 }

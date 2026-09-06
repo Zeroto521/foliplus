@@ -38,9 +38,11 @@ import { resolveVersion } from "./version.mjs";
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
 let sondaApi = null;
+
 const loadSonda = async () => {
   if (sondaApi) return sondaApi;
   const { Config, processEsbuildMetafile } = await import("sonda");
+
   sondaApi = { Config, processEsbuildMetafile };
   return sondaApi;
 };
@@ -63,14 +65,18 @@ const BUILD_SPEC = {
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
 if (_raw.help) {
   console.log(help(BUILD_SPEC));
+
   process.exit(0);
 }
 if (_raw.errors.length) {
   console.error(_raw.errors.join("\n"));
+
   console.error(help(BUILD_SPEC));
+
   process.exit(1);
 }
 const CFG = _raw;
+
 CFG.root = resolve(CFG.root);
 
 const srcDir = resolve(CFG.root, "foliplus/js");
@@ -186,6 +192,7 @@ const findComponents = () => {
     if (!entry.isDirectory()) continue;
     if (entry.name === "core") continue; // core is a shared subdomain, not a control component
     const name = entry.name;
+
     const jsFile = resolveEntry([
       resolve(srcDir, name, "index.ts"),
       resolve(srcDir, name, "index.js"),
@@ -211,10 +218,12 @@ const buildEntries = (components, withSonda) => {
     const outName = name === SHARED_ENTRY ? "common" : name;
     const jsEntry = artifact([js], out(`foliplus-${outName}.min.js`), name);
     if (withSonda) jsEntry.metafile = true;
+
     entries.push(jsEntry);
     if (css) {
       const cssEntry = artifact([css], out(`foliplus-${outName}.min.css`), name);
       if (withSonda) cssEntry.metafile = true;
+
       entries.push(cssEntry);
     }
   }
@@ -225,11 +234,14 @@ const buildEntries = (components, withSonda) => {
   if (existsSync(commonCss)) {
     let css = readFileSync(commonCss, "utf-8");
     if (existsSync(panelCss)) css += "\n" + readFileSync(panelCss, "utf-8");
+
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
+
     writeFileSync(tmpCss, css, "utf-8");
     const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
     if (withSonda) commonCssEntry.metafile = true;
+
     entries.push(commonCssEntry);
   }
   return entries;
@@ -241,7 +253,9 @@ const mergeMetafiles = metafiles => {
   const merged = { inputs: {}, outputs: {} };
   for (const mf of metafiles) {
     if (!mf) continue;
+
     Object.assign(merged.inputs, mf.inputs);
+
     Object.assign(merged.outputs, mf.outputs);
   }
   return merged;
@@ -259,12 +273,16 @@ const generateSharedRegistry = () => {
   if (genResult.stderr) console.error(genResult.stderr);
   if (genResult.status !== 0) process.exit(genResult.status);
 };
+
 const main = async () => {
   console.time("build");
+
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
   mkdirSync(buildJs, { recursive: true });
+
   rmSync(buildCss, { recursive: true, force: true });
+
   mkdirSync(buildCss, { recursive: true });
 
   // ── Step 2.5: Generate shared registry ────────────────────────
@@ -277,6 +295,7 @@ const main = async () => {
   if (sonda)
     console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
   const entries = buildEntries(components, CFG.sonda);
+
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
   );
@@ -300,7 +319,9 @@ const main = async () => {
       .map(r => r.value?.metafile)
       .filter(Boolean);
     const reportFile = resolve(CFG.root, "bundle-treemap.html");
+
     rmSync(reportFile, { force: true });
+
     const config = new sonda.Config(
       {
         format: "html",
@@ -311,6 +332,7 @@ const main = async () => {
       },
       { integration: "esbuild" },
     );
+
     await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
   }
 
@@ -319,11 +341,14 @@ const main = async () => {
     const missing = entries.map(e => e.outfile).filter(f => !existsSync(f));
     if (missing.length) {
       console.error(`Missing artifacts: ${missing.join(", ")}`);
+
       process.exit(1);
     }
+
     console.log(`All ${entries.length} artifacts present.`);
   }
   if (failed) process.exit(1);
+
   console.timeEnd("build");
 };
 
@@ -332,6 +357,7 @@ const main = async () => {
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch(e => {
     console.error(e);
+
     process.exit(1);
   });
 }
