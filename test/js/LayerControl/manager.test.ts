@@ -6,6 +6,7 @@ import {
   patchBringToFront,
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
+import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
@@ -892,6 +893,42 @@ describe("LayerManager", () => {
     m.destroy();
     m.debouncedEnforce();
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("destroy flushes a pending order write instead of cancelling it", () => {
+    // persistence.destroy cancels the debounce timer, so the UI's flush in
+    // unbindEvents must run first — otherwise the last reorder inside the
+    // debounce window is dropped and the panel reads a stale order back.
+    const m = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "b", name: "B", isBase: false },
+    ]);
+    m.persistence = new LayerPersistence(m.layerRegistry);
+    const save = vi.spyOn(Storage, "save");
+    m.saveOrder();
+    save.mockClear();
+    m.destroy();
+    expect(save).toHaveBeenCalledWith(
+      CONST.STORAGE.ORDER_KEY,
+      expect.any(Array),
+      expect.any(String),
+    );
+  });
+
+  it("destroy flushes a pending hidden-set write instead of cancelling it", () => {
+    // Same ordering for visibility: a hide just before teardown must survive
+    // the reload, which is the whole point of the teardown flush.
+    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    m.persistence = new LayerPersistence(m.layerRegistry);
+    const save = vi.spyOn(Storage, "save");
+    m.persistence.saveHiddenIds(() => new Set(["a"]));
+    save.mockClear();
+    m.destroy();
+    expect(save).toHaveBeenCalledWith(
+      CONST.STORAGE.VISIBILITY_KEY,
+      ["a"],
+      expect.any(String),
+    );
   });
 
   it("registerLayer pins the pane on a layer with a container of its own", () => {
