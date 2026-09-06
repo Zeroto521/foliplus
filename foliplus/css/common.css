@@ -119,6 +119,17 @@
     texture, not an operation border. */
   --dash-rhythm: var(--size-6) var(--size-4);
 
+  /* ── Anchor Dot ──
+    Shared geometry for every interactive anchor dot drawn on the map:
+    measure nodes (circle/radius/centroid, SVG circleMarker) and the export
+    crop-box center plus its 8 handles. Keep them in sync through these two
+    tokens so a future change to the dot size updates every surface at once.
+    Diameter (12px) = SVG radius (6) + 2× --border-thick. The radius is not
+    CSS-addressable, so MeasureControl's MARKER.RADIUS must be mirrored by hand.
+    `--dot-stroke` only needs a consumer once another control joins the family. */
+  --dot-size: 12px;
+  --dot-stroke: var(--border-thick);
+
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
   --radius-lg: var(--size-6);

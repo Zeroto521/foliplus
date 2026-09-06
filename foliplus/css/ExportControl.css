@@ -25,8 +25,9 @@
   --export-scale-z: 850;
   /* Fold control z-index */
   --export-ctrl-z: calc(var(--z-export-base) + 200);
-  /* Handle/center anchor size */
-  --export-anchor-size: var(--size-12);
+  /* Handle/center anchor size — shared `--dot-size` from common.css, so the
+     crop-box anchors match the measure node markers exactly. */
+  --export-anchor-size: var(--dot-size);
   /* Handle/center offset from box edge (half of 1px border) */
   --export-handle-offset: -1px;
   /* Smooth box follow during drag */
@@ -177,8 +178,8 @@
 /* ── Corner/Edge Handles ── */
 .foliplus-export-handle {
   position: absolute;
-  width: var(--size-12);
-  height: var(--size-12);
+  width: var(--export-anchor-size);
+  height: var(--export-anchor-size);
   background: var(--ctrl-bg);
   border: var(--border-thick) solid var(--accent-primary);
   border-radius: var(--radius-round);

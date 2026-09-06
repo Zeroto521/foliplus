@@ -6,8 +6,10 @@ const TIMING = {
   FINALIZE_DELAY: 50,
 };
 
-/** Measure node marker. */
-const MARKER = { RADIUS: 5 };
+/** Measure node marker. The SVG radius must stay the mirror of common.css:
+ *  RADIUS = (--dot-size / 2) - --dot-stroke = 6. Change one and change the
+ *  other, or the measure nodes drift from the export crop-box anchors. */
+const MARKER = { RADIUS: 6 };
 
 /** Label markers. */
 const LABEL = {

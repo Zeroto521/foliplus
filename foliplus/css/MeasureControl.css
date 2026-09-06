@@ -23,13 +23,16 @@
   cursor: pointer;
 }
 
-/* ── Measurement Nodes (circleMarker) ── */
-/* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
+/* ── Measurement Nodes (circleMarker) ──
+   Stroke width comes from common.css's `--dot-stroke` (2px) so the total
+   diameter stays 12px — matching the export crop-box anchors. The SVG
+   radius lives in JS: MARKER.RADIUS = --dot-size / 2 - --dot-stroke. */
+/* Default nodes are hollow (neutral fill, accent stroke). */
 .foliplus-measure-node {
   fill: var(--neutral-0);
   fill-opacity: 1;
   stroke: var(--accent-primary);
-  stroke-width: 2.5px;
+  stroke-width: var(--dot-stroke);
 }
 /* Solid nodes (distance start point, circle center, polygon centroid) are
   filled with the accent color and outlined in neutral. */
@@ -46,10 +49,10 @@ path.foliplus-measure-node-solid {
   stroke: var(--accent-primary);
 }
 .foliplus-measure-path-solid {
-  stroke-width: 2.5px;
+  stroke-width: var(--dot-stroke);
 }
 .foliplus-measure-path-dashed {
-  stroke-width: 2.5px;
+  stroke-width: var(--dot-stroke);
   stroke-dasharray: var(--dash-rhythm);
 }
 /* Preview uses the same dash rhythm as the dashed path (--dash-rhythm);
