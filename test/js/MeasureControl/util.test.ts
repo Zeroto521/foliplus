@@ -143,9 +143,8 @@ describe("makeNode", () => {
     const real = window.getComputedStyle;
     window.getComputedStyle = () =>
       ({
-        getPropertyValue: (k: string) =>
-          k === "--dot-size" ? "16px" : "",
-      } as CSSStyleDeclaration);
+        getPropertyValue: (k: string) => (k === "--dot-size" ? "16px" : ""),
+      }) as CSSStyleDeclaration;
     try {
       Util.makeNode({ lat: 1, lng: 2 });
       expect(window.L.circleMarker.mock.calls[0][1].radius).toBe(8);
@@ -157,7 +156,7 @@ describe("makeNode", () => {
   it("keeps the fallback radius when the token is unset", () => {
     const real = window.getComputedStyle;
     window.getComputedStyle = () =>
-      ({ getPropertyValue: () => "" } as CSSStyleDeclaration);
+      ({ getPropertyValue: () => "" }) as CSSStyleDeclaration;
     try {
       Util.makeNode({ lat: 1, lng: 2 });
       expect(window.L.circleMarker.mock.calls[0][1].radius).toBe(5);
