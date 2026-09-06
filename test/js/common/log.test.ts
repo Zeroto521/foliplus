@@ -17,9 +17,9 @@ describe("msg", () => {
   });
 
   it("keeps the prefix on quoted messages", () => {
-    expect(createLogger("LayerRegistry").msg('read-only method "push" is blocked')).toBe(
-      '[LayerRegistry]: read-only method "push" is blocked',
-    );
+    expect(
+      createLogger("LayerRegistry").msg('read-only method "push" is blocked'),
+    ).toBe('[LayerRegistry]: read-only method "push" is blocked');
   });
 });
 
