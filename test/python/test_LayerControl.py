@@ -1321,9 +1321,7 @@ class TestLayerControlBrowser:
             max_zoom=19,
             show=False,
         ).add_to(m)
-        folium.FeatureGroup(
-            name="Facility Points", overlay=True, show=False
-        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
         folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
         _expand_panel(m)
 
@@ -1349,9 +1347,7 @@ class TestLayerControlBrowser:
             # layer -- that row cannot be added or removed, so no state on it can
             # be honoured after a reload.
             unresolved = [r for r in info["rows"] if r["onMap"] is None]
-            assert not unresolved, (
-                f"unresolved layers in registry: {unresolved}"
-            )
+            assert not unresolved, f"unresolved layers in registry: {unresolved}"
             # mapCount is the number of rows plus however many base layers are
             # actually attached: show=False keeps a TileLayer off the map, and
             # map._layers holds only the layers the map owns, never the
@@ -1399,9 +1395,7 @@ class TestLayerControlBrowser:
             max_zoom=19,
             show=False,
         ).add_to(m)
-        folium.FeatureGroup(
-            name="Facility Points", overlay=True, show=False
-        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
         folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
         _expand_panel(m)
 
