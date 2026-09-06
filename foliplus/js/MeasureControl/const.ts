@@ -58,7 +58,6 @@ const LABEL_PRIORITY = {
 
 /** Formatting. */
 const FORMAT = {
-  LAT_LNG_PRECISION: 6,
   KM_THRESHOLD: 1000,
   // Area gets one extra digit: the unit conversion squares, so error grows
   // faster and a 2nd digit carries real information.

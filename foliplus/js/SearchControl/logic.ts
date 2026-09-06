@@ -12,6 +12,7 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
+import { formatLatLng } from "#common/format.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
@@ -20,7 +21,6 @@ import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,
   CLASSES,
-  FORMAT,
   HISTORY,
   MODE,
   SOURCE,
@@ -277,7 +277,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
 
-  const coordDisplay = `${lng.toFixed(FORMAT.LAT_LNG_PRECISION)}, ${lat.toFixed(FORMAT.LAT_LNG_PRECISION)}`;
+  const coordDisplay = formatLatLng(lng, lat);
   // Save coord entry immediately, then update address via reverse geocode.
   // NOTE: reverse-geocode updates the existing entry in-place to avoid
   // incrementing the count (a later addHistoryEntry for the same type:query
@@ -329,7 +329,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       // history write on success so we don't record a marker that was never placed.
       if (!renderAddressResult(ctrl, result)) return;
       const wgs = toWgs84(map, result.lng, result.lat);
-      const coordDisplay = `${wgs[0].toFixed(FORMAT.LAT_LNG_PRECISION)}, ${wgs[1].toFixed(FORMAT.LAT_LNG_PRECISION)}`;
+      const coordDisplay = formatLatLng(wgs[0], wgs[1]);
       const addrDisplay =
         formatAddress(result.display_name, map, CONF.locale_code) || query;
       recordHistorySearch(
@@ -502,7 +502,7 @@ const renderSuggestions = (
   const items: ResultItem[] = results.map((item: NominatimItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
-    const coordDisplay = `${parseFloat(item.lng).toFixed(FORMAT.LAT_LNG_PRECISION)}, ${parseFloat(item.lat).toFixed(FORMAT.LAT_LNG_PRECISION)}`;
+    const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
       icon: Icons.LOCATE,
       source: SOURCE.SUGGESTION,
