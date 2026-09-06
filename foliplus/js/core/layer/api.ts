@@ -90,7 +90,9 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * asserts the registry-delegating `layers` getter that only LayerManager
  * has, so the guard only accepts a real LayerControl.
  *
- * @param componentName - CONF.name, used as hint key and error prefix.
+ * @param componentName - CONF.name, used as the hint key and log prefix.
+ *                         Bound inside the function — the name is a parameter,
+ *                         so a file-top `const log = createLogger(...)` is impossible.
  * @param T - Component-scoped translator (from createScopedTranslator).
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
  * @returns The LayerAPI instance (throws if not a real LayerControl).
@@ -100,11 +102,12 @@ const requireLayerAPI = (
   T: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
+  const log = createLogger(componentName);
   const api = map.foliplus?.LayerAPI;
   if (!isRealLayerControl(api)) {
     const msg = T("no_layercontrol");
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
-    throw new Error(createLogger(componentName).msg(msg));
+    throw new Error(log.msg(msg));
   }
   // isRealLayerControl returned true, so `api` is non-null (a real
   // LayerManager).  Use the narrowed local to satisfy TS control-flow.

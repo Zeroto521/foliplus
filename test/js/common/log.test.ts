@@ -1,7 +1,7 @@
-// common/log — namespaced diagnostics. Covers the `[<name>] ` log shape, the
-// `[<name>]: ` throw shape, and argument forwarding. Thrown values stay plain
-// `new Error(...)` / `new TypeError(...)`, so instanceof/name/stack come from the
-// runtime, not from here.
+// common/log — namespaced diagnostics. Covers the `[<name>] ` shape shared by
+// log lines and thrown messages, plus argument forwarding. Thrown values stay
+// plain `new Error(...)` / `new TypeError(...)`, so instanceof/name/stack come
+// from the runtime, not from here.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "#common/log.js";
 
@@ -10,16 +10,16 @@ afterEach(() => {
 });
 
 describe("msg", () => {
-  it("joins with a colon separator", () => {
+  it("prefixes with a space separator", () => {
     expect(createLogger("MeasureControl").msg("point has no lng/lat")).toBe(
-      "[MeasureControl]: point has no lng/lat",
+      "[MeasureControl] point has no lng/lat",
     );
   });
 
   it("keeps the prefix on quoted messages", () => {
-    expect(createLogger("LayerRegistry").msg('read-only method "push" is blocked')).toBe(
-      '[LayerRegistry]: read-only method "push" is blocked',
-    );
+    expect(
+      createLogger("LayerRegistry").msg('read-only method "push" is blocked'),
+    ).toBe('[LayerRegistry] read-only method "push" is blocked');
   });
 });
 
@@ -54,15 +54,13 @@ describe("createLogger", () => {
   });
 });
 
-describe("separator contrast", () => {
-  it("log lines and thrown messages read differently", () => {
-    // A log is a statement; an error message is the stack trace's heading.
+describe("one shape, two deliveries", () => {
+  it("a log line and a thrown message differ only in delivery", () => {
     const warn = vi.fn();
     vi.stubGlobal("console", { warn });
-    createLogger("LayerControl").warn("dropped stale ids");
+    const log = createLogger("LayerControl");
+    log.warn("dropped stale ids");
     expect(warn).toHaveBeenCalledWith("[LayerControl] dropped stale ids");
-    expect(createLogger("LayerControl").msg("dropped stale ids")).toBe(
-      "[LayerControl]: dropped stale ids",
-    );
+    expect(log.msg("dropped stale ids")).toBe("[LayerControl] dropped stale ids");
   });
 });
