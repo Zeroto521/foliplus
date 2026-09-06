@@ -198,7 +198,7 @@ const formatLatLng = (lng: number, lat: number): string =>
 /** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
  *  the plain-object `latitude/longitude` alias, so callers can pass either. */
 type DisplayLatLng =
-  L.LatLng | { lat: number; lng: number } | { latitude: number; longitude: number };
+  L.LatLng | { lng: number; lat: number } | { longitude: number; latitude: number };
 
 /** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
  *  Longitude leads, matching `formatLatLng` and every other
