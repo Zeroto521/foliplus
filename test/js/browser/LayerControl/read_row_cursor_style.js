@@ -17,7 +17,7 @@
   );
   const focused = panel.querySelector(".foliplus-layer-focused");
   if (!focused) return { error: "no .foliplus-layer-focused row after ArrowDown" };
-  const pick = (el) => {
+  const pick = el => {
     const cs = getComputedStyle(el);
     const drag = el.querySelector(".drag-handle");
     return {
