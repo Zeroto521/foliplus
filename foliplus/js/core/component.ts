@@ -2,6 +2,9 @@
 // Single source of truth for every foliplus component identity.
 // Components use CONF.name (runtime, from Python) for self-reference;
 // cross-component references use COMPONENTS.xxx (compile-time constant).
+import { createLogger } from "#common/log.js";
+
+const log = createLogger("foliplus");
 
 const COMPONENTS = {
   MeasureControl: "MeasureControl",
@@ -25,10 +28,9 @@ const generateId = (prefix: string, namespace?: string): string =>
  *  Call early in component initialisation (constructor / onAdd). */
 const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
-    console.error(
-      `[foliplus] Invalid component name: "${name}". ` +
-        `Must be one of: ${Object.values(COMPONENTS).join(", ")}`,
-    );
+    log.error(`invalid component name: "${name}"`, {
+      expected: Object.keys(COMPONENTS),
+    });
   }
 };
 

@@ -4,6 +4,7 @@ import { buildPopupHtml } from "#common/dom.js";
 import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
@@ -11,6 +12,7 @@ import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
@@ -203,7 +205,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lng = raw.lng ?? raw.longitude;
   const lat = raw.lat ?? raw.latitude;
   if (lng === undefined || lat === undefined) {
-    throw new TypeError("[foliplus] MeasureControl: point has no lng/lat");
+    throw new TypeError(log.msg("point has no lng/lat"));
   }
   return [lng, lat];
 };

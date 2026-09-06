@@ -21,12 +21,14 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -251,7 +253,7 @@ class LayerManager implements LayerAPI {
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
         // (returns null), so this is a defensive fallback, not a real path.
-        console.error(`[${CONF.name}] featureCountProvider threw for "${id}":`, err);
+        log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via forEachLeaf — only valid for feature containers.
@@ -328,7 +330,7 @@ class LayerManager implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(`[${CONF.name}] ${T("id_required")}`);
+    if (!opts?.id) throw new Error(log.msg(T("id_required")));
 
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
