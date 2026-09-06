@@ -74,16 +74,6 @@
     0 0 0 var(--border-thin) var(--accent-primary),
     0 0 0 var(--size-4) var(--accent-soft-shadow);
   --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
-  /* ── Keyboard Navigation Cursor ──
-     Left accent bar + static soft glow for keyboard nav cursors
-     (.foliplus-layer-focused, .foliplus-search-result-item.active).
-     NO background wash — the cursor is the strongest signal on the item, so it
-     replaces any "selected/active" wash instead of stacking with it.
-     No inset hairlines, no animation.
-     Mirrors the drag-over direction glow but without the pulse. */
-  --cursor-bar-width: var(--border-thick);
-  --cursor-glow: 0 0 var(--size-8) calc(-1 * var(--border-thin))
-    var(--accent-soft-shadow);
   --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
   --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
 
@@ -486,41 +476,23 @@
   color: var(--accent-primary);
 }
 
-/* ── Keyboard navigation cursor ──
-     ONE shared recipe for every foliplus keyboard cursor: left accent bar
-     (--cursor-bar-width) + static soft glow (--cursor-glow). No background
-     wash. Applies to both the LayerControl row cursor (.foliplus-layer-focused)
-     and the SearchControl result cursor (.foliplus-search-result-item.active)
-     so keyboard nav looks identical across controls. The cursor is the strongest
-     signal on the item: it replaces any "selected/active" wash so the two don't
-     stack into a muddy row (LayerControl suppresses its .active wash for this
-     case in LayerControl.css). */
-/* LayerControl rows wrap inside .foliplus-layer-ctrl and their base
-   "border-left: transparent" rule is 2 classes; key the LayerControl cursor
-   on 3 classes so the shared bar color wins regardless of load order.
-   SearchControl's result-item is 2 classes and its base border is 1 class,
-   so the 2-class .active compound wins there. */
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-focused,
-.foliplus-search-result-item.active {
-  border-left-width: var(--cursor-bar-width);
-  border-left-color: var(--accent-primary);
-  box-shadow: var(--cursor-glow);
+/* ── Active: the layer-item "selected" language — accent light background,
+     text stays text-primary (the accent left border is added per-component
+     where a persistent selection exists, e.g. the Heatmap scheme picker). ── */
+:is(.foliplus-search-result-item, .foliplus-heatmap-scheme-dropdown-item).active {
+  background: var(--accent-light);
 }
 
 /* ── Dropdown / list item :focus-visible ──
    Every keyboard-focusable foliplus list item shares one focus ring: thin accent
-   border + soft glow. The browser default outline (dark blue-gray) would clash
-   with the dropdown shell, so it's suppressed in favour of --focus-ring.
-   LayerControl contributes both row types: .foliplus-layer-item (a layer) and
-   .foliplus-layer-toggle-all (a group header). Neither had a ring rule of its
-   own, which is why a keyboard-focused layer row or group row showed the
-   browser's default blue outline. */
+   border + soft glow, replacing the browser's default dark outline. LayerControl
+   layer rows / group rows / more menu items keep their own ring rules (the
+   Row-cursor recipe in LayerControl.css and its more-menu `:focus-visible`), so
+   this shared rule covers only the two components that have no component-local
+   one: the SearchControl result item and the HeatmapControl scheme dropdown item. */
 :is(
   .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item,
-  .foliplus-layer-more-menu li,
-  .foliplus-layer-item,
-  .foliplus-layer-toggle-all
+  .foliplus-heatmap-scheme-dropdown-item
 ):focus-visible {
   outline: none;
   border-color: var(--accent-primary);
@@ -528,11 +500,6 @@
   border-radius: var(--radius-sm);
   transition: box-shadow var(--transition-fast);
 }
-
-/* Active states are per-component:
-   - .foliplus-search-result-item.active   → keyboard cursor (above)
-   - .foliplus-heatmap-scheme-dropdown-item.active → persistent selected
-     scheme (HeatmapControl.css). Each owns its own visual language. ── */
 
 .foliplus-ctrl-btn {
   position: absolute;
