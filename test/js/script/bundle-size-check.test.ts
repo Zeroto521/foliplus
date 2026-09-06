@@ -471,7 +471,7 @@ describe("check", () => {
     expect(readFileSync(report, "utf-8")).toContain("over threshold");
   });
 
-  it("bolds the over-threshold count in the report summary", () => {
+  it("bolds the over-threshold count in the report summary with HTML", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
@@ -483,7 +483,7 @@ describe("check", () => {
       "--report=" + report,
     ]);
     expect(check(args, root)).toBe(1);
-    expect(readFileSync(report, "utf-8")).toContain("**1 over threshold**");
+    expect(readFileSync(report, "utf-8")).toContain("<b>1 over threshold</b>");
   });
 
   it("reports the same size for banners that differ", () => {
