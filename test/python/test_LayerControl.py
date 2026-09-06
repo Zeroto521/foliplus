@@ -1975,6 +1975,35 @@ class TestLayerControlBrowser:
                 f"hover glow {hover['shadow']} must equal keyboard {kb['shadow']}"
             )
 
+    def test_fold_row_cursor_wakes_white_and_red_icon(self, browser, tmp_path):
+        """A keyboard cursor on the fold (toggle-all) row shows the shared recipe
+        (white + glow) and wakes the fold icon red, exactly like hover — the fold
+        row joins the Row-cursor recipe and cannot drift into its own hover style.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/read_fold_row_cursor_style"))
+            assert result is not None and "error" not in result, (
+                f"fold-cursor snippet failed: {result}"
+            )
+            assert result["isFold"] is True, f"cursor should be on the fold row, got {result}"
+            assert result["bg"] == "rgb(255, 255, 255)", (
+                f"fold row must turn white, got {result['bg']}"
+            )
+            assert result["shadow"] != "none", (
+                f"fold row must glow, got {result['shadow']}"
+            )
+
     def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
         """Clicking outside the panel drops the keyboard cursor.
 

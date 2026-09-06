@@ -58,10 +58,11 @@
     }
   }
 
-  /* Keyboard cursor (ArrowUp/ArrowDown): visual recipe is shared in
-     common.css with the LayerControl .foliplus-layer-focused — left accent
-     bar + static soft glow, no background wash. SearchControl only keeps the
-     icon colour rule here (the icon structure is search-specific). */
+  /* Keyboard cursor / selected row (ArrowUp/ArrowDown): `.active` picks up the
+     shared wash in common.css (`background: var(--accent-light)`). SearchControl
+     is a dropdown of records (not layer rows), so it keeps a simple selected
+     wash rather than the LayerControl row cursor recipe. Only the icon wake
+     stays here (the icon structure is search-specific). */
   &.active {
     .foliplus-search-result-icon {
       color: var(--text-primary);
