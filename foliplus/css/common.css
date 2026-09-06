@@ -135,11 +135,11 @@
     future change reaches every surface at once.
     --dot-size is the *outer* diameter of both renderings: the DOM anchors set
     `width` / `height` (border-box, so the border is inside it) and the SVG
-    node's circleMarker radius is --dot-size / 2 - --dot-stroke = 5. Radius is
+    node's circleMarker radius is --dot-size / 2 - --dot-stroke = 3. Radius is
     not CSS-addressable, so MeasureControl's MARKER.RADIUS must be mirrored by
     hand. */
-  --dot-size: 12.5px;
-  --dot-stroke: 2.5px;
+  --dot-size: 10px;
+  --dot-stroke: 2px;
 
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);

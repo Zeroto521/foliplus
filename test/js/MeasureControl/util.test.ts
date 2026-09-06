@@ -126,7 +126,7 @@ describe("makeNode", () => {
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
       {
-        radius: 5,
+        radius: 3,
         className: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
       },
     );
