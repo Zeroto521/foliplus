@@ -363,14 +363,15 @@ class TestLayerControlRendering:
         # interaction recipe must NOT force it — hover/keyboard/Tab show white +
         # glow, and the red left bar stays reserved for .active / folded groups.
         assert "border-left-color" not in recipe
-        # 整行变白 — the row returns to a clean white surface, not the gray wash.
+        # White surface — the row returns to a clean white wash, not the gray one.
         assert "background: var(--neutral-0)" in recipe
         assert "--panel-header-hover" not in recipe
-        # 上下边缘发光 — the top/bottom red GLOW (blurred box-shadow) is part of
-        # the SHARED recipe, not cursor-only, so mouse hover and Tab focus match
-        # the arrow-key cursor exactly.
-        assert "calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
-        assert "var(--size-2) var(--size-4) var(--accent-primary)" in recipe
+        # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
+        # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
+        # exactly. A 0 X-offset keeps it vertical (only top/bottom glow, no
+        # left/right bleed).
+        assert "0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
+        assert "0 var(--size-2) var(--size-4) var(--accent-primary)" in recipe
         assert "color: var(--text-primary)" in recipe
         assert "color: var(--accent-primary)" in recipe
 
@@ -1970,6 +1971,35 @@ class TestLayerControlBrowser:
             )
             assert hover["shadow"] == kb["shadow"], (
                 f"hover glow {hover['shadow']} must equal keyboard {kb['shadow']}"
+            )
+
+    def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
+        """Clicking outside the panel drops the keyboard cursor.
+
+        The .foliplus-layer-focused marker is a panel-local navigation cursor, so
+        clicking the map / another control must clear it rather than leaving the
+        last navigated row highlighted. Uses mousedown so a panel-internal click
+        that rebuilds the list (a fold button, a checkbox) is unaffected.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/outside_mousedown_clears_cursor"))
+            assert result is not None, "outside_mousedown_clears_cursor failed"
+            assert result["before"] is True, (
+                f"cursor should be set before outside mousedown, got {result}"
+            )
+            assert result["after"] is False, (
+                f"outside mousedown must clear the cursor, got {result}"
             )
 
     def test_keydown_space_toggles_visibility(self, browser, tmp_path):

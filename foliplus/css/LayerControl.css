@@ -397,14 +397,12 @@ path.foliplus-focus-mask {
          "layer visible" (checked) indicator, so it only turns red on .active /
          a folded group, never on a transient hover/keyboard cursor. */
       outline: none;
-      /* 整行变白 — the row returns to a clean white surface (not the panel's
+      /* White surface — the row returns to a clean white wash (not the panel's
          gray hover wash); the top/bottom red glow is what marks it as the
          interaction target. */
       background: var(--neutral-0);
-      /* 上下边缘发光 — red glow hugging the top and bottom edges, mirroring the
-         drag-over direction glow. Part of the SHARED recipe, NOT cursor-only:
-         the arrow-key cursor is the reference style, so mouse hover and Tab
-         focus must read exactly the same. */
+      /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
+         vertical (no left/right bleed). */
       box-shadow:
         0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
         0 var(--size-2) var(--size-4) var(--accent-primary);
@@ -436,12 +434,6 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     border-left: var(--border-thick) solid transparent;
-    /* Opaque white surface. Rows must be opaque so a lit row's bottom red glow
-       is occluded by the row below it — a transparent resting row would let the
-       glow bleed through and read as a double edge. With opaque rows the glow
-       shows only on the top edge for middle rows (the lit row paints over the
-       one above; the one below paints over its bottom glow). */
-    background: var(--neutral-0);
     transition: none;
     /* border-color and background-color intentionally NOT animated on this
        row: the item is destroyed and re-created on every list rebuild

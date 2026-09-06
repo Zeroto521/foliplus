@@ -83,6 +83,9 @@ class LayerUI {
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
+  /** Document mousedown handler — clears the keyboard cursor when the user clicks
+   *  outside the panel (the cursor is a panel-local navigation marker). */
+  declare onOutsideMousedown: ((event: MouseEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -122,6 +125,7 @@ class LayerUI {
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onOutsideMousedown = null;
     this.activeMenu = null;
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -884,6 +888,17 @@ class LayerUI {
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
+    // Clicking OUTSIDE the panel drops the keyboard cursor. It is a panel-local
+    // navigation marker (arrow/Tab), so once the user clicks the map or another
+    // control the highlight must not linger on the last navigated row. mousedown
+    // (not click) is what makes this safe: it fires before the click-driven list
+    // rebuild, so the target is still connected when we test it — clicking a fold
+    // button (which rebuilds the list) stays inside the panel and won't clear it.
+    this.onOutsideMousedown = event => {
+      const target = event.target as HTMLElement | null;
+      if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+    };
+    document.addEventListener("mousedown", this.onOutsideMousedown);
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -981,6 +996,8 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+    if (this.onOutsideMousedown)
+      document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
     this.m.persistence.cancelSaveHiddenIds();
@@ -990,6 +1007,7 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onOutsideMousedown = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
