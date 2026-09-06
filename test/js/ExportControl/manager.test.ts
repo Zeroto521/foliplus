@@ -708,7 +708,6 @@ describe("ExportManager — mouse drag", () => {
     expect(manager.dragState.dragType).toBe("move");
   });
 
-
   it("onMouseDown sets dragType for a handle", () => {
     // A handle carries three class tokens; `classList.add` takes one token
     // per call, so split the constant before adding.
