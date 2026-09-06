@@ -11,11 +11,11 @@ import {
   makeDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,
@@ -480,7 +480,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
   if (domCount !== results.length) {
     throw new Error(
-      log.err(`result panel drift: DOM has ${domCount} items but retained ${results.length}`),
+      log.err(
+        `result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+      ),
     );
   }
 };

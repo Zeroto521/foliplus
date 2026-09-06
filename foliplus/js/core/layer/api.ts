@@ -1,8 +1,8 @@
 // core/layer/api — LayerAPI facade management.
 // ensureLayerAPI creates a lightweight stub when no LayerControl exists;
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
-import { createLogger } from "#common/log.js";
 import { ensureHint } from "#core/hint.js";
+import { createLogger } from "#common/log.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI, LayerInfo } from "./type.js";

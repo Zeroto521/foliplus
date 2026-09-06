@@ -6,7 +6,9 @@ import { createLogger } from "#common/log.js";
 
 const requireRuntime = (componentName: string): void => {
   if (!window.foliplus)
-    throw new Error(createLogger(componentName).err("foliplus runtime not found, plugin disabled."));
+    throw new Error(
+      createLogger(componentName).err("foliplus runtime not found, plugin disabled."),
+    );
 };
 
 /**
