@@ -11,6 +11,10 @@
 }
 .foliplus-hf-secondary {
   fill: currentColor;
+  /* Deliberately not tokenized: 0.08 sits between --alpha-05 (bg) and
+     --alpha-15 (center) to keep the second/third hex visibly lighter.
+     var(--alpha-10) does not exist, so tokenizing this would force a
+     jump to 0.15 and erase the layering. */
   opacity: 0.08;
   stroke: none;
 }
@@ -74,7 +78,7 @@
 
   /* Shared select/input styles */
   .foliplus-heatmap-form-select,
-  select {
+  .foliplus-heatmap-ctrl select {
     width: 100%;
     height: var(--ctrl-size);
     font-size: var(--font-size-md);
@@ -189,6 +193,10 @@
 
     &.active {
       border-left-color: var(--accent-primary);
+      /* Persistent "selected scheme" state: soft 5% wash, same language as
+         the keyboard cursor. --accent-light (#fde8e8) was too saturated —
+         it's a flat brand color, not a subtle persistent-status wash. */
+      background: var(--accent-soft-bg);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {
