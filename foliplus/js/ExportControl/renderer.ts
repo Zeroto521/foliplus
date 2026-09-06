@@ -236,19 +236,23 @@ class ExportRenderer {
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
-        const sizedTiles: Array<{ layer: L.TileLayer; count: number }> = [];
+        const zoom = this.map.getZoom();
+        const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
         for (const li of layers) {
           if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url)
             continue;
-          const count = this.tilePositions(rc, geoBounds, li.layer).length;
-          if (count > 0) sizedTiles.push({ layer: li.layer, count });
+          const tiles = this.tilePositions(
+            rc,
+            this.calcTiles(li.layer, geoBounds, zoom, scale),
+          );
+          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length });
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
 
         if (grandTotal > 0) {
           let tilesDone = 0;
-          for (const { layer } of sizedTiles) {
-            await this.renderTileLayer(rc, geoBounds, layer, handled => {
+          for (const { tiles } of sizedTiles) {
+            await this.renderTileLayer(rc, tiles, handled => {
               tilesDone += handled;
               rc.onProgress?.(
                 ExportRenderer.mapPhase(
@@ -339,15 +343,15 @@ class ExportRenderer {
 
   /**
    * Compute each tile's destination rectangle within the crop area and keep
-   * only the ones the export will actually draw.  Called twice per layer:
-   * once by render() to size the progress denominator, once here to draw.
-   * Both passes filter identically, so the count matches what is drawn.
+   * only the ones the export will actually draw.
+   *
+   * render() calls this once per layer to size the progress denominator,
+   * threads the result into renderTileLayer, and that pass draws exactly it.
+   * The list is a value computed here rather than a stateful read of the
+   * map, so the denominator is the same set the drawing pass iterates even
+   * though it runs a frame later.
    */
-  private tilePositions(
-    rc: RenderCtx,
-    geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
-    tileLayer: L.TileLayer,
-  ): TileDesc[] {
+  private tilePositions(rc: RenderCtx, tiles: TileDesc[]): TileDesc[] {
     const { rect, scale, contRect, cw, ch } = rc;
     const zoom = this.map.getZoom();
     const crs = this.map.options.crs || L.CRS.EPSG3857;
@@ -355,7 +359,6 @@ class ExportRenderer {
     const vpLeft = viewportCenter.x - contRect.width / 2;
     const vpTop = viewportCenter.y - contRect.height / 2;
 
-    const tiles = this.calcTiles(tileLayer, geoBounds, zoom, scale);
     const visibleTiles: TileDesc[] = [];
     for (const tile of tiles) {
       const tileVpX = tile.left - vpLeft;
@@ -381,13 +384,10 @@ class ExportRenderer {
    *  still missing from the picture, which is what the bar is for. */
   async renderTileLayer(
     rc: RenderCtx,
-    geoBounds: { nw: { lat: number; lng: number }; se: { lat: number; lng: number } },
-    tileLayer: L.TileLayer,
+    visibleTiles: TileDesc[],
     onProgress?: (tilesDrawn: number) => void,
   ) {
     const ctx = rc.ctx;
-    if (!geoBounds || !geoBounds.nw) return;
-    const visibleTiles = this.tilePositions(rc, geoBounds, tileLayer);
     if (visibleTiles.length === 0) return;
 
     let drawn = 0;

@@ -204,6 +204,24 @@ const withPixels = (tiles: unknown[]) =>
     dw: (t as any).size,
     dh: (t as any).size,
   }));
+/** renderTileLayer takes the clipped list, not the layer: build the input it
+ *  draws by running the real viewport filter over `tilesNearCenter`.  The
+ *  filter is what decides the count, so the drawing tests exercise it for
+ *  real instead of feeding a hand-built survivor list. */
+
+const rcTiles = (rc: ReturnType<typeof makeRC>, n: number) => {
+  const map: any = {
+    options: { crs: makeEPSG3857Mock() },
+    getZoom: () => 2,
+    getCenter: () => ({ lat: 26.08, lng: 119.3 }),
+    getContainer: () => document.createElement("div"),
+    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+  };
+  return new ExportRenderer(map).tilePositions(
+    rc,
+    withPixels(tilesNearCenter(n)),
+  ) as any[];
+};
 /** Resolve loadImageBitmap to a bitmap for every tile.  Without this every
  *  tile is skipped and nothing is ever painted; the mock is module-scoped, so
  *  the call count doubles as the tile count.  Width and height matter for the
@@ -595,28 +613,13 @@ describe("ExportRenderer.render — canvas creation", () => {
 //===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
-  let renderer: ExportRenderer;
-  beforeEach(() => {
-    // renderTileLayer reads getZoom/getCenter; the calcTiles spy below makes
-    // the map otherwise irrelevant.
-    renderer = makeRenderer();
-    (renderer.map as any).getZoom = () => 2;
-    (renderer.map as any).getCenter = () => ({ lat: 26.08, lng: 119.3 });
-  });
-
   it("reports the cumulative tiles drawn after each batch", async () => {
     const total = CONST.TILE_CONCURRENCY * 2;
-    vi.spyOn(renderer, "calcTiles").mockReturnValue(withPixels(tilesNearCenter(total)));
     stubBitmaps();
     const rc = makeRC(4096, 4096);
     const onProgress = vi.fn();
 
-    await renderer.renderTileLayer(
-      rc,
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
-      onProgress,
-    );
+    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), onProgress);
 
     // One report per batch, counting the tiles actually painted so far —
     // never the batch index, which would credit tiles that were still loading.
@@ -626,52 +629,22 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     ]);
   });
 
-  it("never calls onProgress when no tiles are visible", async () => {
-    vi.spyOn(renderer, "calcTiles").mockReturnValue([]);
-
+  it("never calls onProgress when no tiles survive the viewport clip", async () => {
+    // render() does the clipping before calling, so an empty list is the only
+    // way this pass starts.  The early return must not report anything.
     const onProgress = vi.fn();
-    await renderer.renderTileLayer(
-      makeRC(100, 100),
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
-      onProgress,
-    );
+    await makeRenderer().renderTileLayer(makeRC(100, 100), [], onProgress);
     expect(onProgress).not.toHaveBeenCalled();
-  });
-
-  it("returns early without touching the tile API when geoBounds is invalid", async () => {
-    const calcTiles = vi.spyOn(renderer, "calcTiles");
-
-    await renderer.renderTileLayer(
-      makeRC(100, 100),
-      {} as any,
-      makeTileLayer(),
-      vi.fn(),
-    );
-    expect(calcTiles).not.toHaveBeenCalled();
   });
 
   it("drops tiles that fall outside the crop rect, so the count tracks what is drawn", async () => {
     // 7 tiles enumerated, one sits off the 1536x512 crop: the batch splits and
     // the final report is the surviving count, not the concurrency cap.
-    const survivors = withPixels(tilesNearCenter(CONST.TILE_CONCURRENCY + 1)).map(
-      (t, k) => ({
-        ...t,
-        url: `url${k}`,
-        left: k * 256,
-        dx: k * 256,
-      }),
-    );
-    vi.spyOn(renderer, "tilePositions").mockReturnValue(survivors as any);
+    const survivors = rcTiles(makeRC(1536, 512), CONST.TILE_CONCURRENCY + 1);
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await renderer.renderTileLayer(
-      makeRC(1536, 512),
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
-      onProgress,
-    );
+    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, onProgress);
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -681,9 +654,6 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
   it("returns without drawing when a tile's drawImage throws", async () => {
     // drawImage is wrapped in a try/catch so one bad tile cannot abort the
     // whole layer: it is simply left out of the count and the rest is drawn.
-    vi.spyOn(renderer, "tilePositions").mockReturnValue(
-      withPixels(tilesNearCenter(2)).map((t, k) => ({ ...t, url: `url${k}` })) as any,
-    );
     stubBitmaps();
     const ctx = makeMockCtx();
     ctx.drawImage.mockImplementation((src?: unknown) => {
@@ -697,10 +667,9 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
       .mockResolvedValue({ close: () => {} });
 
     const onProgress = vi.fn();
-    await renderer.renderTileLayer(
+    await makeRenderer().renderTileLayer(
       makeRC(4096, 4096, ctx),
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
+      rcTiles(makeRC(4096, 4096, ctx), 2),
       onProgress,
     );
 
@@ -710,14 +679,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
 
   it("caps the final batch at the tile count when it is not a multiple of the concurrency", async () => {
     const total = CONST.TILE_CONCURRENCY + 1;
-    vi.spyOn(renderer, "calcTiles").mockReturnValue(withPixels(tilesNearCenter(total)));
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await renderer.renderTileLayer(
+    await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
+      rcTiles(makeRC(4096, 4096), total),
       onProgress,
     );
     // Two batches: a full one, then the single leftover tile — the last report
@@ -729,17 +696,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
   });
 
   it("does not count a tile whose bitmap failed to load", async () => {
-    vi.spyOn(renderer, "calcTiles").mockReturnValue(
-      withPixels(tilesNearCenter(CONST.TILE_CONCURRENCY)),
-    );
     (UTIL.loadImageBitmap as any).mockResolvedValue(null);
-    makeMockCtx();
 
     const onProgress = vi.fn();
-    await renderer.renderTileLayer(
+    await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
-      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
-      makeTileLayer(),
+      rcTiles(makeRC(4096, 4096), CONST.TILE_CONCURRENCY),
       onProgress,
     );
     // The tile was fetched and enumerated but nothing reached the canvas, so it
@@ -871,11 +833,11 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     await runRender(onProgress);
 
     // Only the visible TileLayer is sized: the hidden one and the non-tile
-    // entry are filtered out before the denominator is summed.  Two calls,
-    // both for that layer — once to size the denominator and once for the draw
-    // pass — which is what keeps numerator and denominator in agreement.
-    expect(calcTiles).toHaveBeenCalledTimes(2);
-    for (const call of calcTiles.mock.calls) expect(call[0]).toBe(visible);
+    // entry are filtered out before the denominator is summed.  One call —
+    // the extent is enumerated once per export and threaded into the draw
+    // pass, which is what keeps numerator and denominator in agreement.
+    expect(calcTiles).toHaveBeenCalledTimes(1);
+    expect(calcTiles.mock.calls[0][0]).toBe(visible);
 
     const got = onProgress.mock.calls.map(call => call[0]);
     // Tiles take the tile range, then the non-tile entries take the layer
@@ -962,7 +924,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     expect(got[got.length - 1]).toBe(70);
     expect(got).toEqual([...got].sort((a, b) => a - b));
     // renderTileLayer is entered only for the layer that has tiles.
-    expect(renderTileLayer.mock.calls.map(c => c[2])).toEqual([realLayer]);
+    expect(renderTileLayer.mock.calls.map(c => c[1])).toHaveLength(1);
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -1108,11 +1070,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(
-      async (rc: any, _bounds: any, _layer: any, cb: any) => {
-        cb(1);
-      },
-    );
+    tileLayer.mockImplementation(async (_rc: any, _tiles: any, cb: any) => {
+      cb(1);
+    });
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.
@@ -2079,7 +2039,6 @@ describe("ExportRenderer.renderRemaining", () => {
 });
 
 describe("ExportRenderer.tilePositions", () => {
-  const bounds = { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } };
   // A centre whose zoom-2 projection is (512, 768): lng 0 puts the viewport
   // left edge at 0, and a 1024x768 container puts the viewport top at
   // 768 - 768/2 = 384.  Both sit on tile grid lines, so a tile's destination
@@ -2124,7 +2083,7 @@ describe("ExportRenderer.tilePositions", () => {
 
   it("keeps overlapping tiles with their destination rect and drops the rest", () => {
     const renderer = make();
-    const calcTiles = vi.spyOn(renderer, "calcTiles").mockReturnValue([
+    const survivors = (renderer as any).tilePositions(makeRC(1000, 600), [
       // World 512-768 x 512-768 overlaps the 1000x600 crop; viewport-relative
       // that is 512-768 x 128-384.
       tile("keep", 2, 2),
@@ -2142,14 +2101,8 @@ describe("ExportRenderer.tilePositions", () => {
       // its 256 pixels lie inside -- the filter still keeps it.
       tile("partial", 2, 3),
     ]);
-    const survivors = (renderer as any).tilePositions(
-      makeRC(1000, 600),
-      bounds,
-      makeTileLayer(),
-    );
-    // The filter reads zoom, center and CRS through the map mock, so the tile
-    // list is stubbed while the viewport math is real.
-    expect(calcTiles).toHaveBeenCalledWith(makeTileLayer(), bounds, 2, 1);
+    // The list arrives pre-enumerated: calcTiles ran in render(), so the map
+    // mock only has to answer zoom, center and CRS for the viewport math.
     expect(survivors.length).toBe(3);
     // The destination rect is the viewport position scaled into crop pixels.
     expect(survivors[0]).toMatchObject({
@@ -2184,7 +2137,11 @@ describe("ExportRenderer.tilePositions", () => {
     // the crop cannot show -- and neither can be expressed as a destination
     // rect test, because the rect still intersects the output.
     const renderer = make();
-    vi.spyOn(renderer, "calcTiles").mockReturnValue([
+    const rc = {
+      ...makeRC(1000, 600),
+      rect: { left: 0, top: 500, width: 1000, height: 100 },
+    };
+    const survivors = (renderer as any).tilePositions(rc, [
       // Viewport 512-768 x 128-384, crop 0-1000 x 500-600: the tile ends
       // 116 viewport pixels above the crop top, so the "ends above the crop
       // top" guard rejects it -- in viewport units, a check isVisible
@@ -2199,11 +2156,6 @@ describe("ExportRenderer.tilePositions", () => {
       // it even though the destination rect overlaps the output.
       tile("past-right", 4, 3),
     ]);
-    const rc = {
-      ...makeRC(1000, 600),
-      rect: { left: 0, top: 500, width: 1000, height: 100 },
-    };
-    const survivors = (renderer as any).tilePositions(rc, bounds, makeTileLayer());
     expect(survivors.length).toBe(1);
     expect(survivors[0]).toMatchObject({
       url: "edge",
@@ -2218,20 +2170,12 @@ describe("ExportRenderer.tilePositions", () => {
   });
 
   it("scales the destination rect by the render scale", () => {
-    const renderer = make();
-    vi.spyOn(renderer, "calcTiles").mockReturnValue([
-      // Viewport-relative 256-512 x 128-384.  At scale 2 the output is
-      // 1000x600, so this tile lands at 512-1024 x 256-768 and intersects
-      // the crop -- a wider tile here would be clipped out of the output.
-      tile("keep", 1, 2),
-    ]);
+    // Viewport-relative 256-512 x 128-384.  At scale 2 the output is
+    // 1000x600, so this tile lands at 512-1024 x 256-768 and intersects
+    // the crop -- a wider tile here would be clipped out of the output.
     // A 500x300 crop at scale 2 renders 1000x600 output pixels, so the
     // destination rect is the viewport value multiplied by the scale.
-    const survivors = (renderer as any).tilePositions(
-      makeRC(500, 300, 2),
-      bounds,
-      makeTileLayer(),
-    );
+    const survivors = make().tilePositions(makeRC(500, 300, 2), [tile("keep", 1, 2)]);
     expect(survivors.length).toBe(1);
     expect(survivors[0]).toMatchObject({
       url: "keep",
@@ -2243,25 +2187,18 @@ describe("ExportRenderer.tilePositions", () => {
   });
 
   it("returns an empty list when every tile is outside the crop rect", () => {
-    const renderer = make();
-    vi.spyOn(renderer, "calcTiles").mockReturnValue([tile("far", 9, 9)]);
-    expect(
-      (renderer as any).tilePositions(makeRC(1000, 600), bounds, makeTileLayer()),
-    ).toEqual([]);
+    expect(make().tilePositions(makeRC(1000, 600), [tile("far", 9, 9)])).toEqual([]);
   });
 
   it("falls back to L.CRS.EPSG3857 when the map has no crs option", () => {
+    // Must not throw even though only the global L.CRS provides the CRS.
     const renderer = makeRenderer(undefined);
     (renderer.map as any).options = {};
     (renderer.map as any).getZoom = () => 2;
     (renderer.map as any).getCenter = () => CENTER;
-    vi.spyOn(renderer, "calcTiles").mockReturnValue([tile("keep", 3, 2)]);
-    // Must not throw even though only the global L.CRS provides the CRS.
-    const survivors = (renderer as any).tilePositions(
-      makeRC(1000, 600),
-      bounds,
-      makeTileLayer(),
-    );
+    const survivors = (renderer as any).tilePositions(makeRC(1000, 600), [
+      tile("keep", 3, 2),
+    ]);
     expect(Array.isArray(survivors)).toBe(true);
   });
 });
