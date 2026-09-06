@@ -36,10 +36,10 @@ describe("LayerPersistence", () => {
   // ── Read ────────────────────────────────────────────────────────
 
   describe("load", () => {
-    it("loads every dimension and drops unknown order and visibility ids", () => {
+    it("loads every dimension and drops unknown order ids", () => {
       seedStorage({
         [CONST.STORAGE.ORDER_KEY]: ["a", "ghost", "b", "gone"],
-        [CONST.STORAGE.VISIBILITY_KEY]: ["a", "ghost", "b", "gone"],
+        [CONST.STORAGE.VISIBILITY_KEY]: ["a", "b"],
         [CONST.STORAGE.FOLD_KEY]: ["OVERLAYS"],
         [CONST.STORAGE.NAMES_KEY]: { a: "A2", "not-registered-yet": "Pending" },
       });
@@ -51,6 +51,22 @@ describe("LayerPersistence", () => {
         hiddenIds: new Set(["a", "b"]),
         names: { a: "A2", "not-registered-yet": "Pending" },
       });
+    });
+
+    it("keeps hidden ids that are not registered yet", () => {
+      // Same axis as names: load runs from attachUI, which lands at the tail of
+      // the LayerControl bundle — after some component bundles have registered
+      // and before others have. HeatmapControl and MeasureControl register in
+      // their own constructor, so filtering the hidden set against the registry
+      // here dropped their entries on the first attach, and the re-entry guard
+      // in registerLayer then had nothing to match against — the layer came back
+      // on the map after every reload. Stale-id cleanup stays with the
+      // LayerUI.applyUserState sweep, which runs after the late registrations
+      // have landed.
+      seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: ["a", "later"] });
+      const p = makePersistence(["a", "b"]);
+
+      expect(p.load().hiddenIds).toEqual(new Set(["a", "later"]));
     });
 
     it("keeps renames for ids that are not registered yet", () => {
