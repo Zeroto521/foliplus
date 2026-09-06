@@ -23,13 +23,6 @@
   cursor: pointer;
 }
 
-/* ── Measurement Nodes (circleMarker) ──
-   Palette, stroke and weight come from common.css's `.foliplus-dot-hollow` /
-   `.foliplus-dot-solid`, shared with the export crop-box anchors. Hollow is
-   the default node; solid is the distance start point, circle center and
-   polygon centroid. Nothing measure-specific lives here, so the module is
-   clean of the dot recipe. */
-
 /* ── Measurement Paths (lines / circles / polygons) ──
   Three shared states: solid (final), dashed, preview.
   Area shapes additionally use .foliplus-measure-shape-fill for fill. */
