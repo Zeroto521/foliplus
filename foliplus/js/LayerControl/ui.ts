@@ -17,7 +17,6 @@ import {
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -30,7 +29,6 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
 const mapContainer = map.getContainer();
 
 /**
@@ -272,24 +270,30 @@ class LayerUI {
       }
     }
 
-    // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
-    // to write the projection into. Renames are pruned in unregisterLayer
-    // instead — a rename whose id is not in the registry yet belongs to a
-    // component that will register later, so sweeping it here would drop it
-    // on the very first attach and the user would see the default name.
-    const staleIds = [...this.hiddenIds].filter(
-      layerId => registry.get(layerId) == null,
-    );
-    if (staleIds.length > 0) {
-      log.warn(
-        `dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
-      );
+    // Prune ids whose layers are gone for good, so stale persistence does not
+    // accumulate. An id counts as live when the layer is still in the
+    // registry or still queued in `pendingRegistrations` (a registration that
+    // landed before the panel attached — attachUI drains the queue before this
+    // sweep runs). Nothing else is kept on purpose: the queue has already
+    // emptied into rows, so "no registry entry and no pending entry" is real
+    // evidence the layer was removed, and dropping those ids is what keeps
+    // persistence from growing forever.
+    //
+    // The accepted cost is a layer a third-party component hides and then
+    // re-registers on a later activation: its id is pruned here, so the layer
+    // re-enters visible rather than coming back hidden. Keeping it would mean
+    // dropping no ids at all — which turns the prune into a no-op and lets the
+    // set grow without bound.
+    const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
+    const stillPresent = (layerId: string) =>
+      registry.get(layerId) != null || pending.has(layerId);
+    const gone = [...this.hiddenIds].filter(layerId => !stillPresent(layerId));
+    if (gone.length > 0) {
       this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),
+        [...this.hiddenIds].filter(layerId => stillPresent(layerId)),
       );
-      // Persist the cleaned set so the same stale ids don't get re-warned
-      // on the next reload.
+      // Persist the cleaned set so the same orphaned ids do not get pruned
+      // again on the next reload.
       this.saveHiddenIds();
     }
   }

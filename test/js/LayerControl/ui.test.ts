@@ -1869,6 +1869,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       restore();
     });
 
+    it("a checkbox change hides the layer at that row's own index", () => {
+      // The handler resolves the layer from `dataset.index`, not from the row,
+      // so an unregistered layer's row is simply no longer toggleable here —
+      // nothing is lost by the index lookup while the row is live.
+      const cb = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const idx = parseInt(cb.dataset.index ?? "", 10);
+      expect(ui.m.layers[idx].id).toBe("overlay1");
+
+      cb.checked = false;
+      ui.handleChange({ target: cb } as Event);
+
+      expect(ui.hiddenIds).toContain("overlay1");
+      expect(ui.m.layers.length).toBe(2);
+    });
+
     it("Enter on the more button still opens the menu and does not toggle", () => {
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -2190,7 +2207,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
     });
 
-    it("drops unknown ids from the persisted hidden set and warns", () => {
+    it("drops unknown ids from the persisted hidden set", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -2203,15 +2220,39 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
       u.applyUserState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0][0]).toMatch(
-        /dropped stale hidden-layer ids.*ghost.*gone/,
-      );
-      warnSpy.mockRestore();
+    });
+
+    it("keeps a hidden id for a pending registration", () => {
+      // A component can register before the panel attaches, in which case the
+      // layer is still queued in pendingRegistrations when this sweep runs
+      // (attachUI drains the queue before calling applyUserState). Such an id
+      // must not be read as "gone for good" — dropping it would lose the user's
+      // hidden state and the layer would come back on the map after every
+      // reload.
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1", "later", "ghost"]);
+      m.pendingRegistrations.push({
+        id: "later",
+        name: "Later",
+        isBase: false,
+        layer: testPolyLayer,
+      } as any);
+
+      u.applyUserState();
+
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later"]));
     });
 
     it("persists the pruned hidden set after dropping stale ids", () => {
@@ -2228,9 +2269,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
       vi.useFakeTimers();
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
       u.applyUserState();
-      warnSpy.mockRestore();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
       vi.useRealTimers();

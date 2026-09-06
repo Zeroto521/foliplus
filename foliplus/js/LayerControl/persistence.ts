@@ -62,26 +62,29 @@ class LayerPersistence {
    * Load every dimension. The only read entry point, so a new dimension
    * cannot be missed on load and nothing else calls `Storage.load`.
    *
-   * Order and visibility drop ids that are not currently registered: order is
-   * rebuilt on every save and hidden ids are re-applied on each late
-   * registration, so a stale entry costs nothing there. Names deliberately do
-   * not: this runs from `LayerUI.attachUI`, which is the tail of the
-   * LayerControl bundle -- after `registerLayer` for every component whose
-   * bundle already loaded, but before HeatmapControl and MeasureControl, which
-   * register in their own constructor. Filtering there would drop their
-   * renames on the very first attach and the user would see the component
-   * default name after every refresh. Stale name ids are pruned in
-   * `unregisterLayer`, the only call that knows a layer is gone for good.
+   * Only order is filtered against the registry: it is rebuilt on every save,
+   * so an unknown id is simply skipped when the order is applied.
+   *
+   * Hidden ids and names deliberately are not. This runs from
+   * `LayerUI.attachUI`, which is the tail of the LayerControl bundle -- after
+   * `registerLayer` for every component whose bundle already loaded, but before
+   * HeatmapControl and MeasureControl, which register in their own
+   * constructor. Filtering there would drop their entries on the very first
+   * attach and the user would see the component default name after every
+   * refresh, or the layer re-added to the map. Stale name ids are pruned in
+   * `unregisterLayer`, the only call that knows a layer is gone for good;
+   * stale hidden ids are pruned by the `LayerUI.applyUserState` sweep, which
+   * runs after the late registrations have landed.
    */
   load(): PersistedState {
-    const layerSet = new Set(this.registry.layers.map(l => l.id));
+    const ids = this.registry.layers.map(l => l.id);
     const strings = (key: string) => {
       const data = Storage.load<unknown[]>(key, this.persistName);
       return Array.isArray(data) && data.every(id => typeof id === "string")
         ? (data as string[])
         : null;
     };
-    const inRegistry = (ids: string[]) => ids.filter(id => layerSet.has(id));
+    const inRegistry = (arr: string[]) => arr.filter(id => ids.includes(id));
 
     const order = strings(CONST.STORAGE.ORDER_KEY);
     const hidden = strings(CONST.STORAGE.VISIBILITY_KEY);
@@ -98,7 +101,7 @@ class LayerPersistence {
     return {
       order: order ? inRegistry(order) : null,
       foldedGroups: new Set(folded ?? []),
-      hiddenIds: new Set(hidden ? inRegistry(hidden) : []),
+      hiddenIds: new Set(hidden ?? []),
       names,
     };
   }
