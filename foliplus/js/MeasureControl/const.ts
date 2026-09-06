@@ -34,6 +34,16 @@ const LABEL = {
   CLASS_MID: "foliplus-measure-label-mid",
 };
 
+/** Cursor-following readout. The chip is anchored to the pointer exactly like
+ *  the area label is anchored to the centroid dot — centered horizontally, its
+ *  top edge `ANCHOR_GAP` px below the anchor, due south. `CLASS_FLIP` re-anchors
+ *  it above the cursor when there is no room below. */
+const READOUT = {
+  ANCHOR_GAP: 10,
+  CLASS_PREFIX: "foliplus-measure-readout",
+  CLASS_FLIP: "foliplus-measure-readout-flip",
+};
+
 /** Label collision priority — the lowest values are hidden first when labels
  *  overlap heavily. Segment labels are the most numerous (a dense polygon
  *  stacks dozens of them), so they give way to the unique centroid / radius
@@ -131,6 +141,7 @@ export {
   TIMING,
   MARKER,
   LABEL,
+  READOUT,
   LABEL_PRIORITY,
   FORMAT,
   ID,

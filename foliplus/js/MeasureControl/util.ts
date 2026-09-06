@@ -184,6 +184,49 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 const roundCoord = (n: number): number =>
   parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
 
+// ── Live coordinate readout ─────────────────────────────────────────
+/** One coordinate to the persisted precision. Fixed decimals keep the chip
+ *  from shifting width as the cursor moves. */
+const formatCoord = (n: number): string =>
+  formatNumber(n, "comma", "en", CONST.FORMAT.LAT_LNG_PRECISION);
+
+/** Format an lng/lat pair as the readout string. Longitude leads, matching
+ *  `buildPopup` and every other location display in the project. */
+const formatLatLng = (lng: number, lat: number): string =>
+  `${formatCoord(lng)}, ${formatCoord(lat)}`;
+
+/** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
+ *  the plain-object `latitude/longitude` alias, so callers can pass either. */
+type DisplayLatLng =
+  L.LatLng | { lng: number; lat: number } | { longitude: number; latitude: number };
+
+/** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
+ *  Longitude leads, matching `formatLatLng` and every other
+ *  location display in the project. */
+const readLatLng = (pt: DisplayLatLng): [number, number] => {
+  const raw = pt as {
+    lng?: number;
+    lat?: number;
+    longitude?: number;
+    latitude?: number;
+  };
+  const lng = raw.lng ?? raw.longitude;
+  const lat = raw.lat ?? raw.latitude;
+  if (lng === undefined || lat === undefined) {
+    throw new TypeError("[foliplus] MeasureControl: point has no lng/lat");
+  }
+  return [lng, lat];
+};
+
+/** Format the pointer's coordinate as the readout string. No CRS conversion: the
+ *  map is already in whatever CRS its tiles serve, so what the operator is looking
+ *  at is what the readout reports — pointing the chip at the same spot on a
+ *  GCJ02 or BD09 map must not show a shifted number. */
+const coordText = (map: L.Map, pt: DisplayLatLng): string => {
+  const [lng, lat] = readLatLng(pt);
+  return formatLatLng(lng, lat);
+};
+
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
   ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
@@ -194,11 +237,15 @@ export {
   bearing,
   buildPopup,
   centroid,
+  coordText,
   distance,
   formatArea,
+  formatCoord,
   formatDistance,
+  formatLatLng,
   formatSegmentLabel,
   labelChipOf,
+  readLatLng,
   getEventTarget,
   geocodeAddress,
   makeLabelDivIcon,

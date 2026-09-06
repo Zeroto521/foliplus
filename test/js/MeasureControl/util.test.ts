@@ -692,6 +692,69 @@ describe("bindNodeDrag", () => {
   });
 });
 
+describe("readLatLng", () => {
+  it("reads the lng/lat pair with longitude leading", () => {
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([121.5, 31.2]);
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
+      121.5, 31.2,
+    ]);
+  });
+
+  it("throws when the point has no coordinate", () => {
+    expect(() => Util.readLatLng({} as any)).toThrow(TypeError);
+  });
+
+  it("throws when only one coordinate is present", () => {
+    expect(() => Util.readLatLng({ lat: 31.2 } as any)).toThrow(TypeError);
+  });
+});
+
+describe("formatCoord / formatLatLng", () => {
+  it("pins the persisted 6-decimal precision", () => {
+    expect(Util.formatCoord(121.987654321)).toBe("121.987654");
+  });
+
+  it("formats longitude before latitude", () => {
+    expect(Util.formatLatLng(121.5, 31.2)).toBe("121.500000, 31.200000");
+  });
+});
+
+describe("coordText", () => {
+  it("reports the pointer's coordinate as the map holds it", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
+      "121.500000, 31.200000",
+    );
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
+      "120.000000, 30.000000",
+    );
+  });
+
+  it("rounds to the persisted precision", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
+      "121.987654, 31.123457",
+    );
+  });
+
+  it("does not apply a CRS conversion, so a shifted tile set is reported as seen", () => {
+    // The map serves GCJ02 tiles, so its latlng is already offset from WGS84.
+    // The readout must echo it unchanged — a WGS84 round trip would move the
+    // number the operator is looking at.
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
+      "121.510000, 31.210000",
+    );
+  });
+});
+
 describe("geocodeAddress", () => {
   it("calls reverseGeocode and returns the resolved address", async () => {
     const resolvedAddr = "123 Main St";
