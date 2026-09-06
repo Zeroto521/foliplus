@@ -120,15 +120,19 @@
   --dash-rhythm: var(--size-6) var(--size-4);
 
   /* ── Anchor Dot ──
-    Shared geometry for every interactive anchor dot drawn on the map:
-    measure nodes (circle/radius/centroid, SVG circleMarker) and the export
-    crop-box center plus its 8 handles. Keep them in sync through these two
-    tokens so a future change to the dot size updates every surface at once.
-    Diameter (12px) = SVG radius (6) + 2× --border-thick. The radius is not
-    CSS-addressable, so MeasureControl's MARKER.RADIUS must be mirrored by hand.
-    `--dot-stroke` only needs a consumer once another control joins the family. */
-  --dot-size: 12px;
-  --dot-stroke: var(--border-thick);
+    Shared look for every interactive anchor dot drawn on the map: measure
+    nodes (circle/radius/centroid, SVG circleMarker) and the export crop-box
+    center plus its 8 handles. Geometry, the hollow fill, and the hollow
+    stroke live in the `.foliplus-dot` rules below; the solid variant
+    overrides just the two colors. Keep the dot's look in one place so a
+    future change reaches every surface at once.
+    --dot-size is the *outer* diameter of both renderings: the DOM anchors set
+    `width` / `height` (border-box, so the border is inside it) and the SVG
+    node's circleMarker radius is --dot-size / 2 - --dot-stroke = 5. Radius is
+    not CSS-addressable, so MeasureControl's MARKER.RADIUS must be mirrored by
+    hand. */
+  --dot-size: 12.5px;
+  --dot-stroke: 2.5px;
 
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
@@ -636,6 +640,45 @@
   background: var(--ctrl-bg-translucent);
   border: var(--border-thin) solid var(--divider-color);
   box-shadow: var(--shadow-xs);
+}
+
+/* ── Anchor Dot (shared by MeasureControl / ExportControl) ──
+   One visual dot on the map: the measure nodes and the export crop-box
+   center/handles are the same object in two renderings. `.foliplus-dot` owns the
+   shape — the four properties below — and every dot carries it, so a dot can
+   never be left unstyled by a missing variant class. The variant classes only
+   pick the palette; they declare no properties of their own.
+   SVG circleMarkers get `fill` / `stroke`; DOM anchors get `background` /
+   `border` instead, so the second rule is scoped to `:not(path)`. DOM anchors
+   set `width` / `height` on the box itself (border-box, so the border is inside
+   --dot-size) while the SVG node's radius is sized in JS to compensate for the
+   stroke, and both come out --dot-size across. */
+.foliplus-dot {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+  fill: var(--dot-fill);
+  fill-opacity: 1;
+  stroke: var(--dot-stroke-color);
+  stroke-width: var(--dot-stroke);
+}
+.foliplus-dot:not(path) {
+  background: var(--dot-fill);
+  /* The `border` shorthand, not the `border-width` longhand: on a non-replaced
+     element the longhand is silently ignored in Chromium even with !important,
+     so the shorthand is the only form that reliably sets the width. */
+  border: var(--dot-stroke) solid var(--dot-stroke-color);
+  border-radius: var(--radius-round);
+  box-sizing: border-box;
+}
+/* Hollow: neutral fill, accent ring. */
+.foliplus-dot-hollow {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+}
+/* Solid: accent fill, neutral ring. */
+.foliplus-dot-solid {
+  --dot-fill: var(--accent-primary);
+  --dot-stroke-color: var(--neutral-0);
 }
 
 /* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──

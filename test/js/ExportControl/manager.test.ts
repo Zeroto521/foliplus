@@ -708,9 +708,12 @@ describe("ExportManager — mouse drag", () => {
     expect(manager.dragState.dragType).toBe("move");
   });
 
+
   it("onMouseDown sets dragType for a handle", () => {
+    // A handle carries three class tokens; `classList.add` takes one token
+    // per call, so split the constant before adding.
     const target = document.createElement("div");
-    target.classList.add(CONST.CLASSES.HANDLE);
+    for (const cls of CONST.CLASSES.HANDLE.split(" ")) target.classList.add(cls);
     target.dataset.pos = "br";
     manager.onMouseDown({
       target,

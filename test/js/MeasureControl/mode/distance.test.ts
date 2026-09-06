@@ -84,7 +84,7 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
 
     // No cursor moves, so these are the confirmed nodes only.
     const calls = window.L.circleMarker.mock.calls;
-    expect(calls[0][1].className).toContain("foliplus-measure-node-solid");
+    expect(calls[0][1].className).toContain("foliplus-dot-solid");
     expect(calls[1][1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
   });
 });
@@ -172,7 +172,7 @@ describe("DistanceMode — restore first node uses NODE_SOLID", () => {
     });
 
     const firstCall = window.L.circleMarker.mock.calls[0];
-    expect(firstCall[1].className).toContain("foliplus-measure-node-solid");
+    expect(firstCall[1].className).toContain("foliplus-dot-solid");
 
     const secondCall = window.L.circleMarker.mock.calls[1];
     expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);

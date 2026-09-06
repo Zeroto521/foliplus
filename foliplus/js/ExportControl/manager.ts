@@ -259,10 +259,10 @@ class ExportManager {
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE))
+    if (target.classList.contains(CONST.CLASSES.HANDLE_CLASS))
       this.dragState.dragType = target.dataset.pos ?? null;
     else if (
-      target.classList.contains(CONST.CLASSES.CENTER) ||
+      target.classList.contains(CONST.CLASSES.CENTER_CLASS) ||
       target.classList.contains(CONST.CLASSES.BOX)
     )
       this.dragState.dragType = "move";
