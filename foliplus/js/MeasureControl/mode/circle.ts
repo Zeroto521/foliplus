@@ -57,11 +57,19 @@ class CircleMode extends PreviewMode {
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      false,
+      true,
     ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
     ) as L.Marker;
 
+    // The radius label re-registers with the collision planner
+    // (attachCircleUI), which replans it inside a requestAnimationFrame.
+    // Adding it here, ahead of the stack, lets that re-plan detach it before
+    // the shapes are attached — the circle disappears while its label stays.
+    // It is a marker in measure_label, a pane that already sits above
+    // measure_graph, so the stack is irrelevant to it.
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = manager.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
@@ -135,8 +143,16 @@ class CircleMode extends PreviewMode {
 
       if (phase === 0) {
         center = event.latlng;
+        // The center is placed before any shape exists, so its position in the
+        // graph pane is fixed at the bottom for the whole drawing session. The
+        // radius line is attached later, so it would paint over the dot. The
+        // dot is routed to the node pane instead of re-attached — re-attaching
+        // cannot move it, `L.SVG._initPath` re-creates the `<path>` and the new
+        // node enters the renderer's layer map in the same place.
         previews.center = this.addPreview(
           Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          false,
+          true,
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -185,12 +201,18 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      if (!previews.node) {
-        previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
-        previews.node.bringToFront();
-        // Keep the radius node glued to the cursor while drawing.
-      } else previews.node.setLatLng(event.latlng);
+      // The node is attached after the circle and radius line, so those two
+      // can never paint over it as the cursor moves.
+      if (!previews.node)
+        previews.node = this.addPreview(
+          Util.makePreviewNode(event.latlng),
+          false,
+          true,
+        );
+      else previews.node.setLatLng(event.latlng);
 
+      // Only the label is re-anchored afterwards, so every shape is attached
+      // exactly once and the stack is settled: fill → radius line → radius node.
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
         const previewLabel = L.marker(mid, {
@@ -201,7 +223,7 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         });
-        previews.label = this.addPreview(previewLabel);
+        previews.label = this.addPreview(previewLabel, true);
       } else {
         previews.label.setLatLng(mid);
         Util.setLabelText(previews.label, Util.formatDistance(r));
@@ -251,10 +273,13 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
+      // The center also gets the node pane, matching `restore`: the preview
+      // center is already in it, and swapping panes would re-add the path.
       const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
-
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        false,
+        true,
       );
 
       const delMarker = this.layers.addLayer(

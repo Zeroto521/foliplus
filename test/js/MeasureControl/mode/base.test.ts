@@ -53,7 +53,32 @@ describe("PreviewMode — tracking preview layers", () => {
     const fakeLayer = {};
     mode.addPreview(fakeLayer);
     expect(mode.previewLayers).toContain(fakeLayer);
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(fakeLayer);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(fakeLayer, false, false);
+  });
+
+  // Without the flag forwarded, a preview label lands in the graph pane and is
+  // painted under the very path it labels.
+  it("forwards isLabel so preview labels route to the label pane", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    mode.addPreview({}, true);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith({}, true, false);
+  });
+
+  // Without it, a marker placed before the shapes exist sits permanently first
+  // in the graph pane and the radius line paints over it.
+  it("forwards isNode so preview markers route to the node pane", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    mode.addPreview({}, false, true);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith({}, false, true);
+  });
+
+  it("adds non-label previews to the graph pane by default", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    mode.addPreview({});
+    expect(manager.layers.addLayer).toHaveBeenCalledWith({}, false, false);
   });
 
   it("removePreview removes a tracked layer", () => {

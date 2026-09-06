@@ -6,8 +6,8 @@
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / bumpLabelPanes / migrateLayers / reset / destroy
-//     releaseFallbackPane
+//     ensurePane / ensureVector / bumpLabelPanes / migrateLayers / reset /
+//     destroy / releaseFallbackPane
 import * as CONST from "./const.js";
 import { forEachLayer } from "./util.js";
 
@@ -18,6 +18,14 @@ type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
 interface PaneRendererMap {
   [key: string]: L.SVG | undefined;
 }
+
+/** A vector layer as `ensureVector` consumes it: the pane and renderer
+ *  options are what decides which renderer `Map.getRenderer` resolves.
+ *  Named rather than `L.Path` — `L` is also declared as a `const` with the
+ *  Leaflet type, which leaves the namespace no usable type position. */
+type PathWithPane = {
+  options: { pane?: string; renderer?: L.Renderer };
+};
 
 class PaneManager {
   map: L.Map;
@@ -54,6 +62,10 @@ class PaneManager {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
       pane.style.zIndex = String(CONST.Z_INDEX.BASE);
+      // Pane names that carry their own z within the foliplus stack, in case a
+      // layer reaches a pane without going through `createLayers`.
+      if (CONST.PANE_Z[paneName] != null)
+        pane.style.zIndex = String(CONST.PANE_Z[paneName]);
     }
     let renderer: L.SVG | null = null;
     if (needRenderer) {
@@ -66,6 +78,32 @@ class PaneManager {
       }
     }
     return { pane, renderer };
+  }
+
+  /** Pin a vector layer's renderer to the pane it draws into.
+   *
+   * Without this the layer joins the map with no renderer of its own and
+   * `Map.getRenderer()` resolves by the layer's own pane — which is empty
+   * here, so it falls back to a renderer whose pane no longer matches. The
+   * layer's `_rootGroup` then sits on the map without projection updates and
+   * never gets a `setPane()`, so a later `getRenderer()` returns that
+   * fallback renderer again and re-adds the same `Path` to it. Leaflet's
+   * `_update` clones an existing node rather than creating a fresh one, and
+   * the unconditional `appendChild` raises `Element.appendChild` on a
+   * `<path>` that already holds one — which is what breaks the whole SVG
+   * layer.
+   *
+   * Setting both `renderer` and `pane` on the layer's own options makes the
+   * lookup agree with where it actually draws, and turns `setPane()` into a
+   * no-op. */
+  ensureVector(layer: PathWithPane, paneName: string): L.Renderer {
+    const key = CONST.RENDERER_KEY + paneName;
+    const cached = ((this.map as L.Map & PaneRendererMap)[key] ??
+      null) as L.Renderer | null;
+    const target = cached || this.ensurePane(paneName, true).renderer!;
+    layer.options.renderer = target;
+    layer.options.pane = paneName;
+    return target;
   }
 
   /** Reclaim the fallback pane that `unregisterLayer` just released.

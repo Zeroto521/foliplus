@@ -64,6 +64,9 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `MeasureControl`: circle preview radius line covered the radius label and the circle center — the renderer was never pinned, so a second attach hit an already-held `<path>` and broke the SVG renderer. `PaneManager.ensureVector` now pins `renderer` and `pane` on the layer, and `enforceOrder` pins child panes one step above the graph pane ([#252](https://github.com/Zeroto521/foliplus/pull/252))
+- `LayerControl`: a hide or reorder made inside the 100ms persistence debounce window was lost — `destroy()` cancelled the timers before the UI flush could run, so the panel read stale visibility and order back after a reload. The pending writes are now flushed before the persistence object is torn down, and `LayerPersistence` now has a single `load()` / `write()` funnel on each side plus one `flushAll()` at teardown, so a new persisted dimension cannot be missed on any of them ([#252](https://github.com/Zeroto521/foliplus/pull/252))
+- `LayerControl`: hiding a layer registered at runtime and reloading lost the user's checked state on re-registration — the prune kept ids only while a row was still rendered, but a row implies a registry entry, so the clause was dead and the sweep fell through to pruning everything. Liveness now means "in the registry or still queued in `pendingRegistrations`", which `attachUI` drains before the sweep, so the prune stays bounded without resurrecting ids that no longer come back ([#252](https://github.com/Zeroto521/foliplus/pull/252))
 
 ## [v0.3.0] (2026-08-02)
 
@@ -96,6 +99,7 @@
 
 ### Fixed
 
+- `LayerControl`: a row double-click no longer focuses the layer when it lands on the checkbox or the ⋮ button, and the last checkbox change is now flushed on removal instead of cancelled so it survives the 100ms save debounce ([#252](https://github.com/Zeroto521/foliplus/pull/252))
 - `LayerControl`: drag-and-drop reordering restricted to within the same group (overlay ↔ overlay, base ↔ base) ([#25](https://github.com/Zeroto521/foliplus/pull/25))
 - `HeatmapControl`: fixed `AUTO` field detection, including single-field cases ([#28](https://github.com/Zeroto521/foliplus/pull/28), [#89](https://github.com/Zeroto521/foliplus/pull/89), [#100](https://github.com/Zeroto521/foliplus/pull/100))
 - `LayerControl`: `handleDrop` uses `data-layer-id` instead of stale index to locate moved DOM element ([#48](https://github.com/Zeroto521/foliplus/pull/48))

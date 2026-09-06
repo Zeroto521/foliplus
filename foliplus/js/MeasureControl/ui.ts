@@ -486,14 +486,16 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot is a CircleMarker (SVG path) in the graph pane —
-    // same approach as the circle center. Both share the SVG renderer with
-    // the fill, so no zIndexOffset is needed; DOM order within the SVG
-    // guarantees the dot paints above the fill.
-    // The centroid label is isLabel → label pane, which paints above the
-    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
-    // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
-    // above its own segment labels.
+    // The centroid dot shares the graph pane with the fill. It must be
+    // attached before the fill so that, within the single per-pane SVG, its
+    // `<path>` precedes the fill's in source order and therefore paints over
+    // it. Sharing the renderer is what keeps it immune to `sortLayers`, which
+    // re-sorts div-icon markers by screen Y on zoom; a marker in the node pane
+    // would be in its own SVG and outside that guarantee.
+    // The centroid label is isLabel → label pane, which paints above both.
+    // Segment labels (also isLabel) sit at z = Y; after zoom `sortLayers`
+    // re-sorts by Y, so the label's offset (2000) keeps it above its own
+    // segment labels.
     centroidDot = layers.addLayer(
       Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
     ) as L.CircleMarker;

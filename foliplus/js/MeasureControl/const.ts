@@ -16,9 +16,9 @@ const LABEL = {
   MID_ANCHOR: [0, 0],
   // The centroid label shares the same latlng as the center dot. The dot is
   // a CircleMarker (SVG path) in measure_graph, so it shares the SVG renderer
-  // with the fill and needs no zIndexOffset — DOM order guarantees paint
-  // order. The label is isLabel (measure_label, z = graph + 1), so it always
-  // paints above the dot by pane ordering.
+  // with the fill and needs no zIndexOffset — it is attached before the fill,
+  // so DOM source order puts it above. The label is isLabel (measure_label,
+  // z = graph + 1), so it always paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
   // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
@@ -70,7 +70,18 @@ const FORMAT = {
 
 /** IDs and pane names. */
 const ID = "foliplus_measure";
-const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
+// `NODE` holds markers that must paint above the paths attached after them.
+// The circle center is the only one routed there: within a single pane, paint
+// order is DOM source order and the center is attached before the radius line
+// that would otherwise cover it, so it needs its own pane rather than a later
+// attach. The polygon centroid stays in `GRAPH` — it is attached before the
+// fill, so source order already puts it on top, and sharing that renderer is
+// what keeps it immune to `sortLayers`' z-index re-sort on zoom.
+const PANES = {
+  GRAPH: "measure_graph",
+  NODE: "measure_node",
+  LABEL: "measure_label",
+};
 
 /** CSS class names. */
 const CLASSES = {
@@ -80,8 +91,10 @@ const CLASSES = {
   PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
+  // Node fill states, parallel to PATH_SOLID / PATH_PREVIEW: a modifier that a
+  // node marker always appends to the base, never a complete class list.
   NODE_HOLLOW: "foliplus-measure-node",
-  NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
+  NODE_SOLID: "foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   ACTIVE: "active",

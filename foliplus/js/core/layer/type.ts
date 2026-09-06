@@ -12,6 +12,7 @@ interface RegisterLayerOpts {
   isBase?: boolean;
   paneName?: string | null;
   labelPane?: string | null;
+  nodePane?: string | null;
   iconSvg?: string | null;
   visible?: boolean;
   canvas?: HTMLCanvasElement | null;
@@ -35,6 +36,7 @@ interface LayerInfo {
   isBase: boolean;
   paneName: string | null;
   labelPane?: string | null;
+  nodePane?: string | null;
   iconSvg: string | null;
   type: string | null;
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
@@ -55,6 +57,7 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
+  isNode?: boolean;
   options: L.LayerOptions & {
     renderer?: L.Renderer;
     pane?: string;
@@ -68,6 +71,9 @@ interface CreateLayersOpts {
   name?: string;
   graphPane?: string;
   labelPane?: string;
+  /** Pane routed to by layers flagged `isNode`: markers that must paint above
+   *  the graph vectors (the measure center dot) but below their labels. */
+  nodePane?: string;
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default
@@ -111,7 +117,7 @@ interface CreateCanvasAPI {
 /** Return type of `LayerAPI.createLayers`. */
 interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
-  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+  addLayer: (layer: L.Layer, isLabel?: boolean, isNode?: boolean) => L.Layer;
   removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
   clearLayers: () => void;
   register: () => void;
@@ -157,12 +163,12 @@ interface LayerAPI {
 }
 
 export type {
-  CreateCanvasAPI,
-  CreateCanvasOpts,
-  CreateLayersAPI,
-  CreateLayersOpts,
-  LabelAwareLayer,
-  LayerAPI,
-  LayerInfo,
   RegisterLayerOpts,
+  LayerInfo,
+  LabelAwareLayer,
+  CreateLayersOpts,
+  CreateCanvasOpts,
+  CreateCanvasAPI,
+  CreateLayersAPI,
+  LayerAPI,
 };

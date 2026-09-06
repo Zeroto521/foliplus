@@ -142,6 +142,36 @@ describe("PaneManager", () => {
     expect(result.renderer).toBe(renderer);
   });
 
+  it("ensureVector pins a cached renderer and the pane on the layer", () => {
+    const pane = document.createElement("div");
+    const renderer = { addTo: vi.fn() };
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+      foliplus_renderer_measure_graph: renderer,
+    };
+    const pm = new PaneManager(map);
+    const layer = { options: {} };
+    expect(pm.ensureVector(layer, "measure_graph")).toBe(renderer);
+    expect(window.L.svg).not.toHaveBeenCalled();
+    expect(layer.options.renderer).toBe(renderer);
+    expect(layer.options.pane).toBe("measure_graph");
+  });
+
+  it("ensureVector creates the pane's renderer when none is cached", () => {
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const layer = { options: {} };
+    const renderer = pm.ensureVector(layer, "measure_graph");
+    expect(window.L.svg).toHaveBeenCalledWith({ pane: "measure_graph" });
+    expect(layer.options.renderer).toBe(renderer);
+    expect(layer.options.pane).toBe("measure_graph");
+  });
+
   it("discoverChildPanes filters out default panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -159,6 +189,27 @@ describe("PaneManager", () => {
     const layer = { options: { pane: "measure_label" } };
     pm.bumpLabelPanes(layer, 600);
     expect(pane.style.zIndex).toBe("601");
+  });
+
+  it("applies a PANE_Z override when creating a pane", () => {
+    const map = {
+      getPane: vi.fn(() => null),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    const { pane } = pm.ensurePane("measure_node", false);
+    expect(map.createPane).toHaveBeenCalledWith("measure_node");
+    expect((pane as HTMLElement).style.zIndex).toBe(String(CONST.Z_INDEX.BASE + 1));
+  });
+
+  it("leaves a PANE_Z override alone when the pane already exists", () => {
+    const existing = document.createElement("div");
+    existing.style.zIndex = "999";
+    const map = { getPane: vi.fn(() => existing), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const { pane } = pm.ensurePane("measure_node", false);
+    expect(pane).toBe(existing);
+    expect(pane.style.zIndex).toBe("999");
   });
 
   it("reset clears the pane cache", () => {

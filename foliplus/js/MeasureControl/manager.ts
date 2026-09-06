@@ -117,6 +117,7 @@ class MeasureManager {
       id: this.layerId,
       name: T("tool_toggle"),
       graphPane: CONST.PANES.GRAPH,
+      nodePane: CONST.PANES.NODE,
       labelPane: CONST.PANES.LABEL,
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),

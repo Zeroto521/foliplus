@@ -172,7 +172,7 @@ class LayerManager implements LayerAPI {
   }
 
   loadSavedOrder() {
-    const data = this.persistence.loadOrder();
+    const data = this.persistence.load().order;
     if (!data) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];
@@ -367,6 +367,21 @@ class LayerManager implements LayerAPI {
     // (avoiding onAdd side effects), and a callback-only hidden layer
     // (no Leaflet layer, onToggle only) still gets its callback fired so
     // canvas/heatmap can hide itself.
+    //
+    // A registration that carries no content must stay unregistered, so
+    // LayerFactory does not run its own map.addLayer inside the wrapped
+    // addLayer before any of its sub-groups exist: every empty
+    // createLayers() would otherwise pin three empty sub-groups to
+    // map._layers, which is what makes the map hold one layer per pane
+    // instead of one per registered layer.
+    if (layerInfo.contentEmpty) {
+      return this.uiContainer
+        ? this.uiContainer.querySelector(
+            `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
+          )
+        : null;
+    }
+
     if (this.ui?.hiddenIds?.has(opts.id)) {
       layerInfo.visible = false;
       if (layerInfo.onToggle) layerInfo.onToggle(false);
@@ -517,6 +532,21 @@ class LayerManager implements LayerAPI {
         if (!hasLayer) continue;
 
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
+      }
+
+      // Child panes that are not the layer's own `paneName` (its label and node
+      // panes) would otherwise keep the 600 LayerFactory gave them — under every
+      // data pane. Each is pinned one step above the graph pane of the layer
+      // that owns it; label is declared last, so it ends up highest.
+      for (let i = 0; i < this.layers.length; i++) {
+        const info = this.layers[i];
+        if (!info.paneName) continue;
+        const graphZ = this.computeZIndex(i, false);
+        for (const child of [info.nodePane, info.labelPane]) {
+          if (!child) continue;
+          const childPaneEl = this.map.getPane(child);
+          if (childPaneEl) childPaneEl.style.zIndex = String(graphZ + 1);
+        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
@@ -694,11 +724,17 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    this.persistence.destroy();
+    // Flush the pending persistence writes before tearing the persistence
+    // object down. It also flushes itself, but unbindEvents below only runs
+    // when a panel is attached — and the write is debounced at 100ms, wide
+    // enough for the control to be removed before the timer fires. Persisting
+    // here makes teardown independent of that.
+    this.persistence.flushAll();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
     }
+    this.persistence.destroy();
     if (this.uiContainer) {
       this.uiContainer.innerHTML = "";
       this.uiContainer = null;

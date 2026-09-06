@@ -17,7 +17,6 @@ import {
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -30,7 +29,6 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
 const mapContainer = map.getContainer();
 
 /**
@@ -154,9 +152,7 @@ class LayerUI {
    */
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
-    this.loadFoldState();
-    this.loadHiddenIds();
-    this.loadNamesState();
+    this.loadPersistedState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -186,9 +182,12 @@ class LayerUI {
     setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
-  /** Load fold state from localStorage. */
-  loadFoldState() {
-    this.foldedGroups = this.m.persistence.loadFoldedGroups();
+  /** Load every persisted dimension in one call. */
+  loadPersistedState() {
+    const state = this.m.persistence.load();
+    this.foldedGroups = state.foldedGroups;
+    this.hiddenIds = state.hiddenIds;
+    this.renamedNames = state.names;
   }
 
   /** Save fold state to localStorage. */
@@ -196,19 +195,9 @@ class LayerUI {
     this.m.persistence.saveFoldedGroups(this.foldedGroups);
   }
 
-  /** Load hidden-layer ids from localStorage. */
-  loadHiddenIds() {
-    this.hiddenIds = this.m.persistence.loadHiddenIds();
-  }
-
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
-  }
-
-  /** Load user-assigned display names from localStorage. */
-  loadNamesState() {
-    this.renamedNames = this.m.persistence.loadNames();
   }
 
   /**
@@ -281,24 +270,30 @@ class LayerUI {
       }
     }
 
-    // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
-    // to write the projection into. Renames are pruned in unregisterLayer
-    // instead — a rename whose id is not in the registry yet belongs to a
-    // component that will register later, so sweeping it here would drop it
-    // on the very first attach and the user would see the default name.
-    const staleIds = [...this.hiddenIds].filter(
-      layerId => registry.get(layerId) == null,
-    );
-    if (staleIds.length > 0) {
-      log.warn(
-        `dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
-      );
+    // Prune ids whose layers are gone for good, so stale persistence does not
+    // accumulate. An id counts as live when the layer is still in the
+    // registry or still queued in `pendingRegistrations` (a registration that
+    // landed before the panel attached — attachUI drains the queue before this
+    // sweep runs). Nothing else is kept on purpose: the queue has already
+    // emptied into rows, so "no registry entry and no pending entry" is real
+    // evidence the layer was removed, and dropping those ids is what keeps
+    // persistence from growing forever.
+    //
+    // The accepted cost is a layer a third-party component hides and then
+    // re-registers on a later activation: its id is pruned here, so the layer
+    // re-enters visible rather than coming back hidden. Keeping it would mean
+    // dropping no ids at all — which turns the prune into a no-op and lets the
+    // set grow without bound.
+    const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
+    const stillPresent = (layerId: string) =>
+      registry.get(layerId) != null || pending.has(layerId);
+    const gone = [...this.hiddenIds].filter(layerId => !stillPresent(layerId));
+    if (gone.length > 0) {
       this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),
+        [...this.hiddenIds].filter(layerId => stillPresent(layerId)),
       );
-      // Persist the cleaned set so the same stale ids don't get re-warned
-      // on the next reload.
+      // Persist the cleaned set so the same orphaned ids do not get pruned
+      // again on the next reload.
       this.saveHiddenIds();
     }
   }
@@ -545,7 +540,8 @@ class LayerUI {
       "div",
       {
         class:
-          `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
+          `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ` +
+          `foliplus-toggle-all-${group}` +
           (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
         tabindex: "0",
         "data-group": group,
@@ -991,7 +987,10 @@ class LayerUI {
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHiddenIds();
+    // Persist the last pending write. A 100ms debounce is wide enough that the
+    // control can be removed (or the page unloaded) before the timer fires;
+    // dropping the write there is what loses a toggle across a reload.
+    this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
@@ -1161,12 +1160,6 @@ class LayerUI {
     return -1;
   }
 
-  /** Get the currently focused layer item element. */
-  getActiveLayerItem(): HTMLElement | null {
-    if (this.activeIdx === null) return null;
-    return this.getNavigableItems()[this.activeIdx] ?? null;
-  }
-
   /** Set the active item index and apply focus styling. */
   setActiveItem(idx: number): void {
     this.clearActiveItem();
@@ -1189,7 +1182,7 @@ class LayerUI {
   private moveActiveMarker(item: HTMLElement | null, items: HTMLElement[]): void {
     this.blurActiveItem();
     // indexOf yields -1 for an item outside the list; normalize it to null so
-    // activeIdx never holds an index getActiveLayerItem() would misread.
+    // activeIdx never points at a row that was never marked as active.
     const idx = item ? items.indexOf(item) : -1;
     this.activeIdx = idx === -1 ? null : idx;
     item?.classList.add(CONST.CLASSES.FOCUSED);
@@ -1308,12 +1301,9 @@ class LayerUI {
     if (event.altKey && event.key === "Enter" && this.activeIdx !== null) {
       const item = items[this.activeIdx];
       if (item) {
-        const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-        if (layerId) {
-          event.preventDefault();
-          this.focusLayer(layerId);
-          return;
-        }
+        event.preventDefault();
+        this.focusRow(item);
+        return;
       }
     }
 
@@ -1330,6 +1320,12 @@ class LayerUI {
         break;
       case "ArrowLeft":
       case "ArrowRight":
+        // A keypress inside the toggle-all row must not reorder the layers:
+        // the group row is focusable, so pressing ArrowLeft/Right there would
+        // call moveLayerUp/Down on the group's own data-layer-id and return
+        // false — read as a reordering hint. Space and Enter belong to that
+        // checkbox and are handled by the toggle-all change listener.
+        if (item.closest(CONST.SEL.TOGGLE_ALL)) break;
       case " ":
       case "Enter":
         // Do not toggle the checkbox when the more (⋮) button is focused —
@@ -1363,13 +1359,19 @@ class LayerUI {
           if (action === CONST.ACTION.RENAME_LAYER)
             this.renameLayer(this.activeMenu.layerId);
           else {
-            this.focusLayer(this.activeMenu.layerId);
+            this.focusRow(this.activeMenu.item);
             this.closeMoreMenu(true);
           }
           break;
         }
+        // All four keys toggle the cursor row, so the row's own checkbox never
+        // has to be the focus target. The cursor is resolved from DOM focus
+        // above (or falls back to the last clicked row), so a row the mouse has
+        // since moved onto does not steal the action. InteractionManager already
+        // prevented the default, so Space cannot also flip a focused checkbox
+        // natively — this branch is the only thing that will.
         event.preventDefault();
-        this.toggleFocusedLayer();
+        this.toggleRowVisibility(item);
         break;
       case "Escape":
         if (this.activeMenu) this.closeMoreMenu(true);
@@ -1380,26 +1382,38 @@ class LayerUI {
 
   /** Double-click on a layer row → focus the map on that layer. */
   handleDblClick(event: MouseEvent): void {
-    const item = (event.target as HTMLElement).closest(
-      CONST.SEL.LAYER_ITEM,
-    ) as HTMLElement | null;
+    const target = event.target as HTMLElement;
+    // Native widgets keep their own double-click meaning and the event still
+    // bubbles to the container: focusing the layer while the checkbox toggles
+    // twice would make one gesture produce three effects.
+    if (target.closest("input, button, select, textarea, a")) return;
+    const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
     if (!item) return;
-    // Ignore dblclick on the ⋮ button (would open the menu instead).
-    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+    // The first click of the pair moves focus to the row div (the label is
+    // not focusable), so a second click on the row's own checkbox means the
+    // user is toggling, not double-clicking the row.
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLInputElement &&
+      focused.type === "checkbox" &&
+      item.contains(focused)
+    )
       return;
-    }
+    this.focusRow(item);
+  }
+
+  /** Focus the map on a layer row. Callers do the intent check. */
+  focusRow(item: HTMLElement): void {
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);
   }
 
-  /** Toggle visibility of the currently focused layer. */
-  private toggleFocusedLayer(): void {
-    const item = this.getActiveLayerItem();
-    if (!item) return;
-    const checkbox = item.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
+  /** Toggle a row's checkbox from a keyboard event (Space / ArrowLeft /
+   *  ArrowRight / Enter all land here). Flips the box and raises a bubbling
+   *  `change` so the existing change listener drives the visibility update. */
+  private toggleRowVisibility(item: HTMLElement): void {
+    const checkbox = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));

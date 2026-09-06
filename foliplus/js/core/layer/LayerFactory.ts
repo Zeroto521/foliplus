@@ -64,10 +64,12 @@ class LayerFactory {
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })
       : null;
+    const nodeLayer = opts.nodePane ? L.layerGroup([], { pane: opts.nodePane }) : null;
     const labelLayer = opts.labelPane
       ? L.layerGroup([], { pane: opts.labelPane })
       : null;
     if (graphLayer) mainLayer.addLayer(graphLayer);
+    if (nodeLayer) mainLayer.addLayer(nodeLayer);
     if (labelLayer) mainLayer.addLayer(labelLayer);
 
     let registered = false;
@@ -79,6 +81,7 @@ class LayerFactory {
       layer: mainLayer,
       paneName: opts.graphPane || null,
       labelPane: opts.labelPane || null,
+      nodePane: opts.nodePane || null,
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
     };
@@ -94,6 +97,7 @@ class LayerFactory {
       if (!registered) return;
       const hasContent =
         (graphLayer && graphLayer.getLayers().length > 0) ||
+        (nodeLayer && nodeLayer.getLayers().length > 0) ||
         (labelLayer && labelLayer.getLayers().length > 0);
       if (!hasContent) {
         registered = false;
@@ -106,14 +110,22 @@ class LayerFactory {
 
     mainLayer.addLayer = (layer: LabelAwareLayer) => {
       const isLabel = layer.isLabel;
-      const target = isLabel ? labelLayer : graphLayer;
+      const isNode = layer.isNode;
+      const target = isLabel ? labelLayer : isNode ? nodeLayer : graphLayer;
       if (target) {
         if (!map.hasLayer(mainLayer)) register();
-        const paneName = isLabel ? opts.labelPane : opts.graphPane;
+        const paneName = isLabel
+          ? opts.labelPane
+          : isNode
+            ? opts.nodePane
+            : opts.graphPane;
         layer.options.pane = paneName;
-        if (layer instanceof L.Path) {
-          const { renderer } = panes.ensurePane(opts.graphPane!);
-          layer.options.renderer = renderer ?? undefined;
+        if (layer instanceof L.Path || layer instanceof L.CircleMarker) {
+          // Resolves the renderer and pins the pane on the layer itself, so
+          // the renderer a Path lands on is the one that owns its pane. The
+          // target pane is the one the layer group above already chose: a label
+          // path belongs to the label pane, not the graph pane.
+          panes.ensureVector(layer, paneName!);
         } else if (paneName) panes.ensurePane(paneName, false);
         const result = target.addLayer(layer);
         // The mainLayer subtree changed and the added layer's options.pane was
@@ -136,6 +148,14 @@ class LayerFactory {
         if (!onDataChangeSkip) onDataChange?.(opts.id);
         return result;
       }
+      if (nodeLayer && nodeLayer.hasLayer(layer)) {
+        const result = nodeLayer.removeLayer(layer);
+        panes.reset(L.stamp(mainLayer));
+        panes.reset(L.stamp(layer));
+        invalidateType(opts.id);
+        if (!onDataChangeSkip) onDataChange?.(opts.id);
+        return result;
+      }
       if (labelLayer && labelLayer.hasLayer(layer)) {
         const result = labelLayer.removeLayer(layer);
         panes.reset(L.stamp(mainLayer));
@@ -148,16 +168,21 @@ class LayerFactory {
     };
 
     mainLayer.clearLayers = () => {
-      // mainLayer always holds the (possibly empty) graph/label sub-layers as
+      // mainLayer always holds the (possibly empty) pane sub-layers as
       // children; content may also be added directly (no pane configured).
       // Count only actual content, not the sub-layer containers themselves.
       const directCount =
-        mainLayer.getLayers().length - (graphLayer ? 1 : 0) - (labelLayer ? 1 : 0);
+        mainLayer.getLayers().length -
+        (graphLayer ? 1 : 0) -
+        (nodeLayer ? 1 : 0) -
+        (labelLayer ? 1 : 0);
       const hadContent =
         directCount > 0 ||
         (graphLayer ? graphLayer.getLayers().length > 0 : false) ||
+        (nodeLayer ? nodeLayer.getLayers().length > 0 : false) ||
         (labelLayer ? labelLayer.getLayers().length > 0 : false);
       if (graphLayer) graphLayer.clearLayers();
+      if (nodeLayer) nodeLayer.clearLayers();
       if (labelLayer) labelLayer.clearLayers();
       if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
       if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
@@ -165,8 +190,9 @@ class LayerFactory {
       return mainLayer;
     };
 
-    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
+    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean, isNode?: boolean) => {
       if (isLabel) layer.isLabel = true;
+      else if (isNode) layer.isNode = true;
       mainLayer.addLayer(layer);
       return layer;
     };

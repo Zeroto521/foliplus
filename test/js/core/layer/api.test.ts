@@ -23,6 +23,9 @@ describe("ensureLayerAPI", () => {
       svg: vi.fn(() => ({ addTo: vi.fn() })),
       Path: class {},
       Marker: class {},
+      // A bare `instanceof` throws when the right operand is absent, so every
+      // constructor the factory tests for must be defined here.
+      CircleMarker: class {},
     });
     map = {
       foliplus: null as any,
