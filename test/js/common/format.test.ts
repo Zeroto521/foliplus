@@ -119,12 +119,15 @@ describe("formatCoord / formatLatLng", () => {
     expect(formatCoord(0)).toBe("0.000000");
   });
 
-  it("groups the integer part with the en comma", () => {
-    // En grouping only shows up once the integer part crosses 99,999 — unreachable
-    // for a real lng (±180) / lat (±90) value, but it is what the measure chip
-    // relies on, so the shared formatter must agree with it.
-    expect(formatCoord(123456.789)).toBe("123,456.789000");
-    expect(formatLatLng(1234.5, 987.654)).toBe("1,234.500000, 987.654000");
+  it("groups the integer part with the en comma from 1000 up", () => {
+    // Intl en grouping needs 4+ integer digits — 999.5 rounds to "999.5",
+    // 1000.0 to "1,000.0". Since grouping is inherited from formatNumber's
+    // comma style, the measure chip's distances and these coordinates cannot
+    // disagree on the separator.
+    expect(formatCoord(121.123456)).toBe("121.123456");
+    expect(formatCoord(999.5)).toBe("999.500000");
+    expect(formatCoord(1000)).toBe("1,000.000000");
+    expect(formatLatLng(121.123456, 31.234567)).toBe("121.123456, 31.234567");
   });
 
   it("accepts an explicit precision", () => {

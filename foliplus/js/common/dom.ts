@@ -180,8 +180,8 @@ const escapeHTML = (str: string | number | boolean | null | undefined): string =
 /**
  * Build a popup HTML string for a location marker. Coordinates are pinned to
  * the shared readout precision, so a popup never echoes the raw stored value —
- * a history entry saved from "121.47" used to render "120.47,30" instead of the
- * six decimals every other location readout shows.
+ * a history entry saved from "121.47" used to render "121.47,31.23" instead of
+ * the six decimals every other location readout shows.
  */
 const buildPopupHtml = (
   lng: number,
