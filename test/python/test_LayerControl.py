@@ -370,7 +370,9 @@ class TestLayerControlRendering:
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
         # exactly. A 0 X-offset keeps it vertical (only top/bottom glow, no
         # left/right bleed).
-        assert "0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
+        assert (
+            "0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
+        )
         assert "0 var(--size-2) var(--size-4) var(--accent-primary)" in recipe
         assert "color: var(--text-primary)" in recipe
         assert "color: var(--accent-primary)" in recipe
