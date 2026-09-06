@@ -4,7 +4,7 @@
  *
  * Pipeline:
  *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/compress.mjs``)
- *   2. Merge ``common/*.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
+ *   2. Merge the shared stylesheet modules -> ``dist/foliplus-common.min.css``
  *
  *   Source transforms run at bundle time via esbuild onLoad — no .build/ mirror needed.
  *
@@ -200,38 +200,54 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
-/** Concatenate the shared stylesheet sources into one string, or null if the
- *  folder is absent.
+/** Concatenate the shared stylesheet modules into one string, or null
+ *  if the folder is absent.
  *
- *  Order is meaningful, not alphabetical: `tokens.css` defines the custom
- *  properties the rest of the modules read, so it must be first; `panel.css`
- *  extends `ctrl-fold.css` and must be last. An alphabetical sort would put
- *  `button.css` ahead of `tokens.css` and silently break every `var(--…)`. */
+ *  `COMMON_CSS_ORDER` is the single source of truth for merge order.
+ *  It is meaningful and never alphabetical: `tokens.css` defines the
+ *  custom properties the other modules read, so it must come first;
+ *  `panel.css` extends `ctrl-fold.css` and must come last. An
+ *  alphabetical sort would place `button.css` before `tokens.css` and
+ *  silently break every `var(--...)` - no build error, no console
+ *  error, just a map with all its shared colors and sizes missing.
+ *
+ *  Every entry names a file in `common/`; `panel.css` is an exception
+ *  at the tail because it lives one level up.
+ */
 const COMMON_CSS_ORDER = [
-  "tokens.css",
-  "reset.css",
-  "button.css",
-  "hint.css",
-  "icons.css",
-  "ctrl-fold.css",
+  "common/tokens.css",
+  "common/reset.css",
+  "common/button.css",
+  "common/hint.css",
+  "common/icons.css",
+  "common/ctrl-fold.css",
+  "panel.css",
 ];
 const mergeCommonCss = () => {
   const dir = resolve(cssDir, "common");
   if (!existsSync(dir)) return null;
-  const present = readdirSync(dir).filter(f => f.endsWith(".css"));
-  // Files present but absent from the manifest are a build-shaping error, not
-  // something to silently append at the end.
+  const present = readdirSync(dir)
+    .map(f => "common/" + f)
+    .filter(f => f.endsWith(".css"));
+  // Files present but absent from the manifest are a build-shaping error,
+  // not something to silently append at the end.
   const unlisted = present.filter(f => !COMMON_CSS_ORDER.includes(f));
   if (unlisted.length)
     throw new Error(
-      `build: unlisted stylesheet(s) in ${dir}: ${unlisted.join(", ")} — add them to COMMON_CSS_ORDER`,
+      `build: unlisted stylesheet(s) in css/common/: ${unlisted.join(", ")} - add to COMMON_CSS_ORDER`,
     );
-  const parts = COMMON_CSS_ORDER.filter(f => present.includes(f)).map(f =>
-    readFileSync(resolve(dir, f), "utf-8"),
+  // A manifest entry with no file would be a silent omission: the module
+  // is declared but never reaches the bundle.
+  const missing = COMMON_CSS_ORDER.filter(f => !existsSync(resolve(cssDir, f)));
+  if (missing.length)
+    throw new Error(
+      `build: missing stylesheet(s) from COMMON_CSS_ORDER: ${missing.join(", ")}`,
+    );
+  const parts = COMMON_CSS_ORDER.map(f =>
+    // Manifest entries are relative to css/ (see COMMON_CSS_ORDER).
+    readFileSync(resolve(cssDir, f), "utf-8"),
   );
-  const panel = resolve(cssDir, "panel.css");
-  if (existsSync(panel)) parts.push(readFileSync(panel, "utf-8"));
-  return parts.length ? parts.join("\n") : null;
+  return parts.join("\n");
 };
 
 /** Build the full list of esbuild artifacts (components + merged common CSS).

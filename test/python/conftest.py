@@ -164,12 +164,26 @@ _css_cache: dict[str, str] = {}
 def read_css(path: str) -> str:
     """Read a CSS file, caching the result in memory.
 
-    Many tests read the same CSS file (LayerControl.css, common.css) for
+    Tests read component stylesheets and css/common/ modules for
     design-token assertions.  The cache avoids repeated disk I/O.
     """
     if path not in _css_cache:
         _css_cache[path] = Path(path).read_text(encoding="utf-8")
     return _css_cache[path]
+
+
+def read_css_dir(path: str, name: str) -> str:
+    """Read one module of a shared stylesheet folder, with caching.
+
+    ``path`` is the folder (``foliplus/css/common``) and ``name`` the
+    module inside it (``tokens.css``).  Assertions name the module that
+    owns the rule they check, so a token moving between modules shows up
+    as a precise test failure instead of a vague whole-file miss.
+    """
+    key = f"{path}/{name}"
+    if key not in _css_cache:
+        _css_cache[key] = read_css(key)
+    return _css_cache[key]
 
 
 def _install_cdn_route(page) -> None:

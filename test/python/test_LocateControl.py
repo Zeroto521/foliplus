@@ -12,6 +12,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     read_css,
+    read_css_dir,
     render_control,
     use_page,
 )
@@ -102,9 +103,9 @@ class TestLocateControlRendering:
 
     def test_spins_with_shared_keyframes(self):
         """The loading state reuses the shared foliplus spinner, no local animation."""
-        # The animation lives in common.css; LocateControl.css only toggles
+        # The animation lives in reset.css; LocateControl.css only toggles
         # which icon shows.
-        assert "@keyframes foliplus-spin" in read_css("foliplus/css/common.css")
+        assert "@keyframes foliplus-spin" in read_css_dir("foliplus/css/common", "reset.css")
         assert "@keyframes" not in read_css("foliplus/css/LocateControl.css")
 
     def test_contains_gcoord_dependency(self):

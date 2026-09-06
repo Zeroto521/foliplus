@@ -10,6 +10,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     read_css,
+    read_css_dir,
     render,
     render_control,
     use_page,
@@ -440,7 +441,7 @@ class TestLayerControlRendering:
 
     def test_close_btn_svg_styled(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
-        css = read_css("foliplus/css/common.css")
+        css = read_css_dir("foliplus/css/common", "button.css")
         # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css

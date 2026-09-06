@@ -8,7 +8,7 @@
 /* ── Common Icon Size ──
   All SVGs in foliplus components default to 18×18.
   PIN_ICON, drag-handle override per their context.
-── */
+  ── */
 :is(
     .foliplus-toggle-btn,
     .foliplus-ctrl-btn,
