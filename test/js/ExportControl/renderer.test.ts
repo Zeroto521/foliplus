@@ -206,10 +206,17 @@ const withPixels = (tiles: unknown[]) =>
   }));
 /** Resolve loadImageBitmap to a bitmap for every tile.  Without this every
  *  tile is skipped and nothing is ever painted; the mock is module-scoped, so
- *  the call count doubles as the tile count. */
+ *  the call count doubles as the tile count.  Width and height matter for the
+ *  sprite maths, so they are parameterised.
+ *
+ *  The real loader cannot be used here: CONF.timeout is undefined under
+ *  vitest's CONF literal, so AbortSignal.timeout(undefined) throws before
+ *  fetch is reached and every bitmap comes back null. */
 
-function stubBitmaps() {
+function stubBitmaps(width = 64, height = 64) {
   (UTIL.loadImageBitmap as any).mockResolvedValue({
+    width,
+    height,
     close: () => undefined,
   });
 }
@@ -985,6 +992,268 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
   });
 });
 
+describe("ExportRenderer.render — layer pass routing", () => {
+  let savedMapDesc: PropertyDescriptor | undefined;
+  let savedLDesc: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    // render() reads the module-scoped IIFE free variables `map` and `L`.
+    // Retargeting them gives this block a renderer whose own map is also the
+    // module map, so calcTiles runs unstubbed and the sizing pass works.
+    const container = document.createElement("div");
+    container.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+      }) as DOMRect;
+    const map = {
+      options: { crs: makeEPSG3857Mock() },
+      getContainer: () => container,
+      getZoom: () => 2,
+      getCenter: () => ({ lat: 26.08, lng: 119.3 }),
+      foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    };
+    savedMapDesc = Object.getOwnPropertyDescriptor(globalThis, "map");
+    savedLDesc = Object.getOwnPropertyDescriptor(globalThis, "L");
+    Object.defineProperty(globalThis, "map", {
+      configurable: true,
+      writable: true,
+      value: map,
+    });
+    Object.defineProperty(globalThis, "L", {
+      configurable: true,
+      writable: true,
+      value: { ...L, TileLayer: MockTileLayer },
+    });
+  });
+  afterEach(() => {
+    if (savedMapDesc) Object.defineProperty(globalThis, "map", savedMapDesc);
+    if (savedLDesc) Object.defineProperty(globalThis, "L", savedLDesc);
+  });
+
+  const runRender = (onProgress: (percent: number) => void) =>
+    new ExportRenderer((globalThis as any).map).render(
+      { left: 0, top: 0, width: 1000, height: 1000 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      onProgress,
+    );
+
+  it("runs the canvas, pane and marker passes for their layer entries", async () => {
+    // LayerAPI order is bottom-to-top, so the canvas layer is drawn first: with
+    // two layer entries the bar reads 50 then 100 of the layer range.  Each
+    // entry is asserted through the pass it exercises, so the routing itself is
+    // what the test pins down rather than just the percentages.
+    // render() builds its own canvas; point its getContext at a real no-op ctx
+    // so the draw passes complete in jsdom.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const canvasLayer = document.createElement("canvas");
+    canvasLayer.toDataURL = () => "data:image/png;base64,AAEC";
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    canvasLayer.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 200,
+        right: 200,
+        bottom: 200,
+      }) as DOMRect;
+
+    const paneSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    paneSvg.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }) as DOMRect;
+    paneSvg.appendChild(
+      document.createElementNS("http://www.w3.org/2000/svg", "circle"),
+    );
+    const roots = document.createElement("div");
+    roots.appendChild(paneSvg);
+
+    const vector = { options: {} };
+    const getLayerPanes = vi.fn(() => ["vector-pane"]);
+    const map = (globalThis as any).map;
+    map.foliplus = {
+      LayerAPI: {
+        layers: [
+          { visible: true, canvas: canvasLayer },
+          { visible: true, layer: makeTileLayer() },
+          { visible: true, layer: vector },
+        ],
+        getLayerPanes,
+      },
+    };
+    map.getPane = (name: string) => (name === "vector-pane" ? roots : null);
+
+    // Prototype spies so the calls survive the instance being built per test,
+    // and so the tile passes can be stubbed without re-implementing them.
+    const proto = ExportRenderer.prototype as any;
+    const spy = (name: string) => vi.spyOn(proto, name);
+    const canvas = spy("renderCanvasElement");
+    const paneSVG = spy("renderPaneSVG");
+    const paneCanvas = spy("renderPaneCanvas");
+    const tileLayer = spy("renderTileLayer");
+    // The draw pass reports one step per batch, so the callback is what puts a
+    // number on the bar at all.
+    tileLayer.mockImplementation(
+      async (rc: any, _bounds: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
+    const markers = spy("collectLayerMarkers");
+    // render() reads collectLayerMarkers' return value to decide whether the
+    // marker passes run, so an empty stub keeps them out of this test's scope.
+    markers.mockResolvedValue([] as any);
+    const markerPasses = spy("renderMarkers");
+    const iconPasses = spy("renderFontAwesome");
+    const textPasses = spy("renderTextLabels");
+    const remainingPasses = spy("renderRemaining");
+
+    const onProgress = vi.fn();
+    await runRender(onProgress);
+
+    expect(canvas).toHaveBeenCalledWith(expect.anything(), canvasLayer);
+    expect(paneSVG).toHaveBeenCalledWith(expect.anything(), roots);
+    expect(paneCanvas).toHaveBeenCalledWith(expect.anything(), roots);
+    expect(getLayerPanes).toHaveBeenCalledWith(vector);
+    expect(markers).toHaveBeenCalledWith(vector);
+    expect(markerPasses).not.toHaveBeenCalled();
+    expect(iconPasses).not.toHaveBeenCalled();
+    expect(textPasses).not.toHaveBeenCalled();
+    expect(remainingPasses).not.toHaveBeenCalled();
+    // One full-size tile is the whole extent, so the tile phase closes at 70
+    // rather than stepping partway; the three layer entries then walk the
+    // layer range to its top at 90.
+    expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
+  });
+
+  it("runs the four marker passes when the layer's panes hold markers", async () => {
+    // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
+    // and svg from the pane and the four marker passes draw whatever is left.
+    // Leaving it empty would silently skip all four, so the assertion is that
+    // the panes are scanned and the markers survive the sweep.
+    const paneSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    paneSvg.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }) as DOMRect;
+    paneSvg.appendChild(
+      document.createElementNS("http://www.w3.org/2000/svg", "circle"),
+    );
+    const markerEl = document.createElement("img");
+    markerEl.src = "data:image/png;base64,AAAA";
+    const roots = document.createElement("div");
+    roots.appendChild(paneSvg);
+    roots.appendChild(markerEl);
+    // The real filter strips svg by tag name, not by selector: jsdom reports
+    // tagName as "svg" in lower case, so the SVG check misses and the pane
+    // element would otherwise be swept in as a marker.
+    paneSvg.setAttribute("data-foliplus-export", "exclude");
+
+    const vector = { options: {} };
+    const map = (globalThis as any).map;
+    map.foliplus = {
+      LayerAPI: {
+        layers: [{ visible: true, layer: vector }],
+        getLayerPanes: () => ["vector-pane"],
+      },
+    };
+    map.getPane = () => roots;
+
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+
+    const proto = ExportRenderer.prototype as any;
+    // The real collectLayerMarkers is used on purpose: it is the filter that
+    // decides these passes run at all.  Everything it feeds is stubbed, so the
+    // panes are scanned without fetching or drawing in jsdom.
+    vi.spyOn(proto, "renderPaneSVG").mockResolvedValue(undefined);
+    vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
+    const markers = vi.spyOn(proto, "collectLayerMarkers");
+    const markerPasses = vi.spyOn(proto, "renderMarkers").mockResolvedValue(undefined);
+    const iconPasses = vi
+      .spyOn(proto, "renderFontAwesome")
+      .mockResolvedValue(undefined);
+    const textPasses = vi.spyOn(proto, "renderTextLabels").mockResolvedValue(undefined);
+    const remainingPasses = vi
+      .spyOn(proto, "renderRemaining")
+      .mockResolvedValue(undefined);
+
+    const onProgress = vi.fn();
+    await runRender(onProgress);
+
+    expect(markerPasses).toHaveBeenCalledTimes(1);
+    expect(iconPasses).toHaveBeenCalledTimes(1);
+    expect(textPasses).toHaveBeenCalledTimes(1);
+    expect(remainingPasses).toHaveBeenCalledTimes(1);
+    // Same single argument across the chain: the roots the sweep produced.
+    const rootsArg = markerPasses.mock.calls[0][1];
+    expect(rootsArg).toHaveLength(1);
+    expect(rootsArg[0]).toBe(markerEl);
+    expect(iconPasses.mock.calls[0][1]).toBe(rootsArg);
+    expect(textPasses.mock.calls[0][1]).toBe(rootsArg);
+    expect(remainingPasses.mock.calls[0][1]).toBe(rootsArg);
+    // The collected element is the one that is NOT the svg pane: the sweep
+    // skipped the svg even though it sits first in the pane.
+    expect(markers.mock.results[0].value).toHaveLength(1);
+    // No tile layer, so the range opens at 71 and the one entry closes it.
+    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+
+  it("counts a missing pane as drawn and keeps reporting progress", async () => {
+    // map.getPane can return null for a pane name the API still reports, so the
+    // guard skips the pane passes — but the layer still consumes its unit of
+    // the layer range, otherwise the bar stops short of the top.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const vector = { options: {} };
+    const map = (globalThis as any).map;
+    map.foliplus = {
+      LayerAPI: {
+        layers: [{ visible: true, layer: vector }],
+        getLayerPanes: () => ["gone-pane"],
+      },
+    };
+    map.getPane = () => null;
+
+    const proto = ExportRenderer.prototype as any;
+    const paneSVG = vi.spyOn(proto, "renderPaneSVG");
+    const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+    const markers = vi.spyOn(proto, "collectLayerMarkers");
+    vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
+
+    const onProgress = vi.fn();
+    await runRender(onProgress);
+
+    expect(paneSVG).not.toHaveBeenCalled();
+    expect(paneCanvas).not.toHaveBeenCalled();
+    expect(markers).toHaveBeenCalledWith(vector);
+    // No visible tile layer: 71 opens the layer range, and the single entry
+    // closes it at 90 even though its pane was missing.
+    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+});
+
 describe("ExportRenderer.renderCanvasElement", () => {
   const rectOf = (width: number, height: number, left = 0, top = 0) =>
     ({
@@ -1003,7 +1272,7 @@ describe("ExportRenderer.renderCanvasElement", () => {
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
 
     await new ExportRenderer(makeRenderer().map).renderCanvasElement(
-      makeRC(1000, 1000, ctx),
+      positionedRC(1000, 1000, ctx),
       canvas,
     );
 
@@ -1018,12 +1287,794 @@ describe("ExportRenderer.renderCanvasElement", () => {
     const load = vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
 
     await new ExportRenderer(makeRenderer().map).renderCanvasElement(
-      makeRC(1000, 1000, ctx),
+      positionedRC(1000, 1000, ctx),
       canvas,
     );
 
     expect(load).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+//  renderPaneSVG / renderPaneCanvas — the two pane-level passes.  Both read the
+//  real element box, so each needs an element whose getBoundingClientRect
+//  answers something the crop rect can compare against.
+// =============================================================================
+
+/** jsdom reports every box as 0x0, which makes each pass bail out at its first
+ *  area guard.  Pin a box on the element under test and let the rest fall
+ *  through real. */
+const pinBox = (el, left = 0, top = 0, width = 100, height = 100) => {
+  el.getBoundingClientRect = () =>
+    ({
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+    }) as DOMRect;
+  return el;
+};
+
+/** Both pane passes resolve their image through util.loadImage; jsdom cannot
+ *  load an object URL, so stub it for the tests that reach the draw call. */
+const stubLoad = () => vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+
+describe("ExportRenderer.renderPaneSVG", () => {
+  const NS = CONST.SVG_NS;
+
+  const pane = () => {
+    const p = document.createElement("div");
+    p.className = "leaflet-map-pane";
+    return p;
+  };
+
+  it("paints an svg that carries a shape element", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a g element that itself holds a shape", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const g = document.createElementNS(NS, "g");
+    g.appendChild(document.createElementNS(NS, "circle"));
+    svg.appendChild(g);
+    p.appendChild(svg);
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips an svg with no content", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    p.appendChild(svg);
+    const load = stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("skips an svg with no area", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 0, 0);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    const load = stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportRenderer.renderPaneCanvas", () => {
+  const pane = () => {
+    const p = document.createElement("div");
+    p.className = "leaflet-map-pane";
+    return p;
+  };
+
+  const canvasEl = (left, top, width, height) => {
+    const ce = document.createElement("canvas");
+    ce.className = "leaflet-map-pane foliplus-heatmap-canvas";
+    pinBox(ce, left, top, width, height);
+    ce.toDataURL = () => "data:image/png;base64,AAAA";
+    return ce;
+  };
+
+  it("paints a pane canvas in place", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.appendChild(canvasEl(10, 10, 200, 200));
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a pane canvas with no area", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.appendChild(canvasEl(0, 0, 0, 0));
+    const load = stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("skips a pane canvas outside the crop rect", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    // The rect spans 0..100 on both axes, so a box at 500 is fully outside.
+    p.appendChild(canvasEl(500, 500, 200, 200));
+    const load = stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(100, 100, ctx),
+      p,
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("draws nothing when the data URL cannot load", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.appendChild(canvasEl(10, 10, 200, 200));
+    vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
+
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+//  Marker passes — collectLayerMarkers plus the four per-marker render passes.
+//  collectLayerMarkers resolves panes through the module-level map, so each test
+//  points the global at a mock whose LayerAPI returns the pane it wants.
+// =============================================================================
+
+/** Pin the module-level map that collectLayerMarkers reads, for the duration of
+ *  one test.  Restores whatever the earlier tests left in place. */
+const withLayerPanes = (pane, roots) => {
+  const prev = globalThis.map;
+  Object.defineProperty(globalThis, "map", {
+    value: {
+      foliplus: { LayerAPI: { getLayerPanes: () => [pane] } },
+      getPane: () => roots,
+    },
+    configurable: true,
+  });
+  return () => {
+    Object.defineProperty(globalThis, "map", { value: prev, configurable: true });
+  };
+};
+
+/** jsdom has no canvas backend, so any context that must answer real calls is
+ *  handed in explicitly rather than read from a canvas element. */
+const textCtx = () =>
+  ({
+    ...makeMockCtx(),
+    beginPath: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    roundRect: vi.fn(),
+    fillText: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 0,
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+  }) as unknown as CanvasRenderingContext2D;
+
+/** makeRC leaves contRect without an origin, so the offsets the passes compute
+ *  from it are NaN and every visibility guard silently passes.  Tests that need
+ *  a position-relative result state the container origin explicitly. */
+const positionedRC = (w: number, h: number, ctx) => {
+  const rc = makeRC(w, h, ctx);
+  rc.contRect = { left: 0, top: 0, width: w, height: h } as DOMRect;
+  return rc;
+};
+
+/** document.fonts does not exist in jsdom; both text passes wait on it. */
+const stubFonts = () => {
+  Object.defineProperty(document, "fonts", {
+    configurable: true,
+    value: {
+      load: vi.fn().mockResolvedValue(undefined),
+      check: vi.fn().mockReturnValue(true),
+      ready: Promise.resolve(),
+    },
+  });
+};
+
+/** Answer computed style from a small prop map.  Both read shapes matter: the
+ *  passes read properties directly (cs.backgroundImage) and through
+ *  getPropertyValue (the SVG pass copies a fixed prop list). */
+const withStyle = (props: Record<string, string>) => {
+  const real = window.getComputedStyle;
+  vi.spyOn(window, "getComputedStyle").mockImplementation(() =>
+    Object.assign(Object.create(null), props, {
+      getPropertyValue: (prop: string) => props[prop] || "",
+    }),
+  );
+  return () => real;
+};
+
+describe("ExportRenderer.collectLayerMarkers", () => {
+  it("returns the pane's children, skipping canvas and svg", () => {
+    const pane = "vector";
+    const keep = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    svg.setAttribute("data-foliplus-export", "exclude");
+    const roots = document.createElement("div");
+    roots.append(canvas, keep, svg);
+    const restore = withLayerPanes(pane, roots as any);
+    try {
+      const map = makeRenderer().map;
+      (map as any).getPane = () => roots;
+      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
+        keep,
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips an element marked exclude and one that contains one", () => {
+    const skip = document.createElement("div");
+    skip.setAttribute("data-foliplus-export", "exclude");
+    const nested = document.createElement("div");
+    const mark = document.createElement("span");
+    mark.setAttribute("data-foliplus-export", "exclude");
+    nested.appendChild(mark);
+    const keep = document.createElement("div");
+    const roots = document.createElement("div");
+    roots.append(skip, nested, keep);
+    const restore = withLayerPanes("vector", roots as any);
+    try {
+      const map = makeRenderer().map;
+      (map as any).getPane = () => roots;
+      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
+        keep,
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("returns nothing when the pane is absent", () => {
+    const restore = withLayerPanes("missing", null as any);
+    try {
+      const map = makeRenderer().map;
+      (map as any).getPane = () => null;
+      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("ExportRenderer.renderMarkers", () => {
+  const markerEl = (bg, opts: Record<string, string> = {}) => {
+    const el = document.createElement("div");
+    pinBox(el, 10, 10, 20, 20);
+    const style = { ...opts, backgroundImage: bg };
+    const restore = withStyle(style);
+    el.__restoreStyle = restore;
+    return el;
+  };
+
+  it("draws a sprite through the pooled loader and closes it", async () => {
+    const ctx = textCtx();
+    const el = markerEl('url("sprite.png")', {
+      backgroundSize: "64px 64px",
+      backgroundPosition: "0 0",
+    });
+    stubBitmaps();
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [el],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("scales the sprite source rect by the background size", async () => {
+    const ctx = textCtx();
+    // A 20x20 element at 125% background-size is 25x25 in CSS pixels, so the
+    // sprite source is scaled by 100/25 and the 4px/2px position offsets are
+    // scaled by the same ratio.
+    const el = markerEl('url("sprite.png")', {
+      backgroundSize: "125%",
+      backgroundPosition: "4px 2px",
+    });
+    stubBitmaps(100, 100);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [el],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    const [, sx, sy, sw, sh] = ctx.drawImage.mock.calls[0];
+    expect(sx).toBeCloseTo(16);
+    expect(sy).toBeCloseTo(8);
+    expect(sw).toBeCloseTo(80);
+    expect(sh).toBeCloseTo(80);
+  });
+
+  it("draws from the auto-sized source using devicePixelRatio", async () => {
+    const ctx = textCtx();
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      value: 2,
+    });
+    const el = markerEl('url("sprite.png")', { backgroundSize: "auto" });
+    stubBitmaps();
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [el],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a marker whose sprite window runs off the sprite", async () => {
+    const ctx = textCtx();
+    // A 20x20 element whose background is 10px wide over a 10x10 sprite maps
+    // 1:1, so the 20px background position lands at source offset 20 and the
+    // 20px-wide window runs straight off the sprite edge.  The guard must drop
+    // it rather than draw a fraction.  A percentage background-size cannot
+    // reach this branch: the size is a fraction of the element, so the source
+    // window is always no larger than the element.
+    const el = markerEl('url("sprite.png")', {
+      backgroundSize: "10px 10px",
+      backgroundPosition: "20px 20px",
+    });
+    stubBitmaps(10, 10);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [el],
+    );
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("skips a marker with no area", async () => {
+    const ctx = textCtx();
+    const el = markerEl('url("sprite.png")');
+    el.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 0, height: 0 }) as DOMRect;
+    stubBitmaps();
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [el],
+    );
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportRenderer.renderFontAwesome", () => {
+  it("renders the icon's pseudo-element content", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 20, 20);
+    const icon = document.createElement("i");
+    pinBox(icon, 0, 0, 20, 20);
+    root.appendChild(icon);
+    const restore = withStyle({
+      fontSize: "14px",
+      fontFamily: "FontAwesome",
+      color: "#fff",
+      content: "\\f000",
+      fontWeight: "900",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderFontAwesome(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillText).toHaveBeenCalledTimes(1);
+      expect(ctx.fillText.mock.calls[0][0]).toBe(
+        String.fromCharCode(parseInt("f000", 16)),
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("renders a single literal character", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 20, 20);
+    const icon = document.createElement("i");
+    pinBox(icon, 0, 0, 20, 20);
+    root.appendChild(icon);
+    const restore = withStyle({
+      fontSize: "14px",
+      fontFamily: "FontAwesome",
+      color: "#fff",
+      content: '\"A\"',
+      fontWeight: "normal",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderFontAwesome(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillText.mock.calls[0][0]).toBe("A");
+      // "normal" is normalised to 400 in the font spec.
+      expect(ctx.font).toContain("400");
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips a marker with no icon element", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 20, 20);
+    await new ExportRenderer(makeRenderer().map).renderFontAwesome(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("skips a marker that falls outside the crop", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 500, 500, 20, 20);
+    const icon = document.createElement("i");
+    root.appendChild(icon);
+    await new ExportRenderer(makeRenderer().map).renderFontAwesome(
+      positionedRC(100, 100, ctx),
+      [root],
+    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportRenderer.renderTextLabels", () => {
+  it("draws text with a rounded background and a border", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    const label = document.createElement("span");
+    label.setAttribute("data-foliplus-export", "label");
+    label.textContent = "100 m";
+    pinBox(label, 0, 0, 60, 20);
+    root.appendChild(label);
+    const restore = withStyle({
+      backgroundColor: "rgb(20, 20, 20)",
+      borderRadius: "4px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "rgb(255, 255, 255)",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "bold",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.roundRect).toHaveBeenCalled();
+      expect(ctx.strokeRect).not.toHaveBeenCalled();
+      expect(ctx.fillText).toHaveBeenCalledWith("100 m", 30, 10);
+      expect(ctx.font).toContain("700");
+    } finally {
+      restore();
+    }
+  });
+
+  it("draws a square background without a border", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "plain";
+    const restore = withStyle({
+      backgroundColor: "rgb(10, 10, 10)",
+      borderRadius: "0px",
+      borderWidth: "0px",
+      borderStyle: "none",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("lays out multi-line text around the label centre", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 40);
+    // The label span keeps the newline; the pass reads the box from the label
+    // element itself, so it needs its own rect rather than the root's.
+    const lines = document.createElement("span");
+    lines.setAttribute("data-foliplus-export", "label");
+    lines.textContent = "a\nb";
+    pinBox(lines, 10, 10, 60, 40);
+    root.appendChild(lines);
+    // The pass reads the font from the label element, not the root, so the
+    // style mock must answer for both.
+    const restore = withStyle({
+      backgroundColor: "transparent",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillText).toHaveBeenCalledTimes(2);
+      // Two lines sit symmetric about the label centre, spacing 1.2 * fontSize.
+      const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
+      expect(y1 - y0).toBeCloseTo(14 * 1.2);
+      expect(ctx.fillText).toHaveBeenNthCalledWith(1, "a", 40, 21.6);
+      expect(ctx.fillText.mock.calls[1][0]).toBe("b");
+      expect(ctx.fillText.mock.calls[1][2]).toBeCloseTo(38.4);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips an empty label", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "   ";
+    await new ExportRenderer(makeRenderer().map).renderTextLabels(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("skips a marker that carries an icon", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    root.appendChild(document.createElement("i"));
+    await new ExportRenderer(makeRenderer().map).renderTextLabels(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("skips a marker whose background is a sprite", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const restore = withStyle({ backgroundImage: 'url("sprite.png")' });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillText).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("ExportRenderer.renderRemaining", () => {
+  it("draws an img child", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const img = document.createElement("img");
+    img.src = "https://example.com/m.png";
+    root.appendChild(img);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the inline svg when the img cannot load", async () => {
+    const ctx = textCtx();
+    vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const img = document.createElement("img");
+    img.src = "https://example.com/m.png";
+    root.appendChild(img);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("renders an inline svg through the blob path", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
+    root.appendChild(svg);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("fills a background-coloured dot, rounded and bordered", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 10, 10);
+    const restore = withStyle({
+      backgroundColor: "rgb(255, 0, 0)",
+      backgroundImage: "none",
+      borderRadius: "5px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "rgb(0, 0, 0)",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.roundRect).toHaveBeenCalled();
+      expect(ctx.strokeRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("fills a plain background colour when there is no border", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 10, 10);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 0, 255)",
+      backgroundImage: "none",
+      borderRadius: "0px",
+      borderWidth: "0px",
+      borderStyle: "none",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("leaves a label element untouched", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.setAttribute("data-foliplus-export", "label");
+    const restore = withStyle({
+      backgroundColor: "rgb(20, 20, 20)",
+      backgroundImage: "none",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not paint a background over a sprite marker", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 255, 0)",
+      backgroundImage: 'url("sprite.png")',
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -1124,6 +2175,46 @@ describe("ExportRenderer.tilePositions", () => {
     });
     for (const url of ["right", "above", "below"])
       expect(survivors.map((t: any) => t.url)).not.toContain(url);
+  });
+
+  it("drops tiles whose viewport position is past the crop, even when they intersect the output", () => {
+    // Two guards are separate from isVisible: one rejects a tile that ends
+    // above the crop's top, the other one that starts right of the crop's
+    // right edge.  Both are cheap skips that keep the draw pass off tiles
+    // the crop cannot show -- and neither can be expressed as a destination
+    // rect test, because the rect still intersects the output.
+    const renderer = make();
+    vi.spyOn(renderer, "calcTiles").mockReturnValue([
+      // Viewport 512-768 x 128-384, crop 0-1000 x 500-600: the tile ends
+      // 116 viewport pixels above the crop top, so the "ends above the crop
+      // top" guard rejects it -- in viewport units, a check isVisible
+      // cannot make on its own.
+      tile("above", 2, 2),
+      // Viewport 512-768 x 384-640: it ends exactly on the crop's bottom
+      // edge of 500 plus its own height, so it is the tile the crop's lower
+      // edge touches and survives every guard.
+      tile("edge", 2, 3),
+      // World 1024-1280 x 768-1024: viewport 1024-1280 x 384-640 starts
+      // past the crop's right edge of 1000, so the right-edge guard drops
+      // it even though the destination rect overlaps the output.
+      tile("past-right", 4, 3),
+    ]);
+    const rc = {
+      ...makeRC(1000, 600),
+      rect: { left: 0, top: 500, width: 1000, height: 100 },
+    };
+    const survivors = (renderer as any).tilePositions(rc, bounds, makeTileLayer());
+    expect(survivors.length).toBe(1);
+    expect(survivors[0]).toMatchObject({
+      url: "edge",
+      // The crop is 0-1000 x 500-600; the tile's viewport extent is
+      // 512-768 x 384-640, so its top sits 116 viewport pixels above the
+      // crop top -- the rect crosses the crop but starts above it.
+      dx: 512,
+      dy: -116,
+      dw: 256,
+      dh: 256,
+    });
   });
 
   it("scales the destination rect by the render scale", () => {

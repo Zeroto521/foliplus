@@ -1506,6 +1506,59 @@ describe("ExportManager — export progress", () => {
     );
   });
 
+  it("enlargeAndRender defers the render past a frame and restores the map after", async () => {
+    // The container is resized and the view is re-centred before the render,
+    // but the render itself has to wait a frame so the browser applies the new
+    // layout first — otherwise it measures the old size.  The callback also
+    // owns the restore, so a failed render still puts the map back.
+    const rafQueue: Array<() => void> = [];
+    const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
+      rafQueue.push(cb);
+      return 1;
+    });
+    const origLatLngBounds = (window.L as any).latLngBounds;
+    (window.L as any).latLngBounds = () => ({ getCenter: () => ({ lat: 0, lng: 0 }) });
+    const setView = vi.fn();
+    const invalidateSize = vi.fn();
+    manager.map.getCenter = () => ({ lat: 26.08, lng: 119.3 });
+    manager.map.getZoom = () => 2;
+    manager.map.options = { zoomAnimation: true };
+    manager.map.invalidateSize = invalidateSize;
+    manager.map.setView = setView;
+    const doRender = vi.fn(() => Promise.resolve());
+    manager.doRender = doRender as any;
+
+    manager.enlargeAndRender(
+      { left: 1000, top: 1000, width: 500, height: 500 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      800,
+      600,
+      percent => manager.showGlobalHint(percent),
+    );
+
+    // Resize and re-centre happen synchronously; the render does not.
+    expect(invalidateSize).toHaveBeenCalledWith(false);
+    expect(setView).toHaveBeenCalledWith(expect.anything(), 2, { animate: false });
+    expect(doRender).not.toHaveBeenCalled();
+    expect(rafQueue).toHaveLength(1);
+
+    rafQueue[0]();
+    await vi.waitFor(() => expect(doRender).toHaveBeenCalledTimes(1));
+
+    const args = doRender.mock.calls[0];
+    expect(args[0]).toEqual({ left: 1000, top: 1000, width: 500, height: 500 });
+    expect(args[4]).toBeTypeOf("function");
+    args[4](88);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(88);
+    // The frame callback finished, so the map state is back where it started.
+    expect(manager.map.options.zoomAnimation).toBe(true);
+    expect(invalidateSize.mock.calls.filter(call => call[0] === false)).toHaveLength(2);
+    (window.L as any).latLngBounds = origLatLngBounds;
+    rafSpy.mockRestore();
+  });
+
   it("onRenderSuccess neither claims 100 nor relabels: the render hint stays", async () => {
     // render() stops at 90 on purpose and the hint it left on screen is
     // PERSIST, so it is still up during the encode.  Nothing here has to
