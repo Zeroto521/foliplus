@@ -1,6 +1,11 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import {
+  GEOM_TYPE,
+  type LayerInfo,
+  forEachLeaf,
+  getGeometryType,
+} from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -25,6 +30,22 @@ import * as Util from "./util.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
+
+/**
+ * Push one persisted rename out to whatever projections of it exist.
+ *
+ * Shared by the whole-panel sweep and the targeted single-layer call so the
+ * "skip unchanged" rule lives in exactly one place.
+ */
+const applyNameProjection = (
+  layerInfo: LayerInfo | null,
+  item: HTMLElement | null,
+  name: string,
+): void => {
+  if (!layerInfo && !item) return;
+  if (layerInfo && layerInfo.name !== name) layerInfo.name = name;
+  updateItemLabel(item, name);
+};
 
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
@@ -141,8 +162,12 @@ class LayerUI {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
-    this.applyNamesState();
     this.reindexItems();
+    // Last in the attach sequence: applyUserState() runs the full sweep
+    // needed for rows rendered from the initial registry. Hidden ids are
+    // loaded above but only applied here, so a row can never render visible
+    // and get removed afterwards.
+    this.applyUserState();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -185,86 +210,144 @@ class LayerUI {
   }
 
   /**
-   * Overwrite each registered layer's display name with the user-assigned
-   * value and refresh the affected label in the UI. Called once from
-   * attachUI() after the initial list + pending registrations are rendered.
-   */
-  applyNamesState() {
-    if (!this.uiContainer) return;
-    for (const [id, name] of Object.entries(this.renamedNames)) {
-      const layerInfo = this.m.layerRegistry.get(id);
-      const isColorLayer = id === CONST.COLOR.MAP_ID;
-      if (!layerInfo && !isColorLayer) continue;
-      if (layerInfo && layerInfo.name === name) continue;
-      if (layerInfo) layerInfo.name = name;
-      const item = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-      ) as HTMLElement | null;
-      updateItemLabel(item, name);
-    }
-  }
-
-  /** Save user-assigned names, coalescing rapid calls. */
-  saveNamesState() {
-    this.m.persistence.saveNames(() => this.renamedNames);
-  }
-
-  /**
-   * Apply persisted hidden state after the UI rows are rendered.
+   * Propagate the user's stored state — hidden visibility and renames —
+   * into the registry and the rendered rows.
    *
-   * Folium adds every layer to the map before the LayerControl IIFE runs,
-   * so on reload hidden layers are back on the map. This method actively
-   * removes them again so the checkboxes and the map agree.
+   * `hiddenIds` and `renamedNames` are the source of truth; the registry's
+   * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
+   * are their projections, refreshed here whenever a row or the registry is
+   * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
+   * overwrite of `visible`, so it writes straight through; name is a
+   * cross-axis projection that must preserve the author's original name, so
+   * it goes through `applyNameProjection`, which writes only where the
+   * projection still differs — a repeated pass is therefore a no-op.
    *
-   * Unknown ids (removed layers) are dropped so stale persistence doesn't
-   * accumulate. Fires onToggle(false) for callback-only layers (canvas /
-   * heatmap) which have no Leaflet layer to remove.
+   * The sweep also prunes ids whose layers no longer exist so stale
+   * persistence doesn't accumulate.
+   *
+   * @param {string} [id] Restrict to one layer id — a late-arriving row is
+   *   already rendered with the right label, so it only needs its registry
+   *   projection; a full sweep would re-rewrite every renamed row for no
+   *   gain. Both projections are membership-guarded on this path: the drain
+   *   runs for every late registration, so an unhidden layer must not be
+   *   hidden and a missing rename must not write undefined.
    */
-  applyHiddenState() {
+  applyUserState(id?: string) {
     const registry = this.m.layerRegistry;
-    // Guard: on attach applyHiddenState runs after renderInitialList, so the
-    // container always exists. Defensive null check keeps standalone calls
-    // (and tests) safe before attach.
     const container = this.uiContainer;
-    for (const id of this.hiddenIds) {
+
+    if (id) {
       const layerInfo = registry.get(id);
-      if (!layerInfo) continue; // stale id (layer removed) — drop it.
-
-      const item = container
-        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
-        : null;
-      const checkbox = item?.querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement | null;
-      const layer = this.m.findLayer(layerInfo);
-
-      // Callback-only layers (canvas) have no Leaflet layer to remove — fire
-      // the toggle callback so the canvas itself hides.
-      if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
-      else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
-
-      layerInfo.visible = false;
-
-      if (checkbox) {
-        checkbox.checked = false;
-        checkbox.title = T("select_tooltip");
-      }
-      item?.classList.remove(CONST.CLASSES.ACTIVE);
+      if (!layerInfo) return; // stale id — pruned by persistence on save
+      // Both projections are membership-guarded — this path runs for every
+      // late registration, including layers the user never touched. A layer
+      // that was never hidden must not be hidden, and a missing rename is a
+      // no-op rather than a write of undefined over the registry's own name.
+      if (this.hiddenIds.has(id)) this.applyHiddenStateOne(layerInfo);
+      if (id in this.renamedNames)
+        applyNameProjection(layerInfo, null, this.renamedNames[id]);
+      return;
     }
+
+    const ids = new Set([...this.hiddenIds, ...Object.keys(this.renamedNames)]);
+    for (const layerId of ids) {
+      if (layerId in this.renamedNames) {
+        if (layerId === CONST.COLOR.MAP_ID) {
+          // The color basemap has no registry entry — only its row label.
+          applyNameProjection(
+            null,
+            container?.querySelector(
+              `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+            ) as HTMLElement | null,
+            this.renamedNames[layerId],
+          );
+          continue;
+        }
+        const layerInfo = registry.get(layerId);
+        if (!layerInfo) continue; // stale id — pruned by persistence on save
+        applyNameProjection(
+          layerInfo,
+          container?.querySelector(
+            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+          ) as HTMLElement | null,
+          this.renamedNames[layerId],
+        );
+      }
+      if (this.hiddenIds.has(layerId)) {
+        const layerInfo = registry.get(layerId);
+        if (layerInfo) this.applyHiddenOne(layerInfo, layerId);
+      }
+    }
+
     // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Stale ids occur when a layer is removed at runtime after being hidden.
-    const staleIds = [...this.hiddenIds].filter(id => registry.get(id) == null);
+    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
+    // to write the projection into. Renames are pruned in unregisterLayer
+    // instead — a rename whose id is not in the registry yet belongs to a
+    // component that will register later, so sweeping it here would drop it
+    // on the very first attach and the user would see the default name.
+    const staleIds = [...this.hiddenIds].filter(
+      layerId => registry.get(layerId) == null,
+    );
     if (staleIds.length > 0) {
       console.warn(
         `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
       );
       this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(id => registry.get(id) != null),
+        [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),
       );
       // Persist the cleaned set so the same stale ids don't get re-warned
       // on the next reload.
       this.saveHiddenIds();
     }
+  }
+
+  /**
+   * Apply one hidden id: remove the layer from the map, fire the toggle
+   * callback (so callback-only canvas/heatmap layers hide themselves), and
+   * sync the row's checkbox and tooltip.
+   */
+  private applyHiddenOne(layerInfo: LayerInfo, id: string) {
+    const container = this.uiContainer;
+    const item = container
+      ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
+      : null;
+    const checkbox = item?.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
+
+    this.applyHiddenStateOne(layerInfo);
+
+    if (checkbox) {
+      checkbox.checked = false;
+      checkbox.title = T("select_tooltip");
+    }
+    item?.classList.remove(CONST.CLASSES.ACTIVE);
+  }
+
+  /**
+   * Hide one layer without touching its row — the map removal, the callback
+   * for canvas-only layers, and the registry's `visible` flag.
+   *
+   * Split from {@link LayerUI.applyHiddenOne} because the registry projection
+   * must run before the row is rendered: a late registration gets its
+   * projection via {@link LayerUI.applyUserState}(id) before its row lands in
+   * the DOM, so a callback-only layer hidden that way would otherwise stay
+   * "visible" until the next full sweep and re-enter the map.
+   */
+  private applyHiddenStateOne(layerInfo: LayerInfo) {
+    const layer = this.m.findLayer(layerInfo);
+
+    // Callback-only layers (canvas) have no Leaflet layer to remove — fire
+    // the toggle callback so the canvas itself hides.
+    if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
+    else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
+
+    layerInfo.visible = false;
+  }
+
+  /** Save user-assigned names, coalescing rapid calls. */
+  saveNamesState() {
+    this.m.persistence.saveNames(() => this.renamedNames);
   }
 
   /** Full re-scan of every row (used on attach/fold-toggle). */
@@ -273,7 +356,7 @@ class LayerUI {
     // map state: folium adds every layer before the control IIFE runs, so on
     // reload hidden layers are back on the map. Hidden ids no longer in the
     // registry are dropped (their layer was removed).
-    this.applyHiddenState();
+    this.applyUserState();
 
     let anyBaseVisible = false;
     for (let i = 0; i < this.m.layers.length; i++) {
@@ -413,25 +496,12 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
-    // If the layer has a persisted rename, apply it before reindexing so
-    // the label + checkbox aria reflect the user-assigned name immediately.
-    this.applyPersistedRename(layerInfo, item);
-
     if (reindex) this.reindexItems();
-  }
-
-  /**
-   * Apply a persisted rename to a just-inserted layer item.
-   *
-   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
-   * from the registry — the Python-supplied original name. This mirrors the
-   * logic in applyNamesState so the inline label + checkbox aria match.
-   */
-  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
-    const name = this.renamedNames[layerInfo.id];
-    if (!name) return;
-    if (layerInfo.name !== name) layerInfo.name = name;
-    updateItemLabel(item, name);
+    // insertLayerItem is where a late-registered (third-party) layer first
+    // shows up, so the user's name and visibility land with the row instead
+    // of waiting for a later pass. Only this layer's id is applied — a full
+    // sweep would re-rewrite every renamed row on each registration.
+    this.applyUserState(layerInfo.id);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -440,16 +510,31 @@ class LayerUI {
     ) as HTMLElement | null;
     if (!item) return;
     item.dataset.index = String(idx);
-    const label = item.querySelector("label");
-    if (label) label.textContent = layerInfo.name;
+    // updateItemLabel sets both the row label and the checkbox's aria-label,
+    // so the name reaches assistive tech here without touching `title` — the
+    // row's tooltip slot keeps the feature count + type.
+    updateItemLabel(item, this.displayName(layerInfo.id));
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
-    if (checkbox) {
-      checkbox.dataset.index = String(idx);
-      checkbox.setAttribute("aria-label", layerInfo.name);
-      checkbox.title = layerInfo.name;
-    }
+    if (checkbox) checkbox.dataset.index = String(idx);
+  }
+
+  /**
+   * Effective panel display name for a layer: the user-assigned rename wins,
+   * falling back to the registry name, then to the locale label for the
+   * virtual color basemap — the only row with no registry entry.
+   *
+   * Every render path resolves names through here so a registry mutation
+   * (re-registration, type refresh) can no longer resurrect the original
+   * third-party name over a rename.
+   */
+  displayName(id: string): string {
+    return (
+      this.renamedNames[id] ??
+      this.m.layerRegistry.get(id)?.name ??
+      (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
+    );
   }
 
   renderToggleAllRow(group: string, labelKey: string) {
@@ -496,7 +581,7 @@ class LayerUI {
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    const name = layerInfo.name;
+    const name = this.displayName(layerInfo.id);
 
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -527,8 +612,11 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
+          // The name reaches assistive tech via aria-label. `title` is the
+          // Select/Deselect slot — initLayerItem sets it per checked state
+          // before this row can be hovered, so leave it unseeded rather than
+          // flashing the layer name.
           "aria-label": name,
-          title: name,
         }),
       ),
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
@@ -554,19 +642,21 @@ class LayerUI {
     );
   }
 
-  /** Current display name for the virtual color basemap: persisted rename
-   *  if present, else the locale label. The color layer has no registry
-   *  entry, so this is its only source of truth. */
+  /** Current display name for the virtual color basemap: persisted rename if
+   *  present, else the locale label. The color layer has no registry entry. */
   private colorLayerName(): string {
-    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
+    return this.displayName(CONST.COLOR.MAP_ID);
   }
 
   renderColorLayerItem() {
+    // The input announces the same name as the row's label cell below, so a
+    // rename reaches assistive tech on both — not just the visible text.
+    const colorName = this.colorLayerName();
     const colorInput = dom.el("input", {
       type: "color",
       class: CONST.CLASSES.COLOR_INPUT,
       value: this.currentColor,
-      "aria-label": T("color_map_label"),
+      "aria-label": colorName,
     });
 
     // Color layer lives outside layerRegistry — rename is the only overflow
@@ -612,6 +702,7 @@ class LayerUI {
   initLayerItem(layerInfo: LayerInfo): boolean {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return false;
+    const name = this.displayName(layerInfo.id);
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
     ) as NodeListOf<HTMLInputElement>;
@@ -636,6 +727,11 @@ class LayerUI {
       if (item) {
         if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
+        // The rename must survive a full init pass — initLayerItem is the
+        // only incremental path that refreshes a row without re-rendering it.
+        // aria-label carries the name; the title slot stays Select/Deselect
+        // as set above.
+        input.setAttribute("aria-label", name);
       }
     }
 
@@ -1558,9 +1654,9 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
-    // Color layer has no registry entry — default the input to the name the
-    // UI already shows (locale label), not the color hex.
-    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
+    // displayName resolves rename → registry → the color layer's locale label,
+    // so the input opens with the name the UI already shows.
+    const currentName = this.displayName(layerId);
 
     this.activeRenameId = layerId;
     // Flag the row so CSS can stretch the input across the label+count area
@@ -1578,9 +1674,13 @@ class LayerUI {
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
-          if (layerInfo) layerInfo.name = trimmed;
+          // renamedNames is the source of truth; the registry entry and the
+          // row labels are projections that applyUserState() pushes out, so
+          // a re-registration that rebuilds the registry from a third-party
+          // layer's own metadata cannot resurrect the author's original name.
           this.renamedNames[layerId] = trimmed;
           this.saveNamesState();
+          this.applyUserState();
         }
         this.finishRename(true);
       },
@@ -1617,10 +1717,7 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     item?.classList.remove(CONST.CLASSES.RENAMING);
     removeInlineEditInput(label);
-    if (restoreText) {
-      const name = layerInfo ? layerInfo.name : this.colorLayerName();
-      updateItemLabel(item, name);
-    }
+    if (restoreText) updateItemLabel(item, this.displayName(layerId));
   }
 
   /**

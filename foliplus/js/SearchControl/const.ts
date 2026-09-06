@@ -7,7 +7,6 @@ const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
 /** Result source: live geocode hit or saved history entry. */
 type SearchSource = (typeof SOURCE)[keyof typeof SOURCE];
 const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
-const FORMAT = { LAT_LNG_PRECISION: 6 };
 const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
 const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 const CLASSES = {
@@ -42,7 +41,6 @@ export {
   type SearchType,
   AUTOCOMPLETE,
   CLASSES,
-  FORMAT,
   HISTORY,
   MODE,
   PARAM,

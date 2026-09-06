@@ -54,6 +54,22 @@ describe("LayerRegistry", () => {
       expect(info.name).toBe("Existing");
       expect(info.visible).toBe(false);
     });
+
+    it("keeps the current name when a layer is re-registered", () => {
+      // A third-party provider re-adding its layer re-advertises its own name.
+      // Taking the caller's value would reset the display name on every
+      // re-registration, so an existing id keeps the name the user last saw.
+      const info = registry.createLayerInfo(
+        { id: "overlay1", name: "Provider Name" },
+        registry.get("overlay1"),
+      );
+      expect(info.name).toBe("Points");
+    });
+
+    it("accepts opts.name for a fresh id", () => {
+      const info = registry.createLayerInfo({ id: "new1", name: "Fresh" });
+      expect(info.name).toBe("Fresh");
+    });
   });
 
   describe("upsert", () => {
