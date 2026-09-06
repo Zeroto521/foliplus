@@ -65,6 +65,8 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+<<<<<<< HEAD
+- `LayerControl`: a hide or reorder made inside the 100ms persistence debounce window was lost — `destroy()` cancelled the timers before the UI flush could run, so the panel read stale visibility and order back after a reload. The pending writes are now flushed before the persistence object is torn down ([#252](https://github.com/Zeroto521/foliplus/pull/252))
 
 ## [v0.3.0] (2026-08-02)
 
