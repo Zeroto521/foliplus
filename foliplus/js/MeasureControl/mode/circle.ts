@@ -204,7 +204,11 @@ class CircleMode extends PreviewMode {
       // The node is attached after the circle and radius line, so those two
       // can never paint over it as the cursor moves.
       if (!previews.node)
-        previews.node = this.addPreview(Util.makePreviewNode(event.latlng), false, true);
+        previews.node = this.addPreview(
+          Util.makePreviewNode(event.latlng),
+          false,
+          true,
+        );
       else previews.node.setLatLng(event.latlng);
 
       // Only the label is re-anchored afterwards, so every shape is attached
