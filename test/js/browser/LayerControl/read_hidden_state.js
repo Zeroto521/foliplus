@@ -3,22 +3,47 @@
   // still says the layer is visible, and whether the Leaflet layer is actually
   // attached to the map. Each half of the projection is asserted separately, so
   // neither a UI-only nor a data-only mishap can slip past this guard.
+  //
+  // Rows are anchored by class, not by [data-layer-id]: renderLayerItem stamps
+  // the id on the row and again on its count cell, so a [data-layer-id]
+  // selector counts each layer twice. The per-group toggle-all row is not a
+  // registered layer either -- a registry lookup on it throws and would turn
+  // every assertion in the suite that reads this fixture into a false failure.
   const rows = document.querySelectorAll(
-    '[data-layer-type]:not([data-layer-type="base"])',
+    ".foliplus-layer-item:not([data-layer-type='base']):not(.foliplus-color-layer-item)",
   );
-  const map = window.map;
-  const resolve = id => (map?._layers && map._layers[id]) || window[id] || null;
+  // folium declares the map as a per-map global named after the container's id,
+  // not as window.map, so window.map is undefined and every map lookup through
+  // it resolves to nothing.
+  const el = document.querySelector(".leaflet-container");
+  const map = el ? window[el.id] : window.map;
+  const api = map && map.foliplus ? map.foliplus.LayerAPI : null;
+  // Registry entries carry no .layer for folium's TileLayer/FeatureGroup, so
+  // the registry view alone cannot answer "is it on the map" -- the manager's
+  // own resolver has to. A null here means the row's layer was never
+  // resolved, which no reload can honour.
+  const resolve = id => {
+    if (api && api.findLayer) {
+      try {
+        const layer = api.findLayer(id);
+        if (layer) return !!map.hasLayer(layer);
+      } catch {
+        // fall through to the direct lookups
+      }
+    }
+    const direct = (map._layers && map._layers[id]) || window[id] || null;
+    return direct ? !!map.hasLayer(direct) : null;
+  };
   const out = [];
   rows.forEach(row => {
     const id = row.getAttribute("data-layer-id");
     const cb = row.querySelector('input[type="checkbox"]');
-    const info = map?.foliplus?.LayerAPI?.layers.find(l => l.id === id);
-    const layer = info?.layer || resolve(id);
+    const info = api?.layers.find(l => l.id === id);
     out.push({
       id,
       checked: cb?.checked ?? null,
       visible: info?.visible ?? null,
-      onMap: layer ? !!map.hasLayer(layer) : null,
+      onMap: resolve(id),
     });
   });
   // Registry entries must back every rendered row -- otherwise the row state
@@ -30,7 +55,6 @@
       `registry has no entry for ${missing.length} rendered row(s): ${missing.join(", ")}`,
     );
   }
-  const api = map?.foliplus?.LayerAPI;
   return {
     rows: out,
     // How many layers the registry thinks exist -- one per rendered row, and
