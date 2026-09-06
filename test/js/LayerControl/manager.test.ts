@@ -6,6 +6,7 @@ import {
   patchBringToFront,
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
+import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
@@ -814,6 +815,91 @@ describe("LayerManager", () => {
     expect(manager.isDestroyed).toBe(true);
   });
 
+  it("destroy without a UI container still tears down map bindings", () => {
+    // A map without LayerControl on it has a manager with a registry but no
+    // panel: destroy still must unbind the layeradd listener and clear the
+    // registry.
+    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    expect(m.uiContainer).toBeNull();
+    m.destroy();
+    expect(map.off).toHaveBeenCalledWith("layeradd", m.onLayerAdd);
+    expect(m.isDestroyed).toBe(true);
+    expect(m.layerRegistry.size).toBe(0);
+  });
+
+  it("onLayerAdd is a no-op once the manager is destroyed", () => {
+    // A destroyed manager must ignore stray layeradd events, including ones
+    // fired before its off() takes effect in the same teardown pass.
+    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const spy = vi.spyOn(m, "enforceOrder");
+    m.destroy();
+    m.onLayerAdd({ layer: { options: {} } } as any);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("debouncedEnforce skips scheduling once destroyed", () => {
+    // A register/unregister racing the teardown must not reschedule a
+    // z-order pass on a manager that no longer has a map.
+    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const spy = vi.spyOn(m, "enforceOrder");
+    m.destroy();
+    m.debouncedEnforce();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("destroy flushes a pending order write instead of cancelling it", () => {
+    // persistence.destroy cancels the debounce timer, so the UI's flush in
+    // unbindEvents must run first — otherwise the last reorder inside the
+    // debounce window is dropped and the panel reads a stale order back.
+    const m = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "b", name: "B", isBase: false },
+    ]);
+    m.persistence = new LayerPersistence(m.layerRegistry);
+    const save = vi.spyOn(Storage, "save");
+    m.saveOrder();
+    save.mockClear();
+    m.destroy();
+    expect(save).toHaveBeenCalledWith(
+      CONST.STORAGE.ORDER_KEY,
+      expect.any(Array),
+      expect.any(String),
+    );
+  });
+
+  it("destroy flushes a pending hidden-set write instead of cancelling it", () => {
+    // Same ordering for visibility: a hide just before teardown must survive
+    // the reload, which is the whole point of the teardown flush.
+    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    m.persistence = new LayerPersistence(m.layerRegistry);
+    const save = vi.spyOn(Storage, "save");
+    m.persistence.saveHiddenIds(() => new Set(["a"]));
+    save.mockClear();
+    m.destroy();
+    expect(save).toHaveBeenCalledWith(
+      CONST.STORAGE.VISIBILITY_KEY,
+      ["a"],
+      expect.any(String),
+    );
+  });
+
+  it("registerLayer pins the pane on a layer with a container of its own", () => {
+    // A non-Path/Marker layer with children (L.GeoJSON-style) must get
+    // paneSet written so enforceOrder does not fall back to a generated pane.
+    const child = { options: {} };
+    const parent = { options: {}, eachLayer: vi.fn(cb => cb(child)) };
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "layered",
+      name: "Layered",
+      layer: parent,
+      paneName: "layer_graph",
+    });
+    expect(parent.options.pane).toBe("layer_graph");
+    expect(parent.options.paneSet).toBe(true);
+  });
+
+>>>>>>> 6209ab7b (fix(LayerControl): persist the last toggle and reorder on destroy)
   it("applyLayerZIndex calls setZIndex for visible TileLayers", () => {
     const tile = new TileLayer();
     manager.map.hasLayer.mockReturnValue(true);

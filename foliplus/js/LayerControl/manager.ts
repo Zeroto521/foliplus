@@ -694,11 +694,18 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    this.persistence.destroy();
+    // Flush the pending persistence writes before destroying the persistence
+    // object, which cancels the timers. unbindEvents below flushes the same
+    // timers, but it only runs when a panel is attached — and the write is
+    // debounced at 100ms, wide enough for the control to be removed before the
+    // timer fires. Persisting here makes teardown independent of that.
+    this.persistence.flushSaveOrder();
+    this.persistence.flushSaveHiddenIds();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
     }
+    this.persistence.destroy();
     if (this.uiContainer) {
       this.uiContainer.innerHTML = "";
       this.uiContainer = null;
