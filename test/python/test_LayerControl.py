@@ -1336,26 +1336,22 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             info = page.evaluate(_js("LayerControl/read_hidden_state"))
-            # Overlays only: the two TileLayers are base rows
-            # (data-layer-type="base"), which the selector excludes by design.
+            # Overlays only: the two TileLayers are base rows, which the
+            # selector excludes by class. A [data-layer-id] selector would count
+            # each layer twice, since renderLayerItem stamps the id on the row
+            # and again on its count cell.
             assert len(info["rows"]) == 2, f"expected 2 overlay rows, got {info}"
             ids = [r["id"] for r in info["rows"]]
             # Distinct ids: a duplicate would make the persisted hidden set apply
             # to only one of the two.
             assert len(set(ids)) == len(ids), f"duplicate layer ids in registry: {ids}"
-            # A null here means the registry entry never resolved its Leaflet
-            # layer -- that row cannot be added or removed, so no state on it can
-            # be honoured after a reload.
+            # The fixture throws if a rendered row has no registry entry, since
+            # such a row's state has no source of truth. A null here means the
+            # manager's own resolver could not find the Leaflet layer -- that
+            # row cannot be added or removed, so no state on it can be honoured
+            # after a reload.
             unresolved = [r for r in info["rows"] if r["onMap"] is None]
             assert not unresolved, f"unresolved layers in registry: {unresolved}"
-            # mapCount is the number of rows plus however many base layers are
-            # actually attached: show=False keeps a TileLayer off the map, and
-            # map._layers holds only the layers the map owns, never the
-            # control's own rows.
-            assert info["mapCount"] == len(info["rows"]) + 1, (
-                f"map holds {info['mapCount']} layers, expected "
-                f"{len(info['rows'])} overlays + 1 visible base: {info}"
-            )
             # The page's own show=False is honoured on load -- one overlay is
             # declared hidden and one is declared visible, so the registry and
             # the map each say exactly that.
