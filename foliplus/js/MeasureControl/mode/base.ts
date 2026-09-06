@@ -1,5 +1,5 @@
 import { createTranslator } from "#common/locale.js";
-import { failError } from "#common/log.js";
+import { createLogger } from "#common/log.js";
 import type { MeasureManager } from "../manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
@@ -8,6 +8,8 @@ import type { MeasureManager } from "../manager.js";
 // fallback to NAME_LABEL kicks in. createScopedTranslator prepends conf.name,
 // breaking that comparison — so base.ts deliberately uses createTranslator.
 const T = createTranslator(CONF);
+
+const log = createLogger(CONF.name);
 
 class MeasureMode {
   static TYPE: string = "";
@@ -50,7 +52,7 @@ class MeasureMode {
 
   /** Start the mode — bind events, create UI. Subclasses must override. */
   start(): void {
-    return failError(CONF.name, `start not implemented for ${this.type}`);
+    throw new Error(log.err(`start not implemented for ${this.type}`));
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
@@ -71,13 +73,13 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
-    return failError(CONF.name, `restore not implemented for ${this.TYPE}`);
+    throw new Error(log.err(`restore not implemented for ${this.TYPE}`));
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
   static toGeoFeature(_data: MeasureData): GeoJSON.Feature {
-    return failError(CONF.name, `toGeoFeature not implemented for ${this.TYPE}`);
+    throw new Error(log.err(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }
 

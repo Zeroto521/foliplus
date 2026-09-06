@@ -11,11 +11,11 @@ import {
   makeDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
+import { createLogger } from "#common/log.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { failError } from "#common/log.js";
 import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,
@@ -36,6 +36,7 @@ import type {
 
 const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
@@ -478,9 +479,8 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   // the lockstep that the Enter handler depends on.
   const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
   if (domCount !== results.length) {
-    return failError(
-      CONF.name,
-      `result panel drift: DOM has ${domCount} items but retained ${results.length}`,
+    throw new Error(
+      log.err(`result panel drift: DOM has ${domCount} items but retained ${results.length}`),
     );
   }
 };

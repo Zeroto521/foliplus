@@ -1,18 +1,26 @@
 // common/log — namespaced diagnostics. Covers the `[<name>] ` log shape, the
-// `[<name>]: ` throw shape, argument forwarding, and that a thrown value keeps
-// its native constructor (instanceof, message, name, stack).
+// `[<name>]: ` throw shape, and argument forwarding. Thrown values stay plain
+// `new Error(...)` / `new TypeError(...)`, so instanceof/name/stack come from the
+// runtime, not from here.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  createLogger,
-  fail,
-  failError,
-  failType,
-  makeError,
-  makeTypeError,
-} from "#common/log.js";
+import { createLogger } from "#common/log.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("err", () => {
+  it("joins with a colon separator", () => {
+    expect(createLogger("MeasureControl").err("point has no lng/lat")).toBe(
+      "[MeasureControl]: point has no lng/lat",
+    );
+  });
+
+  it("keeps the prefix on quoted messages", () => {
+    expect(createLogger("LayerRegistry").err('read-only method "push" is blocked')).toBe(
+      '[LayerRegistry]: read-only method "push" is blocked',
+    );
+  });
 });
 
 describe("createLogger", () => {
@@ -46,64 +54,15 @@ describe("createLogger", () => {
   });
 });
 
-describe("fail helpers", () => {
-  it("failError() throws Error with a [<name>]: prefix", () => {
-    expect(() => failError("ExportControl", "crop too small")).toThrow(
-      "[ExportControl]: crop too small",
+describe("separator contrast", () => {
+  it("log lines and thrown messages read differently", () => {
+    // A log is a statement; an error message is the stack trace's heading.
+    const warn = vi.fn();
+    vi.stubGlobal("console", { warn });
+    createLogger("LayerControl").warn("dropped stale ids");
+    expect(warn).toHaveBeenCalledWith("[LayerControl] dropped stale ids");
+    expect(createLogger("LayerControl").err("dropped stale ids")).toBe(
+      "[LayerControl]: dropped stale ids",
     );
-  });
-
-  it("failType() throws TypeError with a [<name>]: prefix", () => {
-    expect(() => failType("MeasureControl", "point has no lng/lat")).toThrow(
-      "[MeasureControl]: point has no lng/lat",
-    );
-  });
-
-  it("fail() throws whatever constructor it is given", () => {
-    expect(() => fail(Error, "foliplus", "boom")).toThrow("[foliplus]: boom");
-    expect(() => fail(TypeError, "foliplus", "boom")).toThrow("[foliplus]: boom");
-  });
-
-  it("keeps the native constructor on the thrown value", () => {
-    try {
-      failType("MeasureControl", "point has no lng/lat");
-    } catch (e) {
-      expect(e).toBeInstanceOf(TypeError);
-      expect((e as Error).message).toBe("[MeasureControl]: point has no lng/lat");
-      expect((e as Error).name).toBe("TypeError");
-      expect(typeof (e as Error).stack).toBe("string");
-    }
-
-    try {
-      failError("ExportControl", "crop too small");
-    } catch (e) {
-      expect(e).toBeInstanceOf(Error);
-      expect(e).not.toBeInstanceOf(TypeError);
-      expect((e as Error).name).toBe("Error");
-    }
-  });
-});
-
-describe("makeError / makeTypeError", () => {
-  it("makeTypeError() returns a class whose instances are TypeErrors", () => {
-    const ctor = makeTypeError("LayerRegistry");
-    const e = new ctor("cannot delete layers directly");
-    expect(e).toBeInstanceOf(TypeError);
-    expect(e.message).toBe("[LayerRegistry]: cannot delete layers directly");
-    expect(e.name).toBe("TypeError");
-    expect(typeof e.stack).toBe("string");
-  });
-
-  it("makeError() is usable from a closure that throws later (Proxy trap shape)", () => {
-    const ctor = makeError(TypeError, "LayerRegistry");
-    const trap = () => {
-      throw new ctor(`read-only method "push" is blocked`);
-    };
-    expect(trap).toThrow('[LayerRegistry]: read-only method "push" is blocked');
-    try {
-      trap();
-    } catch (e) {
-      expect(e).toBeInstanceOf(TypeError);
-    }
   });
 });
