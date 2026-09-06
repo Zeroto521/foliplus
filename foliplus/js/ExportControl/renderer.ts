@@ -508,7 +508,8 @@ class ExportRenderer {
         if (!sprite) continue;
         const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
-        let cssBgW: number, cssBgH: number;
+        let cssBgW: number;
+        let cssBgH: number;
         if (bgs === "auto" || bgs === "auto auto") {
           cssBgW = sprite.width / (window.devicePixelRatio || 1);
           cssBgH = sprite.height / (window.devicePixelRatio || 1);
@@ -586,10 +587,10 @@ class ExportRenderer {
       let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
       if (fontWeight === "normal") fontWeight = "400";
       if (fontWeight === "bold") fontWeight = "700";
-      let iconDX = dx,
-        iconDY = dy,
-        iconDW = dw,
-        iconDH = dh;
+      let iconDX = dx;
+      let iconDY = dy;
+      let iconDW = dw;
+      let iconDH = dh;
       const ir = iconEl.getBoundingClientRect();
       const il = ir.left - contRect.left;
       const it = ir.top - contRect.top;

@@ -32,16 +32,21 @@ const initFixture = (
   window.CONF.locale_code = "en";
 
   class Renderer {}
+
   class Path {
     options = {};
   }
+
   class Polygon {
     options = {};
   }
+
   class Polyline {
     options = {};
   }
+
   class Marker {}
+
   class CircleMarker {
     constructor(_latlng: any, _opts: any) {}
     addTo(_map: any) {
@@ -223,7 +228,9 @@ const findItem = (ui: LayerUI, id: string): HTMLElement =>
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
-  let manager: LayerManager, ui: LayerUI, map: any;
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());

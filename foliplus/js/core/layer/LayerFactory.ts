@@ -54,7 +54,7 @@ class LayerFactory {
     // onDataChange would over-fire on every addLayer (preview layers in
     // MeasureControl alone call addLayer 6-7 times per measurement), causing
     // redundant UI refreshes of an unchanged count. Skip it.
-    const onDataChangeSkip = !!opts.featureCountProvider;
+    const onDataChangeSkip = Boolean(opts.featureCountProvider);
     const mainLayer = L.layerGroup();
     const graphLayer = opts.graphPane
       ? L.layerGroup([], { pane: opts.graphPane })

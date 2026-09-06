@@ -30,6 +30,7 @@ describe("buildEditOverlay", () => {
   function makeMap() {
     return { on: vi.fn(), off: vi.fn() } as any;
   }
+
   function makeHost(overrides: Record<string, unknown> = {}) {
     return { map: makeMap(), isEditMode: true, ...overrides };
   }

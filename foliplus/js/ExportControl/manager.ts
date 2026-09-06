@@ -196,8 +196,8 @@ class ExportManager {
   loadSavedBounds() {
     const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
-    const nw = data.nw,
-      se = data.se;
+    const nw = data.nw;
+    const se = data.se;
     const validLat =
       nw.lat >= -COORD_BOUNDS.LAT &&
       nw.lat <= COORD_BOUNDS.LAT &&
@@ -629,7 +629,7 @@ class ExportManager {
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
     // render passes sees the final positions after hiding controls.
-    this.mapContainer.offsetHeight;
+    void this.mapContainer.offsetHeight;
 
     if (geoBounds && geoBounds.nw) {
       const nw = this.map.latLngToContainerPoint(
@@ -702,7 +702,7 @@ class ExportManager {
     this.map.invalidateSize(false);
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
-      this.mapContainer.offsetHeight; // Force synchronous reflow
+      void this.mapContainer.offsetHeight; // Force synchronous reflow
       this.doRender(r, scaleValue, bg, geoBounds)
         .finally(restore)
         .catch(() => undefined);

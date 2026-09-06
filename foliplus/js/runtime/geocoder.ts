@@ -89,8 +89,8 @@ const geocode = (
     const [lat, lng, ...name] = cached.split("\u0001");
     if (name.length)
       return Promise.resolve({
-        lat: +lat,
-        lng: +lng,
+        lat: Number(lat),
+        lng: Number(lng),
         display_name: name.join("\u0001"),
       });
   }

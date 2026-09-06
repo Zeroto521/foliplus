@@ -161,7 +161,7 @@ const artifact = (entryPoints, outfile, name) => ({
   ...esbuildCfg,
   // Tree Shaking: disabled for shared entry (produces shared code),
   // enabled for component bundles (drop unused shared exports).
-  treeShaking: name === SHARED_ENTRY ? false : true,
+  treeShaking: name !== SHARED_ENTRY,
   // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
   // in component bundles and read from the global namespace; the shared entry
   // itself bundles them (no externalization).

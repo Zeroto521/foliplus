@@ -45,6 +45,7 @@
 - `MeasureControl`/`ExportControl`: suspend interaction on all map layers while measuring or selecting the export crop box, so clicks fall through to the map — a mode-driven interaction lock in `ModeManager` ([#203](https://github.com/Zeroto521/foliplus/pull/203))
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
+- `Frontend tooling`: add eslint 9 flat config with `padding-line-between-statements` scoped to function/class definitions (Python `E302`/`E305` equivalent, auto-fixed by a pre-commit hook) plus a quality-rules pass mirroring prettier's own repo (`eqeqeq:smart`, `no-implicit-coercion` with `!!` allowed, `no-else-return`, `curly`, `one-var:never`, `object-shorthand`, `prefer-const`) and a type-aware Promise-discipline pass (`no-floating-promises`, `require-await`, `no-misused-promises`) enforced via `npm run lint`. Pins `typescript` to 6.0.3 for `typescript-eslint` compatibility ([#259](https://github.com/Zeroto521/foliplus/pull/259))
 
 ### Removed
 

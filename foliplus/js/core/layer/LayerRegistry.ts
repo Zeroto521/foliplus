@@ -91,7 +91,7 @@ class LayerRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => !!l.isBase);
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.isBase));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -253,7 +253,7 @@ class LayerRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (!!from.isBase !== !!to.isBase) return false;
+    if (Boolean(from.isBase) !== Boolean(to.isBase)) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;

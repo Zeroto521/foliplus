@@ -285,7 +285,7 @@ class LayerManager implements LayerAPI {
   private isFeatureContainer(layer: L.Layer): boolean {
     return (
       typeof (layer as L.LayerGroup).eachLayer === "function" ||
-      !!(layer as L.LayerGroup)._layers
+      Boolean((layer as L.LayerGroup)._layers)
     );
   }
 

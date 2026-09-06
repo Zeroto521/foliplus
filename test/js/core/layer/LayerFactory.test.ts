@@ -3,21 +3,23 @@ import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 
 describe("LayerFactory", () => {
-  let factory,
-    map,
-    panes,
-    registerLayer,
-    unregisterLayer,
-    bringLayerToFront,
-    invalidateType;
+  let factory;
+  let map;
+  let panes;
+  let registerLayer;
+  let unregisterLayer;
+  let bringLayerToFront;
+  let invalidateType;
 
   beforeEach(() => {
     class TileLayer {
       options = { attribution: "© OSM" };
     }
+
     class Path {
       options = {};
     }
+
     class Marker {
       options = {};
     }

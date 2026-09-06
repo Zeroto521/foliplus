@@ -50,7 +50,9 @@ const makeNativeMapMock = container => {
 };
 
 describe("updateUI", () => {
-  let fsBtn, container, mapMock;
+  let fsBtn;
+  let container;
+  let mapMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,7 +98,9 @@ describe("updateUI", () => {
 });
 
 describe("toggleFullscreen — pseudo path", () => {
-  let fsBtn, container, mapMock;
+  let fsBtn;
+  let container;
+  let mapMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -133,7 +137,9 @@ describe("toggleFullscreen — pseudo path", () => {
 });
 
 describe("bindFullscreenEvents — pseudo path", () => {
-  let fsBtn, container, mapMock;
+  let fsBtn;
+  let container;
+  let mapMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -169,7 +175,9 @@ describe("bindFullscreenEvents — pseudo path", () => {
 });
 
 describe("toggleFullscreen — native API path", () => {
-  let fsBtn, container, mapMock;
+  let fsBtn;
+  let container;
+  let mapMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -249,7 +257,9 @@ describe("toggleFullscreen — native API path", () => {
 });
 
 describe("bindFullscreenEvents — native API path", () => {
-  let fsBtn, container, mapMock;
+  let fsBtn;
+  let container;
+  let mapMock;
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -71,22 +71,28 @@ const stableStamp = vi.fn(obj => obj.__id ?? (obj.__id = ++stableStampId));
 let stableStampId = 1000;
 
 describe("LayerManager", () => {
-  let manager, map;
+  let manager;
+  let map;
 
   beforeEach(() => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
     const stamp = (() => {
       let id = 0;
@@ -173,6 +179,7 @@ describe("LayerManager", () => {
     const base = Z_INDEX.BASE;
     const step = Z_INDEX.STEP;
     expect(manager.computeZIndex(0, false)).toBe(base + 2 * step);
+    // eslint-disable-next-line no-implicit-coercion -- false positive: reads `+ 1 *` as unary
     expect(manager.computeZIndex(1, false)).toBe(base + 1 * step);
     // Tile layers use TILE_BASE
     expect(manager.computeZIndex(0, true)).toBe(Z_INDEX.TILE_BASE + 2 * step);
@@ -1149,22 +1156,28 @@ describe("LayerManager", () => {
 // moveLayerUp / moveLayerDown (merged from move.test.ts)
 
 describe("LayerManager moveLayerUp / moveLayerDown", () => {
-  let manager, map;
+  let manager;
+  let map;
 
   beforeEach(() => {
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
     const stamp = (() => {
       let id = 0;
@@ -1175,6 +1188,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       options = { attribution: "© OpenStreetMap" };
       setZIndex = vi.fn();
     }
+
     class GridLayer {
       options = {};
     }
@@ -1453,23 +1467,29 @@ describe("LayerManager user-assigned names", () => {
   // Assertions go through `ui.displayName(id)` — the render contract — never
   // the registry's `LayerInfo.name`, which a third-party re-registration can
   // legitimately overwrite before the refresh pushes the rename back out.
-  let manager, map;
+  let manager;
+  let map;
 
   beforeEach(() => {
     window.localStorage.clear();
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class Marker {}
+
     class CircleMarker {}
     window.L.TileLayer = TileLayer;
     window.L.GridLayer = GridLayer;

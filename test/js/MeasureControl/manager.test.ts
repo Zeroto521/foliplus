@@ -29,6 +29,7 @@ vi.mock("#core/mode.js", async () => {
     guardBlocked: modeMocks.guardBlocked,
   };
 });
+
 // Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
 function mockLayerAPI() {
   return {
@@ -1102,6 +1103,7 @@ function makeLabelMarker(): L.Marker {
 // manager's labelPlanFrame re-entrancy guard only works if the callback does
 // NOT run synchronously on the same stack as the schedule call.
 let labelRafQueue: Array<() => void> = [];
+
 function flushRaf() {
   while (labelRafQueue.length) {
     const q = labelRafQueue;
