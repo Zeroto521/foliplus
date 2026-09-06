@@ -1,12 +1,7 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import {
-  LAT_LNG_PRECISION,
-  formatCoord,
-  formatLatLng,
-  formatNumber,
-} from "#common/format.js";
+import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -189,8 +184,6 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 const roundCoord = (n: number): number => parseFloat(n.toFixed(LAT_LNG_PRECISION));
 
 // ── Live coordinate readout ─────────────────────────────────────────
-// The readout formatter (`formatCoord` / `formatLatLng`) lives in #common/format.js
-// so it is the one definition shared with the popup and the search panel.
 
 /** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
  *  the plain-object `latitude/longitude` alias, so callers can pass either. */
@@ -237,9 +230,7 @@ export {
   coordText,
   distance,
   formatArea,
-  formatCoord,
   formatDistance,
-  formatLatLng,
   formatSegmentLabel,
   labelChipOf,
   midpoint,

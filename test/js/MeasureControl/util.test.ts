@@ -712,16 +712,6 @@ describe("readLatLng", () => {
   });
 });
 
-describe("formatCoord / formatLatLng", () => {
-  it("pins the persisted 6-decimal precision", () => {
-    expect(Util.formatCoord(121.987654321)).toBe("121.987654");
-  });
-
-  it("formats longitude before latitude", () => {
-    expect(Util.formatLatLng(121.5, 31.2)).toBe("121.500000, 31.200000");
-  });
-});
-
 describe("coordText", () => {
   it("reports the pointer's coordinate as the map holds it", () => {
     const map = {} as L.Map;
