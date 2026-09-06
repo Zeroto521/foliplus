@@ -46,7 +46,10 @@ const createLogger = (name: string): Logger => {
  * hand the caller a plain function — `.message`, `.name` and `.stack` would
  * all be undefined, and `instanceof` would fail.
  */
-const makeError = (ctor: new (message: string) => Error, name: string): new (message: string) => Error => {
+const makeError = (
+  ctor: new (message: string) => Error,
+  name: string,
+): new (message: string) => Error => {
   return class NamespacedError extends ctor {
     constructor(message: string) {
       super(msg(name, message, ": "));
@@ -68,7 +71,11 @@ const makeTypeError = (name: string): new (message: string) => TypeError => {
  * wrapper that called `new Error(...)` for every site would silently downgrade
  * `TypeError` sites to `Error` and break those guards.
  */
-const fail = (ctor: new (message: string) => Error, name: string, message: string): never => {
+const fail = (
+  ctor: new (message: string) => Error,
+  name: string,
+  message: string,
+): never => {
   return throwMsg(new ctor(msg(name, message, ": ")));
 };
 

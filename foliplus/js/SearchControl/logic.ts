@@ -11,11 +11,11 @@ import {
   makeDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker, dom } from "#common/dom.js";
-import { failError } from "#common/log.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { failError } from "#common/log.js";
 import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,

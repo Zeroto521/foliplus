@@ -86,9 +86,7 @@ const ensureGcoord = (): boolean => {
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
   if (typeof gcoord === "undefined") {
-    log.warn(
-      "gcoord library failed to load, coordinate transformation unavailable",
-    );
+    log.warn("gcoord library failed to load, coordinate transformation unavailable");
     return false;
   }
   return true;

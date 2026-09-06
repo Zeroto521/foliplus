@@ -2,7 +2,14 @@
 // `[<name>]: ` throw shape, argument forwarding, and that a thrown value keeps
 // its native constructor (instanceof, message, name, stack).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLogger, fail, failError, failType, makeError, makeTypeError } from "#common/log.js";
+import {
+  createLogger,
+  fail,
+  failError,
+  failType,
+  makeError,
+  makeTypeError,
+} from "#common/log.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -92,7 +99,7 @@ describe("makeError / makeTypeError", () => {
     const trap = () => {
       throw new ctor(`read-only method "push" is blocked`);
     };
-    expect(trap).toThrow("[LayerRegistry]: read-only method \"push\" is blocked");
+    expect(trap).toThrow('[LayerRegistry]: read-only method "push" is blocked');
     try {
       trap();
     } catch (e) {
