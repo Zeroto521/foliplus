@@ -17,6 +17,7 @@ import {
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -29,6 +30,7 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 const mapContainer = map.getContainer();
 
 /**
@@ -289,8 +291,8 @@ class LayerUI {
       layerId => registry.get(layerId) == null,
     );
     if (staleIds.length > 0) {
-      console.warn(
-        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
+      log.warn(
+        `dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
       );
       this.hiddenIds = new Set(
         [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),

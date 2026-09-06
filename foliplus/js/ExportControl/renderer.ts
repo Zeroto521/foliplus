@@ -1,10 +1,12 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import { ensureFont, isVisible, loadImage, loadImageBitmap } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /** Render context threaded through all rendering passes. */
 interface RenderCtx {
@@ -55,7 +57,7 @@ const pooledEach = async <T, R>(
       const value = await fn(items[idx], idx);
       results[idx] = value ?? null;
     } catch (err) {
-      console.warn(err);
+      log.warn("tile load failed:", err);
       results[idx] = null;
     }
     await enqueue();
@@ -146,7 +148,7 @@ class ExportRenderer {
   ): Promise<HTMLCanvasElement> {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
-    if (sw < 1 || sh < 1) throw new Error(T("err_crop_too_small"));
+    if (sw < 1 || sh < 1) throw new Error(`[${CONF.name}] ${T("err_crop_too_small")}`);
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;

@@ -1,6 +1,7 @@
 // localStorage helpers for foliplus components.
 // Imported via `import * as Storage from "#common/storage.js"`.
 // Stateless over window.localStorage, so it is safe to inline per-component.
+import { createLogger } from "./log.js";
 
 /**
  * Read and parse a value from localStorage.
@@ -13,7 +14,7 @@ const load = <T>(key: string, name = "foliplus"): T | null => {
     const data = window.localStorage.getItem(key);
     return data ? (JSON.parse(data) as T) : null;
   } catch (e) {
-    console.warn(`[${name}] Failed to load saved data (key=${key})`, e);
+    createLogger(name).warn(`failed to load saved data (key=${key})`, e);
     return null;
   }
 };
@@ -28,7 +29,7 @@ const save = (key: string, data: unknown, name = "foliplus"): void => {
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
-    console.warn(`[${name}] Failed to save data (key=${key})`, e);
+    createLogger(name).warn(`failed to save data (key=${key})`, e);
   }
 };
 

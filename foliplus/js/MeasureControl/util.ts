@@ -213,7 +213,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lng = raw.lng ?? raw.longitude;
   const lat = raw.lat ?? raw.latitude;
   if (lng === undefined || lat === undefined) {
-    throw new TypeError("[foliplus] MeasureControl: point has no lng/lat");
+    throw new TypeError(`[${CONF.name}] point has no lng/lat`);
   }
   return [lng, lat];
 };

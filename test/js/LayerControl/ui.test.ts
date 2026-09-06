@@ -2077,7 +2077,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0][0]).toMatch(
-        /Dropped stale hidden-layer ids.*ghost.*gone/,
+        /dropped stale hidden-layer ids.*ghost.*gone/,
       );
       warnSpy.mockRestore();
     });

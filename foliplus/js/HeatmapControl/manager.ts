@@ -5,6 +5,7 @@ import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -12,6 +13,7 @@ import * as SVGs from "./icon.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
 type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
@@ -415,8 +417,8 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        console.warn(
-          `[${CONF.name}] Falling back to 1 for missing values, field=${this.currentField}`,
+        log.warn(
+          `falling back to 1 for missing values, field=${this.currentField}`,
         );
       }
       return 1;
@@ -533,7 +535,7 @@ class HeatmapManager {
         if (pt.value < cell.min) cell.min = pt.value;
         if (pt.value > cell.max) cell.max = pt.value;
       } catch (e) {
-        console.warn(`[${CONF.name}] h3 cell conversion failed`, pt.lat, pt.lng, e);
+        log.warn("h3 cell conversion failed", pt.lat, pt.lng, e);
       }
     });
 
@@ -608,7 +610,7 @@ class HeatmapManager {
           properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
         });
       } catch (e) {
-        console.warn(`[${CONF.name}] h3 boundary conversion failed`, h3Idx, e);
+        log.warn("h3 boundary conversion failed", h3Idx, e);
       }
     }
     return features;
@@ -667,10 +669,7 @@ class HeatmapManager {
     try {
       window.localStorage.removeItem(CONST.STORAGE.KEY);
     } catch (e) {
-      console.warn(
-        `[${CONF.name}] Failed to clear saved data (key=${CONST.STORAGE.KEY})`,
-        e,
-      );
+      log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
     }
   }
 

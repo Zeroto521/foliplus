@@ -5,6 +5,7 @@
 // esbuild inlines a copy into runtime.min.js as well.
 //
 // These functions operate on Leaflet maps and coordinate systems.
+import { createLogger } from "./log.js";
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
@@ -81,8 +82,8 @@ const ensureGcoord = (): boolean => {
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
   if (typeof gcoord === "undefined") {
-    console.warn(
-      "[foliplus] gcoord library failed to load, coordinate transformation unavailable",
+    createLogger("foliplus").warn(
+      "gcoord library failed to load, coordinate transformation unavailable",
     );
     return false;
   }

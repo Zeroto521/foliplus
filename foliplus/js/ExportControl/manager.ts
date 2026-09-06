@@ -7,6 +7,7 @@ import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
 import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -24,6 +25,7 @@ import {
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /**
  * Encode a rendered canvas to a Blob, resolving to `null` when encoding fails.
@@ -743,7 +745,7 @@ class ExportManager {
       // leaked rejection would otherwise skip endExport below and leave the
       // map locked with the blocker overlay on screen.
       this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
-      console.warn(`[${CONF.name}] export failed:`, err);
+      log.warn("export failed:", err);
     } finally {
       this.endExport();
     }
@@ -858,7 +860,7 @@ class ExportManager {
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    console.error(`[${CONF.name}] ${T("err_render")}:`, err);
+    log.warn(`${T("err_render")}:`, err);
     this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }
