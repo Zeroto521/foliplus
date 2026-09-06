@@ -172,7 +172,7 @@ class LayerManager implements LayerAPI {
   }
 
   loadSavedOrder() {
-    const data = this.persistence.loadOrder();
+    const data = this.persistence.load().order;
     if (!data) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];
@@ -709,13 +709,12 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    // Flush the pending persistence writes before destroying the persistence
-    // object, which cancels the timers. unbindEvents below flushes the same
-    // timers, but it only runs when a panel is attached — and the write is
-    // debounced at 100ms, wide enough for the control to be removed before the
-    // timer fires. Persisting here makes teardown independent of that.
-    this.persistence.flushSaveOrder();
-    this.persistence.flushSaveHiddenIds();
+    // Flush the pending persistence writes before tearing the persistence
+    // object down. It also flushes itself, but unbindEvents below only runs
+    // when a panel is attached — and the write is debounced at 100ms, wide
+    // enough for the control to be removed before the timer fires. Persisting
+    // here makes teardown independent of that.
+    this.persistence.flushAll();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;

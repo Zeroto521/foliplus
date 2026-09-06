@@ -1864,7 +1864,7 @@ describe("LayerManager user-assigned names", () => {
       CONST.STORAGE.NAMES_KEY,
       JSON.stringify({ "no-such-id": "Ghost" }),
     );
-    manager.ui.loadNamesState();
+    manager.ui.loadPersistedState();
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     manager.ui.applyUserState();

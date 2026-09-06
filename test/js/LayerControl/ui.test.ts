@@ -1460,7 +1460,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
       );
-      ui.loadNamesState();
+      ui.loadPersistedState();
       ui.applyUserState();
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
@@ -1499,18 +1499,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
   // ─────────────────── rename persistence ───────────────────
 
-  describe("rename persistence (loadNames / saveNames / applyNames)", () => {
+  describe("rename persistence (loadPersistedState / saveNamesState / applyUserState)", () => {
     beforeEach(() => {
       window.localStorage.clear();
     });
 
-    it("loadNamesState reads renamed names from localStorage", () => {
+    it("loadPersistedState reads renamed names from localStorage", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Over1", base1: "Over2" }),
       );
 
-      ui.loadNamesState();
+      ui.loadPersistedState();
 
       expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
     });
@@ -1521,7 +1521,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
 
-      ui.loadNamesState();
+      ui.loadPersistedState();
       ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
@@ -1540,7 +1540,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
-      ui.loadNamesState();
+      ui.loadPersistedState();
       ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
@@ -1571,7 +1571,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
       );
-      ui.loadNamesState();
+      ui.loadPersistedState();
 
       manager.layerRegistry.get("overlay1")!.name = "Renamed";
       ui.applyUserState("overlay1");
@@ -1615,15 +1615,15 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.renamedNames = {};
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "not-json");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "[]");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "null");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       // The label must stay at the pristine name — no crash, no empty text.
@@ -1837,7 +1837,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       checkbox.focus();
       ui.handleKeyDown(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }) as KeyboardEvent,
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
       );
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -1855,7 +1858,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       item.focus();
       ui.handleKeyDown(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }) as KeyboardEvent,
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
       );
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -1872,7 +1878,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       more.focus();
       ui.handleKeyDown(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }) as KeyboardEvent,
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
       );
 
       expect(spy).not.toHaveBeenCalled();
@@ -2160,11 +2169,16 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   // ─────────────────── load / apply on attach ───────────────────
 
-  describe("loadHiddenIds / applyUserState", () => {
+  describe("loadPersistedState / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
@@ -2179,7 +2193,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("drops unknown ids from the persisted hidden set and warns", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
@@ -2198,7 +2217,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("persists the pruned hidden set after dropping stale ids", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
@@ -2250,7 +2274,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
 
-      u.loadHiddenIds();
+      u.loadPersistedState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
     });
@@ -2263,7 +2287,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
 
-      u.loadHiddenIds();
+      u.loadPersistedState();
 
       expect(u.hiddenIds).toEqual(new Set());
     });
@@ -2275,7 +2299,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       map.hasLayer.mockReturnValue(true);
       const u = new LayerUI(m);
@@ -2295,7 +2324,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("removes an overlay from the persisted set when the user re-checks it", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
@@ -2462,8 +2496,20 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
-        { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
-        { id: "base2", name: "B2", isBase: true, layer: base2, paneName: "tilePane" },
+        {
+          id: "base1",
+          name: "B1",
+          isBase: true,
+          layer: base1,
+          paneName: "tilePane",
+        },
+        {
+          id: "base2",
+          name: "B2",
+          isBase: true,
+          layer: base2,
+          paneName: "tilePane",
+        },
       ]);
 
       // Both bases were removed from the map by applyUserState().
@@ -2512,7 +2558,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
-        { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
+        {
+          id: "base1",
+          name: "B1",
+          isBase: true,
+          layer: base1,
+          paneName: "tilePane",
+        },
       ]);
 
       // base1 was hidden, but overlay1 is visible and there are no visible bases.
