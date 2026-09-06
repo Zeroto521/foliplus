@@ -10,17 +10,20 @@
 //   2. Type-aware rules (Promise discipline) — slower, needs tsconfig program.
 // test/js is not in tsconfig include (see tsconfig.json comment), so the
 // type-aware pass only covers foliplus/js.
-import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
-import { dirname } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
-// pre-commit runs eslint in an isolated env without the full tsconfig
-// program; type-aware rules are enforced by `npm run lint` in CI instead.
-const skipTypecheck = process.env.FOLIPLUS_PRE_COMMIT === "1";
+// The type-aware pass builds a full tsconfig program, which needs the
+// project's own typescript + tsconfig plus every included source file.
+// pre-commit.ci runs eslint in an isolated env whose node_modules lives
+// under NODE_PATH (not next to package.json) and cannot provide that, so
+// the type-aware rules are skipped there and enforced via `npm run lint`.
+const skipTypecheck = !existsSync(join(root, "node_modules", "typescript"));
 
 export default [
   // Build output, vendored deps, browser tests (use CDN globals)

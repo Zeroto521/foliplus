@@ -68,19 +68,20 @@ repos:
           - "@trivago/prettier-plugin-sort-imports@5.2.2"
 
       # ── JS structural lint (ESLint) ──
-      # eslint 9 flat config reads eslint.config.js from the repo root.
-      # FOLIPLUS_PRE_COMMIT=1 skips the type-aware pass (needs a full tsconfig
-      # program; enforced via `npm run lint` in GitHub Actions instead), so
-      # this hook only auto-fixes padding-line-between-statements — fast AST
-      # work, exactly like the prettier hook above it.
+      # eslint 9 flat config reads eslint.config.js from the repo root. The
+      # type-aware Promise rules need the project's typescript + tsconfig
+      # program, which the pre-commit isolated env cannot provide (its
+      # node_modules lives under NODE_PATH, not next to package.json) — the
+      # config detects that and skips them; they are enforced via `npm run
+      # lint` in GitHub Actions. So this hook only auto-fixes
+      # padding-line-between-statements — fast AST work, like prettier above.
       - id: lint-eslint
         name: lint-eslint
         entry: eslint --fix
         language: node
-        environment:
-          - FOLIPLUS_PRE_COMMIT=1
         types_or: [javascript, ts]
         files: ^foliplus/js/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
+        exclude: ^test/js/browser/
         additional_dependencies:
           - "eslint@9.39.5"
           - "typescript-eslint@8.69.0"
