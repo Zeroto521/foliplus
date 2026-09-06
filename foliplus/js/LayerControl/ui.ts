@@ -158,9 +158,7 @@ class LayerUI {
    */
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
-    this.loadFoldState();
-    this.loadHiddenIds();
-    this.loadNamesState();
+    this.loadPersistedState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -190,9 +188,12 @@ class LayerUI {
     setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
-  /** Load fold state from localStorage. */
-  loadFoldState() {
-    this.foldedGroups = this.m.persistence.loadFoldedGroups();
+  /** Load every persisted dimension in one call. */
+  loadPersistedState() {
+    const state = this.m.persistence.load();
+    this.foldedGroups = state.foldedGroups;
+    this.hiddenIds = state.hiddenIds;
+    this.renamedNames = state.names;
   }
 
   /** Save fold state to localStorage. */
@@ -200,19 +201,9 @@ class LayerUI {
     this.m.persistence.saveFoldedGroups(this.foldedGroups);
   }
 
-  /** Load hidden-layer ids from localStorage. */
-  loadHiddenIds() {
-    this.hiddenIds = this.m.persistence.loadHiddenIds();
-  }
-
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
-  }
-
-  /** Load user-assigned display names from localStorage. */
-  loadNamesState() {
-    this.renamedNames = this.m.persistence.loadNames();
   }
 
   /**
@@ -1005,9 +996,7 @@ class LayerUI {
     // Persist the last pending write. A 100ms debounce is wide enough that the
     // control can be removed (or the page unloaded) before the timer fires;
     // dropping the write there is what loses a toggle across a reload.
-    this.m.persistence.flushSaveOrder();
-    this.m.persistence.flushSaveHiddenIds();
->>>>>>> a7f7020 (test(LayerControl): assert toggle-all survives a page reload)
+    this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
