@@ -6,8 +6,10 @@ const TIMING = {
   FINALIZE_DELAY: 50,
 };
 
-/** Measure node marker. */
-const MARKER = { RADIUS: 3 };
+/** Measure node marker. `RADIUS` is only the fallback for when the `--dot-size`
+ *  token cannot be read (headless without the CSS) — the real radius is derived
+ *  at marker-creation time, see `nodeRadius` in `util.ts`. */
+const MARKER = { RADIUS: 5 };
 
 /** Label markers. */
 const LABEL = {
@@ -82,9 +84,9 @@ const CLASSES = {
   SHAPE_FILL: "foliplus-measure-shape-fill",
   // `.foliplus-dot-hollow` / `-solid` (common.css) carry the fill, stroke and
   // stroke-width shared with the export crop-box anchors; the module-prefixed
-  // classes below add only what is measure-specific. MARKER.RADIUS must stay
-  // --dot-size / 2 - --dot-stroke so the SVG dot measures the same 10px
-  // across as the DOM anchors.
+  // classes below add only what is measure-specific. The marker radius is not
+  // CSS-addressable, so `nodeRadius` in `util.ts` derives it from the same
+  // token at creation time.
   NODE_HOLLOW: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
   NODE_SOLID: "foliplus-dot foliplus-dot-solid foliplus-measure-node",
   RIPPLE: "foliplus-measure-ripple",

@@ -135,9 +135,9 @@
     future change reaches every surface at once.
     --dot-size is the *outer* diameter of both renderings: the DOM anchors set
     `width` / `height` (border-box, so the border is inside it) and the SVG
-    node's circleMarker radius is --dot-size / 2 - --dot-stroke = 3. Radius is
-    not CSS-addressable, so MeasureControl's MARKER.RADIUS must be mirrored by
-    hand. */
+    node's circleMarker radius is --dot-size / 2 = 5. Radius is
+    not CSS-addressable, so `nodeRadius` in MeasureControl's `util.ts` reads
+    the token at marker-creation time instead of repeating it. */
   --dot-size: 10px;
   --dot-stroke: 2px;
 
@@ -679,9 +679,11 @@
    pick the palette; they declare no properties of their own.
    SVG circleMarkers get `fill` / `stroke`; DOM anchors get `background` /
    `border` instead, so the second rule is scoped to `:not(path)`. DOM anchors
-   set `width` / `height` on the box itself (border-box, so the border is inside
-   --dot-size) while the SVG node's radius is sized in JS to compensate for the
-   stroke, and both come out --dot-size across. */
+   set `width` / `height` in border-box, so the stroke is inside --dot-size;
+   the SVG node's radius is sized in JS to --dot-size / 2, which paints the
+   stroke inside the path the same way (Leaflet draws a marker's stroke within
+   the geometry, and a marker's bounding box ignores stroke-width entirely).
+   Both come out --dot-size across. */
 .foliplus-dot {
   --dot-fill: var(--neutral-0);
   --dot-stroke-color: var(--accent-primary);
