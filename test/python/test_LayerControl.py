@@ -2780,8 +2780,7 @@ class TestLayerControlBrowser:
                 + str(result)
             )
             assert result["checkedRetainedFocus"] is True, (
-                "the checked row must keep DOM focus through Escape, got "
-                + str(result)
+                "the checked row must keep DOM focus through Escape, got " + str(result)
             )
             assert result["glowVisibleBefore"] is True, (
                 "the cursor glow must be drawn before Escape (:focus-visible "
@@ -2863,8 +2862,7 @@ class TestLayerControlBrowser:
                 + str(on_hover)
             )
             assert on_hover["glow"] is True, (
-                "hovering the cancelled row must light the glow, got "
-                + str(on_hover)
+                "hovering the cancelled row must light the glow, got " + str(on_hover)
             )
             assert on_hover["more"] == off_hover["more"], (
                 "a checked row keeps the more button in the action color at "

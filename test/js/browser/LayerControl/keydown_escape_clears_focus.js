@@ -29,7 +29,9 @@
   );
   // Navigation half: establish the cursor with ArrowDown, then Escape it, so
   // the class-level contract is asserted on the real keyboard path too.
-  checked.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  checked.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+  );
   const beforeEscape = panel.querySelector(".foliplus-layer-focused");
   const beforeActive = document.activeElement;
   checked.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -52,8 +54,7 @@
     // paints the surface white, and the suppressed reset paints it
     // transparent — the accent wash is the only state left that is neither.
     washRestored:
-      afterStyles.bg !== "rgba(0, 0, 0, 0)" &&
-      afterStyles.bg !== "rgb(255, 255, 255)",
+      afterStyles.bg !== "rgba(0, 0, 0, 0)" && afterStyles.bg !== "rgb(255, 255, 255)",
     // The type icon stays black: the cursor recipe and the selected state
     // both wake it to text-primary, so cancelling must not mute it.
     iconKeptBlack: afterStyles.icon === beforeStyles.icon,
