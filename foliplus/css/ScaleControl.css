@@ -3,6 +3,7 @@
   display: inline-flex;
   align-items: center;
   margin: 0;
+  line-height: 14px;
 
   .leaflet-control-scale-line,
   .foliplus-scale-zoom-label {
