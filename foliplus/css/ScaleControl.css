@@ -4,6 +4,7 @@
   align-items: center;
   margin: 0;
   line-height: 14px;
+  background: var(--ctrl-bg-translucent);
 
   .leaflet-control-scale-line,
   .foliplus-scale-zoom-label {
@@ -20,6 +21,5 @@
     border-left: var(--space-xs) solid var(--text-primary);
     border-right: var(--space-xs) solid var(--text-primary);
     text-align: center;
-    background: transparent;
   }
 }
