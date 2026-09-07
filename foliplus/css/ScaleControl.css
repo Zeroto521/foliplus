@@ -3,7 +3,7 @@
   display: inline-flex;
   align-items: center;
   margin: 0;
-  line-height: 14px;
+  line-height: var(--font-size-md);
   background: var(--ctrl-bg-translucent);
   border: var(--border-thin) solid var(--divider-color);
   border-radius: var(--radius-sm);
