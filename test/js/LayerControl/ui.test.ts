@@ -2482,6 +2482,82 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
     });
 
+    it("re-adds a layer the user un-hid, once the visibility key exists", () => {
+      // folium renders a show=False layer absent from the map and nothing else
+      // puts it back, so the hide half of the round trip had no inverse: a
+      // layer the user left visible was correctly absent from hiddenIds, and the
+      // sweep left it off the map. That is what made a checked Commuting Routes
+      // come back unchecked after a reload.
+      const { map, removeLayer } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      // The user checked the layer ON, so it is absent from hiddenIds -- but the
+      // key exists, so every registered layer must be on the map.
+      u.hiddenIds = new Set(["other"]);
+      u.hiddenHasState = true;
+      // Simulate the layer being off the map (folium show=False).
+      map.hasLayer = vi.fn(() => false);
+
+      u.applyUserState();
+
+      expect(map.addLayer).toHaveBeenCalledWith(testPolyLayer);
+      expect(removeLayer).not.toHaveBeenCalled();
+      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+    });
+
+    it("leaves the author's show=False defaults alone when the key is absent", () => {
+      // No visibility key means the user never chose, so an unhide sweep must
+      // not override the author's show=False. Without this guard the first load
+      // of a map like QuickStart re-added every hidden overlay.
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set();
+      u.hiddenHasState = false;
+      map.hasLayer = vi.fn(() => false);
+
+      u.applyUserState();
+
+      expect(map.addLayer).not.toHaveBeenCalled();
+      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+    });
+
+    it("fires onToggle(true) for a callback-only layer the user un-hid", () => {
+      // Canvas/heatmap layers have no Leaflet layer to addLayer, so the inverse
+      // path must call the callback instead or they stay hidden after a reload.
+      const { map } = makeTestMap();
+      const onToggle = vi.fn();
+      const m = new LayerManager(map, [
+        {
+          id: "canvas1",
+          name: "Canvas",
+          layer: null,
+          onToggle,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set();
+      u.hiddenHasState = true;
+
+      u.applyUserState();
+
+      expect(onToggle).toHaveBeenCalledWith(true);
+    });
+
     it("drops unknown ids from the persisted hidden set", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [

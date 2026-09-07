@@ -1444,6 +1444,147 @@ class TestLayerControlBrowser:
                     f"{row['id']}: still attached to the map after reload\n{rows}"
                 )
 
+    def test_showing_author_hidden_layers_survives_reload(self, browser, tmp_path):
+        """A layer the author declared ``show=False`` and the user checked ON
+        comes back ON after a reload.
+
+        This is the reported regression: ``hiddenIds`` recorded *which layers
+        the user hid* rather than *which layers are hidden*, so an id that
+        folium had rendered off-map was never in the set. Checking it on
+        therefore removed nothing from nothing, storage stayed ``[]``, and the
+        reload restored the author's defaults.
+
+        It is also the inverse of test_hidden_layers_survive_reload: that one
+        proves the hide half of the round trip, this one proves the unhide
+        half. folium renders a ``show=False`` layer absent from the map and
+        nothing else ever puts it back, so a sweep that only walks
+        ``hiddenIds`` can never reach a layer the user left visible.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_show_hidden_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            show = page.evaluate(_js("LayerControl/show_author_hidden"))
+            assert show is not None and show["rows"] == 2, f"unexpected rows: {show}"
+            # Only Facility Points starts off-map among the overlays: Dark Canvas
+            # is a base layer and the snippet deliberately skips those, and
+            # Commuting Routes the author left visible.
+            assert show["checked"] == 1, f"expected 1 layer to be shown\n{show}"
+            assert show["stillUnchecked"] == 0, f"rows left unchecked\n{show}"
+
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Each half of the projection is asserted separately, mirroring
+            # test_hidden_layers_survive_reload: a UI-only fix (rows re-checked)
+            # or a data-only fix (registry says visible) would not put the layer
+            # back on the map.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert rows and len(rows["rows"]) == 2, f"expected 2 rows, got {rows}"
+            for row in rows["rows"]:
+                assert row["checked"] is True, (
+                    f"{row['id']}: row lost its check after reload\n{rows}"
+                )
+                assert row["visible"] is True, (
+                    f"{row['id']}: registry reverted to the author default\n{rows}"
+                )
+                assert row["onMap"] is True, (
+                    f"{row['id']}: never re-added to the map after reload\n{rows}"
+                )
+
+    def test_author_defaults_survive_a_reload_with_no_toggle(self, browser, tmp_path):
+        """Author ``show=False`` layers stay hidden when the user never touched
+        the panel, and reload repeatedly.
+
+        Guards the other half of the same change: with no visibility key in
+        storage the user has made no choice, so the unhide sweep must not
+        override the author's defaults. Without that guard the first reload of
+        a map like the quickstart re-added every hidden overlay.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_author_defaults_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # No interaction at all -- the panel merely opened on load.
+            for _ in range(2):
+                page.reload(wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+                )
+                page.wait_for_timeout(500)
+
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert rows and len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
+            row = rows["rows"][0]
+            assert row["checked"] is False, f"Facility Points was re-added\n{rows}"
+            assert row["visible"] is False, f"registry lost the author default\n{rows}"
+            assert row["onMap"] is False, f"layer on the map despite show=False\n{rows}"
+
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
         """Layers registered at runtime get pruned from the hidden set after a
         reload -- they have no registry entry to prove they are coming back.

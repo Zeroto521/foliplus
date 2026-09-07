@@ -53,6 +53,14 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
+  /** The visibility key existed in storage, so `hiddenIds` is the user's
+   *  assertion about every layer. Absent means no choice was ever made and the
+   *  author's `show=` defaults must not be overridden by an unhide sweep. */
+  hiddenHasState: boolean;
+  /** Set once the hidden set has been rebuilt against the rendered rows --
+   *  reconcileHiddenIds must run a single time, after the first
+   *  initLayerItem pass, not on every fold-toggle. */
+  isHiddenReconciled: boolean;
   isColorActive: boolean;
   currentColor: string;
   /** Map of layer id → user-assigned display name (survives reload). */
@@ -112,6 +120,8 @@ class LayerUI {
     this.manager = manager;
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
+    this.hiddenHasState = false;
+    this.isHiddenReconciled = false;
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.renamedNames = {};
@@ -192,6 +202,7 @@ class LayerUI {
     this.foldedGroups = state.foldedGroups;
     this.hiddenIds = state.hiddenIds;
     this.renamedNames = state.names;
+    this.hiddenHasState = state.hiddenHasState;
   }
 
   /** Save fold state to localStorage. */
@@ -244,7 +255,17 @@ class LayerUI {
       return;
     }
 
-    const ids = new Set([...this.hiddenIds, ...Object.keys(this.renamedNames)]);
+    // The registry is the sweep, not `hiddenIds`: a layer the user left
+    // visible is absent from `hiddenIds` by design, so iterating that set
+    // alone can never reach it and the hide half of the round trip has no
+    // inverse. Walking the registry asserts every layer's map membership
+    // against the persisted intent; the color basemap has no registry entry,
+    // so its rename still comes from `renamedNames`.
+    const ids = new Set([
+      ...this.m.layers.map(li => li.id),
+      ...this.hiddenIds,
+      ...Object.keys(this.renamedNames),
+    ]);
     for (const layerId of ids) {
       if (layerId in this.renamedNames) {
         if (layerId === CONST.COLOR.MAP_ID) {
@@ -268,10 +289,10 @@ class LayerUI {
           this.renamedNames[layerId],
         );
       }
-      if (this.hiddenIds.has(layerId)) {
-        const layerInfo = registry.get(layerId);
-        if (layerInfo) this.applyHiddenOne(layerInfo, layerId);
-      }
+      const layerInfo = registry.get(layerId);
+      if (!layerInfo) continue; // stale id — pruned by persistence on save
+      if (this.hiddenIds.has(layerId)) this.applyHiddenOne(layerInfo, layerId);
+      else if (this.hiddenHasState) this.applyVisibleStateOne(layerInfo);
     }
 
     // Prune ids whose layers are gone for good, so stale persistence does not
@@ -281,6 +302,10 @@ class LayerUI {
     // layer hidden and re-registered on a later activation: it re-enters
     // visible rather than coming back hidden. Keeping such ids would make the
     // prune a no-op and let the set grow without bound.
+    //
+    // Persisted, because only the live ids are written back: the write can
+    // never drop an id that still resolves to a layer, so nothing is lost even
+    // though this runs before initLayerItem has corrected any checkbox.
     const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
     const stillPresent = (layerId: string) =>
       registry.get(layerId) != null || pending.has(layerId);
@@ -289,8 +314,7 @@ class LayerUI {
       this.hiddenIds = new Set(
         [...this.hiddenIds].filter(layerId => stillPresent(layerId)),
       );
-      // Persist the cleaned set so the same orphaned ids do not get pruned
-      // again on the next reload.
+      this.hiddenHasState = true;
       this.saveHiddenIds();
     }
   }
@@ -339,6 +363,84 @@ class LayerUI {
     layerInfo.visible = false;
   }
 
+  /**
+   * Bring one layer back on to the map — the inverse of
+   * {@link LayerUI.applyHiddenStateOne}.
+   *
+   * Needed because folium renders a `show=False` layer absent from the map
+   * and nothing else ever puts it back. On reload such a layer is correctly
+   * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
+   * leaves it alone — and the map comes up with the author's default rather
+   * than the user's last choice. This closes that half of the round trip.
+   *
+   * `addLayer` is a no-op when the layer is already on the map, so the sweep
+   * can call this for every unhidden layer without re-adding the layers
+   * folium already placed. Callback-only layers (canvas) have no Leaflet
+   * layer to add, so they get the callback instead.
+   */
+  private applyVisibleStateOne(layerInfo: LayerInfo) {
+    const layer = this.m.findLayer(layerInfo);
+
+    if (!layer && layerInfo.onToggle) layerInfo.onToggle(true);
+    else if (layer && !this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+
+    layerInfo.visible = true;
+  }
+
+  /**
+   * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
+   * absolute instead of "ids the user toggled".
+   *
+   * A layer the author declared `show=False` is off the map and absent from
+   * `hiddenIds`, so checking it on calls `hiddenIds.delete(id)` on an id that
+   * was never added and leaves the set unchanged. Every subsequent toggle then
+   * differs from the author's defaults by zero entries, so the saved set cannot
+   * distinguish "user hid this" from "author hid this" and a reload restores the
+   * author's `show=False` instead of the user's choice. Reading the rows closes
+   * that gap.
+   *
+   * Runs once, straight after the first
+   * {@link LayerUI.initTypesAndVisibility} pass has corrected every checkbox
+   * from `map.hasLayer()`. That pass repeats on fold-toggle, and only ids
+   * already in the registry are considered, so the set never acquires a stale
+   * id and no later pass writes again.
+   *
+   * It writes only when the set actually changed. On an unchanged load -- the
+   * common case, where the user comes back and sees the author's defaults -- a
+   * write would replace a previously saved set with the current one, which
+   * still holds ids this map no longer registers. Those ids had been pruned
+   * before the rows rendered, so this would be a write that drops saved state
+   * the user made. Skipping keeps the load read-only.
+   */
+  private reconcileHiddenIds() {
+    const container = this.uiContainer;
+    if (!container) return;
+
+    // Additions only. A row can read as checked while its id sits in hiddenIds
+    // -- initLayerItem derives the checkbox from map.hasLayer(), so any map
+    // that still reports membership (stale state, a stub in tests) makes the
+    // row disagree with the set applyUserState() just built. Deleting here
+    // would then discard state the user persisted, so the disagreement is
+    // trusted in one direction only. Removal belongs to the change paths, where
+    // a user actually acted: handleChange, syncAllChecked, deselectAllBaseMaps.
+    let changed = false;
+    for (const li of this.m.layers) {
+      const item = container.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(li.id)}"]`,
+      ) as HTMLElement | null;
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (!checkbox || checkbox.checked || this.hiddenIds.has(li.id)) continue;
+      this.hiddenIds.add(li.id);
+      changed = true;
+    }
+    if (changed) {
+      this.hiddenHasState = true;
+      this.saveHiddenIds();
+    }
+  }
+
   /** Save user-assigned names, coalescing rapid calls. */
   saveNamesState() {
     this.m.persistence.saveNames(() => this.renamedNames);
@@ -355,6 +457,15 @@ class LayerUI {
     let anyBaseVisible = false;
     for (let i = 0; i < this.m.layers.length; i++) {
       if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
+    }
+    // Once the pass above has written each checkbox from the map's real
+    // membership, the rows hold the truth. Reconcile hiddenIds against them
+    // exactly once so the persisted set becomes absolute. It must come after
+    // initLayerItem, not in attachUI: rows render checked by default and
+    // initLayerItem is what corrects them from map.hasLayer().
+    if (!this.isHiddenReconciled) {
+      this.isHiddenReconciled = true;
+      this.reconcileHiddenIds();
     }
     // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
     // base-less map must not suppress the color-layer background.
@@ -1132,6 +1243,11 @@ class LayerUI {
   private syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
     if (hidden) this.hiddenIds.add(id);
     else this.hiddenIds.delete(id);
+    // The first change is what turns author defaults into the user's state.
+    // Until it has happened the visibility key does not exist, so the unhide
+    // half of the sweep must stay off or an empty saved set would override the
+    // author's `show=False` on the next load.
+    this.hiddenHasState = true;
     if (persist) this.saveHiddenIds();
   }
 
@@ -2126,17 +2242,34 @@ class LayerUI {
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     ) as NodeListOf<HTMLInputElement>;
+    let changed = false;
     for (let i = 0; i < this.m.layers.length; i++)
       if (this.m.layers[i].isBase && i !== exceptIdx) {
         const bLayer = this.m.findLayer(this.m.layers[i]);
-        if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
+        if (bLayer && this.m.map.hasLayer(bLayer)) {
+          this.m.map.removeLayer(bLayer);
+          changed = true;
+        }
         if (inputs[i]) {
-          inputs[i].checked = false;
-          inputs[i]
-            .closest(CONST.SEL.LAYER_ITEM)
-            ?.classList.remove(CONST.CLASSES.ACTIVE);
+          if (inputs[i].checked) {
+            inputs[i].checked = false;
+            inputs[i]
+              .closest(CONST.SEL.LAYER_ITEM)
+              ?.classList.remove(CONST.CLASSES.ACTIVE);
+            changed = true;
+          }
         }
       }
+    // Excluded from handleChange: it is the mutual-exclusion half of that
+    // handler, so walking it would recurse. The bases it deselects are hidden
+    // by the user's own choice, so they still need to persist -- otherwise a
+    // reload re-checks them and the "only one base at a time" invariant
+    // silently resets. The selected base is already tracked by the caller.
+    if (changed) {
+      for (let i = 0; i < this.m.layers.length; i++)
+        if (this.m.layers[i].isBase && i !== exceptIdx)
+          this.syncHiddenId(this.m.layers[i].id, true);
+    }
   }
 }
 

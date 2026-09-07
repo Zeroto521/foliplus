@@ -637,6 +637,21 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
       spy.mockRestore();
     });
+
+    it("reads only the order key at construction time", () => {
+      // The constructor runs before LayerControl's UI has attached, and order is
+      // the only dimension it needs. Reading all four dimensions here would be
+      // four JSON parses to recover one, and would repeat the read LayerUI makes
+      // at attach time against a registry that has since grown.
+      const spy = vi.spyOn(Storage, "load");
+      new LayerManager(map, [
+        { id: "base1", name: "B", isBase: true },
+        { id: "overlay1", name: "O", isBase: false },
+      ]);
+      const keys = spy.mock.calls.map(c => c[0]);
+      expect(keys).toEqual([CONST.STORAGE.ORDER_KEY]);
+      spy.mockRestore();
+    });
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {

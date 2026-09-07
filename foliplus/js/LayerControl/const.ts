@@ -10,7 +10,10 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
-  /** Set of layer ids currently hidden by the user (checked-off). */
+  /** Set of layer ids currently off the map. Absolute, not relative: it is
+   *  what is hidden, not merely what the user toggled to hide. A relative set
+   *  could never express "show a layer the author declared show=False", because
+   *  that id was never added to begin with. */
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
   /** Map of layer id → user-assigned display name. */
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,

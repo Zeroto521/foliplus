@@ -16,6 +16,15 @@ type PersistedState = {
   foldedGroups: Set<string>;
   hiddenIds: Set<string>;
   names: Record<string, string>;
+  /**
+   * Whether the visibility key existed at all. An absent key means the user has
+   * never made a choice, so the author's `show=` defaults stay in force; an
+   * empty array means the user hid nothing on purpose, which is an assertion
+   * that every registered layer must be visible. `hiddenIds` alone cannot carry
+   * that distinction, and treating "no key" as "hide nothing" would override the
+   * author's `show=False` on the very first load.
+   */
+  hiddenHasState: boolean;
 };
 
 /**
@@ -99,7 +108,31 @@ class LayerPersistence {
       foldedGroups: new Set(folded ?? []),
       hiddenIds: new Set(hidden ?? []),
       names,
+      hiddenHasState: hidden !== null,
     };
+  }
+
+  /**
+   * Load just the order dimension.
+   *
+   * {@link LayerManager} calls this from its own constructor, before
+   * LayerControl's UI has attached, and it is the only dimension it needs.
+   * {@link load} would also read and parse fold, visibility, and names — four
+   * JSON reads to recover one, for no reason, on every map. It also runs at a
+   * different moment than {@link load}: the registry still holds only the
+   * folium-declared layers, so the two calls cannot be merged even if they
+   * wanted to be.
+   */
+  loadOrder(): string[] | null {
+    const ids = this.registry.layers.map(l => l.id);
+    const order = Storage.load<unknown[]>(
+      CONST.STORAGE.ORDER_KEY,
+      this.persistName,
+    );
+    if (!Array.isArray(order) || !order.every(id => typeof id === "string")) {
+      return null;
+    }
+    return order.filter(id => ids.includes(id));
   }
 
   // ── Write ──────────────────────────────────────────────────────────

@@ -172,7 +172,7 @@ class LayerManager implements LayerAPI {
   }
 
   loadSavedOrder() {
-    const data = this.persistence.load().order;
+    const data = this.persistence.loadOrder();
     if (!data) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];

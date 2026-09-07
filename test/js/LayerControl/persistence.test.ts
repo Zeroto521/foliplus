@@ -35,6 +35,37 @@ describe("LayerPersistence", () => {
 
   // ── Read ────────────────────────────────────────────────────────
 
+  describe("loadOrder", () => {
+    it("loads the order dimension and drops unknown ids", () => {
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: ["a", "ghost", "b", "gone"] });
+      expect(makePersistence(["a", "b", "c"]).loadOrder()).toEqual(["a", "b"]);
+    });
+
+    it("returns null on missing or corrupt data", () => {
+      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: "not-array" });
+      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: ["a", 123] });
+      expect(makePersistence(["a", "b"]).loadOrder()).toEqual(null);
+    });
+
+    it("reads only the order key", () => {
+      // The whole point of the narrow read: LayerManager needs order and only
+      // order at construction time, so it must not parse fold, visibility, or
+      // names alongside it.
+      const keys: string[] = [];
+      const spy = vi
+        .spyOn(Storage, "load")
+        .mockImplementation((key: unknown) => {
+          keys.push(String(key));
+          return undefined;
+        });
+      makePersistence(["a"]).loadOrder();
+      spy.mockRestore();
+      expect(keys).toEqual([CONST.STORAGE.ORDER_KEY]);
+    });
+  });
+
   describe("load", () => {
     it("loads every dimension and drops unknown order ids", () => {
       seedStorage({
@@ -50,7 +81,18 @@ describe("LayerPersistence", () => {
         foldedGroups: new Set(["OVERLAYS"]),
         hiddenIds: new Set(["a", "b"]),
         names: { a: "A2", "not-registered-yet": "Pending" },
+        hiddenHasState: true,
       });
+    });
+
+    it("distinguishes an absent visibility key from an empty one", () => {
+      // An absent key means the user made no choice, so the author's show=False
+      // defaults must survive an unhide sweep. An empty array means the user
+      // hid nothing on purpose, which is an assertion that every layer is
+      // visible. hiddenIds alone cannot tell the two apart.
+      expect(makePersistence(["a"]).load().hiddenHasState).toBe(false);
+      seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: [] });
+      expect(makePersistence(["a"]).load().hiddenHasState).toBe(true);
     });
 
     it("keeps hidden ids that are not registered yet", () => {
@@ -80,6 +122,7 @@ describe("LayerPersistence", () => {
         foldedGroups: new Set(),
         hiddenIds: new Set(),
         names: {},
+        hiddenHasState: false,
       });
     });
 
@@ -97,6 +140,7 @@ describe("LayerPersistence", () => {
         foldedGroups: new Set(),
         hiddenIds: new Set(),
         names: {},
+        hiddenHasState: false,
       });
     });
 
