@@ -50,9 +50,10 @@
     // drawn before Escape (:focus-visible matched), otherwise the comparisons
     // would pass vacuously.
     glowVisibleBefore: beforeStyles.shadow !== "none",
-    // Escape restores the selected wash: on a checked row the cursor recipe
-    // paints the surface white, and the suppressed reset paints it
-    // transparent — the accent wash is the only state left that is neither.
+    // Escape restores the selected wash: on a checked row the accent wash is
+    // the only surface a row paints, so once the glow clears the computed
+    // background must be the wash again — neither the clear (unchecked) surface
+    // nor any white override.
     washRestored:
       afterStyles.bg !== "rgba(0, 0, 0, 0)" && afterStyles.bg !== "rgb(255, 255, 255)",
     // The type icon stays black: the cursor recipe and the selected state

@@ -405,8 +405,8 @@ path.foliplus-focus-mask {
          transient hover/keyboard cursor. */
       outline: none;
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
-         vertical (no left/right bleed). No background here: the surface stays
-         whatever the row's state paints (the panel white on unchecked rows,
+         vertical (no left/right bleed). No surface here: the row keeps
+         whatever its state paints (the container's white on unchecked rows,
          the .active wash on checked rows) — a checked row must not lose its
          selected wash just because the cursor arrives. */
       box-shadow:

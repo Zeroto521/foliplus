@@ -320,9 +320,10 @@ class TestLayerControlRendering:
 
         Mouse hover, Tab focus (:focus-visible) and the keyboard cursor
         (.foliplus-layer-focused) share a single :is() rule, so they cannot
-        drift apart: left bar accent, white row, top/bottom red glow, drag
-        grip, type icon black, more button red. Only colour changes; the type
-        icon must NOT scale."""
+        drift apart: left bar accent, clear surface (the control container
+        paints the white — the row itself paints nothing), top/bottom red glow,
+        drag grip, type icon black, more button red. Only colour changes; the
+        type icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl.css")
         # Color layer picker (via :is() selector, no literal :hover string)
@@ -363,11 +364,13 @@ class TestLayerControlRendering:
             out.append(ch)
         recipe = "".join(out)
         # The left accent bar is a PERSISTENT checked-status indicator, so the
-        # interaction recipe must NOT force it — hover/keyboard/Tab show white +
+        # interaction recipe must NOT force it — hover/keyboard/Tab show the
         # glow, and the red left bar stays reserved for .active / folded groups.
         assert "border-left-color" not in recipe
-        # White surface — the row returns to a clean white wash, not the gray one.
-        assert "background: var(--neutral-0)" in recipe
+        # The recipe paints NO surface: the white is the control container's
+        # --ctrl-bg showing through (a checked row keeps its .active wash under
+        # the glow instead of flashing white).
+        assert "background" not in recipe
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -2415,11 +2418,12 @@ class TestLayerControlBrowser:
                 f"ArrowDown should focus next item, got {result}"
             )
 
-    def test_row_cursor_renders_white_with_glow(self, browser, tmp_path):
+    def test_row_cursor_renders_glow_on_clear_surface(self, browser, tmp_path):
         """The Row-cursor recipe genuinely renders, not just exists in source.
 
         The shared recipe must produce the arrow-key reference look in the live
-        DOM — white row surface + red glow on the top/bottom edges — for BOTH the
+        DOM — the row's own surface stays clear (the control container's white
+        shows through) with the red glow on the top/bottom edges — for BOTH the
         keyboard cursor and mouse hover, and leave resting rows untouched. This
         guards against a recipe that parses but never paints (the pytest source
         assert can't catch that).
@@ -2456,8 +2460,8 @@ class TestLayerControlBrowser:
 
             kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
             assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
-            assert kb["bg"] == "rgb(255, 255, 255)", (
-                f"keyboard-cursor row must turn white, got {kb['bg']}"
+            assert kb["bg"] == "rgba(0, 0, 0, 0)", (
+                f"keyboard-cursor row must keep the clear surface, got {kb['bg']}"
             )
             assert kb["shadow"] != "none", (
                 f"keyboard-cursor row must glow, got {kb['shadow']}"
@@ -2484,10 +2488,11 @@ class TestLayerControlBrowser:
                 f"hover glow {hover['shadow']} must equal keyboard {kb['shadow']}"
             )
 
-    def test_fold_row_cursor_wakes_white_and_red_icon(self, browser, tmp_path):
+    def test_fold_row_cursor_wakes_glow_and_red_icon(self, browser, tmp_path):
         """A keyboard cursor on the fold (toggle-all) row shows the shared recipe
-        (white + glow) and wakes the fold icon red, exactly like hover — the fold
-        row joins the Row-cursor recipe and cannot drift into its own hover style.
+        (clear surface + glow) and wakes the fold icon red, exactly like hover —
+        the fold row joins the Row-cursor recipe and cannot drift into its own
+        hover style.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
@@ -2508,8 +2513,8 @@ class TestLayerControlBrowser:
             assert result["isFold"] is True, (
                 f"cursor should be on the fold row, got {result}"
             )
-            assert result["bg"] == "rgb(255, 255, 255)", (
-                f"fold row must turn white, got {result['bg']}"
+            assert result["bg"] == "rgba(0, 0, 0, 0)", (
+                f"fold row must keep the clear surface, got {result['bg']}"
             )
             assert result["shadow"] != "none", (
                 f"fold row must glow, got {result['shadow']}"
