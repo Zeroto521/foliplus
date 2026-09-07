@@ -45,8 +45,17 @@ const CLASSES = {
   TOOL_BTN: "foliplus-tool-btn",
   MODE: "foliplus-export-mode",
   BOX: "foliplus-export-box",
-  HANDLE: "foliplus-export-handle",
-  CENTER: "foliplus-export-center",
+  // HANDLE / CENTER add the box-relative anchoring; the dot look comes from
+  // `.foliplus-dot-hollow` / `-solid` in common.css, shared with the measure
+  // nodes.
+  HANDLE: "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
+  CENTER: "foliplus-dot foliplus-dot-solid foliplus-export-center",
+  // Single-token identity for hit-testing. HANDLE / CENTER are space-separated,
+  // and `classList.contains()` on the whole string only matches in real browsers
+  // — jsdom's `DOMTokenList.parse` does not split a multi-token lookup, which
+  // would silently disable the drag handler under vitest.
+  HANDLE_CLASS: "foliplus-export-handle",
+  CENTER_CLASS: "foliplus-export-center",
   PREVIEW: "foliplus-export-preview",
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",

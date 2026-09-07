@@ -126,6 +126,30 @@
     texture, not an operation border. */
   --dash-rhythm: var(--size-6) var(--size-4);
 
+  /* ── Anchor Dot ──
+    Shared look for every interactive anchor dot drawn on the map: measure
+    nodes (circle/radius/centroid, SVG circleMarker) and the export crop-box
+    center plus its 8 handles. Geometry, the hollow fill, and the hollow
+    stroke live in the `.foliplus-dot` rules below; the solid variant
+    overrides just the two colors. Keep the dot's look in one place so a
+    future change reaches every surface at once.
+    --dot-size is the *outer* diameter of both renderings: the DOM anchors set
+    `width` / `height` (border-box, so the border is inside it) and the SVG
+    node's circleMarker radius is --dot-size / 2 = 5. Radius is
+    not CSS-addressable, so `nodeRadius` in MeasureControl's `util.ts` reads
+    the token at marker-creation time instead of repeating it.
+    Keep --dot-size EVEN: Leaflet rounds a circleMarker's radius to an integer
+    pixel when it writes the SVG path, so an odd value would render as a
+    different size than the DOM anchors that read the token directly.
+    --dot-stroke is the ring weight of both renderings and must be what the
+    surface showed before this shared token — the measure nodes carried 2.5px,
+    the export anchors 2px, and 2.5px is the value that read correctly on the
+    map. A thinner ring makes the hollow dots read smaller, so this is the
+    one number that dominates the perceived size, not --dot-size. */
+  --dot-size: 10px;
+  --dot-stroke: 2.5px;
+  --dot-stroke-solid: 1px;
+
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
   --radius-lg: var(--size-6);
@@ -654,6 +678,54 @@
   background: var(--ctrl-bg-translucent);
   border: var(--border-thin) solid var(--divider-color);
   box-shadow: var(--shadow-xs);
+}
+
+/* ── Anchor Dot (shared by MeasureControl / ExportControl) ──
+   One visual dot on the map: the measure nodes and the export crop-box
+   center/handles are the same object in two renderings. `.foliplus-dot` owns the
+   shape — the four properties below — and every dot carries it, so a dot can
+   never be left unstyled by a missing variant class. The variant classes only
+   pick the palette; they declare no properties of their own.
+   SVG circleMarkers get `fill` / `stroke`; DOM anchors get `background` /
+   `border` instead, so the second rule is scoped to `:not(path)`. DOM anchors
+   set `width` / `height` in border-box, so the stroke is inside --dot-size;
+   the SVG node's radius is sized in JS to --dot-size / 2, which paints the
+   stroke inside the path the same way (Leaflet draws a marker's stroke within
+   the geometry, and a marker's bounding box ignores stroke-width entirely).
+   Both come out --dot-size across. */
+.foliplus-dot {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+  /* Solid dots paint the ring with --dot-stroke-solid instead: with the full
+     --dot-stroke the red disc is only half the area of a hollow dot's red
+     ring (pi*(4.75^2) vs pi*(5^2-3.75^2)), so solid anchors read smaller at
+     the same --dot-size. A thin ring puts the red out to the full diameter
+     while keeping the two variants distinct. */
+  --dot-stroke-width: var(--dot-stroke);
+  fill: var(--dot-fill);
+  fill-opacity: 1;
+  stroke: var(--dot-stroke-color);
+  stroke-width: var(--dot-stroke-width);
+}
+.foliplus-dot:not(path) {
+  background: var(--dot-fill);
+  /* The `border` shorthand, not the `border-width` longhand: on a non-replaced
+     element the longhand is silently ignored in Chromium even with !important,
+     so the shorthand is the only form that reliably sets the width. */
+  border: var(--dot-stroke-width) solid var(--dot-stroke-color);
+  border-radius: var(--radius-round);
+  box-sizing: border-box;
+}
+/* Hollow: neutral fill, accent ring. */
+.foliplus-dot-hollow {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+}
+/* Solid: accent fill, neutral ring. */
+.foliplus-dot-solid {
+  --dot-fill: var(--accent-primary);
+  --dot-stroke-color: var(--neutral-0);
+  --dot-stroke-width: var(--dot-stroke-solid);
 }
 
 /* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──

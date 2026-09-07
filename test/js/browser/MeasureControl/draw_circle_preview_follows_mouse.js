@@ -4,10 +4,9 @@
   mm.setMode("circle");
   map.fire("click", { latlng: L.latLng(26.08, 119.3) }); // center → state 1
   map.invalidateSize();
-  // The radius node is the only .foliplus-measure-node WITHOUT the -solid
-  // modifier (the center dot is NODE_SOLID).
+  // The radius node is the hollow variant; the center dot is NODE_SOLID.
   const node = () =>
-    document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
+    document.querySelector(".foliplus-measure-node.foliplus-dot-hollow");
   // First mousemove: the radius node must be created here.
   map.fire("mousemove", { latlng: L.latLng(26.085, 119.305) });
   const r1 = node()?.getBoundingClientRect();

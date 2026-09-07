@@ -25,8 +25,11 @@
   --export-scale-z: 850;
   /* Fold control z-index */
   --export-ctrl-z: calc(var(--z-export-base) + 200);
-  /* Handle/center anchor size */
-  --export-anchor-size: var(--size-12);
+  /* Handle/center anchor size — shared `--dot-size` from common.css, so the
+     crop-box anchors measure the same across as the measure nodes. The look
+     itself is `.foliplus-dot-hollow` / `.foliplus-dot-solid` in common.css;
+     this file adds only the box-relative anchoring. */
+  --export-anchor-size: var(--dot-size);
   /* Handle/center offset from box edge (half of 1px border) */
   --export-handle-offset: -1px;
   /* Smooth box follow during drag */
@@ -174,17 +177,15 @@
   }
 }
 
-/* ── Corner/Edge Handles ── */
+/* ── Corner/Edge Handles ──
+   Look comes from common.css's `.foliplus-dot-hollow` (shared with the
+   measure nodes); only the box-relative anchoring is here. */
 .foliplus-export-handle {
   position: absolute;
-  width: var(--size-12);
-  height: var(--size-12);
-  background: var(--ctrl-bg);
-  border: var(--border-thick) solid var(--accent-primary);
-  border-radius: var(--radius-round);
+  width: var(--export-anchor-size);
+  height: var(--export-anchor-size);
   z-index: calc(var(--z-export-base) + 5);
   pointer-events: auto;
-  box-sizing: border-box;
 
   &.tl {
     top: var(--export-handle-offset);
@@ -236,7 +237,9 @@
   }
 }
 
-/* ── Center Anchor ── */
+/* ── Center Anchor ──
+   Look comes from common.css's `.foliplus-dot-solid` — the same recipe as the
+   measure centroid. The box-shadow lifts it off the dim mask. */
 .foliplus-export-center {
   position: absolute;
   top: 50%;
@@ -244,9 +247,6 @@
   width: var(--export-anchor-size);
   height: var(--export-anchor-size);
   margin: calc(var(--export-anchor-size) / -2) 0 0 calc(var(--export-anchor-size) / -2);
-  background: var(--accent-primary);
-  border: var(--border-thick) solid var(--ctrl-bg);
-  border-radius: var(--radius-round);
   z-index: calc(var(--z-export-base) + 3);
   box-shadow: 0 1px var(--size-4) var(--export-dim-color);
   pointer-events: auto;

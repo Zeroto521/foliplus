@@ -6,7 +6,9 @@ const TIMING = {
   FINALIZE_DELAY: 50,
 };
 
-/** Measure node marker. */
+/** Measure node marker. `RADIUS` is only the fallback for when the `--dot-size`
+ *  token cannot be read (headless without the CSS) — the real radius is derived
+ *  at marker-creation time, see `nodeRadius` in `util.ts`. */
 const MARKER = { RADIUS: 5 };
 
 /** Label markers. */
@@ -80,8 +82,13 @@ const CLASSES = {
   PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
-  NODE_HOLLOW: "foliplus-measure-node",
-  NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
+  // `.foliplus-dot-hollow` / `-solid` (common.css) carry the fill, stroke and
+  // stroke-width shared with the export crop-box anchors; the module-prefixed
+  // classes below add only what is measure-specific. The marker radius is not
+  // CSS-addressable, so `nodeRadius` in `util.ts` derives it from the same
+  // token at creation time.
+  NODE_HOLLOW: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
+  NODE_SOLID: "foliplus-dot foliplus-dot-solid foliplus-measure-node",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   ACTIVE: "active",
