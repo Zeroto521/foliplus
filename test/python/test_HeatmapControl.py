@@ -13,7 +13,7 @@ from conftest import (
     assert_config_value,
     assert_locale,
     make_browser_page,
-    read_css,
+    read_css_dir,
     render_control,
     use_page,
 )
@@ -162,7 +162,7 @@ class TestHeatmapControlRendering:
         assert "var(--accent-primary)" in html
 
     def test_css_icon_size_variable(self):
-        """HeatmapControl SVGs use --icon-size-md via common.css."""
+        """HeatmapControl SVGs use --icon-size-md via the shared stylesheet."""
         html = render_control(HeatmapControl())
         assert "icon-size-md" in html
 
@@ -173,7 +173,7 @@ class TestHeatmapControlRendering:
 
     def test_css_scheme_dropdown_hover(self):
         """Scheme dropdown items use accent-light on hover via the unified
-        dropdown rule in common.css (item class + hover color both injected)."""
+        dropdown rule in the shared stylesheet (item class + hover color both injected)."""
         html = render_control(HeatmapControl())
         assert "scheme-dropdown-item" in html
         assert "accent-light" in html
@@ -227,10 +227,10 @@ class TestHeatmapControlRendering:
         assert 'disabled: "disabled"' not in html
 
     def test_border_weight_breathing_focus(self):
-        """weight-input is included in the shared breathing-focus rule in common.css."""
+        """weight-input is included in the shared breathing-focus rule."""
         from pathlib import Path
 
-        css = read_css("foliplus/css/common.css")
+        css = read_css_dir("foliplus/css/common", "reset.css")
         assert "foliplus-heatmap-weight-input" in css
         assert "input-breathe" in css
 
@@ -266,7 +266,7 @@ class TestHeatmapControlRendering:
     def test_ctrl_btn_svg_in_icon_selector(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
 
-        css = read_css("foliplus/css/common.css")
+        css = read_css_dir("foliplus/css/common", "button.css")
         assert ".foliplus-ctrl-btn" in css
 
     def test_layer_placeholder_option(self):

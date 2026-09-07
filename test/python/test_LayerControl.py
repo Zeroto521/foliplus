@@ -11,6 +11,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     read_css,
+    read_css_dir,
     render,
     render_control,
     use_page,
@@ -206,7 +207,7 @@ class TestLayerControlRendering:
         assert "base_map_label" in html
 
     def test_css_variables_used(self, base_map: folium.Map):
-        """CSS variables from common.css are referenced in rendered output."""
+        """CSS variables from the shared stylesheet are referenced in rendered output."""
         html = render_control(LayerControl())
         assert "var(--space-xl)" in html
         assert "var(--accent-primary)" in html
@@ -402,7 +403,7 @@ class TestLayerControlRendering:
 
         # ── More (⋮) menu icon: identity wakes gray → black on hover/keyboard
         # focus, matching the LayerControl type-icon language (NOT accent) — the
-        # main text goes black → red via the unified dropdown hover (common.css),
+        # main text goes black → red via the unified dropdown hover (css/common/menu.css),
         # so "icon black + text red" reads like every other dropdown. ──
         more_icon = [
             html[i : html.index("}", i)]
@@ -442,7 +443,7 @@ class TestLayerControlRendering:
 
     def test_close_btn_svg_styled(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
-        css = read_css("foliplus/css/common.css")
+        css = read_css_dir("foliplus/css/common", "button.css")
         # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css

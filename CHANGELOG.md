@@ -47,6 +47,7 @@
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 - `MeasureControl`/`SearchControl`: location coordinates are now pinned to six decimals by one shared formatter (`formatCoord` / `formatLatLng` in `common/format.ts`) — a search result or a popup rendered from a history entry saved as `121.47` used to read `121.47` where the cursor readout reads `121.470000` ([#260](https://github.com/Zeroto521/foliplus/pull/260))
+- `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
 
 ### Removed
 
