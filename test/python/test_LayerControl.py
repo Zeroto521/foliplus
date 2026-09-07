@@ -1456,9 +1456,8 @@ class TestLayerControlBrowser:
 
         It is also the inverse of test_hidden_layers_survive_reload: that one
         proves the hide half of the round trip, this one proves the unhide
-        half. folium renders a ``show=False`` layer absent from the map and
-        nothing else ever puts it back, so a sweep that only walks
-        ``hiddenIds`` can never reach a layer the user left visible.
+        half. A sweep that only walks ``hiddenIds`` can never reach a layer the
+        user left visible.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
         LayerControl().add_to(m)
@@ -1492,12 +1491,24 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
+            # Observe the pre-state rather than assuming folium rendered the
+            # declared show=False: folium 0.14.0 adds every layer and never
+            # removes it, so the rows that start off-map differ across versions.
+            # The point is the round trip -- whatever starts hidden must come
+            # back checked -- not which folium produced the hidden set.
+            before = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert before and len(before["rows"]) == 2, f"unexpected rows: {before}"
+            for row in before["rows"]:
+                assert row["checked"] == row["visible"] == row["onMap"], (
+                    f"{row['id']}: checkbox, registry and map disagree at load\n{before}"
+                )
+
             show = page.evaluate(_js("LayerControl/show_author_hidden"))
             assert show is not None and show["rows"] == 2, f"unexpected rows: {show}"
-            # Only Facility Points starts off-map among the overlays: Dark Canvas
-            # is a base layer and the snippet deliberately skips those, and
-            # Commuting Routes the author left visible.
-            assert show["checked"] == 1, f"expected 1 layer to be shown\n{show}"
+            hidden_before = sum(1 for r in before["rows"] if not r["checked"])
+            assert show["checked"] == hidden_before, (
+                f"expected the {hidden_before} off-map layer(s) to be shown\n{show}"
+            )
             assert show["stillUnchecked"] == 0, f"rows left unchecked\n{show}"
 
             page.wait_for_timeout(300)
@@ -1535,6 +1546,12 @@ class TestLayerControlBrowser:
         storage the user has made no choice, so the unhide sweep must not
         override the author's defaults. Without that guard the first reload of
         a map like the quickstart re-added every hidden overlay.
+
+        "Author defaults" here means whatever folium rendered at load, which is
+        read rather than assumed: folium 0.14.0 adds every layer regardless of
+        show=False, so the default is visible on that version. The user never
+        touched the panel, so storage stays empty and the invariant is that a
+        reload leaves the load state untouched -- whatever it was.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
         LayerControl().add_to(m)
@@ -1568,6 +1585,13 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # No interaction at all -- the panel merely opened on load.
+            initial = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert initial and len(initial["rows"]) == 1, (
+                f"expected 1 row, got {initial}"
+            )
+            load_checked = initial["rows"][0]["checked"]
+            load_storage = dict(initial["storage"])
+
             for _ in range(2):
                 page.reload(wait_until="domcontentloaded")
                 page.wait_for_selector(
@@ -1578,12 +1602,23 @@ class TestLayerControlBrowser:
                 )
                 page.wait_for_timeout(500)
 
-            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
-            assert rows and len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
-            row = rows["rows"][0]
-            assert row["checked"] is False, f"Facility Points was re-added\n{rows}"
-            assert row["visible"] is False, f"registry lost the author default\n{rows}"
-            assert row["onMap"] is False, f"layer on the map despite show=False\n{rows}"
+                rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+                assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
+                row = rows["rows"][0]
+                # The load state is untouched, and the three projections of it
+                # still agree -- so a reload neither re-added a hidden layer
+                # nor dropped one the author left on.
+                assert row["checked"] is load_checked, (
+                    f"reload with no user choice changed the load state\n{rows}"
+                )
+                assert row["checked"] == row["visible"] == row["onMap"], (
+                    f"{row['id']}: checkbox, registry and map disagree\n{rows}"
+                )
+                # Nothing may be persisted when the user never toggled: the
+                # unhide sweep must not synthesise a choice and write it down.
+                assert rows["storage"] == load_storage, (
+                    f"reload with no user choice wrote visibility state\n{rows}"
+                )
 
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
         """Layers registered at runtime get pruned from the hidden set after a
