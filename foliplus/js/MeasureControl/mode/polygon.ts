@@ -62,10 +62,8 @@ class PolygonMode extends PreviewMode {
       segLabels,
       points: points,
       area: data.area ?? 0,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);
@@ -75,12 +73,13 @@ class PolygonMode extends PreviewMode {
           distance: Util.distance(points[points.length - 1], points[0]),
           bearing: Util.bearing(points[points.length - 1], points[0]),
         });
-        data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.area = newArea;
         const centroid = Util.centroid(points);
-        data.center = { lng: centroid.lng, lat: centroid.lat };
-        manager.saveMeasurements();
+        manager.store.update(data.id!, {
+          points: points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          area: newArea,
+          center: { lng: centroid.lng, lat: centroid.lat },
+        });
       },
     });
   }
@@ -99,6 +98,10 @@ class PolygonMode extends PreviewMode {
         interactive: false,
       }),
     );
+    // Created on the first move, after the preview polygon, so the node
+    // paints above it. The cursor dot is the same hollow node as the circle
+    // mode's radius endpoint — it has no meaning before the first point.
+    let cursorNode: L.CircleMarker | null = null;
     const nodeMarkers: L.CircleMarker[] = [];
     const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
@@ -113,6 +116,10 @@ class PolygonMode extends PreviewMode {
       unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(poly);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(finalPoly);
       if (previewDistLabel) {
@@ -133,6 +140,10 @@ class PolygonMode extends PreviewMode {
       this.isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -157,7 +168,7 @@ class PolygonMode extends PreviewMode {
       };
       segments.push(lastSeg);
       const centroid = Util.centroid(points);
-      this.m.measurements.push({
+      this.m.store.add({
         id: polyId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
@@ -165,7 +176,6 @@ class PolygonMode extends PreviewMode {
         area,
         center: { lng: centroid.lng, lat: centroid.lat },
       });
-      this.m.saveMeasurements();
 
       // Add closing segment label
       const lastPt = points[points.length - 1];
@@ -197,13 +207,11 @@ class PolygonMode extends PreviewMode {
         segLabels,
         points,
         area,
+        id: polyId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== polyId);
-          this.m.saveMeasurements();
+          this.m.store.remove(polyId);
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === polyId);
-          if (!m) return;
           const { segments } = Util.recalculateSegments(points);
           // Add closing segment
           const n = points.length;
@@ -213,12 +221,13 @@ class PolygonMode extends PreviewMode {
             distance: Util.distance(points[n - 1], points[0]),
             bearing: Util.bearing(points[n - 1], points[0]),
           });
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.area = Util.area(points);
           const centroid = Util.centroid(points);
-          m.center = { lng: centroid.lng, lat: centroid.lat };
-          this.m.saveMeasurements();
+          this.m.store.update(polyId, {
+            points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+            segments,
+            area: Util.area(points),
+            center: { lng: centroid.lng, lat: centroid.lat },
+          });
         },
       });
       // Replace the drawing-phase cleanup with a no-op (it would remove the
@@ -241,6 +250,8 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
+      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      else cursorNode.setLatLng(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);

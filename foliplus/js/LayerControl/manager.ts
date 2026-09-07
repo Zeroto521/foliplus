@@ -21,6 +21,7 @@ import {
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
@@ -28,6 +29,7 @@ import { LayerUI } from "./ui.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -254,7 +256,7 @@ class LayerManager implements LayerAPI {
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
         // (returns null), so this is a defensive fallback, not a real path.
-        console.error(`[${CONF.name}] featureCountProvider threw for "${id}":`, err);
+        log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via forEachLeaf — only valid for feature containers.
@@ -331,7 +333,7 @@ class LayerManager implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(`[${CONF.name}] ${T("id_required")}`);
+    if (!opts?.id) throw new Error(log.msg(T("id_required")));
 
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
@@ -449,12 +451,22 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
-    // Remove the layer's id from the persisted hidden set so a removed layer
-    // doesn't carry stale hidden state into a future session.
+    // Remove the layer's id from the persisted hidden set and rename map so
+    // a removed layer doesn't carry stale state into a future session.
+    // The rename prune has to happen here rather than in applyUserState:
+    // that sweep also runs for ids that are not in the registry yet because
+    // they belong to a component registering later (HeatmapControl and
+    // MeasureControl register in their own constructor, after this UI has
+    // already attached), and pruning there would revert the rename on the
+    // first attach — every reload.
     this.ui?.hiddenIds?.delete(id);
     this.ui?.saveHiddenIds();
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
+    if (this.ui?.renamedNames?.[id] != null) {
+      delete this.ui.renamedNames[id];
+      this.ui.saveNamesState();
+    }
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
@@ -687,12 +699,16 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = true;
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    this.persistence.destroy();
+    // Flush before destroy: the writes are debounced at 100ms, wide enough for
+    // the control to be removed before the timer fires. unbindEvents also
+    // flushes, but it only runs when a panel is attached.
+    this.persistence.flushAll();
     this.annotation.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
     }
+    this.persistence.destroy();
     if (this.uiContainer) {
       this.uiContainer.innerHTML = "";
       this.uiContainer = null;

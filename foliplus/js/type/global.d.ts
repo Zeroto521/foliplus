@@ -25,6 +25,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
+import type { NumberStyle } from "#common/format.js";
 
 // ── Runtime helpers ────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ declare global {
     zoom?: number;
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
+    collide_labels?: boolean;
     agg?: string;
     method?: string;
     n_classes?: number;
@@ -152,7 +154,7 @@ declare global {
     border_color?: string;
     border_opacity?: number;
     fill_opacity?: number;
-    label_format?: "auto" | "comma" | "int";
+    label_format?: NumberStyle;
     label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
@@ -218,6 +220,7 @@ declare global {
     type LayerEvent = Leaflet.LayerEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
+    type Point = Leaflet.Point;
     type PointExpression = Leaflet.PointExpression;
     type LatLngExpression = Leaflet.LatLngExpression;
     type LatLng = Leaflet.LatLng;
@@ -329,11 +332,3 @@ declare global {
     map: Leaflet.Map;
   }
 }
-
-declare module "leaflet" {
-  interface Map {
-    foliplus?: MapFoliplus;
-  }
-}
-
-export {};

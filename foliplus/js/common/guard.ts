@@ -2,10 +2,16 @@
 // Throws a clear error when runtime is missing, stopping the component early
 // rather than letting it fail later at an obscure DOM access.
 import { registerHintIcon } from "#core/hint.js";
+import { createLogger } from "#common/log.js";
 
-export const requireRuntime = (componentName: string): void => {
-  if (!window.foliplus)
-    throw new Error(`[${componentName}] foliplus runtime not found, plugin disabled.`);
+// The prefix is a parameter here (no module-level CONF), so the logger is
+// bound inside the function — file-top binding is only possible where the
+// name is known at module level.
+const requireRuntime = (componentName: string): void => {
+  const log = createLogger(componentName);
+  if (!window.foliplus) {
+    throw new Error(log.msg("foliplus runtime not found, plugin disabled."));
+  }
 };
 
 /**
@@ -15,7 +21,9 @@ export const requireRuntime = (componentName: string): void => {
  * @param CONF - Component configuration (from IIFE).
  * @param icon - SVG icon string for the hint icon. Optional (ScaleControl omits it).
  */
-export const createControlEnv = (CONF: { name: string }, icon?: string): void => {
+const createControlEnv = (CONF: { name: string }, icon?: string): void => {
   requireRuntime(CONF.name);
   if (icon) registerHintIcon(CONF.name, icon);
 };
+
+export { requireRuntime, createControlEnv };

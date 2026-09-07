@@ -2,7 +2,7 @@
 // Imported statically by components. `turf` and `L` are globals
 // provided by the page (Leaflet + turf via CDN), as before.
 
-export interface LatLngPoint {
+interface LatLngPoint {
   lng: number;
   lat: number;
 }
@@ -42,4 +42,4 @@ const area = (points: LatLngPoint[]): number => {
   return turf.area(turf.polygon([coords]));
 };
 
-export { area, bearing, centroid, distance, midpoint };
+export { type LatLngPoint, area, bearing, centroid, distance, midpoint };

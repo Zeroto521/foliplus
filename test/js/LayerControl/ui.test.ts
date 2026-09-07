@@ -221,12 +221,74 @@ const initFixture = (
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
   ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
+/** Resolve the overlay group's toggle-all row and its chevron, plus a live
+ *  read of its child rows. */
+const attachWithGroup = (ui: LayerUI) => {
+  const row = ui.uiContainer.querySelector(
+    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+  ) as HTMLElement;
+  const children = () =>
+    Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+
+  return {
+    ui,
+    row,
+    foldBtn: row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement,
+    children,
+  };
+};
+
+/** True when every group child row carries the folded class, i.e. the group is
+ *  folded. The toggle-all row itself never gets this class — only its
+ *  children do — so the fold assertion goes on them. */
+const allFolded = (rows: HTMLElement[]) =>
+  rows.length > 0 &&
+  rows.every(el => el.classList.contains(CONST.CLASSES.GROUP_FOLDED));
+
+/** Fire a keydown on `el`, leaving DOM focus there. handleKeyDown() resolves
+ *  the cursor from `document.activeElement` only, so focus must already be
+ *  pinned on `el` before the dispatch. */
+const pressKey = (el: HTMLElement, key: string) => {
+  el.focus();
+  el.dispatchEvent(
+    new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key }),
+  );
+};
+
+/** Re-resolve the overlay group's chevron — the panel rebuilds on every fold,
+ *  so a chevron captured before a fold is detached. */
+const overlayFoldBtn = (root: ParentNode) =>
+  root
+    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`)!
+    .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
+
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
   let manager: LayerManager, ui: LayerUI, map: any;
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
+    // Fold tests need two overlay layers, so overlay1 isn't collapsed into the
+    // single-child "no toggle-all" layout. Registered here (not in the tests)
+    // because initFixture() flushes the 300ms initTypesAndVisibility timeout
+    // AFTER any nested beforeEach, which would drop a layer added inside a test.
+    if (!manager.layerRegistry.get("overlay2"))
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Circles",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+      });
+    ui.foldedGroups = new Set();
+    ui.hiddenIds = new Set();
+    // Folded-group state is persisted to localStorage, so a fold from one test
+    // would be re-read by the next test's LayerUI constructor and present as
+    // already-folded.
+    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
   });
 
   afterEach(() => {
@@ -357,20 +419,19 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       layer.getBounds = undefined;
       // @ts-expect-error — eachLayer iterates two leaf children
       layer.eachLayer = (fn: (c: unknown) => void) => {
-        fn({
-          getBounds: () => ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }),
-        });
-        fn({
-          getBounds: () => ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 31, lng: 101 }),
-            getNorthEast: () => ({ lat: 39, lng: 109 }),
-          }),
-        });
+        for (const b of [
+          { sw: { lat: 30, lng: 100 }, ne: { lat: 40, lng: 110 } },
+          { sw: { lat: 31, lng: 101 }, ne: { lat: 39, lng: 109 } },
+        ]) {
+          fn({
+            options: {}, // every Leaflet layer has options; missing it breaks discoverChildPanes
+            getBounds: () => ({
+              isValid: () => true,
+              getSouthWest: () => b.sw,
+              getNorthEast: () => b.ne,
+            }),
+          });
+        }
       };
 
       ui.focusLayer("overlay1");
@@ -380,25 +441,22 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("focuses a canvas layer via its getBounds provider", () => {
-      // Canvas layers (e.g. HeatmapControl) have no Leaflet layer, only a
-      // canvas element + a getBounds provider. Focus must use the provider
-      // and boost the canvas element itself.
       const canvas = document.createElement("canvas");
       canvas.style.filter = "";
       manager.registerLayer({
-        id: "heatmap1",
-        name: "Heatmap",
+        id: "heat1",
+        name: "Heat",
         canvas,
         onToggle: () => {},
-        getBounds: () =>
-          ({
-            isValid: () => true,
-            getSouthWest: () => ({ lat: 30, lng: 100 }),
-            getNorthEast: () => ({ lat: 40, lng: 110 }),
-          }) as unknown as L.LatLngBounds,
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
       });
-
-      ui.focusLayer("heatmap1");
+      // A never-touched late registration must not be force-hidden by the
+      // targeted applyUserState(id) drain — that is what keeps this focusable.
+      ui.focusLayer("heat1");
 
       expect(map.fitBounds).toHaveBeenCalled();
       expect(L.rectangle).toHaveBeenCalled();
@@ -1184,7 +1242,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("New Name");
+      expect(ui.renamedNames.overlay1).toBe("New Name");
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
     });
 
@@ -1199,7 +1257,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new Event("blur"));
 
       expect(label.textContent).toBe("Via Blur");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Via Blur");
+      expect(ui.renamedNames.overlay1).toBe("Via Blur");
     });
 
     it("Escape cancels and restores the original label text", () => {
@@ -1265,7 +1323,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(label.textContent).toBe("Trimmed");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Trimmed");
+      expect(ui.renamedNames.overlay1).toBe("Trimmed");
     });
 
     it("committing an unchanged name does not write to renamedNames", () => {
@@ -1294,19 +1352,55 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.renamedNames["overlay1"]).toBe("Changed");
     });
 
-    it("committing a rename updates the checkbox aria-label and title", () => {
+    it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      // The tooltip is the Select/Deselect affordance; a rename must not
+      // occupy that slot.
+      const tooltip = checkbox.title;
+      expect(tooltip).not.toBe("");
+      expect(tooltip).not.toBe("Renamed");
 
       input.value = "Renamed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
-      expect(checkbox.title).toBe("Renamed");
+      expect(checkbox.title).toBe(tooltip);
+    });
+
+    it("renaming the color basemap updates the color input's aria-label too", () => {
+      // The color row has no checkbox — its toggle is the type="color" input.
+      // Both the label cell and the input must announce the rename, otherwise
+      // assistive tech keeps reading the locale default after a rename.
+      const item = findItem(ui, CONST.COLOR.MAP_ID);
+      const colorInput = item.querySelector(`input[type="color"]`) as HTMLInputElement;
+      // Capture the pre-rename value from the source of truth, not the DOM:
+      // the aria-label and the label cell are both projections of
+      // displayName(), so comparing them against each other would pass either
+      // way — vacuously if neither propagated, and without ever observing a
+      // rename at all.
+      const before = ui.displayName(CONST.COLOR.MAP_ID);
+
+      expect(colorInput.getAttribute("aria-label")).toBe(before);
+
+      ui.renameLayer(CONST.COLOR.MAP_ID);
+      const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
+        "input",
+      ) as HTMLInputElement;
+      input.value = "My Colour";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(item.querySelector("label")!.textContent).toBe("My Colour");
+      expect(colorInput.getAttribute("aria-label")).toBe("My Colour");
+      // The row tooltip is the TYPE label, a different slot from the name —
+      // a rename must not move into it.
+      const tooltip = item.getAttribute("title");
+      expect(tooltip).not.toBe("My Colour");
+      expect(tooltip).not.toBe("");
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
@@ -1422,21 +1516,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
     });
 
-    it("applying persisted rename restores the color-layer label text", () => {
+    it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
       );
-      ui.loadNamesState();
-      ui.applyNamesState();
+      ui.loadPersistedState();
+      ui.applyUserState();
 
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
+      // The color input's aria-label and tooltip belong to the row builder:
+      // the tooltip is the palette type label, and the aria-label stays the
+      // color_map_label so the swatch is still announced as the basemap.
       const colorInput = colorItem.querySelector(
         'input[type="color"]',
       ) as HTMLInputElement;
-      expect(colorInput.getAttribute("aria-label")).toBe("Custom Color");
-      expect(colorInput.title).toBe("Custom Color");
+      expect(colorInput.title).not.toBe("Custom Color");
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
@@ -1464,37 +1560,103 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
   // ─────────────────── rename persistence ───────────────────
 
-  describe("rename persistence (loadNames / saveNames / applyNames)", () => {
+  describe("rename persistence (loadPersistedState / saveNamesState / applyUserState)", () => {
     beforeEach(() => {
       window.localStorage.clear();
     });
 
-    it("loadNamesState reads renamed names from localStorage", () => {
+    it("loadPersistedState reads renamed names from localStorage", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Over1", base1: "Over2" }),
       );
 
-      ui.loadNamesState();
+      ui.loadPersistedState();
 
       expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
     });
 
-    it("applyNamesState overwrites the registry name, label text, and checkbox", () => {
+    it("applyUserState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.NAMES_KEY,
         JSON.stringify({ overlay1: "Persisted Name" }),
       );
 
-      ui.loadNamesState();
-      ui.applyNamesState();
+      ui.loadPersistedState();
+      ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
-      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      expect(ui.renamedNames.overlay1).toBe("Persisted Name");
+      // The sweep pushes the rename into the registry projection as well.
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(checkbox.getAttribute("aria-label")).toBe("Persisted Name");
-      expect(checkbox.title).toBe("Persisted Name");
+      // The tooltip stays the Select/Deselect affordance, not the layer name.
+      expect(checkbox.title).not.toBe("Persisted Name");
+    });
+
+    it("does not re-write a row that already holds the stored name", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Persisted Name" }),
+      );
+      ui.loadPersistedState();
+      ui.applyUserState();
+
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const setAttr = HTMLInputElement.prototype.setAttribute;
+      let attrWrites = 0;
+      vi.spyOn(checkbox, "setAttribute").mockImplementation(function (
+        this: HTMLInputElement,
+        ...args
+      ) {
+        attrWrites++;
+        return setAttr.call(this, ...args);
+      });
+
+      try {
+        ui.applyUserState();
+
+        // Everything already matches, so nothing is re-written.
+        expect(attrWrites).toBe(0);
+        expect(manager.layerRegistry.get("overlay1")!.name).toBe("Persisted Name");
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it("a targeted apply updates only that layer's registry entry", () => {
+      window.localStorage.setItem(
+        CONST.STORAGE.NAMES_KEY,
+        JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
+      );
+      ui.loadPersistedState();
+
+      manager.layerRegistry.get("overlay1")!.name = "Renamed";
+      ui.applyUserState("overlay1");
+
+      expect(manager.layerRegistry.get("overlay1")!.name).toBe("Renamed");
+      // The other layer was left alone — the targeted call must not sweep the
+      // whole panel on every late registration.
+      expect(manager.layerRegistry.get("base1")!.name).not.toBe("Also Renamed");
+    });
+
+    it("a targeted apply for an un-renamed id leaves the registry untouched", () => {
+      // insertLayerItem calls applyUserState(id) for every late registration,
+      // including layers the user never renamed. A missing rename must be a
+      // no-op, not a write of undefined over the registry's own name.
+      ui.renamedNames = {};
+
+      const before = manager.layerRegistry.get("base1")!.name;
+      const label = findItem(ui, "base1")!.querySelector("label")!;
+      const labelBefore = label.textContent;
+
+      ui.applyUserState("base1");
+
+      expect(manager.layerRegistry.get("base1")!.name).toBe(before);
+      expect(label.textContent).toBe(labelBefore);
     });
 
     it("tolerates corrupt / non-object / empty names storage", () => {
@@ -1514,15 +1676,15 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.renamedNames = {};
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "not-json");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "[]");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "null");
-      ui.loadNamesState();
+      ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
       // The label must stay at the pristine name — no crash, no empty text.
@@ -1668,6 +1830,136 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  // ─────────────────── checkbox dblclick / Enter ─────────────────────
+
+  describe("row dblclick only focuses from dead space", () => {
+    it("focuses the layer on a dblclick of the row's label area", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const label = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.LAYER_LABEL}`,
+      )!;
+      ui.handleDblClick({ target: label, bubbles: true } as MouseEvent);
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the more button", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const more = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      )!;
+      ui.handleDblClick({ target: more, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("ignores a dblclick outside the layer panel", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      ui.handleDblClick({ target: outside, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      outside.remove();
+      focusSpy.mockRestore();
+    });
+  });
+
+  describe("Enter toggles the cursor row", () => {
+    const toggleSpy = (ui: LayerUI) => {
+      const orig = HTMLInputElement.prototype.dispatchEvent;
+      const spy = vi.fn();
+      HTMLInputElement.prototype.dispatchEvent = function (...args: any[]) {
+        const ev = args[0] as Event;
+        if (ev.type === "change") spy();
+        return orig.apply(this, args);
+      };
+      return {
+        spy,
+        restore: () => {
+          HTMLInputElement.prototype.dispatchEvent = orig;
+        },
+      };
+    };
+
+    it("Enter on the row checkbox toggles that layer's visibility", () => {
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const { spy, restore } = toggleSpy(ui);
+      const before = checkbox.checked;
+
+      checkbox.focus();
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
+      );
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(checkbox.checked).toBe(!before);
+      restore();
+    });
+
+    it("Enter on the row div toggles that row without native side effects", () => {
+      // Row-level Enter is the keyboard contract: Space toggles a focused
+      // checkbox natively, Enter must not double-fire it.
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const { spy, restore } = toggleSpy(ui);
+      const before = checkbox.checked;
+
+      item.focus();
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
+      );
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(checkbox.checked).toBe(!before);
+      restore();
+    });
+
+    it("a checkbox change hides the layer at that row's own index", () => {
+      // The handler resolves the layer from `dataset.index`, not from the row,
+      // so an unregistered layer's row is simply no longer toggleable here —
+      // nothing is lost by the index lookup while the row is live.
+      const cb = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const idx = parseInt(cb.dataset.index ?? "", 10);
+      expect(ui.m.layers[idx].id).toBe("overlay1");
+
+      cb.checked = false;
+      ui.handleChange({ target: cb } as Event);
+
+      expect(ui.hiddenIds).toContain("overlay1");
+      expect(ui.m.layers.length).toBe(3);
+    });
+
+    it("Enter on the more button still opens the menu and does not toggle", () => {
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const more = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
+      const { spy, restore } = toggleSpy(ui);
+      const before = checkbox.checked;
+
+      more.focus();
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+        }) as KeyboardEvent,
+      );
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(checkbox.checked).toBe(before);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      restore();
+    });
+  });
+
   // ─────────────────── Alt+Enter keyboard shortcut ───────────────────
 
   describe("focusLayer via Alt+Enter keyboard shortcut", () => {
@@ -1743,6 +2035,229 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
 
       focusSpy.mockRestore();
+    });
+  });
+
+  // ─────────────────── keyboard focus cursor visual class ───────────────────
+
+  describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
+    // getNavigableItems() enumerates row elements in DOM order: the "Toggle
+    // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
+    // up indices dynamically so a re-order doesn't silently break these tests.
+    const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+
+    it("setActiveItem adds the FOCUSED class to the target row", () => {
+      const overlay = findItem(ui, "overlay1");
+      const base = findItem(ui, "base1");
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+
+      ui.setActiveItem(indexFor("overlay1"));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
+    it("moving the cursor removes FOCUSED from the previous row (mutual exclusivity)", () => {
+      const overlay = findItem(ui, "overlay1");
+      const base = findItem(ui, "base1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+
+      ui.setActiveItem(indexFor("base1"));
+      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      // Only ONE row carries the class at any time.
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
+      expect(ui.activeIdx).toBe(indexFor("base1"));
+    });
+
+    it("blurActiveItem removes the FOCUSED class from the current row", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      ui.blurActiveItem();
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      // activeIdx is preserved by blurActiveItem — only the marker is lifted.
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
+    it("clearActiveItem removes the FOCUSED class and resets activeIdx/clickedRow", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+
+      ui.clearActiveItem();
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      expect(ui.activeIdx).toBeNull();
+      expect((ui as any).clickedRow).toBeNull();
+    });
+
+    it("Escape keydown clears the FOCUSED class", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.focus();
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Escape",
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      // Check the checkbox (adds .active via the toggle path) then set cursor
+      // onto the same row — both classes must be present simultaneously so the
+      // visual distinction between "checked" (5% wash) and "cursor-on" (8%
+      // wash + accent bar) is preserved.
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.checked = true;
+      overlay.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
+      ui.setActiveItem(indexFor("overlay1"));
+
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    });
+  });
+
+  // ─────────────────── fold group via keyboard ───────────────────
+
+  describe("fold group via keyboard (chevron button)", () => {
+    // The chevron button lives inside the toggle-all row, so focus on it
+    // resolves up to that row. Enter/Space over it must fold the group —
+    // not flip the row's select-all checkbox.
+    //
+    // The group needs two overlay layers so overlay1 isn't collapsed into the
+    // single-child "no toggle-all" layout of initFixture(), and hiddenIds must
+    // be empty so a visibility collapse can't read as a fold (the outer
+    // beforeEach owns both).
+
+    it("Enter on the chevron folds the group and hides its children", () => {
+      const { foldBtn, children } = attachWithGroup(ui);
+      expect(children()).toHaveLength(2);
+      expect(allFolded(children())).toBe(false);
+
+      pressKey(foldBtn, "Enter");
+
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(allFolded(children())).toBe(true);
+    });
+
+    it("Space folds too, and Enter again unfolds", () => {
+      const { children } = attachWithGroup(ui);
+      // The chevron is a real focusable button, so dispatch the key there.
+      pressKey(overlayFoldBtn(ui.uiContainer), " ");
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(allFolded(children())).toBe(true);
+      // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
+      pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
+
+      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(false);
+      expect(allFolded(children())).toBe(false);
+    });
+
+    it("Enter on the chevron does NOT flip the select-all checkbox", () => {
+      const { foldBtn, children } = attachWithGroup(ui);
+      const childBoxes = () =>
+        children()
+          .map(el => el.querySelector('input[type="checkbox"]'))
+          .filter(Boolean) as HTMLInputElement[];
+
+      const allChecked = () => childBoxes().every(cb => cb.checked);
+      expect(allChecked()).toBe(true);
+
+      pressKey(foldBtn, "Enter");
+      expect(allFolded(children())).toBe(true);
+
+      // Unfold again and confirm nothing was deselected.
+      pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
+      expect(children()).toHaveLength(2);
+      expect(allChecked()).toBe(true);
+    });
+
+    it("Enter on the toggle-all row itself still selects/deselects the group", () => {
+      const { row, children } = attachWithGroup(ui);
+      const childBoxes = () =>
+        children()
+          .map(el => el.querySelector('input[type="checkbox"]'))
+          .filter(Boolean) as HTMLInputElement[];
+
+      pressKey(row, "Enter");
+
+      // Enter on the row itself toggles visibility, not the fold.
+      expect(row.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+      expect(allFolded(children())).toBe(false);
+      expect(children()).toHaveLength(2);
+      expect(childBoxes().some(cb => !cb.checked)).toBe(true);
+    });
+
+    it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
+      const colorRow = ui.uiContainer.querySelector(
+        `.${CONST.CLASSES.COLOR_ITEM}`,
+      ) as HTMLElement | null;
+
+      const items = ui.getNavigableItems();
+      // The color row is a picker, not a layer, so it stays out of the list.
+      if (colorRow) expect(items).not.toContain(colorRow);
+      // Rows are enumerated by class, never filtered by checkbox presence.
+      const isRow = (el: HTMLElement) =>
+        el.classList.contains(CONST.CLASSES.LAYER_ITEM) ||
+        el.classList.contains(CONST.CLASSES.TOGGLE_ALL);
+      expect(items.every(isRow)).toBe(true);
+      expect(items.filter(isRow)).toHaveLength(items.length);
+
+      // Simulate the divergence that made Tab and arrow keys disagree: a row
+      // the old checkbox-first enumeration silently dropped.
+      const bareRow = document.createElement("div");
+      bareRow.className = CONST.CLASSES.LAYER_ITEM;
+      bareRow.setAttribute(CONST.DATA.LAYER_ID, "no-checkbox");
+      ui.uiContainer.appendChild(bareRow);
+
+      expect(ui.getNavigableItems()).toContain(bareRow);
     });
   });
 
@@ -1946,53 +2461,166 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   // ─────────────────── load / apply on attach ───────────────────
 
-  describe("loadHiddenIds / applyHiddenState", () => {
+  describe("loadPersistedState / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
       expect(u.hiddenIds).toContain("overlay1");
       expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
     });
 
-    it("drops unknown ids from the persisted hidden set and warns", () => {
+    it("re-adds a layer the user un-hid, once the visibility key exists", () => {
+      // folium renders a show=False layer absent from the map and nothing else
+      // puts it back, so the hide half of the round trip had no inverse: a
+      // layer the user left visible was correctly absent from hiddenIds, and the
+      // sweep left it off the map. That is what made a checked Commuting Routes
+      // come back unchecked after a reload.
+      const { map, removeLayer } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      // The user checked the layer ON, so it is absent from hiddenIds -- but the
+      // key exists, so every registered layer must be on the map.
+      u.hiddenIds = new Set(["other"]);
+      u.hiddenHasState = true;
+      // Simulate the layer being off the map (folium show=False).
+      map.hasLayer = vi.fn(() => false);
+
+      u.applyUserState();
+
+      expect(map.addLayer).toHaveBeenCalledWith(testPolyLayer);
+      expect(removeLayer).not.toHaveBeenCalled();
+      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+    });
+
+    it("leaves the author's show=False defaults alone when the key is absent", () => {
+      // No visibility key means the user never chose, so an unhide sweep must
+      // not override the author's show=False. Without this guard the first load
+      // of a map like QuickStart re-added every hidden overlay.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set();
+      u.hiddenHasState = false;
+      map.hasLayer = vi.fn(() => false);
+
+      u.applyUserState();
+
+      expect(map.addLayer).not.toHaveBeenCalled();
+      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+    });
+
+    it("fires onToggle(true) for a callback-only layer the user un-hid", () => {
+      // Canvas/heatmap layers have no Leaflet layer to addLayer, so the inverse
+      // path must call the callback instead or they stay hidden after a reload.
+      const { map } = makeTestMap();
+      const onToggle = vi.fn();
+      const m = new LayerManager(map, [
+        {
+          id: "canvas1",
+          name: "Canvas",
+          layer: null,
+          onToggle,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set();
+      u.hiddenHasState = true;
+
+      u.applyUserState();
+
+      expect(onToggle).toHaveBeenCalledWith(true);
+    });
+
+    it("drops unknown ids from the persisted hidden set", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0][0]).toMatch(
-        /Dropped stale hidden-layer ids.*ghost.*gone/,
-      );
-      warnSpy.mockRestore();
+    });
+
+    it("keeps a hidden id for a pending registration", () => {
+      // A component can register before the panel attaches, in which case the
+      // layer is still queued in pendingRegistrations when this sweep runs
+      // (attachUI drains the queue before calling applyUserState). Such an id
+      // must not be read as "gone for good" — dropping it would lose the user's
+      // hidden state and the layer would come back on the map after every
+      // reload.
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds = new Set(["overlay1", "later", "ghost"]);
+      m.pendingRegistrations.push({
+        id: "later",
+        name: "Later",
+        isBase: false,
+        layer: testPolyLayer,
+      } as any);
+
+      u.applyUserState();
+
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later"]));
     });
 
     it("persists the pruned hidden set after dropping stale ids", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
 
       vi.useFakeTimers();
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      u.applyHiddenState();
-      warnSpy.mockRestore();
+      u.applyUserState();
 
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
       vi.useRealTimers();
@@ -2019,7 +2647,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds.add("canvas1");
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(onToggle).toHaveBeenCalledWith(false);
     });
@@ -2036,7 +2664,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
 
-      u.loadHiddenIds();
+      u.loadPersistedState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
     });
@@ -2049,7 +2677,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
 
-      u.loadHiddenIds();
+      u.loadPersistedState();
 
       expect(u.hiddenIds).toEqual(new Set());
     });
@@ -2061,7 +2689,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       map.hasLayer.mockReturnValue(true);
       const u = new LayerUI(m);
@@ -2081,7 +2714,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("removes an overlay from the persisted set when the user re-checks it", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: testPolyLayer },
+        {
+          id: "overlay1",
+          name: "Polygons",
+          isBase: false,
+          layer: testPolyLayer,
+        },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
@@ -2248,11 +2886,23 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
-        { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
-        { id: "base2", name: "B2", isBase: true, layer: base2, paneName: "tilePane" },
+        {
+          id: "base1",
+          name: "B1",
+          isBase: true,
+          layer: base1,
+          paneName: "tilePane",
+        },
+        {
+          id: "base2",
+          name: "B2",
+          isBase: true,
+          layer: base2,
+          paneName: "tilePane",
+        },
       ]);
 
-      // Both bases were removed from the map by applyHiddenState.
+      // Both bases were removed from the map by applyUserState().
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
@@ -2298,7 +2948,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
-        { id: "base1", name: "B1", isBase: true, layer: base1, paneName: "tilePane" },
+        {
+          id: "base1",
+          name: "B1",
+          isBase: true,
+          layer: base1,
+          paneName: "tilePane",
+        },
       ]);
 
       // base1 was hidden, but overlay1 is visible and there are no visible bases.
@@ -2313,9 +2969,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     });
   });
 
-  // ─────────────────── applyHiddenState with multiple layers ───────────────────
+  // ─────────────────── applyUserState with multiple layers ───────────────────
 
-  describe("applyHiddenState with multiple hidden layers", () => {
+  describe("applyUserState with multiple hidden layers", () => {
     it("handles overlay, base, and callback-only layers in one pass", () => {
       const poly = {
         options: {},
@@ -2352,7 +3008,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
 
-      u.applyHiddenState();
+      u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);

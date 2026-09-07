@@ -31,13 +31,20 @@ jobs:
 
       # Build the base branch in a detached worktree and capture its sizes, then
       # diff the PR build against them.
+      #
+      # The two builds share the PR checkout's node_modules: the base checkout is
+      # a clean tree with no lockfile, so its own `npm install` would resolve
+      # devDependencies against the live registry and drift from the PR's build.
+      # Copying node_modules keeps the toolchain identical in both directions.
+      # `-a` (not `-R`): it preserves symlinks and modes across the handoff —
+      # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
+          cp -a node_modules /tmp/base/node_modules
           (
             cd /tmp/base
-            npm install
             npm run build
           )
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
@@ -58,7 +65,7 @@ jobs:
             echo ""
             echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
             echo ""
-            echo "_Table above = brotli-compressed sizes; treemap = uncompressed._"
+            echo "_Table = brotli-compressed, banner excluded; treemap = uncompressed._"
           } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2

@@ -136,7 +136,10 @@ class AnnotationManager {
     ) {
       const n = parseNum(value);
       if (n === null) return value;
-      return formatNumber(n, format as NumberStyle, locale);
+      // Whole-number label: annotation values are counts and ids, so pin
+      // fractionDigits to 0 rather than inheriting the 1-decimal default that
+      // would turn 6,000 into "6,000.0".
+      return formatNumber(n, format as NumberStyle, locale, 0);
     }
     return value;
   }

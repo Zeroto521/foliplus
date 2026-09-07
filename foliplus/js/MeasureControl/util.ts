@@ -1,19 +1,25 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
+import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
+
+// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
+// flag) live in edit.ts. Callers import them directly from there.
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
-/** Format meters to human-readable string (e.g. "1.2 km", "500 m"). */
-const formatDistance = (meters: number): string => {
-  return meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${(meters / 1000).toFixed(CONST.FORMAT.KM_DECIMALS)} km`
-    : `${Math.round(meters)} m`;
-};
+/** Format meters to human-readable string: "999 m" under the km threshold,
+ *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
+const formatDistance = (meters: number): string =>
+  meters >= CONST.FORMAT.KM_THRESHOLD
+    ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
+    : `${formatNumber(meters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
@@ -27,187 +33,30 @@ const formatSegmentLabel = (
   return `${bVal}° | ${dist}`;
 };
 
-/** Format area: "1,234 m²" or "1.23 km²". */
+/** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
-  if (sqMeters >= 1_000_000) return `${(sqMeters / 1_000_000).toFixed(2)} km²`;
-  return `${Math.round(sqMeters).toLocaleString()} m²`;
+  if (sqMeters >= 1_000_000)
+    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
+  return `${formatNumber(sqMeters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
 };
 
-/** Minimum container-point movement (px) to count as a drag rather than a tap. */
-const DRAG_THRESHOLD = 4;
+// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
+// flag) live in edit.ts. They are re-exported below for backward compatibility
+// so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
+// through the Util namespace without a follow-up rename.
 
-/**
- * Build the shared edit overlay for a finalized measurement (distance,
- * polygon, circle, or pin). The caller wires `result.open(ev)` onto each of
- * the measure's clickable layers; clicking empty map space closes the overlay
- * (the manager's global click handler stops propagation for item clicks, so
- * only empty-space clicks reach here).
- */
-const buildEditOverlay = (
-  mgr: {
-    isEditMode: boolean;
-    map: L.Map;
-    registerEditOverlayCloser?: (close: () => void) => () => void;
-    closeOtherEditOverlays?: (except: () => void) => void;
-  },
-  opts: { onOpen: () => void; onEmpty?: () => void },
-): {
-  open: (ev: L.LeafletMouseEvent) => void;
-  close: () => void;
-  cleanup: () => void;
-} => {
-  let open = false;
-  const { onOpen, onEmpty } = opts;
-
-  const close = () => {
-    if (!open) return;
-    open = false;
-    onEmpty?.();
-  };
-
-  const onMapClick = () => {
-    if (isDragSyntheticClick()) return;
-    close();
-  };
-  mgr.map.on("click", onMapClick);
-  const unregister = mgr.registerEditOverlayCloser?.(close);
-
-  const openOverlay = (ev: L.LeafletMouseEvent) => {
-    if (!mgr.isEditMode) return;
-    if (open) return;
-    if (isDragSyntheticClick()) return;
-    // Only one measurement shows ✕ at a time: close any other open overlay.
-    mgr.closeOtherEditOverlays?.(close);
-    // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
-    // the map-level click handlers — including this overlay's own onMapClick
-    // which closes it — don't immediately undo the open.
-    L.DomEvent.stopPropagation(ev);
-    open = true;
-    onOpen();
-  };
-
-  return {
-    open: openOverlay,
-    close,
-    cleanup: () => {
-      mgr.map.off("click", onMapClick);
-      unregister?.();
-    },
-  };
-};
-
-/**
- * Bind manual drag to a finalized node marker (L.CircleMarker or L.Marker).
- * Nodes have no built-in dragging, so we drive it from mousedown/move/up,
- * disabling the map's own dragging while we hold, and moving a paired ✕
- * icon along. Works for both SVG circleMarkers and div-based pin markers.
- *
- * Returns { setEnabled, cleanup }: the caller enables the binding on edit-mode
- * enter (via the manager's edit drag toggles) and cleans it up on delete.
- */
-const bindNodeDrag = (
-  node: L.Layer,
-  delMarker: L.Layer | null,
-  map: L.Map,
-  handlers: {
-    onDrag?: (latlng: L.LatLng) => void;
-    onEnd?: (latlng: L.LatLng) => void;
-  },
-): { setEnabled: (enabled: boolean) => void; cleanup: () => void } => {
-  let enabled = false;
-  let dragging = false;
-  let moved = false;
-  let startPt: { x: number; y: number } | null = null;
-
-  // Query the element fresh each time: resortLayers() removes/re-adds nodes,
-  // which re-creates their SVG path, so a captured element reference would go
-  // stale and the `move` cursor would silently stop applying.
-  const setCursor = (cursor: string) => {
-    const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
-    if (el) el.style.cursor = cursor;
-  };
-
-  const onDown = (ev: L.LeafletMouseEvent) => {
-    if (!enabled) return;
-    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
-    if (!raw) return;
-    startPt = map.mouseEventToContainerPoint(raw);
-    dragging = true;
-    moved = false;
-    setCursor("move");
-    map.dragging.disable();
-  };
-  const onMove = (ev: L.LeafletMouseEvent) => {
-    if (!dragging || !startPt) return;
-    const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
-    if (!raw) return;
-    const pt = map.mouseEventToContainerPoint(raw);
-    if (
-      !moved &&
-      Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD
-    )
-      return;
-    moved = true;
-    // Notify handlers BEFORE repositioning the node so handlers that locate
-    // the node by its current latlng (distance/polygon `findPtIdx`) can still
-    // find the original point before it moves.
-    handlers.onDrag?.(ev.latlng);
-    (node as L.Marker).setLatLng(ev.latlng);
-    if (delMarker) (delMarker as L.Marker).setLatLng(ev.latlng);
-  };
-  const onUp = (ev: L.LeafletMouseEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    setCursor(enabled ? "move" : "");
-    map.dragging.enable();
-    if (moved) handlers.onEnd?.(ev.latlng);
-  };
-  const onNodeUp = (ev: L.LeafletMouseEvent) => {
-    onUp(ev);
-  };
-
-  node.on("mousedown", onDown);
-  node.on("mouseup", onNodeUp);
-  map.on("mousemove", onMove);
-  map.on("mouseup", onUp);
-
-  const setEnabled = (v: boolean) => {
-    enabled = v;
-    setCursor(v ? "move" : "");
-  };
-  const cleanup = () => {
-    node.off("mousedown", onDown);
-    node.off("mouseup", onNodeUp);
-    map.off("mousemove", onMove);
-    map.off("mouseup", onUp);
-  };
-  return { setEnabled, cleanup };
-};
-
-/**
- * Mark a click as drag-synthetic so the ensuing click (a drag ends with
- * mouseup, which also fires a click) doesn't reopen or close an overlay.
- */
-const markDragSyntheticClick = () => {
-  (
-    window as unknown as { __foliplus_measure_drag_click: boolean }
-  ).__foliplus_measure_drag_click = true;
-};
-
-const isDragSyntheticClick = (): boolean => {
-  const w = window as unknown as { __foliplus_measure_drag_click: boolean };
-  // Coalesce the absent flag to false so the return value matches the declared
-  // boolean type even on the first read (before any drag has marked a click).
-  const v = w.__foliplus_measure_drag_click ?? false;
-  w.__foliplus_measure_drag_click = false;
-  return v;
+/** Resolve the label chip inside a marker's icon element, or null when the
+ *  marker has no rendered element. Callers that read the chip must go through
+ *  this rather than caching a reference — a setIcon during a drag replaces
+ *  the element. */
+const labelChipOf = (marker: L.Layer): HTMLElement | null => {
+  const el = (marker as L.Marker).getElement();
+  return el ? (el.querySelector(CONST.SEL.LABEL) ?? null) : null;
 };
 
 /** Update a label marker's text content. Always gets fresh DOM reference. */
 const setLabelText = (marker: L.Layer, text: string) => {
-  const el = (marker as L.Marker).getElement();
-  if (!el) return;
-  const labelEl = el.querySelector(CONST.SEL.LABEL);
+  const labelEl = labelChipOf(marker);
   if (labelEl) labelEl.textContent = text;
 };
 
@@ -255,6 +104,19 @@ const makeNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+};
+
+/** A non-interactive node used for transient previews (center, centroid and
+ *  the live cursor dot while a shape is being drawn). */
+const makePreviewNode = (
+  latlng: L.LatLng,
+  className: string = CONST.CLASSES.NODE_HOLLOW,
+): L.CircleMarker => {
+  return L.circleMarker(latlng, {
+    radius: CONST.MARKER.RADIUS,
+    className,
+    interactive: false,
+  });
 };
 
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
@@ -321,8 +183,41 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 
 /** Round a coordinate to the persisted precision, so a dragged pin displays
  *  identically to a freshly placed one (which is rounded on placement). */
-const roundCoord = (n: number): number =>
-  parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
+const roundCoord = (n: number): number => parseFloat(n.toFixed(LAT_LNG_PRECISION));
+
+// ── Live coordinate readout ─────────────────────────────────────────
+
+/** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
+ *  the plain-object `latitude/longitude` alias, so callers can pass either. */
+type DisplayLatLng =
+  L.LatLng | { lng: number; lat: number } | { longitude: number; latitude: number };
+
+/** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
+ *  Longitude leads, matching `formatLatLng` and every other
+ *  location display in the project. */
+const readLatLng = (pt: DisplayLatLng): [number, number] => {
+  const raw = pt as {
+    lng?: number;
+    lat?: number;
+    longitude?: number;
+    latitude?: number;
+  };
+  const lng = raw.lng ?? raw.longitude;
+  const lat = raw.lat ?? raw.latitude;
+  if (lng === undefined || lat === undefined) {
+    throw new TypeError(log.msg("point has no lng/lat"));
+  }
+  return [lng, lat];
+};
+
+/** Format the pointer's coordinate as the readout string. No CRS conversion: the
+ *  map is already in whatever CRS its tiles serve, so what the operator is looking
+ *  at is what the readout reports — pointing the chip at the same spot on a
+ *  GCJ02 or BD09 map must not show a shifted number. */
+const coordText = (map: L.Map, pt: DisplayLatLng): string => {
+  const [lng, lat] = readLatLng(pt);
+  return formatLatLng(lng, lat);
+};
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
@@ -331,25 +226,25 @@ const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
 export {
   animateDashSweep,
   area,
-  buildEditOverlay,
   bearing,
-  bindNodeDrag,
   buildPopup,
-  geocodeAddress,
-  isDragSyntheticClick,
-  markDragSyntheticClick,
   centroid,
+  coordText,
   distance,
   formatArea,
   formatDistance,
   formatSegmentLabel,
-  getEventTarget,
-  makeLabelDivIcon,
-  makeMidLabelDivIcon,
-  makeNode,
+  labelChipOf,
   midpoint,
   pointsToLatLngs,
   recalculateSegments,
+  readLatLng,
   roundCoord,
   setLabelText,
+  getEventTarget,
+  geocodeAddress,
+  makeLabelDivIcon,
+  makeMidLabelDivIcon,
+  makeNode,
+  makePreviewNode,
 };

@@ -12,7 +12,7 @@ import { panelContentHTML } from "./template.js";
 const T = createScopedTranslator(CONF);
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
-export interface HeatmapControlUI {
+interface HeatmapControlUI {
   m: HeatmapManager;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
@@ -527,4 +527,10 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };
 
-export { bindControls, initScan, rebuildLayerDropdown, setupObserver };
+export {
+  type HeatmapControlUI,
+  bindControls,
+  initScan,
+  rebuildLayerDropdown,
+  setupObserver,
+};

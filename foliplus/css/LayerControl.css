@@ -225,6 +225,11 @@ path.foliplus-focus-mask {
     grid-template-areas: "drag check label . . .";
     column-gap: var(--grid-layer-gap);
     align-items: center;
+    /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
+       and a data row measure out to the same total box height: padding +
+       --layer-row-min-height. A group header without an explicit right padding
+       would fall back to the browser default (~8px), making it visibly taller
+       and misaligning its left border with the data rows below it. */
     padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
     box-sizing: border-box;
     min-height: var(--layer-row-min-height);
@@ -246,10 +251,6 @@ path.foliplus-focus-mask {
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
-  }
-  /* Hover: soft left-border hint (same language as active layer items) */
-  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
-    border-left-color: var(--accent-light);
   }
   /* Folded: accent left border + accent fold-btn; divider fades out */
   .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
@@ -297,6 +298,16 @@ path.foliplus-focus-mask {
         transform: scale(var(--scale-hover));
       }
     }
+    /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
+       can't take the row cursor's border/glow without looking oversized. The
+       colour + scale preview already say "expand this group" (see the state
+       preview rules below), so the soft glow is enough to mark it focused. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
     &:active {
       transform: scale(var(--scale-press));
 
@@ -305,20 +316,32 @@ path.foliplus-focus-mask {
       }
     }
   }
-  /* ── Fold button hover: bidirectional state preview ──
-    Folded → hover: red → black (preview expanded state)
-    Expanded → hover: black → red (preview folded state) */
+  /* ── Fold button interaction: bidirectional state preview ──
+    Folded → interaction: red → black (preview expanded state)
+    Expanded → interaction: black → red (preview folded state)
+    Keyed on :is(:hover, :focus-visible, .foliplus-layer-focused) so the fold
+    icon wakes up the same way the row does — mouse hover, Tab focus and the
+    arrow-key cursor all read identically, matching the Row-cursor recipe. */
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn svg {
     transform: rotate(180deg);
   }
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
-  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):hover
+  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
+      :hover,
+      :focus-visible,
+      .foliplus-layer-focused
+    )
     .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
-  .foliplus-layer-toggle-all.foliplus-layer-folded:hover .foliplus-layer-fold-btn {
+  .foliplus-layer-toggle-all.foliplus-layer-folded:is(
+      :hover,
+      :focus-visible,
+      .foliplus-layer-focused
+    )
+    .foliplus-layer-fold-btn {
     color: var(--text-primary);
   }
 
@@ -339,17 +362,61 @@ path.foliplus-focus-mask {
     opacity: 0;
     transition: opacity var(--transition-fast);
   }
-  .foliplus-layer-item:hover .drag-handle {
-    opacity: 1;
-  }
+  /* The visible state comes from the Row-cursor recipe below; color rows are
+     never draggable, so their handle stays hidden regardless of the cursor. */
   .foliplus-color-layer-item .drag-handle {
     visibility: hidden;
   }
 
-  /* ── Layer item hover (shared with toggle-all) ── */
-  .foliplus-layer-item:hover,
-  .foliplus-layer-sep.foliplus-layer-toggle-all:hover {
-    background: var(--panel-header-hover);
+  /* ── Row cursor ──
+     ONE recipe for a row that is the interaction target: mouse hover, the
+     keyboard cursor (ArrowUp/Down, which carries .foliplus-layer-focused), and
+     Tab focus (:focus-visible). They share the recipe, so the left bar,
+     background, drag grip, type icon and more button read identically whichever
+     way the user arrives at the row. The fold (toggle-all) row joins the same
+     selector group, so it cannot drift back into its own hover style.
+     :focus-visible covers every focusable descendant (the checkbox input, the
+     fold button, the more button) — the browser only applies it for keyboard
+     navigation, so a mouse click never lights the row.
+     A checked row carries .active, a persistent checkbox state rather than a
+     cursor, so it keeps only the left bar and never shows the grip or the
+     type/more tints.
+     transition: none is kept on the rows because they are destroyed and
+     re-created on every list rebuild; a border-color or background transition
+     would flash the already-checked rows on each rebuild. */
+  .foliplus-layer-item,
+  .foliplus-layer-sep.foliplus-layer-toggle-all {
+    &.active {
+      border-left-color: var(--accent-primary);
+    }
+    &:is(:hover, :focus-visible, .foliplus-layer-focused) {
+      /* The arrow-key cursor and Tab focus both call .focus() on the row, which
+         draws the browser's default dark outline. That black frame must be
+         suppressed — the custom white surface + red glow is the focus signal.
+         The left accent bar is deliberately NOT set here: it is a persistent
+         "layer visible" (checked) indicator, so it only turns red on .active /
+         a folded group, never on a transient hover/keyboard cursor. */
+      outline: none;
+      /* White surface — the row returns to a clean white wash (not the panel's
+         gray hover wash); the top/bottom red glow is what marks it as the
+         interaction target. */
+      background: var(--neutral-0);
+      /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
+         vertical (no left/right bleed). */
+      box-shadow:
+        0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
+        0 var(--size-2) var(--size-4) var(--accent-primary);
+
+      .foliplus-drag-cell .drag-handle {
+        opacity: 1;
+      }
+      .foliplus-type-icon-col {
+        color: var(--text-primary);
+      }
+      .foliplus-layer-more-btn {
+        color: var(--accent-primary);
+      }
+    }
   }
 
   /* ── Layer item ── */
@@ -431,7 +498,10 @@ path.foliplus-focus-mask {
     }
   }
   /* ── More options button (reserved slot, always visible) ──
-    Black at rest; tints accent on hover AND when the row is active. As the
+    Black at rest; tints accent on hover only. The .active state (layer
+    selected) is a status, not an action — the more button is an action, so
+    it should only wake up when the pointer hovers it, not when the layer is
+    merely selected. As the
     row's only in-line action, it answers to the action color immediately on
     hover, not only when selected. */
   .foliplus-layer-more-btn {
@@ -451,7 +521,16 @@ path.foliplus-focus-mask {
     /* color intentionally NOT animated: the more button is destroyed and
        re-created on every list rebuild, so a color transition would cause
        .active rows' more buttons to flash var(--accent-primary) on each
-       rebuild. */
+       rebuild. The focus ring below is supplied here — not by the global
+       :focus-visible rule — because that rule paints a border-color on this
+       7px-wide button, and border-box sizing would collapse its box to 3px and
+       clip the glyph. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
 
     svg {
       width: 100%;
@@ -459,8 +538,7 @@ path.foliplus-focus-mask {
       display: block;
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
+  .foliplus-layer-item:hover .foliplus-layer-more-btn {
     color: var(--accent-primary);
   }
 
@@ -493,8 +571,9 @@ path.foliplus-focus-mask {
     white-space: nowrap;
   }
   .foliplus-layer-more-menu li:focus-visible {
-    outline: var(--border-thin) solid var(--accent-primary);
-    outline-offset: calc(-1 * var(--border-thin));
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
   }
   .foliplus-layer-more-menu li svg {
     flex-shrink: 0;
@@ -507,10 +586,15 @@ path.foliplus-focus-mask {
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  /* Icon answers with accent on hover, matching the search result icon and
-     the "actions accent on hover" language. Disabled stays muted. */
-  .foliplus-layer-more-menu li:not([disabled]):hover svg {
-    color: var(--accent-primary);
+  /* Icon wakes to black on hover AND keyboard focus, matching the LayerControl
+     type-icon language (identity wakes to black, not accent — accent is reserved
+     for actions/status). Disabled stays muted. */
+  .foliplus-layer-more-menu li:not([disabled]) svg {
+    transition: color var(--transition-fast);
+  }
+  .foliplus-layer-more-menu li:not([disabled]):hover svg,
+  .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
+    color: var(--text-primary);
   }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
@@ -567,7 +651,10 @@ path.foliplus-focus-mask {
     /* background-color and border-color intentionally NOT animated: the
        checkbox is destroyed and re-created on every list rebuild
        (fold click -> renderInitialList), so a transition on either would
-       cause checked checkboxes to flash on each rebuild. */
+       cause checked checkboxes to flash on each rebuild.
+       box-shadow stays animated — it is pointer/focus-driven and never changes
+       on rebuild; hover and :focus-visible come from the shared Unified Input
+       Interaction rule in common.css. */
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {
@@ -595,11 +682,14 @@ path.foliplus-focus-mask {
     &:indeterminate::after {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
     }
-  }
-  :focus-visible {
-    outline: var(--border-thick) solid var(--accent-primary);
-    outline-offset: var(--border-thin);
-    border-radius: var(--radius-sm);
+    /* Outline suppression only. Kept as a self-reference — bare
+       `:focus-visible` inside a nested block compiles to a descendant selector
+       and would miss the box. The border-color + glow are supplied by the
+       shared Unified Input Interaction rule in common.css; the border jump is
+       instant because border-color is not in the transition above. */
+    &:focus-visible {
+      outline: none;
+    }
   }
   /* ── Solid color layer picker ── */
   .foliplus-color-layer-input {
@@ -627,7 +717,7 @@ path.foliplus-focus-mask {
   }
   .foliplus-color-layer-item.active .foliplus-color-layer-input {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+    box-shadow: var(--focus-ring);
   }
 }
 

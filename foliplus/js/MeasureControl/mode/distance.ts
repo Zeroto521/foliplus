@@ -61,16 +61,15 @@ class DistanceMode extends PreviewMode {
       nodeMarkers,
       segLabels,
       points: points,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
-        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.totalDistance = totalDistance;
-        manager.saveMeasurements();
+        manager.store.update(data.id!, {
+          points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          totalDistance,
+        });
       },
     });
   }
@@ -86,6 +85,10 @@ class DistanceMode extends PreviewMode {
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
+    // Created on the first move, after the preview line, so the node paints
+    // above it. The cursor dot is the same hollow node as the circle mode's
+    // radius endpoint — it has no meaning before the first point is placed.
+    let cursorNode: L.CircleMarker | null = null;
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
@@ -94,6 +97,10 @@ class DistanceMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -113,6 +120,10 @@ class DistanceMode extends PreviewMode {
       }
       this.isFinished = true;
       this.layers.removeLayer(poly);
+      if (cursorNode) {
+        this.layers.removeLayer(cursorNode);
+        cursorNode = null;
+      }
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -125,14 +136,13 @@ class DistanceMode extends PreviewMode {
         distance: Util.distance(points[i], points[i + 1]),
         bearing: Util.bearing(points[i], points[i + 1]),
       }));
-      this.m.measurements.push({
+      this.m.store.add({
         id: distId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         totalDistance: total,
       });
-      this.m.saveMeasurements();
 
       // Format last label
       if (segLabels.length > 0) {
@@ -153,18 +163,17 @@ class DistanceMode extends PreviewMode {
         nodeMarkers,
         segLabels,
         points: points,
+        id: distId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== distId);
-          this.m.saveMeasurements();
+          this.m.store.remove(distId);
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === distId);
-          if (!m) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.totalDistance = totalDistance;
-          this.m.saveMeasurements();
+          this.m.store.update(distId, {
+            points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+            segments,
+            totalDistance,
+          });
         },
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized
@@ -184,6 +193,8 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
+      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
+      else cursorNode.setLatLng(event.latlng);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];

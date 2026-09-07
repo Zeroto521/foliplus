@@ -6,7 +6,7 @@ import { EventBus } from "./EventBus.js";
 const instances = new WeakMap<L.Map, EventBus>();
 
 /** Ensure `map.foliplus.events` has a per-map EventBus. Idempotent. */
-export const ensureEvents = (map: L.Map): EventBus => {
+const ensureEvents = (map: L.Map): EventBus => {
   const existing = instances.get(map);
   if (existing) return existing;
   const bus = new EventBus();
@@ -16,6 +16,7 @@ export const ensureEvents = (map: L.Map): EventBus => {
   return bus;
 };
 
-export { EVENT_REGISTRY, EVENTS } from "./const.js";
+export { ensureEvents };
+export { EVENTS, EVENT_REGISTRY } from "./const.js";
 export type { EventMeta, EventPayloadMap } from "./const.js";
-export { EventBus, type EventHandler } from "./EventBus.js";
+export { type EventHandler, EventBus } from "./EventBus.js";

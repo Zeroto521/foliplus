@@ -5,7 +5,9 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { COORD_BOUNDS } from "#common/coord.js";
 import { dom } from "#common/dom.js";
+import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -23,6 +25,28 @@ import {
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
+
+/** Format a progress percentage with the locale text, for the persistent hint. */
+const formatProgress = (percent: number) => {
+  const pct = String(percent);
+  return T("status_progress").replace(/\{pct\}/g, pct);
+};
+
+/**
+ * Encode a rendered canvas to a Blob, resolving to `null` when encoding fails.
+ * `toBlob` already encodes the raster exactly once, so this is deliberately
+ * thin — the cost being removed was the `toDataURL` base64 round-trip that
+ * used to encode the same pixels again for the transient preview.
+ */
+const canvasToBlob = (
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality?: number,
+): Promise<Blob | null> =>
+  new Promise(resolve => {
+    canvas.toBlob(b => resolve(b), mimeType, quality);
+  });
 
 /** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
 const nudgeDirection = (key: string): { x: number; y: number } =>
@@ -37,7 +61,7 @@ const nudgeDirection = (key: string): { x: number; y: number } =>
           : { x: 0, y: 0 };
 
 /** A screen-space rectangle. */
-export interface Rect {
+interface Rect {
   left: number;
   top: number;
   width: number;
@@ -169,7 +193,7 @@ class ExportManager {
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
-      showGlobalHint(this, text, duration, withLoadingIcon);
+      showGlobalHint(text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
@@ -566,14 +590,32 @@ class ExportManager {
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
-      this.isExporting = false;
-      ensureModes(this.map).setMode(CONF.name, null);
-      ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-      this.removeExportOverlay();
+      // Clear all of this component's hints first. The crop-box size/limit
+      // hints are PERSIST (duration 0 sets no timer), so they would otherwise
+      // outlive the export and sit on top of whatever status appears next.
+      this.map.foliplus!.hideHint(CONF.name);
+      this.unlockMap();
+      this.endExport();
       return;
     }
 
+    // Clear the crop-box hints before showing the exporting status, so the
+    // status isn't announced on top of a stale "100 × 100 px" label. They are
+    // PERSIST (duration 0 sets no timer), so nothing else removes them once
+    // the box is gone — they'd outlive the export entirely, the same registry
+    // leak as the object-URL one.
+    this.map.foliplus!.hideHint(CONF.name, "size");
+    this.map.foliplus!.hideHint(CONF.name, "limit");
+
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
+
+    // Progress callback: format the percentage with locale text and refresh
+    // the persistent hint.  render() reports 0..90 over the drawing passes;
+    // this callback owns the final stretch, so 100 is reserved for the
+    // download having started rather than the tiles having finished.
+    const onProgress = (percent: number) => {
+      this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
+    };
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
@@ -586,8 +628,8 @@ class ExportManager {
       r.top + r.height > vpH * 1.02;
 
     if (needsBigger && geoBounds && geoBounds.nw)
-      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
-    else this.doRender(r, scaleValue, bg, geoBounds);
+      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
+    else this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -598,6 +640,7 @@ class ExportManager {
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds | undefined,
+    onProgress?: (percent: number) => void,
   ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
@@ -619,7 +662,7 @@ class ExportManager {
     }
 
     return new ExportRenderer(this.map)
-      .render(r, scaleValue, bg || undefined, geoBounds)
+      .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
       .then(canvas => {
         this.onRenderSuccess(canvas, hideEls);
       })
@@ -636,6 +679,7 @@ class ExportManager {
     geoBounds: GeoBounds,
     vpW: number,
     vpH: number,
+    onProgress?: (percent: number) => void,
   ) {
     const savedStyles: Record<string, string> = {};
     const style = this.mapContainer.style;
@@ -677,7 +721,7 @@ class ExportManager {
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
       this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+      this.doRender(r, scaleValue, bg, geoBounds, onProgress).finally(restore);
     });
   }
 
@@ -686,52 +730,89 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    // The persistent hint already reads "Exporting map... (N%)" from the
+    // last render() report, and it never expires — so the encode phase
+    // between here and the download is not label-less, and it does not read
+    // as finished.  100 stays reserved for claimDownload, where the file
+    // actually goes out.
+    // Awaited inline so a rejection cannot escape as an unhandled promise
+    // rejection — endExport() has to run on every path or the map stays
+    // locked behind the blocker overlay.
+    void this.finishExport(canvas);
+  }
+
+  private async finishExport(canvas: HTMLCanvasElement) {
+    const name = CONF.filename || "map";
+    try {
+      // Encode once into a Blob shared by the preview and the download. The
+      // old canvas.toDataURL() encoded the full raster into a base64 string
+      // for the preview, and toBlob() then encoded the same pixels a second
+      // time — on an HD export that base64 round-trip is a multi-tens-of-MB
+      // string copy and was the dominant chunk of the click-to-download delay.
+      const format = CONST.currentFormat();
+      const blob = await canvasToBlob(canvas, format.mime, CONF.quality);
+      if (!blob) {
+        this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
+        return;
+      }
+      this.showPreview(blob);
+      // GeoTIFF needs embedded georeferencing, so it ships as its own
+      // container file; every other format is the encoded blob itself.
+      if (format.geotiff) {
+        await this.downloadGeoTiff(canvas, name);
+      } else {
+        this.claimDownload(blob, `${name}.${format.ext}`);
+      }
+      this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
+    } catch (err) {
+      // Any step can throw (createObjectURL, encoding, download anchor). A
+      // leaked rejection would otherwise skip endExport below and leave the
+      // map locked with the blocker overlay on screen.
+      this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
+      log.warn("export failed:", err);
+    } finally {
+      this.endExport();
+    }
+  }
+
+  /**
+   * Start the download, claiming the 100 the user expects on the way in.
+   * render() stops at 90 because the canvas still has to be encoded before
+   * it can be saved — that encode is the delay the user sees with nothing
+   * happening.  Claiming the 100 here means a full bar means the file is
+   * actually going out, and the label shown in the meantime says what the
+   * browser is doing.
+   */
+  private claimDownload(blob: Blob, filename: string) {
+    this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
+    download(blob, filename);
+  }
+
+  /** Show the transient preview overlay for an encoded export artifact.
+   * Click to dismiss early, otherwise auto-dismiss after SHORT. */
+  private showPreview(blob: Blob) {
     const prevImg = document.createElement("img");
-    prevImg.src = canvas.toDataURL(mimeType);
+    prevImg.src = URL.createObjectURL(blob);
     prevImg.className = CONST.CLASSES.PREVIEW;
     document.body.appendChild(prevImg);
-    // Click to dismiss the preview early; otherwise auto-dismiss after SHORT.
-    const dismissPreview = () => prevImg.remove();
-    prevImg.addEventListener("click", dismissPreview);
-    setTimeout(() => {
+    const dismissPreview = () => {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
-    }, HINT_DURATION.SHORT);
-    canvas.toBlob(
-      async blob => {
-        if (!blob) {
-          this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
-          this.isExporting = false;
-          ensureModes(this.map).setMode(CONF.name, null);
-          ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-          this.removeExportOverlay();
-          return;
-        }
-        const name = CONF.filename || "map";
-        if (CONF.format === "geotiff") {
-          // Export as a single GeoTIFF file with embedded georeferencing.
-          await this.downloadGeoTiff(canvas, name);
-        } else {
-          const link = document.createElement("a");
-          const url = URL.createObjectURL(blob);
-          link.download = `${name}.${CONF.format}`;
-          link.href = url;
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-        }
-        this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
-        this.isExporting = false;
-        ensureModes(this.map).setMode(CONF.name, null);
-        ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-        this.removeExportOverlay();
-      },
-      mimeType,
-      CONF.quality,
-    );
+      URL.revokeObjectURL(prevImg.src);
+    };
+    prevImg.addEventListener("click", dismissPreview);
+    setTimeout(dismissPreview, HINT_DURATION.SHORT);
+  }
+
+  /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
+   *  the blocker overlay. Runs on both the success and failure paths —
+   *  forgetting it strands `isExporting === true` with map interaction
+   *  disabled and the overlay still on screen. */
+  endExport() {
+    this.isExporting = false;
+    ensureModes(this.map).setMode(CONF.name, null);
+    ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.removeExportOverlay();
   }
 
   /**
@@ -806,15 +887,7 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${name}.tif`;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+    this.claimDownload(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
@@ -824,7 +897,7 @@ class ExportManager {
     ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    console.error(`[${CONF.name}] ${T("err_render")}:`, err);
+    log.error(`${T("err_render")}:`, err);
     this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }
@@ -862,4 +935,4 @@ class ExportManager {
   }
 }
 
-export { ExportManager };
+export { type Rect, ExportManager, canvasToBlob };

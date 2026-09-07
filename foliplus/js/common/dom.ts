@@ -4,6 +4,7 @@
 // it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
+import { formatCoord } from "./format.js";
 import * as SVGs from "./icon.js";
 
 // ── DOM constants ───────────────────────────────────────────────
@@ -177,7 +178,10 @@ const escapeHTML = (str: string | number | boolean | null | undefined): string =
 };
 
 /**
- * Build a popup HTML string for a location marker.
+ * Build a popup HTML string for a location marker. Coordinates are pinned to
+ * the shared readout precision, so a popup never echoes the raw stored value —
+ * a history entry saved from "121.47" used to render "121.47,31.23" instead of
+ * the six decimals every other location readout shows.
  */
 const buildPopupHtml = (
   lng: number,
@@ -198,7 +202,7 @@ const buildPopupHtml = (
     { class: "foliplus-popup-content" },
     dom.el("b", null, titleText),
     { html: "<br>" },
-    `${locLabelText}${lng},${lat}`,
+    `${locLabelText}${formatCoord(lng)}, ${formatCoord(lat)}`,
     { html: "<br>" },
     addrLabelText,
     addrHtml as Child,
@@ -275,9 +279,13 @@ const createLocationMarker = (
 };
 
 /**
- * Update a layer item's label and associated inputs (checkbox / color input)
- * with a new display name. Finds the label via `data-layer-id` attribute on
- * the item, then updates label text + checkbox/color-input aria-label and title.
+ * Update a layer item's label and its toggle input's aria-label with a new
+ * display name.
+ *
+ * Only the toggle input is touched: it is the one toggle control on a row,
+ * so the name must reach assistive tech — but via aria-label, never via
+ * `title`, because `title` is the Select/Deselect tooltip slot (Select/Deselect
+ * for a data row, the type label for the color basemap row).
  *
  * @param item Parent item element with `data-layer-id` (optional).
  * @param name New display name to apply.
@@ -291,20 +299,15 @@ const updateItemLabel = (
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
   label.textContent = name;
-  const checkbox = item.querySelector(
-    'input[type="checkbox"]',
+  // The row's toggle input announces the same name as the label cell. A data
+  // row's toggle is its checkbox; the color basemap row's is the color swatch,
+  // and it has no checkbox — without this the basemap swatch would keep
+  // announcing the locale default after a rename.
+  const toggle = item.querySelector(
+    'input[type="checkbox"], input[type="color"]',
   ) as HTMLInputElement | null;
-  if (checkbox) {
-    checkbox.setAttribute("aria-label", name);
-    checkbox.title = name;
-  }
-  const colorInput = item.querySelector(
-    'input[type="color"]',
-  ) as HTMLInputElement | null;
-  if (colorInput) {
-    colorInput.setAttribute("aria-label", name);
-    colorInput.title = name;
-  }
+  if (toggle && toggle.getAttribute("aria-label") !== name)
+    toggle.setAttribute("aria-label", name);
   return label;
 };
 

@@ -5,11 +5,16 @@
 // esbuild inlines a copy into runtime.min.js as well.
 //
 // These functions operate on Leaflet maps and coordinate systems.
+import { createLogger } from "./log.js";
+
+// coord.ts has no CONF — it is shared by five components — so the library
+// name is the only prefix that is correct here.
+const log = createLogger("foliplus");
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
 /** WGS84 longitude/latitude limits, shared by coordinate validation. */
-export const COORD_BOUNDS = { LON: 180, LAT: 90 };
+const COORD_BOUNDS = { LON: 180, LAT: 90 };
 
 /** Check if any tile layer in the map has a URL matching one of the patterns. */
 const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
@@ -81,9 +86,7 @@ const ensureGcoord = (): boolean => {
   // persistent UI hint.  The console warning is sufficient for
   // developers to diagnose the missing dependency.
   if (typeof gcoord === "undefined") {
-    console.warn(
-      "[foliplus] gcoord library failed to load, coordinate transformation unavailable",
-    );
+    log.warn("gcoord library failed to load, coordinate transformation unavailable");
     return false;
   }
   return true;
@@ -126,4 +129,4 @@ const fromWgs84 = (map: L.Map, lng: number, lat: number): number[] => {
   return gcoord.transform([lng, lat], gcoord.WGS84, dst);
 };
 
-export { getMapCrsType, toWgs84, fromWgs84 };
+export { COORD_BOUNDS, getMapCrsType, toWgs84, fromWgs84 };

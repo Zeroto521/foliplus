@@ -1,0 +1,66 @@
+/* ════════════════════════════════════════════════════════════
+  Dividers & Floating Delete Icon
+  Two shared icon primitives: the inline section divider used in panel
+  section rows, and the floating delete icon used by MeasureControl and
+  LocateControl, built by the shared del-icon helper in the common JS module.
+  ════════════════════════════════════════════════════════════ */
+
+/* ── Section Divider ── */
+.foliplus-section-divider {
+  height: var(--border-thin);
+  background: linear-gradient(to right, transparent, var(--divider-color), transparent);
+  border: none;
+}
+
+/* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──
+   Must stay `absolute` (Leaflet's marker-icon default): a `relative` marker
+   icon would have its translate3d position measured from its in-flow slot in
+   the pane, so a del icon could render far from its anchor depending on pane
+   content / render order. */
+.foliplus-del-icon {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.foliplus-del-icon [data-del-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  background: var(--accent-primary);
+  border: var(--border-thick) solid var(--ctrl-bg);
+  border-radius: var(--radius-round);
+  color: var(--ctrl-bg);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: none;
+  opacity: 0;
+  visibility: hidden;
+  top: -18px;
+  left: var(--size-2);
+  right: auto;
+  margin: 0;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+    display: flex;
+  }
+  &:hover {
+    background: rgba(var(--red-rgb), var(--alpha-95));
+    box-shadow: var(--shadow-xs);
+    transform: scale(var(--scale-hover));
+  }
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+}

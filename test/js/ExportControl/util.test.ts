@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureFont, isVisible } from "#foliplus/ExportControl/util.js";
 
 describe("isVisible", () => {

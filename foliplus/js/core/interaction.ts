@@ -3,7 +3,7 @@
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
 
-export interface InteractionDef {
+interface InteractionDef {
   /** Event type: "keydown" (default), "mousedown", "mousemove", "mouseup", etc. */
   event?: string;
   /** Key to match (event.key) for keydown/keyup. If omitted, matches any key. */
@@ -37,7 +37,7 @@ export interface InteractionDef {
 const instances = new WeakMap<L.Map, InteractionManager>();
 
 /** Ensure map.foliplus.interaction has a per-map InteractionManager. Idempotent. */
-export const ensureInteraction = (map: L.Map): InteractionManager => {
+const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const km = new InteractionManager(map);
@@ -54,7 +54,7 @@ export const ensureInteraction = (map: L.Map): InteractionManager => {
  * registered shortcuts by priority. Components register/unregister their
  * shortcuts on mount/unmount.
  */
-export class InteractionManager {
+class InteractionManager {
   private map: L.Map;
   private shortcuts: InteractionDef[] = [];
   private order = 0;
@@ -267,3 +267,5 @@ export class InteractionManager {
     instances.delete(this.map);
   }
 }
+
+export { type InteractionDef, InteractionManager, ensureInteraction };

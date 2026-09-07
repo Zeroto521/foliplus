@@ -1,4 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/MeasureControl/const.js";
+import {
+  bindNodeDrag,
+  buildEditOverlay,
+  isDragSyntheticClick,
+  markDragSyntheticClick,
+} from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 
@@ -6,8 +13,9 @@ const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Reset the one-shot drag-synthetic-click flag between tests.
-  delete (window as any).__foliplus_measure_drag_click;
+  // Consume any pending drag-synthetic-click flag so a prior test's drag end
+  // doesn't leak into this test's click handler.
+  isDragSyntheticClick();
   window.L.circleMarker = vi.fn(() => ({}));
   window.L.DomEvent = {
     ...window.L.DomEvent,
@@ -69,6 +77,10 @@ describe("formatDistance", () => {
   it("formats km above the threshold", () => {
     expect(Util.formatDistance(1500)).toBe("1.5 km");
   });
+
+  it("groups km values with a thousands separator", () => {
+    expect(Util.formatDistance(1_234_567)).toBe("1,234.6 km");
+  });
 });
 
 describe("formatArea", () => {
@@ -78,6 +90,10 @@ describe("formatArea", () => {
 
   it("formats km² at or above 1e6", () => {
     expect(Util.formatArea(2_500_000)).toBe("2.50 km²");
+  });
+
+  it("groups km² values with a thousands separator", () => {
+    expect(Util.formatArea(1_234_567_890)).toBe("1,234.57 km²");
   });
 });
 
@@ -233,6 +249,43 @@ describe("formatArea boundary", () => {
   });
 });
 
+describe("formatting constants", () => {
+  // The unit ladder the renderers depend on. These pin the precision contract:
+  // sub-threshold units show no false decimals, and the km/km² branches carry
+  // more digits than the raw meters do.
+  it("small-unit branches carry no decimals", () => {
+    expect(CONST.FORMAT.SMALL_DECIMALS).toBe(0);
+  });
+
+  it("the km branch carries one more digit than the meters branch", () => {
+    expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
+    expect(CONST.FORMAT.KM_DECIMALS).toBeGreaterThan(CONST.FORMAT.SMALL_DECIMALS);
+  });
+
+  it("the km² branch carries two decimals", () => {
+    expect(CONST.FORMAT.KM2_DECIMALS).toBe(2);
+  });
+
+  it("the km threshold matches the divisor used by formatDistance", () => {
+    // formatDistance divides by a hard-coded 1000, so a changed threshold here
+    // would silently desynchronise the unit label from the magnitude.
+    expect(CONST.FORMAT.KM_THRESHOLD).toBe(1000);
+  });
+
+  it("every fraction-digit constant is a non-negative integer", () => {
+    // formatNumber pins minimumFractionDigits === maximumFractionDigits, so a
+    // fractional or negative value would throw a RangeError at runtime.
+    for (const n of [
+      CONST.FORMAT.SMALL_DECIMALS,
+      CONST.FORMAT.KM_DECIMALS,
+      CONST.FORMAT.KM2_DECIMALS,
+    ]) {
+      expect(Number.isInteger(n)).toBe(true);
+      expect(n).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
 describe("recalculateSegments edge cases", () => {
   it("returns empty segments for single point", () => {
     const result = Util.recalculateSegments([{ lat: 0, lng: 0 }] as any);
@@ -284,7 +337,7 @@ describe("buildEditOverlay", () => {
 
   it("exposes open and cleanup", () => {
     const mgr = makeMgr();
-    const overlay = Util.buildEditOverlay(mgr as any, {});
+    const overlay = buildEditOverlay(mgr as any, {});
 
     expect(typeof overlay.open).toBe("function");
     expect(typeof overlay.cleanup).toBe("function");
@@ -293,7 +346,7 @@ describe("buildEditOverlay", () => {
 
   it("close() is a no-op when the overlay is not open", () => {
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(makeMgr() as any, {
+    const overlay = buildEditOverlay(makeMgr() as any, {
       onOpen: vi.fn(),
       onEmpty,
     });
@@ -306,7 +359,7 @@ describe("buildEditOverlay", () => {
   it("fires onOpen and stops Leaflet propagation on open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
     const ev = { originalEvent: {} } as any;
 
     overlay.open(ev);
@@ -320,18 +373,21 @@ describe("buildEditOverlay", () => {
   it("closes other open overlays on open (single ✕ set at a time)", () => {
     const closeOtherEditOverlays = vi.fn();
     const mgr = makeMgr({ closeOtherEditOverlays });
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, {
+      onOpen: vi.fn(),
+      id: "m42",
+    });
 
     overlay.open({ originalEvent: {} } as any);
 
     expect(closeOtherEditOverlays).toHaveBeenCalledTimes(1);
-    expect(closeOtherEditOverlays).toHaveBeenCalledWith(expect.any(Function));
+    expect(closeOtherEditOverlays).toHaveBeenCalledWith("m42");
   });
 
   it("does not open when not in edit mode", () => {
     const mgr = makeMgr({ isEditMode: false });
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
 
@@ -340,9 +396,9 @@ describe("buildEditOverlay", () => {
 
   it("does not open on a drag-synthetic click", () => {
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(makeMgr() as any, { onOpen });
+    const overlay = buildEditOverlay(makeMgr() as any, { onOpen });
 
-    Util.markDragSyntheticClick();
+    markDragSyntheticClick();
     overlay.open({ originalEvent: {} } as any);
 
     expect(onOpen).not.toHaveBeenCalled();
@@ -351,7 +407,7 @@ describe("buildEditOverlay", () => {
   it("does not re-open while already open", () => {
     const mgr = makeMgr();
     const onOpen = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen });
+    const overlay = buildEditOverlay(mgr as any, { onOpen });
 
     overlay.open({} as any);
     overlay.open({} as any);
@@ -363,7 +419,7 @@ describe("buildEditOverlay", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     // find the map-click handler registered by buildEditOverlay
     overlay.open({} as any);
@@ -377,11 +433,11 @@ describe("buildEditOverlay", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
-    Util.markDragSyntheticClick();
+    markDragSyntheticClick();
     mapClickHandler();
     expect(onEmpty).not.toHaveBeenCalled();
   });
@@ -389,7 +445,7 @@ describe("buildEditOverlay", () => {
   it("registers and cleans up the map-click listener", () => {
     const map = makeMap();
     const mgr = { map, isEditMode: true };
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
 
     overlay.open(fakeEv());
     overlay.cleanup();
@@ -411,7 +467,7 @@ describe("buildEditOverlay", () => {
       },
     };
     const onEmpty = vi.fn();
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
     expect(closers).toHaveLength(1);
@@ -433,7 +489,7 @@ describe("buildEditOverlay", () => {
         };
       },
     };
-    const overlay = Util.buildEditOverlay(mgr as any, { onOpen: vi.fn() });
+    const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn() });
     expect(closers).toHaveLength(1);
 
     overlay.cleanup();
@@ -443,13 +499,13 @@ describe("buildEditOverlay", () => {
 
 describe("markDragSyntheticClick / isDragSyntheticClick", () => {
   it("returns true once after markDragSyntheticClick", () => {
-    Util.markDragSyntheticClick();
-    expect(Util.isDragSyntheticClick()).toBe(true);
-    expect(Util.isDragSyntheticClick()).toBe(false); // consumed-on-read
+    markDragSyntheticClick();
+    expect(isDragSyntheticClick()).toBe(true);
+    expect(isDragSyntheticClick()).toBe(false); // consumed-on-read
   });
 
   it("returns false by default", () => {
-    expect(Util.isDragSyntheticClick()).toBe(false);
+    expect(isDragSyntheticClick()).toBe(false);
   });
 });
 
@@ -469,7 +525,7 @@ describe("bindNodeDrag", () => {
       off: vi.fn(),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
 
     // Simulate the node's element being replaced (resortLayers re-render).
     current = { style: { cursor: "" } };
@@ -500,12 +556,10 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
 
-    const { setEnabled, cleanup } = Util.bindNodeDrag(
-      node as any,
-      del as any,
-      map as any,
-      { onDrag, onEnd },
-    );
+    const { setEnabled, cleanup } = bindNodeDrag(node as any, del as any, map as any, {
+      onDrag,
+      onEnd,
+    });
     setEnabled(true);
 
     // find handlers
@@ -561,7 +615,7 @@ describe("bindNodeDrag", () => {
       ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
@@ -583,7 +637,7 @@ describe("bindNodeDrag", () => {
       mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
       dragging: { disable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, {});
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
     // enabled defaults to false
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     onDown({});
@@ -603,7 +657,7 @@ describe("bindNodeDrag", () => {
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
 
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onEnd });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onEnd });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
@@ -625,7 +679,7 @@ describe("bindNodeDrag", () => {
       mouseEventToContainerPoint: vi.fn(),
       dragging: { disable: vi.fn(), enable: vi.fn() },
     };
-    const { setEnabled } = Util.bindNodeDrag(node as any, null, map as any, { onDrag });
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
     const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
     const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
@@ -635,6 +689,59 @@ describe("bindNodeDrag", () => {
     // No startPt was set, so a later move must not drag
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
     expect(onDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe("readLatLng", () => {
+  it("reads the lng/lat pair with longitude leading", () => {
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([121.5, 31.2]);
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
+      121.5, 31.2,
+    ]);
+  });
+
+  it("throws when the point has no coordinate", () => {
+    expect(() => Util.readLatLng({} as any)).toThrow(TypeError);
+  });
+
+  it("throws when only one coordinate is present", () => {
+    expect(() => Util.readLatLng({ lat: 31.2 } as any)).toThrow(TypeError);
+  });
+});
+
+describe("coordText", () => {
+  it("reports the pointer's coordinate as the map holds it", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
+      "121.500000, 31.200000",
+    );
+  });
+
+  it("reads the latitude/longitude alias", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
+      "120.000000, 30.000000",
+    );
+  });
+
+  it("rounds to the persisted precision", () => {
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
+      "121.987654, 31.123457",
+    );
+  });
+
+  it("does not apply a CRS conversion, so a shifted tile set is reported as seen", () => {
+    // The map serves GCJ02 tiles, so its latlng is already offset from WGS84.
+    // The readout must echo it unchanged — a WGS84 round trip would move the
+    // number the operator is looking at.
+    const map = {} as L.Map;
+    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
+      "121.510000, 31.210000",
+    );
   });
 });
 

@@ -1,6 +1,6 @@
 // HeatmapControl SVG icons.
 
-export const HEXAGON = `
+const HEXAGON = `
   <svg viewBox="0 0 24 24">
     <polygon points="12,3 20.5,7.5 20.5,16.5 12,21 3.5,16.5 3.5,7.5" stroke-width="1.5"/>
     <polygon points="12,3 20.5,7.5 20.5,16.5 12,21 3.5,16.5 3.5,7.5" class="foliplus-hf-bg"/>
@@ -15,3 +15,5 @@ export const HEXAGON = `
     <polygon points="3.5,14.5 7,13 10,14.5 10,16.5 7,18 3.5,16.5" stroke-width="1"/>
     <polygon points="3.5,7.5 7,6 10,7.5 10,9.5 7,11 3.5,9.5" stroke-width="1"/>
   </svg>`;
+
+export { HEXAGON };

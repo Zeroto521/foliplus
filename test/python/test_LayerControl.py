@@ -12,11 +12,13 @@ from conftest import (
     assert_locale,
     make_browser_page,
     read_css,
+    read_css_dir,
     render,
     render_control,
     use_page,
     use_raw_page,
 )
+from folium import Element
 
 from foliplus import LayerControl
 
@@ -234,7 +236,7 @@ class TestLayerControlRendering:
         assert "base_map_label" in html
 
     def test_css_variables_used(self, base_map: folium.Map):
-        """CSS variables from common.css are referenced in rendered output."""
+        """CSS variables from the shared stylesheet are referenced in rendered output."""
         html = render_control(LayerControl())
         assert "var(--space-xl)" in html
         assert "var(--accent-primary)" in html
@@ -342,27 +344,77 @@ class TestLayerControlRendering:
         assert "LayerControl.base_map_label" in html
 
     def test_css_interaction_effects(self, base_map: folium.Map):
-        """CSS hover/active effects exist for interactive elements, reflecting
-        the layered color hierarchy:
-            type icon : gray -> black (hover) -> black (active)
-            count     : gray in every state (annotation, not a control)
-            more      : black -> red (hover) -> red (active)  (action color)
-            checkbox  : red when checked (row status)
-        Only color changes; the type icon must NOT scale."""
+        """The Row-cursor recipe exists in the source CSS and drives every
+        interactive element with one recipe.
+
+        Mouse hover, Tab focus (:focus-visible) and the keyboard cursor
+        (.foliplus-layer-focused) share a single :is() rule, so they cannot
+        drift apart: left bar accent, white row, top/bottom red glow, drag
+        grip, type icon black, more button red. Only colour changes; the type
+        icon must NOT scale."""
         html = render_control(LayerControl())
+        css = read_css("foliplus/css/LayerControl.css")
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
         assert "foliplus-layer-fold-btn:hover svg" in html
         assert "foliplus-layer-fold-btn:active" in html
 
-        # Type icon: hover AND active both wake it to black (primary), never red.
+        # ── The unified Row-cursor recipe, read from the source CSS ──
+        # The :is() selector only exists before PostCSS flattens nesting, so it
+        # cannot be found in the built bundle. Anchor the brace scan at the
+        # opening brace of the :is() rule (NOT the parent's — the nearest
+        # preceding `{` belongs to the sibling &.active rule), then count depth
+        # to isolate exactly this rule's body without leaking into siblings.
+        mark = "is(:hover, :focus-visible, .foliplus-layer-focused)"
+        # The recipe's :is() rule sits INSIDE the compound selector that opens
+        # with `.foliplus-layer-item,` — anchor there so css.find() does not
+        # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
+        compound = css.find(".foliplus-layer-item,")
+        assert compound != -1, "Row-cursor compound selector not found"
+        start = css.find(mark, compound)
+        assert start != -1, "unified Row-cursor recipe selector not found"
+        # Both row types join the parent compound selector that carries this
+        # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
+        # recipe, which checks the exact selector string).
+        assert ".foliplus-layer-item" in css
+        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
+        open_brace = css.index("{", start)
+        depth, body = 1, css[open_brace + 1 :]
+        out = []
+        for ch in body:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            out.append(ch)
+        recipe = "".join(out)
+        # The left accent bar is a PERSISTENT checked-status indicator, so the
+        # interaction recipe must NOT force it — hover/keyboard/Tab show white +
+        # glow, and the red left bar stays reserved for .active / folded groups.
+        assert "border-left-color" not in recipe
+        # White surface — the row returns to a clean white wash, not the gray one.
+        assert "background: var(--neutral-0)" in recipe
+        assert "--panel-header-hover" not in recipe
+        # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
+        # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
+        # exactly. A 0 X-offset keeps it vertical (only top/bottom glow, no
+        # left/right bleed).
+        assert (
+            "0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
+        )
+        assert "0 var(--size-2) var(--size-4) var(--accent-primary)" in recipe
+        assert "color: var(--text-primary)" in recipe
+        assert "color: var(--accent-primary)" in recipe
+
+        # ── Type icon ──
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
-        assert ".foliplus-layer-item:hover .foliplus-type-icon-col" in html
+        # A checked row carries .active — a persistent checkbox state, not a
+        # cursor — and the cursor-only type-icon tint comes from the recipe.
         assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
-        # It is the *active* type-icon rule that carries the primary color, not
-        # an accent color (accent stays reserved for actions + status).
         act_type = [
             html[i : html.index("}", i)]
             for i in range(len(html))
@@ -378,15 +430,28 @@ class TestLayerControlRendering:
         # Regression guard: no scale transform may be reintroduced on the icon
         assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
 
-        # More button: red (accent) on BOTH hover and active — the row's action.
-        more_blks = [
+        # ── More (⋮) menu icon: identity wakes gray → black on hover/keyboard
+        # focus, matching the LayerControl type-icon language (NOT accent) — the
+        # main text goes black → red via the unified dropdown hover (css/common/menu.css),
+        # so "icon black + text red" reads like every other dropdown. ──
+        more_icon = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "layer-item:hover .foliplus-layer-more-btn"
-            in html[max(0, i - 60) : i + 60]
+            if "more-menu li svg" in html[max(0, i - 60) : i + 60]
         ]
-        assert any("color: var(--accent-primary)" in b for b in more_blks), (
-            "more button must tint accent on hover/active"
+        assert any("color: var(--text-muted)" in b for b in more_icon), (
+            "more-menu icon must be muted at rest"
+        )
+        more_icon_hover = [
+            html[i : html.index("}", i)]
+            for i in range(len(html))
+            if "more-menu li:not([disabled]):hover svg" in html[max(0, i - 60) : i + 60]
+        ]
+        assert any("color: var(--text-primary)" in b for b in more_icon_hover), (
+            "more-menu icon must wake to black on hover"
+        )
+        assert not any("color: var(--accent-primary)" in b for b in more_icon_hover), (
+            "more-menu icon must not tint accent"
         )
 
         # Count column: stays muted in every state — no hover/active brightening.
@@ -407,7 +472,7 @@ class TestLayerControlRendering:
 
     def test_close_btn_svg_styled(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
-        css = read_css("foliplus/css/common.css")
+        css = read_css_dir("foliplus/css/common", "button.css")
         # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css
@@ -509,11 +574,16 @@ class TestLayerControlRendering:
         assert "font-weight: var(--font-weight-semibold)" in css
         assert "color: var(--text-primary)" in css
 
-    def test_toggle_all_hover_accent_light_border(self):
-        """Toggle-all row hover shows a soft accent-light left border."""
+    def test_toggle_all_hover_shares_row_cursor_recipe(self):
+        """Toggle-all row joins the shared Row-cursor recipe: hover uses
+        accent-primary (not accent-light) and the fold row cannot drift into a
+        private hover style anymore."""
         css = read_css("foliplus/css/LayerControl.css")
-        assert "foliplus-layer-toggle-all:hover" in css
-        assert "border-left-color: var(--accent-light)" in css
+        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
+        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" in css
+        assert "border-left-color: var(--accent-primary)" in css
+        # The old fold-row-only hover used a softer border than the data rows.
+        assert "border-left-color: var(--accent-light)" not in css
 
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
@@ -541,13 +611,20 @@ class TestLayerControlRendering:
         assert "color: var(--accent-primary)" in css
 
     def test_fold_btn_hover_bidirectional_preview(self):
-        """Fold button shows bidirectional hover preview on the toggle-all row."""
+        """Fold button shows bidirectional preview across hover/Tab/arrow cursor.
+
+        Keyed on :is(:hover, :focus-visible, .foliplus-layer-focused) so the fold
+        icon wakes up identically to the Row-cursor recipe — mouse hover, Tab
+        focus and the arrow-key cursor all preview the same state change.
+        """
         css = read_css("foliplus/css/LayerControl.css")
-        # Expanded row hover: black → red
-        assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):hover" in css
+        wake = "is(:hover, :focus-visible, .foliplus-layer-focused)"
+        # Expanded row interaction: black → red (preview folded)
+        assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
+        assert wake in css
         assert "color: var(--accent-primary)" in css
-        # Folded row hover: red → black
-        assert "foliplus-layer-toggle-all.foliplus-layer-folded:hover" in css
+        # Folded row interaction: red → black (preview expanded)
+        assert "foliplus-layer-toggle-all.foliplus-layer-folded:is(" in css
         assert "color: var(--text-primary)" in css
 
     def test_fold_btn_background_transition(self):
@@ -611,6 +688,8 @@ class TestLayerControlRendering:
 
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
+        # Only LayerControl renders this checkbox (CONST.CLASSES.CHECKBOX), so
+        # the component is not shared and the rule stays in LayerControl.css.
         css = read_css("foliplus/css/LayerControl.css")
         assert ":indeterminate" in css
         assert ":indeterminate::after" in css
@@ -631,32 +710,37 @@ class TestLayerControlRendering:
         Transitions are kept only on properties that do not change on rebuild
         (box-shadow) or where the element survives the rebuild (hover,
         drag-over, :focus-visible)."""
-        css = read_css("foliplus/css/LayerControl.css")
-        targets = [
-            # (base selector before " {", must_not, may)
+        by_source = [
             (
-                'input[type="checkbox"]',
-                ["background-color", "border-color"],
-                ["box-shadow"],
-            ),
-            (
-                ".foliplus-layer-sep.foliplus-layer-toggle-all",
-                ["background-color", "border-color"],
-                [],
-            ),
-            (
-                ".foliplus-layer-item",
-                ["background-color", "border-color"],
-                [],
-            ),
-            (
-                ".foliplus-layer-more-btn",
-                ["color"],
-                [],
+                "foliplus/css/LayerControl.css",
+                [
+                    (
+                        'input[type="checkbox"]',
+                        ["background-color", "border-color"],
+                        ["box-shadow"],
+                    ),
+                    (
+                        ".foliplus-layer-sep.foliplus-layer-toggle-all",
+                        ["background-color", "border-color"],
+                        [],
+                    ),
+                    (
+                        ".foliplus-layer-item",
+                        ["background-color", "border-color"],
+                        [],
+                    ),
+                    (
+                        ".foliplus-layer-more-btn",
+                        ["color"],
+                        [],
+                    ),
+                ],
             ),
         ]
-        for sel, must_not, may in targets:
-            self._assert_no_bg_transition(css, sel, must_not, may)
+        for css_path, targets in by_source:
+            css = read_css(css_path)
+            for sel, must_not, may in targets:
+                self._assert_no_bg_transition(css, sel, must_not, may)
 
     @staticmethod
     def _assert_no_bg_transition(css, selector_fragment, must_not, may):
@@ -730,6 +814,45 @@ class TestLayerControlRendering:
                 f"{selector_fragment} should still transition {prop} — "
                 "it is pointer/state-driven, not rebuild-driven"
             )
+
+
+def _write_html(m: folium.Map, path) -> None:
+    """Render *m* to *path*, exposing the map as ``window.map``.
+
+    Snippets run in ``page.evaluate`` and reach per-map state through
+    ``window.map.foliplus``. ``use_raw_page`` does not apply this (only
+    ``make_browser_page`` does), and the tag order matters: the map variable
+    is declared by a script at the end of ``</body>``, so the assignment has
+    to come after it -- appending to ``m.get_root().html`` lands inside
+    ``</head>``, which is too early.
+    """
+    html = m.get_root().render()
+    match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+    if match:
+        html = html.replace(
+            "</html>",
+            f"<script>window.map = {match.group(1)};</script></html>",
+        )
+    path.write_text(html, encoding="utf-8")
+
+
+def _expand_panel(m: folium.Map) -> None:
+    """Expand the LayerControl panel on load.
+
+    The panel ships collapsed, and the map's inline script (LayerControl's
+    own IIFE) runs before ``DOMContentLoaded`` -- so the click has to be
+    scheduled after it. Needed for reload tests: after a reload there is no
+    interaction left in the test to expand it, and the rows are not rendered
+    until the panel opens.
+    """
+    m.get_root().html.add_child(
+        Element(
+            '<script>document.addEventListener("DOMContentLoaded", function () {'
+            "  var c = document.querySelector('.foliplus-layer-ctrl');"
+            "  if (c) c.querySelector('.foliplus-toggle-btn').click();"
+            "});</script>"
+        )
+    )
 
 
 class TestLayerControlBrowser:
@@ -950,6 +1073,46 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
 
+    def test_toggle_all_survives_reload(self, browser, tmp_path):
+        """Toggle-all off, then reload: the hidden set must come back from localStorage.
+
+        The write is debounced at 100ms, so the reload has to wait past the
+        timer. A reload inside that window previously restored the initial
+        map state because the pending write was still queued.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            slug="toggle_all_reload",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(600)
+            before = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert before is not None and before["rows"], f"panel state: {before}"
+            assert all(before["rows"]), f"expected all overlays on initially: {before}"
+
+            # Deselect the whole overlay group, then wait past the 100ms debounce.
+            page.evaluate(_js("LayerControl/click_toggle_all"))
+            page.wait_for_timeout(400)
+            after_toggle = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert after_toggle["rows"] == [False] * len(before["rows"]), (
+                f"toggle-all did not deselect the group: {after_toggle}"
+            )
+
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_timeout(1200)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(400)
+            restored = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert restored["rows"] == [False] * len(before["rows"]), (
+                f"reload restored the initial map state: {restored} "
+                f"(before reload: {after_toggle})"
+            )
+            assert not errors, f"console errors: {errors}"
+
     # ── title / tooltip browser tests ──
 
     def test_layer_item_title_shows_type(self, browser, tmp_path):
@@ -1010,6 +1173,50 @@ class TestLayerControlBrowser:
                 f"Expected select/deselect title, got '{title}'"
             )
 
+    def test_rename_keeps_checkbox_title_and_sets_aria_label(self, browser, tmp_path):
+        """Renaming a layer updates the label and aria-label, not the tooltip."""
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="MyPoints", overlay=True, show=True),
+            slug="rename_cb_title",
+        ) as (page, _):
+            page.wait_for_selector(
+                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(500)
+
+            assert page.evaluate(_js("LayerControl/rename_first_layer")), (
+                "failed to open the inline rename input"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-rename-input", state="attached", timeout=5000
+            )
+            res = page.evaluate(_js("LayerControl/commit_rename_and_read_checkbox"))
+            assert res is not None, "rename did not commit"
+            assert res["label"] == "RenamedLayer", f"label={res['label']!r}"
+            # The name reaches assistive tech via aria-label…
+            assert res["ariaLabel"] == "RenamedLayer", (
+                f"aria-label={res['ariaLabel']!r}"
+            )
+            # …but never replaces the Select/Deselect tooltip (accept the
+            # translated wording — a local browser can resolve `zh`).
+            assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
+
+    def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
+        """The toggle-all tooltip says "deselect all" in whatever locale it renders.
+
+        CI is locale-neutral but a local browser can resolve `zh`, so accept the
+        translated wording too — the contract is that the tooltip is the
+        toggle-all action, never a layer name.
+        """
+        assert title and ("Deselect" in title or "隐藏" in title), (
+            f"Expected {label} 'deselect all' tooltip, got {title!r}"
+        )
+
     def test_toggle_all_checkbox_title_changes_with_state(self, browser, tmp_path):
         """Toggle-all checkbox title updates when state changes."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -1033,19 +1240,18 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # All checked → title should be "Deselect all"
-            initial = page.evaluate(_js("LayerControl/read_toggle_all_title"))
-            assert initial and "Deselect" in initial, (
-                f"Expected 'Deselect all', got '{initial}'"
+            # All checked → tooltip is "deselect all"
+            self._assert_toggle_all_deselect_title(
+                page.evaluate(_js("LayerControl/read_toggle_all_title")), "all-checked"
             )
 
-            # Uncheck one layer → title should become "Deselect all" (indeterminate)
+            # Uncheck one layer → still "deselect all" (indeterminate)
             page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
-            after = page.evaluate(_js("LayerControl/read_toggle_all_title"))
-            assert after and "Deselect" in after, (
-                f"Expected 'Deselect all', got '{after}'"
+            self._assert_toggle_all_deselect_title(
+                page.evaluate(_js("LayerControl/read_toggle_all_title")),
+                "indeterminate",
             )
 
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
@@ -1121,6 +1327,409 @@ class TestLayerControlBrowser:
             )
             assert result["checkboxChecked"] is True, (
                 "Checkbox should be checked after re-activation"
+            )
+
+    def test_registry_matches_map_after_reload(self, browser, tmp_path):
+        """The registry holds one entry per rendered row, and its ids are stable.
+
+        Confirms the reload page's CONF data lands with one id per feature group
+        and that the registry view and the map's own layer set agree, before any
+        hiding happens. Anything the persistence funnel drops would show here.
+
+        The page declares one overlay with ``show=False``, but that is honoured
+        by folium's own renderer, not by LayerControl: folium 0.14.0 emits
+        ``.addTo(map)`` unconditionally and never removes it, so on that version
+        every declared layer starts on the map. What this test pins is therefore
+        the registry <-> map agreement itself, not the declared visibility --
+        a mismatch shows up the same way either way.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_registry_ids.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            info = page.evaluate(_js("LayerControl/read_hidden_state"))
+            # Overlays only: the two TileLayers are base rows, which the
+            # selector excludes by class. A [data-layer-id] selector would count
+            # each layer twice, since renderLayerItem stamps the id on the row
+            # and again on its count cell.
+            assert len(info["rows"]) == 2, f"expected 2 overlay rows, got {info}"
+            ids = [r["id"] for r in info["rows"]]
+            # Distinct ids: a duplicate would make the persisted hidden set apply
+            # to only one of the two.
+            assert len(set(ids)) == len(ids), f"duplicate layer ids in registry: {ids}"
+            # The fixture throws if a rendered row has no registry entry, since
+            # such a row's state has no source of truth. A null here means the
+            # manager's own resolver could not find the Leaflet layer -- that
+            # row cannot be added or removed, so no state on it can be honoured
+            # after a reload.
+            unresolved = [r for r in info["rows"] if r["onMap"] is None]
+            assert not unresolved, f"unresolved layers in registry: {unresolved}"
+            # The registry's own flag and the Leaflet attachment agree per row.
+            # Declared show=False is deliberately not asserted here: folium 0.14
+            # adds every layer regardless, so the declared visibility differs
+            # across folium versions while the registry/map agreement never does.
+            for r in info["rows"]:
+                assert r["checked"] == r["visible"] == r["onMap"], (
+                    f"{r['id']}: checkbox, registry and map disagree: {info}"
+                )
+
+    def test_hidden_layers_survive_reload(self, browser, tmp_path):
+        """A layer hidden by checkbox stays hidden across a reload.
+
+        Regression guard for the persistence funnel: the write is debounced at
+        100ms, so a reload inside that window previously landed on stale
+        storage. Hiding happens here, the reload there -- the two pages are
+        distinct so nothing survives except localStorage.
+
+        Base layers plus a hidden-from-the-start overlay mirror a real folium
+        page, where ``TileLayer(show=False)`` and the map's own theme layers
+        share the panel with the data overlays.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_hidden_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            hide = page.evaluate(_js("LayerControl/hide_then_reload"))
+            assert hide is not None and hide["rows"] == 2, f"unexpected rows: {hide}"
+            assert hide["stillChecked"] == 0, "both overlays should be unchecked"
+
+            # Let the debounce commit, then reload -- a reload inside the
+            # window is what used to drop the write.
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Re-checked rows, rows whose registry entry still claims visible,
+            # and layers that are still attached to the map -- each half of the
+            # projection, so the assertion cannot be satisfied by faking one.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert rows and len(rows["rows"]) == 2, f"expected 2 rows, got {rows}"
+            for row in rows["rows"]:
+                assert row["checked"] is False, (
+                    f"{row['id']}: row was re-checked after reload\n{rows}"
+                )
+                assert row["visible"] is False, (
+                    f"{row['id']}: registry says visible but the user hid it\n{rows}"
+                )
+                assert row["onMap"] is False, (
+                    f"{row['id']}: still attached to the map after reload\n{rows}"
+                )
+
+    def test_showing_author_hidden_layers_survives_reload(self, browser, tmp_path):
+        """A layer the author declared ``show=False`` and the user checked ON
+        comes back ON after a reload.
+
+        This is the reported regression: ``hiddenIds`` recorded *which layers
+        the user hid* rather than *which layers are hidden*, so an id that
+        folium had rendered off-map was never in the set. Checking it on
+        therefore removed nothing from nothing, storage stayed ``[]``, and the
+        reload restored the author's defaults.
+
+        It is also the inverse of test_hidden_layers_survive_reload: that one
+        proves the hide half of the round trip, this one proves the unhide
+        half. A sweep that only walks ``hiddenIds`` can never reach a layer the
+        user left visible.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_show_hidden_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Observe the pre-state rather than assuming folium rendered the
+            # declared show=False: folium 0.14.0 adds every layer and never
+            # removes it, so the rows that start off-map differ across versions.
+            # The point is the round trip -- whatever starts hidden must come
+            # back checked -- not which folium produced the hidden set.
+            before = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert before and len(before["rows"]) == 2, f"unexpected rows: {before}"
+            for row in before["rows"]:
+                assert row["checked"] == row["visible"] == row["onMap"], (
+                    f"{row['id']}: checkbox, registry and map disagree at load\n{before}"
+                )
+
+            show = page.evaluate(_js("LayerControl/show_author_hidden"))
+            assert show is not None and show["rows"] == 2, f"unexpected rows: {show}"
+            hidden_before = sum(1 for r in before["rows"] if not r["checked"])
+            assert show["checked"] == hidden_before, (
+                f"expected the {hidden_before} off-map layer(s) to be shown\n{show}"
+            )
+            assert show["stillUnchecked"] == 0, f"rows left unchecked\n{show}"
+
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Each half of the projection is asserted separately, mirroring
+            # test_hidden_layers_survive_reload: a UI-only fix (rows re-checked)
+            # or a data-only fix (registry says visible) would not put the layer
+            # back on the map.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert rows and len(rows["rows"]) == 2, f"expected 2 rows, got {rows}"
+            for row in rows["rows"]:
+                assert row["checked"] is True, (
+                    f"{row['id']}: row lost its check after reload\n{rows}"
+                )
+                assert row["visible"] is True, (
+                    f"{row['id']}: registry reverted to the author default\n{rows}"
+                )
+                assert row["onMap"] is True, (
+                    f"{row['id']}: never re-added to the map after reload\n{rows}"
+                )
+
+    def test_author_defaults_survive_a_reload_with_no_toggle(self, browser, tmp_path):
+        """Author ``show=False`` layers stay hidden when the user never touched
+        the panel, and reload repeatedly.
+
+        Guards the other half of the same change: with no visibility key in
+        storage the user has made no choice, so the unhide sweep must not
+        override the author's defaults. Without that guard the first reload of
+        a map like the quickstart re-added every hidden overlay.
+
+        "Author defaults" here means whatever folium rendered at load, which is
+        read rather than assumed: folium 0.14.0 adds every layer regardless of
+        show=False, so the default is visible on that version. The user never
+        touched the panel, so storage stays empty and the invariant is that a
+        reload leaves the load state untouched -- whatever it was.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_author_defaults_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # No interaction at all -- the panel merely opened on load.
+            initial = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert initial and len(initial["rows"]) == 1, (
+                f"expected 1 row, got {initial}"
+            )
+            load_checked = initial["rows"][0]["checked"]
+            load_storage = dict(initial["storage"])
+
+            for _ in range(2):
+                page.reload(wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl", state="attached", timeout=10000
+                )
+                page.wait_for_selector(
+                    ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+                )
+                page.wait_for_timeout(500)
+
+                rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+                assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
+                row = rows["rows"][0]
+                # The load state is untouched, and the three projections of it
+                # still agree -- so a reload neither re-added a hidden layer
+                # nor dropped one the author left on.
+                assert row["checked"] is load_checked, (
+                    f"reload with no user choice changed the load state\n{rows}"
+                )
+                assert row["checked"] == row["visible"] == row["onMap"], (
+                    f"{row['id']}: checkbox, registry and map disagree\n{rows}"
+                )
+                # Nothing may be persisted when the user never toggled: the
+                # unhide sweep must not synthesise a choice and write it down.
+                assert rows["storage"] == load_storage, (
+                    f"reload with no user choice wrote visibility state\n{rows}"
+                )
+
+    def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
+        """Layers registered at runtime get pruned from the hidden set after a
+        reload -- they have no registry entry to prove they are coming back.
+
+        HeatmapControl and MeasureControl register in their own constructor,
+        which runs after the LayerControl IIFE has attached, so a hidden id can
+        precede its row. The prune keeps ids that are still live (registry or
+        pending) and drops the rest, and it must not resurrect a dropped id
+        when the component re-registers later: that id stays pruned for the
+        lifetime of the session, which is the trade the prune makes to stay
+        bounded.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Seed", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_hidden_reload_dynamic.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Register through LayerAPI, as a component's constructor would.
+            page.evaluate(_js("LayerControl/register_hidden_probes"))
+            page.wait_for_timeout(100)
+
+            hide = page.evaluate(_js("LayerControl/hide_then_reload"))
+            assert hide is not None and hide["rows"] == 3, f"unexpected rows: {hide}"
+            assert hide["stillChecked"] == 0, "all overlays should be unchecked"
+            assert len(set(hide["ids"])) == 3, f"duplicate row ids: {hide}"
+
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # The probes were only registered at runtime, so they are gone
+            # until re-registered -- and their ids have been pruned along with
+            # them, because no registry entry survived the reload.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
+            assert rows["rows"][0]["checked"] is False
+            assert rows["rows"][0]["visible"] is False
+            assert rows["rows"][0]["onMap"] is False
+
+            page.evaluate(_js("LayerControl/register_hidden_probes"))
+            page.wait_for_timeout(300)
+
+            # Re-registration must not resurrect the pruned ids: the probes
+            # come back visible, and the pruned ids stay out of storage.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert len(rows["rows"]) == 3, f"expected 3 rows, got {rows}"
+            for row in rows["rows"]:
+                if row["id"].startswith("__probe"):
+                    assert row["checked"] is True, (
+                        f"{row['id']}: pruned id resurrected across re-register\n{rows}"
+                    )
+                    assert row["visible"] is True, (
+                        f"{row['id']}: registry revived a pruned id\n{rows}"
+                    )
+                    assert row["onMap"] is True, (
+                        f"{row['id']}: re-entered the map while pruned\n{rows}"
+                    )
+            key = next(k for k in rows["storage"] if "layer_visibility" in k)
+            stored = json.loads(rows["storage"][key])
+            assert all(not i.startswith("__probe") for i in stored), (
+                f"pruned ids persisted again: {rows['storage']}"
             )
 
     def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):
@@ -1380,7 +1989,10 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
                 r = result[phase]
-                assert r["name"] == "Keep Me", f"{phase}: name lost"
+                # `name` never leaves the registry's own values: the initial
+                # registration falls back to the id, and the partial one
+                # keeps it.
+                assert r["name"] in ("Keep Me", "__keep__"), f"{phase}: name lost"
                 assert r["isBase"] is True, f"{phase}: isBase lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"
@@ -1830,6 +2442,135 @@ class TestLayerControlBrowser:
             assert result is not None, "keydown_down_moves_focus failed"
             assert result["focusedElement"] == result["expectedElement"], (
                 f"ArrowDown should focus next item, got {result}"
+            )
+
+    def test_row_cursor_renders_white_with_glow(self, browser, tmp_path):
+        """The Row-cursor recipe genuinely renders, not just exists in source.
+
+        The shared recipe must produce the arrow-key reference look in the live
+        DOM — white row surface + red glow on the top/bottom edges — for BOTH the
+        keyboard cursor and mouse hover, and leave resting rows untouched. This
+        guards against a recipe that parses but never paints (the pytest source
+        assert can't catch that).
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            # Move the mouse off the panel so a data row reads its resting state.
+            page.mouse.move(0, 0)
+            page.wait_for_timeout(120)
+
+            rest = page.evaluate(
+                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                " const cs = getComputedStyle(r);"
+                " const d = r.querySelector('.drag-handle');"
+                " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
+                " drag: d ? getComputedStyle(d).opacity : null }; }"
+            )
+            assert rest["shadow"] == "none", (
+                f"resting row must have no glow, got {rest['shadow']}"
+            )
+
+            kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
+            assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
+            assert kb["bg"] == "rgb(255, 255, 255)", (
+                f"keyboard-cursor row must turn white, got {kb['bg']}"
+            )
+            assert kb["shadow"] != "none", (
+                f"keyboard-cursor row must glow, got {kb['shadow']}"
+            )
+            assert kb["outline"] == "none", (
+                f"keyboard-cursor row must suppress the default dark outline, got "
+                f"{kb['outline']} (black frame)"
+            )
+
+            # Hover a data row and confirm it matches the keyboard cursor exactly.
+            page.hover(".foliplus-layer-item")
+            page.wait_for_timeout(120)
+            hover = page.evaluate(
+                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                " const cs = getComputedStyle(r);"
+                " const d = r.querySelector('.drag-handle');"
+                " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
+                " drag: d ? getComputedStyle(d).opacity : null }; }"
+            )
+            assert hover["bg"] == kb["bg"], (
+                f"hover {hover['bg']} must equal keyboard {kb['bg']}"
+            )
+            assert hover["shadow"] == kb["shadow"], (
+                f"hover glow {hover['shadow']} must equal keyboard {kb['shadow']}"
+            )
+
+    def test_fold_row_cursor_wakes_white_and_red_icon(self, browser, tmp_path):
+        """A keyboard cursor on the fold (toggle-all) row shows the shared recipe
+        (white + glow) and wakes the fold icon red, exactly like hover — the fold
+        row joins the Row-cursor recipe and cannot drift into its own hover style.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/read_fold_row_cursor_style"))
+            assert result is not None and "error" not in result, (
+                f"fold-cursor snippet failed: {result}"
+            )
+            assert result["isFold"] is True, (
+                f"cursor should be on the fold row, got {result}"
+            )
+            assert result["bg"] == "rgb(255, 255, 255)", (
+                f"fold row must turn white, got {result['bg']}"
+            )
+            assert result["shadow"] != "none", (
+                f"fold row must glow, got {result['shadow']}"
+            )
+
+    def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
+        """Clicking outside the panel drops the keyboard cursor.
+
+        The .foliplus-layer-focused marker is a panel-local navigation cursor, so
+        clicking the map / another control must clear it rather than leaving the
+        last navigated row highlighted. Uses mousedown so a panel-internal click
+        that rebuilds the list (a fold button, a checkbox) is unaffected.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/outside_mousedown_clears_cursor"))
+            assert result is not None, "outside_mousedown_clears_cursor failed"
+            assert result["before"] is True, (
+                f"cursor should be set before outside mousedown, got {result}"
+            )
+            assert result["after"] is False, (
+                f"outside mousedown must clear the cursor, got {result}"
             )
 
     def test_keydown_space_toggles_visibility(self, browser, tmp_path):

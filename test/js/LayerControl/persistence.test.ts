@@ -9,6 +9,17 @@ const makeRegistry = (ids: string[]) =>
     get: id => (ids.includes(id) ? { id } : null),
   }) as any;
 
+const makePersistence = (ids: string[]) => new LayerPersistence(makeRegistry(ids));
+
+/** Seed localStorage with raw JSON, mirroring what the writes produce -- so
+ *  load() is exercised against corrupt shapes. Keys are the real storage keys,
+ *  passed straight through rather than looked up by property name. */
+const seedStorage = (fixture: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(fixture)) {
+    if (value !== undefined) window.localStorage.setItem(key, JSON.stringify(value));
+  }
+};
+
 describe("LayerPersistence", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -22,24 +33,162 @@ describe("LayerPersistence", () => {
     window.localStorage.clear();
   });
 
-  const makePersistence = (ids: string[]) => new LayerPersistence(makeRegistry(ids));
+  // ── Read ────────────────────────────────────────────────────────
 
-  // ── Order ────────────────────────────────────────────────────────
+  describe("loadOrder", () => {
+    it("loads the order dimension and drops unknown ids", () => {
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: ["a", "ghost", "b", "gone"] });
+      expect(makePersistence(["a", "b", "c"]).loadOrder()).toEqual(["a", "b"]);
+    });
 
-  describe("order", () => {
-    it("loads persisted order and drops unknown ids", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(["a", "ghost", "b", "gone"]);
+    it("returns null on missing or corrupt data", () => {
+      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: "not-array" });
+      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      seedStorage({ [CONST.STORAGE.ORDER_KEY]: ["a", 123] });
+      expect(makePersistence(["a", "b"]).loadOrder()).toEqual(null);
+    });
+
+    it("reads only the order key", () => {
+      // The whole point of the narrow read: LayerManager needs order and only
+      // order at construction time, so it must not parse fold, visibility, or
+      // names alongside it.
+      const keys: string[] = [];
+      const spy = vi.spyOn(Storage, "load").mockImplementation((key: unknown) => {
+        keys.push(String(key));
+        return undefined;
+      });
+      makePersistence(["a"]).loadOrder();
+      spy.mockRestore();
+      expect(keys).toEqual([CONST.STORAGE.ORDER_KEY]);
+    });
+  });
+
+  describe("load", () => {
+    it("loads every dimension and drops unknown order ids", () => {
+      seedStorage({
+        [CONST.STORAGE.ORDER_KEY]: ["a", "ghost", "b", "gone"],
+        [CONST.STORAGE.VISIBILITY_KEY]: ["a", "b"],
+        [CONST.STORAGE.FOLD_KEY]: ["OVERLAYS"],
+        [CONST.STORAGE.NAMES_KEY]: { a: "A2", "not-registered-yet": "Pending" },
+        [CONST.STORAGE.ANNOTATION_KEY]: {
+          a: { show: true, field: "name", format: "auto" },
+          ghost: { show: true, field: "x", format: "int" },
+        },
+      });
       const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadOrder()).toEqual(["a", "b"]);
+
+      expect(p.load()).toEqual({
+        order: ["a", "b"],
+        foldedGroups: new Set(["OVERLAYS"]),
+        hiddenIds: new Set(["a", "b"]),
+        names: { a: "A2", "not-registered-yet": "Pending" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        hiddenHasState: true,
+      });
     });
 
-    it("returns null for missing or non-array storage", () => {
-      vi.spyOn(Storage, "load").mockReturnValue("not-array");
+    it("distinguishes an absent visibility key from an empty one", () => {
+      // An absent key means the user made no choice, so the author's show=False
+      // defaults must survive an unhide sweep. An empty array means the user
+      // hid nothing on purpose, which is an assertion that every layer is
+      // visible. hiddenIds alone cannot tell the two apart.
+      expect(makePersistence(["a"]).load().hiddenHasState).toBe(false);
+      seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: [] });
+      expect(makePersistence(["a"]).load().hiddenHasState).toBe(true);
+    });
+
+    it("keeps hidden ids that are not registered yet", () => {
+      // attachUI lands before HeatmapControl and MeasureControl register in
+      // their own constructor, so filtering here dropped their entries and the
+      // layer came back on the map after every reload. Stale-id cleanup stays
+      // with the applyUserState sweep, which runs after the late registrations.
+      seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: ["a", "later"] });
+      const p = makePersistence(["a", "b"]);
+
+      expect(p.load().hiddenIds).toEqual(new Set(["a", "later"]));
+    });
+
+    it("keeps renames for ids that are not registered yet", () => {
+      // Same load-order constraint as hidden ids, but cleanup lives in
+      // unregisterLayer — the only call that knows a layer is gone for good
+      // rather than merely not registered yet.
+      seedStorage({ [CONST.STORAGE.NAMES_KEY]: { ghost: "Ghost", a: "A2" } });
+      const p = makePersistence(["a", "b"]);
+
+      expect(p.load().names).toEqual({ ghost: "Ghost", a: "A2" });
+    });
+
+    it("drops annotation entries that are not registered or not objects", () => {
+      // Unlike names and hidden ids, annotations are filtered here: labels are
+      // a pure decoration, so nothing loses work if a stale id is dropped at
+      // load time and the sweep never reaches it.
+      seedStorage({
+        [CONST.STORAGE.ANNOTATION_KEY]: {
+          a: { show: true, field: "name", format: "auto" },
+          ghost: { show: true, field: "x", format: "int" },
+          b: null,
+          c: "not-object",
+        },
+      });
+      const p = makePersistence(["a", "b", "c"]);
+
+      expect(p.load().annotations).toEqual({
+        a: { show: true, field: "name", format: "auto" },
+      });
+    });
+
+    it("returns empty containers where storage has nothing", () => {
+      expect(makePersistence(["a"]).load()).toEqual({
+        order: null,
+        foldedGroups: new Set(),
+        hiddenIds: new Set(),
+        names: {},
+        annotations: {},
+        hiddenHasState: false,
+      });
+    });
+
+    it("tolerates a corrupt record of the wrong shape", () => {
+      seedStorage({
+        [CONST.STORAGE.ORDER_KEY]: "not-array",
+        [CONST.STORAGE.VISIBILITY_KEY]: 42,
+        [CONST.STORAGE.FOLD_KEY]: "OVERLAYS",
+        [CONST.STORAGE.NAMES_KEY]: [],
+        [CONST.STORAGE.ANNOTATION_KEY]: [],
+      });
       const p = makePersistence(["a"]);
-      expect(p.loadOrder()).toBeNull();
+
+      expect(p.load()).toEqual({
+        order: null,
+        foldedGroups: new Set(),
+        hiddenIds: new Set(),
+        names: {},
+        annotations: {},
+        hiddenHasState: false,
+      });
     });
 
-    it("debounces rapid saveOrder calls into one write", () => {
+    it("drops a hidden set with a non-string entry", () => {
+      // A non-string entry fails the `every` check and discards the whole
+      // record: keeping the valid subset would silently drop a layer the user
+      // hid for the next reload, so failing to the default state is safer.
+      seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: ["a", 123, "b", null] });
+      expect(makePersistence(["a", "b", "c"]).load().hiddenIds).toEqual(new Set());
+    });
+
+    it("drops non-string values from names", () => {
+      seedStorage({ [CONST.STORAGE.NAMES_KEY]: { a: "A2", b: 123, c: null } });
+      expect(makePersistence(["a", "b", "c"]).load().names).toEqual({
+        a: "A2",
+      });
+    });
+  });
+
+  // ── Write ───────────────────────────────────────────────────────
+
+  describe("saveOrder", () => {
+    it("debounces rapid calls into one write", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
@@ -52,41 +201,73 @@ describe("LayerPersistence", () => {
 
       // The last getter wins — reads the live order, not the order at first
       // call during the batch.
-      expect(save.mock.calls[0][1]).toEqual(["b", "a", "c"]);
       expect(save).toHaveBeenCalledTimes(1);
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
-    it("cancelSaveOrder suppresses a pending write", () => {
-      vi.useFakeTimers();
-      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
-      const p = makePersistence(["a"]);
-      p.saveOrder(() => ["a"]);
-      p.cancelSaveOrder();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      expect(save).not.toHaveBeenCalled();
+      expect(save.mock.calls[0][1]).toEqual(["b", "a", "c"]);
       save.mockRestore();
       vi.useRealTimers();
     });
   });
 
-  // ── Fold ─────────────────────────────────────────────────────────
+  describe("saveHiddenIds", () => {
+    it("debounces rapid calls into one write and serializes the set", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveHiddenIds(() => new Set(["a"]));
+      p.saveHiddenIds(() => new Set(["a", "b"]));
+      expect(save).not.toHaveBeenCalled();
 
-  describe("fold", () => {
-    it("loads persisted fold state", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(["OVERLAYS"]);
-      const p = makePersistence(["a"]);
-      expect(p.loadFoldedGroups()).toEqual(new Set(["OVERLAYS"]));
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][1]).toEqual(["a", "b"]);
+      save.mockRestore();
+      vi.useRealTimers();
     });
+  });
 
-    it("returns empty set when storage is missing", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(null);
-      const p = makePersistence(["a"]);
-      expect(p.loadFoldedGroups()).toEqual(new Set());
+  describe("saveNames", () => {
+    it("debounces rapid calls into one write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveNames(() => ({ a: "A1" }));
+      p.saveNames(() => ({ a: "A2", b: "B1" }));
+      p.saveNames(() => ({ a: "A3", b: "B2" }));
+      expect(save).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][1]).toEqual({ a: "A3", b: "B2" });
+      save.mockRestore();
+      vi.useRealTimers();
     });
+  });
 
-    it("saves fold state synchronously", () => {
+  describe("saveAnnotations", () => {
+    it("debounces rapid calls into one write", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveAnnotations(() => ({ a: { show: true, field: "name", format: "auto" } }));
+      p.saveAnnotations(() => ({ a: { show: false, field: "name", format: "int" } }));
+      expect(save).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.ANNOTATION_KEY,
+        { a: { show: false, field: "name", format: "int" } },
+        "LayerControl",
+      );
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("saveFoldedGroups", () => {
+    it("saves synchronously", () => {
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
       p.saveFoldedGroups(new Set(["BASE", "OVERLAYS"]));
@@ -99,110 +280,50 @@ describe("LayerPersistence", () => {
     });
   });
 
-  // ── Visibility ───────────────────────────────────────────────────
-
-  describe("visibility (hidden ids)", () => {
-    it("loads hidden ids, filtering non-string entries", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(["a", 123, "b", null]);
-      const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
-    });
-
-    it("drops unknown ids from the persisted hidden set", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(["a", "ghost", "b", "gone"]);
-      const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadHiddenIds()).toEqual(new Set(["a", "b"]));
-    });
-
-    it("returns empty set when storage is missing", () => {
-      vi.spyOn(Storage, "load").mockReturnValue(null);
-      const p = makePersistence(["a"]);
-      expect(p.loadHiddenIds()).toEqual(new Set());
-    });
-
-    it("debounces rapid saveHiddenIds calls into one write", () => {
+  describe("flushAll", () => {
+    it("commits every pending dimension", () => {
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
+      p.saveOrder(() => ["a", "b"]);
       p.saveHiddenIds(() => new Set(["a"]));
-      p.saveHiddenIds(() => new Set(["a", "b"]));
-      expect(save).not.toHaveBeenCalled();
+      p.saveNames(() => ({ a: "A" }));
+      p.saveAnnotations(() => ({ a: { show: true, field: "n", format: "auto" } }));
 
+      p.flushAll();
+      expect(save).toHaveBeenCalledTimes(4);
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.ORDER_KEY,
+        ["a", "b"],
+        "LayerControl",
+      );
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.VISIBILITY_KEY,
+        ["a"],
+        "LayerControl",
+      );
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.NAMES_KEY,
+        { a: "A" },
+        "LayerControl",
+      );
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.ANNOTATION_KEY,
+        { a: { show: true, field: "n", format: "auto" } },
+        "LayerControl",
+      );
+
+      // Each timer is consumed, so advancing writes nothing else.
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      expect(save.mock.calls[0][1]).toEqual(["a", "b"]);
+      expect(save).toHaveBeenCalledTimes(4);
       save.mockRestore();
       vi.useRealTimers();
     });
 
-    it("cancelSaveHiddenIds suppresses a pending write", () => {
-      vi.useFakeTimers();
+    it("is a no-op when nothing is pending", () => {
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a"]);
-      p.saveHiddenIds(() => new Set(["a"]));
-      p.cancelSaveHiddenIds();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      expect(save).not.toHaveBeenCalled();
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-  });
-
-  // ── Names (user-assigned display names) ──────────────────────────
-
-  describe("names", () => {
-    it("loads renamed names and drops unknown ids", () => {
-      vi.spyOn(Storage, "load").mockReturnValue({
-        a: "A2",
-        ghost: "G",
-        b: "B2",
-        gone: "Z",
-      });
-      const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadNames()).toEqual({ a: "A2", b: "B2" });
-    });
-
-    it("returns empty object for missing or non-object storage", () => {
-      const p = makePersistence(["a"]);
-      vi.spyOn(Storage, "load").mockReturnValue(null);
-      expect(p.loadNames()).toEqual({});
-
-      vi.spyOn(Storage, "load").mockReturnValue("not-object");
-      expect(p.loadNames()).toEqual({});
-
-      vi.spyOn(Storage, "load").mockReturnValue([]);
-      expect(p.loadNames()).toEqual({});
-    });
-
-    it("drops non-string name values", () => {
-      vi.spyOn(Storage, "load").mockReturnValue({ a: "A2", b: 123, c: null });
-      const p = makePersistence(["a", "b", "c"]);
-      expect(p.loadNames()).toEqual({ a: "A2" });
-    });
-
-    it("debounces rapid saveNames calls into one write", () => {
-      vi.useFakeTimers();
-      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
-      const p = makePersistence(["a", "b"]);
-      p.saveNames(() => ({ a: "A1" }));
-      p.saveNames(() => ({ a: "A2", b: "B1" }));
-      p.saveNames(() => ({ a: "A3", b: "B2" }));
-      expect(save).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-
-      expect(save.mock.calls[0][1]).toEqual({ a: "A3", b: "B2" });
-      expect(save).toHaveBeenCalledTimes(1);
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
-    it("cancelSaveNames suppresses a pending write", () => {
-      vi.useFakeTimers();
-      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
-      const p = makePersistence(["a"]);
-      p.saveNames(() => ({ a: "A1" }));
-      p.cancelSaveNames();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      p.flushAll();
       expect(save).not.toHaveBeenCalled();
       save.mockRestore();
       vi.useRealTimers();
@@ -210,18 +331,22 @@ describe("LayerPersistence", () => {
   });
 
   describe("destroy", () => {
-    it("cancels every in-flight debounced write", () => {
+    it("flushes every in-flight write rather than dropping it", () => {
+      // Teardown used to cancel first, which made a later flush a no-op and
+      // lost any change made inside the 100ms debounce window. Flush-then-cancel
+      // removes the ordering dependency on the caller.
       vi.useFakeTimers();
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
       const p = makePersistence(["a", "b"]);
-
       p.saveOrder(() => ["a", "b"]);
       p.saveHiddenIds(() => new Set(["a"]));
       p.saveNames(() => ({ a: "A" }));
-      p.destroy();
+      p.saveAnnotations(() => ({ a: { show: true, field: "n", format: "auto" } }));
 
+      p.destroy();
+      expect(save).toHaveBeenCalledTimes(4);
       vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      expect(save).not.toHaveBeenCalled();
+      expect(save).toHaveBeenCalledTimes(4);
       save.mockRestore();
       vi.useRealTimers();
     });

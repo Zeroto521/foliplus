@@ -1,6 +1,11 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { GEOM_TYPE, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+import {
+  GEOM_TYPE,
+  type LayerInfo,
+  forEachLeaf,
+  getGeometryType,
+} from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -9,7 +14,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import { type NumberStyle, formatNumber } from "#common/format.js";
+import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type AnnotationConfig } from "./annotation.js";
@@ -27,12 +32,36 @@ import * as Util from "./util.js";
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
+/**
+ * Push one persisted rename out to whatever projections of it exist.
+ *
+ * Shared by the whole-panel sweep and the targeted single-layer call so the
+ * "skip unchanged" rule lives in exactly one place.
+ */
+const applyNameProjection = (
+  layerInfo: LayerInfo | null,
+  item: HTMLElement | null,
+  name: string,
+): void => {
+  if (!layerInfo && !item) return;
+  if (layerInfo && layerInfo.name !== name) layerInfo.name = name;
+  updateItemLabel(item, name);
+};
+
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
   manager: LayerManager;
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
+  /** The visibility key existed in storage, so `hiddenIds` is the user's
+   *  assertion about every layer. Absent means no choice was ever made and the
+   *  author's `show=` defaults must not be overridden by an unhide sweep. */
+  hiddenHasState: boolean;
+  /** Set once the hidden set has been rebuilt against the rendered rows --
+   *  reconcileHiddenIds must run a single time, after the first
+   *  initLayerItem pass, not on every fold-toggle. */
+  isHiddenReconciled: boolean;
   isColorActive: boolean;
   currentColor: string;
   /** Map of layer id → user-assigned display name (survives reload). */
@@ -66,6 +95,9 @@ class LayerUI {
   /** Style panel click handler — mounted outside the layer list, so
    *  container delegation on this.uiContainer does not reach it. */
   onStylePanelClick: ((event: Event) => void) | null;
+  /** Document mousedown handler — clears the keyboard cursor when the user clicks
+   *  outside the panel (the cursor is a panel-local navigation marker). */
+  declare onOutsideMousedown: ((event: MouseEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -85,6 +117,9 @@ class LayerUI {
   /** Cached per-layer field lists (collectFields can be expensive; the data
    *  is stable for a layer's lifetime, so we cache it per layer). */
   private fieldCache: Map<string, string[]>;
+  /** Per-layer annotation config read at attach; applied to the map once the
+   *  layers are resolvable, so it needs no UI field of its own. */
+  private annotationConfigs: Record<string, unknown> = {};
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -103,6 +138,8 @@ class LayerUI {
     this.manager = manager;
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
+    this.hiddenHasState = false;
+    this.isHiddenReconciled = false;
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.renamedNames = {};
@@ -117,11 +154,13 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onStylePanelClick = null;
+    this.onOutsideMousedown = null;
     this.activeMenu = null;
     this.stylePanelLayerId = null;
     this.onStylePanelShift = null;
     this.stylePanelJustOpened = false;
     this.fieldCache = new Map();
+    this.annotationConfigs = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -151,9 +190,7 @@ class LayerUI {
    */
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
-    this.loadFoldState();
-    this.loadHiddenIds();
-    this.loadNamesState();
+    this.loadPersistedState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -161,8 +198,12 @@ class LayerUI {
       const layerInfo = this.m.pendingRegistrations.shift();
       if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
     }
-    this.applyNamesState();
     this.reindexItems();
+    // Last in the attach sequence: applyUserState() runs the full sweep
+    // needed for rows rendered from the initial registry. Hidden ids are
+    // loaded above but only applied here, so a row can never render visible
+    // and get removed afterwards.
+    this.applyUserState();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -183,9 +224,14 @@ class LayerUI {
     setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
-  /** Load fold state from localStorage. */
-  loadFoldState() {
-    this.foldedGroups = this.m.persistence.loadFoldedGroups();
+  /** Load every persisted dimension in one call. */
+  loadPersistedState() {
+    const state = this.m.persistence.load();
+    this.foldedGroups = state.foldedGroups;
+    this.hiddenIds = state.hiddenIds;
+    this.renamedNames = state.names;
+    this.hiddenHasState = state.hiddenHasState;
+    this.annotationConfigs = state.annotations;
   }
 
   /** Save fold state to localStorage. */
@@ -193,38 +239,234 @@ class LayerUI {
     this.m.persistence.saveFoldedGroups(this.foldedGroups);
   }
 
-  /** Load hidden-layer ids from localStorage. */
-  loadHiddenIds() {
-    this.hiddenIds = this.m.persistence.loadHiddenIds();
-  }
-
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
   }
 
-  /** Load user-assigned display names from localStorage. */
-  loadNamesState() {
-    this.renamedNames = this.m.persistence.loadNames();
+  /**
+   * Propagate the user's stored state — hidden visibility and renames —
+   * into the registry and the rendered rows.
+   *
+   * `hiddenIds` and `renamedNames` are the source of truth; the registry's
+   * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
+   * are their projections, refreshed here whenever a row or the registry is
+   * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
+   * overwrite of `visible`, so it writes straight through; name is a
+   * cross-axis projection that must preserve the author's original name, so
+   * it goes through `applyNameProjection`, which writes only where the
+   * projection still differs — a repeated pass is therefore a no-op.
+   *
+   * The sweep also prunes ids whose layers no longer exist so stale
+   * persistence doesn't accumulate.
+   *
+   * @param {string} [id] Restrict to one layer id — a late-arriving row is
+   *   already rendered with the right label, so it only needs its registry
+   *   projection; a full sweep would re-rewrite every renamed row for no
+   *   gain. Both projections are membership-guarded on this path: the drain
+   *   runs for every late registration, so an unhidden layer must not be
+   *   hidden and a missing rename must not write undefined.
+   */
+  applyUserState(id?: string) {
+    const registry = this.m.layerRegistry;
+    const container = this.uiContainer;
+
+    if (id) {
+      const layerInfo = registry.get(id);
+      if (!layerInfo) return; // stale id — pruned by persistence on save
+      // Both projections are membership-guarded — this path runs for every
+      // late registration, including layers the user never touched. A layer
+      // that was never hidden must not be hidden, and a missing rename is a
+      // no-op rather than a write of undefined over the registry's own name.
+      if (this.hiddenIds.has(id)) this.applyHiddenStateOne(layerInfo);
+      if (id in this.renamedNames)
+        applyNameProjection(layerInfo, null, this.renamedNames[id]);
+      return;
+    }
+
+    // The registry is the sweep, not `hiddenIds`: a layer the user left
+    // visible is absent from `hiddenIds` by design, so iterating that set
+    // alone can never reach it and the hide half of the round trip has no
+    // inverse. Walking the registry asserts every layer's map membership
+    // against the persisted intent; the color basemap has no registry entry,
+    // so its rename still comes from `renamedNames`.
+    const ids = new Set([
+      ...this.m.layers.map(li => li.id),
+      ...this.hiddenIds,
+      ...Object.keys(this.renamedNames),
+    ]);
+    for (const layerId of ids) {
+      if (layerId in this.renamedNames) {
+        if (layerId === CONST.COLOR.MAP_ID) {
+          // The color basemap has no registry entry — only its row label.
+          applyNameProjection(
+            null,
+            container?.querySelector(
+              `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+            ) as HTMLElement | null,
+            this.renamedNames[layerId],
+          );
+          continue;
+        }
+        const layerInfo = registry.get(layerId);
+        if (!layerInfo) continue; // stale id — pruned by persistence on save
+        applyNameProjection(
+          layerInfo,
+          container?.querySelector(
+            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+          ) as HTMLElement | null,
+          this.renamedNames[layerId],
+        );
+      }
+      const layerInfo = registry.get(layerId);
+      if (!layerInfo) continue; // stale id — pruned by persistence on save
+      if (this.hiddenIds.has(layerId)) this.applyHiddenOne(layerInfo, layerId);
+      else if (this.hiddenHasState) this.applyVisibleStateOne(layerInfo);
+    }
+
+    // Prune ids whose layers are gone for good, so stale persistence does not
+    // accumulate. Live means "in the registry or still queued in
+    // pendingRegistrations" — attachUI drains that queue before this sweep, so
+    // neither implies a layer that will come back. The cost is a third-party
+    // layer hidden and re-registered on a later activation: it re-enters
+    // visible rather than coming back hidden. Keeping such ids would make the
+    // prune a no-op and let the set grow without bound.
+    //
+    // Persisted, because only the live ids are written back: the write can
+    // never drop an id that still resolves to a layer, so nothing is lost even
+    // though this runs before initLayerItem has corrected any checkbox.
+    const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
+    const stillPresent = (layerId: string) =>
+      registry.get(layerId) != null || pending.has(layerId);
+    const gone = [...this.hiddenIds].filter(layerId => !stillPresent(layerId));
+    if (gone.length > 0) {
+      this.hiddenIds = new Set(
+        [...this.hiddenIds].filter(layerId => stillPresent(layerId)),
+      );
+      this.hiddenHasState = true;
+      this.saveHiddenIds();
+    }
   }
 
   /**
-   * Overwrite each registered layer's display name with the user-assigned
-   * value and refresh the affected label in the UI. Called once from
-   * attachUI() after the initial list + pending registrations are rendered.
+   * Apply one hidden id: remove the layer from the map, fire the toggle
+   * callback (so callback-only canvas/heatmap layers hide themselves), and
+   * sync the row's checkbox and tooltip.
    */
-  applyNamesState() {
-    if (!this.uiContainer) return;
-    for (const [id, name] of Object.entries(this.renamedNames)) {
-      const layerInfo = this.m.layerRegistry.get(id);
-      const isColorLayer = id === CONST.COLOR.MAP_ID;
-      if (!layerInfo && !isColorLayer) continue;
-      if (layerInfo && layerInfo.name === name) continue;
-      if (layerInfo) layerInfo.name = name;
-      const item = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+  private applyHiddenOne(layerInfo: LayerInfo, id: string) {
+    const container = this.uiContainer;
+    const item = container
+      ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
+      : null;
+    const checkbox = item?.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement | null;
+
+    this.applyHiddenStateOne(layerInfo);
+
+    if (checkbox) {
+      checkbox.checked = false;
+      checkbox.title = T("select_tooltip");
+    }
+    item?.classList.remove(CONST.CLASSES.ACTIVE);
+  }
+
+  /**
+   * Hide one layer without touching its row — the map removal, the callback
+   * for canvas-only layers, and the registry's `visible` flag.
+   *
+   * Split from {@link LayerUI.applyHiddenOne} because the registry projection
+   * must run before the row is rendered: a late registration gets its
+   * projection via {@link LayerUI.applyUserState}(id) before its row lands in
+   * the DOM, so a callback-only layer hidden that way would otherwise stay
+   * "visible" until the next full sweep and re-enter the map.
+   */
+  private applyHiddenStateOne(layerInfo: LayerInfo) {
+    const layer = this.m.findLayer(layerInfo);
+
+    // Callback-only layers (canvas) have no Leaflet layer to remove — fire
+    // the toggle callback so the canvas itself hides.
+    if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
+    else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
+
+    layerInfo.visible = false;
+  }
+
+  /**
+   * Bring one layer back on to the map — the inverse of
+   * {@link LayerUI.applyHiddenStateOne}.
+   *
+   * Needed because folium renders a `show=False` layer absent from the map
+   * and nothing else ever puts it back. On reload such a layer is correctly
+   * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
+   * leaves it alone — and the map comes up with the author's default rather
+   * than the user's last choice. This closes that half of the round trip.
+   *
+   * `addLayer` is a no-op when the layer is already on the map, so the sweep
+   * can call this for every unhidden layer without re-adding the layers
+   * folium already placed. Callback-only layers (canvas) have no Leaflet
+   * layer to add, so they get the callback instead.
+   */
+  private applyVisibleStateOne(layerInfo: LayerInfo) {
+    const layer = this.m.findLayer(layerInfo);
+
+    if (!layer && layerInfo.onToggle) layerInfo.onToggle(true);
+    else if (layer && !this.m.map.hasLayer(layer)) this.m.map.addLayer(layer);
+
+    layerInfo.visible = true;
+  }
+
+  /**
+   * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
+   * absolute instead of "ids the user toggled".
+   *
+   * A layer the author declared `show=False` is off the map and absent from
+   * `hiddenIds`, so checking it on calls `hiddenIds.delete(id)` on an id that
+   * was never added and leaves the set unchanged. Every subsequent toggle then
+   * differs from the author's defaults by zero entries, so the saved set cannot
+   * distinguish "user hid this" from "author hid this" and a reload restores the
+   * author's `show=False` instead of the user's choice. Reading the rows closes
+   * that gap.
+   *
+   * Runs once, straight after the first
+   * {@link LayerUI.initTypesAndVisibility} pass has corrected every checkbox
+   * from `map.hasLayer()`. That pass repeats on fold-toggle, and only ids
+   * already in the registry are considered, so the set never acquires a stale
+   * id and no later pass writes again.
+   *
+   * It writes only when the set actually changed. On an unchanged load -- the
+   * common case, where the user comes back and sees the author's defaults -- a
+   * write would replace a previously saved set with the current one, which
+   * still holds ids this map no longer registers. Those ids had been pruned
+   * before the rows rendered, so this would be a write that drops saved state
+   * the user made. Skipping keeps the load read-only.
+   */
+  private reconcileHiddenIds() {
+    const container = this.uiContainer;
+    if (!container) return;
+
+    // Additions only. A row can read as checked while its id sits in hiddenIds
+    // -- initLayerItem derives the checkbox from map.hasLayer(), so any map
+    // that still reports membership (stale state, a stub in tests) makes the
+    // row disagree with the set applyUserState() just built. Deleting here
+    // would then discard state the user persisted, so the disagreement is
+    // trusted in one direction only. Removal belongs to the change paths, where
+    // a user actually acted: handleChange, syncAllChecked, deselectAllBaseMaps.
+    let changed = false;
+    for (const li of this.m.layers) {
+      const item = container.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(li.id)}"]`,
       ) as HTMLElement | null;
-      updateItemLabel(item, name);
+      const checkbox = item?.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (!checkbox || checkbox.checked || this.hiddenIds.has(li.id)) continue;
+      this.hiddenIds.add(li.id);
+      changed = true;
+    }
+    if (changed) {
+      this.hiddenHasState = true;
+      this.saveHiddenIds();
     }
   }
 
@@ -237,8 +479,7 @@ class LayerUI {
    *  Called once from attachUI() after the initial list is rendered, so the
    *  layers are resolvable and labels can be drawn at their anchors. */
   applyAnnotationState() {
-    const saved = this.m.persistence.loadAnnotations();
-    for (const [id, raw] of Object.entries(saved)) {
+    for (const [id, raw] of Object.entries(this.annotationConfigs)) {
       const cfg = raw as Partial<AnnotationConfig>;
       if (!this.layerHasLabelFields(id)) continue; // stale / no fields
       this.m.annotation.setConfig(id, {
@@ -250,75 +491,26 @@ class LayerUI {
     }
   }
 
-  /**
-   * Apply persisted hidden state after the UI rows are rendered.
-   *
-   * Folium adds every layer to the map before the LayerControl IIFE runs,
-   * so on reload hidden layers are back on the map. This method actively
-   * removes them again so the checkboxes and the map agree.
-   *
-   * Unknown ids (removed layers) are dropped so stale persistence doesn't
-   * accumulate. Fires onToggle(false) for callback-only layers (canvas /
-   * heatmap) which have no Leaflet layer to remove.
-   */
-  applyHiddenState() {
-    const registry = this.m.layerRegistry;
-    // Guard: on attach applyHiddenState runs after renderInitialList, so the
-    // container always exists. Defensive null check keeps standalone calls
-    // (and tests) safe before attach.
-    const container = this.uiContainer;
-    for (const id of this.hiddenIds) {
-      const layerInfo = registry.get(id);
-      if (!layerInfo) continue; // stale id (layer removed) — drop it.
-
-      const item = container
-        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
-        : null;
-      const checkbox = item?.querySelector(
-        'input[type="checkbox"]',
-      ) as HTMLInputElement | null;
-      const layer = this.m.findLayer(layerInfo);
-
-      // Callback-only layers (canvas) have no Leaflet layer to remove — fire
-      // the toggle callback so the canvas itself hides.
-      if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
-      else if (layer && this.m.map.hasLayer(layer)) this.m.map.removeLayer(layer);
-
-      layerInfo.visible = false;
-
-      if (checkbox) {
-        checkbox.checked = false;
-        checkbox.title = T("select_tooltip");
-      }
-      item?.classList.remove(CONST.CLASSES.ACTIVE);
-    }
-    // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Stale ids occur when a layer is removed at runtime after being hidden.
-    const staleIds = [...this.hiddenIds].filter(id => registry.get(id) == null);
-    if (staleIds.length > 0) {
-      console.warn(
-        `[${CONF.name}] Dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
-      );
-      this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(id => registry.get(id) != null),
-      );
-      // Persist the cleaned set so the same stale ids don't get re-warned
-      // on the next reload.
-      this.saveHiddenIds();
-    }
-  }
-
   /** Full re-scan of every row (used on attach/fold-toggle). */
   initTypesAndVisibility() {
     // Apply persisted hidden state first so initLayerItem reads the corrected
     // map state: folium adds every layer before the control IIFE runs, so on
     // reload hidden layers are back on the map. Hidden ids no longer in the
     // registry are dropped (their layer was removed).
-    this.applyHiddenState();
+    this.applyUserState();
 
     let anyBaseVisible = false;
     for (let i = 0; i < this.m.layers.length; i++) {
       if (this.initLayerItem(this.m.layers[i])) anyBaseVisible = true;
+    }
+    // Once the pass above has written each checkbox from the map's real
+    // membership, the rows hold the truth. Reconcile hiddenIds against them
+    // exactly once so the persisted set becomes absolute. It must come after
+    // initLayerItem, not in attachUI: rows render checked by default and
+    // initLayerItem is what corrects them from map.hasLayer().
+    if (!this.isHiddenReconciled) {
+      this.isHiddenReconciled = true;
+      this.reconcileHiddenIds();
     }
     // "All bases hidden" (not "any layer hidden") — hiding an overlay on a
     // base-less map must not suppress the color-layer background.
@@ -454,25 +646,12 @@ class LayerUI {
       else container.appendChild(frag);
     } else container.insertBefore(frag, firstOfGroup);
 
-    // If the layer has a persisted rename, apply it before reindexing so
-    // the label + checkbox aria reflect the user-assigned name immediately.
-    this.applyPersistedRename(layerInfo, item);
-
     if (reindex) this.reindexItems();
-  }
-
-  /**
-   * Apply a persisted rename to a just-inserted layer item.
-   *
-   * Late-arriving layers (insertLayerItem) read `layerInfo.name` directly
-   * from the registry — the Python-supplied original name. This mirrors the
-   * logic in applyNamesState so the inline label + checkbox aria match.
-   */
-  applyPersistedRename(layerInfo: LayerInfo, item: HTMLElement) {
-    const name = this.renamedNames[layerInfo.id];
-    if (!name) return;
-    if (layerInfo.name !== name) layerInfo.name = name;
-    updateItemLabel(item, name);
+    // insertLayerItem is where a late-registered (third-party) layer first
+    // shows up, so the user's name and visibility land with the row instead
+    // of waiting for a later pass. Only this layer's id is applied — a full
+    // sweep would re-rewrite every renamed row on each registration.
+    this.applyUserState(layerInfo.id);
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -481,16 +660,31 @@ class LayerUI {
     ) as HTMLElement | null;
     if (!item) return;
     item.dataset.index = String(idx);
-    const label = item.querySelector("label");
-    if (label) label.textContent = layerInfo.name;
+    // updateItemLabel sets both the row label and the checkbox's aria-label,
+    // so the name reaches assistive tech here without touching `title` — the
+    // row's tooltip slot keeps the feature count + type.
+    updateItemLabel(item, this.displayName(layerInfo.id));
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
-    if (checkbox) {
-      checkbox.dataset.index = String(idx);
-      checkbox.setAttribute("aria-label", layerInfo.name);
-      checkbox.title = layerInfo.name;
-    }
+    if (checkbox) checkbox.dataset.index = String(idx);
+  }
+
+  /**
+   * Effective panel display name for a layer: the user-assigned rename wins,
+   * falling back to the registry name, then to the locale label for the
+   * virtual color basemap — the only row with no registry entry.
+   *
+   * Every render path resolves names through here so a registry mutation
+   * (re-registration, type refresh) can no longer resurrect the original
+   * third-party name over a rename.
+   */
+  displayName(id: string): string {
+    return (
+      this.renamedNames[id] ??
+      this.m.layerRegistry.get(id)?.name ??
+      (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
+    );
   }
 
   renderToggleAllRow(group: string, labelKey: string) {
@@ -537,7 +731,7 @@ class LayerUI {
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    const name = layerInfo.name;
+    const name = this.displayName(layerInfo.id);
 
     const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
     if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -568,8 +762,11 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
+          // The name reaches assistive tech via aria-label. `title` is the
+          // Select/Deselect slot — initLayerItem sets it per checked state
+          // before this row can be hovered, so leave it unseeded rather than
+          // flashing the layer name.
           "aria-label": name,
-          title: name,
         }),
       ),
       dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
@@ -595,19 +792,21 @@ class LayerUI {
     );
   }
 
-  /** Current display name for the virtual color basemap: persisted rename
-   *  if present, else the locale label. The color layer has no registry
-   *  entry, so this is its only source of truth. */
+  /** Current display name for the virtual color basemap: persisted rename if
+   *  present, else the locale label. The color layer has no registry entry. */
   private colorLayerName(): string {
-    return this.renamedNames[CONST.COLOR.MAP_ID] ?? T("color_map_label");
+    return this.displayName(CONST.COLOR.MAP_ID);
   }
 
   renderColorLayerItem() {
+    // The input announces the same name as the row's label cell below, so a
+    // rename reaches assistive tech on both — not just the visible text.
+    const colorName = this.colorLayerName();
     const colorInput = dom.el("input", {
       type: "color",
       class: CONST.CLASSES.COLOR_INPUT,
       value: this.currentColor,
-      "aria-label": T("color_map_label"),
+      "aria-label": colorName,
     });
 
     // Color layer lives outside layerRegistry — rename is the only overflow
@@ -653,6 +852,7 @@ class LayerUI {
   initLayerItem(layerInfo: LayerInfo): boolean {
     const idx = this.m.layerRegistry.indexOf(layerInfo);
     if (idx === -1) return false;
+    const name = this.displayName(layerInfo.id);
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
     ) as NodeListOf<HTMLInputElement>;
@@ -677,6 +877,11 @@ class LayerUI {
       if (item) {
         if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
         else item.classList.remove(CONST.CLASSES.ACTIVE);
+        // The rename must survive a full init pass — initLayerItem is the
+        // only incremental path that refreshes a row without re-rendering it.
+        // aria-label carries the name; the title slot stays Select/Deselect
+        // as set above.
+        input.setAttribute("aria-label", name);
       }
     }
 
@@ -792,13 +997,7 @@ class LayerUI {
       }
       const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
       if (!row || el.closest('[data-role="toggle-all"]')) return;
-      const group = row.dataset.group ?? "";
-      if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
-      else this.foldedGroups.add(group);
-      this.renderInitialList();
-      this.initTypesAndVisibility();
-      this.refreshAllCounts();
-      this.saveFoldState();
+      this.toggleFold(row.dataset.group ?? "");
     };
 
     this.onDragStart = event => this.handleDragStart(event);
@@ -835,6 +1034,17 @@ class LayerUI {
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
+    // Clicking OUTSIDE the panel drops the keyboard cursor. It is a panel-local
+    // navigation marker (arrow/Tab), so once the user clicks the map or another
+    // control the highlight must not linger on the last navigated row. mousedown
+    // (not click) is what makes this safe: it fires before the click-driven list
+    // rebuild, so the target is still connected when we test it — clicking a fold
+    // button (which rebuilds the list) stays inside the panel and won't clear it.
+    this.onOutsideMousedown = event => {
+      const target = event.target as HTMLElement | null;
+      if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+    };
+    document.addEventListener("mousedown", this.onOutsideMousedown);
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -938,9 +1148,12 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+    if (this.onOutsideMousedown)
+      document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHiddenIds();
+    // Flush the last pending write before the timer is cleared.
+    this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
@@ -950,6 +1163,7 @@ class LayerUI {
     if (this.onStylePanelClick)
       document.removeEventListener("click", this.onStylePanelClick);
     this.onStylePanelClick = null;
+    this.onOutsideMousedown = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -1083,24 +1297,28 @@ class LayerUI {
   private syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
     if (hidden) this.hiddenIds.add(id);
     else this.hiddenIds.delete(id);
+    // The first change is what turns author defaults into the user's state.
+    // Until it has happened the visibility key does not exist, so the unhide
+    // half of the sweep must stay off or an empty saved set would override the
+    // author's `show=False` on the next load.
+    this.hiddenHasState = true;
     if (persist) this.saveHiddenIds();
   }
 
   /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
-   *  order. The color item is excluded (it is a picker, not a layer). */
+   *  order. The color item is excluded (it is a picker, not a layer).
+   *
+   *  Enumerates the row elements themselves, not their checkboxes. The old
+   *  checkbox-first traversal silently dropped any row without a checkbox, so
+   *  arrow-key navigation and Tab order could disagree about which rows exist.
+   *  Rows are selected by class rather than `[tabindex]` because the inline
+   *  rename input is also `tabindex=0` and is not a navigable row. */
   getNavigableItems(): HTMLElement[] {
     return Array.from(
-      this.uiContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
-    )
-      .map(
-        cb =>
-          (cb.closest(CONST.SEL.LAYER_ITEM) ??
-            cb.closest(CONST.SEL.TOGGLE_ALL)) as HTMLElement | null,
-      )
-      .filter(
-        (el): el is HTMLElement =>
-          el !== null && !el.classList.contains(CONST.CLASSES.COLOR_ITEM),
-      );
+      this.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
+      ),
+    ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
   }
 
   /** Index of the nearest row in `step` direction that is not folded away,
@@ -1284,8 +1502,8 @@ class LayerUI {
       case "ArrowRight":
       case " ":
       case "Enter":
-        // Do not toggle the checkbox when the more (⋮) button is focused —
-        // that key opens the overflow menu instead.
+        // A ⋮ button is focused — that key opens the overflow menu, not the
+        // row checkbox.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
           event.preventDefault();
           event.stopPropagation();
@@ -1293,6 +1511,18 @@ class LayerUI {
             CONST.SEL.LAYER_ITEM,
           ) as HTMLElement | null;
           if (item) this.openMoreMenu(item);
+          break;
+        }
+        // The chevron button is focused — that key folds the group, not
+        // select-all. Left untouched, resolveActiveIdx() walks up from the
+        // button to its toggle-all row and the row checkbox flips instead.
+        if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.TOGGLE_ALL,
+          ) as HTMLElement | null;
+          if (row) this.toggleFold(row.dataset.group ?? "");
           break;
         }
         // Menu item (li) is focused — trigger the focus-layer action.
@@ -1356,6 +1586,17 @@ class LayerUI {
     if (!checkbox) return;
     checkbox.checked = !checkbox.checked;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** Fold or unfold one group. Shared by the pointer (row click) and the
+   *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
+  private toggleFold(group: string): void {
+    if (this.foldedGroups.has(group)) this.foldedGroups.delete(group);
+    else this.foldedGroups.add(group);
+    this.renderInitialList();
+    this.initTypesAndVisibility();
+    this.refreshAllCounts();
+    this.saveFoldState();
   }
 
   handleDragStart(event: DragEvent) {
@@ -1933,9 +2174,9 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     if (!label) return;
 
-    // Color layer has no registry entry — default the input to the name the
-    // UI already shows (locale label), not the color hex.
-    const currentName = isColorLayer ? this.colorLayerName() : layerInfo!.name;
+    // displayName resolves rename → registry → the color layer's locale label,
+    // so the input opens with the name the UI already shows.
+    const currentName = this.displayName(layerId);
 
     this.activeRenameId = layerId;
     // Flag the row so CSS can stretch the input across the label+count area
@@ -1953,9 +2194,13 @@ class LayerUI {
       onCommit: trimmed => {
         const changed = trimmed !== currentName;
         if (changed) {
-          if (layerInfo) layerInfo.name = trimmed;
+          // renamedNames is the source of truth; the registry entry and the
+          // row labels are projections that applyUserState() pushes out, so
+          // a re-registration that rebuilds the registry from a third-party
+          // layer's own metadata cannot resurrect the author's original name.
           this.renamedNames[layerId] = trimmed;
           this.saveNamesState();
+          this.applyUserState();
         }
         this.finishRename(true);
       },
@@ -1992,10 +2237,7 @@ class LayerUI {
     const label = item?.querySelector("label") as HTMLLabelElement | null;
     item?.classList.remove(CONST.CLASSES.RENAMING);
     removeInlineEditInput(label);
-    if (restoreText) {
-      const name = layerInfo ? layerInfo.name : this.colorLayerName();
-      updateItemLabel(item, name);
-    }
+    if (restoreText) updateItemLabel(item, this.displayName(layerId));
   }
 
   /**
@@ -2379,17 +2621,34 @@ class LayerUI {
     const inputs = this.uiContainer.querySelectorAll(
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     ) as NodeListOf<HTMLInputElement>;
+    let changed = false;
     for (let i = 0; i < this.m.layers.length; i++)
       if (this.m.layers[i].isBase && i !== exceptIdx) {
         const bLayer = this.m.findLayer(this.m.layers[i]);
-        if (bLayer && this.m.map.hasLayer(bLayer)) this.m.map.removeLayer(bLayer);
+        if (bLayer && this.m.map.hasLayer(bLayer)) {
+          this.m.map.removeLayer(bLayer);
+          changed = true;
+        }
         if (inputs[i]) {
-          inputs[i].checked = false;
-          inputs[i]
-            .closest(CONST.SEL.LAYER_ITEM)
-            ?.classList.remove(CONST.CLASSES.ACTIVE);
+          if (inputs[i].checked) {
+            inputs[i].checked = false;
+            inputs[i]
+              .closest(CONST.SEL.LAYER_ITEM)
+              ?.classList.remove(CONST.CLASSES.ACTIVE);
+            changed = true;
+          }
         }
       }
+    // Excluded from handleChange: it is the mutual-exclusion half of that
+    // handler, so walking it would recurse. The bases it deselects are hidden
+    // by the user's own choice, so they still need to persist -- otherwise a
+    // reload re-checks them and the "only one base at a time" invariant
+    // silently resets. The selected base is already tracked by the caller.
+    if (changed) {
+      for (let i = 0; i < this.m.layers.length; i++)
+        if (this.m.layers[i].isBase && i !== exceptIdx)
+          this.syncHiddenId(this.m.layers[i].id, true);
+    }
   }
 }
 

@@ -38,11 +38,40 @@
   align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
+  border-left: var(--border-thin) solid transparent;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 
-  &:is(:hover, .active) {
+  /* Hover (mouse): 5% wash — the item is "under cursor".
+     Icon wakes to black, matching the LayerControl type-icon language. */
+  &:hover {
+    background: var(--accent-light);
+
+    /* Opt out of the shared item hover colour (common.css paints dropdown-item
+       text --accent-primary): a search result is a record, not an action, so the
+       text keeps its normal colour and only the identity icon wakes. */
+    color: var(--text-primary);
+
     .foliplus-search-result-icon {
-      color: var(--accent-primary);
+      color: var(--text-primary);
     }
+  }
+
+  /* Keyboard cursor / selected row (ArrowUp/ArrowDown): `.active` picks up the
+     shared wash in common.css (`background: var(--accent-light)`). SearchControl
+     is a dropdown of records (not layer rows), so it keeps a simple selected
+     wash rather than the LayerControl row cursor recipe. Only the icon wake
+     stays here (the icon structure is search-specific). */
+  &.active {
+    .foliplus-search-result-icon {
+      color: var(--text-primary);
+    }
+  }
+
+  /* Tab/Space lands focus here; keep the identity icon woken like hover. */
+  &:focus-visible .foliplus-search-result-icon {
+    color: var(--text-primary);
   }
 }
 .foliplus-search-result-icon {
@@ -50,6 +79,9 @@
   display: flex;
   align-items: center;
   color: var(--text-muted);
+  /* Identity icon: gray at rest, wakes to black on hover and keyboard cursor,
+     matching the LayerControl type-icon language. */
+  transition: color var(--transition-fast);
 
   svg {
     width: var(--icon-size-xs);

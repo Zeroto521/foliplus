@@ -172,7 +172,7 @@ const ensureModes = (map: L.Map): ModeManager => {
 /** Check whether a component is blocked by an active mode and show a hint.
  *  Caller provides the translated hint text (e.g. `T("blocked")`).
  *  Returns `true` when blocked (caller should return early). */
-export const guardBlocked = (
+const guardBlocked = (
   map: L.Map,
   name: string,
   hintFallback: string,
@@ -195,5 +195,4 @@ export const guardBlocked = (
   return true;
 };
 
-export type { ModeChangePayload };
-export { ModeManager, ensureModes };
+export { type ModeChangePayload, ModeManager, ensureModes, guardBlocked };
