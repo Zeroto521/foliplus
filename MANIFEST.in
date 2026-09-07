@@ -1,5 +1,3 @@
-# Everything below is build/test/docs tooling that never belongs in the
-# source distribution.
 prune .github
 prune doc
 prune foliplus/css
