@@ -1,0 +1,43 @@
+/* ════════════════════════════════════════════════════════════
+  Map Hint — floating toast notification
+  Rendered directly on the map rather than inside a control container,
+  so it is the one common block with no control-container scope.
+  ════════════════════════════════════════════════════════════ */
+
+/* ── Map Hint (Toast Notification) ── */
+.foliplus-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, var(--alpha-70));
+  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-xl);
+  white-space: nowrap;
+  color: var(--neutral-0);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-hint);
+  box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
+  animation: foliplus-hint-in 0.2s ease-out;
+}
+
+@keyframes foliplus-hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.foliplus-hint-icon {
+  display: inline-flex;
+  align-items: center;
+}
