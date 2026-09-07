@@ -17,7 +17,6 @@ import {
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import {
@@ -30,7 +29,6 @@ import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
 const mapContainer = map.getContainer();
 
 /**
@@ -158,9 +156,7 @@ class LayerUI {
    */
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
-    this.loadFoldState();
-    this.loadHiddenIds();
-    this.loadNamesState();
+    this.loadPersistedState();
     this.renderInitialList();
     this.bindEvents();
 
@@ -190,9 +186,12 @@ class LayerUI {
     setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
   }
 
-  /** Load fold state from localStorage. */
-  loadFoldState() {
-    this.foldedGroups = this.m.persistence.loadFoldedGroups();
+  /** Load every persisted dimension in one call. */
+  loadPersistedState() {
+    const state = this.m.persistence.load();
+    this.foldedGroups = state.foldedGroups;
+    this.hiddenIds = state.hiddenIds;
+    this.renamedNames = state.names;
   }
 
   /** Save fold state to localStorage. */
@@ -200,19 +199,9 @@ class LayerUI {
     this.m.persistence.saveFoldedGroups(this.foldedGroups);
   }
 
-  /** Load hidden-layer ids from localStorage. */
-  loadHiddenIds() {
-    this.hiddenIds = this.m.persistence.loadHiddenIds();
-  }
-
   /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
   saveHiddenIds() {
     this.m.persistence.saveHiddenIds(() => this.hiddenIds);
-  }
-
-  /** Load user-assigned display names from localStorage. */
-  loadNamesState() {
-    this.renamedNames = this.m.persistence.loadNames();
   }
 
   /**
@@ -285,24 +274,23 @@ class LayerUI {
       }
     }
 
-    // Prune ids whose layers no longer exist, keeping persistence tidy.
-    // Hidden ids are pruned here because applyHiddenOne needs a registry entry
-    // to write the projection into. Renames are pruned in unregisterLayer
-    // instead — a rename whose id is not in the registry yet belongs to a
-    // component that will register later, so sweeping it here would drop it
-    // on the very first attach and the user would see the default name.
-    const staleIds = [...this.hiddenIds].filter(
-      layerId => registry.get(layerId) == null,
-    );
-    if (staleIds.length > 0) {
-      log.warn(
-        `dropped stale hidden-layer ids no longer in the registry: ${staleIds.join(", ")}`,
-      );
+    // Prune ids whose layers are gone for good, so stale persistence does not
+    // accumulate. Live means "in the registry or still queued in
+    // pendingRegistrations" — attachUI drains that queue before this sweep, so
+    // neither implies a layer that will come back. The cost is a third-party
+    // layer hidden and re-registered on a later activation: it re-enters
+    // visible rather than coming back hidden. Keeping such ids would make the
+    // prune a no-op and let the set grow without bound.
+    const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
+    const stillPresent = (layerId: string) =>
+      registry.get(layerId) != null || pending.has(layerId);
+    const gone = [...this.hiddenIds].filter(layerId => !stillPresent(layerId));
+    if (gone.length > 0) {
       this.hiddenIds = new Set(
-        [...this.hiddenIds].filter(layerId => registry.get(layerId) != null),
+        [...this.hiddenIds].filter(layerId => stillPresent(layerId)),
       );
-      // Persist the cleaned set so the same stale ids don't get re-warned
-      // on the next reload.
+      // Persist the cleaned set so the same orphaned ids do not get pruned
+      // again on the next reload.
       this.saveHiddenIds();
     }
   }
@@ -1002,7 +990,8 @@ class LayerUI {
       document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    this.m.persistence.cancelSaveHiddenIds();
+    // Flush the last pending write before the timer is cleared.
+    this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;

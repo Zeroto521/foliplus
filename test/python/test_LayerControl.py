@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import folium
@@ -15,6 +16,7 @@ from conftest import (
     use_page,
     use_raw_page,
 )
+from folium import Element
 
 from foliplus import LayerControl
 
@@ -784,6 +786,45 @@ class TestLayerControlRendering:
             )
 
 
+def _write_html(m: folium.Map, path) -> None:
+    """Render *m* to *path*, exposing the map as ``window.map``.
+
+    Snippets run in ``page.evaluate`` and reach per-map state through
+    ``window.map.foliplus``. ``use_raw_page`` does not apply this (only
+    ``make_browser_page`` does), and the tag order matters: the map variable
+    is declared by a script at the end of ``</body>``, so the assignment has
+    to come after it -- appending to ``m.get_root().html`` lands inside
+    ``</head>``, which is too early.
+    """
+    html = m.get_root().render()
+    match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+    if match:
+        html = html.replace(
+            "</html>",
+            f"<script>window.map = {match.group(1)};</script></html>",
+        )
+    path.write_text(html, encoding="utf-8")
+
+
+def _expand_panel(m: folium.Map) -> None:
+    """Expand the LayerControl panel on load.
+
+    The panel ships collapsed, and the map's inline script (LayerControl's
+    own IIFE) runs before ``DOMContentLoaded`` -- so the click has to be
+    scheduled after it. Needed for reload tests: after a reload there is no
+    interaction left in the test to expand it, and the rows are not rendered
+    until the panel opens.
+    """
+    m.get_root().html.add_child(
+        Element(
+            '<script>document.addEventListener("DOMContentLoaded", function () {'
+            "  var c = document.querySelector('.foliplus-layer-ctrl');"
+            "  if (c) c.querySelector('.foliplus-toggle-btn').click();"
+            "});</script>"
+        )
+    )
+
+
 class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
 
@@ -1002,6 +1043,46 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/read_toggle_all_checked"))
             assert result is True, f"Expected toggle-all checked, got {result}"
 
+    def test_toggle_all_survives_reload(self, browser, tmp_path):
+        """Toggle-all off, then reload: the hidden set must come back from localStorage.
+
+        The write is debounced at 100ms, so the reload has to wait past the
+        timer. A reload inside that window previously restored the initial
+        map state because the pending write was still queued.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+            folium.FeatureGroup(name="B", overlay=True, show=True),
+            slug="toggle_all_reload",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(600)
+            before = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert before is not None and before["rows"], f"panel state: {before}"
+            assert all(before["rows"]), f"expected all overlays on initially: {before}"
+
+            # Deselect the whole overlay group, then wait past the 100ms debounce.
+            page.evaluate(_js("LayerControl/click_toggle_all"))
+            page.wait_for_timeout(400)
+            after_toggle = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert after_toggle["rows"] == [False] * len(before["rows"]), (
+                f"toggle-all did not deselect the group: {after_toggle}"
+            )
+
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_timeout(1200)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(400)
+            restored = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
+            assert restored["rows"] == [False] * len(before["rows"]), (
+                f"reload restored the initial map state: {restored} "
+                f"(before reload: {after_toggle})"
+            )
+            assert not errors, f"console errors: {errors}"
+
     # ── title / tooltip browser tests ──
 
     def test_layer_item_title_shows_type(self, browser, tmp_path):
@@ -1216,6 +1297,233 @@ class TestLayerControlBrowser:
             )
             assert result["checkboxChecked"] is True, (
                 "Checkbox should be checked after re-activation"
+            )
+
+    def test_registry_matches_map_after_reload(self, browser, tmp_path):
+        """The registry holds one entry per rendered row, and its ids are stable.
+
+        Confirms the reload page's CONF data lands with one id per feature group
+        and that the registry view and the map's own layer set agree, before any
+        hiding happens. Anything the persistence funnel drops would show here.
+
+        The page declares one overlay with ``show=False``, but that is honoured
+        by folium's own renderer, not by LayerControl: folium 0.14.0 emits
+        ``.addTo(map)`` unconditionally and never removes it, so on that version
+        every declared layer starts on the map. What this test pins is therefore
+        the registry <-> map agreement itself, not the declared visibility --
+        a mismatch shows up the same way either way.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_registry_ids.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            info = page.evaluate(_js("LayerControl/read_hidden_state"))
+            # Overlays only: the two TileLayers are base rows, which the
+            # selector excludes by class. A [data-layer-id] selector would count
+            # each layer twice, since renderLayerItem stamps the id on the row
+            # and again on its count cell.
+            assert len(info["rows"]) == 2, f"expected 2 overlay rows, got {info}"
+            ids = [r["id"] for r in info["rows"]]
+            # Distinct ids: a duplicate would make the persisted hidden set apply
+            # to only one of the two.
+            assert len(set(ids)) == len(ids), f"duplicate layer ids in registry: {ids}"
+            # The fixture throws if a rendered row has no registry entry, since
+            # such a row's state has no source of truth. A null here means the
+            # manager's own resolver could not find the Leaflet layer -- that
+            # row cannot be added or removed, so no state on it can be honoured
+            # after a reload.
+            unresolved = [r for r in info["rows"] if r["onMap"] is None]
+            assert not unresolved, f"unresolved layers in registry: {unresolved}"
+            # The registry's own flag and the Leaflet attachment agree per row.
+            # Declared show=False is deliberately not asserted here: folium 0.14
+            # adds every layer regardless, so the declared visibility differs
+            # across folium versions while the registry/map agreement never does.
+            for r in info["rows"]:
+                assert r["checked"] == r["visible"] == r["onMap"], (
+                    f"{r['id']}: checkbox, registry and map disagree: {info}"
+                )
+
+    def test_hidden_layers_survive_reload(self, browser, tmp_path):
+        """A layer hidden by checkbox stays hidden across a reload.
+
+        Regression guard for the persistence funnel: the write is debounced at
+        100ms, so a reload inside that window previously landed on stale
+        storage. Hiding happens here, the reload there -- the two pages are
+        distinct so nothing survives except localStorage.
+
+        Base layers plus a hidden-from-the-start overlay mirror a real folium
+        page, where ``TileLayer(show=False)`` and the map's own theme layers
+        share the panel with the data overlays.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Dark Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+            show=False,
+        ).add_to(m)
+        folium.FeatureGroup(name="Facility Points", overlay=True, show=False).add_to(m)
+        folium.FeatureGroup(name="Commuting Routes", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_hidden_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            hide = page.evaluate(_js("LayerControl/hide_then_reload"))
+            assert hide is not None and hide["rows"] == 2, f"unexpected rows: {hide}"
+            assert hide["stillChecked"] == 0, "both overlays should be unchecked"
+
+            # Let the debounce commit, then reload -- a reload inside the
+            # window is what used to drop the write.
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Re-checked rows, rows whose registry entry still claims visible,
+            # and layers that are still attached to the map -- each half of the
+            # projection, so the assertion cannot be satisfied by faking one.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert rows and len(rows["rows"]) == 2, f"expected 2 rows, got {rows}"
+            for row in rows["rows"]:
+                assert row["checked"] is False, (
+                    f"{row['id']}: row was re-checked after reload\n{rows}"
+                )
+                assert row["visible"] is False, (
+                    f"{row['id']}: registry says visible but the user hid it\n{rows}"
+                )
+                assert row["onMap"] is False, (
+                    f"{row['id']}: still attached to the map after reload\n{rows}"
+                )
+
+    def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
+        """Layers registered at runtime get pruned from the hidden set after a
+        reload -- they have no registry entry to prove they are coming back.
+
+        HeatmapControl and MeasureControl register in their own constructor,
+        which runs after the LayerControl IIFE has attached, so a hidden id can
+        precede its row. The prune keeps ids that are still live (registry or
+        pending) and drops the rest, and it must not resurrect a dropped id
+        when the component re-registers later: that id stays pruned for the
+        lifetime of the session, which is the trade the prune makes to stay
+        bounded.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Seed", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_hidden_reload_dynamic.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Register through LayerAPI, as a component's constructor would.
+            page.evaluate(_js("LayerControl/register_hidden_probes"))
+            page.wait_for_timeout(100)
+
+            hide = page.evaluate(_js("LayerControl/hide_then_reload"))
+            assert hide is not None and hide["rows"] == 3, f"unexpected rows: {hide}"
+            assert hide["stillChecked"] == 0, "all overlays should be unchecked"
+            assert len(set(hide["ids"])) == 3, f"duplicate row ids: {hide}"
+
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # The probes were only registered at runtime, so they are gone
+            # until re-registered -- and their ids have been pruned along with
+            # them, because no registry entry survived the reload.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
+            assert rows["rows"][0]["checked"] is False
+            assert rows["rows"][0]["visible"] is False
+            assert rows["rows"][0]["onMap"] is False
+
+            page.evaluate(_js("LayerControl/register_hidden_probes"))
+            page.wait_for_timeout(300)
+
+            # Re-registration must not resurrect the pruned ids: the probes
+            # come back visible, and the pruned ids stay out of storage.
+            rows = page.evaluate(_js("LayerControl/read_hidden_state"))
+            assert len(rows["rows"]) == 3, f"expected 3 rows, got {rows}"
+            for row in rows["rows"]:
+                if row["id"].startswith("__probe"):
+                    assert row["checked"] is True, (
+                        f"{row['id']}: pruned id resurrected across re-register\n{rows}"
+                    )
+                    assert row["visible"] is True, (
+                        f"{row['id']}: registry revived a pruned id\n{rows}"
+                    )
+                    assert row["onMap"] is True, (
+                        f"{row['id']}: re-entered the map while pruned\n{rows}"
+                    )
+            key = next(k for k in rows["storage"] if "layer_visibility" in k)
+            stored = json.loads(rows["storage"][key])
+            assert all(not i.startswith("__probe") for i in stored), (
+                f"pruned ids persisted again: {rows['storage']}"
             )
 
     def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):
