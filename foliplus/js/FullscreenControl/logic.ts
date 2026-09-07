@@ -18,9 +18,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
   if (CONF.hide_others) {
-    const controls = map
-      .getContainer()
-      .querySelectorAll(".leaflet-control");
+    const controls = map.getContainer().querySelectorAll(".leaflet-control");
     const cid = containerId(CONF.name, CONF.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
