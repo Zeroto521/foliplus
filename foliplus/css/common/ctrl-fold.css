@@ -1,8 +1,9 @@
 /* ════════════════════════════════════════════════════════════
   Ctrl Fold — shared control container
-  Collapsed/expanded shell for controls that fold into a leaflet-bar
-  button. The separate panel stylesheet builds on this for the panel-based
-  controls (LayerControl, HeatmapControl).
+  Collapsed/expanded shell for the controls that fold into a leaflet-bar
+  button (Fullscreen, Scale, Locate, Search, Export, Measure). LayerControl
+  and HeatmapControl extend it for their side panel; panel.css is a
+  sibling, not a dependency.
   ════════════════════════════════════════════════════════════ */
 
 /* ── Ctrl Fold (Shared Container) ──

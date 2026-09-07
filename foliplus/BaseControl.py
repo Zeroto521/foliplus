@@ -3,10 +3,10 @@
 Every foliplus component (FullscreenControl, HeatmapControl, LayerControl, ...)
 inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
-* **Shared assets** — ``common.css`` (with ``panel.css`` merged in), ``runtime.js``
-  (with ``runtime/*.js`` bundled) and the common locale tables are emitted **once per
-  map** into ``<head>`` by :meth:`BaseControl.render`, deduplicated by
-  :data:`_SHARED_ASSETS_NAME`.
+* **Shared assets** — the merged shared stylesheet (``css/common/*.css``),
+  ``runtime.js`` (with ``runtime/*.js`` bundled) and the common locale tables are
+  emitted **once per map** into ``<head>`` by :meth:`BaseControl.render`,
+  deduplicated by :data:`_SHARED_ASSETS_NAME`.
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
@@ -36,7 +36,8 @@ css_dir = src_dir / "css"
 dist_dir = src_dir / "dist"
 
 # Stable child name used to deduplicate the shared asset bundle in a figure's
-# header, so runtime.js / common.css / locale tables are emitted only once per map.
+# header, so runtime.js / the merged shared stylesheet / locale tables are
+# emitted only once per map.
 _SHARED_ASSETS_NAME = "foliplus_shared"
 
 
@@ -44,8 +45,9 @@ _SHARED_ASSETS_NAME = "foliplus_shared"
 def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
-    Contains common.css (with panel.css merged in), runtime.js (with runtime/*.js
-    bundled in), and the common locale tables (shared by all components).
+    Contains the merged shared stylesheet (all of css/common/), runtime.js
+    (with runtime/*.js bundled in), and the common locale tables (shared by
+    all components).
     Built once and cached at module level.
     """
     css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
@@ -241,8 +243,8 @@ class BaseControl(JSCSSMixin, MacroElement):
     def _get_template(self) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
-        Shared assets (``common.css`` with ``panel.css`` merged in, ``runtime.js``, and
-        the locale tables) are injected once per map by :meth:`render`, so this template
+        Shared assets (the merged ``css/common/`` stylesheet, ``runtime.js``, and the
+        locale tables) are injected once per map by :meth:`render`, so this template
         only carries the component-specific CSS/JS plus a small call to resolve the
         locale from the shared ``window.foliplus._TABLES``.
 

@@ -200,54 +200,46 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
-/** Concatenate the shared stylesheet modules into one string, or null
- *  if the folder is absent.
+/** File names of the shared stylesheet modules, in merge order.
  *
- *  `COMMON_CSS_ORDER` is the single source of truth for merge order.
- *  It is meaningful and never alphabetical: `tokens.css` defines the
- *  custom properties the other modules read, so it must come first;
- *  `panel.css` extends `ctrl-fold.css` and must come last. An
+ *  Order is meaningful and never alphabetical: `tokens.css` defines the
+ *  custom properties every other module reads, so it must come first. An
  *  alphabetical sort would place `button.css` before `tokens.css` and
- *  silently break every `var(--...)` - no build error, no console
- *  error, just a map with all its shared colors and sizes missing.
+ *  silently break every `var(--...)` - no build error, no console error,
+ *  just a map with all its shared colors and sizes missing.
  *
- *  Every entry names a file in `common/`; `panel.css` is an exception
- *  at the tail because it lives one level up.
+ *  Files, not paths: every module lives in `css/common/`.
  */
 const COMMON_CSS_ORDER = [
-  "common/tokens.css",
-  "common/reset.css",
-  "common/button.css",
-  "common/hint.css",
-  "common/icons.css",
-  "common/ctrl-fold.css",
+  "tokens.css",
+  "reset.css",
+  "button.css",
+  "hint.css",
+  "icons.css",
+  "ctrl-fold.css",
   "panel.css",
 ];
 const mergeCommonCss = () => {
   const dir = resolve(cssDir, "common");
   if (!existsSync(dir)) return null;
-  const present = readdirSync(dir)
-    .map(f => "common/" + f)
-    .filter(f => f.endsWith(".css"));
-  // Files present but absent from the manifest are a build-shaping error,
-  // not something to silently append at the end.
+
+  // The manifest and the folder must name the same set of files. Neither
+  // drift direction is harmless: an unlisted file is silently dropped from
+  // the bundle, and a manifest entry with no file is a silent omission.
+  const present = readdirSync(dir).filter(f => f.endsWith(".css"));
   const unlisted = present.filter(f => !COMMON_CSS_ORDER.includes(f));
-  if (unlisted.length)
-    throw new Error(
-      `build: unlisted stylesheet(s) in css/common/: ${unlisted.join(", ")} - add to COMMON_CSS_ORDER`,
-    );
-  // A manifest entry with no file would be a silent omission: the module
-  // is declared but never reaches the bundle.
-  const missing = COMMON_CSS_ORDER.filter(f => !existsSync(resolve(cssDir, f)));
-  if (missing.length)
-    throw new Error(
-      `build: missing stylesheet(s) from COMMON_CSS_ORDER: ${missing.join(", ")}`,
-    );
-  const parts = COMMON_CSS_ORDER.map(f =>
-    // Manifest entries are relative to css/ (see COMMON_CSS_ORDER).
-    readFileSync(resolve(cssDir, f), "utf-8"),
-  );
-  return parts.join("\n");
+  const missing = COMMON_CSS_ORDER.filter(f => !present.includes(f));
+  if (unlisted.length || missing.length) {
+    const detail = [
+      unlisted.length && `unlisted: ${unlisted.join(", ")}`,
+      missing.length && `missing: ${missing.join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    throw new Error(`build: css/common/ disagrees with COMMON_CSS_ORDER - ${detail}`);
+  }
+
+  return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
 };
 
 /** Build the full list of esbuild artifacts (components + merged common CSS).
@@ -269,7 +261,7 @@ const buildEntries = (components, withSonda) => {
     }
   }
 
-  // Merge the common/ module stylesheets + panel.css into a single artifact
+  // Merge the shared stylesheet modules into a single artifact
   const css = mergeCommonCss();
   if (css) {
     mkdirSync(buildCss, { recursive: true });

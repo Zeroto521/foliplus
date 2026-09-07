@@ -205,7 +205,7 @@ class TestLayerControlRendering:
         assert "base_map_label" in html
 
     def test_css_variables_used(self, base_map: folium.Map):
-        """CSS variables from common.css are referenced in rendered output."""
+        """CSS variables from the shared stylesheet are referenced in rendered output."""
         html = render_control(LayerControl())
         assert "var(--space-xl)" in html
         assert "var(--accent-primary)" in html
@@ -401,7 +401,7 @@ class TestLayerControlRendering:
 
         # ── More (⋮) menu icon: identity wakes gray → black on hover/keyboard
         # focus, matching the LayerControl type-icon language (NOT accent) — the
-        # main text goes black → red via the unified dropdown hover (common.css),
+        # main text goes black → red via the unified dropdown hover (css/common/button.css),
         # so "icon black + text red" reads like every other dropdown. ──
         more_icon = [
             html[i : html.index("}", i)]

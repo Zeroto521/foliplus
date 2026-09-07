@@ -164,8 +164,8 @@ _css_cache: dict[str, str] = {}
 def read_css(path: str) -> str:
     """Read a CSS file, caching the result in memory.
 
-    Tests read component stylesheets and css/common/ modules for
-    design-token assertions.  The cache avoids repeated disk I/O.
+    Tests read component stylesheets and the shared css/common/ modules
+    for design-token assertions.  The cache avoids repeated disk I/O.
     """
     if path not in _css_cache:
         _css_cache[path] = Path(path).read_text(encoding="utf-8")

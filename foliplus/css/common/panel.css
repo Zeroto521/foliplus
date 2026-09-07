@@ -1,7 +1,9 @@
 /* ══════════════════════════════════════════════════════════════════════
-  Shared Panel — Common styles for panel-based components
-  LayerControl / HeatmapControl inherit this base;
-  each component only overrides its differentiated parts.
+  Shared Panel — panel-based controls
+  Base styles for the controls that open a side panel (LayerControl,
+  HeatmapControl); each component overrides only its differentiated parts.
+  Reads only the shared tokens, no ctrl-fold rule - so it is independent of
+  ctrl-fold.css and could sit anywhere after tokens.css.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */

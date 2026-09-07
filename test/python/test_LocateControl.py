@@ -81,9 +81,9 @@ class TestLocateControlRendering:
         assert "pointer-events: none" in css
 
     def test_does_not_redefine_transform(self):
-        """The hover/active icon scale stays with common.css alone.
+        """The hover/active icon scale stays with the shared stylesheet alone.
 
-        common.css' ":hover svg" rule is a descendant selector, so it already
+        css/common/button.css' ":hover svg" rule is a descendant selector, so it already
         scales the SVG nested inside the wrapper spans. A transform on the
         wrapper would compound with it — the icon scaled three times on hover.
         """
