@@ -46,7 +46,7 @@ const CLASSES = {
   MODE: "foliplus-export-mode",
   BOX: "foliplus-export-box",
   // HANDLE / CENTER add the box-relative anchoring; the dot look comes from
-  // `.foliplus-dot-hollow` / `-solid` in common.css, shared with the measure
+  // `.foliplus-dot-hollow` / `-solid` in common/button.css, shared with the measure
   // nodes.
   HANDLE: "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
   CENTER: "foliplus-dot foliplus-dot-solid foliplus-export-center",

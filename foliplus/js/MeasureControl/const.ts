@@ -82,7 +82,7 @@ const CLASSES = {
   PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
-  // `.foliplus-dot-hollow` / `-solid` (common.css) carry the fill, stroke and
+  // `.foliplus-dot-hollow` / `-solid` (common/button.css) carry the fill, stroke and
   // stroke-width shared with the export crop-box anchors; the module-prefixed
   // classes below add only what is measure-specific. The marker radius is not
   // CSS-addressable, so `nodeRadius` in `util.ts` derives it from the same
