@@ -2754,11 +2754,249 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
+            # The style assertions below need the init pass done: rows render
+            # checked by default and initLayerItem (on an init timer) is what
+            # adds the .active class and the per-state titles.
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
             assert result["beforeEscape"] is True, "ArrowDown should first set focus"
             assert result["focusCleared"] is True, (
                 f"Escape should clear focus, got {result}"
+            )
+            assert result["focusRetained"] is True, (
+                "Escape must not blur to <body>, got " + str(result)
+            )
+            assert result["suppressed"] is True, (
+                "the row must stay marked as cursor-cancelled, got " + str(result)
+            )
+            assert result["checkedSuppressed"] is True, (
+                "the checked row must stay marked as cursor-cancelled, got "
+                + str(result)
+            )
+            assert result["checkedRetainedFocus"] is True, (
+                "the checked row must keep DOM focus through Escape, got "
+                + str(result)
+            )
+            assert result["glowVisibleBefore"] is True, (
+                "the cursor glow must be drawn before Escape (:focus-visible "
+                "matched), got " + str(result)
+            )
+            assert result["washRestored"] is True, (
+                "a checked row gets its selected wash back through Escape, got "
+                + str(result)
+            )
+            assert result["iconKeptBlack"] is True, (
+                "a checked row keeps its black type icon through Escape, got "
+                + str(result)
+            )
+            assert result["glowCleared"] is True, (
+                "Escape must clear the cursor-only glow, got " + str(result)
+            )
+
+            # A real hover must still light the recipe on the cancelled row:
+            # the suppression reset computes above the recipe rules, so it
+            # must yield to :hover — otherwise the grip and the red more
+            # button stay dead until the row is blurred, and hovering does
+            # not blur. Cancel the cursor again for a deterministically
+            # suppressed row (the marker drops on blur only), hover with the
+            # real pointer, then move it away and assert the fall-back.
+            page.evaluate(
+                "() => { const r = document.querySelector("
+                "    '.foliplus-layer-item.active'"
+                ");"
+                " r.focus();"
+                " r.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); }"
+            )
+            page.hover(".foliplus-layer-item.active")
+            # The grip is the one recipe property with an opacity transition
+            # (color/box-shadow are transition: none), so wait it out before
+            # measuring or the computed value is mid-flight.
+            page.wait_for_function(
+                "() => getComputedStyle("
+                "  document.querySelector("
+                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "  )"
+                ").opacity === '1'",
+                timeout=2000,
+            )
+            on_hover = page.evaluate(
+                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                " return {"
+                "  grip: getComputedStyle("
+                "    r.querySelector('.foliplus-drag-cell .drag-handle')"
+                "  ).opacity,"
+                "  more: getComputedStyle("
+                "    r.querySelector('.foliplus-layer-more-btn')"
+                "  ).color,"
+                "  glow: getComputedStyle(r).boxShadow !== 'none',"
+                " }; }"
+            )
+            page.mouse.move(5, 400)
+            page.wait_for_function(
+                "() => getComputedStyle("
+                "  document.querySelector("
+                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "  )"
+                ").opacity === '0'",
+                timeout=2000,
+            )
+            off_hover = page.evaluate(
+                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                " return {"
+                "  grip: getComputedStyle("
+                "    r.querySelector('.foliplus-drag-cell .drag-handle')"
+                "  ).opacity,"
+                "  more: getComputedStyle("
+                "    r.querySelector('.foliplus-layer-more-btn')"
+                "  ).color,"
+                "  bg: getComputedStyle(r).backgroundColor,"
+                " }; }"
+            )
+            assert on_hover["grip"] == "1", (
+                "hovering the cancelled row must show the drag grip, got "
+                + str(on_hover)
+            )
+            assert on_hover["glow"] is True, (
+                "hovering the cancelled row must light the glow, got "
+                + str(on_hover)
+            )
+            assert on_hover["more"] == off_hover["more"], (
+                "a checked row keeps the more button in the action color at "
+                "rest and on hover alike (its .active leg), got "
+                + str(on_hover)
+                + " vs "
+                + str(off_hover)
+            )
+            assert off_hover["grip"] == "0", (
+                "leaving the row must hide the grip again, got " + str(off_hover)
+            )
+            assert off_hover["bg"] not in ("rgba(0, 0, 0, 0)", "rgb(255, 255, 255)"), (
+                "leaving the row must fall back to the selected wash, got "
+                + str(off_hover)
+            )
+
+    def test_keydown_escape_restores_rest_state(self, browser, tmp_path):
+        """Escape leaves the row indistinguishable from a never-touched row.
+
+        The rest state depends on the layer's checked state, so both are
+        pinned against a live reference row instead of hardcoded colors: a
+        checked row falls back to the selected wash and the black type icon,
+        an unchecked row to the plain surface and the muted icon. The drag
+        grip stays hidden at rest either way — only the cursor recipe (arrow
+        keys, Tab) and a real hover show it — and the more button returns to
+        exactly the color it has on any resting row.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
+
+            def snapshot():
+                return page.evaluate(
+                    "() => [...document.querySelectorAll('.foliplus-layer-item')]"
+                    ".map(r => { const cs = getComputedStyle(r);"
+                    "  const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
+                    "  const m = r.querySelector('.foliplus-layer-more-btn');"
+                    "  const i = r.querySelector('.foliplus-type-icon-col');"
+                    "  return { bg: cs.backgroundColor,"
+                    "    glow: cs.boxShadow !== 'none',"
+                    "    grip: g ? getComputedStyle(g).opacity : null,"
+                    "    more: m ? getComputedStyle(m).color : null,"
+                    "    icon: i ? getComputedStyle(i).color : null }; })"
+                )
+
+            def escape_first_row():
+                page.evaluate(
+                    "() => { const r = document.querySelector('.foliplus-layer-item');"
+                    " r.focus();"
+                    " r.dispatchEvent(new KeyboardEvent("
+                    "    'keydown', {key: 'Escape', bubbles: true})); }"
+                )
+
+            # ── checked rows: the restored row must equal the reference ──
+            escape_first_row()
+            page.mouse.move(5, 400)  # pointer away: no hover may mask rest
+            page.wait_for_timeout(300)  # let the grip opacity transition settle
+            checked = snapshot()
+            # The reference row proves the selected wash is the live rest
+            # state, so the equality below is not two rows broken alike.
+            assert checked[1]["bg"] != "rgba(0, 0, 0, 0)", (
+                "the untouched checked row must show the selected wash, got "
+                + str(checked)
+            )
+            assert checked[0] == checked[1], (
+                "an Escape-restored checked row must be indistinguishable "
+                "from a never-touched row, got " + str(checked)
+            )
+
+            # ── unchecked rows: same contract against the plain surface ──
+            page.evaluate(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].forEach(i => { i.checked = false;"
+                " i.dispatchEvent(new Event('change', {bubbles: true})); })"
+            )
+            escape_first_row()
+            page.wait_for_timeout(300)
+            unchecked = snapshot()
+            assert unchecked[0] == unchecked[1], (
+                "an Escape-restored unchecked row must be indistinguishable "
+                "from a never-touched row, got " + str(unchecked)
+            )
+            assert unchecked[0]["bg"] == "rgba(0, 0, 0, 0)", (
+                "an unchecked row's rest state is the plain surface, got "
+                + str(unchecked)
+            )
+            assert unchecked[0]["grip"] == "0", (
+                "the drag grip stays hidden at rest, got " + str(unchecked)
+            )
+            # The more button does not rest the same color everywhere: a
+            # checked row keeps it in the action color, an unchecked row in
+            # the primary text color — so Esc must return it to different
+            # colors depending on the checkbox, never to one uniform value.
+            assert unchecked[1]["more"] != checked[1]["more"], (
+                "a checked row rests the more button in the action color "
+                "while an unchecked row rests it black, got "
+                + str(checked)
+                + " vs "
+                + str(unchecked)
+            )
+
+    def test_keydown_escape_clears_focus_after_rename(self, browser, tmp_path):
+        """Escape in an inline rename also clears the row cursor and keeps focus."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/keydown_escape_clears_focus_rename")
+            )
+            assert result is not None, "keydown_escape_clears_focus_rename failed"
+            assert result["cursorCleared"] is True, (
+                "Escape in rename should clear the cursor, got " + str(result)
+            )
+            assert result["suppressed"] is True, (
+                "the row must stay marked as cursor-cancelled, got " + str(result)
             )
 
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):

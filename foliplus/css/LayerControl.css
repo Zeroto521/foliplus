@@ -371,38 +371,44 @@ path.foliplus-focus-mask {
   /* ── Row cursor ──
      ONE recipe for a row that is the interaction target: mouse hover, the
      keyboard cursor (ArrowUp/Down, which carries .foliplus-layer-focused), and
-     Tab focus (:focus-visible). They share the recipe, so the left bar,
-     background, drag grip, type icon and more button read identically whichever
-     way the user arrives at the row. The fold (toggle-all) row joins the same
-     selector group, so it cannot drift back into its own hover style.
+     Tab focus (:focus-visible). They share the recipe, so the left bar, glow,
+     drag grip, type icon and more button read identically whichever way the
+     user arrives at the row. The fold (toggle-all) row joins the same selector
+     group, so it cannot drift back into its own hover style.
      :focus-visible covers every focusable descendant (the checkbox input, the
      fold button, the more button) — the browser only applies it for keyboard
      navigation, so a mouse click never lights the row.
      A checked row carries .active, a persistent checkbox state rather than a
-     cursor, so it keeps only the left bar and never shows the grip or the
-     type/more tints.
+     cursor, so it keeps the wash and the left bar under the glow and never
+     shows the grip.
      transition: none is kept on the rows because they are destroyed and
      re-created on every list rebuild; a border-color or background transition
      would flash the already-checked rows on each rebuild. */
   .foliplus-layer-item,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
+    /* The row paints no surface of its own: the white the user sees is the
+       control container's (--ctrl-bg) showing through. Declared explicitly
+       so the rest contract is written down — the wash (checked) is the only
+       background a row ever carries, and the glow (cursor/hover) is the only
+       thing ever painted on top of it. */
+    background: transparent;
+
     &.active {
       border-left-color: var(--accent-primary);
     }
     &:is(:hover, :focus-visible, .foliplus-layer-focused) {
       /* The arrow-key cursor and Tab focus both call .focus() on the row, which
          draws the browser's default dark outline. That black frame must be
-         suppressed — the custom white surface + red glow is the focus signal.
-         The left accent bar is deliberately NOT set here: it is a persistent
-         "layer visible" (checked) indicator, so it only turns red on .active /
-         a folded group, never on a transient hover/keyboard cursor. */
+         suppressed — the red glow is the focus signal. The left accent bar is
+         deliberately NOT set here: it is a persistent "layer visible" (checked)
+         indicator, so it only turns red on .active / a folded group, never on a
+         transient hover/keyboard cursor. */
       outline: none;
-      /* White surface — the row returns to a clean white wash (not the panel's
-         gray hover wash); the top/bottom red glow is what marks it as the
-         interaction target. */
-      background: var(--neutral-0);
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
-         vertical (no left/right bleed). */
+         vertical (no left/right bleed). No background here: the surface stays
+         whatever the row's state paints (the panel white on unchecked rows,
+         the .active wash on checked rows) — a checked row must not lose its
+         selected wash just because the cursor arrives. */
       box-shadow:
         0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
         0 var(--size-2) var(--size-4) var(--accent-primary);
@@ -415,6 +421,49 @@ path.foliplus-focus-mask {
       }
       .foliplus-layer-more-btn {
         color: var(--accent-primary);
+      }
+    }
+    /* Cursor cancelled by Escape. DOM focus stays on the row, so
+       `:focus-visible` keeps matching and redrawing the recipe above — the
+       Row-cursor class alone cannot win against it. Escape must not blur to
+       `<body>`, so the recipe is neutralised here instead. `:not(:hover)`
+       keeps a real hover alive: this reset computes above the recipe's own
+       rules, so without the guard it would also kill the hover feedback —
+       the grip and the red more button would never come back while the
+       marker is on the row (only blur removes it, and hovering does not
+       blur). Hovering the cancelled row lights the full recipe; when the
+       pointer leaves, the row falls back to the cancelled state. The marker
+       drops off on blur and is re-applied by the next Escape. */
+    &.foliplus-layer-focus-suppressed:is(:focus-visible, .foliplus-layer-focused):not(
+        :hover
+      ) {
+      box-shadow: none;
+
+      .foliplus-drag-cell .drag-handle {
+        opacity: 0;
+      }
+      .foliplus-type-icon-col {
+        color: var(--text-muted);
+      }
+      .foliplus-layer-more-btn {
+        color: var(--text-primary);
+      }
+    }
+    /* Escape strips the cursor recipe, not the selection: a checked row is
+       still visible, so its .active styling must survive — the black type
+       icon and the red more button (the .active leg of the hover rule below,
+       which the reset above out-ranks). The wash needs no restatement: the
+       recipe paints no background, so the .active wash applies on its own.
+       These restatements come after the reset so they win it. `:not(:hover)`
+       for the same reason as the reset. The drag grip stays down at rest: it
+       belongs to the cursor alone, and a row never shows it without a cursor
+       or a hover. */
+    &.foliplus-layer-focus-suppressed.active:not(:hover) {
+      .foliplus-layer-more-btn {
+        color: var(--accent-primary);
+      }
+      .foliplus-type-icon-col {
+        color: var(--text-primary);
       }
     }
   }
@@ -498,12 +547,11 @@ path.foliplus-focus-mask {
     }
   }
   /* ── More options button (reserved slot, always visible) ──
-    Black at rest; tints accent on hover only. The .active state (layer
-    selected) is a status, not an action — the more button is an action, so
-    it should only wake up when the pointer hovers it, not when the layer is
-    merely selected. As the
-    row's only in-line action, it answers to the action color immediately on
-    hover, not only when selected. */
+    An unchecked row rests it black; a checked row keeps it in the action
+    color — the layer is live, and the button is the row's only in-line
+    action. Hover lights it either way. (The .active leg was dropped by the
+    cursor unification in #229; restoring it — selected rows read their
+    state through the button, same as they do through the left bar.) */
   .foliplus-layer-more-btn {
     align-self: center;
     display: flex;
@@ -538,7 +586,8 @@ path.foliplus-focus-mask {
       display: block;
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn {
+  .foliplus-layer-item:hover .foliplus-layer-more-btn,
+  .foliplus-layer-item.active .foliplus-layer-more-btn {
     color: var(--accent-primary);
   }
 

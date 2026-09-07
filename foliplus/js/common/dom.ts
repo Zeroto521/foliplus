@@ -372,16 +372,16 @@ const createInlineEditInput = (opts: {
     // otherwise ArrowLeft/Right (registered as layer shortcuts) preventDefault
     // and swallow the caret move, and Ctrl+Arrow would reorder the layer while
     // the user edits the name. The browser keeps its default caret/typing.
+    // Escape is left to bubble: the panel's delegated handler finishes the
+    // rename and lifts the row cursor, so the input must not swallow it.
+    if (event.key !== "Escape") event.stopPropagation();
+
     if (event.key === "Enter") {
       event.preventDefault();
-      event.stopPropagation();
       commit(input.value);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      event.stopPropagation();
       opts.onCancel("escape");
-    } else {
-      event.stopPropagation();
     }
   });
   input.addEventListener("blur", () => commit(input.value));

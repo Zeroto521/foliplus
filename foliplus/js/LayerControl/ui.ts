@@ -91,9 +91,6 @@ class LayerUI {
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
-  /** Document mousedown handler — clears the keyboard cursor when the user clicks
-   *  outside the panel (the cursor is a panel-local navigation marker). */
-  declare onOutsideMousedown: ((event: MouseEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -135,7 +132,6 @@ class LayerUI {
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
-    this.onOutsideMousedown = null;
     this.activeMenu = null;
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -989,17 +985,6 @@ class LayerUI {
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
-    // Clicking OUTSIDE the panel drops the keyboard cursor. It is a panel-local
-    // navigation marker (arrow/Tab), so once the user clicks the map or another
-    // control the highlight must not linger on the last navigated row. mousedown
-    // (not click) is what makes this safe: it fires before the click-driven list
-    // rebuild, so the target is still connected when we test it — clicking a fold
-    // button (which rebuilds the list) stays inside the panel and won't clear it.
-    this.onOutsideMousedown = event => {
-      const target = event.target as HTMLElement | null;
-      if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
-    };
-    document.addEventListener("mousedown", this.onOutsideMousedown);
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -1097,8 +1082,6 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
-    if (this.onOutsideMousedown)
-      document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
     // Flush the last pending write before the timer is cleared.
@@ -1109,7 +1092,6 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
-    this.onOutsideMousedown = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -1327,6 +1309,24 @@ class LayerUI {
     this.clickedRow = null;
   }
 
+  /**
+   * Mousedown outside the panel drops the keyboard cursor — the pointer
+   * counterpart of Escape, dispatched by InteractionManager (event observed,
+   * not swallowed: the press keeps its native behavior). This is a full reset
+   * (clearActiveItem, not blurActiveItem): unlike Escape the user has left the
+   * panel, so the next ArrowDown re-bootstraps rather than resuming.
+   *
+   * mousedown (not click) is what makes the target test safe: it fires before
+   * the click-driven list rebuild, so the target is still connected — clicking
+   * a fold button (which rebuilds the list) stays inside the panel and won't
+   * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
+   * not just this instance's container.
+   */
+  handleOutsideMousedown(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+  }
+
   /** Index of the keyboard cursor, or null if none. DOM focus wins when it
    *  names a row the pointer has since left; clickedRow wins when focus is
    *  stale — a click on the label or checkbox does not move focus off the
@@ -1377,10 +1377,43 @@ class LayerUI {
    *   ArrowUp / ArrowDown - Navigate between layer items
    *   ArrowLeft / ArrowRight / Space / Enter - Toggle visibility of focused layer
    *   Ctrl+ArrowUp / Ctrl+ArrowDown - Move focused layer up/down in z-order
-   *   Escape - Clear focus
+   *   Escape - Cancel: inline rename, overflow menu, the layer focus
+   *     overlay, or the row keyboard cursor
    */
   handleKeyDown(event: KeyboardEvent): void {
     if (!this.uiContainer.contains(document.activeElement)) return;
+
+    // Escape discharges whatever is open, in the order the user would
+    // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
+    // cursor guard below: the point of Escape is to drop the cursor, so a
+    // click on the label or checkbox (which sets clickedRow without moving
+    // DOM focus) must clear the cursor even when nothing is focused, and the
+    // rename / overflow menu / focus overlay are each their own cancel
+    // targets. Nothing after this point needs the cursor resolved.
+    if (event.key === "Escape") {
+      if (this.activeRenameId) {
+        // finishRename() removes the input, which blurs it to `<body>`.
+        // Restore the row focus the rename started from before dropping the
+        // cursor: suppressFocusVisual() reads document.activeElement, and a
+        // cursor parked on <body> leaves the panel unreachable — the very
+        // next arrow key would not reach this handler.
+        const layerId = this.activeRenameId;
+        this.finishRename();
+        this.focusLayerRow(layerId);
+        this.escapeClearCursor();
+      } else if (this.activeMenu) {
+        // closeMoreMenu returns focus to the row, so the cursor must be
+        // dropped after it rather than before.
+        this.closeMoreMenu(true);
+        this.escapeClearCursor();
+      } else if (this.isFocusing()) {
+        this.cancelFocus();
+        this.escapeClearCursor();
+      } else {
+        this.escapeClearCursor();
+      }
+      return;
+    }
 
     const items = this.getNavigableItems();
     if (items.length === 0) return;
@@ -1499,11 +1532,71 @@ class LayerUI {
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
-      case "Escape":
-        if (this.activeMenu) this.closeMoreMenu(true);
-        else this.clearActiveItem();
-        break;
     }
+  }
+
+  /** Drop the row keyboard cursor.
+   *
+   * blurActiveItem() rather than clearActiveItem(): clearActiveItem() resets
+   * activeIdx, so the next ArrowUp / ArrowDown would call syncActiveItem() to
+   * bootstrap a fresh cursor from document.activeElement — the very row the
+   * user just cancelled — and instantly redraw it. Blur-only keeps activeIdx
+   * pointing at the last row, so arrow keys resume from there instead of
+   * re-lighting the escaped one.
+   *
+   * The suppressed-focus marker is what actually makes the cancellation
+   * visible: the row's :focus-visible still matches after the marker is
+   * lifted, and it draws the same white-surface + red-glow recipe as the
+   * keyboard cursor. Keeping DOM focus in place (Escape must not yank the
+   * cursor to <body>) and neutralising the recipe is therefore the only way
+   * to both cancel and stay where the user was. */
+  private escapeClearCursor(): void {
+    this.blurActiveItem();
+    this.suppressFocusVisual();
+  }
+
+  /** Return DOM focus to a layer's row. Used by the Escape-rename path:
+   *  finishRename() removes the inline input, which blurs it to `<body>` and
+   *  would leave the panel unreachable. */
+  private focusLayerRow(layerId: string): void {
+    if (!this.uiContainer || !layerId) return;
+    this.uiContainer
+      .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)
+      ?.focus();
+  }
+
+  /**
+   * Neutralise the Row-cursor recipe on the row that still holds DOM focus.
+   *
+   * Escape lifts only the JS cursor marker, but the row's `:focus-visible`
+   * still matches and draws the same white surface + red glow — so the cancel
+   * would be invisible without this. Escape must not blur to `<body>` (that
+   * would yank the cursor away from where the user was), so suppressing the
+   * recipe is the only way to both cancel and stay put.
+   *
+   * Re-run after each Escape because the menu and rename cancel paths both
+   * finishRename() / closeMoreMenu() first, and those paths re-render the row
+   * and re-sync the cursor onto a fresh element.
+   */
+  private suppressFocusVisual(): void {
+    // Any row the cursor is no longer on has already lost the marker.
+    for (const row of this.uiContainer.querySelectorAll(
+      `.${CONST.CLASSES.FOCUS_SUPPRESSED}`,
+    )) {
+      row.classList.remove(CONST.CLASSES.FOCUS_SUPPRESSED);
+    }
+    const row =
+      document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
+      document.activeElement?.closest(CONST.SEL.TOGGLE_ALL);
+    if (!row) return;
+    row.classList.add(CONST.CLASSES.FOCUS_SUPPRESSED);
+    // A real focus move supersedes the cancelled state — that row is the new
+    // target and must render the recipe.
+    row.addEventListener(
+      "blur",
+      () => row.classList.remove(CONST.CLASSES.FOCUS_SUPPRESSED),
+      { once: true },
+    );
   }
 
   /** Double-click on a layer row → focus the map on that layer. */
@@ -1831,7 +1924,21 @@ class LayerUI {
         if (reason === "empty") {
           map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
         }
-        this.finishRename(true);
+        // Escape defers the teardown: tearing the input down now would blur
+        // it to `<body>`, and `document.activeElement` is what
+        // handleKeyDown's container guard and suppressFocusVisual() both
+        // read — a microtask already runs before the keydown finishes
+        // bubbling, so the panel handler sees focus on `<body>` and
+        // suppresses nothing. A timeout fires after the whole dispatch is
+        // unwound, so the cursor is cleared while the input still holds
+        // focus. The isActive gate above keeps the deferred teardown's
+        // blur from re-committing. Enter and blur have no document-level
+        // handler to reach, so they tear down immediately.
+        if (reason === "escape") {
+          setTimeout(() => this.finishRename(true), 0);
+        } else {
+          this.finishRename(true);
+        }
       },
     });
   }

@@ -18,6 +18,15 @@ const registerInteractions = (ui: LayerUI): (() => void) => {
     { key: " ", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "Enter", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "Escape", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
+    // Mousedown anywhere outside the panel drops the cursor — the pointer
+    // counterpart of the Escape shortcut above. Observed, not swallowed
+    // (preventDefault: false): a press outside must keep its native behavior
+    // (focus move, map drag), so the manager must not match-and-cancel it.
+    {
+      event: "mousedown",
+      preventDefault: false,
+      handler: e => ui.handleOutsideMousedown(e as MouseEvent),
+    },
   ]);
 };
 

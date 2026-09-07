@@ -95,6 +95,40 @@ describe("InteractionManager", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it("preventDefault: false observes a document-level event without swallowing it", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+    ensureInteraction(map).register("Test", [
+      { event: "mousedown", preventDefault: false, handler },
+    ]);
+    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    const stop = vi.fn();
+    Object.defineProperty(event, "preventDefault", { value: stop });
+    Object.defineProperty(event, "stopPropagation", { value: vi.fn() });
+    document.dispatchEvent(event);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(stop).not.toHaveBeenCalled();
+    ensureInteraction(map).unregister("Test");
+  });
+
+  it("default swallow holds for document-level events (preventDefault + stopPropagation)", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const map = makeMap();
+    const handler = vi.fn();
+    ensureInteraction(map).register("Test", [{ event: "mousedown", handler }]);
+    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    const prevent = vi.fn();
+    const stop = vi.fn();
+    Object.defineProperty(event, "preventDefault", { value: prevent });
+    Object.defineProperty(event, "stopPropagation", { value: stop });
+    document.dispatchEvent(event);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(prevent).toHaveBeenCalled();
+    expect(stop).toHaveBeenCalled();
+    ensureInteraction(map).unregister("Test");
+  });
+
   it("container option filters by focus", async () => {
     const { ensureInteraction } = await import("#core/interaction.js");
     const map = makeMap();
