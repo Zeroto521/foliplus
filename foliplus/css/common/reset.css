@@ -1,8 +1,7 @@
 /* ════════════════════════════════════════════════════════════
   CSS Reset & Leaflet Overrides
   Baseline animations and hidden state, the foliplus-input breathing glow,
-  and the Leaflet-owned chrome we override (leaflet-bar z-index,
-  attribution, scale wrapper).
+  and the Leaflet-owned chrome we override (leaflet-bar z-index).
   ════════════════════════════════════════════════════════════ */
 
 /* Raise the entire leaflet-bar container when a fold/panel is expanded,
@@ -81,9 +80,8 @@
   }
 }
 
-/* ── Leaflet attribution & foliplus scale wrapper styling ──
-  Shared rounded, translucent look for the bottom-corner controls. */
-.leaflet-control.foliplus-scale-wrap,
+/* ── Leaflet attribution ──
+  Shared rounded, translucent look for the bottom-corner attribution box. */
 .leaflet-control-attribution {
   line-height: 14px;
   border-radius: var(--radius-sm);
