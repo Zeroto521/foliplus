@@ -2443,6 +2443,16 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-item", state="attached", timeout=5000
             )
+            # The row surface is compared against this row's own resting state,
+            # which is only meaningful once the init pass has run: rows render
+            # checked by default and initLayerItem (on an init timer) decides
+            # the checkbox and the .active class.
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
             # Move the mouse off the panel so a data row reads its resting state.
             page.mouse.move(0, 0)
             page.wait_for_timeout(120)
@@ -2460,8 +2470,13 @@ class TestLayerControlBrowser:
 
             kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
             assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
-            assert kb["bg"] == "rgba(0, 0, 0, 0)", (
-                f"keyboard-cursor row must keep the clear surface, got {kb['bg']}"
+            # The recipe paints no surface: the cursor-lit row must compute the
+            # exact background its own resting state has (the container's white
+            # on an unchecked row, the .active wash on a checked one) — pinned
+            # as this equality, never as a hardcoded color.
+            assert kb["bg"] == rest["bg"], (
+                f"keyboard cursor must not repaint the surface: cursor "
+                f"{kb['bg']} vs resting {rest['bg']}"
             )
             assert kb["shadow"] != "none", (
                 f"keyboard-cursor row must glow, got {kb['shadow']}"
@@ -2480,6 +2495,10 @@ class TestLayerControlBrowser:
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
                 " drag: d ? getComputedStyle(d).opacity : null }; }"
+            )
+            assert hover["bg"] == rest["bg"], (
+                f"hover must not repaint the surface: hover {hover['bg']} vs "
+                f"resting {rest['bg']}"
             )
             assert hover["bg"] == kb["bg"], (
                 f"hover {hover['bg']} must equal keyboard {kb['bg']}"
