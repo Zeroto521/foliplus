@@ -125,10 +125,7 @@ class LayerPersistence {
    */
   loadOrder(): string[] | null {
     const ids = this.registry.layers.map(l => l.id);
-    const order = Storage.load<unknown[]>(
-      CONST.STORAGE.ORDER_KEY,
-      this.persistName,
-    );
+    const order = Storage.load<unknown[]>(CONST.STORAGE.ORDER_KEY, this.persistName);
     if (!Array.isArray(order) || !order.every(id => typeof id === "string")) {
       return null;
     }

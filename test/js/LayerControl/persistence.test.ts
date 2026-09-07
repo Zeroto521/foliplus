@@ -54,12 +54,10 @@ describe("LayerPersistence", () => {
       // order at construction time, so it must not parse fold, visibility, or
       // names alongside it.
       const keys: string[] = [];
-      const spy = vi
-        .spyOn(Storage, "load")
-        .mockImplementation((key: unknown) => {
-          keys.push(String(key));
-          return undefined;
-        });
+      const spy = vi.spyOn(Storage, "load").mockImplementation((key: unknown) => {
+        keys.push(String(key));
+        return undefined;
+      });
       makePersistence(["a"]).loadOrder();
       spy.mockRestore();
       expect(keys).toEqual([CONST.STORAGE.ORDER_KEY]);

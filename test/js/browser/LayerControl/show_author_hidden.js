@@ -19,7 +19,8 @@
   return {
     rows: rows.length,
     checked,
-    stillUnchecked: document.querySelectorAll(`${SEL} input[type="checkbox"]:not(:checked)`)
-      .length,
+    stillUnchecked: document.querySelectorAll(
+      `${SEL} input[type="checkbox"]:not(:checked)`,
+    ).length,
   };
 };
