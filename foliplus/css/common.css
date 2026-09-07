@@ -148,6 +148,7 @@
     one number that dominates the perceived size, not --dot-size. */
   --dot-size: 10px;
   --dot-stroke: 2.5px;
+  --dot-stroke-solid: 1px;
 
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
@@ -695,17 +696,23 @@
 .foliplus-dot {
   --dot-fill: var(--neutral-0);
   --dot-stroke-color: var(--accent-primary);
+  /* Solid dots paint the ring with --dot-stroke-solid instead: with the full
+     --dot-stroke the red disc is only half the area of a hollow dot's red
+     ring (pi*(4.75^2) vs pi*(5^2-3.75^2)), so solid anchors read smaller at
+     the same --dot-size. A thin ring puts the red out to the full diameter
+     while keeping the two variants distinct. */
+  --dot-stroke-width: var(--dot-stroke);
   fill: var(--dot-fill);
   fill-opacity: 1;
   stroke: var(--dot-stroke-color);
-  stroke-width: var(--dot-stroke);
+  stroke-width: var(--dot-stroke-width);
 }
 .foliplus-dot:not(path) {
   background: var(--dot-fill);
   /* The `border` shorthand, not the `border-width` longhand: on a non-replaced
      element the longhand is silently ignored in Chromium even with !important,
      so the shorthand is the only form that reliably sets the width. */
-  border: var(--dot-stroke) solid var(--dot-stroke-color);
+  border: var(--dot-stroke-width) solid var(--dot-stroke-color);
   border-radius: var(--radius-round);
   box-sizing: border-box;
 }
@@ -718,6 +725,7 @@
 .foliplus-dot-solid {
   --dot-fill: var(--accent-primary);
   --dot-stroke-color: var(--neutral-0);
+  --dot-stroke-width: var(--dot-stroke-solid);
 }
 
 /* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──
