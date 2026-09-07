@@ -1400,18 +1400,14 @@ class LayerUI {
         const layerId = this.activeRenameId;
         this.finishRename();
         this.focusLayerRow(layerId);
-        this.escapeClearCursor();
       } else if (this.activeMenu) {
         // closeMoreMenu returns focus to the row, so the cursor must be
         // dropped after it rather than before.
         this.closeMoreMenu(true);
-        this.escapeClearCursor();
       } else if (this.isFocusing()) {
         this.cancelFocus();
-        this.escapeClearCursor();
-      } else {
-        this.escapeClearCursor();
       }
+      this.escapeClearCursor();
       return;
     }
 
