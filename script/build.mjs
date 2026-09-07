@@ -78,7 +78,7 @@ const cssDir = resolve(CFG.root, "foliplus/css");
 const distDir = resolve(CFG.root, "foliplus/dist");
 const buildJs = resolve(CFG.root, "foliplus/.build/js");
 const buildCss = resolve(CFG.root, "foliplus/.build/css");
-const COMMON_CSS_TMP = "_common.css";
+const COMMON_CSS_TMP = "common.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
 // `git describe` (tag + distance + commit) — identical in local dev and CI,
@@ -137,10 +137,6 @@ const esbuildCfg = {
   bundle: true,
   format: "iife",
   minify: !CFG.dev,
-  // Tree Shaking: drop unused exports from shared modules.
-  // Disabled for shared entry (it produces the shared code); enabled
-  // for component bundles (they consume it via externalization).
-  treeShaking: true,
   // Sourcemaps are only useful when debugging the minified bundle in a browser.
   // Since foliplus bundles are embedded in Python-generated HTML and shipped
   // to end users, production sourcemaps have no consumer — skip them.
@@ -155,25 +151,26 @@ const esbuildCfg = {
   plugins: [postcssPlugin, sourceTransformPlugin],
 };
 
-const artifact = (entryPoints, outfile, name) => ({
-  entryPoints,
-  outfile,
-  ...esbuildCfg,
-  // Tree Shaking: disabled for shared entry (produces shared code),
-  // enabled for component bundles (drop unused shared exports).
-  treeShaking: name === SHARED_ENTRY ? false : true,
-  // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
-  // in component bundles and read from the global namespace; the shared entry
-  // itself bundles them (no externalization).
-  plugins:
-    name === SHARED_ENTRY
+/** esbuild options for one artifact. Two things vary per artifact: tree
+ *  shaking and the plugin list, both keyed on whether this is the shared
+ *  entry. Component bundles read shared modules from the global namespace
+ *  (so they tree-shake unused exports); the shared entry bundles them,
+ *  which makes tree shaking meaningless and adds the registry plugin. */
+const artifact = (entryPoints, outfile, name) => {
+  const shared = name === SHARED_ENTRY;
+  // Identical for JS and CSS, but esbuild requires banner to be an object.
+  const bannerText = `/*! foliplus@${BUILD_VERSION} · ${name} */\n`;
+  return {
+    entryPoints,
+    outfile,
+    ...esbuildCfg,
+    treeShaking: !shared,
+    plugins: shared
       ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
       : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
-  banner: {
-    js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-    css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-  },
-});
+    banner: { js: bannerText, css: bannerText },
+  };
+};
 
 /** Return the first path that exists, else null. */
 const resolveEntry = candidates => candidates.find(existsSync) ?? null;
@@ -244,19 +241,18 @@ const mergeCommonCss = () => {
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
 const buildEntries = (components, withSonda) => {
+  // `metafile: true` is what feeds the sonda treemap; it is per-artifact,
+  // so set it once here rather than after every artifact() call.
+  const enable = entry => (withSonda ? { ...entry, metafile: true } : entry);
+
   const entries = [];
   for (const { name, js, css } of components) {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
-    const jsEntry = artifact([js], out(`foliplus-${outName}.min.js`), name);
-    if (withSonda) jsEntry.metafile = true;
-    entries.push(jsEntry);
-    if (css) {
-      const cssEntry = artifact([css], out(`foliplus-${outName}.min.css`), name);
-      if (withSonda) cssEntry.metafile = true;
-      entries.push(cssEntry);
-    }
+    entries.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
+    if (css)
+      entries.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
   }
 
   // Merge the shared stylesheet modules into a single artifact
@@ -265,9 +261,7 @@ const buildEntries = (components, withSonda) => {
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, COMMON_CSS_TMP);
     writeFileSync(tmpCss, css, "utf-8");
-    const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
-    if (withSonda) commonCssEntry.metafile = true;
-    entries.push(commonCssEntry);
+    entries.push(enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")));
   }
   return entries;
 };
