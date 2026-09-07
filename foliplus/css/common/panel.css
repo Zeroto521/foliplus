@@ -3,7 +3,7 @@
   Base styles for the controls that open a side panel (LayerControl,
   HeatmapControl); each component overrides only its differentiated parts.
   Reads only the shared tokens, no ctrl-fold rule - so it is independent of
-  ctrl-fold.css and could sit anywhere after tokens.css.
+  ctrl-fold.css and could sit anywhere after token.css.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Container ── */

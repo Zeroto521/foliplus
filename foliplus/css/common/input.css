@@ -1,0 +1,59 @@
+/* ══════════════════════════════════════════════════════════════════════
+  Unified Input Interaction States
+  All foliplus text/select/color/checkbox inputs share the same
+  hover/focus visual feedback via :hover and :focus-visible.
+  Mouse click alone does not trigger :focus-visible, so the red border
+  never persists after click — only hover and keyboard Tab show it.
+  The breathing animation (:focus-based) is intentionally limited to
+  non-checkbox inputs (see Animation section above).
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Hover/Focus: red border + red glow ──
+  All inputs (including checkbox) use :hover and :focus-visible so the red
+  border only appears on hover or keyboard focus. Mouse click alone does NOT
+  trigger :focus-visible, avoiding a persistent highlight on checkbox and
+  color inputs after click. */
+:is(
+  .foliplus-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
+  .foliplus-heatmap-ctrl select,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
+  .foliplus-layer-ctrl input[type="checkbox"],
+  .foliplus-layer-ctrl .foliplus-color-layer-input
+):is(:hover, :focus-visible),
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+  border-color: var(--accent-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.foliplus-popup-content {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-popup);
+}
+
+/* ── Shared text input base (used by SearchControl + LayerControl rename) ──
+   Component-specific padding / placeholder color live in the component's own
+   CSS; the shared class covers all the visual chrome that must look identical. */
+.foliplus-input {
+  font: inherit;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  box-shadow: none;
+  outline: none;
+  transition: var(--transition-input);
+  margin: 0;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+.foliplus-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+}

@@ -78,7 +78,7 @@ const cssDir = resolve(CFG.root, "foliplus/css");
 const distDir = resolve(CFG.root, "foliplus/dist");
 const buildJs = resolve(CFG.root, "foliplus/.build/js");
 const buildCss = resolve(CFG.root, "foliplus/.build/css");
-const MERGED_CSS_NAME = "_common_merged.css";
+const COMMON_CSS_TMP = "_common.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
 // `git describe` (tag + distance + commit) — identical in local dev and CI,
@@ -200,45 +200,43 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
-/** File names of the shared stylesheet modules, in merge order.
- *
- *  Order is meaningful and never alphabetical: `tokens.css` defines the
- *  custom properties every other module reads, so it must come first. An
- *  alphabetical sort would place `button.css` before `tokens.css` and
- *  silently break every `var(--...)` - no build error, no console error,
- *  just a map with all its shared colors and sizes missing.
- *
- *  Files, not paths: every module lives in `css/common/`.
- */
+/** Shared stylesheet modules, in merge order - never alphabetical.
+
+`token.css` defines the custom properties the rest read, so it must come
+first. Sorting would put `button.css` first and silently break every
+`var(--...)`: no build error, no console error, just a map with all its
+shared colors and sizes gone. Bare names; every module lives in `css/common/`.
+*/
 const COMMON_CSS_ORDER = [
-  "tokens.css",
+  "token.css",
   "reset.css",
   "button.css",
+  "menu.css",
+  "input.css",
   "hint.css",
-  "icons.css",
+  "icon.css",
   "ctrl-fold.css",
   "panel.css",
 ];
+/** Concatenate the shared stylesheet modules, asserting the manifest matches
+ *  the folder. Both drift directions would be silent otherwise: an unlisted
+ *  file is dropped from the bundle, an entry with no file is simply omitted. */
 const mergeCommonCss = () => {
   const dir = resolve(cssDir, "common");
   if (!existsSync(dir)) return null;
 
-  // The manifest and the folder must name the same set of files. Neither
-  // drift direction is harmless: an unlisted file is silently dropped from
-  // the bundle, and a manifest entry with no file is a silent omission.
   const present = readdirSync(dir).filter(f => f.endsWith(".css"));
-  const unlisted = present.filter(f => !COMMON_CSS_ORDER.includes(f));
-  const missing = COMMON_CSS_ORDER.filter(f => !present.includes(f));
+  const inManifest = new Set(COMMON_CSS_ORDER);
+  const inFolder = new Set(present);
+  const unlisted = present.filter(f => !inManifest.has(f));
+  const missing = COMMON_CSS_ORDER.filter(f => !inFolder.has(f));
   if (unlisted.length || missing.length) {
-    const detail = [
-      unlisted.length && `unlisted: ${unlisted.join(", ")}`,
-      missing.length && `missing: ${missing.join(", ")}`,
-    ]
-      .filter(Boolean)
-      .join("; ");
-    throw new Error(`build: css/common/ disagrees with COMMON_CSS_ORDER - ${detail}`);
+    throw new Error(
+      `build: css/common/ has ${present.length} files, manifest lists ` +
+        `${COMMON_CSS_ORDER.length} - unlisted: ${unlisted.join(", ") || "-"}; ` +
+        `missing: ${missing.join(", ") || "-"}`,
+    );
   }
-
   return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
 };
 
@@ -265,7 +263,7 @@ const buildEntries = (components, withSonda) => {
   const css = mergeCommonCss();
   if (css) {
     mkdirSync(buildCss, { recursive: true });
-    const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
+    const tmpCss = resolve(buildCss, COMMON_CSS_TMP);
     writeFileSync(tmpCss, css, "utf-8");
     const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
     if (withSonda) commonCssEntry.metafile = true;

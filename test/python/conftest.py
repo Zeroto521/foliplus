@@ -176,7 +176,7 @@ def read_css_dir(path: str, name: str) -> str:
     """Read one module of a shared stylesheet folder, with caching.
 
     ``path`` is the folder (``foliplus/css/common``) and ``name`` the
-    module inside it (``tokens.css``).  Assertions name the module that
+    module inside it (``token.css``).  Assertions name the module that
     owns the rule they check, so a token moving between modules shows up
     as a precise test failure instead of a vague whole-file miss.
     """

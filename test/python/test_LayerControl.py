@@ -401,7 +401,7 @@ class TestLayerControlRendering:
 
         # ── More (⋮) menu icon: identity wakes gray → black on hover/keyboard
         # focus, matching the LayerControl type-icon language (NOT accent) — the
-        # main text goes black → red via the unified dropdown hover (css/common/button.css),
+        # main text goes black → red via the unified dropdown hover (css/common/menu.css),
         # so "icon black + text red" reads like every other dropdown. ──
         more_icon = [
             html[i : html.index("}", i)]
