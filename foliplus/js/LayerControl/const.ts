@@ -64,6 +64,10 @@ const CLASSES = {
   LAYER_LABEL: "foliplus-layer-label",
   HIDDEN: "hidden",
   FOCUSED: "foliplus-layer-focused",
+  /** Marks a row whose keyboard cursor was cancelled by Escape. The row keeps
+   *  DOM focus (Escape must not blur to `<body>`), so `:focus-visible` still
+   *  matches and would redraw the Row-cursor recipe; this class suppresses it. */
+  FOCUS_SUPPRESSED: "foliplus-layer-focus-suppressed",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
   DRAGGING: "foliplus-layer-dragging",

@@ -1271,7 +1271,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       const input = label.querySelector("input") as HTMLInputElement;
 
       input.value = "abandon";
+      // Escape defers the teardown so the keydown can still bubble to the
+      // panel handler that clears the row cursor. Enable fake timers before
+      // dispatching so the deferred timer is under test control.
+      vi.useFakeTimers();
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      vi.runAllTimers();
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("Polygons");
@@ -2139,7 +2144,211 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
+      // blur-only: the cursor index is deliberately kept so an ArrowUp/Down can
+      // resume from this row instead of re-lighting it from DOM focus.
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      // DOM focus stays where the user was (Escape never blurs to <body>), and
+      // the suppression marker is what makes the cancellation visible while
+      // :focus-visible still matches.
+      expect(document.activeElement).toBe(checkbox);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
+    });
+
+    it("Escape clears a cursor established by mouse (no DOM focus on the row)", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      // A click on the row label sets clickedRow but leaves DOM focus on the
+      // previous row (or <body>) — the mouse path that used to be unreachable.
+      const label = overlay.querySelector("label") as HTMLElement;
+      label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect((ui as any).clickedRow).toBe(overlay);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(document.activeElement).not.toBe(overlay);
+
+      pressKey(overlay, "Escape");
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      // clickedRow drops to null when focus moves off the row (focusin handler),
+      // so the marker only survives clicks that don't move DOM focus.
+      expect((ui as any).clickedRow).toBeNull();
+      // Not dropped to <body> — a real focus move supersedes the cancel.
+      expect(document.activeElement).toBe(overlay);
+    });
+
+    it("mousedown outside the panel drops the cursor through the shared dispatcher", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      // A real press outside the panel — dispatched at document level so it
+      // exercises the InteractionManager registration (observed mousedown),
+      // not just the handler.
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      // Unlike Escape this is a full reset: the user has left the panel, so
+      // the next ArrowDown re-bootstraps instead of resuming from this row.
       expect(ui.activeIdx).toBeNull();
+      outside.remove();
+    });
+
+    it("mousedown inside the panel keeps the cursor", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      // Production wraps the panel content in a `.foliplus-layer-ctrl` shell
+      // (template.ts); the fixture's bare uiContainer lacks it, so mirror the
+      // structure here or the outside test would read this press as outside.
+      const shell = document.createElement("div");
+      shell.className = "foliplus-layer-ctrl";
+      ui.uiContainer.parentNode?.insertBefore(shell, ui.uiContainer);
+      shell.appendChild(ui.uiContainer);
+
+      ui.setActiveItem(indexFor("overlay1"));
+      overlay.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      shell.replaceWith(ui.uiContainer);
+    });
+
+    it("Escape cancels an in-flight focusLayer overlay", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.focusLayer("overlay1");
+      expect(ui.isFocusing()).toBe(true);
+      expect(ui.focusMask).not.toBeNull();
+
+      pressKey(overlay, "Escape");
+
+      expect(ui.isFocusing()).toBe(false);
+      expect(ui.focusMask).toBeNull();
+      expect(
+        ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSING}`),
+      ).toHaveLength(0);
+    });
+
+    it("Escape drops the cursor and the next ArrowDown resumes from that row", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.setActiveItem(indexFor("overlay1"));
+      pressKey(overlay, "Escape");
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+
+      pressKey(overlay, "ArrowDown");
+
+      // Resumed from the cancelled row rather than re-lighting it: the cursor
+      // moves to the next row and the suppressed row re-enters the recipe.
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(false);
+      const focused = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(focused).not.toBeNull();
+      expect(focused).not.toBe(overlay);
+    });
+
+    it("Escape outside the panel leaves the cursor and the focus overlay alone", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      ui.focusLayer("overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+
+      const outside = document.createElement("button");
+      document.body.appendChild(outside);
+      pressKey(outside, "Escape");
+
+      expect(ui.isFocusing()).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(false);
+    });
+
+    it("Escape closes the overflow menu and clears the cursor", () => {
+      const overlay = findItem(ui, "overlay1");
+      const menuBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(ui.activeMenu).not.toBeNull();
+
+      pressKey(overlay, "Escape");
+
+      expect(ui.activeMenu).toBeNull();
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
+    });
+
+    it("Escape finishes an inline rename and clears the cursor", () => {
+      // The cursor must be on the row before the rename opens, otherwise
+      // finishRename() re-syncs the cursor off the row and Escape has no
+      // target to cancel.
+      const overlay = findItem(ui, "overlay1");
+      pressKey(overlay, "ArrowDown");
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
+
+      ui.renameLayer("overlay1");
+      expect(ui.activeRenameId).toBe("overlay1");
+
+      const input = ui.uiContainer.querySelector(
+        `.${CONST.CLASSES.RENAME_INPUT}`,
+      ) as HTMLInputElement;
+      expect(input).not.toBeNull();
+      input.focus();
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }),
+      );
+
+      // The keydown bubbles to the panel handler, which clears the cursor and
+      // returns focus to the row — so the cursor is already lifted and the
+      // suppression marker is already applied by the time dispatch returns.
+      const row = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${overlay.dataset.layerId}"]`,
+      ) as HTMLElement;
+      expect(row.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(row.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
+      expect(document.activeElement).toBe(row);
+
+      // The input teardown is deferred so it cannot steal focus mid-dispatch
+      // and hide the cursor. Flush it and confirm the rename is fully done.
+      vi.useFakeTimers();
+      vi.runAllTimers();
+      expect(ui.activeRenameId).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`)).toBeNull();
+    });
+
+    it("Escape on a checked row clears the cursor and keeps the active class", () => {
+      const overlay = findItem(ui, "overlay1");
+
+      // .active is the persistent selected state: it must outlive the Escape,
+      // because cancelling the cursor is not a visibility change.
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.checked = true;
+      overlay.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
+      ui.setActiveItem(indexFor("overlay1"));
+      checkbox.focus();
+      pressKey(overlay, "Escape");
+
+      expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      // FOCUS_SUPPRESSED is what drops the residual :focus-visible cursor
+      // styling, so it must be present rather than the row being blurred.
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
     });
 
     it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {

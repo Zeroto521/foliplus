@@ -29,6 +29,12 @@ interface InteractionDef {
   element?: HTMLElement;
   /** If true, the listener is automatically removed after the first trigger. */
   once?: boolean;
+  /** Whether a matched event is swallowed via preventDefault + stopPropagation
+   *  (default true, the shortcut semantics). Set false for observers that must
+   *  not disturb the event — e.g. a pointer handler that only watches for
+   *  presses outside a panel while the press keeps its native behavior
+   *  (focus move, drag start, text selection). */
+  preventDefault?: boolean;
   /** Component name for debugging */
   component?: string;
 }
@@ -125,8 +131,10 @@ class InteractionManager {
             if (def.shift && !ke.shiftKey) return;
             if (def.alt && !ke.altKey) return;
           }
-          event.preventDefault();
-          event.stopPropagation();
+          if (def.preventDefault ?? true) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
           def.handler(event);
         };
         def.element.addEventListener(
@@ -257,8 +265,10 @@ class InteractionManager {
     if (matches.length === 0) return;
 
     const best = matches[0];
-    event.preventDefault();
-    event.stopPropagation();
+    if (best.preventDefault ?? true) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     best.handler(event);
   }
 
