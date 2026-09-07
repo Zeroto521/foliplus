@@ -275,19 +275,12 @@ class LayerUI {
     }
 
     // Prune ids whose layers are gone for good, so stale persistence does not
-    // accumulate. An id counts as live when the layer is still in the
-    // registry or still queued in `pendingRegistrations` (a registration that
-    // landed before the panel attached — attachUI drains the queue before this
-    // sweep runs). Nothing else is kept on purpose: the queue has already
-    // emptied into rows, so "no registry entry and no pending entry" is real
-    // evidence the layer was removed, and dropping those ids is what keeps
-    // persistence from growing forever.
-    //
-    // The accepted cost is a layer a third-party component hides and then
-    // re-registers on a later activation: its id is pruned here, so the layer
-    // re-enters visible rather than coming back hidden. Keeping it would mean
-    // dropping no ids at all — which turns the prune into a no-op and lets the
-    // set grow without bound.
+    // accumulate. Live means "in the registry or still queued in
+    // pendingRegistrations" — attachUI drains that queue before this sweep, so
+    // neither implies a layer that will come back. The cost is a third-party
+    // layer hidden and re-registered on a later activation: it re-enters
+    // visible rather than coming back hidden. Keeping such ids would make the
+    // prune a no-op and let the set grow without bound.
     const pending = new Set(this.m.pendingRegistrations.map(li => li.id));
     const stillPresent = (layerId: string) =>
       registry.get(layerId) != null || pending.has(layerId);
@@ -997,9 +990,7 @@ class LayerUI {
       document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
-    // Persist the last pending write. A 100ms debounce is wide enough that the
-    // control can be removed (or the page unloaded) before the timer fires;
-    // dropping the write there is what loses a toggle across a reload.
+    // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
     this.onFocusIn = null;

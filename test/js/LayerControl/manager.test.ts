@@ -848,9 +848,8 @@ describe("LayerManager", () => {
   });
 
   it("destroy flushes a pending order write instead of cancelling it", () => {
-    // persistence.destroy cancels the debounce timer, so the UI's flush in
-    // unbindEvents must run first — otherwise the last reorder inside the
-    // debounce window is dropped and the panel reads a stale order back.
+    // persistence.destroy cancels the timer, so the UI's flush in unbindEvents
+    // must run first — otherwise the last reorder in the debounce window is lost.
     const m = new LayerManager(map, [
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
@@ -868,8 +867,8 @@ describe("LayerManager", () => {
   });
 
   it("destroy flushes a pending hidden-set write instead of cancelling it", () => {
-    // Same ordering for visibility: a hide just before teardown must survive
-    // the reload, which is the whole point of the teardown flush.
+    // Same ordering for visibility: a hide just before teardown must survive a
+    // reload, which is the whole point of the flush.
     const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     m.persistence = new LayerPersistence(m.layerRegistry);
     const save = vi.spyOn(Storage, "save");

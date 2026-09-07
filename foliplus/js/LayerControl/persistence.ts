@@ -63,18 +63,14 @@ class LayerPersistence {
    * cannot be missed on load and nothing else calls `Storage.load`.
    *
    * Only order is filtered against the registry: it is rebuilt on every save,
-   * so an unknown id is simply skipped when the order is applied.
-   *
-   * Hidden ids and names deliberately are not. This runs from
-   * `LayerUI.attachUI`, which is the tail of the LayerControl bundle -- after
-   * `registerLayer` for every component whose bundle already loaded, but before
-   * HeatmapControl and MeasureControl, which register in their own
-   * constructor. Filtering there would drop their entries on the very first
-   * attach and the user would see the component default name after every
-   * refresh, or the layer re-added to the map. Stale name ids are pruned in
-   * `unregisterLayer`, the only call that knows a layer is gone for good;
-   * stale hidden ids are pruned by the `LayerUI.applyUserState` sweep, which
-   * runs after the late registrations have landed.
+   * so an unknown id is skipped when the order is applied. Hidden ids and
+   * names deliberately are not -- this runs from `LayerUI.attachUI`, which
+   * loads before HeatmapControl and MeasureControl register in their own
+   * constructor, so filtering here would drop their entries on the very first
+   * attach and show the default name or re-add the layer after every refresh.
+   * Stale ids are pruned elsewhere: names in `unregisterLayer`, the only call
+   * that knows a layer is gone for good; hidden ids in
+   * `LayerUI.applyUserState`, after the late registrations have landed.
    */
   load(): PersistedState {
     const ids = this.registry.layers.map(l => l.id);

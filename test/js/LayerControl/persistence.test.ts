@@ -54,15 +54,10 @@ describe("LayerPersistence", () => {
     });
 
     it("keeps hidden ids that are not registered yet", () => {
-      // Same axis as names: load runs from attachUI, which lands at the tail of
-      // the LayerControl bundle — after some component bundles have registered
-      // and before others have. HeatmapControl and MeasureControl register in
-      // their own constructor, so filtering the hidden set against the registry
-      // here dropped their entries on the first attach, and the re-entry guard
-      // in registerLayer then had nothing to match against — the layer came back
-      // on the map after every reload. Stale-id cleanup stays with the
-      // LayerUI.applyUserState sweep, which runs after the late registrations
-      // have landed.
+      // attachUI lands before HeatmapControl and MeasureControl register in
+      // their own constructor, so filtering here dropped their entries and the
+      // layer came back on the map after every reload. Stale-id cleanup stays
+      // with the applyUserState sweep, which runs after the late registrations.
       seedStorage({ [CONST.STORAGE.VISIBILITY_KEY]: ["a", "later"] });
       const p = makePersistence(["a", "b"]);
 
@@ -70,15 +65,9 @@ describe("LayerPersistence", () => {
     });
 
     it("keeps renames for ids that are not registered yet", () => {
-      // Load order is the opposite of the order/visibility loaders on purpose.
-      // load runs from attachUI, which lands at the tail of the LayerControl
-      // bundle — after some component bundles have registered and before others
-      // have. HeatmapControl and MeasureControl register their layers in their
-      // own constructor, so filtering names against the registry here dropped
-      // their renames on the first attach and the user saw the component default
-      // name after every reload. Stale-id cleanup lives in unregisterLayer
-      // instead, the only call that knows a layer is gone for good rather than
-      // merely not registered yet.
+      // Same load-order constraint as hidden ids, but cleanup lives in
+      // unregisterLayer — the only call that knows a layer is gone for good
+      // rather than merely not registered yet.
       seedStorage({ [CONST.STORAGE.NAMES_KEY]: { ghost: "Ghost", a: "A2" } });
       const p = makePersistence(["a", "b"]);
 
