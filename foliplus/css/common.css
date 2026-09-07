@@ -138,11 +138,16 @@
     node's circleMarker radius is --dot-size / 2 = 5. Radius is
     not CSS-addressable, so `nodeRadius` in MeasureControl's `util.ts` reads
     the token at marker-creation time instead of repeating it.
-    Keep it EVEN: Leaflet rounds a circleMarker's radius to an integer pixel
-    when it writes the SVG path, so an odd value would render as a different
-    size than the DOM anchors that read the token directly. */
+    Keep --dot-size EVEN: Leaflet rounds a circleMarker's radius to an integer
+    pixel when it writes the SVG path, so an odd value would render as a
+    different size than the DOM anchors that read the token directly.
+    --dot-stroke is the ring weight of both renderings and must be what the
+    surface showed before this shared token — the measure nodes carried 2.5px,
+    the export anchors 2px, and 2.5px is the value that read correctly on the
+    map. A thinner ring makes the hollow dots read smaller, so this is the
+    one number that dominates the perceived size, not --dot-size. */
   --dot-size: 10px;
-  --dot-stroke: 2px;
+  --dot-stroke: 2.5px;
 
   /* ── Border Radius ── */
   --radius-sm: var(--size-4);
