@@ -4,7 +4,7 @@
  *
  * Pipeline:
  *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/compress.mjs``)
- *   2. Merge ``common.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
+ *   2. Merge the shared stylesheet modules -> ``dist/foliplus-common.min.css``
  *
  *   Source transforms run at bundle time via esbuild onLoad — no .build/ mirror needed.
  *
@@ -200,6 +200,48 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
+/** File names of the shared stylesheet modules, in merge order.
+ *
+ *  Order is meaningful and never alphabetical: `tokens.css` defines the
+ *  custom properties every other module reads, so it must come first. An
+ *  alphabetical sort would place `button.css` before `tokens.css` and
+ *  silently break every `var(--...)` - no build error, no console error,
+ *  just a map with all its shared colors and sizes missing.
+ *
+ *  Files, not paths: every module lives in `css/common/`.
+ */
+const COMMON_CSS_ORDER = [
+  "tokens.css",
+  "reset.css",
+  "button.css",
+  "hint.css",
+  "icons.css",
+  "ctrl-fold.css",
+  "panel.css",
+];
+const mergeCommonCss = () => {
+  const dir = resolve(cssDir, "common");
+  if (!existsSync(dir)) return null;
+
+  // The manifest and the folder must name the same set of files. Neither
+  // drift direction is harmless: an unlisted file is silently dropped from
+  // the bundle, and a manifest entry with no file is a silent omission.
+  const present = readdirSync(dir).filter(f => f.endsWith(".css"));
+  const unlisted = present.filter(f => !COMMON_CSS_ORDER.includes(f));
+  const missing = COMMON_CSS_ORDER.filter(f => !present.includes(f));
+  if (unlisted.length || missing.length) {
+    const detail = [
+      unlisted.length && `unlisted: ${unlisted.join(", ")}`,
+      missing.length && `missing: ${missing.join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    throw new Error(`build: css/common/ disagrees with COMMON_CSS_ORDER - ${detail}`);
+  }
+
+  return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
+};
+
 /** Build the full list of esbuild artifacts (components + merged common CSS).
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
@@ -219,12 +261,9 @@ const buildEntries = (components, withSonda) => {
     }
   }
 
-  // Merge common.css + panel.css into a single artifact
-  const commonCss = resolve(cssDir, "common.css");
-  const panelCss = resolve(cssDir, "panel.css");
-  if (existsSync(commonCss)) {
-    let css = readFileSync(commonCss, "utf-8");
-    if (existsSync(panelCss)) css += "\n" + readFileSync(panelCss, "utf-8");
+  // Merge the shared stylesheet modules into a single artifact
+  const css = mergeCommonCss();
+  if (css) {
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
     writeFileSync(tmpCss, css, "utf-8");

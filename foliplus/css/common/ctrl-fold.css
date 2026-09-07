@@ -1,0 +1,71 @@
+/* ════════════════════════════════════════════════════════════
+  Ctrl Fold — shared control container
+  Collapsed/expanded shell for the controls that fold into a leaflet-bar
+  button (Fullscreen, Scale, Locate, Search, Export, Measure). LayerControl
+  and HeatmapControl extend it for their side panel; panel.css is a
+  sibling, not a dependency.
+  ════════════════════════════════════════════════════════════ */
+
+/* ── Ctrl Fold (Shared Container) ──
+  Collapsed: 30×30px with rounded corners & shadow, matching Leaflet .leaflet-bar
+  Expanded: defined by component or shared extension rules */
+.foliplus-ctrl-fold {
+  display: flex;
+  align-items: stretch;
+  background: var(--ctrl-bg);
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-ctrl-strong);
+
+  &.collapsed {
+    width: var(--ctrl-size);
+    height: var(--ctrl-size);
+    border: 0;
+    overflow: visible;
+  }
+  /* Expanded: panel-shadow overrides base shadow-ctrl-strong */
+  &.expanded {
+    box-shadow: var(--panel-shadow);
+
+    /* Expanded toggle-btn shared styles */
+    .foliplus-toggle-btn {
+      background: transparent;
+      color: var(--accent-primary);
+
+      &:hover {
+        background: var(--accent-light);
+      }
+    }
+  }
+  /* ── Shared Toolbar ──
+    Used by MeasureControl / ExportControl
+    Separator via toggle-btn border-right (avoids flex compression issues) */
+  .foliplus-tool-bar {
+    display: none;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  &.expanded .foliplus-tool-bar {
+    display: flex;
+  }
+  /* Right-aligned layout: toggle-btn at right edge, toolbar leftwards */
+  &.foliplus-align-right {
+    flex-direction: row-reverse;
+
+    .foliplus-tool-bar {
+      flex-direction: row-reverse;
+    }
+  }
+}
+
+/* ── Separator between toggle button and tools (non-panel) ── */
+.foliplus-ctrl-fold:not(.foliplus-panel).expanded .foliplus-toggle-btn {
+  border-right-color: var(--divider-color);
+}
+.foliplus-ctrl-fold:not(.foliplus-panel).expanded.foliplus-align-right
+  .foliplus-toggle-btn {
+  border-right-color: transparent;
+  border-left-color: var(--divider-color);
+}

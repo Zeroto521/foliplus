@@ -1,0 +1,150 @@
+/* ══════════════════════════════════════════════════════════════════════
+  Design Tokens — Shared across all Folium plugins
+  Single source of truth for colors, typography, spacing, and component styles
+  ══════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Primitive Tokens: Size Scale ──
+    Prefer these base steps in component styles: 2/4/6/8/12/16/20/24
+    Rule: layout spacing follows this scale; border allows 1px for visual sharpness.
+    Rule: component/business dimensions (e.g. 30/36/280/400) can be semantic exceptions.
+  */
+  --size-2: 2px;
+  --size-4: 4px;
+  --size-6: 6px;
+  --size-8: 8px;
+  --size-12: 12px;
+  --size-16: 16px;
+  --size-20: 20px;
+  --size-24: 24px;
+
+  /* ── Alpha Scale ── */
+  --alpha-05: 0.05;
+  --alpha-15: 0.15;
+  --alpha-20: 0.2;
+  --alpha-30: 0.3;
+  --alpha-50: 0.5;
+  --alpha-70: 0.7;
+  --alpha-80: 0.8;
+  --alpha-95: 0.95;
+
+  /* ── Neutral Palette ── */
+  --neutral-0: #fff;
+  --neutral-100: #f5f5f5;
+  --neutral-300: #e0e0e0;
+  --neutral-500: #aaa;
+  --neutral-800: #333;
+
+  /* ── Brand Red Palette ── */
+  --red-50: #fde8e8;
+  --red-500: #e74c3c;
+  --red-600: #c0392b;
+  --red-rgb: 231, 76, 60;
+
+  /* ── Colors ── */
+  --ctrl-bg: var(--neutral-0);
+  --ctrl-hover-bg: var(--neutral-100);
+
+  --text-primary: var(--neutral-800);
+  --text-muted: var(--neutral-500);
+
+  --input-bg: var(--neutral-0);
+  --input-border: var(--neutral-300);
+  --input-focus-border: var(--red-500);
+
+  --divider-color: var(--neutral-300);
+
+  --panel-header-bg: var(--neutral-100);
+  --panel-header-hover: var(--neutral-300);
+
+  --accent-primary: var(--red-500);
+  --accent-hover: var(--red-600);
+  --accent-light: var(--red-50);
+
+  --btn-primary-bg: var(--accent-primary);
+  --btn-primary-hover: var(--accent-hover);
+  --btn-secondary-border: var(--neutral-300);
+
+  /* ── Effects ── */
+  /* Semi-transparent red glow used in focus rings, breathing animation,
+     button active-state inset shadow, and ExportControl crop glow. */
+  --accent-soft-shadow: rgba(var(--red-rgb), var(--alpha-50));
+  /* Unified keyboard focus ring: thin accent hairline + soft red glow.
+     Single source of truth for all :focus-visible rules across foliplus. */
+  --focus-ring:
+    0 0 0 var(--border-thin) var(--accent-primary),
+    0 0 0 var(--size-4) var(--accent-soft-shadow);
+  --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
+  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
+  --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
+
+  /* ── Typography ── */
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-hint: 1.4;
+  --line-height-popup: 1.8;
+  --letter-spacing-tight: 0.5px;
+
+  /* ── Spacing ── */
+  --space-xs: var(--size-2);
+  --space-sm: var(--size-4);
+  --space-md: var(--size-8);
+  --space-lg: var(--size-12);
+  --space-xl: var(--size-16);
+  --space-xxl: var(--size-20);
+
+  /* ── Sizing ── */
+  --ctrl-size: 30px;
+  --scale-press: 0.92;
+  --scale-hover: 1.08;
+  --icon-size-sm: var(--size-16);
+  --icon-size-xs: 14px;
+  --icon-size-md: 18px;
+  --stroke-icon: 1.8;
+
+  /* ── Layout Metrics ── */
+  --toggle-size: 36px;
+  --panel-width: 280px;
+  --panel-max-height: 400px;
+  --panel-header-padding-left: var(--size-6);
+  --panel-header-padding-right: var(--ctrl-size);
+
+  /* ── Border Width ── */
+  --border-thin: 1px;
+  --border-thick: var(--size-2);
+
+  /* ── Dashed Rhythm ──
+    Shared stroke-dasharray for every map-operation dashed border: measure
+    paths (dashed + preview), LayerControl focus rect, and ExportControl
+    crop box. Keep them in sync through this single token so a future
+    change to the rhythm updates every surface at once.
+    The icon-level dashed pattern (LayerControl EMPTY/UNKNOWN, 4 3) is
+    intentionally a different token context — it's a small-scale SVG
+    texture, not an operation border. */
+  --dash-rhythm: var(--size-6) var(--size-4);
+
+  /* ── Border Radius ── */
+  --radius-sm: var(--size-4);
+  --radius-lg: var(--size-6);
+  --radius-round: 50%;
+  --radius-card: var(--size-8);
+
+  /* ── Shadows ── */
+  --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-15));
+  --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-15));
+  --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-input:
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  /* ── Z-index ──
+  LayerControl JS manages pane z-index dynamically.
+  Hint z-index is managed by runtime.js (HINT z-index = 10000).
+  CSS only defines floating/panel z-index (below hints). */
+  --z-index-floating: 9990;
+}
