@@ -1,7 +1,7 @@
 () => {
-  // Compare content-box heights.  Attribution carries a 1px border the scale
-  // control deliberately doesn't; getComputedStyle(height) returns the
-  // border-box value, so subtract the border for both.
+  // Compare content-box heights: both controls carry the same 1px border, and
+  // getComputedStyle(height) returns the border-box value, so subtract border
+  // and padding to get the content height that line-height actually sets.
   const s = document.querySelector(".foliplus-scale-wrap");
   const a = document.querySelector(".leaflet-control-attribution");
   if (!s || !a) return null;
