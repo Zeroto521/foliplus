@@ -58,6 +58,13 @@ describe("build artifacts", () => {
     expect(content).toMatch(/\/\*!/);
   });
 
+  it("common JS reports version on the console and exposes foliplus.version", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    // Prefix comes from createLogger; value inlined by esbuild define.
+    expect(content).toMatch(/createLogger\("foliplus"\)\.info/);
+    expect(content).toContain("foliplus.version");
+  });
+
   it("component JS externalizes BaseControl", () => {
     const content = readFileSync(
       resolve(distDir, "foliplus-ScaleControl.min.js"),
