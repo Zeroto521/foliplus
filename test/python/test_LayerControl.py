@@ -2559,8 +2559,7 @@ class TestLayerControlBrowser:
 
             # Unchecked: rest and cursor are both the explicit white surface.
             assert result["rest"]["bg"] == white, (
-                "unchecked rest must be the explicit white surface, got "
-                + str(result)
+                "unchecked rest must be the explicit white surface, got " + str(result)
             )
             assert result["cursor"]["bg"] == white, (
                 "cursor must keep the unchecked row white, got " + str(result)
