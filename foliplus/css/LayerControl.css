@@ -382,12 +382,11 @@ path.foliplus-focus-mask {
      would flash the already-checked rows on each rebuild. */
   .foliplus-layer-item,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    /* At rest the row paints no surface of its own: the white the user sees is
-       the control container's (--ctrl-bg) showing through. Declared explicitly
-       so the rest contract is written down — the wash (checked) is the only
-       background a resting row carries; hover / Tab / arrow paint the white
-       surface and the red glow on top. */
-    background: transparent;
+    /* Rows always paint an explicit surface — never transparent — so a
+       resting unchecked row and an interaction target cannot disagree
+       (one "white via the container", one "painted white"). Checked rows
+       override with the wash below; hover / Tab / arrow paint white on top. */
+    background: var(--neutral-0);
 
     /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
        default dark outline is never the focus signal here — the red glow is —
@@ -401,7 +400,11 @@ path.foliplus-focus-mask {
 
     &.active {
       border-left-color: var(--accent-primary);
+      background: var(--accent-light);
     }
+    /* Declared after .active so the interaction target wins over the wash
+       at equal specificity: a checked row turns white when hover / Tab /
+       arrow arrives, and the wash returns when it leaves. */
     &:is(:hover, .foliplus-layer-focused) {
       /* The left accent bar is deliberately NOT set here: it is a persistent
          "layer visible" (checked) indicator, so it only turns red on .active /
@@ -411,12 +414,6 @@ path.foliplus-focus-mask {
       box-shadow:
         0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
         0 var(--size-2) var(--size-4) var(--accent-primary);
-
-      /* White surface whenever the row is the interaction target — mouse
-         hover, Tab (mapped onto the JS class by focusin) or the arrow-key
-         cursor. Checked rows show their .active wash only at rest; the
-         cursor/hover paints white on top, and the wash returns when it
-         leaves. */
       background: var(--neutral-0);
 
       .foliplus-drag-cell .drag-handle {
@@ -479,10 +476,9 @@ path.foliplus-focus-mask {
     &[draggable="true"] {
       cursor: move;
     }
-    &.active {
-      border-left-color: var(--accent-primary);
-      background: var(--accent-light);
-    }
+    /* .active surface/border live with the Row-cursor recipe above so the
+       interaction white (later, equal specificity) can out-rank the wash.
+       This block only carries the type-icon wake. */
     /* Identity: gray at rest, wakes to black on hover and when the row is
        active. Accent stays reserved for actions (more) and status (border),
        so the type icon reads as focus, not as a call-to-action. */

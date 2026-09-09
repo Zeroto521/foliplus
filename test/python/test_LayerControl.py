@@ -2495,8 +2495,9 @@ class TestLayerControlBrowser:
                 f"keyboard cursor must paint the white surface on an unchecked "
                 f"row, got {kb['bg']} vs token {white}"
             )
-            assert rest["bg"] == "rgba(0, 0, 0, 0)", (
-                f"unchecked rest row must stay clear, got {rest['bg']}"
+            assert rest["bg"] == white, (
+                f"unchecked rest row must also be the explicit white surface, "
+                f"got {rest['bg']} vs token {white}"
             )
             assert kb["shadow"] != "none", (
                 f"keyboard-cursor row must glow, got {kb['shadow']}"
@@ -2556,12 +2557,13 @@ class TestLayerControlBrowser:
             )
             white = result["white"]
 
-            # Unchecked: rest clear → cursor white → rest clear again.
-            assert result["rest"]["bg"] != white, (
-                "unchecked rest must not be the interaction white, got " + str(result)
+            # Unchecked: rest and cursor are both the explicit white surface.
+            assert result["rest"]["bg"] == white, (
+                "unchecked rest must be the explicit white surface, got "
+                + str(result)
             )
             assert result["cursor"]["bg"] == white, (
-                "cursor must turn an unchecked row white, got " + str(result)
+                "cursor must keep the unchecked row white, got " + str(result)
             )
             assert result["cursor"]["shadow"] != "none", (
                 "cursor must still glow, got " + str(result)
@@ -3015,6 +3017,7 @@ class TestLayerControlBrowser:
                 ")].every(i => i.title.length > 0)",
                 timeout=5000,
             )
+            white = self._sample_neutral0(page)
 
             def snapshot():
                 return page.evaluate(
@@ -3068,8 +3071,8 @@ class TestLayerControlBrowser:
                 "an Escape-restored unchecked row must be indistinguishable "
                 "from a never-touched row, got " + str(unchecked)
             )
-            assert unchecked[0]["bg"] == "rgba(0, 0, 0, 0)", (
-                "an unchecked row's rest state is the plain surface, got "
+            assert unchecked[0]["bg"] == white, (
+                "an unchecked row's rest state is the explicit white surface, got "
                 + str(unchecked)
             )
             assert unchecked[0]["grip"] == "0", (
