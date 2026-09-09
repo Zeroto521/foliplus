@@ -50,18 +50,18 @@ Data processing happens upstream. foliplus handles the map, not the data.
 ## Beyond Plugins
 
 Traditional map component libraries treat each tool as an independent plugin. foliplus
-was designed as a **platform** from the start:
+was designed as one **system** from the start:
 
 - Components **communicate** with each other, instead of working in isolation
-- Layers are **managed centrally**, instead of each tool creating its own DOM
+- Layers are **managed centrally**, instead of each tool owning its own stack
 - Conflicts are **resolved automatically**, instead of tools interfering with each other
 - Third-party components can **plug into** the system, instead of being locked out
 
 ## Built-in Coordination
 
-Every component in foliplus registers its canvas or layer through **LayerControl**,
+Layer-producing tools register their canvas or layer through **LayerControl**,
 which manages z-order, visibility, and lifecycle centrally.
-This means all tools share a single layer stack—no z-index clashes, no orphaned DOM
+This means they share a single layer stack—no z-index clashes, no orphaned DOM
 elements.
 
 On top of this shared layer foundation, tools coordinate further:
@@ -73,4 +73,4 @@ On top of this shared layer foundation, tools coordinate further:
   (e.g. measurement) auto-cleans its state
 - When layers change, the heatmap refreshes automatically
 
-All of this happens without manual wiring—the framework handles it internally.
+All of this happens without manual wiring—foliplus handles it internally.
