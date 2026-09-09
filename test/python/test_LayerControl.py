@@ -3044,8 +3044,7 @@ class TestLayerControlBrowser:
             )
             assert result is not None, "focusin_maps_checkbox_to_row_cursor failed"
             assert result["litByKeyboard"] is True, (
-                "keyboard-modality focus must light the owning row, got "
-                + str(result)
+                "keyboard-modality focus must light the owning row, got " + str(result)
             )
             assert result["litByMouse"] is False, (
                 "mouse-modality focus must not light the row, got " + str(result)
