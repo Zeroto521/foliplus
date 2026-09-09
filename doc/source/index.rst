@@ -47,8 +47,8 @@ Data processing happens upstream. foliplus handles the map, not the data.
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
-      Measure distances, areas, circles, and geocoded markers, then edit them by
-      dragging nodes.
+      Measure distances, areas, and circles; place geocoded markers; then edit
+      by dragging nodes.
 
    .. grid-item-card:: 📐 ScaleControl
       :padding: 2

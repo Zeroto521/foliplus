@@ -43,7 +43,7 @@ Data processing happens upstream. foliplus handles the map, not the data.
 | 🔥 **HeatmapControl**    | H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.                  |
 | 🗂️ **LayerControl**      | Drag-and-drop layer ordering with geometry icons, color picker, and panes.             |
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
-| 📏 **MeasureControl**    | Measure distances, areas, circles, and geocoded markers, then edit them by dragging nodes. |
+| 📏 **MeasureControl**    | Measure distances, areas, and circles; place geocoded markers; then edit by dragging nodes. |
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
 

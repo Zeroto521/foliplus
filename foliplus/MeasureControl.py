@@ -12,7 +12,7 @@ ExportFormat = Literal["geojson", "csv"]
 
 class MeasureControl(BaseControl):
     """
-    Measure distances, areas, circles, and geocoded markers, then edit them by
+    Measure distances, areas, and circles; place geocoded markers; then edit by
     dragging nodes.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
