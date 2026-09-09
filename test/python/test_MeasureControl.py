@@ -421,6 +421,40 @@ class TestMeasureControlBrowser:
             assert moved, f"circle preview node did not follow the mouse: {state}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_circle_center_lives_in_the_node_pane(self, browser, tmp_path):
+        """The circle center must leave the graph pane for the node pane.
+
+        The center is attached before any shape exists, so in the graph pane
+        its slot is permanently first — and the radius line lands above it for
+        the whole drawing session. Re-attaching cannot move it (``L.SVG``
+        re-creates the ``<path>`` and the new node enters the renderer's layer
+        map in the same place), so the node pane is the only lever.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/measure_center_node_pane"))
+            draw = state["duringDraw"]
+            # The pane z table is what makes the stacking hold regardless of
+            # which pane happens to be created first.
+            assert draw["graphZ"] < draw["nodeZ"], f"node pane not above graph: {draw}"
+            assert draw["nodeZ"] < draw["labelZ"], f"label pane not above node: {draw}"
+            # Nothing measure-node-shaped may live in the graph pane.
+            assert not draw["graphHasNode"], f"node rendered in the graph pane: {draw}"
+            assert draw["graphHasShape"], "preview circle missing from the graph pane"
+            # Preview center (solid) and radius node (hollow) are both in the
+            # node pane, and the radius node is the later sibling so it cannot
+            # paint over the center.
+            n = draw["nodePane"]
+            assert n["solid"], f"solid center missing from the node pane: {n}"
+            assert n["hollow"], f"hollow radius node missing: {n}"
+            assert n["solidBeforeHollow"], f"radius node painted over the center: {n}"
+            # Finalization keeps everything in the node pane too.
+            na = state["after"]["nodePane"]
+            assert not state["after"]["graphHasNode"], (
+                f"node in the graph pane after finish: {state}"
+            )
+            assert na["solid"], f"finalized center missing from the node pane: {na}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_distance_preview_cursor_node_follows_mouse(self, browser, tmp_path):
         """Distance preview shows a cursor dot that follows the mouse, paints
         above the preview line, and is removed when the measurement finishes.

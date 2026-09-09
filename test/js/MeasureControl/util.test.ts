@@ -16,7 +16,7 @@ beforeEach(() => {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
-  window.L.circleMarker = vi.fn(() => ({}));
+  window.L.circleMarker = vi.fn(() => ({ options: {} }));
   window.L.DomEvent = {
     ...window.L.DomEvent,
     stopPropagation: vi.fn(),
@@ -138,18 +138,35 @@ describe("makeNode", () => {
     );
   });
 
+  // The interactivity flag is applied to the marker's options, not to the
+  // options passed to `circleMarker`: the marker is still constructed through
+  // `makeNode`, so the constructor call matches the styled node exactly.
   it("previews a hollow node when no variant is given", () => {
-    Util.makePreviewNode({ lat: 1, lng: 2 });
+    const marker = Util.makePreviewNode({ lat: 1, lng: 2 }) as any;
     expect(window.L.circleMarker.mock.calls[0][1]).toEqual({
       radius: 5,
       className: "foliplus-measure-node",
-      interactive: false,
     });
+    expect(marker.options.interactive).toBe(false);
   });
 
-  it("uses the given className on a preview node", () => {
+  // A preview node keeps makeNode's composition: the variant is a modifier
+  // appended to the base class, never a bare className, so NODE_SOLID still
+  // gets the fill and stroke the base class supplies.
+  it("appends the variant to the base on a preview node", () => {
     Util.makePreviewNode({ lat: 1, lng: 2 }, "custom");
-    expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+    expect(window.L.circleMarker.mock.calls[0][1].className).toBe(
+      "foliplus-measure-node custom",
+    );
+  });
+
+  it("drops interactivity off a preview node", () => {
+    Util.makePreviewNode({ lat: 1, lng: 2 }, "custom");
+    expect(window.L.circleMarker.mock.calls[0][1]).not.toHaveProperty(
+      "interactive",
+    );
+    const marker = window.L.circleMarker.mock.results[0].value;
+    expect(marker.options.interactive).toBe(false);
   });
 });
 

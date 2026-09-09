@@ -388,12 +388,14 @@ describe("PolygonMode — preview cursor node", () => {
     // and this cursor dot — nothing else.
     const cursorCall = window.L.circleMarker.mock.calls.at(-1) as [unknown, object];
     expect(cursorCall[0]).toEqual({ lat: 31, lng: 121 });
-    expect(cursorCall[1].interactive).toBe(false);
     expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
 
     // Mounted through addPreview with `isNode` so it lands in the node pane
     // and paints above the preview fill, which sits in the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
+    // `makePreviewNode` writes the flag onto the marker, not into the
+    // `circleMarker` call, so it is checked on the instance.
+    expect(cursor.options.interactive).toBe(false);
     expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor, false, true);
   });
 
@@ -464,8 +466,10 @@ describe("PolygonMode — preview cursor node", () => {
     click({ latlng: { lat: 30, lng: 120 } });
     const firstNode = window.L.circleMarker.mock.results.at(-1).value;
     // A hollow node that is still interactive: this is a placed vertex, not
-    // the transient cursor dot, so the marker must be front-most.
-    expect(window.L.circleMarker.mock.calls.at(-1)[1].interactive).not.toBe(false);
+    // the transient cursor dot, so the marker must be front-most. A preview
+    // node never carries the flag in the constructor call — `makePreviewNode`
+    // writes it onto the marker — so `undefined` is what a real node looks like.
+    expect(window.L.circleMarker.mock.calls.at(-1)[1].interactive).toBeUndefined();
     expect(firstNode.bringToFront).toHaveBeenCalled();
 
     // Re-clicking the last placed vertex finishes the polygon.

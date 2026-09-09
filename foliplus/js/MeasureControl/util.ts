@@ -113,19 +113,16 @@ const makeNode = (latlng: L.LatLng, variant?: string): L.CircleMarker => {
 };
 
 /** A non-interactive node used for transient previews (center, centroid and
- *  the live cursor dot while a shape is being drawn). */
-const makePreviewNode = (
-  latlng: L.LatLng,
-  className: string = CONST.CLASSES.NODE_HOLLOW,
-): L.CircleMarker => {
-  return L.circleMarker(latlng, {
-    radius: CONST.MARKER.RADIUS,
-    className,
-    interactive: false,
-  });
+ *  the live cursor dot while a shape is being drawn). It shares `makeNode`'s
+ *  base-class composition — a bare `NODE_SOLID` would carry the recolor but
+ *  not the fill and stroke the base class supplies, so the dot would render
+ *  as an invisible circle. */
+const makePreviewNode = (latlng: L.LatLng, variant?: string): L.CircleMarker => {
+  const marker = makeNode(latlng, variant);
+  marker.options.interactive = false;
+  return marker;
 };
 
-/** Animate a dash-sweep effect on a finalized polyline/polygon. */
 const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
   const len = (path as SVGPathElement).getTotalLength?.() || 0;

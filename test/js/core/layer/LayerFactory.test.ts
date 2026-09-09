@@ -213,6 +213,29 @@ describe("LayerFactory", () => {
       expect(svgCalls.some(o => o.pane === "label1")).toBe(true);
     });
 
+    // A node that is a Path (the measure center dot is a CircleMarker, a Path
+    // subclass) must be pinned to the node pane's own renderer, the same way
+    // an isLabel Path is pinned to the label pane's. Without this the layer
+    // joins the map with no renderer and gets re-added to the fallback one,
+    // which is the failure this PR fixes.
+    it("pins the node pane on an isNode L.Path", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        graphPane: "graph1",
+        nodePane: "node1",
+      });
+      const node = new window.L.Path();
+      node.isNode = true;
+      api.addLayer(node);
+      expect(node.options.pane).toBe("node1");
+      // The renderer is pinned on the layer too: without it the layer joins
+      // the map renderer-less, which is the fallback-re-add bug this pins.
+      expect(node.options.renderer).toBeDefined();
+      const svgCalls = window.L.svg.mock.calls.map((c: any[]) => c[0]);
+      expect(svgCalls.some(o => o.pane === "node1")).toBe(true);
+    });
+
     it("falls through to origAddLayer when no graphPane/labelPane", () => {
       const api = factory.createLayers({ id: "test", name: "Test" });
       const layer = new window.L.Path();

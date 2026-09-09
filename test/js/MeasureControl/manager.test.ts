@@ -1008,6 +1008,27 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     expect(dataLeaf.options.interactive).toBe(true);
     expect(dataLeaf.addInteractiveTarget).toHaveBeenCalled();
   });
+
+  it("edit mode keeps node-pane layers interactive (the draggable handles live there)", () => {
+    // Regression: finalized circle nodes route into the node pane, so a skip
+    // list that omits it suspends exactly the handles edit mode is meant to
+    // keep draggable.
+    const { manager, map } = makeManager();
+    const { leaf: nodeLeaf } = makeLeaf(map);
+    nodeLeaf.options.pane = "measure_node";
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
+      fn({
+        eachLayer: (c: (l: unknown) => void) => c(nodeLeaf),
+      }),
+    );
+
+    manager.setEditMode(true);
+    expect(nodeLeaf.options.interactive).toBe(true); // still draggable
+    expect(nodeLeaf.removeInteractiveTarget).not.toHaveBeenCalled();
+
+    manager.setEditMode(false);
+    expect(nodeLeaf.options.interactive).toBe(true);
+  });
 });
 
 it("onExportClick triggers the export flow", () => {

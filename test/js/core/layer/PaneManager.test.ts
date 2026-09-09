@@ -181,14 +181,33 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual([]);
   });
 
-  it("bumpLabelPanes sets z + 1 on label panes", () => {
+  it("bumpLabelPanes sets z + 2 on label panes", () => {
+    // Two steps, not one: the node pane takes the first step, so a label has
+    // to clear it to win without leaning on DOM source order.
     const pane = document.createElement("div");
     const map = { getPane: vi.fn(() => pane), createPane: vi.fn() };
     const pm = new PaneManager(map);
     pm.labelPanes.add("measure_label");
     const layer = { options: { pane: "measure_label" } };
     pm.bumpLabelPanes(layer, 600);
-    expect(pane.style.zIndex).toBe("601");
+    expect(pane.style.zIndex).toBe("602");
+  });
+
+  it("ensureVector pins a node pane's renderer and the pane on the layer", () => {
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+      _panes: {},
+      _paneRenderers: {},
+    };
+    const pm = new PaneManager(map);
+    const renderer = { options: { pane: "node1" } };
+    map["foliplus_renderer_node1"] = renderer;
+    const layer = { options: {} };
+    expect(pm.ensureVector(layer, "node1")).toBe(renderer);
+    expect(layer.options.renderer).toBe(renderer);
+    expect(layer.options.pane).toBe("node1");
   });
 
   it("applies a PANE_Z override when creating a pane", () => {

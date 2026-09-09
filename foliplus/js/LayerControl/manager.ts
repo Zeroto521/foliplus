@@ -1,6 +1,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
+  CHILD_PANE_OFFSET,
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateLayersAPI,
@@ -519,18 +520,24 @@ class LayerManager implements LayerAPI {
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
       }
 
-      // Child panes that are not the layer's own `paneName` (its label and node
-      // panes) would otherwise keep the 600 LayerFactory gave them — under every
-      // data pane. Each is pinned one step above the graph pane of the layer
-      // that owns it; label is declared last, so it ends up highest.
+      // Child panes that are not the layer's own `paneName` (its node and label
+      // panes) would otherwise keep the z LayerFactory gave them at creation —
+      // under every data pane. Each is pinned above the graph pane of the layer
+      // that owns it: the node pane one step, the label pane two, so labels beat
+      // nodes without falling back to DOM source order.
       for (let i = 0; i < this.layers.length; i++) {
         const info = this.layers[i];
         if (!info.paneName) continue;
         const graphZ = this.computeZIndex(i, false);
-        for (const child of [info.nodePane, info.labelPane]) {
+        const childOffset: Array<["nodePane", number] | ["labelPane", number]> = [
+          ["nodePane", CHILD_PANE_OFFSET.nodePane],
+          ["labelPane", CHILD_PANE_OFFSET.labelPane],
+        ];
+        for (const [key, offset] of childOffset) {
+          const child = info[key];
           if (!child) continue;
           const childPaneEl = this.map.getPane(child);
-          if (childPaneEl) childPaneEl.style.zIndex = String(graphZ + 1);
+          if (childPaneEl) childPaneEl.style.zIndex = String(graphZ + offset);
         }
       }
 

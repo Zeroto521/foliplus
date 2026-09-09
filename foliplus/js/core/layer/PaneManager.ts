@@ -151,7 +151,7 @@ class PaneManager {
     childPanes.forEach(cp => {
       if (this.labelPanes.has(cp)) {
         const lp = this.ensurePane(cp, false);
-        if (lp.pane) lp.pane.style.zIndex = String(z + 1);
+        if (lp.pane) lp.pane.style.zIndex = String(z + CONST.CHILD_PANE_OFFSET.labelPane);
       }
     });
   }

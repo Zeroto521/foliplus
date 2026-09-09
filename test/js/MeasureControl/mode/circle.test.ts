@@ -183,11 +183,12 @@ describe("CircleMode — restore", () => {
     expect(window.L.circleMarker).toHaveBeenCalled(); // center + radius nodes
     expect(window.L.marker).toHaveBeenCalled(); // labels + del icons
     expect(manager.layers.addLayer).toHaveBeenCalled();
-    // Fill, radius line, then the radius node. The center is not part of the
-    // graph stack — it is in the node pane.
-    expectStack(manager, ["shape", "radiusLine", "node"]);
-    // The center is the only node-pane layer, so nothing can paint over it.
-    expect(nodeLayers(manager)).toHaveLength(1);
+    // Fill, radius line. The radius node is not part of the graph stack: it is
+    // a node-pane layer, beside the center.
+    expectStack(manager, ["shape", "radiusLine"]);
+    // Center and radius node share the node pane, so the center's slot there
+    // is not permanently first and the radius line cannot paint over it.
+    expect(nodeLayers(manager)).toHaveLength(2);
     expect(manager.editHandles.size).toBe(1);
     expect(typeof manager.editHandles.get("c_r1").dispose).toBe("function");
   });
@@ -233,18 +234,19 @@ describe("CircleMode — start drawing flow", () => {
       clickHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       vi.runAllTimers();
 
-      // Finalization replaces the previews: fill, radius line, then the radius
-      // node. The ripple is a transient shape layer: it rides on top of the
-      // fill, plays the sweep, and is removed on `animationend`. Its slot is
-      // `shape`, not an out-of-order attach. The preview shape and radius line
-      // stay recorded ahead of them (removeLayer does not unrecord), so the
-      // finalized run is the trailing attach, not the prefix.
+      // Finalization replaces the previews: fill, radius line. The ripple is a
+      // transient shape layer: it rides on top of the fill, plays the sweep,
+      // and is removed on `animationend`. Its slot is `shape`, not an
+      // out-of-order attach. The preview shape and radius line stay recorded
+      // ahead of them (removeLayer does not unrecord), so the finalized run is
+      // the trailing attach, not the prefix.
       const all = graphStack(manager);
-      expect(all.slice(-4)).toEqual(["shape", "shape", "radiusLine", "node"]);
-      // The final center replaces the preview center in the node pane, and the
-      // finalized radius node joins them — the preview radius node stays
-      // recorded, so three attaches, not two.
-      expect(nodeLayers(manager)).toHaveLength(3);
+      expect(all.slice(-3)).toEqual(["shape", "shape", "radiusLine"]);
+      // Four node-pane attaches: the preview center and preview radius node
+      // from drawing, plus the finalized radius node and finalized center from
+      // finishCircle. The preview center is removed in favour of the final one;
+      // removeLayer does not unrecord, so all four stay visible here.
+      expect(nodeLayers(manager)).toHaveLength(4);
 
       expect(manager.measurements.length).toBe(1);
       expect(manager.measurements[0].radius).toBeGreaterThan(0);

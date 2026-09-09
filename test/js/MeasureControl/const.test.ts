@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generateId } from "#core/component.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { DEL_ICON_CHAR } from "#common/delicon.js";
+import * as LAYER_CONST from "#core/layer/const.js";
 
 describe("TIMING", () => {
   it("defines timing constants", () => {
@@ -58,9 +59,22 @@ describe("ID", () => {
 });
 
 describe("PANES", () => {
-  it("defines pane names", () => {
+  it("defines the three pane names", () => {
     expect(CONST.PANES.GRAPH).toBe("measure_graph");
+    expect(CONST.PANES.NODE).toBe("measure_node");
     expect(CONST.PANES.LABEL).toBe("measure_label");
+  });
+
+  it("sits in ascending order in the core pane z table", () => {
+    // The panes form one stack: the graph vectors, then the nodes that must
+    // paint above them (the circle center), then the labels. The z table is
+    // what makes the order survive whichever pane is created first — and
+    // `enforceOrder` only ever bumps a child pane by one step, so a duplicate
+    // here would leave two members falling back to DOM source order.
+    const z = LAYER_CONST.PANE_Z;
+    expect(CONST.PANES.GRAPH in z).toBe(true);
+    expect(z[CONST.PANES.NODE]).toBeGreaterThan(z[CONST.PANES.GRAPH]);
+    expect(z[CONST.PANES.LABEL]).toBeGreaterThan(z[CONST.PANES.NODE]);
   });
 });
 
@@ -73,9 +87,9 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it clears the center dot", () => {
     // The centroid label (isLabel → measure_label pane) and the center dot
-    // (CircleMarker in measure_graph pane) share a latlng. The label pane's
-    // z is graph + 1, so the label always paints above the dot by pane
-    // ordering. The [0, -10] anchor lifts the chip above the dot's centered
+    // (CircleMarker in measure_node pane) share a latlng. The label pane's z
+    // is above the node pane's, so the label always paints above the dot by
+    // pane ordering. The [0, -10] anchor lifts the chip above the dot's centered
     // position, so the dot stays visible underneath as the edit-mode drag
     // target. A positive-y anchor was the wrong fix: it pushed the label
     // *down* past the dot into the fill, where a zoom-out animation

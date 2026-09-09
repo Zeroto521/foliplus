@@ -26,8 +26,13 @@ const foliplus = window.foliplus;
 const T = createScopedTranslator(CONF);
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
- *  draggable and shapes clickable to reveal their ✕ handles. */
-const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
+ *  draggable and shapes clickable to reveal their ✕ handles. All three panes are
+ *  listed: the draggable handles live in the node pane, not the graph one. */
+const skipMeasureLayers = isLayerInPanes([
+  CONST.PANES.GRAPH,
+  CONST.PANES.NODE,
+  CONST.PANES.LABEL,
+]);
 
 /** Group key for edit registrations that carry no measurement id (tests,
  *  one-off call sites) — each such handle stays isolated. A string literal is

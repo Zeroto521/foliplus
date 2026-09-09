@@ -10,6 +10,10 @@ export function initMocks() {
   isDragSyntheticClick();
 
   window.L.circleMarker = vi.fn(() => ({
+    // Marker options: `makePreviewNode` writes `interactive` onto the marker
+    // rather than into the constructor call, since the marker is built through
+    // `makeNode`.
+    options: {},
     bringToFront: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),

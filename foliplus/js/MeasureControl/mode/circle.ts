@@ -54,6 +54,8 @@ class CircleMode extends PreviewMode {
     ) as L.Polyline;
     const radiusNode = manager.layers.addLayer(
       Util.makeNode(targetLatLng),
+      false,
+      true,
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
@@ -273,9 +275,10 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      // The center also gets the node pane, matching `restore`: the preview
-      // center is already in it, and swapping panes would re-add the path.
-      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
+      // Both nodes get the node pane: the preview center is already in it, and
+      // swapping panes would re-add the path. Without the `true` the radius
+      // node lands in the graph pane under the circle and radius line.
+      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng), false, true);
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         false,

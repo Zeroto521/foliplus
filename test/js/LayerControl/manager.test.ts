@@ -1066,7 +1066,10 @@ describe("LayerManager", () => {
       manager.enforceOrder();
       const graphZ = Number(graph.style.zIndex);
       expect(Number(node.style.zIndex)).toBe(graphZ + 1);
-      expect(Number(label.style.zIndex)).toBe(graphZ + 1);
+      // The label pane gets its own step, distinct from the node pane's: an
+      // equal z would leave the two falling back to DOM source order — the
+      // ambiguity PANE_Z exists to remove.
+      expect(Number(label.style.zIndex)).toBe(graphZ + 2);
       expect(graphZ).toBeGreaterThan(Z_INDEX.BASE);
     });
 
@@ -1113,8 +1116,9 @@ describe("LayerManager", () => {
 
       const z = Number(graph.style.zIndex);
       expect(z).toBeGreaterThan(0);
-      // Label panes are bumped one step above the graph pane's z.
-      expect(Number(label.style.zIndex)).toBe(z + 1);
+      // Label panes are bumped two steps above the graph pane's z, so they
+      // beat the node pane the same way.
+      expect(Number(label.style.zIndex)).toBe(z + 2);
       expect(layer.options.paneSet).toBe(true);
       // Discovered child panes are handled by their own branch; a fallback
       // pane for this layer must not be created alongside them.
