@@ -952,12 +952,13 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
-      // Record the row the pointer touched. Clicking the label or the checkbox
-      // does not move DOM focus off the previously focused row, so the marker
-      // has to be re-homed here or the next Space/Enter toggles the wrong row.
+      // Record the row the pointer touched so the next Space/Enter toggles
+      // the right row. Do NOT paint the cursor visual: a pointer click is
+      // not a focus arrival (only Tab / arrows / :focus-visible are), and
+      // repeated checkbox toggles must not look "focused".
       this.clickedRow =
         el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
-      this.syncActiveItem();
+      this.syncActiveIndex();
 
       if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
@@ -1397,6 +1398,14 @@ class LayerUI {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
     this.moveActiveMarker(idx === null ? null : items[idx], items);
+  }
+
+  /** Re-home activeIdx from clickedRow / DOM focus without painting the
+   *  cursor class. Used by pointer clicks: they must target Space/Enter but
+   *  must not look like a keyboard focus arrival. */
+  private syncActiveIndex(): void {
+    const items = this.getNavigableItems();
+    this.activeIdx = this.resolveActiveIdx(items);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.

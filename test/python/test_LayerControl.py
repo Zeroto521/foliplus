@@ -3182,6 +3182,40 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
+    def test_checkbox_click_never_leaves_row_cursor(self, browser, tmp_path):
+        """Repeated checkbox toggles must not look like a focus arrival.
+
+        Pointer clicks target Space/Enter via clickedRow/activeIdx but never
+        paint `.foliplus-layer-focused` (white + glow). Keyboard still lights
+        the row via Tab / arrows.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
+            page.mouse.move(0, 0)
+            result = page.evaluate(_js("LayerControl/checkbox_click_no_cursor"))
+            assert result is not None and "error" not in result, (
+                f"checkbox click snippet failed: {result}"
+            )
+            assert result["anyCursorClass"] is False, (
+                "checkbox clicks must not apply .foliplus-layer-focused, got "
+                + str(result)
+            )
+            assert result["anyGlow"] is False, (
+                "checkbox clicks must not light the cursor glow, got " + str(result)
+            )
+
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
         """Double-clicking an overlay draws the dashed rect + inverse mask."""
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)

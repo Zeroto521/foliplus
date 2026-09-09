@@ -2153,15 +2153,37 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(document.activeElement).toBe(checkbox);
     });
 
+    it("repeated checkbox clicks never leave the row cursor visual on", () => {
+      // Pointer toggles are not a focus arrival: they must not paint the
+      // white+glow recipe. Keyboard (Tab / arrows) still lights it via
+      // setActiveItem / focusin.
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+
+      for (let i = 0; i < 3; i++) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+        expect(
+          ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+        ).toHaveLength(0);
+      }
+      // Space/Enter must still target the last-clicked row.
+      expect((ui as any).clickedRow).toBe(overlay);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
     it("Escape clears a cursor established by mouse (no DOM focus on the row)", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // A click on the row label sets clickedRow but leaves DOM focus on the
-      // previous row (or <body>) — the mouse path that used to be unreachable.
+      // A click on the row label sets clickedRow but must NOT paint the
+      // cursor visual — pointer is not a focus arrival.
       const label = overlay.querySelector("label") as HTMLElement;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect((ui as any).clickedRow).toBe(overlay);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(document.activeElement).not.toBe(overlay);
 
       pressKey(overlay, "Escape");
@@ -2170,11 +2192,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      // clickedRow drops to null when focus moves off the row (focusin handler),
-      // so the marker only survives clicks that don't move DOM focus.
-      expect((ui as any).clickedRow).toBeNull();
-      // Not dropped to <body> — a real focus move supersedes the cancel.
-      expect(document.activeElement).toBe(overlay);
+      // Escape still drops the keyboard index so the next arrow re-bootstraps
+      // rather than resuming a row the pointer only targeted for a toggle.
+      // (blurActiveItem keeps activeIdx; clear happens only on outside-mousedown.)
     });
 
     it("mousedown outside the panel drops the cursor through the shared dispatcher", () => {
