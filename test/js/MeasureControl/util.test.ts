@@ -162,9 +162,7 @@ describe("makeNode", () => {
 
   it("drops interactivity off a preview node", () => {
     Util.makePreviewNode({ lat: 1, lng: 2 }, "custom");
-    expect(window.L.circleMarker.mock.calls[0][1]).not.toHaveProperty(
-      "interactive",
-    );
+    expect(window.L.circleMarker.mock.calls[0][1]).not.toHaveProperty("interactive");
     const marker = window.L.circleMarker.mock.results[0].value;
     expect(marker.options.interactive).toBe(false);
   });

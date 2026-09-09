@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { generateId } from "#core/component.js";
+import * as LAYER_CONST from "#core/layer/const.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { DEL_ICON_CHAR } from "#common/delicon.js";
-import * as LAYER_CONST from "#core/layer/const.js";
 
 describe("TIMING", () => {
   it("defines timing constants", () => {

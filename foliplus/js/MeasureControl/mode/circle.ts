@@ -278,7 +278,11 @@ class CircleMode extends PreviewMode {
       // Both nodes get the node pane: the preview center is already in it, and
       // swapping panes would re-add the path. Without the `true` the radius
       // node lands in the graph pane under the circle and radius line.
-      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng), false, true);
+      const radiusNode = this.layers.addLayer(
+        Util.makeNode(finalTargetLatLng),
+        false,
+        true,
+      );
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         false,
