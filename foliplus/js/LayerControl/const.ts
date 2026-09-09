@@ -1,9 +1,9 @@
+import type { NumberStyle } from "#common/format.js";
+
 /** Timing / delay constants. */
 const INIT_DELAY_MS = 300;
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 const SAVE_ORDER_DEBOUNCE_MS = 100;
-
-import type { NumberStyle } from "#common/format.js";
 
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };

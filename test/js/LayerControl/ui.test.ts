@@ -3586,7 +3586,9 @@ describe("LayerUI field-cache invalidation", () => {
     // prime it with the empty answer collectFields would return for the
     // fixture's leaf-less data layer.
     expect(ui.layerHasLabelFields("overlay1")).toBe(false);
-    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.get("overlay1")).toEqual([]);
+    expect(
+      (ui as { fieldCache: Map<string, string[]> }).fieldCache.get("overlay1"),
+    ).toEqual([]);
 
     // Features with properties land on the layer at runtime.
     const fields = ["count", "name"];
@@ -3604,9 +3606,13 @@ describe("LayerUI field-cache invalidation", () => {
 
   it("invalidateFields drops a layer's cached list on unregister", () => {
     ui.layerHasLabelFields("overlay1");
-    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1")).toBe(true);
+    expect(
+      (ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1"),
+    ).toBe(true);
 
     ui.invalidateFields("overlay1");
-    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1")).toBe(false);
+    expect(
+      (ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1"),
+    ).toBe(false);
   });
 });
