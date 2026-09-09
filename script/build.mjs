@@ -215,6 +215,7 @@ const COMMON_CSS_ORDER = [
   "button.css",
   "menu.css",
   "input.css",
+  "form.css",
   "hint.css",
   "icon.css",
   "ctrl-fold.css",

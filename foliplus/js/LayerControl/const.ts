@@ -1,3 +1,5 @@
+import type { NumberStyle } from "#common/format.js";
+
 /** Timing / delay constants. */
 const INIT_DELAY_MS = 300;
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -17,6 +19,8 @@ const STORAGE = {
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
   /** Map of layer id → user-assigned display name. */
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
+  /** Map of layer id → annotation config (show/field/format). */
+  ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
@@ -93,6 +97,10 @@ const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
+  /** Floating style panel opened from the layer overflow menu. */
+  STYLE_PANEL: "foliplus-layer-style-panel",
+  /** Marker wrapper element used to render an annotation label. */
+  ANNOTATION_LABEL: "foliplus-annotation-label",
 };
 
 /** Data attribute names. */
@@ -104,7 +112,11 @@ const DATA = {
 };
 
 /** Overflow-menu action values (data-action). */
-const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+const ACTION = {
+  FOCUS_LAYER: "focus-layer",
+  RENAME_LAYER: "rename-layer",
+  STYLE_LAYER: "style-layer",
+};
 
 /** DOM selectors. */
 const SEL = {
@@ -116,18 +128,39 @@ const SEL = {
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
+  STYLE_PANEL: ".foliplus-layer-style-panel",
 };
 
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
+
+/** Annotation label number-format presets. Values mirror `NumberStyle`
+ *  (common/format.ts) — the UI-facing constant map, so the locale keys and the
+ *  format dropdown are named rather than typed. */
+type FormatKey = "AUTO" | "INT" | "COMMA" | "PERCENT";
+const FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const satisfies Record<FormatKey, NumberStyle>;
+
+/** Default annotation config for a layer (disabled). */
+const DEFAULT_ANNOTATION = {
+  show: false,
+  field: "",
+  format: FORMAT.AUTO,
+} as const;
 
 export {
   ACTION,
   CLASSES,
   COLOR,
   DATA,
+  DEFAULT_ANNOTATION,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
+  FORMAT,
   FOCUS,
   FOCUS_PANE,
   GROUP,

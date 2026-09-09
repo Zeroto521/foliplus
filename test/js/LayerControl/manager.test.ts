@@ -793,6 +793,7 @@ describe("LayerManager", () => {
     manager.ui = {
       reindexItems: vi.fn(),
       saveHiddenIds: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
@@ -806,6 +807,7 @@ describe("LayerManager", () => {
       hiddenIds: new Set(["overlay1", "base1"]),
       reindexItems: vi.fn(),
       saveHiddenIds,
+      invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
 

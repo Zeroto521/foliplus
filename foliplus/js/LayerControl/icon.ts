@@ -74,12 +74,19 @@ const FOCUS = `
     <circle cx="12" cy="12" r="2.2" class="solid"/>
   </svg>`;
 
+/** "Layer style" — a capital T representing a text label / annotation. */
+const LABEL = `
+  <svg viewBox="0 0 24 24">
+    <path d="M5 4 H19 M12 4 V20"/>
+  </svg>`;
+
 export {
   COLOR,
   DRAG_HANDLE,
   EMPTY,
   FOLD,
   FOCUS,
+  LABEL,
   LAYERS,
   LINE,
   MORE,

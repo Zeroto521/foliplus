@@ -104,9 +104,10 @@ describe("build artifacts", () => {
     // MeasureControl bundles its own label-collision geometry (placeLabels)
     // inline.
     "foliplus-MeasureControl.min.js": 120000,
-    // LayerControl is otherwise the largest component (~113KB unminified now:
-    // rename, focus, reorder, fold, and the four-dimension persistence).
-    "foliplus-LayerControl.min.js": 130000,
+    // LayerControl is otherwise the largest component (~136KB unminified now:
+    // rename, focus, reorder, fold, the annotation style panel, the
+    // escape-cancel chain, and the five-dimension persistence).
+    "foliplus-LayerControl.min.js": 160000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
