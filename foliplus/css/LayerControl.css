@@ -793,6 +793,9 @@ path.foliplus-focus-mask {
   --style-panel-width: 240px;
   .foliplus-layer-style-panel {
     position: absolute;
+    /* Hidden until .expanded below — positionStylePanel always positions the
+       panel, so display is the only gate. Kept as a defensive fallback for a
+       panel appended without the class. */
     display: none;
     width: var(--style-panel-width);
     top: 0;
@@ -885,9 +888,11 @@ path.foliplus-focus-mask {
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
     white-space: nowrap;
+    /* A white halo keeps labels legible over dark satellite basemaps. Uses the
+       white token rather than a hard-coded hex so a future theme stays wired. */
     text-shadow:
-      0 0 4px #ffffff,
-      0 0 8px #ffffff,
-      0 0 12px #ffffff;
+      0 0 4px var(--neutral-0),
+      0 0 8px var(--neutral-0),
+      0 0 12px var(--neutral-0);
   }
 }

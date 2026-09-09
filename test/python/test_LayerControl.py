@@ -192,12 +192,13 @@ class TestLayerControlRendering:
             "style_layer",
             "label",
             "label_field",
+            "label_field_placeholder",
             "label_format",
             "label_format_auto",
             "label_format_int",
             "label_format_comma",
             "label_format_percent",
-            "collision",
+            "label_no_data",
         }
         for lang in ("en", "zh"):
             data = json.loads(

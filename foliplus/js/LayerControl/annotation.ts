@@ -9,6 +9,7 @@
 // the layer's count, type icon, or point extraction, and they toggle together
 // with the parent layer (added as children of the source layer via addLayer).
 import { type LabelAwareLayer, forEachLeaf } from "#core/layer/index.js";
+import { escapeHTML } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -26,7 +27,7 @@ const LABEL_OFFSET_DY = 14;
 interface AnnotationConfig {
   show: boolean;
   field: string;
-  format: string; // one of CONST.FORMAT keys
+  format: NumberStyle;
 }
 
 /** A label marker plus the leaf it annotates, for later re-use / removal. */
@@ -51,14 +52,9 @@ class AnnotationManager {
     this.config = new Map();
   }
 
+  /** Read the config for a layer, or the default (labels off) when unset. */
   getConfig(id: string): AnnotationConfig {
-    return (
-      this.config.get(id) ?? {
-        show: false,
-        field: "",
-        format: CONST.FORMAT.AUTO,
-      }
-    );
+    return { ...CONST.DEFAULT_ANNOTATION, ...(this.config.get(id) ?? {}) };
   }
 
   setConfig(id: string, cfg: AnnotationConfig): void {
@@ -124,24 +120,14 @@ class AnnotationManager {
 
   /** Format a value for display according to the configured style.
    *  String values pass through unchanged; numeric values use formatNumber. */
-  formatValue(value: string, format: string, locale = "en"): string {
-    if (format === CONST.FORMAT.AUTO) {
-      const n = parseNum(value);
-      return n === null ? value : formatNumber(n, "auto", locale);
-    }
-    if (
-      format === CONST.FORMAT.INT ||
-      format === CONST.FORMAT.COMMA ||
-      format === CONST.FORMAT.PERCENT
-    ) {
-      const n = parseNum(value);
-      if (n === null) return value;
-      // Whole-number label: annotation values are counts and ids, so pin
-      // fractionDigits to 0 rather than inheriting the 1-decimal default that
-      // would turn 6,000 into "6,000.0".
-      return formatNumber(n, format as NumberStyle, locale, 0);
-    }
-    return value;
+  formatValue(value: string, format: NumberStyle, locale = "en"): string {
+    const n = parseNum(value);
+    if (n === null) return value;
+    if (format === CONST.FORMAT.AUTO) return formatNumber(n, format, locale);
+    // Whole-number label: annotation values are counts and ids, so pin
+    // fractionDigits to 0 rather than inheriting the 1-decimal default that
+    // would turn 6,000 into "6,000.0".
+    return formatNumber(n, format, locale, 0);
   }
 
   /** Render labels for a layer according to its current config.
@@ -219,19 +205,5 @@ const parseNum = (v: string): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
-
-/** Minimal HTML escaping for label text (attribute-safe innerHTML). */
-const escapeHTML = (s: string): string =>
-  s.replace(
-    /[&<>"']/g,
-    ch =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[ch]!,
-  );
 
 export { AnnotationManager, type AnnotationConfig };

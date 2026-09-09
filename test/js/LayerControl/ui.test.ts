@@ -3213,3 +3213,48 @@ describe("LayerUI annotation style panel positioning", () => {
     expect(panel.style.left).toBe("");
   });
 });
+
+describe("LayerUI field-cache invalidation", () => {
+  let manager: LayerManager, ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("drops a stale cached empty field list on LAYER_ITEM_COUNT_CHANGE", () => {
+    // A layer registered with no labelable fields caches an empty list; a
+    // runtime createLayers may later add features carrying properties, which
+    // must un-stick the ⋮ menu's Style item. The cache is populated lazily, so
+    // prime it with the empty answer collectFields would return for the
+    // fixture's leaf-less data layer.
+    expect(ui.layerHasLabelFields("overlay1")).toBe(false);
+    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.get("overlay1")).toEqual([]);
+
+    // Features with properties land on the layer at runtime.
+    const fields = ["count", "name"];
+    vi.spyOn(manager.annotation, "collectFields").mockReturnValue(fields);
+
+    ui.onLayerItemCountChange("overlay1");
+
+    expect(
+      (ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1"),
+    ).toBe(false);
+    expect(ui.layerHasLabelFields("overlay1")).toBe(true);
+    // The next lookup reads the fresh list, so the menu item is enabled.
+    expect(ui.layerHasLabelFields("overlay1")).toBe(true);
+  });
+
+  it("invalidateFields drops a layer's cached list on unregister", () => {
+    ui.layerHasLabelFields("overlay1");
+    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1")).toBe(true);
+
+    ui.invalidateFields("overlay1");
+    expect((ui as { fieldCache: Map<string, string[]> }).fieldCache.has("overlay1")).toBe(false);
+  });
+});

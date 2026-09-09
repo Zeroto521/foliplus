@@ -14,7 +14,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
+import { type NumberStyle, formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type AnnotationConfig } from "./annotation.js";
@@ -1082,6 +1082,10 @@ class LayerUI {
     if (!item) return;
     const layerInfo = this.m.layerRegistry.get(id);
     if (!layerInfo || layerInfo.isBase) return;
+    // A runtime createLayers may have added features carrying properties, so a
+    // previously-cached empty field list is now stale — drop it so the ⋮ menu's
+    // Style item un-sticks instead of staying disabled until the panel opens.
+    this.invalidateFields(id);
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
     const typeCol = item.querySelector(
@@ -1852,17 +1856,20 @@ class LayerUI {
   // Annotation style panel
   // ─────────────────────────────────────────────────────────────────
 
-  /** Cached labelable fields for a layer. Returns [] when the layer has no
-   *  feature.properties (base maps, color basemap, canvas layers). */
+  /** Whether the layer has any labelable fields. Returns false for base maps,
+   *  the color basemap, and canvas layers (no feature.properties). */
   layerHasLabelFields(layerId: string): boolean {
-    const cached = this.fieldCache.get(layerId);
-    if (cached) return cached.length > 0;
-    const fields = this.m.annotation.collectFields(layerId);
-    this.fieldCache.set(layerId, fields);
-    return fields.length > 0;
+    return this.layerFields(layerId).length > 0;
   }
 
-  /** Field list for a layer (cached). */
+  /** Drop a layer's cached field list. Called when a layer's features can
+   *  change (runtime createLayers) or when the layer is removed. */
+  invalidateFields(layerId: string): void {
+    this.fieldCache.delete(layerId);
+  }
+
+  /** Field list for a layer (cached). The only reader of `fieldCache`, so
+   *  invalidation lives in one place — see onLayerItemCountChange. */
   private layerFields(layerId: string): string[] {
     const cached = this.fieldCache.get(layerId);
     if (cached) return cached;
@@ -1939,7 +1946,7 @@ class LayerUI {
 
   /** Close the open style panel. */
   closeStylePanel() {
-    if (this.stylePanelLayerId) this.fieldCache.delete(this.stylePanelLayerId);
+    if (this.stylePanelLayerId) this.invalidateFields(this.stylePanelLayerId);
     this.stylePanelLayerId = null;
     if (this.onStylePanelShift) {
       const scrollEl = this.uiContainer.closest(".foliplus-panel-content");
@@ -1990,49 +1997,27 @@ class LayerUI {
         ) as HTMLInputElement | null)
       : null;
 
-    if (toggle) {
+    const patch: Partial<AnnotationConfig> = {};
+    if (toggle) patch.show = toggle.checked;
+    else if (field) patch.field = field.value;
+    else if (fmt) patch.format = fmt.value as NumberStyle;
+    else if (!resetBtn) return;
+
+    if (resetBtn) this.m.annotation.setConfig(layerId, { ...CONST.DEFAULT_ANNOTATION });
+    else {
       const cfg = this.m.annotation.getConfig(layerId);
-      cfg.show = toggle.checked;
+      Object.assign(cfg, patch);
       this.m.annotation.setConfig(layerId, cfg);
-      this.m.annotation.renderLabels(layerId);
-      this.persistAnnotation();
-      return;
     }
-    if (field) {
-      const cfg = this.m.annotation.getConfig(layerId);
-      cfg.field = field.value;
-      this.m.annotation.setConfig(layerId, cfg);
-      this.m.annotation.renderLabels(layerId);
-      this.persistAnnotation();
-      return;
-    }
-    if (fmt) {
-      const cfg = this.m.annotation.getConfig(layerId);
-      cfg.format = fmt.value;
-      this.m.annotation.setConfig(layerId, cfg);
-      this.m.annotation.renderLabels(layerId);
-      this.persistAnnotation();
-      return;
-    }
-    if (resetBtn) {
-      this.m.annotation.setConfig(layerId, {
-        show: false,
-        field: "",
-        format: CONST.FORMAT.AUTO,
-      });
-      this.m.annotation.renderLabels(layerId);
-      this.persistAnnotation();
-      this.closeStylePanel();
-      return;
-    }
+    this.m.annotation.renderLabels(layerId);
+    this.persistAnnotation();
+    if (resetBtn) this.closeStylePanel();
   }
 
   /** Persist the current per-layer annotation config map. */
   private persistAnnotation() {
     this.m.persistence.saveAnnotations(() =>
-      Object.fromEntries(
-        [...this.m.annotation.configEntries()].map(([id, cfg]) => [id, cfg]),
-      ),
+      Object.fromEntries(this.m.annotation.configEntries()),
     );
   }
 
@@ -2119,21 +2104,6 @@ class LayerUI {
         { class: "foliplus-form-row" },
         dom.el("label", { class: "foliplus-form-label" }, T("label_format")),
         dom.el("div", { class: "foliplus-form-control" }, formatSelect),
-      ),
-      dom.el(
-        "div",
-        { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, T("collision")),
-        dom.el(
-          "div",
-          { class: "foliplus-form-control" },
-          dom.el(
-            "label",
-            { class: "foliplus-toggle-switch", title: T("collision_hint") },
-            dom.el("input", { type: "checkbox", disabled: "" }),
-            dom.el("span", { class: "foliplus-toggle-slider" }),
-          ),
-        ),
       ),
       dom.el(
         "div",

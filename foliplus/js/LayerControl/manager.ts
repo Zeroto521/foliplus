@@ -463,10 +463,15 @@ class LayerManager implements LayerAPI {
     this.ui?.saveHiddenIds();
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
+    this.ui?.invalidateFields(id);
     if (this.ui?.renamedNames?.[id] != null) {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
+    // The two writes above are on separate debounce timers. Flush so the
+    // removal lands immediately rather than riding out the 100ms window —
+    // unregister is rare, so the flush cost is not worth amortising.
+    this.persistence.flushAll();
     ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.

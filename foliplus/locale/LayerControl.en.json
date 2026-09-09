@@ -48,12 +48,10 @@
   "LayerControl.label": "Labels",
   "LayerControl.label_tooltip": "Show text labels on features",
   "LayerControl.label_field": "Label field",
-  "LayerControl.label_field_placeholder": "No fields",
+  "LayerControl.label_field_placeholder": "Select field",
   "LayerControl.label_format": "Number format",
   "LayerControl.label_format_auto": "Auto",
   "LayerControl.label_format_int": "Integer",
   "LayerControl.label_format_comma": "Thousands sep.",
-  "LayerControl.label_format_percent": "Percent",
-  "LayerControl.collision": "Collision",
-  "LayerControl.collision_hint": "Collision avoidance coming soon"
+  "LayerControl.label_format_percent": "Percent"
 }

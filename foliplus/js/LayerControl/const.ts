@@ -3,6 +3,8 @@ const INIT_DELAY_MS = 300;
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 const SAVE_ORDER_DEBOUNCE_MS = 100;
 
+import type { NumberStyle } from "#common/format.js";
+
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
@@ -127,13 +129,16 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Annotation label number-format presets. */
+/** Annotation label number-format presets. Values mirror `NumberStyle`
+ *  (common/format.ts) — the UI-facing constant map, so the locale keys and the
+ *  format dropdown are named rather than typed. */
+type FormatKey = "AUTO" | "INT" | "COMMA" | "PERCENT";
 const FORMAT = {
   AUTO: "auto",
   INT: "int",
   COMMA: "comma",
   PERCENT: "percent",
-} as const;
+} as const satisfies Record<FormatKey, NumberStyle>;
 
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {

@@ -16,7 +16,9 @@
 
 .foliplus-form-label {
   flex-shrink: 0;
-  width: 88px;
+  /* min-width, not width: the column grows past 88px so longer localized
+     labels aren't clipped, while short ones stay left-aligned with the rest. */
+  min-width: 88px;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   text-align: right;
