@@ -30,7 +30,7 @@ interface AnnotationConfig {
   format: NumberStyle;
 }
 
-/** A label marker plus the leaf it annotates, for later re-use / removal. */
+/** A label marker plus the leaf it annotates, for later reuse / removal. */
 interface LabelMarker {
   leaf: L.Layer;
   marker: L.Marker;
