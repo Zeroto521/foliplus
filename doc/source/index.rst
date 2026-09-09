@@ -4,10 +4,13 @@ foliplus
 foliplus: the missing piece between "see the map" and "use the map".
 GeoPandas handles data, Folium renders it, foliplus brings it to life.
 
-.. image:: https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png
-   :alt: foliplus preview
-   :align: center
-   :target: quickstart.html#display-map
+.. raw:: html
+
+   <p align="center">
+     <a href="quickstart.html#display-map">
+       <img src="https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png" alt="foliplus preview">
+     </a>
+   </p>
 
 Scope
 -----
