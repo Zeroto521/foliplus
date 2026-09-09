@@ -4,12 +4,19 @@ foliplus
 foliplus: the missing piece between "see the map" and "use the map".
 GeoPandas handles data, Folium renders it, foliplus brings it to life.
 
+.. image:: https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png
+   :alt: foliplus preview
+   :align: center
+
 Scope
 -----
 
 Layer data passed to foliplus is read-only: no editing, upload, or deletion.
 
 Data processing happens upstream. foliplus handles the map, not the data.
+
+Features
+--------
 
 .. grid:: 1 2 2 3
 
