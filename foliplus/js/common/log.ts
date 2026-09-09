@@ -14,13 +14,12 @@ type LogFn = (message: string, ...args: unknown[]) => void;
 /**
  * A logger with a fixed namespaced prefix.
  *
- * `info` / `warn` / `error` write to the console with `[<name>] `.
+ * `warn` / `error` write to the console with `[<name>] `.
  * `msg` returns the same shape for a `throw new Error(...)` — it never calls
  * console. Call sites keep an explicit `throw new` so the control-flow break
  * stays visible.
  */
 interface Logger {
-  info: LogFn;
   warn: LogFn;
   error: LogFn;
   msg: (message: string) => string;
@@ -30,8 +29,6 @@ interface Logger {
  * Create a logger bound to a `[<name>]` prefix.
  * e.g. createLogger("MeasureControl").warn("export failed:", err)
  *      → console.warn("[MeasureControl] export failed:", err)
- *      → createLogger("foliplus").info("foliplus@v0.3.1")
- *      → console.info("[foliplus] foliplus@v0.3.1")
  *      → createLogger("MeasureControl").msg("crop too small")
  *      → "[MeasureControl] crop too small"
  */
@@ -39,7 +36,6 @@ const createLogger = (name: string): Logger => {
   const namespaced = (message: string): string => `[${name}] ${message}`;
 
   return {
-    info: (message, ...args) => console.info(namespaced(message), ...args),
     warn: (message, ...args) => console.warn(namespaced(message), ...args),
     error: (message, ...args) => console.error(namespaced(message), ...args),
     msg: namespaced,

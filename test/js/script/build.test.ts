@@ -58,11 +58,8 @@ describe("build artifacts", () => {
     expect(content).toMatch(/\/\*!/);
   });
 
-  it("common JS reports version on the console and exposes foliplus.version", () => {
+  it("common JS exposes foliplus.version", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
-    // Module-level logger (same pattern as coord/component); value via esbuild define.
-    expect(content).toMatch(/createLogger\("foliplus"\)/);
-    expect(content).toMatch(/\.info\(`foliplus@\$\{VERSION\}`\)/);
     expect(content).toContain("foliplus.version");
   });
 

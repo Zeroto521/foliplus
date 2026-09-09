@@ -24,13 +24,6 @@ describe("msg", () => {
 });
 
 describe("createLogger", () => {
-  it("info() prefixes with [<name>] and forwards args", () => {
-    const info = vi.fn();
-    vi.stubGlobal("console", { info });
-    createLogger("foliplus").info("foliplus@v0.3.1-143-g2d998615");
-    expect(info).toHaveBeenCalledWith("[foliplus] foliplus@v0.3.1-143-g2d998615");
-  });
-
   it("warn() prefixes with [<name>] and forwards args", () => {
     const warn = vi.fn();
     vi.stubGlobal("console", { warn });
