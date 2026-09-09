@@ -63,11 +63,10 @@ const CLASSES = {
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   HIDDEN: "hidden",
+  /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
+   *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
+   *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-layer-focused",
-  /** Marks a row whose keyboard cursor was cancelled by Escape. The row keeps
-   *  DOM focus (Escape must not blur to `<body>`), so `:focus-visible` still
-   *  matches and would redraw the Row-cursor recipe; this class suppresses it. */
-  FOCUS_SUPPRESSED: "foliplus-layer-focus-suppressed",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
   DRAGGING: "foliplus-layer-dragging",
@@ -114,6 +113,9 @@ const SEL = {
   COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
+  /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
+   *  control focus (checkbox / more / fold) attributes to this via closest(). */
+  ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
 };
 
 /** Group names. */

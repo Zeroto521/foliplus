@@ -81,10 +81,11 @@
 /* ── Dropdown / list item :focus-visible ──
    Every keyboard-focusable foliplus list item shares one focus ring: thin accent
    border + soft glow, replacing the browser's default dark outline. LayerControl
-   layer rows / group rows / more menu items keep their own ring rules (the
-   Row-cursor recipe in LayerControl.css and its more-menu `:focus-visible`), so
-   this shared rule covers only the two components that have no component-local
-   one: the SearchControl result item and the HeatmapControl scheme dropdown item. */
+   layer rows keep their own ring via the Row-cursor recipe (JS class + :hover,
+   never :focus-visible) and its more-menu items keep a component-local
+   `:focus-visible`, so this shared rule covers only the two components that have
+   no component-local one: the SearchControl result item and the HeatmapControl
+   scheme dropdown item. */
 :is(
   .foliplus-search-result-item,
   .foliplus-heatmap-scheme-dropdown-item

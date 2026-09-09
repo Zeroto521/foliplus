@@ -31,6 +31,25 @@ import * as Util from "./util.js";
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
+/** Does the browser consider this focus keyboard-visible?
+ *
+ *  Queried once in the focusin delegate — never as a CSS trigger. jsdom does
+ *  not implement `:focus-visible` and throws on the selector; treat that as
+ *  "not keyboard" so unit tests do not light the recipe on every focus(). */
+const isKeyboardVisibleFocus = (el: Element): boolean => {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+};
+
+/** Owning cursor-recipe row for a focus target (checkbox / more / fold → row). */
+const owningRow = (el: EventTarget | null): HTMLElement | null => {
+  if (!el || typeof (el as Element).closest !== "function") return null;
+  return (el as Element).closest(CONST.SEL.ROW) as HTMLElement | null;
+};
+
 /**
  * Push one persisted rename out to whatever projections of it exist.
  *
@@ -78,7 +97,8 @@ class LayerUI {
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
-  declare onFocusIn: (() => void) | null;
+  declare onFocusIn: ((event: FocusEvent) => void) | null;
+  declare onFocusOut: ((event: FocusEvent) => void) | null;
   declare onDragStart: ((event: DragEvent) => void) | null;
   declare onDragOver: ((event: DragEvent) => void) | null;
   declare onDragLeave: ((event: DragEvent) => void) | null;
@@ -961,8 +981,29 @@ class LayerUI {
     // last-clicked row is stale and must not outrank it. Synthetic clicks and
     // clicks on the non-focusable label don't fire focusin, so clickedRow still
     // survives the cases that need it.
-    this.onFocusIn = () => {
+    //
+    // `:focus-visible` is also sampled here — once, at the moment focus
+    // arrives — and mapped onto the row's JS cursor class. Child controls
+    // (checkbox / more / fold) attribute to the row via closest(ROW). The CSS
+    // recipe therefore never keys on `:focus-visible`, so Escape is just
+    // "remove the class" with no residual selector to suppress.
+    this.onFocusIn = event => {
       this.clickedRow = null;
+      const el = event.target as Element | null;
+      const row = owningRow(el);
+      if (!el || !row) return;
+      if (!isKeyboardVisibleFocus(el)) return;
+      this.blurActiveItem();
+      row.classList.add(CONST.CLASSES.FOCUSED);
+    };
+    // Focus left the row entirely (Tab away, click outside, browser chrome):
+    // drop the JS cursor class. Moves within the same row keep it.
+    this.onFocusOut = event => {
+      const row = owningRow(event.target);
+      if (!row) return;
+      const next = event.relatedTarget as Element | null;
+      if (next && (next === row || row.contains(next))) return;
+      row.classList.remove(CONST.CLASSES.FOCUSED);
     };
     this.interactionCleanup = registerInteractions(this);
 
@@ -970,6 +1011,7 @@ class LayerUI {
     container.addEventListener("input", this.onInput);
     container.addEventListener("click", this.onClick);
     container.addEventListener("focusin", this.onFocusIn);
+    container.addEventListener("focusout", this.onFocusOut);
     container.addEventListener("dragstart", this.onDragStart);
     container.addEventListener("dragover", this.onDragOver);
     container.addEventListener("dragleave", this.onDragLeave);
@@ -1073,6 +1115,7 @@ class LayerUI {
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
     if (this.onFocusIn) container.removeEventListener("focusin", this.onFocusIn);
+    if (this.onFocusOut) container.removeEventListener("focusout", this.onFocusOut);
     if (this.onDragStart) container.removeEventListener("dragstart", this.onDragStart);
     if (this.onDragOver) container.removeEventListener("dragover", this.onDragOver);
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
@@ -1087,7 +1130,7 @@ class LayerUI {
     // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
-    this.onFocusIn = null;
+    this.onFocusIn = this.onFocusOut = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
@@ -1336,11 +1379,7 @@ class LayerUI {
   private resolveActiveIdx(items: HTMLElement[]): number | null {
     const rows: (HTMLElement | null)[] = [];
     if (this.clickedRow) rows.push(this.clickedRow);
-    rows.push(
-      document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
-        document.activeElement?.closest(CONST.SEL.TOGGLE_ALL) ??
-        null,
-    );
+    rows.push(owningRow(document.activeElement));
     for (const row of rows) {
       if (!row) continue;
       const idx = items.indexOf(row);
@@ -1394,9 +1433,10 @@ class LayerUI {
       if (this.activeRenameId) {
         // finishRename() removes the input, which blurs it to `<body>`.
         // Restore the row focus the rename started from before dropping the
-        // cursor: suppressFocusVisual() reads document.activeElement, and a
-        // cursor parked on <body> leaves the panel unreachable — the very
-        // next arrow key would not reach this handler.
+        // cursor: a cursor parked on <body> leaves the panel unreachable —
+        // the very next arrow key would not reach this handler. The focusin
+        // that fires on the restored row may re-apply the class; the
+        // escapeClearCursor() below runs last and wins.
         const layerId = this.activeRenameId;
         this.finishRename();
         this.focusLayerRow(layerId);
@@ -1540,15 +1580,13 @@ class LayerUI {
    * pointing at the last row, so arrow keys resume from there instead of
    * re-lighting the escaped one.
    *
-   * The suppressed-focus marker is what actually makes the cancellation
-   * visible: the row's :focus-visible still matches after the marker is
-   * lifted, and it draws the same white-surface + red-glow recipe as the
-   * keyboard cursor. Keeping DOM focus in place (Escape must not yank the
-   * cursor to <body>) and neutralising the recipe is therefore the only way
-   * to both cancel and stay where the user was. */
+   * Removing the class is sufficient: the CSS recipe keys only on
+   * `.foliplus-layer-focused` + `:hover`, never on `:focus-visible`. DOM
+   * focus stays on the row (Escape must not blur to `<body>`), and a later
+   * focusin re-applies the class only if the browser still reports
+   * keyboard-visible focus. */
   private escapeClearCursor(): void {
     this.blurActiveItem();
-    this.suppressFocusVisual();
   }
 
   /** Return DOM focus to a layer's row. Used by the Escape-rename path:
@@ -1559,40 +1597,6 @@ class LayerUI {
     this.uiContainer
       .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)
       ?.focus();
-  }
-
-  /**
-   * Neutralise the Row-cursor recipe on the row that still holds DOM focus.
-   *
-   * Escape lifts only the JS cursor marker, but the row's `:focus-visible`
-   * still matches and draws the same white surface + red glow — so the cancel
-   * would be invisible without this. Escape must not blur to `<body>` (that
-   * would yank the cursor away from where the user was), so suppressing the
-   * recipe is the only way to both cancel and stay put.
-   *
-   * Re-run after each Escape because the menu and rename cancel paths both
-   * finishRename() / closeMoreMenu() first, and those paths re-render the row
-   * and re-sync the cursor onto a fresh element.
-   */
-  private suppressFocusVisual(): void {
-    // Any row the cursor is no longer on has already lost the marker.
-    for (const row of this.uiContainer.querySelectorAll(
-      `.${CONST.CLASSES.FOCUS_SUPPRESSED}`,
-    )) {
-      row.classList.remove(CONST.CLASSES.FOCUS_SUPPRESSED);
-    }
-    const row =
-      document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
-      document.activeElement?.closest(CONST.SEL.TOGGLE_ALL);
-    if (!row) return;
-    row.classList.add(CONST.CLASSES.FOCUS_SUPPRESSED);
-    // A real focus move supersedes the cancelled state — that row is the new
-    // target and must render the recipe.
-    row.addEventListener(
-      "blur",
-      () => row.classList.remove(CONST.CLASSES.FOCUS_SUPPRESSED),
-      { once: true },
-    );
   }
 
   /** Double-click on a layer row → focus the map on that layer. */
@@ -1921,13 +1925,12 @@ class LayerUI {
           map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
         }
         // Escape defers the teardown: tearing the input down now would blur
-        // it to `<body>`, and `document.activeElement` is what
-        // handleKeyDown's container guard and suppressFocusVisual() both
-        // read — a microtask already runs before the keydown finishes
-        // bubbling, so the panel handler sees focus on `<body>` and
-        // suppresses nothing. A timeout fires after the whole dispatch is
-        // unwound, so the cursor is cleared while the input still holds
-        // focus. The isActive gate above keeps the deferred teardown's
+        // it to `<body>`, and `document.activeElement` is what handleKeyDown's
+        // container guard reads — a microtask already runs before the keydown
+        // finishes bubbling, so the panel handler sees focus on `<body>` and
+        // never reaches the Escape branch. A timeout fires after the whole
+        // dispatch is unwound, so the cursor is cleared while the input still
+        // holds focus. The isActive gate above keeps the deferred teardown's
         // blur from re-committing. Enter and blur have no document-level
         // handler to reach, so they tear down immediately.
         if (reason === "escape") {

@@ -2147,11 +2147,10 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       // blur-only: the cursor index is deliberately kept so an ArrowUp/Down can
       // resume from this row instead of re-lighting it from DOM focus.
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
-      // DOM focus stays where the user was (Escape never blurs to <body>), and
-      // the suppression marker is what makes the cancellation visible while
-      // :focus-visible still matches.
+      // DOM focus stays where the user was (Escape never blurs to <body>).
+      // The recipe keys only on the JS class + :hover, so lifting the class is
+      // enough — no residual selector to suppress.
       expect(document.activeElement).toBe(checkbox);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
     });
 
     it("Escape clears a cursor established by mouse (no DOM focus on the row)", () => {
@@ -2168,7 +2167,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       pressKey(overlay, "Escape");
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
@@ -2244,27 +2242,31 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       pressKey(overlay, "ArrowDown");
 
       // Resumed from the cancelled row rather than re-lighting it: the cursor
-      // moves to the next row and the suppressed row re-enters the recipe.
+      // moves to the next row.
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(false);
       const focused = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(focused).not.toBeNull();
       expect(focused).not.toBe(overlay);
     });
 
-    it("Escape outside the panel leaves the cursor and the focus overlay alone", () => {
+    it("Escape outside the panel leaves the focus overlay alone", () => {
       const overlay = findItem(ui, "overlay1");
 
       ui.focusLayer("overlay1");
       ui.setActiveItem(indexFor("overlay1"));
+      const idxBefore = ui.activeIdx;
 
       const outside = document.createElement("button");
       document.body.appendChild(outside);
+      // Moving focus off the row drops the visual class (focusout) — the same
+      // way :focus-visible stopped matching under the old CSS trigger. The
+      // keyboard cursor index is a separate contract and must survive.
       pressKey(outside, "Escape");
 
       expect(ui.isFocusing()).toBe(true);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(false);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(ui.activeIdx).toBe(idxBefore);
+      outside.remove();
     });
 
     it("Escape closes the overflow menu and clears the cursor", () => {
@@ -2281,7 +2283,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.activeMenu).toBeNull();
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
     });
 
     it("Escape finishes an inline rename and clears the cursor", () => {
@@ -2311,13 +2312,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       );
 
       // The keydown bubbles to the panel handler, which clears the cursor and
-      // returns focus to the row — so the cursor is already lifted and the
-      // suppression marker is already applied by the time dispatch returns.
+      // returns focus to the row — so the cursor is already lifted by the time
+      // dispatch returns.
       const row = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${overlay.dataset.layerId}"]`,
       ) as HTMLElement;
       expect(row.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(row.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
       expect(document.activeElement).toBe(row);
 
       // The input teardown is deferred so it cannot steal focus mid-dispatch
@@ -2346,9 +2346,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      // FOCUS_SUPPRESSED is what drops the residual :focus-visible cursor
-      // styling, so it must be present rather than the row being blurred.
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUS_SUPPRESSED)).toBe(true);
     });
 
     it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
@@ -2370,6 +2367,152 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(overlay.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    });
+
+    // ── focusin maps :focus-visible → the JS row class ──
+    // jsdom does not implement :focus-visible (matches() throws), so the
+    // production helper treats that as "not keyboard". These tests spy on
+    // matches() to drive the mapping either way.
+
+    const stubFocusVisible = (el: Element, value: boolean) => {
+      const spy = vi.spyOn(el, "matches");
+      spy.mockImplementation((selector: string) => {
+        if (selector === ":focus-visible") return value;
+        return Element.prototype.matches.call(el, selector);
+      });
+      return spy;
+    };
+
+    it("focusin on a child with :focus-visible lights the owning row", () => {
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const spy = stubFocusVisible(checkbox, true);
+
+      checkbox.focus();
+      checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("focusin without :focus-visible does not light the row", () => {
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const spy = stubFocusVisible(checkbox, false);
+
+      checkbox.focus();
+      checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      spy.mockRestore();
+    });
+
+    it("keyboard focus on the more button lights its owning row", () => {
+      const overlay = findItem(ui, "overlay1");
+      const moreBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+      const spy = stubFocusVisible(moreBtn, true);
+
+      moreBtn.focus();
+      moreBtn.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("keyboard focus on the fold button lights the toggle-all row", () => {
+      const { foldBtn } = attachWithGroup(ui);
+      const toggleAll = foldBtn.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement;
+      const spy = stubFocusVisible(foldBtn, true);
+
+      foldBtn.focus();
+      foldBtn.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(toggleAll.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("Tab from one row to the next hands the cursor class over", () => {
+      const from = findItem(ui, "overlay1");
+      const to = findItem(ui, "base1");
+      const toBox = to.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+      const spyFrom = stubFocusVisible(
+        from.querySelector('input[type="checkbox"]') as Element,
+        true,
+      );
+      const spyTo = stubFocusVisible(toBox, true);
+
+      const fromBox = from.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      fromBox.focus();
+      fromBox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      expect(from.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      fromBox.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: toBox }),
+      );
+      toBox.dispatchEvent(
+        new FocusEvent("focusin", { bubbles: true, relatedTarget: fromBox }),
+      );
+
+      expect(from.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(to.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
+
+      spyFrom.mockRestore();
+      spyTo.mockRestore();
+    });
+
+    it("focusout off the row drops FOCUSED; moves within the row keep it", () => {
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      const moreBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      // Checkbox → more button: still inside the row.
+      checkbox.focus();
+      checkbox.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: moreBtn }),
+      );
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      // Row → document body: leave entirely.
+      checkbox.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }),
+      );
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
+    it("Escape is complete without any residual suppress class", () => {
+      const overlay = findItem(ui, "overlay1");
+      const spy = stubFocusVisible(overlay, true);
+
+      overlay.focus();
+      overlay.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      pressKey(overlay, "Escape");
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      // The whole FOCUS_SUPPRESSED mechanism is gone: cancel = one class off.
+      expect(
+        ui.uiContainer.querySelector(".foliplus-layer-focus-suppressed"),
+      ).toBeNull();
+      expect(document.activeElement).toBe(overlay);
+      spy.mockRestore();
     });
   });
 

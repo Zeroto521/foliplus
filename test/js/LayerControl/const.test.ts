@@ -68,6 +68,9 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
     expect(CONST.CLASSES.HIDDEN).toBe("hidden");
     expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
+    // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
+    // removal, and the recipe CSS keys only on FOCUSED + :hover.
+    expect((CONST.CLASSES as Record<string, string>).FOCUS_SUPPRESSED).toBeUndefined();
   });
 });
 
@@ -87,6 +90,7 @@ describe("SEL", () => {
     expect(CONST.SEL.COLOR_INPUT).toBe(".foliplus-color-layer-input");
     expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
     expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
+    expect(CONST.SEL.ROW).toBe(".foliplus-layer-item, .foliplus-layer-toggle-all");
   });
 });
 

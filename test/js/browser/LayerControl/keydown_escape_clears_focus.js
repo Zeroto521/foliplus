@@ -6,9 +6,8 @@
   );
   if (items.length === 0) return null;
   // The style half of this probe needs a CHECKED row: the selected styling
-  // (accent wash, black type icon) only exists on .active rows, and the bug
-  // being pinned is that it must survive Escape while the suppression rule
-  // is active (:focus-visible still matching on the row that kept focus).
+  // (accent wash, black type icon) only exists on .active rows, and Escape
+  // must restore that rest state once the JS cursor class is lifted.
   const checked = items.find(i => i.classList.contains("active")) ?? items[0];
   checked.focus();
   const rowStyles = el => {
@@ -24,9 +23,6 @@
   checked.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   const afterStyles = rowStyles(checked);
   const checkedRetainedFocus = document.activeElement === checked;
-  const checkedSuppressed = checked.classList.contains(
-    "foliplus-layer-focus-suppressed",
-  );
   // Navigation half: establish the cursor with ArrowDown, then Escape it, so
   // the class-level contract is asserted on the real keyboard path too.
   checked.dispatchEvent(
@@ -41,14 +37,12 @@
     beforeEscape: !!beforeEscape,
     afterEscape: !!afterEscape,
     focusCleared: !afterEscape,
-    // Escape must not blur to <body> — the cursor is lifted in place, and the
-    // suppression marker is what makes it visible while :focus-visible still
-    // matches on the row that kept DOM focus.
+    // Escape must not blur to <body> — the cursor is lifted in place by
+    // removing the JS class; the CSS recipe never keys on :focus-visible.
     focusRetained: beforeActive === afterActive,
-    suppressed: afterActive?.classList.contains("foliplus-layer-focus-suppressed"),
     // Sanity for the style assertions below: the cursor recipe must have been
-    // drawn before Escape (:focus-visible matched), otherwise the comparisons
-    // would pass vacuously.
+    // drawn before Escape (the JS class was on the row), otherwise the
+    // comparisons would pass vacuously.
     glowVisibleBefore: beforeStyles.shadow !== "none",
     // Escape restores the selected wash: on a checked row the accent wash is
     // the only surface a row paints, so once the glow clears the computed
@@ -62,6 +56,5 @@
     // The cursor-only glow is gone.
     glowCleared: afterStyles.shadow === "none",
     checkedRetainedFocus,
-    checkedSuppressed,
   };
 };
