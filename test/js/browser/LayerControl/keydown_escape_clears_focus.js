@@ -16,6 +16,7 @@
     return {
       bg: cs.backgroundColor,
       shadow: cs.boxShadow,
+      outline: cs.outlineStyle,
       icon: icon ? getComputedStyle(icon).color : null,
     };
   };
@@ -55,6 +56,9 @@
     iconKeptBlack: afterStyles.icon === beforeStyles.icon,
     // The cursor-only glow is gone.
     glowCleared: afterStyles.shadow === "none",
+    // Escape keeps DOM focus on the row; the browser's default dark outline
+    // must stay suppressed there too — the glow is the only focus signal.
+    outlineCleared: afterStyles.outline === "none",
     checkedRetainedFocus,
   };
 };

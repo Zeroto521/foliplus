@@ -2818,6 +2818,10 @@ class TestLayerControlBrowser:
             assert result["glowCleared"] is True, (
                 "Escape must clear the cursor-only glow, got " + str(result)
             )
+            assert result["outlineCleared"] is True, (
+                "Escape must not leave the browser default dark outline on the "
+                "still-focused row, got " + str(result)
+            )
 
             # A real hover must still light the recipe on the cancelled row:
             # the recipe keys on :hover + the JS class, and Escape only lifts

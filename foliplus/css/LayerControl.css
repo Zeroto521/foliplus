@@ -389,17 +389,23 @@ path.foliplus-focus-mask {
        thing ever painted on top of it. */
     background: transparent;
 
+    /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
+       default dark outline is never the focus signal here — the red glow is —
+       so it is suppressed on every focus state, not only while the recipe is
+       lit. Otherwise Escape would lift the class and leave a black frame on
+       the still-focused row. */
+    &:focus,
+    &:focus-visible {
+      outline: none;
+    }
+
     &.active {
       border-left-color: var(--accent-primary);
     }
     &:is(:hover, .foliplus-layer-focused) {
-      /* The arrow-key cursor and Tab focus both call .focus() on the row, which
-         draws the browser's default dark outline. That black frame must be
-         suppressed — the red glow is the focus signal. The left accent bar is
-         deliberately NOT set here: it is a persistent "layer visible" (checked)
-         indicator, so it only turns red on .active / a folded group, never on a
-         transient hover/keyboard cursor. */
-      outline: none;
+      /* The left accent bar is deliberately NOT set here: it is a persistent
+         "layer visible" (checked) indicator, so it only turns red on .active /
+         a folded group, never on a transient hover/keyboard cursor. */
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
          vertical (no left/right bleed). No surface here: the row keeps
          whatever its state paints (the container's white on unchecked rows,
