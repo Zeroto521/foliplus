@@ -3208,12 +3208,17 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, (
                 f"checkbox click snippet failed: {result}"
             )
-            assert result["anyCursorClass"] is False, (
-                "checkbox clicks must not apply .foliplus-layer-focused, got "
+            assert result["anyClickCursor"] is False, (
+                "checkbox clicks must not paint the cursor (class or glow), got "
                 + str(result)
             )
-            assert result["anyGlow"] is False, (
-                "checkbox clicks must not light the cursor glow, got " + str(result)
+            assert result["keyboardLit"] is True, (
+                "arrow keys must still light the cursor after pointer toggles, got "
+                + str(result)
+            )
+            assert result["stale"]["anyClass"] is False, (
+                "clicking another row must drop the stale keyboard cursor, got "
+                + str(result)
             )
 
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):

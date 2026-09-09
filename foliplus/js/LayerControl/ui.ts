@@ -1402,10 +1402,11 @@ class LayerUI {
 
   /** Re-home activeIdx from clickedRow / DOM focus without painting the
    *  cursor class. Used by pointer clicks: they must target Space/Enter but
-   *  must not look like a keyboard focus arrival. */
+   *  must not look like a keyboard focus arrival. Also drops any stale
+   *  keyboard cursor visual so a click on row B does not leave row A lit. */
   private syncActiveIndex(): void {
-    const items = this.getNavigableItems();
-    this.activeIdx = this.resolveActiveIdx(items);
+    this.blurActiveItem();
+    this.activeIdx = this.resolveActiveIdx(this.getNavigableItems());
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.

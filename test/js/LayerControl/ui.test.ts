@@ -2175,7 +2175,27 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
-    it("Escape clears a cursor established by mouse (no DOM focus on the row)", () => {
+    it("clicking another row drops a stale keyboard cursor visual", () => {
+      // Arrow-keys light row A. A pointer click on row B re-homes the index
+      // but must also clear A's FOCUSED class — otherwise B is the target
+      // while A still glows.
+      const a = findItem(ui, "overlay1");
+      const b = findItem(ui, "base1");
+      const bBox = b.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      bBox.checked = !bBox.checked;
+      bBox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect((ui as any).clickedRow).toBe(b);
+      expect(ui.activeIdx).toBe(indexFor("base1"));
+    });
+
+    it("label click targets Space without painting the cursor; Escape is a no-op visual", () => {
       const overlay = findItem(ui, "overlay1");
 
       // A click on the row label sets clickedRow but must NOT paint the
@@ -2192,9 +2212,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      // Escape still drops the keyboard index so the next arrow re-bootstraps
-      // rather than resuming a row the pointer only targeted for a toggle.
-      // (blurActiveItem keeps activeIdx; clear happens only on outside-mousedown.)
+      // pressKey focuses the row, so focusin clears clickedRow.
+      expect((ui as any).clickedRow).toBeNull();
+      expect(document.activeElement).toBe(overlay);
     });
 
     it("mousedown outside the panel drops the cursor through the shared dispatcher", () => {
