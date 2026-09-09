@@ -4,6 +4,24 @@ foliplus
 foliplus: the missing piece between "see the map" and "use the map".
 GeoPandas handles data, Folium renders it, foliplus brings it to life.
 
+.. raw:: html
+
+   <p align="center">
+     <a href="quickstart.html#display-map">
+       <img src="https://raw.githubusercontent.com/Zeroto521/foliplus/main/doc/source/_static/preview.png" alt="foliplus preview">
+     </a>
+   </p>
+
+Scope
+-----
+
+Layer data passed to foliplus is read-only: no editing, upload, or deletion.
+
+Data processing happens upstream. foliplus handles the map, not the data.
+
+Features
+--------
+
 .. grid:: 1 2 2 3
 
    .. grid-item-card:: 📷 ExportControl
@@ -40,8 +58,8 @@ GeoPandas handles data, Folium renders it, foliplus brings it to life.
       :padding: 2
       :link: api/foliplus.MeasureControl.html
 
-      Measure distances, areas, circles, and geocoded markers, then edit them by
-      dragging nodes.
+      Measure distances, areas, and circles; place geocoded markers; then edit
+      by dragging nodes.
 
    .. grid-item-card:: 📐 ScaleControl
       :padding: 2
