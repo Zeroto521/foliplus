@@ -23,7 +23,7 @@
     };
   };
 
-  // Row 0: force UNCHECKED → rest surface is clear; cursor must paint white.
+  // Row 0: force UNCHECKED. Rest is clear; cursor/hover must paint white.
   const unchecked = items[0];
   const box = unchecked.querySelector('input[type="checkbox"]');
   if (box && box.checked) {
@@ -34,8 +34,10 @@
   unchecked.classList.add("foliplus-layer-focused");
   const cursor = pick(unchecked);
   unchecked.classList.remove("foliplus-layer-focused");
+  const after = pick(unchecked);
 
-  // Row 1: force CHECKED → rest wash must survive the cursor (no white flash).
+  // Row 1: force CHECKED. Rest shows the wash; cursor/hover still paints white
+  // (the interaction target always wins), and the wash returns when it leaves.
   const checkedRow = items[1];
   const cbox = checkedRow.querySelector('input[type="checkbox"]');
   if (cbox && !cbox.checked) {
@@ -46,6 +48,15 @@
   checkedRow.classList.add("foliplus-layer-focused");
   const checkedCursor = pick(checkedRow);
   checkedRow.classList.remove("foliplus-layer-focused");
+  const checkedAfter = pick(checkedRow);
 
-  return { white, rest, cursor, checkedRest, checkedCursor };
+  return {
+    white,
+    rest,
+    cursor,
+    after,
+    checkedRest,
+    checkedCursor,
+    checkedAfter,
+  };
 };

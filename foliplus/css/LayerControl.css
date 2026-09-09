@@ -382,11 +382,11 @@ path.foliplus-focus-mask {
      would flash the already-checked rows on each rebuild. */
   .foliplus-layer-item,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    /* The row paints no surface of its own: the white the user sees is the
-       control container's (--ctrl-bg) showing through. Declared explicitly
+    /* At rest the row paints no surface of its own: the white the user sees is
+       the control container's (--ctrl-bg) showing through. Declared explicitly
        so the rest contract is written down — the wash (checked) is the only
-       background a row ever carries, and the glow (cursor/hover) is the only
-       thing ever painted on top of it. */
+       background a resting row carries; hover / Tab / arrow paint the white
+       surface and the red glow on top. */
     background: transparent;
 
     /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
@@ -412,12 +412,12 @@ path.foliplus-focus-mask {
         0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
         0 var(--size-2) var(--size-4) var(--accent-primary);
 
-      /* White surface is the interaction-target look on unchecked rows. A
-         checked row keeps its .active wash under the glow — scoped to
-         :not(.active) so the cursor never flashes white over the selection. */
-      &:not(.active) {
-        background: var(--neutral-0);
-      }
+      /* White surface whenever the row is the interaction target — mouse
+         hover, Tab (mapped onto the JS class by focusin) or the arrow-key
+         cursor. Checked rows show their .active wash only at rest; the
+         cursor/hover paints white on top, and the wash returns when it
+         leaves. */
+      background: var(--neutral-0);
 
       .foliplus-drag-cell .drag-handle {
         opacity: 1;
