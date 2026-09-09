@@ -40,6 +40,8 @@ import { cacheSuggestion, geocode, reverseGeocode } from "./geocoder.js";
 // Inlined by esbuild `define` (script/build.mjs) from the same
 // `git describe` value as the artifact banner.
 const VERSION = __FOLIPLUS_VERSION__;
+// Shared runtime has no CONF — library name is the only correct prefix.
+const log = createLogger("foliplus");
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
@@ -52,7 +54,7 @@ const foliplus = window.foliplus;
 if (!foliplus.isInitialized) {
   foliplus.isInitialized = true;
   foliplus.version = VERSION;
-  createLogger("foliplus").info(`foliplus@${VERSION}`);
+  log.info(`foliplus@${VERSION}`);
 
   Object.assign(window.foliplus, {
     // Global geocoding (shared bidirectional cache + throttle).
