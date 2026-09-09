@@ -2459,11 +2459,14 @@ class TestLayerControlBrowser:
         """The Row-cursor recipe genuinely renders, not just exists in source.
 
         The shared recipe must produce the arrow-key reference look in the live
-        DOM — the row's own surface stays clear (the control container's white
-        shows through) with the red glow on the top/bottom edges — for BOTH the
-        keyboard cursor and mouse hover, and leave resting rows untouched. This
-        guards against a recipe that parses but never paints (the pytest source
-        assert can't catch that).
+        DOM — explicit white surface + red glow — for BOTH the keyboard cursor
+        and mouse hover, and leave resting rows untouched. This guards against a
+        recipe that parses but never paints (the pytest source assert can't
+        catch that).
+
+        `show=False` is NOT a reliable "unchecked" pin: on folium 0.14 those
+        overlays still land on the map and the init pass still marks the row
+        `.active` (wash). Force the checkbox off and measure that live row.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
@@ -2490,6 +2493,16 @@ class TestLayerControlBrowser:
                 ")].every(i => i.title.length > 0)",
                 timeout=5000,
             )
+            # Force a truly unchecked row — do not trust show=False across
+            # folium versions (0.14 still checks them).
+            page.evaluate(
+                "() => { const box = document.querySelector("
+                "    '.foliplus-layer-item input[type=checkbox]');"
+                " if (box && box.checked) {"
+                "   box.checked = false;"
+                "   box.dispatchEvent(new Event('change', {bubbles: true}));"
+                " } }"
+            )
             # Move the mouse off the panel so a data row reads its resting state.
             page.mouse.move(0, 0)
             page.wait_for_timeout(120)
@@ -2499,7 +2512,11 @@ class TestLayerControlBrowser:
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
-                " drag: d ? getComputedStyle(d).opacity : null }; }"
+                " drag: d ? getComputedStyle(d).opacity : null,"
+                " active: r.classList.contains('active') }; }"
+            )
+            assert rest["active"] is False, (
+                f"reference row must be unchecked after the forced toggle, got {rest}"
             )
             assert rest["shadow"] == "none", (
                 f"resting row must have no glow, got {rest['shadow']}"
@@ -2507,12 +2524,10 @@ class TestLayerControlBrowser:
 
             kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
             assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
-            # Unchecked rows (show=False): the recipe paints the white surface
-            # over the clear rest state.
             white = self._sample_neutral0(page)
             assert kb["bg"] == white, (
-                f"keyboard cursor must paint the white surface on an unchecked "
-                f"row, got {kb['bg']} vs token {white}"
+                f"keyboard cursor must paint the white surface, "
+                f"got {kb['bg']} vs token {white}"
             )
             assert rest["bg"] == white, (
                 f"unchecked rest row must also be the explicit white surface, "
