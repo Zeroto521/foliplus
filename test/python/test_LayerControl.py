@@ -371,11 +371,30 @@ class TestLayerControlRendering:
         # interaction recipe must NOT force it — hover/keyboard/Tab show the
         # glow, and the red left bar stays reserved for .active / folded groups.
         assert "border-left-color" not in recipe
+        # Rest surface of the compound itself: explicit white, never
+        # transparent (a transparent rest and a painted interaction white
+        # would disagree about what "white row" means).
+        parent_body_start = css.index("{", compound)
+        parent_snip = css[parent_body_start : parent_body_start + 400]
+        assert "background: var(--neutral-0)" in parent_snip, (
+            "recipe rows must rest on the explicit white surface"
+        )
+        assert "background: transparent" not in parent_snip, (
+            "recipe rows must not rest on a transparent surface"
+        )
         # White surface is painted whenever the row is the interaction target
         # (hover / Tab / arrow share this recipe). Checked rows show the wash
         # only at rest — the cursor paints white on top.
         assert "background: var(--neutral-0)" in recipe, (
             "cursor recipe must paint the white surface"
+        )
+        # Interaction white must sit AFTER the .active wash in source order so
+        # it wins at equal specificity (postcss keeps declaration order).
+        active_idx = css.find("&.active", compound)
+        recipe_idx = css.find(mark, compound)
+        assert 0 < active_idx < recipe_idx, (
+            "interaction recipe must be declared after .active so white "
+            "out-ranks the wash"
         )
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
@@ -2530,7 +2549,8 @@ class TestLayerControlBrowser:
         The interaction target always paints `var(--neutral-0)` — including on
         a checked row, whose `.active` wash is only the rest surface. White is
         sampled from the token live, never hardcoded. Dropping the class (what
-        Escape does) returns the rest surface.
+        Escape does) returns the rest surface. Tab is covered by the focusin
+        delegate mapping onto the same JS class the probe applies.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
