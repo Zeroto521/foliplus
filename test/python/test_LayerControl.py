@@ -318,11 +318,12 @@ class TestLayerControlRendering:
         """The Row-cursor recipe exists in the source CSS and drives every
         interactive element with one recipe.
 
-        Mouse hover, Tab focus (:focus-visible) and the keyboard cursor
-        (.foliplus-layer-focused) share a single :is() rule, so they cannot
-        drift apart: left bar accent, clear surface (the control container
-        paints the white — the row itself paints nothing), top/bottom red glow,
-        drag grip, type icon black, more button red. Only colour changes; the
+        Mouse hover and the JS cursor class (.foliplus-layer-focused) share a
+        single :is() rule, so they cannot drift apart: left bar accent, clear
+        surface (the control container paints the white — the row itself paints
+        nothing), top/bottom red glow, drag grip, type icon black, more button
+        red. :focus-visible is deliberately NOT a CSS trigger — Tab focus is
+        mapped onto the class by the focusin delegate. Only colour changes; the
         type icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl.css")
@@ -338,7 +339,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, :focus-visible, .foliplus-layer-focused)"
+        mark = "is(:hover, .foliplus-layer-focused)"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -346,6 +347,8 @@ class TestLayerControlRendering:
         assert compound != -1, "Row-cursor compound selector not found"
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
+        # :focus-visible is never a recipe trigger — Esc cancel is one class off.
+        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
@@ -554,7 +557,8 @@ class TestLayerControlRendering:
         private hover style anymore."""
         css = read_css("foliplus/css/LayerControl.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" in css
+        assert "is(:hover, .foliplus-layer-focused)" in css
+        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
         assert "border-left-color: var(--accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
@@ -585,14 +589,14 @@ class TestLayerControlRendering:
         assert "color: var(--accent-primary)" in css
 
     def test_fold_btn_hover_bidirectional_preview(self):
-        """Fold button shows bidirectional preview across hover/Tab/arrow cursor.
+        """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
-        Keyed on :is(:hover, :focus-visible, .foliplus-layer-focused) so the fold
-        icon wakes up identically to the Row-cursor recipe — mouse hover, Tab
-        focus and the arrow-key cursor all preview the same state change.
+        Keyed on :is(:hover, .foliplus-layer-focused) so the fold icon wakes up
+        identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
+        the focusin delegate maps it onto the same JS class.
         """
         css = read_css("foliplus/css/LayerControl.css")
-        wake = "is(:hover, :focus-visible, .foliplus-layer-focused)"
+        wake = "is(:hover, .foliplus-layer-focused)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
         assert wake in css
@@ -2796,19 +2800,12 @@ class TestLayerControlBrowser:
             assert result["focusRetained"] is True, (
                 "Escape must not blur to <body>, got " + str(result)
             )
-            assert result["suppressed"] is True, (
-                "the row must stay marked as cursor-cancelled, got " + str(result)
-            )
-            assert result["checkedSuppressed"] is True, (
-                "the checked row must stay marked as cursor-cancelled, got "
-                + str(result)
-            )
             assert result["checkedRetainedFocus"] is True, (
                 "the checked row must keep DOM focus through Escape, got " + str(result)
             )
             assert result["glowVisibleBefore"] is True, (
-                "the cursor glow must be drawn before Escape (:focus-visible "
-                "matched), got " + str(result)
+                "the cursor glow must be drawn before Escape (the JS class was "
+                "on the row), got " + str(result)
             )
             assert result["washRestored"] is True, (
                 "a checked row gets its selected wash back through Escape, got "
@@ -2821,14 +2818,16 @@ class TestLayerControlBrowser:
             assert result["glowCleared"] is True, (
                 "Escape must clear the cursor-only glow, got " + str(result)
             )
+            assert result["outlineCleared"] is True, (
+                "Escape must not leave the browser default dark outline on the "
+                "still-focused row, got " + str(result)
+            )
 
             # A real hover must still light the recipe on the cancelled row:
-            # the suppression reset computes above the recipe rules, so it
-            # must yield to :hover — otherwise the grip and the red more
-            # button stay dead until the row is blurred, and hovering does
-            # not blur. Cancel the cursor again for a deterministically
-            # suppressed row (the marker drops on blur only), hover with the
-            # real pointer, then move it away and assert the fall-back.
+            # the recipe keys on :hover + the JS class, and Escape only lifts
+            # the class. Cancel the cursor again for a deterministically
+            # cancelled row, hover with the real pointer, then move it away
+            # and assert the fall-back.
             page.evaluate(
                 "() => { const r = document.querySelector("
                 "    '.foliplus-layer-item.active'"
@@ -3000,8 +2999,13 @@ class TestLayerControlBrowser:
                 + str(unchecked)
             )
 
-    def test_keydown_escape_clears_focus_after_rename(self, browser, tmp_path):
-        """Escape in an inline rename also clears the row cursor and keeps focus."""
+    def test_keydown_escape_keeps_focus_in_row(self, browser, tmp_path):
+        """Escape while the row holds DOM focus lifts the cursor class in place.
+
+        The rename-cancel path is covered by the vitest suite; this browser
+        probe pins the real-Chromium contract: class off, focus still inside
+        the row, no residual suppress marker.
+        """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
             page.evaluate(
@@ -3011,14 +3015,46 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
             result = page.evaluate(
-                _js("LayerControl/keydown_escape_clears_focus_rename")
+                _js("LayerControl/keydown_escape_keeps_focus_in_row")
             )
-            assert result is not None, "keydown_escape_clears_focus_rename failed"
+            assert result is not None, "keydown_escape_keeps_focus_in_row failed"
             assert result["cursorCleared"] is True, (
-                "Escape in rename should clear the cursor, got " + str(result)
+                "Escape should clear the cursor, got " + str(result)
             )
-            assert result["suppressed"] is True, (
-                "the row must stay marked as cursor-cancelled, got " + str(result)
+            assert result["focused"] is True, (
+                "Escape must keep DOM focus inside the row, got " + str(result)
+            )
+            assert result["suppressLeft"] is False, (
+                "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
+            )
+
+    def test_focusin_maps_checkbox_to_row_cursor(self, browser, tmp_path):
+        """Tab focus is sampled once in focusin and mapped onto the JS row class.
+
+        :focus-visible is not a CSS trigger. Keyboard-modality focus on a child
+        control lights the owning row; mouse-modality focus must not. Escape
+        then lifts the class with no residual suppress marker.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/focusin_maps_checkbox_to_row_cursor")
+            )
+            assert result is not None, "focusin_maps_checkbox_to_row_cursor failed"
+            assert result["litByKeyboard"] is True, (
+                "keyboard-modality focus must light the owning row, got " + str(result)
+            )
+            assert result["litByMouse"] is False, (
+                "mouse-modality focus must not light the row, got " + str(result)
+            )
+            assert result["suppressLeft"] is False, (
+                "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
