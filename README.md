@@ -28,6 +28,12 @@
   </a>
 </p>
 
+## Scope
+
+Layer data passed to foliplus is read-only: no editing, upload, or deletion.
+
+Data processing happens upstream. foliplus handles the map, not the data.
+
 ## Features
 
 | Control                 | Description                                                                            |
@@ -63,7 +69,7 @@ On top of this shared layer foundation, tools coordinate further:
 - While **measuring**, search and locate are blocked to prevent map interaction conflicts
 - During **export**, measurement pauses, heatmap renders in full resolution, and layer
   order is synced for a complete screenshot
-- When a layer is **deleted** from the layer panel, the component that owns it
+- When a layer is **removed** from the layer panel, the component that owns it
   (e.g. measurement) auto-cleans its state
 - When layers change, the heatmap refreshes automatically
 
