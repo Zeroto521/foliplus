@@ -44,6 +44,7 @@ function makeUI(): any {
     uiContainer: container,
     m: { map },
     handleKeyDown: vi.fn(),
+    handleOutsideMousedown: vi.fn(),
     openMoreMenu: vi.fn(),
     focusLayer: vi.fn(),
     closeMoreMenu: vi.fn(),
@@ -86,28 +87,31 @@ describe("LayerControl registerInteractions", () => {
     );
   });
 
-  it("all shortcuts share the uiContainer as their container", () => {
+  it("all keyboard shortcuts share the uiContainer as their container", () => {
     const ui = makeUI();
     registerInteractions(ui);
 
-    const defs = getRegisterSpy().mock.calls[0][1];
-    for (const d of defs) {
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const keyDefs = defs.filter(d => d.container);
+    expect(keyDefs).toHaveLength(7);
+    for (const d of keyDefs) {
       expect(d.container).toBe(ui.uiContainer);
     }
   });
 
-  it("each shortcut handler forwards its event to ui.handleKeyDown", () => {
+  it("each keyboard shortcut handler forwards its event to ui.handleKeyDown", () => {
     const ui = makeUI();
     registerInteractions(ui);
 
-    const defs = getRegisterSpy().mock.calls[0][1];
-    for (const d of defs) {
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const keyDefs = defs.filter(d => d.container);
+    for (const d of keyDefs) {
       const event = { key: d.key } as unknown as KeyboardEvent;
       d.handler(event);
     }
 
     // Every handler is a pass-through to ui.handleKeyDown — one call per key.
-    expect(ui.handleKeyDown).toHaveBeenCalledTimes(defs.length);
+    expect(ui.handleKeyDown).toHaveBeenCalledTimes(keyDefs.length);
     // Spot-check that the event (and thus its key) is forwarded as-is.
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "ArrowUp" }),
@@ -115,6 +119,24 @@ describe("LayerControl registerInteractions", () => {
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "Escape" }),
     );
+  });
+
+  it("registers the outside-mousedown dismissal as an observed (non-swallowed) event", () => {
+    const ui = makeUI();
+    registerInteractions(ui);
+
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const mouseDefs = defs.filter(d => d.event === "mousedown");
+    expect(mouseDefs).toHaveLength(1);
+    // The press must keep its native behavior (focus move, map drag), so the
+    // manager must not match-and-cancel it — and it has no container binding:
+    // "outside" is a class-level test on the event target, not a focus check.
+    expect(mouseDefs[0].preventDefault).toBe(false);
+    expect(mouseDefs[0].container).toBeUndefined();
+    expect(mouseDefs[0].key).toBeUndefined();
+
+    mouseDefs[0].handler({ type: "mousedown" });
+    expect(ui.handleOutsideMousedown).toHaveBeenCalledTimes(1);
   });
 });
 

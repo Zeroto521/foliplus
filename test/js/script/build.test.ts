@@ -58,6 +58,11 @@ describe("build artifacts", () => {
     expect(content).toMatch(/\/\*!/);
   });
 
+  it("common JS exposes foliplus.version", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    expect(content).toContain("foliplus.version");
+  });
+
   it("component JS externalizes BaseControl", () => {
     const content = readFileSync(
       resolve(distDir, "foliplus-ScaleControl.min.js"),
@@ -99,10 +104,10 @@ describe("build artifacts", () => {
     // MeasureControl bundles its own label-collision geometry (placeLabels)
     // inline.
     "foliplus-MeasureControl.min.js": 120000,
-    // LayerControl is otherwise the largest component (~121KB unminified now:
-    // rename, focus, reorder, fold, the annotation style panel, and the
-    // five-dimension persistence).
-    "foliplus-LayerControl.min.js": 135000,
+    // LayerControl is otherwise the largest component (~136KB unminified now:
+    // rename, focus, reorder, fold, the annotation style panel, the
+    // escape-cancel chain, and the five-dimension persistence).
+    "foliplus-LayerControl.min.js": 160000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {

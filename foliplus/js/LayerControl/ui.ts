@@ -32,6 +32,25 @@ import * as Util from "./util.js";
 const T = createScopedTranslator(CONF);
 const mapContainer = map.getContainer();
 
+/** Does the browser consider this focus keyboard-visible?
+ *
+ *  Queried once in the focusin delegate — never as a CSS trigger. jsdom does
+ *  not implement `:focus-visible` and throws on the selector; treat that as
+ *  "not keyboard" so unit tests do not light the recipe on every focus(). */
+const isKeyboardVisibleFocus = (el: Element): boolean => {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+};
+
+/** Owning cursor-recipe row for a focus target (checkbox / more / fold → row). */
+const owningRow = (el: EventTarget | null): HTMLElement | null => {
+  if (!el || typeof (el as Element).closest !== "function") return null;
+  return (el as Element).closest(CONST.SEL.ROW) as HTMLElement | null;
+};
+
 /**
  * Push one persisted rename out to whatever projections of it exist.
  *
@@ -79,7 +98,8 @@ class LayerUI {
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
-  declare onFocusIn: (() => void) | null;
+  declare onFocusIn: ((event: FocusEvent) => void) | null;
+  declare onFocusOut: ((event: FocusEvent) => void) | null;
   declare onDragStart: ((event: DragEvent) => void) | null;
   declare onDragOver: ((event: DragEvent) => void) | null;
   declare onDragLeave: ((event: DragEvent) => void) | null;
@@ -95,9 +115,6 @@ class LayerUI {
   /** Style panel click handler — mounted outside the layer list, so
    *  container delegation on this.uiContainer does not reach it. */
   onStylePanelClick: ((event: Event) => void) | null;
-  /** Document mousedown handler — clears the keyboard cursor when the user clicks
-   *  outside the panel (the cursor is a panel-local navigation marker). */
-  declare onOutsideMousedown: ((event: MouseEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Currently visible overflow menu (or null). */
@@ -154,7 +171,6 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onStylePanelClick = null;
-    this.onOutsideMousedown = null;
     this.activeMenu = null;
     this.stylePanelLayerId = null;
     this.onStylePanelShift = null;
@@ -1010,8 +1026,29 @@ class LayerUI {
     // last-clicked row is stale and must not outrank it. Synthetic clicks and
     // clicks on the non-focusable label don't fire focusin, so clickedRow still
     // survives the cases that need it.
-    this.onFocusIn = () => {
+    //
+    // `:focus-visible` is also sampled here — once, at the moment focus
+    // arrives — and mapped onto the row's JS cursor class. Child controls
+    // (checkbox / more / fold) attribute to the row via closest(ROW). The CSS
+    // recipe therefore never keys on `:focus-visible`, so Escape is just
+    // "remove the class" with no residual selector to suppress.
+    this.onFocusIn = event => {
       this.clickedRow = null;
+      const el = event.target as Element | null;
+      const row = owningRow(el);
+      if (!el || !row) return;
+      if (!isKeyboardVisibleFocus(el)) return;
+      this.blurActiveItem();
+      row.classList.add(CONST.CLASSES.FOCUSED);
+    };
+    // Focus left the row entirely (Tab away, click outside, browser chrome):
+    // drop the JS cursor class. Moves within the same row keep it.
+    this.onFocusOut = event => {
+      const row = owningRow(event.target);
+      if (!row) return;
+      const next = event.relatedTarget as Element | null;
+      if (next && (next === row || row.contains(next))) return;
+      row.classList.remove(CONST.CLASSES.FOCUSED);
     };
     this.interactionCleanup = registerInteractions(this);
 
@@ -1019,6 +1056,7 @@ class LayerUI {
     container.addEventListener("input", this.onInput);
     container.addEventListener("click", this.onClick);
     container.addEventListener("focusin", this.onFocusIn);
+    container.addEventListener("focusout", this.onFocusOut);
     container.addEventListener("dragstart", this.onDragStart);
     container.addEventListener("dragover", this.onDragOver);
     container.addEventListener("dragleave", this.onDragLeave);
@@ -1034,17 +1072,6 @@ class LayerUI {
     this.onMoreClick = event => handleMoreClick(this, event);
     this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
     this.onMoreMapClick = () => this.closeMoreMenu(false);
-    // Clicking OUTSIDE the panel drops the keyboard cursor. It is a panel-local
-    // navigation marker (arrow/Tab), so once the user clicks the map or another
-    // control the highlight must not linger on the last navigated row. mousedown
-    // (not click) is what makes this safe: it fires before the click-driven list
-    // rebuild, so the target is still connected when we test it — clicking a fold
-    // button (which rebuilds the list) stays inside the panel and won't clear it.
-    this.onOutsideMousedown = event => {
-      const target = event.target as HTMLElement | null;
-      if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
-    };
-    document.addEventListener("mousedown", this.onOutsideMousedown);
     container.addEventListener("click", this.onMoreClick);
     // Menu click must be on document because the menu is positioned absolute
     // and may visually overflow the panel bounds.
@@ -1143,6 +1170,7 @@ class LayerUI {
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
     if (this.onFocusIn) container.removeEventListener("focusin", this.onFocusIn);
+    if (this.onFocusOut) container.removeEventListener("focusout", this.onFocusOut);
     if (this.onDragStart) container.removeEventListener("dragstart", this.onDragStart);
     if (this.onDragOver) container.removeEventListener("dragover", this.onDragOver);
     if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
@@ -1152,14 +1180,12 @@ class LayerUI {
     if (this.onMoreMenuClick)
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
-    if (this.onOutsideMousedown)
-      document.removeEventListener("mousedown", this.onOutsideMousedown);
     this.clearActiveItem();
     this.interactionCleanup?.();
     // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
     this.onChange = this.onInput = this.onClick = null;
-    this.onFocusIn = null;
+    this.onFocusIn = this.onFocusOut = null;
     this.onDragStart = this.onDragOver = this.onDragLeave = null;
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
@@ -1167,7 +1193,6 @@ class LayerUI {
     if (this.onStylePanelClick)
       document.removeEventListener("click", this.onStylePanelClick);
     this.onStylePanelClick = null;
-    this.onOutsideMousedown = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -1385,6 +1410,24 @@ class LayerUI {
     this.clickedRow = null;
   }
 
+  /**
+   * Mousedown outside the panel drops the keyboard cursor — the pointer
+   * counterpart of Escape, dispatched by InteractionManager (event observed,
+   * not swallowed: the press keeps its native behavior). This is a full reset
+   * (clearActiveItem, not blurActiveItem): unlike Escape the user has left the
+   * panel, so the next ArrowDown re-bootstraps rather than resuming.
+   *
+   * mousedown (not click) is what makes the target test safe: it fires before
+   * the click-driven list rebuild, so the target is still connected — clicking
+   * a fold button (which rebuilds the list) stays inside the panel and won't
+   * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
+   * not just this instance's container.
+   */
+  handleOutsideMousedown(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+  }
+
   /** Index of the keyboard cursor, or null if none. DOM focus wins when it
    *  names a row the pointer has since left; clickedRow wins when focus is
    *  stale — a click on the label or checkbox does not move focus off the
@@ -1394,11 +1437,7 @@ class LayerUI {
   private resolveActiveIdx(items: HTMLElement[]): number | null {
     const rows: (HTMLElement | null)[] = [];
     if (this.clickedRow) rows.push(this.clickedRow);
-    rows.push(
-      document.activeElement?.closest(CONST.SEL.LAYER_ITEM) ??
-        document.activeElement?.closest(CONST.SEL.TOGGLE_ALL) ??
-        null,
-    );
+    rows.push(owningRow(document.activeElement));
     for (const row of rows) {
       if (!row) continue;
       const idx = items.indexOf(row);
@@ -1435,10 +1474,45 @@ class LayerUI {
    *   ArrowUp / ArrowDown - Navigate between layer items
    *   ArrowLeft / ArrowRight / Space / Enter - Toggle visibility of focused layer
    *   Ctrl+ArrowUp / Ctrl+ArrowDown - Move focused layer up/down in z-order
-   *   Escape - Clear focus
+   *   Escape - Cancel: inline rename, overflow menu, the layer focus
+   *     overlay, or the row keyboard cursor
    */
   handleKeyDown(event: KeyboardEvent): void {
     if (!this.uiContainer.contains(document.activeElement)) return;
+
+    // Escape discharges whatever is open, in the order the user would
+    // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
+    // cursor guard below: the point of Escape is to drop the cursor, so a
+    // click on the label or checkbox (which sets clickedRow without moving
+    // DOM focus) must clear the cursor even when nothing is focused, and the
+    // rename / overflow menu / focus overlay / style panel are each their own
+    // cancel targets. Nothing after this point needs the cursor resolved.
+    if (event.key === "Escape") {
+      if (this.activeRenameId) {
+        // finishRename() removes the input, which blurs it to `<body>`.
+        // Restore the row focus the rename started from before dropping the
+        // cursor: a cursor parked on <body> leaves the panel unreachable —
+        // the very next arrow key would not reach this handler. The focusin
+        // that fires on the restored row may re-apply the class; the
+        // escapeClearCursor() below runs last and wins.
+        const layerId = this.activeRenameId;
+        this.finishRename();
+        this.focusLayerRow(layerId);
+      } else if (this.stylePanelLayerId) {
+        // The style panel's own fields take the key down before the panel
+        // content, so this is the fallback for Escape from the row, the
+        // map, or a panel control that does not consume it.
+        this.closeStylePanel();
+      } else if (this.activeMenu) {
+        // closeMoreMenu returns focus to the row, so the cursor must be
+        // dropped after it rather than before.
+        this.closeMoreMenu(true);
+      } else if (this.isFocusing()) {
+        this.cancelFocus();
+      }
+      this.escapeClearCursor();
+      return;
+    }
 
     const items = this.getNavigableItems();
     if (items.length === 0) return;
@@ -1557,12 +1631,35 @@ class LayerUI {
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
-      case "Escape":
-        if (this.stylePanelLayerId) this.closeStylePanel();
-        else if (this.activeMenu) this.closeMoreMenu(true);
-        else this.clearActiveItem();
-        break;
     }
+  }
+
+  /** Drop the row keyboard cursor.
+   *
+   * blurActiveItem() rather than clearActiveItem(): clearActiveItem() resets
+   * activeIdx, so the next ArrowUp / ArrowDown would call syncActiveItem() to
+   * bootstrap a fresh cursor from document.activeElement — the very row the
+   * user just cancelled — and instantly redraw it. Blur-only keeps activeIdx
+   * pointing at the last row, so arrow keys resume from there instead of
+   * re-lighting the escaped one.
+   *
+   * Removing the class is sufficient: the CSS recipe keys only on
+   * `.foliplus-layer-focused` + `:hover`, never on `:focus-visible`. DOM
+   * focus stays on the row (Escape must not blur to `<body>`), and a later
+   * focusin re-applies the class only if the browser still reports
+   * keyboard-visible focus. */
+  private escapeClearCursor(): void {
+    this.blurActiveItem();
+  }
+
+  /** Return DOM focus to a layer's row. Used by the Escape-rename path:
+   *  finishRename() removes the inline input, which blurs it to `<body>` and
+   *  would leave the panel unreachable. */
+  private focusLayerRow(layerId: string): void {
+    if (!this.uiContainer || !layerId) return;
+    this.uiContainer
+      .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)
+      ?.focus();
   }
 
   /** Double-click on a layer row → focus the map on that layer. */
@@ -2176,7 +2273,20 @@ class LayerUI {
         if (reason === "empty") {
           map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
         }
-        this.finishRename(true);
+        // Escape defers the teardown: tearing the input down now would blur
+        // it to `<body>`, and `document.activeElement` is what handleKeyDown's
+        // container guard reads — a microtask already runs before the keydown
+        // finishes bubbling, so the panel handler sees focus on `<body>` and
+        // never reaches the Escape branch. A timeout fires after the whole
+        // dispatch is unwound, so the cursor is cleared while the input still
+        // holds focus. The isActive gate above keeps the deferred teardown's
+        // blur from re-committing. Enter and blur have no document-level
+        // handler to reach, so they tear down immediately.
+        if (reason === "escape") {
+          setTimeout(() => this.finishRename(true), 0);
+        } else {
+          this.finishRename(true);
+        }
       },
     });
   }

@@ -3,6 +3,7 @@
  *
  * Bundled once into dist/foliplus-common.min.js and injected by BaseControl
  * into the shared header. Exposes:
+ *   - foliplus.version - build version (`git describe`), same value as the artifact banner
  *   - foliplus.geocode / foliplus.reverseGeocode - global geocoding (bidirectional cache)
  *   - foliplus.core / foliplus.common.<module> - shared modules, registered
  *     automatically by script/build.mjs (see generateSharedRegistry) so new
@@ -44,6 +45,9 @@ const foliplus = window.foliplus;
 // once per map, but this guard keeps it idempotent across reloads/embeds).
 if (!foliplus.isInitialized) {
   foliplus.isInitialized = true;
+  // Inlined by esbuild `define` (script/build.mjs) — same `git describe`
+  // as the artifact banner.
+  foliplus.version = __FOLIPLUS_VERSION__;
 
   Object.assign(window.foliplus, {
     // Global geocoding (shared bidirectional cache + throttle).

@@ -148,6 +148,11 @@ const esbuildCfg = {
     "#core": srcDir + "/core",
     "#foliplus": srcDir,
   },
+  // Same `git describe` value as the artifact banner, inlined for the
+  // runtime console log (`[foliplus] foliplus@…`).
+  define: {
+    __FOLIPLUS_VERSION__: JSON.stringify(BUILD_VERSION),
+  },
   plugins: [postcssPlugin, sourceTransformPlugin],
 };
 
