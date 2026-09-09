@@ -319,12 +319,13 @@ class TestLayerControlRendering:
         interactive element with one recipe.
 
         Mouse hover and the JS cursor class (.foliplus-layer-focused) share a
-        single :is() rule, so they cannot drift apart: left bar accent, clear
-        surface (the control container paints the white — the row itself paints
-        nothing), top/bottom red glow, drag grip, type icon black, more button
-        red. :focus-visible is deliberately NOT a CSS trigger — Tab focus is
-        mapped onto the class by the focusin delegate. Only colour changes; the
-        type icon must NOT scale."""
+        single :is() rule, so they cannot drift apart: white surface, left bar
+        accent, top/bottom red glow, drag grip, type icon black, more button
+        red. White paints whenever the row is the interaction target (hover /
+        Tab / arrow); a checked row shows its .active wash only at rest.
+        :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
+        onto the class by the focusin delegate. Only colour changes; the type
+        icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl.css")
         # Color layer picker (via :is() selector, no literal :hover string)
@@ -370,10 +371,31 @@ class TestLayerControlRendering:
         # interaction recipe must NOT force it — hover/keyboard/Tab show the
         # glow, and the red left bar stays reserved for .active / folded groups.
         assert "border-left-color" not in recipe
-        # The recipe paints NO surface: the white is the control container's
-        # --ctrl-bg showing through (a checked row keeps its .active wash under
-        # the glow instead of flashing white).
-        assert "background" not in recipe
+        # Rest surface of the compound itself: explicit white, never
+        # transparent (a transparent rest and a painted interaction white
+        # would disagree about what "white row" means).
+        parent_body_start = css.index("{", compound)
+        parent_snip = css[parent_body_start : parent_body_start + 400]
+        assert "background: var(--neutral-0)" in parent_snip, (
+            "recipe rows must rest on the explicit white surface"
+        )
+        assert "background: transparent" not in parent_snip, (
+            "recipe rows must not rest on a transparent surface"
+        )
+        # White surface is painted whenever the row is the interaction target
+        # (hover / Tab / arrow share this recipe). Checked rows show the wash
+        # only at rest — the cursor paints white on top.
+        assert "background: var(--neutral-0)" in recipe, (
+            "cursor recipe must paint the white surface"
+        )
+        # Interaction white must sit AFTER the .active wash in source order so
+        # it wins at equal specificity (postcss keeps declaration order).
+        active_idx = css.find("&.active", compound)
+        recipe_idx = css.find(mark, compound)
+        assert 0 < active_idx < recipe_idx, (
+            "interaction recipe must be declared after .active so white "
+            "out-ranks the wash"
+        )
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -846,6 +868,17 @@ class TestLayerControlBrowser:
         page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
         return page, errors
+
+    @staticmethod
+    def _sample_neutral0(page):
+        """Computed color of `var(--neutral-0)` — never hardcode a hex/rgb."""
+        return page.evaluate(
+            "() => { const p = document.createElement('div');"
+            " p.style.background = 'var(--neutral-0)';"
+            " document.body.appendChild(p);"
+            " const c = getComputedStyle(p).backgroundColor;"
+            " p.remove(); return c; }"
+        )
 
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
         """Dragging overlay toward base group should show blocked hint."""
@@ -2426,11 +2459,14 @@ class TestLayerControlBrowser:
         """The Row-cursor recipe genuinely renders, not just exists in source.
 
         The shared recipe must produce the arrow-key reference look in the live
-        DOM — the row's own surface stays clear (the control container's white
-        shows through) with the red glow on the top/bottom edges — for BOTH the
-        keyboard cursor and mouse hover, and leave resting rows untouched. This
-        guards against a recipe that parses but never paints (the pytest source
-        assert can't catch that).
+        DOM — explicit white surface + red glow — for BOTH the keyboard cursor
+        and mouse hover, and leave resting rows untouched. This guards against a
+        recipe that parses but never paints (the pytest source assert can't
+        catch that).
+
+        `show=False` is NOT a reliable "unchecked" pin: on folium 0.14 those
+        overlays still land on the map and the init pass still marks the row
+        `.active` (wash). Force the checkbox off and measure that live row.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
@@ -2457,6 +2493,16 @@ class TestLayerControlBrowser:
                 ")].every(i => i.title.length > 0)",
                 timeout=5000,
             )
+            # Force a truly unchecked row — do not trust show=False across
+            # folium versions (0.14 still checks them).
+            page.evaluate(
+                "() => { const box = document.querySelector("
+                "    '.foliplus-layer-item input[type=checkbox]');"
+                " if (box && box.checked) {"
+                "   box.checked = false;"
+                "   box.dispatchEvent(new Event('change', {bubbles: true}));"
+                " } }"
+            )
             # Move the mouse off the panel so a data row reads its resting state.
             page.mouse.move(0, 0)
             page.wait_for_timeout(120)
@@ -2466,7 +2512,11 @@ class TestLayerControlBrowser:
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
-                " drag: d ? getComputedStyle(d).opacity : null }; }"
+                " drag: d ? getComputedStyle(d).opacity : null,"
+                " active: r.classList.contains('active') }; }"
+            )
+            assert rest["active"] is False, (
+                f"reference row must be unchecked after the forced toggle, got {rest}"
             )
             assert rest["shadow"] == "none", (
                 f"resting row must have no glow, got {rest['shadow']}"
@@ -2474,13 +2524,14 @@ class TestLayerControlBrowser:
 
             kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
             assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
-            # The recipe paints no surface: the cursor-lit row must compute the
-            # exact background its own resting state has (the container's white
-            # on an unchecked row, the .active wash on a checked one) — pinned
-            # as this equality, never as a hardcoded color.
-            assert kb["bg"] == rest["bg"], (
-                f"keyboard cursor must not repaint the surface: cursor "
-                f"{kb['bg']} vs resting {rest['bg']}"
+            white = self._sample_neutral0(page)
+            assert kb["bg"] == white, (
+                f"keyboard cursor must paint the white surface, "
+                f"got {kb['bg']} vs token {white}"
+            )
+            assert rest["bg"] == white, (
+                f"unchecked rest row must also be the explicit white surface, "
+                f"got {rest['bg']} vs token {white}"
             )
             assert kb["shadow"] != "none", (
                 f"keyboard-cursor row must glow, got {kb['shadow']}"
@@ -2500,10 +2551,6 @@ class TestLayerControlBrowser:
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
                 " drag: d ? getComputedStyle(d).opacity : null }; }"
             )
-            assert hover["bg"] == rest["bg"], (
-                f"hover must not repaint the surface: hover {hover['bg']} vs "
-                f"resting {rest['bg']}"
-            )
             assert hover["bg"] == kb["bg"], (
                 f"hover {hover['bg']} must equal keyboard {kb['bg']}"
             )
@@ -2511,9 +2558,85 @@ class TestLayerControlBrowser:
                 f"hover glow {hover['shadow']} must equal keyboard {kb['shadow']}"
             )
 
+    def test_row_cursor_turns_row_white_on_hover_tab_and_arrow(self, browser, tmp_path):
+        """Hover, Tab and arrow-key cursor all turn the row white.
+
+        The interaction target always paints `var(--neutral-0)` — including on
+        a checked row, whose `.active` wash is only the rest surface. White is
+        sampled from the token live, never hardcoded. Dropping the class (what
+        Escape does) returns the rest surface. Tab is covered by the focusin
+        delegate mapping onto the same JS class the probe applies.
+        """
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
+            page.mouse.move(0, 0)
+            result = page.evaluate(_js("LayerControl/read_row_cursor_surface"))
+            assert result is not None and "error" not in result, (
+                f"surface snippet failed: {result}"
+            )
+            white = result["white"]
+
+            # Unchecked: rest and cursor are both the explicit white surface.
+            assert result["rest"]["bg"] == white, (
+                "unchecked rest must be the explicit white surface, got " + str(result)
+            )
+            assert result["cursor"]["bg"] == white, (
+                "cursor must keep the unchecked row white, got " + str(result)
+            )
+            assert result["cursor"]["shadow"] != "none", (
+                "cursor must still glow, got " + str(result)
+            )
+            assert result["after"]["bg"] == result["rest"]["bg"], (
+                "dropping the cursor class must restore rest, got " + str(result)
+            )
+
+            # Checked: rest wash → cursor white → wash returns.
+            assert result["checkedRest"]["active"] is True, (
+                "reference row should be checked, got " + str(result)
+            )
+            assert result["checkedRest"]["bg"] != white, (
+                "checked rest must show the wash, not the interaction white, got "
+                + str(result)
+            )
+            assert result["checkedCursor"]["bg"] == white, (
+                "cursor must also turn a checked row white, got " + str(result)
+            )
+            assert result["checkedAfter"]["bg"] == result["checkedRest"]["bg"], (
+                "dropping the cursor class must restore the checked wash, got "
+                + str(result)
+            )
+
+            # Real hover on the unchecked row: same white as the JS cursor class.
+            page.hover(".foliplus-layer-item:not(.active)")
+            page.wait_for_timeout(120)
+            hover_bg = page.evaluate(
+                "() => getComputedStyle("
+                "  document.querySelector('.foliplus-layer-item:not(.active)')"
+                ").backgroundColor"
+            )
+            assert hover_bg == white, (
+                f"mouse hover must turn the row white too, got {hover_bg}"
+            )
+
     def test_fold_row_cursor_wakes_glow_and_red_icon(self, browser, tmp_path):
         """A keyboard cursor on the fold (toggle-all) row shows the shared recipe
-        (clear surface + glow) and wakes the fold icon red, exactly like hover —
+        (white surface + glow) and wakes the fold icon red, exactly like hover —
         the fold row joins the Row-cursor recipe and cannot drift into its own
         hover style.
         """
@@ -2536,8 +2659,9 @@ class TestLayerControlBrowser:
             assert result["isFold"] is True, (
                 f"cursor should be on the fold row, got {result}"
             )
-            assert result["bg"] == "rgba(0, 0, 0, 0)", (
-                f"fold row must keep the clear surface, got {result['bg']}"
+            white = self._sample_neutral0(page)
+            assert result["bg"] == white, (
+                f"fold row cursor must paint the white surface, got {result['bg']}"
             )
             assert result["shadow"] != "none", (
                 f"fold row must glow, got {result['shadow']}"
@@ -2927,6 +3051,7 @@ class TestLayerControlBrowser:
                 ")].every(i => i.title.length > 0)",
                 timeout=5000,
             )
+            white = self._sample_neutral0(page)
 
             def snapshot():
                 return page.evaluate(
@@ -2980,8 +3105,8 @@ class TestLayerControlBrowser:
                 "an Escape-restored unchecked row must be indistinguishable "
                 "from a never-touched row, got " + str(unchecked)
             )
-            assert unchecked[0]["bg"] == "rgba(0, 0, 0, 0)", (
-                "an unchecked row's rest state is the plain surface, got "
+            assert unchecked[0]["bg"] == white, (
+                "an unchecked row's rest state is the explicit white surface, got "
                 + str(unchecked)
             )
             assert unchecked[0]["grip"] == "0", (
