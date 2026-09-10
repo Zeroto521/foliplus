@@ -50,7 +50,7 @@
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 - `MeasureControl`/`SearchControl`: location coordinates are now pinned to six decimals by one shared formatter (`formatCoord` / `formatLatLng` in `common/format.ts`) — a search result or a popup rendered from a history entry saved as `121.47` used to read `121.47` where the cursor readout reads `121.470000` ([#260](https://github.com/Zeroto521/foliplus/pull/260))
 - `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
-- `LayerControl`: init pass is driven by a ready signal — `BaseControl` emits `CONTROL_ATTACHED` on attach; LayerControl re-runs its (idempotent) init pass when a control attaches and marks the panel `data-ready`, replacing the fixed 300ms `INIT_DELAY_MS` timer that made the `.active` / checkbox-title state a race. Browser tests now wait on one shared `panel_ready` helper instead of per-test `wait_for_function` boilerplate
+- `LayerControl`: init pass is driven by a ready signal — `BaseControl` emits `CONTROL_ATTACHED` on attach; LayerControl re-runs its (idempotent) init pass when a control attaches and marks the panel `data-ready`, replacing the fixed 300ms `INIT_DELAY_MS` timer that made the `.active` / checkbox-title state a race. Browser tests now wait on one shared `panel_ready` helper instead of per-test `wait_for_function` boilerplate ([#283](https://github.com/Zeroto521/foliplus/pull/283))
 
 ### Removed
 
