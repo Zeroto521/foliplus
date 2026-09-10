@@ -96,6 +96,22 @@ class LayerFactory {
 
     let registered = false;
 
+    // Capture the original LayerGroup.prototype methods before we shadow them
+    // on the instance a few lines below. `mainLayer.addLayer = fn` on the
+    // instance hides the prototype method, but if we bound the (then-current)
+    // `mainLayer.addLayer` first the wrapper would end up calling itself —
+    // infinite self-recursion until the stack returns to the caller with the
+    // default Leaflet pane. Pull from `L.LayerGroup.prototype` directly to
+    // sidestep the shadow. The null-guard fallback is for the JS unit test,
+    // which mocks `L.layerGroup` as a plain factory without a `prototype`.
+    const proto = L.LayerGroup?.prototype;
+    const origAddLayer = proto
+      ? proto.addLayer.bind(mainLayer)
+      : mainLayer.addLayer.bind(mainLayer);
+    const origRemoveLayer = proto
+      ? proto.removeLayer.bind(mainLayer)
+      : mainLayer.removeLayer.bind(mainLayer);
+
     const layerOpts: RegisterLayerOpts = {
       name: opts.name,
       id: opts.id,
@@ -125,29 +141,50 @@ class LayerFactory {
       }
     };
 
-    const origAddLayer = mainLayer.addLayer.bind(mainLayer);
-    const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
-
     /** Count content outside the sub-layer containers (which always exist
      *  once `opts.panes` is non-empty). */
     const directCount = (): number => mainLayer.getLayers().length - subLayers.size;
 
-    /** Route a layer to its target sub-layer by `paneName`. Vector layers
-     *  additionally get pinned to the sub-pane's renderer so a later
-     *  `setPane()` call cannot fall through to Leaflet's default SVG and
-     *  cause the "already-owned element" `appendChild` crash. Non-vector
-     *  leaves are dropped onto their sub-layer's own renderer via
-     *  `ensurePane` — cheap no-op once the pane is live. */
+    /** Route a layer to its target sub-layer by `options.pane`. If the
+     *  caller did not preset `options.pane` — or left it at Leaflet's
+     *  class-default (`'overlayPane'` for paths, `'markerPane'` for
+     *  markers, etc.) — default to `subPanes[0]`, the base pane where
+     *  graph geometry normally lives. This mirrors the pre-refactor
+     *  `mainLayer.addLayer(layer)` contract (which auto-routed unflagged
+     *  leaves to graphPane) so existing callers that rely on
+     *  `mainLayer.addLayer(poly)` without setting `options.pane` keep
+     *  working. Explicit `options.pane` values in `subPanes` are honoured;
+     *  values outside `subPanes` (or empty `subPanes`) fall through to
+     *  `origAddLayer` unchanged.
+     *
+     *  Distinguishing "explicit" from "class-default" uses `options.paneSet`
+     *  — the flag `PaneManager.migrateLayers` / `ensureVector` /
+     *  `LayerFactory.addLayer` set when they actually write `options.pane`.
+     *  Without it, every `L.polyline()` carries `options.pane ===
+     *  'overlayPane'` and the auto-default below would never fire.
+     *
+     *  Vector layers additionally get pinned to the sub-pane's renderer so
+     *  a later `setPane()` call cannot fall through to Leaflet's default
+     *  SVG and cause the "already-owned element" `appendChild` crash.
+     *  Non-vector leaves are dropped onto their sub-layer's own renderer
+     *  via `ensurePane` — cheap no-op once the pane is live. */
     mainLayer.addLayer = (layer: LabelAwareLayer) => {
-      const targetName = layer.options.pane;
-      const target = targetName ? subLayers.get(targetName) : null;
-      if (target) {
+      const declared = layer.options.pane;
+      const requested = layer.options.paneSet ? declared : basePaneName;
+      if (requested && subPanes.includes(requested)) {
+        // Pin the target name so downstream code (discoverChildPanes,
+        // getLayerPanes, ensureVector) sees the truth even if the caller
+        // left `options.pane` empty and we defaulted.
+        layer.options.pane = requested;
+        layer.options.paneSet = true;
         if (!map.hasLayer(mainLayer)) register();
         if (layer instanceof L.Path) {
-          factoryPanes.ensureVector(layer, targetName!);
-        } else if (targetName) {
-          factoryPanes.ensurePane(targetName, false);
+          factoryPanes.ensureVector(layer, requested);
+        } else {
+          factoryPanes.ensurePane(requested, false);
         }
+        const target = subLayers.get(requested);
+        if (!target) return origAddLayer(layer);
         const result = target.addLayer(layer);
         // The mainLayer subtree changed and the added layer's options.pane
         // was set above — invalidate both discovery-cache entries (targeted).
@@ -218,6 +255,7 @@ class LayerFactory {
       const target = paneName ?? basePaneName ?? undefined;
       if (target && subPanes.includes(target)) {
         (layer as LabelAwareLayer).options.pane = target;
+        (layer as LabelAwareLayer).options.paneSet = true;
         // Mark as a label if the pane is one of the layer's label panes
         // (index ≥ 1 — the base pane is index 0). This preserves the
         // existing `isLabel` contract that util.getGeometryType /

@@ -30,26 +30,28 @@ describe("LayerFactory", () => {
       return vi.fn(() => ++id);
     })();
     window.L.stamp = stamp;
-    window.L.layerGroup = vi.fn(() => {
-      const layers: any[] = [];
+    window.L.layerGroup = vi.fn((layers?: any[], options?: { pane?: string }) => {
+      const children: any[] = [];
       const grp = {
         addLayer: vi.fn((l: any) => {
-          layers.push(l);
+          children.push(l);
           return grp;
         }),
         removeLayer: vi.fn((l: any) => {
-          const i = layers.indexOf(l);
-          if (i !== -1) layers.splice(i, 1);
+          const i = children.indexOf(l);
+          if (i !== -1) children.splice(i, 1);
           return grp;
         }),
-        hasLayer: vi.fn((l: any) => layers.includes(l)),
-        getLayers: vi.fn(() => layers),
+        hasLayer: vi.fn((l: any) => children.includes(l)),
+        getLayers: vi.fn(() => children),
         clearLayers: vi.fn(() => {
-          layers.length = 0;
+          children.length = 0;
           return grp;
         }),
-        eachLayer: vi.fn((cb: any) => layers.forEach(cb)),
-        options: {},
+        eachLayer: vi.fn((cb: any) => children.forEach(cb)),
+        // Respect the { pane } arg so tests that route by subLayer.options.pane
+        // see the same truth LayerFactory.createLayers writes.
+        options: options ?? {},
       };
       return grp;
     });
@@ -188,9 +190,12 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Marker();
       api.addLayer(layer, "does_not_exist");
-      // Neither the declared sub-pane nor the "misspelled" name gets
-      // written to options.pane — the layer goes in as-is.
-      expect(layer.options.pane).toBeUndefined();
+      // The api.addLayer wrapper does not write options.pane for a name
+      // outside subPanes; mainLayer.addLayer then auto-routes to the base
+      // sub-pane (subPanes[0]) — the same place a bare addLayer(layer) with
+      // no name goes. Documented so a future tightening has a test to
+      // update.
+      expect(layer.options.pane).toBe("graph1");
       expect(layer.isLabel).toBeUndefined();
     });
 
@@ -217,6 +222,68 @@ describe("LayerFactory", () => {
       api.addLayer(layer);
       expect(layer.options.pane).toBe("graph1");
       expect(layer.isLabel).toBeUndefined();
+    });
+
+    it("mainLayer.addLayer auto-routes a leaf without options.pane to the base sub-layer", () => {
+      // Pre-refactor, mainLayer.addLayer(layer) wrote options.pane = graphPane
+      // automatically when layer.isLabel was absent. The refactor initially
+      // dropped that write, silently breaking the mainLayer.addLayer(poly)
+      // contract that browser tests and MeasureControl rely on — the CI run
+      // caught it as "assert 'overlayPane' == '__pane_test_graph__'". This
+      // test pins the restored auto-route behavior.
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1", "label1"],
+      });
+      const layer = new window.L.Path();
+      expect(layer.options.pane).toBeUndefined();
+      api.mainLayer.addLayer(layer);
+      expect(layer.options.pane).toBe("graph1");
+      // The sub-layer, not mainLayer, now owns the leaf.
+      const subLayers = Array.from(api.mainLayer.getLayers());
+      expect(subLayers.length).toBe(2); // graph + label sub-layers
+      const graphSub = subLayers.find(g => g.options.pane === "graph1");
+      expect(graphSub.hasLayer(layer)).toBe(true);
+    });
+
+    it("mainLayer.addLayer honours an explicit options.pane that matches a sub-pane", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1", "label1"],
+      });
+      const layer = new window.L.Path();
+      layer.options.pane = "label1";
+      // `paneSet` marks the pane as explicitly authored (not a Leaflet
+      // class default like 'overlayPane' / 'markerPane'). The wrapper
+      // honours the declared value only when this flag is true.
+      (layer.options as { paneSet?: boolean }).paneSet = true;
+      api.mainLayer.addLayer(layer);
+      expect(layer.options.pane).toBe("label1");
+      const subLayers = Array.from(api.mainLayer.getLayers());
+      const labelSub = subLayers.find(g => g.options.pane === "label1");
+      expect(labelSub.hasLayer(layer)).toBe(true);
+    });
+
+    it("mainLayer.addLayer falls through to origAddLayer when options.pane names a pane not in subPanes", () => {
+      // A caller that sets options.pane to a name outside subPanes (a
+      // third-party pane, or a stale reference after a rebuild) is left
+      // alone: the leaf lands in mainLayer directly, no pin, no crash.
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1"],
+      });
+      const layer = new window.L.Path();
+      layer.options.pane = "__not_ours__";
+      (layer.options as { paneSet?: boolean }).paneSet = true;
+      api.mainLayer.addLayer(layer);
+      expect(layer.options.pane).toBe("__not_ours__");
+      // Direct on mainLayer (not in any sub-layer).
+      const subLayers = Array.from(api.mainLayer.getLayers());
+      const directOnMain = subLayers.filter(g => g === layer).length;
+      expect(directOnMain).toBe(1);
     });
 
     it("notifies onDataChange when graph content changes", () => {

@@ -1,6 +1,7 @@
 () => {
   const mm = window.__measureManager;
   mm.layers.mainLayer.eachLayer(sub =>
+    sub.eachLayer &&
     sub.eachLayer(l => {
       if (l instanceof L.Marker) {
         const po = l.getPopup && l.getPopup();
