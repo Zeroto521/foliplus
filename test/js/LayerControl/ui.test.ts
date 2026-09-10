@@ -1891,6 +1891,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("double-click on a base basemap row shows a hint instead of focusLayer", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "base1");
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+      focusSpy.mockRestore();
+    });
+
     it("double-click on a hidden row still reaches focusLayer (hint path)", () => {
       // Hidden layers are NOT focusable via the menu, but double-click must
       // still run focusLayer so the user gets the "hidden" hint instead of

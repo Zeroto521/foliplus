@@ -1658,14 +1658,29 @@ class LayerUI {
     ) {
       return;
     }
-    // Base basemap / color picker have no meaningful extent to zoom to.
-    // Hidden layers are NOT skipped here: focusLayer shows the "hidden"
-    // hint for them (menu items are disabled, the double-click is not).
-    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
-    if (item.dataset.layerType === CONST.GROUP.BASE) return;
+    // Base basemap / color picker have no meaningful extent to zoom to —
+    // explain instead of silently ignoring the double-click. Hidden layers
+    // ARE passed through: focusLayer shows the "hidden" hint for them.
+    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) {
+      this.showBaseFocusHint();
+      return;
+    }
+    if (item.dataset.layerType === CONST.GROUP.BASE) {
+      this.showBaseFocusHint();
+      return;
+    }
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);
+  }
+
+  /** Basemaps / color pickers cannot be focused — hint instead of silence. */
+  private showBaseFocusHint(): void {
+    this.m.map.foliplus!.showHint(
+      CONF.name,
+      T("focus_layer_base"),
+      HINT_DURATION.SHORT,
+    );
   }
 
   /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
