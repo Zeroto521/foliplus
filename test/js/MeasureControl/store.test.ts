@@ -23,17 +23,28 @@ vi.mock("#core/event/index.js", () => ({
   ensureEvents: () => ({ emit: events.emit }),
 }));
 
-// CONF is a free variable read by the store (storage name prefix).
-window.CONF = { ...window.CONF, name: "MeasureControl" };
+vi.mock("#core/hint.js", () => ({
+  HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
+}));
 
+// CONF is a free variable read by the store (storage name prefix). Mutate the
+// object in place: createScopedTranslator captures the CONF reference at module
+// import time and reads conf.name lazily, so a fresh stub object would leave
+// the store's T() scoped to whatever name setup.ts installed.
+window.CONF.name = "MeasureControl";
+
+/** Store bound to a map carrying a spy on showHint. */
 const makeStore = () => {
-  const map = {} as unknown as L.Map;
-  return new MeasureStore(map, "layer-1");
+  const showHint = vi.fn();
+  const map = { foliplus: { showHint } } as unknown as L.Map;
+  return { store: new MeasureStore(map, "layer-1"), showHint };
 };
 
 beforeEach(() => {
   storage.load.mockReset();
+  // Default success — a failure is an explicit per-test mock.
   storage.save.mockReset();
+  storage.save.mockReturnValue(true);
   events.emit.mockReset();
 });
 
@@ -41,25 +52,25 @@ describe("MeasureStore — load", () => {
   it("returns the persisted array", () => {
     const data = [{ id: "a", type: "marker" }];
     storage.load.mockReturnValue(data);
-    const store = makeStore();
+    const store = makeStore().store;
     expect(store.load()).toBe(data);
     expect(storage.load).toHaveBeenCalledWith(CONST.STORAGE.KEY, "MeasureControl");
   });
 
   it("falls back to [] when storage holds a non-array", () => {
     storage.load.mockReturnValue({ not: "array" });
-    expect(makeStore().load()).toEqual([]);
+    expect(makeStore().store.load()).toEqual([]);
   });
 
   it("falls back to [] when storage is null", () => {
     storage.load.mockReturnValue(null);
-    expect(makeStore().load()).toEqual([]);
+    expect(makeStore().store.load()).toEqual([]);
   });
 });
 
 describe("MeasureStore — hydrate + all + count", () => {
   it("hydrate replaces the backing array without persisting", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }, { id: "b" }]);
     expect(store.all()).toHaveLength(2);
     expect(store.count()).toBe(2);
@@ -67,13 +78,13 @@ describe("MeasureStore — hydrate + all + count", () => {
   });
 
   it("all returns the live backing array reference", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }]);
     expect(store.all()).toBe(store.all());
   });
 
   it("starts empty", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     expect(store.count()).toBe(0);
     expect(store.all()).toEqual([]);
   });
@@ -81,7 +92,7 @@ describe("MeasureStore — hydrate + all + count", () => {
 
 describe("MeasureStore — add", () => {
   it("appends a measurement, persists, and emits count", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.add({ id: "a", type: "marker" });
     expect(store.all()).toHaveLength(1);
     expect(storage.save).toHaveBeenCalledTimes(1);
@@ -91,7 +102,7 @@ describe("MeasureStore — add", () => {
   });
 
   it("keeps order of insertion", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.add({ id: "a", type: "marker" });
     store.add({ id: "b", type: "marker" });
     expect(store.all().map(m => m.id)).toEqual(["a", "b"]);
@@ -100,7 +111,7 @@ describe("MeasureStore — add", () => {
 
 describe("MeasureStore — remove", () => {
   it("filters out the id and persists", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }, { id: "b" }]);
     storage.save.mockClear();
     events.emit.mockClear();
@@ -111,7 +122,7 @@ describe("MeasureStore — remove", () => {
   });
 
   it("is a no-op persist when id is absent (still safe)", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }]);
     storage.save.mockClear();
     store.remove("missing");
@@ -123,7 +134,7 @@ describe("MeasureStore — remove", () => {
 
 describe("MeasureStore — update", () => {
   it("merges a patch into the matched measurement and persists", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a", type: "marker", lng: 1, lat: 2 }]);
     storage.save.mockClear();
     events.emit.mockClear();
@@ -137,7 +148,7 @@ describe("MeasureStore — update", () => {
   });
 
   it("is a no-op when id is not found (no persist)", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }]);
     storage.save.mockClear();
     store.update("missing", { lat: 9 });
@@ -148,7 +159,7 @@ describe("MeasureStore — update", () => {
 
 describe("MeasureStore — clear", () => {
   it("empties the list and persists", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }, { id: "b" }]);
     storage.save.mockClear();
     events.emit.mockClear();
@@ -160,9 +171,38 @@ describe("MeasureStore — clear", () => {
   });
 });
 
+describe("MeasureStore — persist failure", () => {
+  it("hints once when writes are rejected, and keeps emitting the count", () => {
+    // The quota-exhausted state is environmental, so it is reported once per
+    // session rather than on every click.
+    storage.save.mockReturnValue(false);
+    const { store, showHint } = makeStore();
+    store.add({ id: "a", type: "marker" });
+    store.add({ id: "b", type: "marker" });
+
+    // PERSIST: the hint stays until the user dismisses it rather than vanishing
+    // mid-session, since the condition does not clear on its own.
+    expect(showHint).toHaveBeenCalledTimes(1);
+    expect(showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      "MeasureControl.err_not_saved",
+      0,
+    );
+    // Every change still writes and still refreshes the LayerControl count column.
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(events.emit).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not hint when the write succeeds", () => {
+    const { store, showHint } = makeStore();
+    store.add({ id: "a", type: "marker" });
+    expect(showHint).not.toHaveBeenCalled();
+  });
+});
+
 describe("MeasureStore — emitCount", () => {
   it("emits without writing to storage", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.emitCount();
     expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
       id: "layer-1",
@@ -173,7 +213,7 @@ describe("MeasureStore — emitCount", () => {
 
 describe("MeasureStore — hydrate reference stability", () => {
   it("keeps the all() reference stable across hydrate calls", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([{ id: "a" }] as any);
     const ref = store.all();
     store.hydrate([{ id: "b" }] as any);
@@ -184,7 +224,7 @@ describe("MeasureStore — hydrate reference stability", () => {
 
 describe("MeasureStore — missing id stabilization (restore path)", () => {
   it("assigns ids to id-less measurements and persists once", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     store.hydrate([
       { id: "a", type: "marker" },
       { type: "distance" },
@@ -209,7 +249,7 @@ describe("MeasureStore — missing id stabilization (restore path)", () => {
 
 describe("MeasureStore — nextId", () => {
   it("increments the counter and embeds type + counter in the id", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     const id1 = store.nextId("marker");
     const id2 = store.nextId("distance");
     expect(id1).toContain("marker");
@@ -218,7 +258,7 @@ describe("MeasureStore — nextId", () => {
   });
 
   it("uses the CONST.ID prefix", () => {
-    const store = makeStore();
+    const store = makeStore().store;
     expect(store.nextId("marker").startsWith(CONST.ID + "_")).toBe(true);
   });
 });

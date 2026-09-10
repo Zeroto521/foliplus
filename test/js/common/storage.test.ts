@@ -26,4 +26,27 @@ describe("storage", () => {
     save("num", 42);
     expect(load("num")).toBe(42);
   });
+
+  it("reports whether the write happened", () => {
+    expect(save("ok", { a: 1 })).toBe(true);
+
+    // A real browser rejects with a QuotaExceededError DOMException.
+    const quotaError = new DOMException("quota", "QuotaExceededError");
+    // jsdom's Storage#getOwnPropertyDescriptor traps descriptor rewrites, so
+    // replace the Storage.prototype.setItem descriptor itself.
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      Storage.prototype,
+      "setItem",
+    ) as PropertyDescriptor;
+    Object.defineProperty(Storage.prototype, "setItem", {
+      configurable: true,
+      value: () => {
+        throw quotaError;
+      },
+    });
+    const denied = save("denied", { a: 1 });
+    expect(denied).toBe(false);
+    expect(console.warn).toHaveBeenCalled();
+    Object.defineProperty(Storage.prototype, "setItem", nativeSetter);
+  });
 });

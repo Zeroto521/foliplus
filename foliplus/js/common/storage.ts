@@ -32,12 +32,17 @@ const load = <T>(key: string, name = "foliplus"): T | null => {
  * @param key - localStorage key.
  * @param data - Value to persist (must be JSON-serializable).
  * @param name - Caller component name, used as the log prefix.
+ * @returns Whether the value was actually written. False means the storage
+ *  backend rejected the write (quota exhausted, private-mode restrictions) —
+ *  callers that lose user data on a failed write can surface it.
  */
-const save = (key: string, data: unknown, name = "foliplus"): void => {
+const save = (key: string, data: unknown, name = "foliplus"): boolean => {
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
+    return true;
   } catch (e) {
     logWarn(name, `failed to save data (key=${key})`, e);
+    return false;
   }
 };
 

@@ -196,6 +196,7 @@ _JS_USED_KEYS = {
     "MeasureControl.del_node",
     "MeasureControl.del_all",
     "MeasureControl.tool_export",
+    "MeasureControl.err_not_saved",
     "MeasureControl.name_marker",
     "MeasureControl.name_distance",
     "MeasureControl.name_polygon",

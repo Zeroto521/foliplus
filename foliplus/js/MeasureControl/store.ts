@@ -5,19 +5,27 @@
 // through this store instead of poking manager.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
+import { createScopedTranslator } from "#common/locale.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/hint.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
+const T = createScopedTranslator(CONF);
 
-/**
- * Central store for all measurements. Owns the array, the id counter, and the
+// localStorage quota exhaustion is environmental — third-party cookies off,
+// the origin's quota taken by other sites — so it cannot be fixed from the
+// page. persist() runs on every measurement change, so a per-session flag
+// rather than a per-failure notification: the user is told once, and stays
+// told while the condition persists.
+let persistFailureWarned = false;
+
+/** Central store for all measurements. Owns the array, the id counter, and the
  * persist + count-emit side effects. Manager exposes a thin compatibility
  * shell (`.measurements` getter/setter, `.saveMeasurements()`) over this so
  * browser tests and legacy call sites keep working while new code uses the
- * typed API (add/remove/update/all).
- */
+ * typed API (add/remove/update/all). */
 class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
@@ -56,9 +64,20 @@ class MeasureStore {
   }
 
   /** Persist current list to localStorage and emit LAYER_ITEM_COUNT_CHANGE so
-   *  LayerControl refreshes its count column. */
+   *  LayerControl refreshes its count column.
+   *
+   *  A rejected write is surfaced, because this list is unbounded — unlike the
+   *  other persistence callers (bounded id arrays, a single bounds pair), a long
+   *  chain here can fill the quota. It is reported once per session: the state is
+   *  environmental, so repeating the hint on every click is only noise. The data
+   *  stays live in memory and on the map — only the reload-restorable copy is
+   *  lost, which is what the message says. Count emission still runs, so the
+   *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    Storage.save(CONST.STORAGE.KEY, this.list, CONF.name);
+    if (!Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) && !persistFailureWarned) {
+      persistFailureWarned = true;
+      this.map.foliplus!.showHint(CONF.name, T("err_not_saved"), HINT_DURATION.PERSIST);
+    }
     this.emitCount();
   }
 
