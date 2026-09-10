@@ -385,7 +385,11 @@ class TestLayerControlRendering:
         # White surface is painted whenever the row is the interaction target
         # (hover / Tab / arrow share this recipe). Checked rows show the wash
         # only at rest — the cursor paints white on top.
-        assert "background: var(--neutral-0)" in recipe, (
+        assert "background: var(--neutral-0)" in recipe
+        # Bottom glow is outboard; the next row's opaque surface would cover
+        # it without a stacking lift on the interaction target.
+        assert "position: relative" in recipe
+        assert "z-index: 1" in recipe, (
             "cursor recipe must paint the white surface"
         )
         # Interaction white must sit AFTER the .active wash in source order so
