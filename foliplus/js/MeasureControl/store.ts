@@ -5,9 +5,9 @@
 // through this store instead of poking manager.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
-import { createScopedTranslator } from "#common/locale.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -74,7 +74,10 @@ class MeasureStore {
    *  lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    if (!Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) && !persistFailureWarned) {
+    if (
+      !Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) &&
+      !persistFailureWarned
+    ) {
       persistFailureWarned = true;
       this.map.foliplus!.showHint(CONF.name, T("err_not_saved"), HINT_DURATION.PERSIST);
     }
