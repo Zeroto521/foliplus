@@ -471,24 +471,18 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
 
 /**
  * Scan the map for point layers. Driven by the ready signal instead of a
- * retry loop: a first pass runs immediately, every CONTROL_ATTACHED (a
- * control — usually LayerControl — finishing attach) re-runs it, and a
- * single timeout settles the "no point layers" hint. Returns a cleanup
- * that unsubscribes and clears the timer.
+ * retry loop: an immediate first pass, a re-scan on every CONTROL_ATTACHED
+ * (a control — usually LayerControl — finishing attach), and a final pass
+ * one macrotask later to settle the "no point layers" hint — every control
+ * attaches in the same synchronous script stack, so by then the layer set is
+ * final (dynamic layer changes after that flow through LAYER_CHANGE in the
+ * manager). Returns a cleanup that unsubscribes.
  */
 const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   let done = false;
-  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const unsub = ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, scan);
-  const finish = () => {
+  const scan = (final: boolean): void => {
     if (done) return;
-    done = true;
-    unsub();
-    if (timer) clearTimeout(timer);
-  };
-
-  function scan(): void {
     try {
       ctrl.m.scanMapLayers();
     } catch {
@@ -510,35 +504,40 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         updateFieldSelector(ctrl);
         if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
       }
-      finish();
+      done = true;
+      cleanup();
+    } else if (final) {
+      // Settle: no point layer showed up. Distinguish the two causes so the
+      // hint points the user at the right fix: isLayerControl===false means
+      // only the lightweight LayerAPI stub is installed (no LayerControl
+      // added), whereas true means LayerControl is present but has no data.
+      const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
+      map.foliplus!.showHint(
+        CONF.name,
+        T(missingLayerControl ? "no_layercontrol" : "no_layer"),
+        HINT_DURATION.LONG,
+      );
+      ctrl.m.hasScanned = true;
+      done = true;
+      cleanup();
     }
-  }
+  };
 
-  // Timeout: no point layer appeared — settle the hint so the user is told
-  // whether the cause is a missing LayerControl or an empty layer set.
-  timer = setTimeout(() => {
-    // One last scan before giving up (a control attached in this tick).
-    scan();
+  const cleanup = ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, () => scan(false));
+
+  // Settle after the synchronous attach sequence: a control that attached
+  // before this subscription (e.g. LayerControl added before Heatmap) is
+  // covered by the immediate pass below; the final pass here ends the
+  // initial scan. No fixed delay — the attach stack is synchronous.
+  setTimeout(() => scan(true), 0);
+
+  scan(false);
+
+  return () => {
     if (done) return;
-    // Distinguish the two "no point layers" causes so the hint points the
-    // user at the right fix:  isLayerControl===false means only the
-    // lightweight LayerAPI stub is installed (no LayerControl added),
-    // whereas true means LayerControl is present but has no point data.
-    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
-    map.foliplus!.showHint(
-      CONF.name,
-      T(missingLayerControl ? "no_layercontrol" : "no_layer"),
-      HINT_DURATION.LONG,
-    );
-    ctrl.m.hasScanned = true;
-    finish();
-  }, CONST.TIMING.INIT_SCAN_TIMEOUT_MS);
-
-  // Cover controls that attached before this subscription (e.g. LayerControl
-  // added before Heatmap): their CONTROL_ATTACHED was already emitted.
-  scan();
-
-  return finish;
+    done = true;
+    cleanup();
+  };
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {

@@ -6,11 +6,6 @@
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
   LAYER_SCAN_DEBOUNCE: 200,
-  /** How long to wait for a point layer after attach before showing the
-   *  "no point layer" hint. The ready signal (CONTROL_ATTACHED) triggers the
-   *  scan immediately; this is only the fallback for when no layer ever
-   *  shows up. */
-  INIT_SCAN_TIMEOUT_MS: 3000,
   SCHEME_DROPDOWN_BLUR_DELAY: 150,
   LOAD_SCRIPT_RETRIES: 2,
   LOAD_SCRIPT_INTERVAL: 3000,
