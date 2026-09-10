@@ -389,9 +389,7 @@ class TestLayerControlRendering:
         # Bottom glow is outboard; the next row's opaque surface would cover
         # it without a stacking lift on the interaction target.
         assert "position: relative" in recipe
-        assert "z-index: 1" in recipe, (
-            "cursor recipe must paint the white surface"
-        )
+        assert "z-index: 1" in recipe, "cursor recipe must paint the white surface"
         # Interaction white must sit AFTER the .active wash in source order so
         # it wins at equal specificity (postcss keeps declaration order).
         active_idx = css.find("&.active", compound)
