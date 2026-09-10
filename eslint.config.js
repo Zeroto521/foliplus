@@ -21,11 +21,13 @@
 // inflated the tree with blank lines around every `this.method()` call.
 //
 // @see https://eslint.org/docs/latest/use/configure/
-
 import tseslint from "typescript-eslint";
 
 export default [
-  // Build output, vendored deps, browser tests (use CDN globals)
+  // Guard against a bare `eslint .`, which would sweep .venv, doc/, and
+  // the build output. The lint script's globs already avoid those, so
+  // these only matter for an ad-hoc invocation. test/js/browser/** uses CDN
+  // globals (Leaflet, turf) rather than imports.
   {
     ignores: [
       "foliplus/dist/**",
@@ -126,10 +128,14 @@ export default [
   },
 
   // ── Runtime only: no bare console ──
-  // foliplus/js logs through createLogger() (see common/log.ts), so a raw
-  // console.* there is a leak, not a feature. Excluded on purpose: script/*
-  // is build tooling whose entire output *is* console.log, and test/js talks
-  // to the console through its mocks.
+  // foliplus/js logs through createLogger() (see common/log.ts). Excluded on
+  // purpose: script/* is build tooling whose entire output *is* console.log,
+  // and test/js talks to the console through its mocks.
+  //
+  // warn/error stay allowed: createLogger() itself logs through
+  // console.error / console.warn, so banning them would also ban the
+  // sanctioned logging path. The leak this catches is a bare
+  // console.log / console.info in runtime code.
   {
     files: ["foliplus/js/**/*.ts"],
     rules: {

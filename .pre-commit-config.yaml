@@ -56,9 +56,11 @@ repos:
   # `--check`, not `--write`: CI asserts on formatting rather than mutating a
   # working tree. Local `npm run format` writes.
   #
-  # Uses .prettierrc.cjs (with require.resolve for the plugin) because prettier
-  # resolves plugins from package.json's "prettier" block via ESM `import()`
-  # from /code/noop.js, which fails in the isolated env.
+  # Uses .prettierrc.cjs so the same config serves local and pre-commit.ci. The
+  # CJS file resolves the plugin to an absolute path, which is the only form
+  # that works there: prettier never asks for the plugin by name, so it never
+  # hits NODE_PATH package-name resolution. A bare `import`/`require()` would
+  # fail in the isolated env just the same.
   - repo: local
     hooks:
       - id: format-prettier

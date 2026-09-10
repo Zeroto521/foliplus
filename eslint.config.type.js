@@ -17,48 +17,37 @@
 // position that expects a sync return value.
 //
 // @see https://typescript-eslint.io/rules/no-floating-promises/
-
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
+// One entry, not three. It registers the plugin itself rather than spreading
+// `...tseslint.configs.recommended`, which would re-enable the rules pass 1
+// deliberately turns off (no-explicit-any, no-unused-vars, no-require-imports)
+// — this config adds three Promise rules and nothing else. The parser and the
+// parserOptions live in the same block so there is one place that declares the
+// language environment for these rules.
+//
+// eslint.config.js's `ignores` do not apply here: these rules need type
+// information, so they are scoped by `files` to what tsconfig includes.
+// test/js/** is out because it is not in the tsconfig program.
 export default [
-  // Register the plugin. eslint.config.js's `files` scope does not reach the
-  // type-aware rules below, so it must be defined here for
-  // `@typescript-eslint/*` to resolve. Defined as a bare plugin entry rather
-  // than `...tseslint.configs.recommended` because that spread would re-enable
-  // the recommended rules that pass 1 deliberately turns off
-  // (no-explicit-any, no-unused-vars, no-require-imports) — this config adds
-  // three Promise rules and nothing else.
-  {
-    plugins: { "@typescript-eslint": tseslint.plugin },
-    languageOptions: { parser: tseslint.parser },
-  },
-
-  {
-    ignores: [
-      "node_modules/**",
-      "foliplus/dist/**",
-      "test/js/browser/**",
-      "doc/**",
-      "script/sonda/**",
-    ],
-  },
-
   {
     files: ["foliplus/js/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/require-await": "error",
-      "@typescript-eslint/no-misused-promises": "error",
-    },
+    plugins: { "@typescript-eslint": tseslint.plugin },
     languageOptions: {
+      parser: tseslint.parser,
       parserOptions: {
         project: "./tsconfig.json",
         tsconfigRootDir: root,
       },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/require-await": "error",
+      "@typescript-eslint/no-misused-promises": "error",
     },
   },
 ];
