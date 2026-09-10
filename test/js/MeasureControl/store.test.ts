@@ -173,8 +173,8 @@ describe("MeasureStore — clear", () => {
 
 describe("MeasureStore — persist failure", () => {
   it("hints once when writes are rejected, and keeps emitting the count", () => {
-    // The quota-exhausted state is environmental, so it is reported once per
-    // session rather than on every click.
+    // The quota-exhausted state is environmental, so it is reported once rather
+    // than on every click.
     storage.save.mockReturnValue(false);
     const { store, showHint } = makeStore();
     store.add({ id: "a", type: "marker" });
@@ -197,6 +197,45 @@ describe("MeasureStore — persist failure", () => {
     const { store, showHint } = makeStore();
     store.add({ id: "a", type: "marker" });
     expect(showHint).not.toHaveBeenCalled();
+  });
+
+  it("surfaces every failure path, not only add", () => {
+    storage.save.mockReturnValue(false);
+    const { store, showHint } = makeStore();
+    store.hydrate([{ id: "a" }] as any);
+
+    storage.save.mockClear();
+    events.emit.mockClear();
+    showHint.mockClear();
+    store.remove("a");
+    store.clear();
+    store.update("missing", { lat: 1 });
+
+    expect(showHint).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(events.emit).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-hints on the next store once a new session starts", () => {
+    // The flag is per store, not per module: a second layer panel on the same
+    // page builds a fresh MeasureStore and must be able to warn too. A module
+    // flag would suppress it forever.
+    storage.save.mockReturnValue(false);
+    const first = makeStore();
+    const second = makeStore();
+
+    first.store.add({ id: "a" });
+    second.store.add({ id: "a" });
+
+    expect(first.showHint).toHaveBeenCalledTimes(1);
+    expect(second.showHint).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when the map has no hint surface", () => {
+    storage.save.mockReturnValue(false);
+    const store = new MeasureStore({} as unknown as L.Map, "layer-1");
+    expect(() => store.add({ id: "a", type: "marker" })).not.toThrow();
+    expect(events.emit).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -222,28 +261,45 @@ describe("MeasureStore — hydrate reference stability", () => {
   });
 });
 
-describe("MeasureStore — missing id stabilization (restore path)", () => {
-  it("assigns ids to id-less measurements and persists once", () => {
+describe("MeasureStore — assignMissingIds (restore path)", () => {
+  it("assigns ids to id-less measurements, preserving existing ones", () => {
     const store = makeStore().store;
     store.hydrate([
-      { id: "a", type: "marker" },
+      { id: "existing", type: "marker" },
       { type: "distance" },
       { type: "circle" },
     ] as any);
-    storage.save.mockClear();
-    // Simulate restoreMeasurements' stabilization loop
-    let stabilized = false;
-    for (const m of store.all()) {
-      if (!m.id) {
-        m.id = store.nextId(m.type);
-        stabilized = true;
-      }
-    }
-    if (stabilized) store.persist();
 
-    expect(store.all().every(m => m.id)).toBe(true);
+    expect(store.assignMissingIds()).toBe(true);
+
+    expect(store.all()[0].id).toBe("existing"); // untouched
+    expect(
+      store
+        .all()
+        .slice(1)
+        .every(m => m.id),
+    ).toBe(true);
     expect(new Set(store.all().map(m => m.id)).size).toBe(3);
-    expect(storage.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns false and leaves the list alone when every entry already has an id", () => {
+    const store = makeStore().store;
+    store.hydrate([{ id: "a", type: "marker" }] as any);
+    expect(store.assignMissingIds()).toBe(false);
+    expect(store.all().map(m => m.id)).toEqual(["a"]);
+  });
+
+  it("returns false on an empty store", () => {
+    expect(makeStore().store.assignMissingIds()).toBe(false);
+  });
+
+  it("assigns each id from nextId, so ids stay unique and type-tagged", () => {
+    const store = makeStore().store;
+    store.hydrate([{ type: "marker" }, { type: "marker" }] as any);
+    store.assignMissingIds();
+    const ids = store.all().map(m => m.id);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids.every(id => id.startsWith(CONST.ID + "_marker_"))).toBe(true);
   });
 });
 

@@ -11,26 +11,20 @@ import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
-// CONF is a free variable from the IIFE template wrapper (see global.d.ts).
-const T = createScopedTranslator(CONF);
-
-// localStorage quota exhaustion is environmental — third-party cookies off,
-// the origin's quota taken by other sites — so it cannot be fixed from the
-// page. persist() runs on every measurement change, so a per-session flag
-// rather than a per-failure notification: the user is told once, and stays
-// told while the condition persists.
-let persistFailureWarned = false;
-
-/** Central store for all measurements. Owns the array, the id counter, and the
- * persist + count-emit side effects. Manager exposes a thin compatibility
- * shell (`.measurements` getter/setter, `.saveMeasurements()`) over this so
- * browser tests and legacy call sites keep working while new code uses the
- * typed API (add/remove/update/all). */
+/** Central store for all measurements. Owns the array, the id counter, the
+ * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Manager
+ * exposes a thin compatibility shell (`.measurements` getter/setter,
+ * `.saveMeasurements()`) over this so browser tests and legacy call sites keep
+ * working while new code uses the typed API (add/remove/update/all). */
 class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
   private readonly map: L.Map;
   private readonly layerId: string;
+  private warned = false;
+  // CONF is a free variable from the IIFE template wrapper (see global.d.ts);
+  // bind the translator once, not per call site.
+  private readonly T = createScopedTranslator(CONF);
 
   constructor(map: L.Map, layerId: string) {
     this.map = map;
@@ -63,23 +57,41 @@ class MeasureStore {
     this.list.splice(0, this.list.length, ...data);
   }
 
+  /** Restore an id onto a measurement that came back from storage without one
+   *  (older versions persisted measurements without an id). Returns true if
+   *  any measurement gained an id — the caller then persists so the id is
+   *  durable and later onUpdate / onDelete lookups resolve to the right row. */
+  assignMissingIds(): boolean {
+    let assigned = false;
+    for (const m of this.list) {
+      if (!m.id) {
+        m.id = this.nextId(m.type);
+        assigned = true;
+      }
+    }
+    return assigned;
+  }
+
   /** Persist current list to localStorage and emit LAYER_ITEM_COUNT_CHANGE so
    *  LayerControl refreshes its count column.
    *
    *  A rejected write is surfaced, because this list is unbounded — unlike the
    *  other persistence callers (bounded id arrays, a single bounds pair), a long
-   *  chain here can fill the quota. It is reported once per session: the state is
-   *  environmental, so repeating the hint on every click is only noise. The data
-   *  stays live in memory and on the map — only the reload-restorable copy is
-   *  lost, which is what the message says. Count emission still runs, so the
+   *  chain here can fill the quota. It is reported once per store: the state is
+   *  environmental (third-party cookies off, the origin's quota taken by other
+   *  tabs) so it cannot be fixed from the page, and persist() runs on every
+   *  measurement change — repeating the hint on each click is only noise. The
+   *  data stays live in memory and on the map; only the reload-restorable copy
+   *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    if (
-      !Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) &&
-      !persistFailureWarned
-    ) {
-      persistFailureWarned = true;
-      this.map.foliplus!.showHint(CONF.name, T("err_not_saved"), HINT_DURATION.PERSIST);
+    if (!Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) && !this.warned) {
+      this.warned = true;
+      this.map.foliplus?.showHint?.(
+        CONF.name,
+        this.T("err_not_saved"),
+        HINT_DURATION.PERSIST,
+      );
     }
     this.emitCount();
   }
