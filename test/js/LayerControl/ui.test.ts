@@ -2201,7 +2201,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
-    it("clearActiveItem removes the FOCUSED class and resets activeIdx/clickedRow", () => {
+    it("clearActiveItem removes the FOCUSED class and resets activeIdx", () => {
       const overlay = findItem(ui, "overlay1");
 
       ui.setActiveItem(indexFor("overlay1"));
@@ -2215,7 +2215,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         0,
       );
       expect(ui.activeIdx).toBeNull();
-      expect((ui as any).clickedRow).toBeNull();
     });
 
     it("Escape keydown clears the FOCUSED class", () => {
@@ -2267,7 +2266,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         ).toHaveLength(0);
       }
       // Space/Enter must still target the last-clicked row.
-      expect((ui as any).clickedRow).toBe(overlay);
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
@@ -2287,20 +2285,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect((ui as any).clickedRow).toBe(b);
       expect(ui.activeIdx).toBe(indexFor("base1"));
     });
 
     it("label click targets Space without painting the cursor; Escape is a no-op visual", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // A click on the row label sets clickedRow but must NOT paint the
+      // A click on the row label re-homes the index but must NOT paint the
       // cursor visual — pointer is not a focus arrival.
       const label = overlay.querySelector("label") as HTMLElement;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect((ui as any).clickedRow).toBe(overlay);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(document.activeElement).not.toBe(overlay);
 
       pressKey(overlay, "Escape");
 
@@ -2308,8 +2304,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      // pressKey focuses the row, so focusin clears clickedRow.
-      expect((ui as any).clickedRow).toBeNull();
       expect(document.activeElement).toBe(overlay);
     });
 
