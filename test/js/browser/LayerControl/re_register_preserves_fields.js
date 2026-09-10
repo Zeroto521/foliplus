@@ -11,7 +11,7 @@
     isBase: true,
     layer: fg,
     paneName: "customPane",
-    iconSvg: "<svg></svg>",
+    iconSvg: '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>',
     onToggle: onT,
     onZIndex: onZ,
   });

@@ -56,7 +56,7 @@ describe("HintManager", () => {
   });
 
   it("registerHintIcon prepends an icon to the hint text", () => {
-    registerHintIcon("with_icon", "<svg></svg>");
+    registerHintIcon("with_icon", '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>');
     const mgr = new HintManager();
     mgr.showHint("with_icon", "text", 0);
     const icon = document.querySelector(".foliplus-hint-icon");
@@ -154,7 +154,10 @@ describe("ensureHint", () => {
     const map = { foliplus: {} } as any;
     ensureHint(map);
     expect(typeof map.foliplus.registerHintIcon).toBe("function");
-    map.foliplus.registerHintIcon("via_map", "<svg></svg>");
+    map.foliplus.registerHintIcon(
+      "via_map",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
     map.foliplus.showHint("via_map", "text", 0);
     expect(document.querySelector(".foliplus-hint-icon")).not.toBeNull();
   });
@@ -177,7 +180,10 @@ describe("ensureHint", () => {
     // already created the manager — the new icon must appear.
     const map = {} as any;
     ensureHint(map); // manager created BEFORE the icon is registered
-    registerHintIcon("late_icon", "<svg></svg>");
+    registerHintIcon(
+      "late_icon",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
     map.foliplus.showHint("late_icon", "text", 0);
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
@@ -186,9 +192,10 @@ describe("ensureHint", () => {
 
   it("syncs icons to a manager created before registration, via syncIcons", () => {
     const mgr = new HintManager();
-    registerHintIcon("probe", "<svg></svg>");
+    const svg = '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>';
+    registerHintIcon("probe", svg);
     // syncIcons was called by registerHintIcon for active managers
-    expect(mgr.hintIcons["probe"]).toBe("<svg></svg>");
+    expect(mgr.hintIcons["probe"]).toContain("<rect");
   });
 
   it("shows the icon for EVERY component regardless of load order", () => {
@@ -209,16 +216,43 @@ describe("ensureHint", () => {
       "SearchControl",
     ];
     for (const name of components) {
-      registerHintIcon(name, '<svg data-name="' + name + '"></svg>');
+      registerHintIcon(
+        name,
+        '<svg viewBox="0 0 8 8" class="' + name + '"><rect width="4" height="4"/></svg>',
+      );
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
       map.foliplus.showHint(name, name + " msg", 0);
       const icon = document.querySelector(".foliplus-hint-icon");
       expect(icon, name + " hint should have an icon").not.toBeNull();
-      expect(
-        icon!.querySelector("svg")!.getAttribute("data-name"),
-        name + " icon should match",
-      ).toBe(name);
+      expect(icon!.innerHTML, name + " icon should match").toContain(name);
     }
+  });
+
+  it("sanitises a registered icon and keeps the hint text as a TextNode", () => {
+    // registerHintIcon is a public runtime API (`map.foliplus.registerHintIcon`)
+    // whose value reaches an innerHTML sink — it must not be trusted.
+    registerHintIcon(
+      "dirty",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4" onmouseover="alert(1)"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("dirty", "<img src=x onerror=alert(1)>msg", 0);
+    const hint = document.querySelector(".foliplus-hint")!;
+    const iconSpan = hint.querySelector(".foliplus-hint-icon")!;
+    // The attribute is stripped from the serialised SVG.
+    expect(iconSpan.innerHTML).not.toContain("onmouseover");
+    // The locale text is a TextNode, never parsed as markup.
+    expect(hint.querySelectorAll("img")).toHaveLength(0);
+    expect(hint.textContent).toBe("<img src=x onerror=alert(1)>msg");
+  });
+
+  it("drops a registered icon that is not SVG", () => {
+    registerHintIcon("not_svg", '<img src=x onerror=alert(1)>');
+    const mgr = new HintManager();
+    mgr.showHint("not_svg", "msg", 0);
+    expect(document.querySelector(".foliplus-hint-icon")).toBeNull();
+    expect(document.querySelector(".foliplus-hint img")).toBeNull();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("msg");
   });
 });

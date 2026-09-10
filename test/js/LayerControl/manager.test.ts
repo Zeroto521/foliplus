@@ -306,7 +306,11 @@ describe("LayerManager", () => {
   });
 
   it("getLayerType returns custom for iconSvg layers", () => {
-    manager.registerLayer({ id: "icon", name: "Icon", iconSvg: "<svg/>" });
+    manager.registerLayer({
+      id: "icon",
+      name: "Icon",
+      iconSvg: '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>',
+    });
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 

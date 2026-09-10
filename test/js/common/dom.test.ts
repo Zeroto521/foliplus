@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildPopupHtml,
+  buildPopupEl,
   createIconButton,
   createInlineEditInput,
   createLocationMarker,
@@ -101,9 +101,9 @@ describe("dom.el", () => {
   });
 });
 
-describe("buildPopupHtml", () => {
-  it("builds popup HTML with all fields", () => {
-    const html = buildPopupHtml(
+describe("buildPopupEl", () => {
+  it("builds a popup element with all fields", () => {
+    const el = buildPopupEl(
       120.5,
       30.2,
       "Some Address",
@@ -112,19 +112,19 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("foliplus-popup-content");
-    expect(html).toContain("Location");
-    expect(html).toContain("120.500000, 30.200000");
-    expect(html).toContain("Some Address");
-    expect(html).toContain("Lng,Lat:");
-    expect(html).toContain("Address:");
+    expect(el.classList.contains("foliplus-popup-content")).toBe(true);
+    expect(el.textContent).toContain("Location");
+    expect(el.textContent).toContain("120.500000, 30.200000");
+    expect(el.textContent).toContain("Some Address");
+    expect(el.textContent).toContain("Lng,Lat:");
+    expect(el.textContent).toContain("Address:");
   });
 
   it("pins coordinates to the shared readout precision instead of echoing the raw value", () => {
     // A history entry saved from "121.47" holds 121.47, not 121.470000 — the
     // popup must still show six decimals so it matches the search panel and the
     // live readout.
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       121.47,
       31.23,
       null,
@@ -133,12 +133,12 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("121.470000, 31.230000");
-    expect(html).not.toContain("121.47,");
+    expect(el.textContent).toContain("121.470000, 31.230000");
+    expect(el.textContent).not.toContain("121.47,");
   });
 
   it("groups long coordinates with the same comma style as the other readouts", () => {
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       123.456789,
       -33.123456,
       null,
@@ -147,11 +147,11 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("123.456789, -33.123456");
+    expect(el.textContent).toContain("123.456789, -33.123456");
   });
 
   it("shows loading indicator when addr is null", () => {
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       120,
       30,
       null,
@@ -160,11 +160,12 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("Loading...");
+    expect(el.textContent).toContain("Loading...");
+    expect(el.querySelector("svg")).not.toBeNull();
   });
 
   it("shows loading indicator when addr contains LOADING", () => {
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       120,
       30,
       "LOADING",
@@ -173,7 +174,23 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("Loading...");
+    expect(el.textContent).toContain("Loading...");
+  });
+
+  it("renders a poisoned address as text, never as markup", () => {
+    // `addr` is a Nominatim reverse-geocode result — the one sink in the
+    // codebase fed by a third-party API the page does not control.
+    const el = buildPopupEl(
+      120,
+      30,
+      '<img src=x onerror=alert(1)>1 Some Place',
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.querySelectorAll("img")).toHaveLength(0);
+    expect(el.textContent).toContain("<img src=x onerror=alert(1)>1 Some Place");
   });
 });
 

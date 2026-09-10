@@ -25,6 +25,7 @@
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 - `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
+- `sanitize`: shared allowlist SVG gate (`common/sanitize.ts`) for the three sinks that accept externally-supplied markup — `iconSvg` on `LayerAPI.registerLayer`/`createLayers`, registered hint icons, and reverse-geocoded marker addresses ([#285](https://github.com/Zeroto521/foliplus/pull/285))
 
 ### Changed
 
@@ -70,6 +71,7 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `MeasureControl`: a hostile POI name in the reverse-geocode response could execute script in the location marker's popup — the popup body is now built as an element tree so the address can only ever reach the DOM as text ([#285](https://github.com/Zeroto521/foliplus/pull/285))
 
 ## [v0.3.0] (2026-08-02)
 

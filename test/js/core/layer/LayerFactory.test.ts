@@ -529,14 +529,15 @@ describe("LayerFactory", () => {
         bringLayerToFront: vi.fn(),
         invalidateType: vi.fn(),
       });
+      const iconSvg = '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>';
       const api = f.createLayers({
         id: "test",
         name: "Test",
-        iconSvg: "<svg/>",
+        iconSvg,
         graphPane: "g1",
       });
       api.addLayer(new window.L.Path());
-      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg: "<svg/>" }));
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg }));
     });
 
     it("throws when mapPane is not available", () => {

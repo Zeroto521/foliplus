@@ -178,12 +178,18 @@ const escapeHTML = (str: string | number | boolean | null | undefined): string =
 };
 
 /**
- * Build a popup HTML string for a location marker. Coordinates are pinned to
- * the shared readout precision, so a popup never echoes the raw stored value —
- * a history entry saved from "121.47" used to render "121.47,31.23" instead of
+ * Build the popup body for a location marker. Coordinates are pinned to the
+ * shared readout precision, so a popup never echoes the raw stored value — a
+ * history entry saved from "121.47" used to render "121.47,31.23" instead of
  * the six decimals every other location readout shows.
+ *
+ * Returns an element, not a string: `bindPopup`/`setPopupContent` would
+ * otherwise re-parse `addr`, which for a location marker is a Nominatim
+ * reverse-geocode result — the one sink in the codebase fed by a third-party
+ * API that the page never controls. Passing an element makes Leaflet append
+ * it as-is, so a poisoned POI name can only ever be a TextNode.
  */
-const buildPopupHtml = (
+const buildPopupEl = (
   lng: number,
   lat: number,
   addr: string | null,
@@ -191,12 +197,14 @@ const buildPopupHtml = (
   loadingText: string,
   locLabelText: string,
   addrLabelText: string,
-): string => {
-  const addrHtml =
-    addr && addr.includes("LOADING")
-      ? { html: `${SVGs.LOADING} ${loadingText}` }
-      : addr || loadingText;
-
+): HTMLElement => {
+  const loading = addr ? addr.includes("LOADING") : true;
+  // In the loading state the spinner and the label are built as separate
+  // nodes so the spinner (trusted) and the label (locale JSON) never share
+  // one HTML string.
+  const addrNodes: Child[] = loading
+    ? [{ html: SVGs.LOADING }, dom.el("span", null, loadingText)]
+    : [addr || loadingText];
   return dom.el(
     "div",
     { class: "foliplus-popup-content" },
@@ -205,8 +213,8 @@ const buildPopupHtml = (
     `${locLabelText}${formatCoord(lng)}, ${formatCoord(lat)}`,
     { html: "<br>" },
     addrLabelText,
-    addrHtml as Child,
-  ).outerHTML;
+    ...addrNodes,
+  );
 };
 
 /**
@@ -242,7 +250,7 @@ const createLocationMarker = (
   });
   target.addLayer(marker);
   marker.bindPopup(
-    buildPopupHtml(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
+    buildPopupEl(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
     { maxWidth: POPUP_MAX_WIDTH },
   );
   if (openPopup) marker.openPopup();
@@ -261,7 +269,7 @@ const createLocationMarker = (
         if (onAddress) onAddress(resolved);
         if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
           marker.setPopupContent(
-            buildPopupHtml(
+            buildPopupEl(
               lng,
               lat,
               resolved,
@@ -394,7 +402,7 @@ const createInlineEditInput = (opts: {
 };
 
 export {
-  buildPopupHtml,
+  buildPopupEl,
   createIconButton,
   createInlineEditInput,
   createLocationMarker,

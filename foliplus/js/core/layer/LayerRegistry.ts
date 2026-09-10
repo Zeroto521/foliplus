@@ -1,6 +1,7 @@
 // core/LayerRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
 import { createLogger } from "#common/log.js";
+import { safeSVG } from "#common/sanitize.js";
 import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
 
@@ -77,7 +78,12 @@ class LayerRegistry {
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
-      iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
+      // The only externally supplied HTML in the layer model: callers of
+      // LayerAPI.registerLayer / createLayers may pass arbitrary markup, and
+      // it lands in an innerHTML sink on the type-icon column. Clean it once,
+      // here, so all three sinks share one value and a re-registration cannot
+      // re-inject a payload the first pass rejected.
+      iconSvg: opts.iconSvg != null ? safeSVG(opts.iconSvg) || null : existingLi?.iconSvg ?? null,
       type: null,
       layer:
         opts.layer ||
