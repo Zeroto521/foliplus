@@ -46,7 +46,7 @@ Features
       :padding: 2
       :link: api/foliplus.LayerControl.html
 
-      Drag-and-drop layer ordering with geometry icons, color picker, and panes.
+      Layer panel: order, show/hide, and zoom to layers — drag-and-drop, geometry icons, color basemap, keyboard nav.
 
    .. grid-item-card:: 🎯 LocateControl
       :padding: 2

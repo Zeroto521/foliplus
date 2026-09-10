@@ -41,7 +41,7 @@ Data processing happens upstream. foliplus handles the map, not the data.
 | 📷 **ExportControl**     | Capture a specific area of the map and export it as an image.                          |
 | 🖥️ **FullscreenControl** | Fullscreen toggle with auto-hide for other controls.                                   |
 | 🔥 **HeatmapControl**    | H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.                  |
-| 🗂️ **LayerControl**      | Drag-and-drop layer ordering with geometry icons, color picker, and panes. Double-click a layer to zoom to its extent. |
+| 🗂️ **LayerControl**      | Layer panel: order, show/hide, and zoom to layers — drag-and-drop, geometry icons, color basemap, keyboard nav. |
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
 | 📏 **MeasureControl**    | Measure distances, areas, and circles; place geocoded markers; then edit by dragging nodes. |
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |

@@ -10,13 +10,14 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Drag-and-drop layer ordering with geometry icons, color picker, and panes.
+    """Layer panel: order, show/hide, and zoom to layers.
 
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
     - ✅ Multi-select checkboxes with z-index stacking.
     - 🎨 Color picker to replace base maps with a solid background color.
-    - ⌨️ Keyboard navigation for layer panel (see Shortcuts below).
+    - ⌨️ Keyboard navigation (see Shortcuts below).
+    - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
     Shortcuts
     ---------
@@ -45,18 +46,17 @@ class LayerControl(BaseControl):
          - Move focused layer one position down
        * - Escape
          - Clear focus
+       * - Double-click row
+         - Zoom the map to that layer's extent (dashed rect). Hidden layers
+           show a hint instead. Also from the ⋮ menu or Alt+Enter.
+       * - Ctrl+Enter / Alt+Enter
+         - Zoom to the focused layer (same as double-click)
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
-    Mouse
-    -----
-    - **Double-click a layer row** (dead space, not the checkbox / ⋮ / fold
-      controls) zooms the map to that layer's extent and briefly highlights
-      it with a dashed rect. Also from the ⋮ menu ("Focus layer") or
-      Alt+Enter. Hidden layers show a hint instead of zooming.
-    - **Base basemap / color picker rows** stay quiet: no cursor glow on
-      click or keyboard focus, and the pointer stays default — toggle
-      visibility from the checkbox as usual.
+    Base basemap and color-picker rows stay quiet: no cursor glow on click
+    or keyboard focus, pointer stays default — toggle visibility from the
+    checkbox as usual.
 
     Parameters
     ----------
