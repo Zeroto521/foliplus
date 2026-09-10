@@ -556,7 +556,9 @@ class LayerUI {
    *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
    *  restoreCursor) must keep it; only the pointer path adopts (strips). */
   private syncListCursor(): void {
-    if (!this.uiContainer) return;
+    // initTypesAndVisibility is on a timer and can fire after the panel is
+    // torn down (unit tests, control remove) — do not touch a detached root.
+    if (!this.uiContainer?.isConnected) return;
     if (!this.listCursor) {
       this.listCursor = new ListCursor({
         root: this.uiContainer,
