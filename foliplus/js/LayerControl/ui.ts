@@ -983,20 +983,19 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
-      // One ledger: pointer re-homes the index and Tab stop. DOM focus is
-      // what Space/Enter resolve from (the control under the click usually
-      // takes focus; label clicks focus the checkbox). Do not paint FOCUSED
-      // — a pointer click is not a keyboard arrival (#278).
+      // One ledger: pointer re-homes the index, Tab stop, and paints the
+      // cursor visual. It stays until Escape, another row, or an outside
+      // press takes over — same contract as the keyboard cursor.
+      // (#278 only removed the accidental dblclick→focusLayer zoom.)
       const row = owningRow(el);
       if (row) {
         const idx = this.getNavigableItems().indexOf(row);
         if (idx !== -1) {
           this.activeIdx = idx;
-          this.listCursor?.adopt(idx);
+          this.listCursor?.setIndex(idx);
           this.blurActiveItem();
-          // One ledger: move DOM focus onto the row so Space/Enter resolve
-          // from focus. focusVisible:false asks the browser not to treat this
-          // as a keyboard arrival (no FOCUSED paint).
+          row.classList.add(CONST.CLASSES.FOCUSED);
+          // Keep DOM focus on the row so Space/Enter resolve from focus.
           row.focus({ focusVisible: false } as FocusOptions);
         }
       }

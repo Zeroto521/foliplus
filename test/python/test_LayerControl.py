@@ -3184,12 +3184,11 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
-    def test_checkbox_click_never_leaves_row_cursor(self, browser, tmp_path):
-        """Repeated checkbox toggles must not look like a focus arrival.
+    def test_checkbox_click_lights_row_cursor(self, browser, tmp_path):
+        """Click lights the row cursor and keeps it until another row takes over.
 
-        Pointer clicks target Space/Enter via clickedRow/activeIdx but never
-        paint `.foliplus-layer-focused` (white + glow). Keyboard still lights
-        the row via Tab / arrows.
+        Pointer click is a cursor arrival (white + glow). Repeated clicks stay
+        on the same row; clicking another row hands the visual over.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
@@ -3206,21 +3205,25 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
             page.mouse.move(0, 0)
-            result = page.evaluate(_js("LayerControl/checkbox_click_no_cursor"))
+            result = page.evaluate(_js("LayerControl/checkbox_click_lights_cursor"))
             assert result is not None and "error" not in result, (
                 f"checkbox click snippet failed: {result}"
             )
-            assert result["anyClickCursor"] is False, (
-                "checkbox clicks must not paint the cursor (class or glow), got "
+            assert result["afterClick"]["focusedClass"] is True, (
+                "click must light the row cursor, got " + str(result)
+            )
+            assert result["afterClick"]["glow"] is True, (
+                "click must show the cursor glow, got " + str(result)
+            )
+            assert result["afterAgain"]["focusedClass"] is True, (
+                "repeated clicks must keep the cursor, got " + str(result)
+            )
+            assert result["handedOver"]["first"]["focusedClass"] is False, (
+                "clicking another row must drop the previous cursor, got "
                 + str(result)
             )
-            assert result["keyboardLit"] is True, (
-                "arrow keys must still light the cursor after pointer toggles, got "
-                + str(result)
-            )
-            assert result["stale"]["anyClass"] is False, (
-                "clicking another row must drop the stale keyboard cursor, got "
-                + str(result)
+            assert result["handedOver"]["second"]["focusedClass"] is True, (
+                "the clicked row must carry the cursor, got " + str(result)
             )
 
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
