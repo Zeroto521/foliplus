@@ -1513,20 +1513,22 @@ class LayerUI {
     }
 
     switch (event.key) {
-      case "ArrowUp":
+      case "ArrowUp": {
         event.preventDefault();
         const up = this.findVisibleNeighbor(items, idx, -1);
         if (up !== -1) this.setActiveItem(up);
         break;
-      case "ArrowDown":
+      }
+      case "ArrowDown": {
         event.preventDefault();
         const down = this.findVisibleNeighbor(items, idx, 1);
         if (down !== -1) this.setActiveItem(down);
         break;
+      }
       case "ArrowLeft":
       case "ArrowRight":
       case " ":
-      case "Enter":
+      case "Enter": {
         // A ⋮ button is focused — that key opens the overflow menu, not the
         // row checkbox.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
@@ -1578,6 +1580,7 @@ class LayerUI {
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
+      }
     }
   }
 

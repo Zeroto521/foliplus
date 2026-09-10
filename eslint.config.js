@@ -68,7 +68,11 @@ export default [
       // null and undefined) while banning loose equality elsewhere — the
       // project uses `== null` as a deliberate nullish guard.
       eqeqeq: ["error", "smart"],
-      curly: "error",
+      // `multi-line` keeps braces required where omission hurts (multi-line
+      // bodies hide nesting) but allows the project's `if (x) return;` /
+      // `if (x) foo();` one-liners, which are the dominant idiom. Default
+      // `"error"` flagged 91 of them.
+      curly: ["error", "multi-line"],
       "no-else-return": "error",
       // `!!x` is the project's idiom for boolean narrowing inside
       // short-circuits (`!!opts?.pane && panes.includes(opts.pane)`) —
@@ -79,6 +83,27 @@ export default [
       "object-shorthand": ["error", "always"],
       "one-var": ["error", "never"],
       "prefer-const": "error",
+      // Zero-cost guards: every one of these flagged nothing across the tree,
+      // so they are pure future-proofing rather than churn. The one exception
+      // is no-irregular-whitespace, whose skipRegExps is load-bearing —
+      // bundle-size-check.mjs legitimately matches the BOM (﻿) that
+      // esbuild prepends to every bundle, and that is a real character, not
+      // stray whitespace.
+      "no-var": "error",
+      "no-debugger": "error",
+      "no-alert": "error",
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-unreachable": "error",
+      "no-throw-literal": "error",
+      "no-self-compare": "error",
+      "no-multi-str": "error",
+      "no-import-assign": "error",
+      "no-case-declarations": "error",
+      "no-constant-condition": ["error", { checkLoops: false }],
+      "use-isnan": "error",
+      "valid-typeof": "error",
+      "no-irregular-whitespace": ["error", { skipRegExps: true }],
       // Project convention uses `a && b()` and `cond ? x() : y()` as
       // statement expressions (reindexAfterMove, add/removeLayer branches),
       // so allow short-circuit and ternary — same option set as prettier's
@@ -105,6 +130,18 @@ export default [
   {
     files: ["test/js/globals.d.ts"],
     rules: { "no-var": "off" },
+  },
+
+  // ── Runtime only: no bare console ──
+  // foliplus/js logs through createLogger() (see common/log.ts), so a raw
+  // console.* there is a leak, not a feature. Excluded on purpose: script/*
+  // is build tooling whose entire output *is* console.log, and test/js talks
+  // to the console through its mocks.
+  {
+    files: ["foliplus/js/**/*.ts"],
+    rules: {
+      "no-console": ["error", { allow: ["warn", "error"] }],
+    },
   },
 
   // ── Pass 2: Promise discipline (needs type info) ──
