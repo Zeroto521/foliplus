@@ -471,9 +471,7 @@ class TestMeasureControlBrowser:
             assert state["idle"], "cursor node floated with no points placed"
             assert state["created"], "cursor node not rendered on the first move"
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
-            assert moved, (
-                f"polygon cursor node did not follow the mouse: {state}"
-            )
+            assert moved, f"polygon cursor node did not follow the mouse: {state}"
             # Recreated each frame, so there must be exactly one dot at all
             # times — the old path's DOM node identity is not a valid check.
             assert state["dotsAfterTwo"] == 1, (
