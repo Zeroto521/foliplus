@@ -28,6 +28,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 
 from ._typing import Position
+from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
@@ -143,6 +144,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: than failing later as a bare ``AttributeError``.
     _export_fields: tuple[str, ...] = ()
 
+    @validate
     def __init__(
         self,
         *,

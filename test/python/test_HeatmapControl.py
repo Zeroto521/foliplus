@@ -100,6 +100,27 @@ class TestHeatmapControlPython:
         ):
             HeatmapControl(n_classes=6.5)
 
+    def test_invalid_fill_opacity_raises(self):
+        """Opacity outside 0.0-1.0 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="fill_opacity must be a number between 0.0 and 1.0"
+        ):
+            HeatmapControl(fill_opacity=1.5)
+
+    def test_invalid_border_opacity_raises(self):
+        with pytest.raises(
+            ValueError, match="border_opacity must be a number between 0.0 and 1.0"
+        ):
+            HeatmapControl(border_opacity=-0.1)
+
+    def test_negative_border_weight_raises(self):
+        with pytest.raises(ValueError, match="border_weight must be a number >= 0.0"):
+            HeatmapControl(border_weight=-1.0)
+
+    def test_zero_label_size_raises(self):
+        with pytest.raises(ValueError, match="label_size must be a positive int"):
+            HeatmapControl(label_size=0)
+
 
 class TestHeatmapControlRendering:
     def test_default_params(self):
