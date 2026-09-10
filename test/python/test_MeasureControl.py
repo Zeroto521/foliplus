@@ -443,6 +443,33 @@ class TestMeasureControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_circle_preview_label_in_label_pane(self, browser, tmp_path):
+        """The circle preview radius label must land in the label pane.
+
+        `PreviewMode.addPreview` used to forward no pane name, so the label
+        silently defaulted to the graph pane alongside the circle fill, the
+        radius line and both nodes. There the label competes for SVG paint
+        order with the geometry, so at a short radius the dots cover it.
+        Distance and polygon always routed their preview labels through
+        CONST.PANES.LABEL, which is why only circle mode showed this.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.wait_for_timeout(300)
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_pane"))
+            panes = {p["name"]: int(p["z"]) for p in state["allPanes"]}
+            assert panes.get("graph") == 600, f"graph pane z wrong: {state}"
+            assert panes.get("label") == 601, (
+                f"label pane z wrong (expected graph+1): {state}"
+            )
+            for phase in ("near", "far"):
+                assert "measure_label-pane" in state[phase]["pane"], (
+                    f"circle preview label is in {state[phase]['pane']} at {phase} radius"
+                )
+                assert int(state[phase]["z"]) == panes["label"], (
+                    f"label pane z={state[phase]['z']} not {panes['label']}"
+                )
+            assert not errors, f"JS errors: {errors}"
+
     def test_distance_preview_cursor_node_follows_mouse(self, browser, tmp_path):
         """Distance preview shows a cursor dot that follows the mouse, paints
         above the preview line, and is removed when the measurement finishes.

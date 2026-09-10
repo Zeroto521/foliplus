@@ -204,7 +204,7 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         });
-        previews.label = this.addPreview(previewLabel);
+        previews.label = this.addPreview(previewLabel, CONST.PANES.LABEL);
       } else {
         previews.label.setLatLng(mid);
         Util.setLabelText(previews.label, Util.formatDistance(r));

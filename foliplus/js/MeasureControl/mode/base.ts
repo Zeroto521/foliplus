@@ -101,10 +101,18 @@ class PreviewMode extends MeasureMode {
     this.cursorNode = null;
   }
 
-  /** Track a preview layer (adds to layer group + tracks for cleanup). */
-  addPreview<T extends L.Layer>(layer: T): T {
+  /**
+   * Track a preview layer (adds to layer group + tracks for cleanup).
+   *
+   * `paneName` is forwarded to `addLayer`; omit it for geometry, which lands
+   * in the base pane. Labels must pass `CONST.PANES.LABEL` explicitly — an
+   * omitted name silently defaults to the base pane, where a label competes
+   * for SVG paint order with the geometry instead of sitting above it by pane
+   * ordering.
+   */
+  addPreview<T extends L.Layer>(layer: T, paneName?: string): T {
     this.previewLayers.push(layer);
-    this.layers.addLayer(layer);
+    this.layers.addLayer(layer, paneName);
     return layer;
   }
 

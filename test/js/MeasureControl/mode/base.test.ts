@@ -53,7 +53,9 @@ describe("PreviewMode — tracking preview layers", () => {
     const fakeLayer = {};
     mode.addPreview(fakeLayer);
     expect(mode.previewLayers).toContain(fakeLayer);
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(fakeLayer);
+    // No pane name: geometry defaults to the base pane, unlike labels which
+    // must pass CONST.PANES.LABEL to avoid competing for SVG paint order.
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(fakeLayer, undefined);
   });
 
   it("removePreview removes a tracked layer", () => {
