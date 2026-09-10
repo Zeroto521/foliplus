@@ -52,6 +52,7 @@
 - `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
 - `LayerControl`: init pass is signal-driven — `CONTROL_ATTACHED` + `data-ready` replace the fixed 300ms init timer; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283))
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
+- `HeatmapControl`: initial layer scan is signal-driven — re-scans on `CONTROL_ATTACHED` (LayerControl ready) instead of up to 8 × 300ms retries; a single timeout settles the no-layer hint
 
 ### Removed
 

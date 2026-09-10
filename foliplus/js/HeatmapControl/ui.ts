@@ -1,5 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -468,18 +469,57 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   persist(ctrl);
 };
 
-const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  try {
-    ctrl.m.scanMapLayers();
-  } catch {
-    // scanMapLayers may throw when LayerControl is missing (e.g.
-    // map.foliplus.LayerAPI is the lightweight stub that lacks the
-    // full registry methods).  The error is harmless — we just
-    // treat it as "no layers found" and continue to the hint logic.
+/**
+ * Scan the map for point layers. Driven by the ready signal instead of a
+ * retry loop: a first pass runs immediately, every CONTROL_ATTACHED (a
+ * control — usually LayerControl — finishing attach) re-runs it, and a
+ * single timeout settles the "no point layers" hint. Returns a cleanup
+ * that unsubscribes and clears the timer.
+ */
+const initScan = (ctrl: HeatmapControlUI): (() => void) => {
+  let done = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const unsub = ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, scan);
+  const finish = () => {
+    if (done) return;
+    done = true;
+    unsub();
+    if (timer) clearTimeout(timer);
+  };
+
+  function scan(): void {
+    try {
+      ctrl.m.scanMapLayers();
+    } catch {
+      // scanMapLayers may throw when LayerControl is missing (e.g.
+      // map.foliplus.LayerAPI is the lightweight stub that lacks the
+      // full registry methods). The error is harmless — we just
+      // treat it as "no layers found" and continue to the hint logic.
+    }
+    if (ctrl.m.pointLayers.length > 0) {
+      rebuildLayerDropdown(ctrl);
+      // Mark scanned only after the first rebuild completes, so the
+      // one-shot single-layer auto-select inside buildLayerListItems can
+      // still fire for the initial map load but never again afterwards.
+      ctrl.m.hasScanned = true;
+      // Restore path: rebuild only syncs the dropdown value — refresh the
+      // field selector and draw the saved layer so a reload shows the saved
+      // configuration without waiting for user input.
+      if (ctrl.m.selectedLayerId) {
+        updateFieldSelector(ctrl);
+        if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+      }
+      finish();
+    }
   }
-  if (ctrl.m.pointLayers.length === 0 && attempt > 0)
-    setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0) {
+
+  // Timeout: no point layer appeared — settle the hint so the user is told
+  // whether the cause is a missing LayerControl or an empty layer set.
+  timer = setTimeout(() => {
+    // One last scan before giving up (a control attached in this tick).
+    scan();
+    if (done) return;
     // Distinguish the two "no point layers" causes so the hint points the
     // user at the right fix:  isLayerControl===false means only the
     // lightweight LayerAPI stub is installed (no LayerControl added),
@@ -491,20 +531,14 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
       HINT_DURATION.LONG,
     );
     ctrl.m.hasScanned = true;
-  } else {
-    rebuildLayerDropdown(ctrl);
-    // Mark scanned only after the first rebuild completes, so the
-    // one-shot single-layer auto-select inside buildLayerListItems can
-    // still fire for the initial map load but never again afterwards.
-    ctrl.m.hasScanned = true;
-    // Restore path: rebuild only syncs the dropdown value — refresh the
-    // field selector and draw the saved layer so a reload shows the saved
-    // configuration without waiting for user input.
-    if (ctrl.m.selectedLayerId) {
-      updateFieldSelector(ctrl);
-      if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
-    }
-  }
+    finish();
+  }, CONST.TIMING.INIT_SCAN_TIMEOUT_MS);
+
+  // Cover controls that attached before this subscription (e.g. LayerControl
+  // added before Heatmap): their CONTROL_ATTACHED was already emitted.
+  scan();
+
+  return finish;
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {
