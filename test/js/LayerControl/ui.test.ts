@@ -1858,6 +1858,65 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("does NOT focus the layer on a dblclick of the checkbox", () => {
+      // Two quick checkbox toggles fire a browser dblclick. That must not
+      // zoom the map to the layer (focusLayer) — the user only meant to
+      // show/hide it twice.
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      )!;
+      ui.handleDblClick({ target: checkbox, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the fold button", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const { foldBtn } = attachWithGroup(ui);
+      ui.handleDblClick({ target: foldBtn, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the rename input", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.renameLayer("overlay1");
+      const input = ui.uiContainer.querySelector(
+        `.${CONST.CLASSES.RENAME_INPUT}`,
+      ) as HTMLElement;
+      expect(input).not.toBeNull();
+      ui.handleDblClick({ target: input, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of a more-menu item", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const overlay = findItem(ui, "overlay1");
+      const menuBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+      menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const menuItem = overlay.querySelector(
+        ".foliplus-layer-more-menu li",
+      ) as HTMLElement;
+      expect(menuItem).not.toBeNull();
+      ui.handleDblClick({ target: menuItem, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the drag handle", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const handle = findItem(ui, "overlay1").querySelector(
+        ".drag-handle",
+      ) as HTMLElement;
+      ui.handleDblClick({ target: handle, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("ignores a dblclick outside the layer panel", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
@@ -2153,15 +2212,57 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(document.activeElement).toBe(checkbox);
     });
 
-    it("Escape clears a cursor established by mouse (no DOM focus on the row)", () => {
+    it("repeated checkbox clicks never leave the row cursor visual on", () => {
+      // Pointer toggles are not a focus arrival: they must not paint the
+      // white+glow recipe. Keyboard (Tab / arrows) still lights it via
+      // setActiveItem / focusin.
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+
+      for (let i = 0; i < 3; i++) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+        expect(
+          ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
+        ).toHaveLength(0);
+      }
+      // Space/Enter must still target the last-clicked row.
+      expect((ui as any).clickedRow).toBe(overlay);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+    });
+
+    it("clicking another row drops a stale keyboard cursor visual", () => {
+      // Arrow-keys light row A. A pointer click on row B re-homes the index
+      // but must also clear A's FOCUSED class — otherwise B is the target
+      // while A still glows.
+      const a = findItem(ui, "overlay1");
+      const b = findItem(ui, "base1");
+      const bBox = b.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      bBox.checked = !bBox.checked;
+      bBox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+      expect((ui as any).clickedRow).toBe(b);
+      expect(ui.activeIdx).toBe(indexFor("base1"));
+    });
+
+    it("label click targets Space without painting the cursor; Escape is a no-op visual", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // A click on the row label sets clickedRow but leaves DOM focus on the
-      // previous row (or <body>) — the mouse path that used to be unreachable.
+      // A click on the row label sets clickedRow but must NOT paint the
+      // cursor visual — pointer is not a focus arrival.
       const label = overlay.querySelector("label") as HTMLElement;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect((ui as any).clickedRow).toBe(overlay);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(document.activeElement).not.toBe(overlay);
 
       pressKey(overlay, "Escape");
@@ -2170,10 +2271,8 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      // clickedRow drops to null when focus moves off the row (focusin handler),
-      // so the marker only survives clicks that don't move DOM focus.
+      // pressKey focuses the row, so focusin clears clickedRow.
       expect((ui as any).clickedRow).toBeNull();
-      // Not dropped to <body> — a real focus move supersedes the cancel.
       expect(document.activeElement).toBe(overlay);
     });
 

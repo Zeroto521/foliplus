@@ -952,12 +952,13 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
-      // Record the row the pointer touched. Clicking the label or the checkbox
-      // does not move DOM focus off the previously focused row, so the marker
-      // has to be re-homed here or the next Space/Enter toggles the wrong row.
+      // Record the row the pointer touched so the next Space/Enter toggles
+      // the right row. Do NOT paint the cursor visual: a pointer click is
+      // not a focus arrival (only Tab / arrows / :focus-visible are), and
+      // repeated checkbox toggles must not look "focused".
       this.clickedRow =
         el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
-      this.syncActiveItem();
+      this.syncActiveIndex();
 
       if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
@@ -1399,6 +1400,15 @@ class LayerUI {
     this.moveActiveMarker(idx === null ? null : items[idx], items);
   }
 
+  /** Re-home activeIdx from clickedRow / DOM focus without painting the
+   *  cursor class. Used by pointer clicks: they must target Space/Enter but
+   *  must not look like a keyboard focus arrival. Also drops any stale
+   *  keyboard cursor visual so a click on row B does not leave row A lit. */
+  private syncActiveIndex(): void {
+    this.blurActiveItem();
+    this.activeIdx = this.resolveActiveIdx(this.getNavigableItems());
+  }
+
   /** Reindex all layer items after a move, preserving the active focus position.
    *  renderInitialList already re-homes the cursor and restores DOM focus, so
    *  no additional focus work is needed here. */
@@ -1599,14 +1609,28 @@ class LayerUI {
       ?.focus();
   }
 
-  /** Double-click on a layer row → focus the map on that layer. */
+  /** Double-click on a layer row → focus the map on that layer.
+   *  Only dead space on the row counts. Every control on the row is a
+   *  denylist hit: two quick toggles / menu clicks / rename edits must not
+   *  zoom the map. */
   handleDblClick(event: MouseEvent): void {
-    const item = (event.target as HTMLElement).closest(
-      CONST.SEL.LAYER_ITEM,
-    ) as HTMLElement | null;
+    const target = event.target as HTMLElement;
+    const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
     if (!item) return;
-    // Ignore dblclick on the ⋮ button (would open the menu instead).
-    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+    if (
+      target.closest(
+        [
+          "input",
+          "button",
+          `.${CONST.CLASSES.MORE_BTN}`,
+          `.${CONST.CLASSES.FOLD_BTN}`,
+          `.${CONST.CLASSES.RENAME_INPUT}`,
+          `.${CONST.CLASSES.COLOR_INPUT}`,
+          ".foliplus-layer-more-menu",
+          ".drag-handle",
+        ].join(","),
+      )
+    ) {
       return;
     }
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
