@@ -1609,14 +1609,19 @@ class LayerUI {
       ?.focus();
   }
 
-  /** Double-click on a layer row → focus the map on that layer. */
+  /** Double-click on a layer row → focus the map on that layer.
+   *  Only dead space on the row counts: the checkbox, ⋮ menu and fold button
+   *  are controls — two quick toggles must not zoom the map. */
   handleDblClick(event: MouseEvent): void {
-    const item = (event.target as HTMLElement).closest(
-      CONST.SEL.LAYER_ITEM,
-    ) as HTMLElement | null;
+    const target = event.target as HTMLElement;
+    const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
     if (!item) return;
-    // Ignore dblclick on the ⋮ button (would open the menu instead).
-    if ((event.target as HTMLElement).closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+    if (
+      target.closest(`.${CONST.CLASSES.MORE_BTN}`) ||
+      target.closest(`.${CONST.CLASSES.FOLD_BTN}`) ||
+      target.closest('input[type="checkbox"]') ||
+      target.closest(`.${CONST.CLASSES.COLOR_INPUT}`)
+    ) {
       return;
     }
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";

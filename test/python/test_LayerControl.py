@@ -3221,6 +3221,46 @@ class TestLayerControlBrowser:
                 + str(result)
             )
 
+    def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
+        """Two quick checkbox toggles must not zoom the map (focusLayer).
+
+        The browser fires `dblclick` after the second click. That event used
+        to bubble to the panel handler and open the focus-layer overlay.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(self._make_page, browser, tmp_path, fg) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
+            result = page.evaluate(_js("LayerControl/checkbox_dblclick_no_focus_layer"))
+            assert result is not None and "error" not in result, (
+                f"checkbox dblclick snippet failed: {result}"
+            )
+            assert result["focusing"] is False, (
+                "double-click on checkbox must not mark the row as focusing, got "
+                + str(result)
+            )
+            assert result["mask"] is False, (
+                "double-click on checkbox must not draw the focus mask, got "
+                + str(result)
+            )
+            assert result["focusActive"] is False, (
+                "double-click on checkbox must not activate the focus overlay, got "
+                + str(result)
+            )
+
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
         """Double-clicking an overlay draws the dashed rect + inverse mask."""
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)

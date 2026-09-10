@@ -1858,6 +1858,27 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("does NOT focus the layer on a dblclick of the checkbox", () => {
+      // Two quick checkbox toggles fire a browser dblclick. That must not
+      // zoom the map to the layer (focusLayer) — the user only meant to
+      // show/hide it twice.
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const checkbox = findItem(ui, "overlay1").querySelector(
+        'input[type="checkbox"]',
+      )!;
+      ui.handleDblClick({ target: checkbox, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the fold button", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const { foldBtn } = attachWithGroup(ui);
+      ui.handleDblClick({ target: foldBtn, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("ignores a dblclick outside the layer panel", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
