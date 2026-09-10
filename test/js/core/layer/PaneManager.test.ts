@@ -151,14 +151,30 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual([]);
   });
 
-  it("bumpLabelPanes sets z + 1 on label panes", () => {
-    const pane = document.createElement("div");
-    const map = { getPane: vi.fn(() => pane), createPane: vi.fn() };
+  it("bumpPanes sets z + offset on each sub-pane by its list index", () => {
+    const graph = document.createElement("div");
+    const label = document.createElement("div");
+    const map = {
+      getPane: vi.fn(name => (name === "g" ? graph : label)),
+      createPane: vi.fn(),
+    };
     const pm = new PaneManager(map);
-    pm.labelPanes.add("measure_label");
-    const layer = { options: { pane: "measure_label" } };
-    pm.bumpLabelPanes(layer, 600);
-    expect(pane.style.zIndex).toBe("601");
+    pm.registerSubPanes(["g", "label"]);
+    // A container that advertises both child panes: discoverChildPanes
+    // walks `eachLayer` and collects every child's options.pane.
+    // The container itself also needs an `options` bag because traverse
+    // visits the outer node too (leafOnly=false).
+    const layer = {
+      options: {},
+      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
+        fn({ options: { pane: "g" } });
+        fn({ options: { pane: "label" } });
+      },
+    } as unknown as L.Layer;
+    pm.bumpPanes(layer, 600, ["g", "label"]);
+    // base pane at offset 0, label pane at offset 1
+    expect(graph.style.zIndex).toBe("600");
+    expect(label.style.zIndex).toBe("601");
   });
 
   it("reset clears the pane cache", () => {
@@ -192,14 +208,13 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
   });
 
-  it("sweepLabelPanes drops entries no longer referenced", () => {
+  it("sweepChildPanes drops entries no longer referenced", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.labelPanes.add("keep_label");
-    pm.labelPanes.add("drop_label");
-    pm.sweepLabelPanes([{ labelPane: "keep_label" }, { labelPane: null }, {}]);
-    expect(pm.labelPanes.has("keep_label")).toBe(true);
-    expect(pm.labelPanes.has("drop_label")).toBe(false);
+    pm.registerSubPanes(["keep_label", "drop_label"]);
+    pm.sweepChildPanes([{ subPanes: ["keep_label"] }, {}, { subPanes: [] }]);
+    expect(pm.childPanes.has("keep_label")).toBe(true);
+    expect(pm.childPanes.has("drop_label")).toBe(false);
   });
 
   it("releaseFallbackPane detaches a fallback pane and its renderer", () => {
@@ -323,11 +338,11 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.paneCache.set(1, ["a"]);
     pm.fallbackPaneMap.set(1, "foliplus_pane_1");
-    pm.labelPanes.add("measure_label");
+    pm.registerSubPanes(["measure_label"]);
     pm.destroy();
     expect(pm.paneCache.size).toBe(0);
     expect(pm.fallbackPaneMap.size).toBe(0);
-    expect(pm.labelPanes.size).toBe(0);
+    expect(pm.childPanes.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
     // registered layers from the map — they are still live, so the pane DOM
     // must survive them.

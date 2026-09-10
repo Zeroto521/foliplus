@@ -116,8 +116,7 @@ class MeasureManager {
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
-      graphPane: CONST.PANES.GRAPH,
-      labelPane: CONST.PANES.LABEL,
+      panes: [CONST.PANES.GRAPH, CONST.PANES.LABEL],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),
     });

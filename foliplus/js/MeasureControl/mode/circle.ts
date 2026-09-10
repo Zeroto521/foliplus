@@ -72,7 +72,7 @@ class CircleMode extends PreviewMode {
         ),
         interactive: false,
       }),
-      true,
+      CONST.PANES.LABEL,
     ) as L.Marker;
 
     attachCircleUI(manager, {
@@ -271,7 +271,7 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         }),
-        true,
+        CONST.PANES.LABEL,
       );
 
       const circleId = this.nextMeasurementId();

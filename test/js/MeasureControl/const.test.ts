@@ -28,7 +28,7 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it covers the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to measure_graph (no isLabel flag), the label to measure_label —
+    // goes to measure_graph, the label to measure_label —
     // the label pane always paints above the graph pane, so pane ordering
     // alone covers the dot without any z-index or anchor trickery. The
     // default [0, -10] anchor sits the chip *above* the point (negative y in
@@ -94,7 +94,7 @@ describe("LABEL anchors", () => {
   });
 
   it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
-    // The centroid label (isLabel → measure_label pane) and the center dot
+    // The centroid label (measure_label pane) and the center dot
     // (CircleMarker in measure_graph pane) share a latlng. The label pane's
     // z is graph + 1, so the label always paints above the dot by pane
     // ordering. The [0, -10] anchor lifts the chip above the dot's centered

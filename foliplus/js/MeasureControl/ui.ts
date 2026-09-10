@@ -470,7 +470,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
             Util.formatDistance(Util.distance(points[i], points[next])),
           ),
         }),
-        true,
+        CONST.PANES.LABEL,
       ) as L.Marker;
       segLabels.push(label);
       label.on("click", openOverlay);
@@ -490,8 +490,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     // same approach as the circle center. Both share the SVG renderer with
     // the fill, so no zIndexOffset is needed; DOM order within the SVG
     // guarantees the dot paints above the fill.
-    // The centroid label is isLabel → label pane, which paints above the
-    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
+    // The centroid label lives in the label pane, which paints above the
+    // graph pane. Segment labels (also in the label pane) sit at z = Y; after zoom
     // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
     // above its own segment labels.
     centroidDot = layers.addLayer(
@@ -506,7 +506,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         zIndexOffset: CONST.LABEL.CENTROID_Z_OFFSET,
         interactive: false,
       }),
-      true,
+      CONST.PANES.LABEL,
     ) as L.Marker;
     unregisterCentroid = mgr.registerLabel(
       centroidLabel,

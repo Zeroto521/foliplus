@@ -49,7 +49,7 @@ class PolygonMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       });
@@ -185,7 +185,7 @@ class PolygonMode extends PreviewMode {
         L.marker([closeMid.lat, closeMid.lng], {
           icon: Util.makeMidLabelDivIcon(Util.formatDistance(lastSeg.distance)),
         }),
-        true,
+        CONST.PANES.LABEL,
       );
       segLabels.push(closeLabel as L.Marker);
 
@@ -264,7 +264,7 @@ class PolygonMode extends PreviewMode {
             icon: Util.makeMidLabelDivIcon(labelText),
             interactive: false,
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
       } else {
         previewDistLabel.setLatLng([mid.lat, mid.lng]);
@@ -328,7 +328,7 @@ class PolygonMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg)),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       }

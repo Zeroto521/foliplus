@@ -49,7 +49,7 @@ class DistanceMode extends PreviewMode {
               Util.formatSegmentLabel(prev, cur, accTotal),
             ),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       });
@@ -206,7 +206,7 @@ class DistanceMode extends PreviewMode {
             icon: Util.makeMidLabelDivIcon(labelText),
             interactive: false,
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
       } else {
         previewDistLabel!.setLatLng([mid.lat, mid.lng]);
@@ -278,7 +278,7 @@ class DistanceMode extends PreviewMode {
               ),
             ),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       }

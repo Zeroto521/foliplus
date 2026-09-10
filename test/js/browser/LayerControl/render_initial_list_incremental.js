@@ -19,7 +19,7 @@
   const mg1 = api.createLayers({
     id: "__incr_1__",
     name: "Incr1",
-    graphPane: "__incr_g1__",
+    panes: ["__incr_g1__"],
   });
   mg1.mainLayer.addLayer(
     L.polyline([
@@ -31,7 +31,7 @@
   const mg2 = api.createLayers({
     id: "__incr_2__",
     name: "Incr2",
-    graphPane: "__incr_g2__",
+    panes: ["__incr_g2__"],
   });
   mg2.mainLayer.addLayer(
     L.polyline([

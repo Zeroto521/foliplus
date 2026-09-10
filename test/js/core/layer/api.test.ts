@@ -116,7 +116,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    const layers = api.createLayers({ id: "g", name: "Group", graphPane: "g" });
+    const layers = api.createLayers({ id: "g", name: "Group", panes: ["g"] });
     const layer = { options: {} } as any;
     layers.addLayer(layer);
     // factory's registerLayer adds the mainLayer to the map
