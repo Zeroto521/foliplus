@@ -28,10 +28,10 @@ const resultItemValue = (item: Element): string =>
 
 /**
  * Shared ListCursor for the results panel (combobox / active-descendant).
- * selectedIdx remains the integer source of truth so existing callers and
- * tests keep working; the cursor paints ARIA + the active class from it.
+ * selectedIdx stays the integer API for existing callers/tests; onMove keeps
+ * it in lockstep and echoes the landed item into the input.
  */
-const syncListCursor = (ctrl: SearchControl): ListCursor | null => {
+const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
   if (!ctrl.panelWrap) return null;
   if (!ctrl.listCursor) {
     ctrl.listCursor = new ListCursor({
@@ -40,18 +40,19 @@ const syncListCursor = (ctrl: SearchControl): ListCursor | null => {
       activeClass: CLASSES.ACTIVE,
       mode: "active-descendant",
       input: ctrl.inp,
+      onMove: (i, el) => {
+        ctrl.selectedIdx = i;
+        if (el) ctrl.inp.value = resultItemValue(el);
+      },
     });
   }
-  ctrl.listCursor.set(ctrl.selectedIdx);
   return ctrl.listCursor;
 };
 
 /**
- * Move the keyboard cursor by one step and echo the landed item's value into
- * the input. selectedIdx indexes ctrl.currentItems; both derive from the same
- * results array in renderResults, so the DOM RESULT_ITEM count and
- * currentItems.length are guaranteed equal. Querying RESULT_ITEM here also
- * correctly skips the non-selectable history group header.
+ * Move the keyboard cursor by one step. ListCursor owns the index walk and
+ * ARIA paint; selectedIdx mirrors it. Querying RESULT_ITEM also skips the
+ * non-selectable history group header.
  *
  * Invariant (defended by the assertion in renderResults):
  *   ctrl.currentItems.length === DOM RESULT_ITEM count
@@ -59,13 +60,22 @@ const syncListCursor = (ctrl: SearchControl): ListCursor | null => {
  */
 const moveSelection = (ctrl: SearchControl, dir: number) => {
   if (!ctrl.panelWrap) return;
-  const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-  if (items.length === 0) return;
+  if (ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length === 0) {
+    return;
+  }
   // ArrowUp from "nothing" stays nothing (do not wrap to the last item).
   if (ctrl.selectedIdx === -1 && dir < 0) return;
-  ctrl.selectedIdx = Math.max(-1, Math.min(ctrl.selectedIdx + dir, items.length - 1));
-  syncListCursor(ctrl);
-  if (ctrl.selectedIdx >= 0) ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
+  const cursor = ensureListCursor(ctrl);
+  if (!cursor) return;
+  // Tests / Enter may have written selectedIdx directly — adopt before move.
+  if (cursor.index !== ctrl.selectedIdx) cursor.set(ctrl.selectedIdx);
+  // ArrowUp from the first item clears the selection (combobox leave-list).
+  if (cursor.index === 0 && dir < 0) {
+    cursor.clear();
+    ctrl.selectedIdx = -1;
+    return;
+  }
+  cursor.move(dir);
 };
 
 /**
