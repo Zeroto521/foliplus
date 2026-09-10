@@ -2113,17 +2113,12 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       });
     });
 
-    it("exactly one row is a Tab stop; in-row controls are not", () => {
+    it("exactly one row is a Tab stop", () => {
+      // In-row checkbox / more / fold stay Tab-reachable (user-facing).
+      // Roving only manages the row elements themselves.
       const rows = ui.getNavigableItems();
       const tabStops = rows.filter(r => r.tabIndex === 0);
       expect(tabStops).toHaveLength(1);
-      const controls = ui.uiContainer.querySelectorAll(
-        'input[type="checkbox"], .foliplus-layer-more-btn, .foliplus-layer-fold-btn',
-      );
-      expect(controls.length).toBeGreaterThan(0);
-      controls.forEach(c => {
-        expect((c as HTMLElement).tabIndex).toBe(-1);
-      });
     });
 
     it("pointer click moves the Tab stop without painting the cursor class", () => {

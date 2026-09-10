@@ -703,8 +703,6 @@ class LayerUI {
         "button",
         {
           class: CONST.CLASSES.FOLD_BTN,
-          // Roving tabindex: see moreBtn.
-          tabindex: "-1",
         },
         { html: SVGs.FOLD },
       ),
@@ -715,7 +713,6 @@ class LayerUI {
           type: "checkbox",
           "data-role": "toggle-all",
           checked: "",
-          tabindex: "-1",
           title: T("toggle_all_deselect_tooltip"),
         }),
       ),
@@ -744,9 +741,6 @@ class LayerUI {
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
-        // Roving tabindex: in-row controls leave the Tab order so Tab
-        // enters/exits the list in one step. Click still works.
-        tabindex: "-1",
         title: T("more_tooltip"),
         "aria-label": T("more_tooltip"),
       },
@@ -768,8 +762,6 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
-          // Roving tabindex: see moreBtn.
-          tabindex: "-1",
           // The name reaches assistive tech via aria-label. `title` is the
           // Select/Deselect slot — initLayerItem sets it per checked state
           // before this row can be hovered, so leave it unseeded rather than
@@ -824,9 +816,6 @@ class LayerUI {
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
-        // Roving tabindex: in-row controls leave the Tab order so Tab
-        // enters/exits the list in one step. Click still works.
-        tabindex: "-1",
         title: T("more_tooltip"),
         "aria-label": T("more_tooltip"),
       },
