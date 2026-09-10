@@ -2102,6 +2102,43 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  describe("ListCursor ARIA + roving tabindex", () => {
+    it("tags the list and rows with listbox roles", () => {
+      expect(ui.uiContainer.getAttribute("role")).toBe("listbox");
+      const rows = ui.getNavigableItems();
+      expect(rows.length).toBeGreaterThan(0);
+      rows.forEach(r => {
+        expect(r.getAttribute("role")).toBe("option");
+        expect(r.id).toBeTruthy();
+      });
+    });
+
+    it("exactly one row is a Tab stop; in-row controls are not", () => {
+      const rows = ui.getNavigableItems();
+      const tabStops = rows.filter(r => r.tabIndex === 0);
+      expect(tabStops).toHaveLength(1);
+      const controls = ui.uiContainer.querySelectorAll(
+        'input[type="checkbox"], .foliplus-layer-more-btn, .foliplus-layer-fold-btn',
+      );
+      expect(controls.length).toBeGreaterThan(0);
+      controls.forEach(c => {
+        expect((c as HTMLElement).tabIndex).toBe(-1);
+      });
+    });
+
+    it("pointer click moves the Tab stop without painting the cursor class", () => {
+      const rows = ui.getNavigableItems();
+      const target = rows[1];
+      const checkbox = target.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(target.tabIndex).toBe(0);
+      expect(rows[0].tabIndex).toBe(-1);
+      expect(target.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+  });
+
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
   describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {

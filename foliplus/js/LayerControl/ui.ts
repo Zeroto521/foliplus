@@ -6,6 +6,7 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
+import { ListCursor } from "#core/listCursor.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -90,6 +91,8 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
+  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
+  private listCursor: ListCursor | null;
   /** Last row the pointer touched. Fallback for resolveActiveIdx, where
    *  document.activeElement may still name the row focused before the click. */
   clickedRow: HTMLElement | null;
@@ -147,6 +150,7 @@ class LayerUI {
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
     this.activeIdx = null;
+    this.listCursor = null;
     this.clickedRow = null;
     this.unsubscribeCountChange = null;
     this.onMoreClick = null;
@@ -196,6 +200,9 @@ class LayerUI {
     // loaded above but only applied here, so a row can never render visible
     // and get removed afterwards.
     this.applyUserState();
+    // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
+    // rebuilt rows.
+    this.syncListCursor();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -496,6 +503,8 @@ class LayerUI {
     this.m.enforceOrder();
     this.syncToggleAll(CONST.GROUP.OVERLAY);
     this.syncToggleAll(CONST.GROUP.BASE);
+    // enforceOrder may have moved rows; keep roving tabindex aligned.
+    this.syncListCursor();
   }
 
   renderInitialList() {
@@ -535,12 +544,32 @@ class LayerUI {
     this.uiContainer.innerHTML = "";
     this.uiContainer.appendChild(frag);
 
+    // ARIA + roving tabindex on the rebuilt rows. adopt() follows activeIdx
+    // without painting the cursor class — restoreCursor() owns that visual.
+    this.syncListCursor();
+
     // Re-home the cursor on the rebuilt element and restore DOM focus. The
     // rebuild destroys the previously focused node, dropping focus to <body>;
     // the keyboard shortcuts are dispatched by a document-level listener whose
     // container guard requires focus inside the panel, so without this the
     // cursor dies the moment the list is rebuilt (e.g. after a fold click).
     this.restoreCursor(cursorRef);
+  }
+
+  /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex. */
+  private syncListCursor(): void {
+    if (!this.uiContainer) return;
+    if (!this.listCursor) {
+      this.listCursor = new ListCursor({
+        root: this.uiContainer,
+        // Same set as getNavigableItems(): layer rows + toggle-all, no color.
+        itemSelector: `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}),${CONST.SEL.TOGGLE_ALL}`,
+        activeClass: CONST.CLASSES.FOCUSED,
+        mode: "roving",
+      });
+    }
+    this.listCursor.refresh();
+    this.listCursor.adopt(this.activeIdx ?? -1);
   }
 
   /** Identity of the row the keyboard cursor points at, for re-homing after a
@@ -623,6 +652,8 @@ class LayerUI {
     // of waiting for a later pass. Only this layer's id is applied — a full
     // sweep would re-rewrite every renamed row on each registration.
     this.applyUserState(layerInfo.id);
+    // New row must join the roving tabindex / ARIA set.
+    this.syncListCursor();
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -674,6 +705,8 @@ class LayerUI {
         "button",
         {
           class: CONST.CLASSES.FOLD_BTN,
+          // Roving tabindex: see moreBtn.
+          tabindex: "-1",
         },
         { html: SVGs.FOLD },
       ),
@@ -684,6 +717,7 @@ class LayerUI {
           type: "checkbox",
           "data-role": "toggle-all",
           checked: "",
+          tabindex: "-1",
           title: T("toggle_all_deselect_tooltip"),
         }),
       ),
@@ -712,6 +746,9 @@ class LayerUI {
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
+        // Roving tabindex: in-row controls leave the Tab order so Tab
+        // enters/exits the list in one step. Click still works.
+        tabindex: "-1",
         title: T("more_tooltip"),
         "aria-label": T("more_tooltip"),
       },
@@ -733,6 +770,8 @@ class LayerUI {
           type: "checkbox",
           checked: "",
           [CONST.DATA.INDEX]: String(idx),
+          // Roving tabindex: see moreBtn.
+          tabindex: "-1",
           // The name reaches assistive tech via aria-label. `title` is the
           // Select/Deselect slot — initLayerItem sets it per checked state
           // before this row can be hovered, so leave it unseeded rather than
@@ -787,6 +826,9 @@ class LayerUI {
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
+        // Roving tabindex: in-row controls leave the Tab order so Tab
+        // enters/exits the list in one step. Click still works.
+        tabindex: "-1",
         title: T("more_tooltip"),
         "aria-label": T("more_tooltip"),
       },
@@ -1127,6 +1169,8 @@ class LayerUI {
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
+    this.listCursor?.destroy();
+    this.listCursor = null;
     this.interactionCleanup?.();
     // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
@@ -1335,6 +1379,8 @@ class LayerUI {
     const idx = item ? items.indexOf(item) : -1;
     this.activeIdx = idx === -1 ? null : idx;
     item?.classList.add(CONST.CLASSES.FOCUSED);
+    // Tab stop follows the cursor; setIndex does not touch FOCUSED.
+    this.listCursor?.setIndex(this.activeIdx ?? -1);
   }
 
   /** Remove the focus marker from whichever item carries it.
@@ -1398,6 +1444,7 @@ class LayerUI {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
     this.moveActiveMarker(idx === null ? null : items[idx], items);
+    this.listCursor?.adopt(idx ?? -1);
   }
 
   /** Re-home activeIdx from clickedRow / DOM focus without painting the
@@ -1407,6 +1454,7 @@ class LayerUI {
   private syncActiveIndex(): void {
     this.blurActiveItem();
     this.activeIdx = this.resolveActiveIdx(this.getNavigableItems());
+    this.listCursor?.adopt(this.activeIdx ?? -1);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.

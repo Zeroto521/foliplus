@@ -1,6 +1,7 @@
 // SearchControl shared type definitions — decoupled from the entry module.
 // Sub-modules (event.ts, logic.ts) import these instead of the index entry
 // to avoid a type-level circular dependency (index → event → index).
+import type { ListCursor } from "#core/listCursor.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
@@ -91,6 +92,8 @@ interface SearchControl extends BaseControl {
   mode: SearchType;
   panelWrap: HTMLElement | null;
   selectedIdx: number;
+  /** Shared list cursor — paints ARIA / active class from selectedIdx. */
+  listCursor?: ListCursor | null;
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;

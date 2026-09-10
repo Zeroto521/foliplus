@@ -408,6 +408,9 @@ const removePanel = (ctrl: SearchControlState) => {
   }
   ctrl.selectedIdx = -1;
   ctrl.currentItems = [];
+  const withCursor = ctrl as { listCursor?: { destroy: () => void } | null };
+  withCursor.listCursor?.destroy();
+  withCursor.listCursor = null;
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
@@ -485,6 +488,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       ),
     );
   }
+  // Re-tag ARIA after the rebuild (cursor may already exist from a prior panel).
+  const withCursor = ctrl as { listCursor?: { refresh: () => void } | null };
+  withCursor.listCursor?.refresh();
 };
 
 const renderSuggestions = (

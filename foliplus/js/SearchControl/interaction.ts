@@ -1,5 +1,6 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
+import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
@@ -26,6 +27,26 @@ const resultItemValue = (item: Element): string =>
   "";
 
 /**
+ * Shared ListCursor for the results panel (combobox / active-descendant).
+ * selectedIdx remains the integer source of truth so existing callers and
+ * tests keep working; the cursor paints ARIA + the active class from it.
+ */
+const syncListCursor = (ctrl: SearchControl): ListCursor | null => {
+  if (!ctrl.panelWrap) return null;
+  if (!ctrl.listCursor) {
+    ctrl.listCursor = new ListCursor({
+      root: ctrl.panelWrap,
+      itemSelector: `.${CLASSES.RESULT_ITEM}`,
+      activeClass: CLASSES.ACTIVE,
+      mode: "active-descendant",
+      input: ctrl.inp,
+    });
+  }
+  ctrl.listCursor.set(ctrl.selectedIdx);
+  return ctrl.listCursor;
+};
+
+/**
  * Move the keyboard cursor by one step and echo the landed item's value into
  * the input. selectedIdx indexes ctrl.currentItems; both derive from the same
  * results array in renderResults, so the DOM RESULT_ITEM count and
@@ -40,10 +61,10 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
   if (!ctrl.panelWrap) return;
   const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
   if (items.length === 0) return;
+  // ArrowUp from "nothing" stays nothing (do not wrap to the last item).
+  if (ctrl.selectedIdx === -1 && dir < 0) return;
   ctrl.selectedIdx = Math.max(-1, Math.min(ctrl.selectedIdx + dir, items.length - 1));
-  items.forEach((el: Element, i: number) =>
-    el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-  );
+  syncListCursor(ctrl);
   if (ctrl.selectedIdx >= 0) ctrl.inp.value = resultItemValue(items[ctrl.selectedIdx]);
 };
 
