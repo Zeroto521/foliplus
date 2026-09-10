@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui.js";
@@ -203,16 +204,17 @@ const initFixture = (
   manager.enforceOrder();
   manager.ui = new LayerUI(manager);
 
-  // Switch to fake timers BEFORE attachUI so the 300ms initTypesAndVisibility
-  // timeout from attachUI is controllable. If the timer were REAL and
-  // advanceTimersByTime didn't flush it, the callback would fire after
-  // afterEach clears the DOM and throw on the detached container.
+  // Switch to fake timers BEFORE attachUI so the initTypesAndVisibility
+  // pass (setTimeout 0 after the synchronous attach sequence) is flushable.
+  // If the timer were REAL and advanceTimersByTime didn't flush it, the
+  // callback would fire after afterEach clears the DOM and throw on the
+  // detached container.
   vi.useFakeTimers();
 
   manager.attachUI(container);
   const ui = manager.ui!;
 
-  vi.advanceTimersByTime(350);
+  vi.advanceTimersByTime(50);
   vi.useRealTimers();
 
   return { manager, ui, map };
@@ -3549,6 +3551,36 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.layerRegistry.get("base1")?.visible).toBe(false);
       expect(m.layerRegistry.get("canvas1")?.visible).toBe(false);
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
+    });
+  });
+
+  // ─────────────────── signal-driven init pass (CONTROL_ATTACHED) ──
+
+  describe("signal-driven init pass", () => {
+    it("marks the panel data-ready once the init pass has run", () => {
+      const { ui } = initFixture();
+      expect(ui.uiContainer.getAttribute("data-ready")).toBe("true");
+    });
+
+    it("re-runs the init pass when another control attaches", () => {
+      const { ui, map } = initFixture();
+      const spy = vi.spyOn(ui, "initTypesAndVisibility");
+      ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, {
+        component: "HeatmapControl",
+      });
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("unsubscribes CONTROL_ATTACHED in unbindEvents", () => {
+      const { ui, map } = initFixture();
+      const spy = vi.spyOn(ui, "initTypesAndVisibility");
+      ui.unbindEvents();
+      ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, {
+        component: "HeatmapControl",
+      });
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 });
