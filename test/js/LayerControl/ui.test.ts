@@ -1092,6 +1092,25 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
 
+    it("marks the menu item disabled on a base basemap row", () => {
+      const item = findItem(ui, "base1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement | null;
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("disabled")).toBe("disabled");
+    });
+
+    it("double-click on a base basemap row does not call focusLayer", () => {
+      const item = findItem(ui, "base1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("menu item is not disabled when layer is visible", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -1473,17 +1492,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
     // ─────────── color basemap (outside layerRegistry) ───────────
 
-    it("color layer more menu contains only rename-layer (no focus-layer)", () => {
+    it("color layer more menu shows a disabled focus-layer item", () => {
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.openMoreMenu(colorItem);
 
       const focusLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
-      );
+      ) as HTMLElement | null;
       const renameLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
-      expect(focusLi).toBeNull();
+      expect(focusLi).not.toBeNull();
+      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
       expect(renameLi).not.toBeNull();
     });
 
@@ -1868,6 +1888,37 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       )!;
       ui.handleDblClick({ target: checkbox, bubbles: true } as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("double-click on a base basemap row shows a hint instead of focusLayer", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "base1");
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+      focusSpy.mockRestore();
+    });
+
+    it("double-click on a hidden row still reaches focusLayer (hint path)", () => {
+      // Hidden layers are NOT focusable via the menu, but double-click must
+      // still run focusLayer so the user gets the "hidden" hint instead of
+      // nothing.
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.checked = false;
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
       focusSpy.mockRestore();
     });
 
