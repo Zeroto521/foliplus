@@ -35,6 +35,19 @@ class TestBaseControlPython:
             BaseControl(), {"name": "BaseControl", "position": "topleft"}
         )
 
+    def test_invalid_position_raises(self):
+        """An unknown position is rejected instead of silently falling back."""
+        from foliplus.BaseControl import BaseControl
+
+        with pytest.raises(ValueError, match="position must be one of"):
+            BaseControl(position="center")
+
+    def test_every_position_is_accepted(self):
+        from foliplus.BaseControl import BaseControl
+
+        for position in ("topleft", "topright", "bottomleft", "bottomright"):
+            assert BaseControl(position=position).position == position
+
     def test_build_config_caches_on_self_config(self):
         from foliplus.BaseControl import BaseControl
 

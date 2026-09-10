@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Literal
 
 from ._cdn_loader import load_cdn
 from ._typing import Position
+from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -144,6 +145,7 @@ class MeasureControl(BaseControl):
 
     default_js = load_cdn("MeasureControl")
 
+    @validate
     def __init__(
         self,
         *,
@@ -155,11 +157,6 @@ class MeasureControl(BaseControl):
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
     ):
-        if export_format not in get_args(ExportFormat):
-            raise ValueError(
-                f"export_format must be one of {get_args(ExportFormat)}, "
-                f"got {export_format!r}"
-            )
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self.collide_labels = collide_labels

@@ -1,5 +1,4 @@
 /** Timing / delay constants. */
-const INIT_DELAY_MS = 300;
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 const SAVE_ORDER_DEBOUNCE_MS = 100;
 
@@ -131,7 +130,6 @@ export {
   FOCUS,
   FOCUS_PANE,
   GROUP,
-  INIT_DELAY_MS,
   SAVE_ORDER_DEBOUNCE_MS,
   SEL,
   STORAGE,

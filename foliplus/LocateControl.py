@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from ._cdn_loader import load_cdn
-from ._typing import Position
+from ._typing import Position, Zoom
+from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -15,7 +16,7 @@ class LocateControl(BaseControl):
         One of "topleft", "topright", "bottomleft", "bottomright".
 
     zoom : int, default 15
-        Zoom level after locating. Typically 1-18.
+        Zoom level after locating, between 1 and 18.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -33,16 +34,14 @@ class LocateControl(BaseControl):
 
     default_js = load_cdn("LocateControl")
 
+    @validate
     def __init__(
         self,
         *,
         position: Position = "bottomright",
-        zoom: int = 15,
+        zoom: Zoom = 15,
         locale: str | LocaleConfig | None = None,
     ):
-        if not isinstance(zoom, int) or zoom < 1 or zoom > 18:
-            raise ValueError(f"zoom must be an int between 1 and 18, got {zoom!r}")
-
         super().__init__(position=position, locale=locale)
         self.zoom = zoom
         self._template = self._get_template()

@@ -402,6 +402,20 @@ def use_page(make_fn: Callable[..., tuple], *args: Any, **kwargs: Any):
         page.close()
 
 
+def panel_ready(page: Page, timeout: float = 5000) -> None:
+    """Wait until the layer panel finished its init pass.
+
+    LayerControl marks ``.foliplus-panel-content`` with ``data-ready`` when
+    ``initTypesAndVisibility`` completes (checkbox titles / ``.active`` /
+    counts are final for the current layer set). Replaces the hand-written
+    ``wait_for_function(title non-empty)`` boilerplate — the ready criterion
+    lives in one place.
+    """
+    page.wait_for_selector(
+        ".foliplus-panel-content[data-ready]", state="attached", timeout=timeout
+    )
+
+
 @contextmanager
 def use_raw_page(new_page_fn: Callable[[], Any], *args: Any, **kwargs: Any):
     """Create a raw Playwright page via *new_page_fn*, yield it, close on exit.
