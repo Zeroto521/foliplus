@@ -109,6 +109,7 @@ class ListCursor {
     }
     const i = Math.max(-1, Math.min(index, n - 1));
     this._index = i;
+    this.applyRovingTabindex();
     this.paint();
     this.focusIfRoving();
     this.onMove?.(i, this.current);

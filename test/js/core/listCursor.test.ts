@@ -109,6 +109,24 @@ describe("ListCursor", () => {
       c.destroy();
     });
 
+    it("set / move on an empty list stay at -1", () => {
+      const onMove = vi.fn();
+      const empty = document.createElement("div");
+      document.body.appendChild(empty);
+      const c = new ListCursor({
+        root: empty,
+        itemSelector: ".opt",
+        activeClass: "on",
+        onMove,
+      });
+      c.set(0);
+      expect(c.index).toBe(-1);
+      expect(onMove).toHaveBeenCalledWith(-1, null);
+      expect(c.move(1)).toBe(-1);
+      c.destroy();
+      empty.remove();
+    });
+
     it("adopt re-homes the index without painting the active visual", () => {
       const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
       c.set(1);
@@ -131,6 +149,16 @@ describe("ListCursor", () => {
       expect(opts.map(o => o.tabIndex)).toEqual([-1, -1, 0]);
       // set() painted index 1; setIndex must not strip that class.
       expect(opts[1].classList.contains("on")).toBe(true);
+      c.destroy();
+    });
+
+    it("set() updates roving tabindex as well as the active class", () => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const opts = [...root.querySelectorAll<HTMLElement>(".opt")];
+      expect(opts.map(o => o.tabIndex)).toEqual([0, -1, -1]);
+      c.set(2);
+      expect(opts.map(o => o.tabIndex)).toEqual([-1, -1, 0]);
+      expect(opts[2].classList.contains("on")).toBe(true);
       c.destroy();
     });
 
