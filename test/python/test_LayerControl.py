@@ -3280,8 +3280,7 @@ class TestLayerControlBrowser:
             # Color picker row is quiet when present.
             if result["colorAfter"] is not None:
                 assert result["colorAfter"]["glow"] is False, (
-                    "color picker row must not show the cursor glow, got "
-                    + str(result)
+                    "color picker row must not show the cursor glow, got " + str(result)
                 )
 
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
