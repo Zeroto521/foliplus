@@ -28,7 +28,8 @@
     };
   };
 
-  // Force base checked → rest wash; hover must keep wash (no white/glow).
+  // Force base checked → rest wash; hover must keep wash (no white/glow)
+  // and show the not-allowed cursor.
   const baseBox = base.querySelector('input[type="checkbox"]');
   if (baseBox && !baseBox.checked) {
     baseBox.checked = true;

@@ -55,8 +55,8 @@ class LayerControl(BaseControl):
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
     Base basemap and color-picker rows stay quiet: no cursor glow on click
-    or keyboard focus, pointer stays default — toggle visibility from the
-    checkbox as usual.
+    or keyboard focus, pointer shows not-allowed — toggle visibility from
+    the checkbox as usual.
 
     Parameters
     ----------
