@@ -253,6 +253,32 @@ describe("LayerControl handleMoreMenuClick", () => {
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
   });
 
+  it("closes the menu when clicking outside it (panel / map)", () => {
+    const { ui } = buildMenu();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: outside });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(false);
+    outside.remove();
+  });
+
+  it("is a no-op for an outside click when no menu is open", () => {
+    const ui = makeUI();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: outside });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.closeMoreMenu).not.toHaveBeenCalled();
+    outside.remove();
+  });
+
   it("does not call focusLayer for an unknown action", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");

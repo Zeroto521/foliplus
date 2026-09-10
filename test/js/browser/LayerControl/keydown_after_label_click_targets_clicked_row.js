@@ -16,6 +16,8 @@
   );
 
   // Mouse-click the label of the second row (selects it without toggling).
+  // Pointer click must NOT paint the cursor visual (#278) — only re-home
+  // the keyboard index so Enter hits the right row.
   const label = items[1].querySelector(".foliplus-layer-label");
   if (!label) return null;
   label.click();
@@ -29,6 +31,8 @@
     beforeState,
     afterState,
     toggled: beforeState !== afterState,
+    // May be set: after keyboard nav Chromium can still report
+    // :focus-visible on the next mouse focus, and focusin lights the row.
     focusedRow:
       panel.querySelector(".foliplus-layer-focused")?.getAttribute("data-layer-id") ??
       null,
