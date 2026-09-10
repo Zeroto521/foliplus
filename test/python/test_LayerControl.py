@@ -2041,7 +2041,7 @@ class TestLayerControlBrowser:
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             # The icon the fixture registers. Degenerate markup is rejected
             # by the sanitizer, so it must be real SVG.
-            svg = "<svg viewBox=\"0 0 4 4\"><rect width=\"2\" height=\"2\"/></svg>"
+            svg = '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>'
             result = page.evaluate(_js("LayerControl/re_register_preserves_fields"))
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):

@@ -183,7 +183,7 @@ describe("buildPopupEl", () => {
     const el = buildPopupEl(
       120,
       30,
-      '<img src=x onerror=alert(1)>1 Some Place',
+      "<img src=x onerror=alert(1)>1 Some Place",
       "Location",
       "Loading...",
       "Lng,Lat:",

@@ -6,7 +6,6 @@
 // into the HTML namespace, which is exactly what the downstream sinks (an
 // innerHTML assignment) do. Tests that only assert on the serialised output
 // are namespace-agnostic.
-
 import { describe, expect, it } from "vitest";
 
 const mod = await import("#common/sanitize.js");
@@ -104,7 +103,7 @@ describe("parseSVG — strips executable content", () => {
   it("drops <foreignObject> and any nested HTML content", () => {
     const out = parseSVG(
       '<svg viewBox="0 0 10 10">' +
-        '<foreignObject><div>x</div></foreignObject>' +
+        "<foreignObject><div>x</div></foreignObject>" +
         '<rect width="4" height="4"/></svg>',
     );
     const host = mount(out);
@@ -187,7 +186,9 @@ describe("parseSVG — drops non-presentation attributes", () => {
       'fill="url(//evil/evil.svg#f)"',
       'fill="url(data:image/svg+xml;base64,AAAA)"',
     ]) {
-      const out = parseSVG(`<svg viewBox="0 0 4 4"><rect width="2" height="2" ${val}/></svg>`);
+      const out = parseSVG(
+        `<svg viewBox="0 0 4 4"><rect width="2" height="2" ${val}/></svg>`,
+      );
       expect(mount(out).querySelector("rect")!.hasAttribute("fill")).toBe(false);
     }
   });

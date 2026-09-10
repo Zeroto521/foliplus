@@ -109,7 +109,9 @@ class HintManager {
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },
-      ...(icon ? [dom.el("span", { class: "foliplus-hint-icon" }, { html: icon })] : []),
+      ...(icon
+        ? [dom.el("span", { class: "foliplus-hint-icon" }, { html: icon })]
+        : []),
       text,
     );
     anchorRelative(hintTarget);

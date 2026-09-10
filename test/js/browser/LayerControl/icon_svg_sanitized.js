@@ -6,7 +6,7 @@
   const POISON =
     '<svg viewBox="0 0 4 4" onload="window.__pwn=1"><script>window.__pwn=2</script><rect width="2" height="2"/></svg>';
 
-  const dump = (row) =>
+  const dump = row =>
     row
       ? {
           html: row.innerHTML,
@@ -26,16 +26,20 @@
     if (btn) btn.click();
   }
 
-  const probeRow = document.querySelector(
-    '.foliplus-layer-item[data-layer-id="__xss_probe__"] .foliplus-type-icon-col'
-  ) || document.querySelector(
-    '.foliplus-layer-item[data-layer-id="__xss_probe__"] .foliplus-type-icon'
-  );
-  const cleanRow = document.querySelector(
-    '.foliplus-layer-item[data-layer-id="__xss_clean__"] .foliplus-type-icon-col'
-  ) || document.querySelector(
-    '.foliplus-layer-item[data-layer-id="__xss_clean__"] .foliplus-type-icon'
-  );
+  const probeRow =
+    document.querySelector(
+      '.foliplus-layer-item[data-layer-id="__xss_probe__"] .foliplus-type-icon-col',
+    ) ||
+    document.querySelector(
+      '.foliplus-layer-item[data-layer-id="__xss_probe__"] .foliplus-type-icon',
+    );
+  const cleanRow =
+    document.querySelector(
+      '.foliplus-layer-item[data-layer-id="__xss_clean__"] .foliplus-type-icon-col',
+    ) ||
+    document.querySelector(
+      '.foliplus-layer-item[data-layer-id="__xss_clean__"] .foliplus-type-icon',
+    );
 
   api.unregisterLayer("__xss_probe__");
   api.unregisterLayer("__xss_clean__");
@@ -44,8 +48,8 @@
     ctrlPresent: !!ctrl,
     probe: dump(probeRow),
     clean: dump(cleanRow),
-    leaked: ["__pwn1", "__pwn2", "__pwn3"].map((k) =>
-      Object.prototype.hasOwnProperty.call(window, k)
+    leaked: ["__pwn1", "__pwn2", "__pwn3"].map(k =>
+      Object.prototype.hasOwnProperty.call(window, k),
     ),
   };
 };

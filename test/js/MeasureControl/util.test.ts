@@ -212,7 +212,7 @@ describe("formatSegmentLabel", () => {
 
 describe("buildPopup", () => {
   it("returns an element whose address text is a TextNode, not parsed markup", () => {
-    const result = Util.buildPopup(1, 2, '<img src=x onerror=alert(1)>addr');
+    const result = Util.buildPopup(1, 2, "<img src=x onerror=alert(1)>addr");
     expect(result).toBeInstanceOf(HTMLElement);
     expect(result.querySelectorAll("img")).toHaveLength(0);
     expect(result.textContent).toContain("<img src=x onerror=alert(1)>addr");

@@ -83,7 +83,10 @@ class LayerRegistry {
       // it lands in an innerHTML sink on the type-icon column. Clean it once,
       // here, so all three sinks share one value and a re-registration cannot
       // re-inject a payload the first pass rejected.
-      iconSvg: opts.iconSvg != null ? safeSVG(opts.iconSvg) || null : existingLi?.iconSvg ?? null,
+      iconSvg:
+        opts.iconSvg != null
+          ? safeSVG(opts.iconSvg) || null
+          : (existingLi?.iconSvg ?? null),
       type: null,
       layer:
         opts.layer ||

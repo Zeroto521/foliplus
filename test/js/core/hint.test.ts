@@ -56,7 +56,10 @@ describe("HintManager", () => {
   });
 
   it("registerHintIcon prepends an icon to the hint text", () => {
-    registerHintIcon("with_icon", '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>');
+    registerHintIcon(
+      "with_icon",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
     const mgr = new HintManager();
     mgr.showHint("with_icon", "text", 0);
     const icon = document.querySelector(".foliplus-hint-icon");
@@ -218,7 +221,9 @@ describe("ensureHint", () => {
     for (const name of components) {
       registerHintIcon(
         name,
-        '<svg viewBox="0 0 8 8" class="' + name + '"><rect width="4" height="4"/></svg>',
+        '<svg viewBox="0 0 8 8" class="' +
+          name +
+          '"><rect width="4" height="4"/></svg>',
       );
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
@@ -248,7 +253,7 @@ describe("ensureHint", () => {
   });
 
   it("drops a registered icon that is not SVG", () => {
-    registerHintIcon("not_svg", '<img src=x onerror=alert(1)>');
+    registerHintIcon("not_svg", "<img src=x onerror=alert(1)>");
     const mgr = new HintManager();
     mgr.showHint("not_svg", "msg", 0);
     expect(document.querySelector(".foliplus-hint-icon")).toBeNull();

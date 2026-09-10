@@ -86,16 +86,17 @@ const STYLE_BAD_RE = /(javascript:|<)/i;
 const isUrlValue = (v: string): boolean => {
   const s = v.trim().toLowerCase();
   if (s.startsWith("url(")) {
-    const inner = s.slice(4, s.length - 1).trim().replace(/^["']|["']$/g, "");
+    const inner = s
+      .slice(4, s.length - 1)
+      .trim()
+      .replace(/^["']|["']$/g, "");
     return isUrlRef(inner);
   }
   return isUrlRef(s);
 };
 
 const isUrlRef = (v: string): boolean =>
-  v.startsWith("//") ||
-  v.startsWith("data:") ||
-  /^(?!#)[a-z][a-z0-9+.-]*:/.test(v);
+  v.startsWith("//") || v.startsWith("data:") || /^(?!#)[a-z][a-z0-9+.-]*:/.test(v);
 
 /** Keep only the first SVG in `html`, with active content stripped.
  *  Returns "" when the fragment holds no SVG or no SVG content worth keeping.
