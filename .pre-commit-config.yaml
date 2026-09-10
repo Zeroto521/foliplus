@@ -68,22 +68,21 @@ repos:
           - "@trivago/prettier-plugin-sort-imports@5.2.2"
 
       # ── JS structural lint (ESLint) ──
-      # eslint 9 flat config reads eslint.config.js from the repo root. The
-      # type-aware Promise rules need the project's typescript + tsconfig
-      # program, which the pre-commit isolated env cannot provide (its
-      # node_modules live under NODE_PATH, not next to package.json) — the
-      # config detects that and skips them; they are enforced via `npm run
-      # lint` in GitHub Actions. So this hook only auto-fixes
-      # padding-line-between-statements — fast AST work, like prettier above.
+      # Reads eslint.precommit.config.mjs, not eslint.config.js. The full
+      # config imports typescript-eslint and eslint-config-prettier; both are
+      # ESM packages delivered via additional_dependencies, which in
+      # pre-commit.ci sit under NODE_PATH rather than next to package.json.
+      # A bare ESM import cannot resolve them there, so the hook instead runs
+      # against a dependency-free subset (no-var, no-debugger) that needs
+      # neither the TS parser plugin nor type information. Everything else
+      # (quality rules, padding, Promise discipline) runs via `npm run lint`
+      # in GitHub Actions, where the real node_modules are present. Scope is
+      # JS/CJS/MJS only for the same reason: .ts needs the parser plugin.
       - id: lint-eslint
         name: lint-eslint
-        entry: eslint --fix
+        entry: eslint --fix --no-config-lookup --config eslint.precommit.config.mjs
         language: node
-        types_or: [javascript, ts]
-        files: ^foliplus/js/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
-        exclude: ^test/js/browser/
+        types_or: [javascript]
+        files: ^foliplus/js/.*\.(js|cjs|mjs)$|^script/.*\.(js|cjs|mjs)$|^test/js/.*\.(js|cjs|mjs)$
         additional_dependencies:
           - "eslint@9.39.5"
-          - "typescript-eslint@8.69.0"
-          - "@eslint/js@9.39.5"
-          - "eslint-config-prettier@10.1.8"

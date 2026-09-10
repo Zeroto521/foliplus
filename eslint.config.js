@@ -22,14 +22,27 @@
 //      is absent — that is the pre-commit.ci isolated env, whose node_modules
 //      live under NODE_PATH, not next to package.json. `npm run lint` runs
 //      the full set with the program available.
-import eslintConfigPrettier from "eslint-config-prettier";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const skipTypecheck = !existsSync(join(root, "node_modules", "typescript"));
+
+// eslint-config-prettier is CommonJS, so it loads through CJS resolution
+// instead of a bare ESM import. When it is absent there is nothing to remove:
+// every rule below is one prettier does not own, so with the import present
+// or gone the config reports the same zero problems across the tree.
+const resolveRequire = createRequire(import.meta.url);
+
+let eslintConfigPrettier;
+try {
+  eslintConfigPrettier = resolveRequire("eslint-config-prettier");
+} catch {
+  // Absent — run without prettier's stylistic overrides.
+}
 
 export default [
   // Build output, vendored deps, browser tests (use CDN globals)
@@ -169,5 +182,5 @@ export default [
 
   // eslint-config-prettier turns off all stylistic eslint rules that overlap
   // with prettier's authority on typography. Must be last.
-  eslintConfigPrettier,
+  ...(eslintConfigPrettier ? [eslintConfigPrettier] : []),
 ];
