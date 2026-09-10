@@ -1,6 +1,7 @@
 {
   "name": "foliplus",
   "private": true,
+  "packageManager": "npm@11.13.0",
   "type": "module",
   "imports": {
     "#common/*": "./foliplus/js/common/*",
