@@ -48,6 +48,16 @@ class LayerControl(BaseControl):
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
+    Mouse
+    -----
+    - **Double-click a layer row** (dead space, not the checkbox / ⋮ / fold
+      controls) zooms the map to that layer's extent and briefly highlights
+      it with a dashed rect. Also from the ⋮ menu ("Focus layer") or
+      Alt+Enter. Hidden layers show a hint instead of zooming.
+    - **Base basemap / color picker rows** stay quiet: no cursor glow on
+      click or keyboard focus, and the pointer stays default — toggle
+      visibility from the checkbox as usual.
+
     Parameters
     ----------
     position : str, default "topleft"

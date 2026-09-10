@@ -398,6 +398,11 @@ class TestLayerControlRendering:
             "interaction recipe must be declared after .active so white "
             "out-ranks the wash"
         )
+        # Base basemap / color picker stay quiet: no cursor glow/white.
+        assert 'data-layer-type="base"' in css, "base rows must opt out of the cursor recipe"
+        assert "foliplus-color-layer-item" in css, (
+            "color picker row must opt out of the cursor recipe"
+        )
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -3223,6 +3228,42 @@ class TestLayerControlBrowser:
             )
             assert result["handedOver"]["second"]["focusedClass"] is True, (
                 "the clicked row must carry the cursor, got " + str(result)
+            )
+
+    def test_base_basemap_quiet_focus(self, browser, tmp_path):
+        """Base basemap / color rows show no cursor glow; overlay rows still do.
+
+        Basemaps are stack slots, not data layers — click / keyboard focus
+        must not paint the white+glow recipe. Mouse cursor stays default.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        base = folium.TileLayer("OpenStreetMap", name="OSM", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, overlay, base) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_function(
+                "() => [...document.querySelectorAll("
+                "    '.foliplus-layer-item input[type=checkbox]'"
+                ")].every(i => i.title.length > 0)",
+                timeout=5000,
+            )
+            page.mouse.move(0, 0)
+            result = page.evaluate(_js("LayerControl/base_basemap_quiet_focus"))
+            assert result is not None and "error" not in result, (
+                f"base basemap snippet failed: {result}"
+            )
+            assert result["baseAfter"]["glow"] is False, (
+                "base basemap must not show the cursor glow, got " + str(result)
+            )
+            assert result["baseAfter"]["cursor"] == "default", (
+                "base basemap hover must keep the default cursor, got " + str(result)
+            )
+            assert result["overlayAfter"]["glow"] is True, (
+                "overlay row must still show the cursor glow, got " + str(result)
             )
 
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
