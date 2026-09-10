@@ -173,6 +173,52 @@ describe("LayerFactory", () => {
       expect(layer.options.pane).toBeUndefined();
     });
 
+    it("addLayer with an unknown paneName silently falls through to the base layerGroup", () => {
+      // Documenting current behavior, not endorsing it. A mis-spelled pane
+      // name (the class of bug that bit MeasureControl's PR #271 where two
+      // addLayer calls forgot isNode and silently routed to the base pane)
+      // would be nice to catch, but throwing here would kill a live
+      // measurement if a caller passes a null/undefined pane. Silent
+      // fallback keeps the layer visible on the map; the layer just lands
+      // in the wrong sub-pane. If we tighten this to throw, update this test.
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1", "label1"],
+      });
+      const layer = new window.L.Marker();
+      api.addLayer(layer, "does_not_exist");
+      // Neither the declared sub-pane nor the "misspelled" name gets
+      // written to options.pane — the layer goes in as-is.
+      expect(layer.options.pane).toBeUndefined();
+      expect(layer.isLabel).toBeUndefined();
+    });
+
+    it("addLayer with the base pane name (subPanes[0]) routes to the sub-layer", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1", "label1"],
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer, "graph1");
+      expect(layer.options.pane).toBe("graph1");
+      // Graph is index 0 — not a label pane, so isLabel must not be set.
+      expect(layer.isLabel).toBeUndefined();
+    });
+
+    it("addLayer without a paneName defaults to the base pane (subPanes[0])", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: ["graph1", "label1"],
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      expect(layer.options.pane).toBe("graph1");
+      expect(layer.isLabel).toBeUndefined();
+    });
+
     it("notifies onDataChange when graph content changes", () => {
       const onDataChange = vi.fn();
       const f = new LayerFactory({

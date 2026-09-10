@@ -122,13 +122,14 @@ class PaneManager {
 
   /**
    * Bump every child pane of a layer so it paints above the base pane. Each
-   * child pane gets `base + CHILD_PANE_OFFSET[k]`, where `k` is the position
+   * child pane gets `base + k * CHILD_PANE_STEP`, where `k` is the position
    * of the pane name in the registry entry's `subPanes` array.
    *
    * Generalizes the earlier `bumpLabelPanes`: that method only knew about
    * label panes (hard-coded `+1` offset) because MeasureControl was the only
    * consumer. With N registered sub-panes per layer, we bump each by its
-   * index into the same ordered list `registerSubPanes` was called with.
+   * index into the same ordered list `registerSubPanes` was called with,
+   * so the number of sub-panes is unbounded.
    *
    * @param layer - The container layer whose subtree's child panes to bump.
    * @param z - Base z-index for the layer's root pane.
@@ -142,9 +143,8 @@ class PaneManager {
       if (!this.childPanes.has(cp)) return;
       const k = subPanes.indexOf(cp);
       if (k < 0) return;
-      const offset = CONST.CHILD_PANE_OFFSET[k] ?? k;
       const lp = this.ensurePane(cp, false);
-      if (lp.pane) lp.pane.style.zIndex = String(z + offset);
+      if (lp.pane) lp.pane.style.zIndex = String(z + k * CONST.CHILD_PANE_STEP);
     });
   }
 
