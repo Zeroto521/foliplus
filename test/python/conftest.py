@@ -402,7 +402,7 @@ def use_page(make_fn: Callable[..., tuple], *args: Any, **kwargs: Any):
         page.close()
 
 
-def panel_ready(page: "Page", timeout: float = 5000) -> None:
+def panel_ready(page: Page, timeout: float = 5000) -> None:
     """Wait until the layer panel finished its init pass.
 
     LayerControl marks ``.foliplus-panel-content`` with ``data-ready`` when

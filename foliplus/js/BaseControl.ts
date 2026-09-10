@@ -14,7 +14,6 @@
 //     the control is added to a map.
 //   - Registration is idempotent: calling listen* twice never double-binds.
 //   - onRemove is final — subclasses override destroy() instead.
-
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 
 /** True if a listener tuple with the same (target, event) is already tracked. */
