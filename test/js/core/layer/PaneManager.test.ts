@@ -186,9 +186,7 @@ describe("PaneManager", () => {
     const node = document.createElement("div");
     const label = document.createElement("div");
     const map = {
-      getPane: vi.fn(name =>
-        name === "g" ? graph : name === "n" ? node : label,
-      ),
+      getPane: vi.fn(name => (name === "g" ? graph : name === "n" ? node : label)),
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
@@ -287,9 +285,7 @@ describe("PaneManager", () => {
   it("sweepChildPanes is a no-op when nothing is registered", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    expect(() =>
-      pm.sweepChildPanes([{ subPanes: ["phantom"] }]),
-    ).not.toThrow();
+    expect(() => pm.sweepChildPanes([{ subPanes: ["phantom"] }])).not.toThrow();
     expect(pm.childPanes.size).toBe(0);
   });
 
