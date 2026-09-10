@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from ._cdn_loader import load_cdn
-from ._typing import Fraction, NonNegativeInt, Position, PositiveFloat, PositiveInt
-from ._validate import validate
+from ._typing import Fraction, Position, PositiveInt
+from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -134,10 +134,10 @@ class ExportControl(BaseControl):
         filename: str = "map",
         format: FORMAT = "png",
         quality: Fraction = 0.92,
-        scale: PositiveFloat = 2.0,
+        scale: Annotated[float, Bound(0.0, None, exclusive_low=True)] = 2.0,
         max_pixels: PositiveInt | None = 10_240_000,
         background: str | None = None,
-        timeout: NonNegativeInt = 7500,
+        timeout: Annotated[int, Bound(0, None)] = 7500,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)

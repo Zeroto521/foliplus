@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from ._cdn_loader import load_cdn
-from ._typing import ClassCount, Fraction, NonNegativeFloat, Position, PositiveInt
-from ._validate import validate
+from ._typing import Fraction, Position, PositiveInt
+from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -143,11 +143,11 @@ class HeatmapControl(BaseControl):
         position: Position = "topleft",
         color_scheme: str = "Reds",
         method: METHOD = "jenks",
-        n_classes: ClassCount = 6,
+        n_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
         schemes: list[str] | None = None,
         field: str | None = None,
-        border_weight: NonNegativeFloat = 1.5,
+        border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_color: str = "#333333",
         fill_opacity: Fraction = 0.7,
         border_opacity: Fraction = 0.9,
