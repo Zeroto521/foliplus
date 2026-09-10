@@ -15,6 +15,8 @@
 //   - Registration is idempotent: calling listen* twice never double-binds.
 //   - onRemove is final — subclasses override destroy() instead.
 
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+
 /** True if a listener tuple with the same (target, event) is already tracked. */
 const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boolean =>
   list.some(it => it[0] === item[0] && it[1] === item[1]);
@@ -39,6 +41,16 @@ class BaseControl extends L.Control {
       this.buildDOM?.() ?? this.build?.() ?? document.createElement("div");
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
+    // Ready signal: other controls (LayerControl's init pass) can run on
+    // attach completion instead of a fixed delay.
+    try {
+      ensureEvents(this._map).emit(EVENTS.CONTROL_ATTACHED, {
+        component: this.constructor.name,
+      });
+    } catch {
+      // No event bus on this map (lightweight stub) — init falls back to its
+      // synchronous pass, which is sufficient without other controls.
+    }
     return container;
   }
 

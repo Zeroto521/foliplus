@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { GEOM_TYPE, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
 
-describe("INIT_DELAY_MS", () => {
-  it("is a positive number", () => {
-    expect(CONST.INIT_DELAY_MS).toBe(300);
+describe("init ready signal", () => {
+  it("no longer exposes the removed INIT_DELAY_MS timer", () => {
+    expect((CONST as Record<string, unknown>).INIT_DELAY_MS).toBeUndefined();
   });
 });
 
