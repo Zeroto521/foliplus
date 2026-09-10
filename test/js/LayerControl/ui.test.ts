@@ -2675,6 +2675,15 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(allFolded(children())).toBe(true);
     });
 
+    it("fold click re-homes the FOCUSED cursor onto the toggle-all row", () => {
+      attachWithGroup(ui);
+      const foldBtn = overlayFoldBtn(ui.uiContainer);
+      foldBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(lit).not.toBeNull();
+      expect(lit!.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
+    });
+
     it("Space folds too, and Enter again unfolds", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.

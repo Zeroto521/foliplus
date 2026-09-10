@@ -556,7 +556,9 @@ class LayerUI {
     this.restoreCursor(cursorRef);
   }
 
-  /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex. */
+  /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
+   *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
+   *  restoreCursor) must keep it; only the pointer path adopts (strips). */
   private syncListCursor(): void {
     if (!this.uiContainer) return;
     if (!this.listCursor) {
@@ -569,7 +571,7 @@ class LayerUI {
       });
     }
     this.listCursor.refresh();
-    this.listCursor.adopt(this.activeIdx ?? -1);
+    this.listCursor.setIndex(this.activeIdx ?? -1);
   }
 
   /** Identity of the row the keyboard cursor points at, for re-homing after a
@@ -1439,12 +1441,15 @@ class LayerUI {
   }
 
   /** Align the cursor marker with whichever row resolveActiveIdx() names.
-   *  Queries once — resolveActiveIdx and moveActiveMarker both need the list. */
+   *  Queries once — resolveActiveIdx and moveActiveMarker both need the list.
+   *  Keep the existing cursor when resolve fails (ArrowUp at the top after a
+   *  rebuild stole DOM focus): clearing on a no-op key would drop the visual. */
   private syncActiveItem(): void {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
-    this.moveActiveMarker(idx === null ? null : items[idx], items);
-    this.listCursor?.adopt(idx ?? -1);
+    if (idx === null) return;
+    this.moveActiveMarker(items[idx], items);
+    this.listCursor?.setIndex(idx);
   }
 
   /** Re-home activeIdx from clickedRow / DOM focus without painting the
