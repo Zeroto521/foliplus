@@ -51,6 +51,7 @@ describe("BaseControl", () => {
 
   it("emits CONTROL_ATTACHED after onAdd (ready signal)", () => {
     const seen: unknown[] = [];
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
