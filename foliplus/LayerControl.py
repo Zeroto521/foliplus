@@ -10,7 +10,7 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Layer panel: order, show/hide, and zoom to layers.
+    """Layer panel to organize, inspect, and zoom to map layers.
 
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
