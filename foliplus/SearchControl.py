@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Literal
 
 from ._cdn_loader import load_cdn
-from ._typing import Position
+from ._typing import Position, Zoom
+from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -42,7 +43,7 @@ class SearchControl(BaseControl):
         Default search mode on first open.
 
     zoom : int, default 15
-        Zoom level after coordinate search.
+        Zoom level after coordinate search, between 1 and 18.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -60,19 +61,15 @@ class SearchControl(BaseControl):
 
     default_js = load_cdn("SearchControl")
 
+    @validate
     def __init__(
         self,
         *,
         position: Position = "topleft",
         mode: MODE = "coord",
-        zoom: int = 15,
+        zoom: Zoom = 15,
         locale: str | LocaleConfig | None = None,
     ):
-        if mode not in get_args(MODE):
-            raise ValueError(f"mode must be one of {get_args(MODE)}, got {mode!r}")
-        if not isinstance(zoom, int) or zoom < 1 or zoom > 18:
-            raise ValueError(f"zoom must be an int between 1 and 18, got {zoom!r}")
-
         super().__init__(position=position, locale=locale)
         self.mode = mode
         self.zoom = zoom
