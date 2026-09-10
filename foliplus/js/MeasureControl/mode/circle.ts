@@ -185,10 +185,13 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      // Radius node: `moveCursorNode` recreates it every frame so it lands
-      // after the just-updated line in SVG order — otherwise the line's
-      // per-frame `setLatLngs` re-sort (see PreviewMode.moveCursorNode)
-      // would paint over it.
+      // Both endpoints must stay above the preview circle and the radius
+      // line. Those shapes re-sort themselves to the SVG tail on every frame
+      // via `setLatLngs` / `setRadius` (see PreviewMode.pinToTop), so an
+      // endpoint moved only with `setLatLng` would be painted over within a
+      // few mousemoves. The center never moves, so re-attaching it is free;
+      // the radius endpoint already re-attaches through moveCursorNode.
+      if (previews.center) this.pinToTop(previews.center);
       previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);

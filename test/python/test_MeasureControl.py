@@ -419,6 +419,28 @@ class TestMeasureControlBrowser:
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
             assert moved, f"circle preview node did not follow the mouse: {state}"
+            s = state["stack"]
+            assert s["node"] > s["circle"], f"radius node below preview circle: {s}"
+            assert s["node"] > s["dashed"], f"radius node below radius line: {s}"
+            assert s["center"] > s["circle"], f"center node below preview circle: {s}"
+            assert s["center"] > s["dashed"], f"center node below radius line: {s}"
+            # After a third move the preview circle's `setRadius` and the
+            # line's `setLatLngs` have both re-sorted the SVG root to their
+            # own tails, so without a matching re-add the center node would
+            # be painted over (regression: PR #252).
+            s3 = state["stackAfterThirdMove"]
+            assert s3["center"] > s3["circle"], (
+                f"center node climbed below preview circle after repeated moves: {s3}"
+            )
+            assert s3["center"] > s3["dashed"], (
+                f"center node climbed below radius line after repeated moves: {s3}"
+            )
+            assert s3["node"] > s3["circle"], (
+                f"radius node climbed below preview circle after repeated moves: {s3}"
+            )
+            assert s3["node"] > s3["dashed"], (
+                f"radius node climbed below radius line after repeated moves: {s3}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_preview_cursor_node_follows_mouse(self, browser, tmp_path):

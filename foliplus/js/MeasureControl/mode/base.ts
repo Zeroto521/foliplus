@@ -122,23 +122,35 @@ class PreviewMode extends MeasureMode {
   }
 
   /**
+   * Re-attach a preview layer so it becomes the newest sibling of the SVG
+   * `_rootGroup` — i.e. it paints above everything else in the preview.
+   *
+   * Preview shapes update their coordinates with `setLatLngs`, which triggers
+   * Leaflet's `_updatePath` → `setPane` and pushes that `<path>` to the tail
+   * of `_rootGroup` every frame. Markers and circle markers moved with
+   * `setLatLng` / `setRadius` do not participate in that re-sort, so they keep
+   * the DOM position they were created at — and the preview line (or circle)
+   * climbs over them after a few mousemoves. "Attach order == paint order"
+   * therefore only holds at creation time; any preview node that must stay
+   * above a live shape needs re-attaching on every frame.
+   *
+   * Remove + re-add is used rather than `bringToFront()` because the latter
+   * reaches into Leaflet's private `_rootGroup`, while re-adding only relies
+   * on the public layer-group contract.
+   */
+  pinToTop<T extends L.Layer>(layer: T): T {
+    this.removePreview(layer);
+    return this.addPreview(layer);
+  }
+
+  /**
    * The transient hollow cursor dot shown while a preview shape is being
    * drawn — distance's trailing endpoint, polygon's next vertex, circle's
    * radius endpoint.
    *
-   * Recreated on every call rather than updated in place. Line and polygon
-   * preview shapes update their coordinates via `setLatLngs`, which triggers
-   * Leaflet's `_updatePath` → `setPane` and pushes the corresponding `<path>`
-   * to the tail of the SVG `_rootGroup` every frame. A node moved with
-   * `setLatLng` does not participate in that re-sort, so its DOM position
-   * stays where it was created — and the live preview line climbs over it
-   * after a few mousemoves. Removing and re-adding each frame keeps the
-   * invariant explicit: the cursor node is always the newest sibling, so
-   * paint order is attach order and nothing else matters.
-   *
-   * The `bringToFront` hack on individual calls (which the old circle
-   * preview code needed) is gone for the same reason — the re-add already
-   * puts the node at the SVG tail.
+   * Recreated on every call rather than moved with `setLatLng`, because the
+   * position changes every frame anyway and the re-add doubles as the
+   * re-order that `pinToTop` exists for.
    */
   moveCursorNode(latlng: L.LatLng): L.CircleMarker {
     if (this.cursorNode) this.removePreview(this.cursorNode);
