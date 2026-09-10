@@ -2039,6 +2039,9 @@ class TestLayerControlBrowser:
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
+            # The icon the fixture registers. Degenerate markup is rejected
+            # by the sanitizer, so it must be real SVG.
+            svg = "<svg viewBox=\"0 0 4 4\"><rect width=\"2\" height=\"2\"/></svg>"
             result = page.evaluate(_js("LayerControl/re_register_preserves_fields"))
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
@@ -2050,7 +2053,9 @@ class TestLayerControlBrowser:
                 assert r["isBase"] is True, f"{phase}: isBase lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"
-                assert r["iconSvg"] == "<svg></svg>", f"{phase}: iconSvg lost"
+                # The value must be the registered icon, unchanged by the
+                # partial re-register.
+                assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
                 assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
 
