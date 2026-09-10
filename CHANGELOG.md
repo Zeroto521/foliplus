@@ -24,6 +24,7 @@
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227), [#254](https://github.com/Zeroto521/foliplus/pull/254))
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 - `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
+- `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
 
 ### Changed
 
