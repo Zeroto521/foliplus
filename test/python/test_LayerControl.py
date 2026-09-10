@@ -10,6 +10,7 @@ from conftest import (
     _js,
     assert_locale,
     make_browser_page,
+    panel_ready,
     read_css,
     read_css_dir,
     render,
@@ -2498,12 +2499,7 @@ class TestLayerControlBrowser:
             # which is only meaningful once the init pass has run: rows render
             # checked by default and initLayerItem (on an init timer) decides
             # the checkbox and the .active class.
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             # Force a truly unchecked row — do not trust show=False across
             # folium versions (0.14 still checks them).
             page.evaluate(
@@ -2590,12 +2586,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             page.mouse.move(0, 0)
             result = page.evaluate(_js("LayerControl/read_row_cursor_surface"))
             assert result is not None and "error" not in result, (
@@ -2920,12 +2911,7 @@ class TestLayerControlBrowser:
             # The style assertions below need the init pass done: rows render
             # checked by default and initLayerItem (on an init timer) is what
             # adds the .active class and the per-state titles.
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
             assert result["beforeEscape"] is True, "ArrowDown should first set focus"
@@ -3056,12 +3042,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             white = self._sample_neutral0(page)
 
             def snapshot():
@@ -3207,12 +3188,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             page.mouse.move(0, 0)
             result = page.evaluate(_js("LayerControl/checkbox_click_lights_cursor"))
             assert result is not None and "error" not in result, (
@@ -3249,12 +3225,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             page.mouse.move(0, 0)
             result = page.evaluate(_js("LayerControl/base_basemap_quiet_focus"))
             assert result is not None and "error" not in result, (
@@ -3300,12 +3271,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             result = page.evaluate(_js("LayerControl/checkbox_dblclick_no_focus_layer"))
             assert result is not None and "error" not in result, (
                 f"checkbox dblclick snippet failed: {result}"
