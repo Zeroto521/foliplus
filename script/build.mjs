@@ -193,8 +193,9 @@ const findComponents = () => {
       resolve(srcDir, name, "index.js"),
     ]);
     const cssFile = resolve(cssDir, `${name}.css`);
-    if (jsFile)
+    if (jsFile) {
       components.push({ name, js: jsFile, css: existsSync(cssFile) ? cssFile : null });
+    }
   }
   return components;
 };
@@ -256,8 +257,9 @@ const buildEntries = (components, withSonda) => {
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
     entries.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
-    if (css)
+    if (css) {
       entries.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
+    }
   }
 
   // Merge the shared stylesheet modules into a single artifact
@@ -310,8 +312,9 @@ const main = async () => {
   // ── Step 3: Discover components & build entries ───────────────
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda)
+  if (sonda) {
     console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
+  }
   const entries = buildEntries(components, CFG.sonda);
   console.log(
     `Building ${entries.length} artifacts for ${components.length} components...`,
@@ -322,10 +325,11 @@ const main = async () => {
   const failed = results.filter(r => r.status === "rejected").length;
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
-    if (r.status === "fulfilled")
+    if (r.status === "fulfilled") {
       console.log(`  ${OK} ${basename(entries[i].outfile)}`);
-    else
+    } else {
       console.error(`  ${FAIL} ${basename(entries[i].outfile)}: ${r.reason.message}`);
+    }
   }
 
   // ── Step 4.5: Combined sonda report (--sonda) ──

@@ -83,10 +83,11 @@ class MarkerMode extends MeasureMode {
             if (gen !== generation) return; // a newer drag superseded us
             measurement.address = addr;
             manager.store.persist();
-            if (marker.getPopup()?.isOpen())
+            if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
                 Util.buildPopup(measurement.lng!, measurement.lat!, addr),
               );
+            }
           })
           .catch(() => undefined);
       },
@@ -163,8 +164,9 @@ class MarkerMode extends MeasureMode {
     );
 
     marker.on("popupopen", () => {
-      if (data.address !== null)
+      if (data.address !== null) {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
+      }
     });
 
     // Pass `data` by reference so drag mutations land on the store's backing
@@ -267,8 +269,9 @@ class MarkerMode extends MeasureMode {
     attachDelClick(delMarker, deleteMeasurement);
 
     marker.on("popupopen", () => {
-      if (measurement.address !== null)
+      if (measurement.address !== null) {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
+      }
     });
   }
 

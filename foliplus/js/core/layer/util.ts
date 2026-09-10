@@ -32,8 +32,9 @@ const traverse = (
   if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
   else if (container._layers) {
     for (const k in container._layers) {
-      if (Object.hasOwn(container._layers, k))
+      if (Object.hasOwn(container._layers, k)) {
         traverse(container._layers[k], fn, depth + 1, leafOnly);
+      }
     }
   } else if (leafOnly) fn(layer);
 };

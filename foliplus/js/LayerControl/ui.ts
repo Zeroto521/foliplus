@@ -266,8 +266,9 @@ class LayerUI {
       // that was never hidden must not be hidden, and a missing rename is a
       // no-op rather than a write of undefined over the registry's own name.
       if (this.hiddenIds.has(id)) this.applyHiddenStateOne(layerInfo);
-      if (id in this.renamedNames)
+      if (id in this.renamedNames) {
         applyNameProjection(layerInfo, null, this.renamedNames[id]);
+      }
       return;
     }
 
@@ -528,8 +529,9 @@ class LayerUI {
     }
 
     const colorItem = this.renderColorLayerItem();
-    if (this.foldedGroups.has(CONST.GROUP.BASE))
+    if (this.foldedGroups.has(CONST.GROUP.BASE)) {
       colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    }
     frag.appendChild(colorItem);
 
     this.uiContainer.innerHTML = "";
@@ -890,9 +892,9 @@ class LayerUI {
         // Update count column (right-aligned, adjacent to type icon).
         const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
         if (countCol) {
-          if (count !== null && count !== undefined)
+          if (count !== null && count !== undefined) {
             countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
-          else countCol.textContent = "";
+          } else countCol.textContent = "";
         }
         // Hover tooltip shows count + type label together.
         const typeLabel = typeKey;
@@ -1099,9 +1101,9 @@ class LayerUI {
       if (!id) return;
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-      if (countCol && count !== null && count !== undefined)
+      if (countCol && count !== null && count !== undefined) {
         countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
-      else if (countCol) countCol.textContent = "";
+      } else if (countCol) countCol.textContent = "";
     });
   }
 
@@ -1123,8 +1125,9 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
-    if (this.onMoreMenuClick)
+    if (this.onMoreMenuClick) {
       document.removeEventListener("click", this.onMoreMenuClick);
+    }
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
     this.interactionCleanup?.();
@@ -1237,13 +1240,15 @@ class LayerUI {
     const item = target.closest(CONST.SEL.LAYER_ITEM);
 
     if (layerInfo.isBase) this.hideColorLayer();
-    if (layer)
+    if (layer) {
       target.checked ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
+    }
     if (target.checked && layer) layer.options.paneSet = false;
-    if (item)
+    if (item) {
       target.checked
         ? item.classList.add(CONST.CLASSES.ACTIVE)
         : item.classList.remove(CONST.CLASSES.ACTIVE);
+    }
 
     target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
@@ -1256,8 +1261,9 @@ class LayerUI {
   }
 
   handleInput(event: Event) {
-    if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
+    if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT)) {
       this.showColorLayer((event.target as HTMLInputElement).value);
+    }
   }
 
   /**
@@ -1569,9 +1575,9 @@ class LayerUI {
             );
             break;
           }
-          if (action === CONST.ACTION.RENAME_LAYER)
+          if (action === CONST.ACTION.RENAME_LAYER) {
             this.renameLayer(this.activeMenu.layerId);
-          else {
+          } else {
             this.focusLayer(this.activeMenu.layerId);
             this.closeMoreMenu(true);
           }
@@ -1691,11 +1697,12 @@ class LayerUI {
 
     const targetIdx = parseInt(item.dataset.index ?? "", 10);
     const prev = this.lastDragOverItem;
-    if (prev && prev !== item)
+    if (prev && prev !== item) {
       prev.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+    }
     item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
     this.lastDragOverItem = item;
 
@@ -1707,19 +1714,21 @@ class LayerUI {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
     if (targetIdx < this.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-    else if (targetIdx > this.dragIdx)
+    else if (targetIdx > this.dragIdx) {
       item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+    }
   }
 
   handleDragLeave(event: DragEvent) {
     const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
-    if (item)
+    if (item) {
       item.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+    }
   }
 
   handleDrop(event: DragEvent) {
@@ -2375,7 +2384,7 @@ class LayerUI {
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     ) as NodeListOf<HTMLInputElement>;
     let changed = false;
-    for (let i = 0; i < this.m.layers.length; i++)
+    for (let i = 0; i < this.m.layers.length; i++) {
       if (this.m.layers[i].isBase && i !== exceptIdx) {
         const bLayer = this.m.findLayer(this.m.layers[i]);
         if (bLayer && this.m.map.hasLayer(bLayer)) {
@@ -2392,15 +2401,18 @@ class LayerUI {
           }
         }
       }
+    }
     // Excluded from handleChange: it is the mutual-exclusion half of that
     // handler, so walking it would recurse. The bases it deselects are hidden
     // by the user's own choice, so they still need to persist -- otherwise a
     // reload re-checks them and the "only one base at a time" invariant
     // silently resets. The selected base is already tracked by the caller.
     if (changed) {
-      for (let i = 0; i < this.m.layers.length; i++)
-        if (this.m.layers[i].isBase && i !== exceptIdx)
+      for (let i = 0; i < this.m.layers.length; i++) {
+        if (this.m.layers[i].isBase && i !== exceptIdx) {
           this.syncHiddenId(this.m.layers[i].id, true);
+        }
+      }
     }
   }
 }

@@ -220,8 +220,9 @@ class DistanceMode extends PreviewMode {
         points.some(
           (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
         )
-      )
+      ) {
         return;
+      }
       L.DomEvent.stopPropagation(event);
       points.push(event.latlng);
       if (previewDistLabel) {

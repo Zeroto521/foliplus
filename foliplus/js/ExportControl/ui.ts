@@ -123,8 +123,9 @@ const showCropBox = (mgr: ExportManager) => {
       { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
       { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
     ])
-  )
+  ) {
     return;
+  }
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
   ensureModes(mgr.map).setMode(CONF.name, "selecting");

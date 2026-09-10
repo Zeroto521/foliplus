@@ -212,8 +212,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
-    if (ctrl.schemeDropdown)
+    if (ctrl.schemeDropdown) {
       document.addEventListener("click", ctrl.closeSchemeDropdown);
+    }
   };
 
   const clearBtn = panelContent.querySelector(
@@ -263,8 +264,9 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED))
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+    }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
 };
@@ -309,8 +311,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.m.selectedLayerId = sel.value || null;
-    if (ctrl.extraBody)
+    if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+    }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
     if (ctrl.m.selectedLayerId) ctrl.m.renderHexagons();
@@ -319,8 +322,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  if (ctrl.extraBody)
+  if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+  }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
@@ -477,9 +481,9 @@ const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
     // full registry methods).  The error is harmless — we just
     // treat it as "no layers found" and continue to the hint logic.
   }
-  if (ctrl.m.pointLayers.length === 0 && attempt > 0)
+  if (ctrl.m.pointLayers.length === 0 && attempt > 0) {
     setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0) {
+  } else if (ctrl.m.pointLayers.length === 0) {
     // Distinguish the two "no point layers" causes so the hint points the
     // user at the right fix:  isLayerControl===false means only the
     // lightweight LayerAPI stub is installed (no LayerControl added),

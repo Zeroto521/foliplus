@@ -26,8 +26,9 @@ const nominatimUrl = (
 ): string => {
   const url = new URL(endpoint || "", NOMINATIM.URL);
   url.searchParams.set("format", NOMINATIM.FORMAT);
-  for (const [k, v] of Object.entries(params))
+  for (const [k, v] of Object.entries(params)) {
     if (v != null) url.searchParams.set(k, String(v));
+  }
 
   if (!url.searchParams.has("accept-language")) {
     url.searchParams.set("accept-language", code);
@@ -63,8 +64,9 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
         /^[A-Z0-9]{2,10}(\s+[A-Z0-9]{2,10})?$/i.test(s) &&
         s.length <= 10 &&
         /[A-Z]/.test(s) === /[0-9]/.test(s)
-      )
+      ) {
         return false;
+      }
       return true;
     });
   if (parts.length === 0) return "";

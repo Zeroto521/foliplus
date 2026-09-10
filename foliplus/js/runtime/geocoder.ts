@@ -87,12 +87,13 @@ const geocode = (
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split("\u0001");
-    if (name.length)
+    if (name.length) {
       return Promise.resolve({
         lat: Number(lat),
         lng: Number(lng),
         display_name: name.join("\u0001"),
       });
+    }
   }
 
   const url = nominatimUrl("/search", { q: address, limit: 1, format: "jsonv2" }, code);

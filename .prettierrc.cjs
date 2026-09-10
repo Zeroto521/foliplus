@@ -1,8 +1,9 @@
-// Prettier config for both local `npm run format` and pre-commit.ci.
-// Uses require.resolve() so the @trivago plugin is found via NODE_PATH
-// in pre-commit.ci's isolated environment (ESM import() does not honor
-// NODE_PATH, causing "Cannot find package" from /code/noop.js).
-// Keep these options in sync with the settings in package.json.
+// Prettier config. Prettier loads it with its own config loader, which can
+// parse CJS, so the plugin is loaded with require.resolve() — no need to
+// mirror package.json's "prettier" block, which prettier itself would fail
+// to read through ESM import() from its internal entry point in a stripped
+// environment (ESM import() does not consult NODE_PATH, causing "Cannot
+// find package" from /code/noop.js).
 // @ts-check
 /* eslint-env node */
 

@@ -1,11 +1,17 @@
-// ESLint config for the foliplus JS/TS runtime and test suite.
+// ESLint config for the foliplus JS/TS runtime and test suite — pass 1,
+// the non-type-aware quality rules. Run it with `npm run lint`.
+//
+// The Promise-discipline rules live in eslint.config.type.js and are run by
+// `npm run typecheck`. Keeping them out here means this config imports no
+// typescript package at all, so it reports the same result with or without
+// node_modules.
 //
 // Division of labour with prettier (see .prettierrc.cjs):
 //   - prettier owns typography (indent, width, quotes, import order) and
 //     preserves existing blank lines but never adds or removes them.
-//   - eslint owns code quality (eqeqeq, no-implicit-coercion, ...) and two
-//     things prettier cannot express: blank lines before function/class
-//     definitions (Python E302/E305 equivalent) and Promise discipline.
+//   - eslint owns code quality (eqeqeq, no-implicit-coercion, ...) and one
+//     thing prettier cannot express: blank lines before function/class
+//     definitions (Python E302/E305 equivalent).
 //
 // The blank-line rule is deliberately scoped to function/class definitions
 // only. Mainstream configs (Airbnb, Google, Microsoft's FluidFramework,
@@ -14,35 +20,9 @@
 // statement — that is what the old `next: "expression"` rule did and it
 // inflated the tree with blank lines around every `this.method()` call.
 //
-// Two passes over the TS sources:
-//   1. Non-type-aware rules — fast, AST only (covers all files).
-//   2. Type-aware rules (Promise discipline) — slower, needs the tsconfig
-//      program (only covers foliplus/js; test/js is not in tsconfig include,
-//      see tsconfig.json comment). Skipped when the project-local typescript
-//      is absent — that is the pre-commit.ci isolated env, whose node_modules
-//      live under NODE_PATH, not next to package.json. `npm run lint` runs
-//      the full set with the program available.
-import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+// @see https://eslint.org/docs/latest/use/configure/
+
 import tseslint from "typescript-eslint";
-
-const root = dirname(fileURLToPath(import.meta.url));
-const skipTypecheck = !existsSync(join(root, "node_modules", "typescript"));
-
-// eslint-config-prettier is CommonJS, so it loads through CJS resolution
-// instead of a bare ESM import. When it is absent there is nothing to remove:
-// every rule below is one prettier does not own, so with the import present
-// or gone the config reports the same zero problems across the tree.
-const resolveRequire = createRequire(import.meta.url);
-
-let eslintConfigPrettier;
-try {
-  eslintConfigPrettier = resolveRequire("eslint-config-prettier");
-} catch {
-  // Absent — run without prettier's stylistic overrides.
-}
 
 export default [
   // Build output, vendored deps, browser tests (use CDN globals)
@@ -59,7 +39,7 @@ export default [
   // Base TS rules (no type info — covers all TS/JS files).
   ...tseslint.configs.recommended,
 
-  // ── Pass 1: quality + structural rules prettier cannot express ──
+  // ── Quality + structural rules prettier cannot express ──
   {
     files: [
       "foliplus/js/**/*.ts",
@@ -156,31 +136,4 @@ export default [
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },
-
-  // ── Pass 2: Promise discipline (needs type info) ──
-  ...(skipTypecheck
-    ? []
-    : [
-        {
-          files: ["foliplus/js/**/*.ts"],
-          rules: {
-            // Unhandled Promise (await / return / catch required)
-            "@typescript-eslint/no-floating-promises": "error",
-            // async without await — drop the async keyword
-            "@typescript-eslint/require-await": "error",
-            // async fn passed to sync callback
-            "@typescript-eslint/no-misused-promises": "error",
-          },
-          languageOptions: {
-            parserOptions: {
-              project: "./tsconfig.json",
-              tsconfigRootDir: root,
-            },
-          },
-        },
-      ]),
-
-  // eslint-config-prettier turns off all stylistic eslint rules that overlap
-  // with prettier's authority on typography. Must be last.
-  ...(eslintConfigPrettier ? [eslintConfigPrettier] : []),
 ];

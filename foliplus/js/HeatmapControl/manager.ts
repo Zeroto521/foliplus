@@ -427,8 +427,9 @@ class HeatmapManager {
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
     const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
-    if (this.cachedPoints && this.cachedPoints.key === key)
+    if (this.cachedPoints && this.cachedPoints.key === key) {
       return this.cachedPoints.pts;
+    }
 
     const pts: SelectedPoint[] = [];
     if (!this.selectedLayerId) return pts;
@@ -455,8 +456,9 @@ class HeatmapManager {
   }
 
   getColorScale(name: string, n: number): string[] {
-    if (typeof chroma !== "undefined")
+    if (typeof chroma !== "undefined") {
       return chroma.scale(name).mode("lab").colors(n) as string[];
+    }
     return Array(n).fill(CONST.GRAY);
   }
 
@@ -482,13 +484,15 @@ class HeatmapManager {
       return [lo, hi];
     } else if (method === CONST.METHOD.QUANTILE) {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
+      for (let i = 1; i < nClasses; i++) {
         b.push(ss.quantileSorted(sorted, i / nClasses));
+      }
       return b.concat(hi);
     } else if (method === CONST.METHOD.HEADS) {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
+      for (let i = 1; i < nClasses; i++) {
         b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
+      }
       return b.concat(hi);
     }
     const step = (hi - lo) / nClasses;
@@ -508,9 +512,9 @@ class HeatmapManager {
     const res = this.getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
-    if (this.cachedAgg && this.cachedAgg.key === aggKey)
+    if (this.cachedAgg && this.cachedAgg.key === aggKey) {
       aggregated = this.cachedAgg.data;
-    else {
+    } else {
       aggregated = this.aggregateData(pts, res) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
@@ -524,8 +528,9 @@ class HeatmapManager {
     pts.forEach(pt => {
       try {
         const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx])
+        if (!hexCells[h3Idx]) {
           hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
+        }
         const cell = hexCells[h3Idx];
         cell.sum += pt.value;
         cell.count += 1;

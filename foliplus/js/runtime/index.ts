@@ -40,8 +40,9 @@ import { cacheSuggestion, geocode, reverseGeocode } from "./geocoder.js";
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
-if (!window.foliplus || typeof window.foliplus !== "object")
+if (!window.foliplus || typeof window.foliplus !== "object") {
   window.foliplus = {} as Foliplus;
+}
 const foliplus = window.foliplus;
 
 // Bail out if the shared runtime has already been initialized (it is inlined

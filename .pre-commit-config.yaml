@@ -47,42 +47,26 @@ repos:
       - id: codespell
 
   # ── JS / CSS formatting (Prettier) ──
-  # Uses language: node so pre-commit.ci sets up Node and installs prettier
-  # itself (its isolated env has no npx/node_modules).
+  # The only JS tool left in pre-commit: it needs neither the typescript-eslint
+  # parser plugin nor type information, so it runs in pre-commit.ci's isolated
+  # env. ESLint moved to GitHub Actions (the `lint` / `typecheck` jobs) because
+  # its config imports packages that pre-commit.ci installs under NODE_PATH,
+  # which neither the ESM nor the CJS resolver consults by package name.
   #
-  # Uses .prettierrc.cjs (with require.resolve for the plugin) because
-  # prettier resolves plugins from package.json's "prettier" block via
-  # ESM `import()` from /code/noop.js — which fails in pre-commit.ci's
-  # isolated env (ESM does not honor NODE_PATH). require.resolve() in a
-  # .cjs file resolves via CJS module resolution, which honors NODE_PATH.
+  # `--check`, not `--write`: CI asserts on formatting rather than mutating a
+  # working tree. Local `npm run format` writes.
+  #
+  # Uses .prettierrc.cjs (with require.resolve for the plugin) because prettier
+  # resolves plugins from package.json's "prettier" block via ESM `import()`
+  # from /code/noop.js, which fails in the isolated env.
   - repo: local
     hooks:
       - id: format-prettier
         name: format-prettier
-        entry: prettier --write
+        entry: prettier --check
         language: node
         types_or: [css, javascript, ts]
         files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
         additional_dependencies:
           - "prettier@3.9.5"
           - "@trivago/prettier-plugin-sort-imports@5.2.2"
-
-      # ── JS structural lint (ESLint) ──
-      # Reads eslint.precommit.config.mjs, not eslint.config.js. The full
-      # config imports typescript-eslint and eslint-config-prettier; both are
-      # ESM packages delivered via additional_dependencies, which in
-      # pre-commit.ci sit under NODE_PATH rather than next to package.json.
-      # A bare ESM import cannot resolve them there, so the hook instead runs
-      # against a dependency-free subset (no-var, no-debugger) that needs
-      # neither the TS parser plugin nor type information. Everything else
-      # (quality rules, padding, Promise discipline) runs via `npm run lint`
-      # in GitHub Actions, where the real node_modules are present. Scope is
-      # JS/CJS/MJS only for the same reason: .ts needs the parser plugin.
-      - id: lint-eslint
-        name: lint-eslint
-        entry: eslint --fix --no-config-lookup --config eslint.precommit.config.mjs
-        language: node
-        types_or: [javascript]
-        files: ^foliplus/js/.*\.(js|cjs|mjs)$|^script/.*\.(js|cjs|mjs)$|^test/js/.*\.(js|cjs|mjs)$
-        additional_dependencies:
-          - "eslint@9.39.5"

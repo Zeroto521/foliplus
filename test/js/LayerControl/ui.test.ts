@@ -283,13 +283,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // single-child "no toggle-all" layout. Registered here (not in the tests)
     // because initFixture() flushes the 300ms initTypesAndVisibility timeout
     // AFTER any nested beforeEach, which would drop a layer added inside a test.
-    if (!manager.layerRegistry.get("overlay2"))
+    if (!manager.layerRegistry.get("overlay2")) {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
         isBase: false,
         layer: { options: {}, eachLayer: vi.fn() },
       });
+    }
     ui.foldedGroups = new Set();
     ui.hiddenIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
@@ -305,8 +306,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // LayerControl holds "focusing" mode during an in-flight focus; clear it
     // on the FIXTURE map (not window.map) so a focus-holding test cannot leak.
     const modes = ensureModes(map);
-    if (modes.getMode("LayerControl") === "focusing")
+    if (modes.getMode("LayerControl") === "focusing") {
       modes.setMode("LayerControl", null);
+    }
   });
 
   // ─────────────────── focusLayer() ───────────────────

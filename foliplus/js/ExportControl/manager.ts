@@ -259,14 +259,14 @@ class ExportManager {
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE))
+    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
       this.dragState.dragType = target.dataset.pos ?? null;
-    else if (
+    } else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
-    )
+    ) {
       this.dragState.dragType = "move";
-    else return;
+    } else return;
 
     this.dragState.dragging = true;
     // Disable the box transition during drag so it tracks the cursor
@@ -337,8 +337,9 @@ class ExportManager {
     // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
-    if (this.cropState?.box)
+    if (this.cropState?.box) {
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+    }
   }
 
   registerShortcuts(): void {
@@ -368,8 +369,9 @@ class ExportManager {
       // On initial press the loop nudges one step synchronously (so the box
       // moves the moment the key is pressed), then keeps nudging at ~60Hz
       // so holding the key feels continuous. Stop on keyup.
-      if (this.isEditing() && event.key !== this.nudgeActiveKey)
+      if (this.isEditing() && event.key !== this.nudgeActiveKey) {
         this.nudgeStart(event.key);
+      }
     }
   }
 
@@ -557,8 +559,9 @@ class ExportManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
@@ -584,8 +587,9 @@ class ExportManager {
     this.lockMap();
 
     let scaleValue = CONF.scale;
-    if (typeof scaleValue !== "number" || isNaN(scaleValue))
+    if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
       scaleValue = window.devicePixelRatio || 1;
+    }
     const bg = CONF.background;
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
@@ -627,9 +631,9 @@ class ExportManager {
       r.left + r.width > vpW * 1.02 ||
       r.top + r.height > vpH * 1.02;
 
-    if (needsBigger && geoBounds && geoBounds.nw)
+    if (needsBigger && geoBounds && geoBounds.nw) {
       this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
-    else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
+    } else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the

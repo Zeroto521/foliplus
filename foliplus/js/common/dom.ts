@@ -115,9 +115,9 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      )
+      ) {
         el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
-      else if (typeof child === "number") el.append(String(child));
+      } else if (typeof child === "number") el.append(String(child));
       else el.append(child as string | HTMLElement);
     }
     return el;
@@ -309,8 +309,9 @@ const updateItemLabel = (
   const toggle = item.querySelector(
     'input[type="checkbox"], input[type="color"]',
   ) as HTMLInputElement | null;
-  if (toggle && toggle.getAttribute("aria-label") !== name)
+  if (toggle && toggle.getAttribute("aria-label") !== name) {
     toggle.setAttribute("aria-label", name);
+  }
   return label;
 };
 
