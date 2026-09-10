@@ -3219,8 +3219,7 @@ class TestLayerControlBrowser:
                 "repeated clicks must keep the cursor, got " + str(result)
             )
             assert result["handedOver"]["first"]["focusedClass"] is False, (
-                "clicking another row must drop the previous cursor, got "
-                + str(result)
+                "clicking another row must drop the previous cursor, got " + str(result)
             )
             assert result["handedOver"]["second"]["focusedClass"] is True, (
                 "the clicked row must carry the cursor, got " + str(result)
