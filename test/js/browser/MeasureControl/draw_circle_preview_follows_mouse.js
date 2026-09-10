@@ -8,11 +8,11 @@
   // modifier (the center dot is NODE_SOLID).
   const node = () =>
     document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
-  const center = () =>
-    document.querySelector(".foliplus-measure-node-solid");
+  const center = () => document.querySelector(".foliplus-measure-node-solid");
   // Renderer root sibling order == paint order (later siblings paint above).
   const stack = () => {
-    const svg = document.querySelector("svg.leaflet-overlay-pane svg") ||
+    const svg =
+      document.querySelector("svg.leaflet-overlay-pane svg") ||
       document.querySelector("svg");
     const root = svg ? svg.querySelector("g") || svg : null;
     const sibs = root ? Array.from(root.children) : [];
