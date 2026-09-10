@@ -399,7 +399,9 @@ class TestLayerControlRendering:
             "out-ranks the wash"
         )
         # Base basemap / color picker stay quiet: no cursor glow/white.
-        assert 'data-layer-type="base"' in css, "base rows must opt out of the cursor recipe"
+        assert 'data-layer-type="base"' in css, (
+            "base rows must opt out of the cursor recipe"
+        )
         assert "foliplus-color-layer-item" in css, (
             "color picker row must opt out of the cursor recipe"
         )
