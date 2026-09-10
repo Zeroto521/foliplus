@@ -79,7 +79,6 @@ const syncCropKeyboard = (mgr: ExportManager) => {
 
 /** Show a global hint (e.g. exporting status). */
 const showGlobalHint = (
-  mgr: ExportManager,
   text: string,
   duration = HINT_DURATION.PERSIST,
   withLoadingIcon = false,

@@ -190,7 +190,7 @@ class TestBaseControlPython:
 
 
 class TestBaseControlRendering:
-    """Rendering tests for shared assets and common.css."""
+    """Rendering tests for shared assets and the merged stylesheet."""
 
     def test_includes_common_css(self, base_map: folium.Map):
         from foliplus import SearchControl
@@ -240,7 +240,7 @@ class TestBaseControlRendering:
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
 
     def test_shared_assets_deduplicated(self, base_map: folium.Map):
-        """Shared assets (runtime.js, common.css, locale tables) are injected only once per map."""
+        """Shared assets (runtime.js, the merged stylesheet, locale tables) are injected only once per map."""
         from foliplus import HeatmapControl, LayerControl, SearchControl
 
         SearchControl().add_to(base_map)
@@ -253,10 +253,10 @@ class TestBaseControlRendering:
         # Common CSS root custom properties definition is injected exactly once
         assert html.count("--ctrl-bg:") == 1
 
-    # ── common.css design tokens ──
+    # ── shared stylesheet design tokens ──
 
     def test_z_index_floating_css_variable(self, base_map: folium.Map):
-        """--z-index-floating CSS custom property is defined in common.css."""
+        """--z-index-floating CSS custom property is defined in the shared stylesheet."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
@@ -282,7 +282,7 @@ class TestBaseControlRendering:
         assert "foliplus-panel-content" in html
 
     def test_button_focus_visible_rule(self, base_map: folium.Map):
-        """common.css includes :focus-visible rule for all buttons."""
+        """The shared stylesheet includes a :focus-visible rule for all buttons."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
@@ -290,7 +290,7 @@ class TestBaseControlRendering:
         assert "foliplus-toggle-btn" in html
 
     def test_button_disabled_rule(self, base_map: folium.Map):
-        """common.css includes :disabled rule for all buttons."""
+        """The shared stylesheet includes a :disabled rule for all buttons."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
@@ -298,7 +298,7 @@ class TestBaseControlRendering:
         assert "pointer-events: none" in html
 
     def test_panel_max_height_variable(self, base_map: folium.Map):
-        """common.css defines --panel-max-height."""
+        """The shared stylesheet defines --panel-max-height."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
@@ -318,7 +318,7 @@ class TestBaseControlRendering:
 
         html = render_control(SearchControl())
         assert "shadow-ctrl-strong" in html
-        # The shadow rule is in common.css, not in component CSS
+        # The shadow rule is in the shared stylesheet, not in component CSS
         assert "ctrl-fold.collapsed" in html
 
     def test_expanded_shadow_shared(self, base_map: folium.Map):

@@ -5,11 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foliplus"
 dynamic = ["version"]
-description = 'foliplus: the missing piece between "see the map" and "use the map".'
+description = 'foliplus: the missing piece between "see the map" and "use the map". GeoPandas handles data, Folium renders it, foliplus brings it to life.'
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["folium", "leaflet", "gis", "map", "visualization"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -19,7 +20,6 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering :: GIS",
   "Topic :: Scientific/Engineering :: Visualization",
@@ -52,6 +52,8 @@ dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 write_to = "foliplus/_version.py"
 
 [tool.setuptools]
+# Off so that gitignored generated artifacts (`_version.py`, `dist/`) are not
+# picked up recursively; only [tool.setuptools.package-data] below is honoured.
 include-package-data = false
 
 [tool.setuptools.packages.find]

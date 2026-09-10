@@ -10,7 +10,10 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
-  /** Set of layer ids currently hidden by the user (checked-off). */
+  /** Set of layer ids currently off the map. Absolute, not relative: it is
+   *  what is hidden, not merely what the user toggled to hide. A relative set
+   *  could never express "show a layer the author declared show=False", because
+   *  that id was never added to begin with. */
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
   /** Map of layer id → user-assigned display name. */
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
@@ -60,6 +63,9 @@ const CLASSES = {
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   HIDDEN: "hidden",
+  /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
+   *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
+   *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-layer-focused",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
@@ -107,6 +113,9 @@ const SEL = {
   COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
+  /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
+   *  control focus (checkbox / more / fold) attributes to this via closest(). */
+  ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
 };
 
 /** Group names. */

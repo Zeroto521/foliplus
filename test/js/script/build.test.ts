@@ -58,6 +58,11 @@ describe("build artifacts", () => {
     expect(content).toMatch(/\/\*!/);
   });
 
+  it("common JS exposes foliplus.version", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    expect(content).toContain("foliplus.version");
+  });
+
   it("component JS externalizes BaseControl", () => {
     const content = readFileSync(
       resolve(distDir, "foliplus-ScaleControl.min.js"),
@@ -82,10 +87,11 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-100KB)", () => {
+  it("common JS has reasonable size (20-110KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    expect(size).toBeLessThan(100000);
+    // Unminified dev build (CI path); ListCursor pushed past 100KB.
+    expect(size).toBeLessThan(110000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
@@ -99,9 +105,9 @@ describe("build artifacts", () => {
     // MeasureControl bundles its own label-collision geometry (placeLabels)
     // inline.
     "foliplus-MeasureControl.min.js": 120000,
-    // LayerControl is otherwise the largest component (~98KB local, ~102KB CI
-    // after feature additions: rename, focus, reorder, fold).
-    "foliplus-LayerControl.min.js": 110000,
+    // LayerControl is otherwise the largest component (~113KB unminified now:
+    // rename, focus, reorder, fold, and the four-dimension persistence).
+    "foliplus-LayerControl.min.js": 130000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {

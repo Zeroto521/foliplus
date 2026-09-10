@@ -13,7 +13,7 @@ ExportFormat = Literal["geojson", "csv"]
 
 class MeasureControl(BaseControl):
     """
-    Measure distances, areas, circles, and geocoded markers, then edit them by
+    Measure distances, areas, and circles; place geocoded markers; then edit by
     dragging nodes.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
@@ -76,6 +76,19 @@ class MeasureControl(BaseControl):
         on-screen layout, never exports (CSV / GeoJSON always read persisted
         measurements).
 
+    show_live_coords : bool, default True
+        Whether to show a live longitude/latitude readout. While any drawing mode
+        is armed — and again while edit mode is on — a small chip trails the cursor
+        for the whole time, including before the first click, so the coordinate about
+        to be placed or dragged is visible instead of only the ones already placed.
+        It hangs due south of the pointer, the same way the area label sits south of
+        the centroid dot, and is flipped above the pointer near the bottom edge of
+        the map. It disappears as soon as the measurement is finalized: a finished
+        measurement is described by its shape and segment labels, not by a coordinate
+        under the pointer. No coordinate-system conversion is applied — the chip
+        reports the map's own coordinates as they are, so it stays put under the
+        cursor on GCJ02 / BD09 tile sets.
+
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
         appended automatically: ``measurements.geojson`` or ``measurements.csv``.
@@ -125,6 +138,7 @@ class MeasureControl(BaseControl):
     _export_fields = (
         "show_bearing",
         "collide_labels",
+        "show_live_coords",
         "filename",
         "export_format",
     )
@@ -138,6 +152,7 @@ class MeasureControl(BaseControl):
         position: Position = "bottomright",
         show_bearing: bool = True,
         collide_labels: bool = True,
+        show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
@@ -145,6 +160,7 @@ class MeasureControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
         self.collide_labels = collide_labels
+        self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format
         self._template = self._get_template()

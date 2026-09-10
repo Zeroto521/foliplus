@@ -116,8 +116,11 @@ path.foliplus-measure-node-solid {
   pointer-events: none;
 }
 
-/* ── Measurement Labels ── */
-.foliplus-measure-label {
+/* ── Measurement Labels ──
+   The surface is shared with the live coordinate readout below; each of the
+   two declares only what is specific to how it is anchored. */
+.foliplus-measure-label,
+.foliplus-measure-readout {
   display: inline-block;
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--alpha-50));
@@ -130,6 +133,9 @@ path.foliplus-measure-node-solid {
   text-align: center;
   pointer-events: none;
   box-shadow: var(--shadow-xs);
+}
+
+.foliplus-measure-label {
   transform: translateX(-50%);
   animation: foliplus-measure-label-in 0.2s ease-out;
 }
@@ -161,4 +167,41 @@ path.foliplus-measure-node-solid {
     opacity: 1;
     transform: var(--label-center) scale(1);
   }
+}
+
+/* ── Live coordinate readout ──
+   A small chip that trails the pointer while a drawing mode is armed, so the
+   operator sees the coordinate they are about to place without moving to the
+   map edge. It shares the surface with `.foliplus-measure-label`; only the
+   anchor is specific to it — the cursor, not a measurement point. That anchor
+   mirrors the area label on its centroid dot: centered horizontally, top edge
+   this many px below the anchor point, due south. It sits on the container (not
+   a Leaflet pane), so panning and zooming never move it. That also puts it above
+   the whole Leaflet pane ladder and the controls — `600` sat inside the data
+   panes, under tooltips and popups. `left` / `top` are
+   driven inline by the mousemove handler; the offset and the near-bottom-edge
+   flip live here. */
+.foliplus-measure-readout {
+  position: absolute;
+  z-index: var(--z-index-floating);
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, 10px);
+  /* No entrance animation: the chip is repositioned on every mousemove, so
+     `animation` would restart on each move. */
+  animation: none;
+  /* Keep the last position when the chip is hidden so re-arming does not
+     visibly jump in from a corner. */
+}
+
+/* The UA stylesheet hides `[hidden]` with `display: none`, but the explicit
+   `display: inline-block` above would override it — restate it so a hidden chip
+   actually disappears. */
+.foliplus-measure-readout[hidden] {
+  display: none;
+}
+
+/* Near the bottom edge there is no room below the cursor, so the chip is
+   re-anchored above it instead (bottom edge `gap` px above the pointer). */
+.foliplus-measure-readout-flip {
+  transform: translate(-50%, calc(-100% - 10px));
 }

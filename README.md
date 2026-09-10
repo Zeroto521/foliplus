@@ -28,6 +28,12 @@
   </a>
 </p>
 
+## Scope
+
+Layer data passed to foliplus is read-only: no editing, upload, or deletion.
+
+Data processing happens upstream. foliplus handles the map, not the data.
+
 ## Features
 
 | Control                 | Description                                                                            |
@@ -35,27 +41,27 @@
 | 📷 **ExportControl**     | Capture a specific area of the map and export it as an image.                          |
 | 🖥️ **FullscreenControl** | Fullscreen toggle with auto-hide for other controls.                                   |
 | 🔥 **HeatmapControl**    | H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.                  |
-| 🗂️ **LayerControl**      | Drag-and-drop layer ordering with geometry icons, color picker, and panes.             |
+| 🗂️ **LayerControl**      | Layer panel to organize, inspect, and zoom to map layers.                              |
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
-| 📏 **MeasureControl**    | Measure distances, areas, circles, and geocoded markers, then edit them by dragging nodes. |
+| 📏 **MeasureControl**    | Measure distances, areas, and circles; place geocoded markers; then edit by dragging nodes. |
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
 
 ## Beyond Plugins
 
 Traditional map component libraries treat each tool as an independent plugin. foliplus
-was designed as a **platform** from the start:
+was designed as one **system** from the start:
 
 - Components **communicate** with each other, instead of working in isolation
-- Layers are **managed centrally**, instead of each tool creating its own DOM
+- Layers are **managed centrally**, instead of each tool owning its own stack
 - Conflicts are **resolved automatically**, instead of tools interfering with each other
 - Third-party components can **plug into** the system, instead of being locked out
 
 ## Built-in Coordination
 
-Every component in foliplus registers its canvas or layer through **LayerControl**,
+Layer-producing tools register their canvas or layer through **LayerControl**,
 which manages z-order, visibility, and lifecycle centrally.
-This means all tools share a single layer stack—no z-index clashes, no orphaned DOM
+This means they share a single layer stack—no z-index clashes, no orphaned DOM
 elements.
 
 On top of this shared layer foundation, tools coordinate further:
@@ -63,8 +69,8 @@ On top of this shared layer foundation, tools coordinate further:
 - While **measuring**, search and locate are blocked to prevent map interaction conflicts
 - During **export**, measurement pauses, heatmap renders in full resolution, and layer
   order is synced for a complete screenshot
-- When a layer is **deleted** from the layer panel, the component that owns it
+- When a layer is **removed** from the layer panel, the component that owns it
   (e.g. measurement) auto-cleans its state
 - When layers change, the heatmap refreshes automatically
 
-All of this happens without manual wiring—the framework handles it internally.
+All of this happens without manual wiring—foliplus handles it internally.

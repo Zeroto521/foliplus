@@ -1,9 +1,10 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
+import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
@@ -11,6 +12,7 @@ import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
@@ -104,7 +106,8 @@ const makeNode = (
   return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
 };
 
-/** A non-interactive node used for transient previews (center, centroid). */
+/** A non-interactive node used for transient previews (center, centroid and
+ *  the live cursor dot while a shape is being drawn). */
 const makePreviewNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
@@ -180,8 +183,41 @@ const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[
 
 /** Round a coordinate to the persisted precision, so a dragged pin displays
  *  identically to a freshly placed one (which is rounded on placement). */
-const roundCoord = (n: number): number =>
-  parseFloat(n.toFixed(CONST.FORMAT.LAT_LNG_PRECISION));
+const roundCoord = (n: number): number => parseFloat(n.toFixed(LAT_LNG_PRECISION));
+
+// ── Live coordinate readout ─────────────────────────────────────────
+
+/** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
+ *  the plain-object `latitude/longitude` alias, so callers can pass either. */
+type DisplayLatLng =
+  L.LatLng | { lng: number; lat: number } | { longitude: number; latitude: number };
+
+/** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
+ *  Longitude leads, matching `formatLatLng` and every other
+ *  location display in the project. */
+const readLatLng = (pt: DisplayLatLng): [number, number] => {
+  const raw = pt as {
+    lng?: number;
+    lat?: number;
+    longitude?: number;
+    latitude?: number;
+  };
+  const lng = raw.lng ?? raw.longitude;
+  const lat = raw.lat ?? raw.latitude;
+  if (lng === undefined || lat === undefined) {
+    throw new TypeError(log.msg("point has no lng/lat"));
+  }
+  return [lng, lat];
+};
+
+/** Format the pointer's coordinate as the readout string. No CRS conversion: the
+ *  map is already in whatever CRS its tiles serve, so what the operator is looking
+ *  at is what the readout reports — pointing the chip at the same spot on a
+ *  GCJ02 or BD09 map must not show a shifted number. */
+const coordText = (map: L.Map, pt: DisplayLatLng): string => {
+  const [lng, lat] = readLatLng(pt);
+  return formatLatLng(lng, lat);
+};
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
@@ -193,20 +229,22 @@ export {
   bearing,
   buildPopup,
   centroid,
+  coordText,
   distance,
   formatArea,
   formatDistance,
   formatSegmentLabel,
   labelChipOf,
+  midpoint,
+  pointsToLatLngs,
+  recalculateSegments,
+  readLatLng,
+  roundCoord,
+  setLabelText,
   getEventTarget,
   geocodeAddress,
   makeLabelDivIcon,
   makeMidLabelDivIcon,
   makeNode,
   makePreviewNode,
-  midpoint,
-  pointsToLatLngs,
-  recalculateSegments,
-  roundCoord,
-  setLabelText,
 };

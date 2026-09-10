@@ -173,6 +173,8 @@ declare global {
   /** Runtime helpers injected by the foliplus Python wrapper. */
   interface Foliplus {
     isInitialized: boolean;
+    /** Build version (`git describe`), set once by the shared runtime. */
+    version: string;
     registerHintIcon: (name: string, icon: string) => void;
     showHint: (
       name: string,
@@ -312,6 +314,8 @@ declare global {
   const foliplus: Foliplus;
   const CONF: ComponentConfig;
   const CONFIG: ComponentConfig;
+  /** Build-time constant: `git describe` inlined by esbuild define. */
+  const __FOLIPLUS_VERSION__: string;
 
   const turf: Turf;
   const gcoord: Gcoord;

@@ -186,13 +186,7 @@ class CircleMode extends PreviewMode {
       } else previews.line.setLatLngs([center, event.latlng]);
 
       if (!previews.node) {
-        previews.node = this.addPreview(
-          L.circleMarker(event.latlng, {
-            radius: CONST.MARKER.RADIUS,
-            className: CONST.CLASSES.NODE_HOLLOW,
-            interactive: false,
-          }),
-        );
+        previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
         previews.node.bringToFront();
         // Keep the radius node glued to the cursor while drawing.
       } else previews.node.setLatLng(event.latlng);

@@ -18,6 +18,15 @@ const registerInteractions = (ui: LayerUI): (() => void) => {
     { key: " ", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "Enter", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "Escape", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
+    // Mousedown anywhere outside the panel drops the cursor — the pointer
+    // counterpart of the Escape shortcut above. Observed, not swallowed
+    // (preventDefault: false): a press outside must keep its native behavior
+    // (focus move, map drag), so the manager must not match-and-cancel it.
+    {
+      event: "mousedown",
+      preventDefault: false,
+      handler: e => ui.handleOutsideMousedown(e as MouseEvent),
+    },
   ]);
 };
 
@@ -39,9 +48,15 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
 
 /** Click handler for the overflow menu items (focus-layer action). */
 const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
-  const li = (event.target as HTMLElement).closest(
-    `.foliplus-layer-more-menu li`,
-  ) as HTMLElement | null;
+  const target = event.target as HTMLElement;
+  // Any click that is not on the open menu closes it — panel, map, another
+  // control. The ⋮ button's own click stops propagation, so re-opening the
+  // menu from the same button still works (onClick re-creates it).
+  if (!target.closest(".foliplus-layer-more-menu")) {
+    if (ui.activeMenu) ui.closeMoreMenu(false);
+    return;
+  }
+  const li = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
   if (!li) return;
   const action = li.dataset.action ?? "";
   // Skip disabled items (hidden layer). Keep menu open so user sees why.

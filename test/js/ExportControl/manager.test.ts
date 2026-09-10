@@ -3,6 +3,7 @@ import { ensureEvents } from "#core/event/index.js";
 import { ensureHint } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import { ExportRenderer } from "#foliplus/ExportControl/renderer.js";
 import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
@@ -12,6 +13,24 @@ import * as Storage from "#common/storage.js";
 const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
+
+// T is module-level and frozen at import — CONF there is an esbuild
+// compile-time literal, not window.CONF, so no per-test locale_tables can
+// change it.  Substitute the two progress strings and pass everything else
+// through unchanged (CONF.name is "SearchControl" here, from setup.ts).
+vi.mock("#common/locale.js", async () => {
+  const real = await vi.importActual("#common/locale.js");
+  const TABLES: Record<string, string> = {
+    status_exporting: "Exporting map...",
+    status_progress: "Exporting map... ({pct}%)",
+    status_success: "Export successful",
+  };
+  return {
+    ...real,
+    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+      TABLES[key] ?? key,
+  };
+});
 
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
@@ -1412,5 +1431,190 @@ describe("ExportManager — nudge continuous stream", () => {
     await vi.advanceTimersByTimeAsync(16);
     // Now the gate has passed and per-frame motion has applied.
     expect(manager.cropState.rect.left).toBeGreaterThan(afterSync);
+  });
+});
+
+describe("ExportManager — export progress", () => {
+  let manager;
+
+  beforeEach(() => {
+    // The {pct} string comes from the locale mock at the top of this file.
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      timeout: 7500,
+    };
+    manager = new ExportManager(makeMapMock());
+    manager.showCropBox = vi.fn();
+    manager.lockCropBox = vi.fn();
+    manager.unlockCropBox = vi.fn();
+    manager.removeCropBox = vi.fn();
+    manager.updateBoxStyle = vi.fn();
+    manager.showHintWithInfo = vi.fn();
+    manager.showGlobalHint = vi.fn();
+    setCropState(manager);
+    manager.pixelOverLimit = false;
+    // jsdom's clientWidth/clientHeight are accessors on HTMLElement — a plain
+    // assignment would throw.  doExport only reads them for needsBigger, so
+    // define the values directly.
+    Object.defineProperty(manager.mapContainer, "clientWidth", { value: 800 });
+    Object.defineProperty(manager.mapContainer, "clientHeight", { value: 600 });
+  });
+
+  it("doExport forwards an onProgress callback to doRender", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    const args = manager.doRender.mock.calls[0];
+    expect(args.length).toBe(5);
+    expect(args[0]).toEqual(manager.cropState.rect);
+    expect(args[4]).toBeTypeOf("function");
+  });
+
+  it("onProgress re-renders the persistent hint with the percentage", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    manager.doRender.mock.calls[0][4](42);
+
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("42%"),
+      0, // HINT_DURATION.PERSIST
+      true,
+    );
+  });
+
+  it("onProgress works through enlargeAndRender for over-size crops", () => {
+    manager.cropState.rect = { left: 1000, top: 1000, width: 500, height: 500 };
+    manager.cropState.geoBounds = {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    };
+    manager.enlargeAndRender = vi.fn();
+    manager.doRender = vi.fn(() => Promise.resolve());
+
+    manager.doExport();
+
+    expect(manager.enlargeAndRender).toHaveBeenCalledTimes(1);
+    const args = manager.enlargeAndRender.mock.calls[0];
+    expect(args.slice(4)).toEqual([800, 600, expect.any(Function)]);
+    args[6](77);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("77%"),
+      0,
+      true,
+    );
+  });
+
+  it("enlargeAndRender defers the render past a frame and restores the map after", async () => {
+    // The container is resized and the view is re-centred before the render,
+    // but the render itself has to wait a frame so the browser applies the new
+    // layout first — otherwise it measures the old size.  The callback also
+    // owns the restore, so a failed render still puts the map back.
+    const rafQueue: Array<() => void> = [];
+    const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
+      rafQueue.push(cb);
+      return 1;
+    });
+    const origLatLngBounds = (window.L as any).latLngBounds;
+    (window.L as any).latLngBounds = () => ({ getCenter: () => ({ lat: 0, lng: 0 }) });
+    const setView = vi.fn();
+    const invalidateSize = vi.fn();
+    manager.map.getCenter = () => ({ lat: 26.08, lng: 119.3 });
+    manager.map.getZoom = () => 2;
+    manager.map.options = { zoomAnimation: true };
+    manager.map.invalidateSize = invalidateSize;
+    manager.map.setView = setView;
+    const doRender = vi.fn(() => Promise.resolve());
+    manager.doRender = doRender as any;
+
+    manager.enlargeAndRender(
+      { left: 1000, top: 1000, width: 500, height: 500 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      800,
+      600,
+      percent => manager.showGlobalHint(percent),
+    );
+
+    // Resize and re-centre happen synchronously; the render does not.
+    expect(invalidateSize).toHaveBeenCalledWith(false);
+    expect(setView).toHaveBeenCalledWith(expect.anything(), 2, { animate: false });
+    expect(doRender).not.toHaveBeenCalled();
+    expect(rafQueue).toHaveLength(1);
+
+    rafQueue[0]();
+    await vi.waitFor(() => expect(doRender).toHaveBeenCalledTimes(1));
+
+    const args = doRender.mock.calls[0];
+    expect(args[0]).toEqual({ left: 1000, top: 1000, width: 500, height: 500 });
+    expect(args[4]).toBeTypeOf("function");
+    args[4](88);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(88);
+    // The frame callback finished, so the map state is back where it started.
+    expect(manager.map.options.zoomAnimation).toBe(true);
+    expect(invalidateSize.mock.calls.filter(call => call[0] === false)).toHaveLength(2);
+    (window.L as any).latLngBounds = origLatLngBounds;
+    rafSpy.mockRestore();
+  });
+
+  it("onRenderSuccess neither claims 100 nor relabels: the render hint stays", async () => {
+    // render() stops at 90 on purpose and the hint it left on screen is
+    // PERSIST, so it is still up during the encode.  Nothing here has to
+    // replace it — a relabel would only swap "loading at 90%" for a
+    // message that says nothing more.
+    manager.finishExport = vi.fn(async () => {});
+
+    manager.onRenderSuccess(document.createElement("canvas"), []);
+
+    expect(manager.showGlobalHint).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
+  });
+
+  it("claims 100 at the download, after the canvas is encoded", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+      // The 100 lands right before the download and nothing claims it
+      // earlier: the encode used to sit behind a full bar with nothing to
+      // show for it.
+      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      expect(hints).toEqual(["Exporting map... (100%)", "Export successful"]);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
+  });
+
+  it("doRender re-computes the rect from geoBounds before rendering", () => {
+    // The rect the user dragged is superseded by the projected geo bounds:
+    // render() receives the projected one, so the export matches the saved
+    // geography rather than whatever the cursor happened to do.
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockResolvedValue(document.createElement("canvas"));
+    manager.onRenderSuccess = vi.fn();
+
+    const rect = { left: 999, top: 888, width: 50, height: 50 };
+    const p = manager.doRender(rect, 1, undefined, {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    });
+
+    // latLngToContainerPoint maps (lat, lng) to (x, y), so the projected rect
+    // is computed from those values rather than the dragged one.
+    expect(renderSpy.mock.calls[0][0].left).toBe(119.2);
+    expect(renderSpy.mock.calls[0][0].top).toBe(26.0);
+    expect(renderSpy.mock.calls[0][0].width).toBeCloseTo(0.2);
+    expect(renderSpy.mock.calls[0][0].height).toBeCloseTo(0.1);
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    return p;
   });
 });

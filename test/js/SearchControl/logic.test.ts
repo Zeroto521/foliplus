@@ -105,6 +105,31 @@ describe("renderResults", () => {
     expect(items[1].hasAttribute("data-query")).toBe(false);
   });
 
+  it("pins coordinates to six decimals instead of echoing the raw stored value", () => {
+    // A history entry saved from "121.47" stores 121.47, so the panel used to show
+    // "121.47, 31.23" where the measure chip shows 121.470000, 31.230000.
+    const ctrl: any = {
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+    };
+    renderResults(ctrl, [
+      {
+        source: "history",
+        icon: "",
+        primaryText: "Chongqing",
+        query: "121.47,31.23",
+        coordDisplay: "121.470000, 31.230000",
+        onClick: () => {},
+      },
+    ]);
+    const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
+    expect(coord?.textContent).toBe("121.470000, 31.230000");
+  });
+
   it("keeps the retained array in lockstep with the DOM so Enter adopts the highlighted item", () => {
     // renderResults stores the same ResultItem[] it renders into ctrl.currentItems,
     // so the DOM RESULT_ITEM count and currentItems.length are always equal. The

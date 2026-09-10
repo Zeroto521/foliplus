@@ -1,2 +1,30 @@
-# Auto detect text files and perform LF normalization
+# All text files: normalize to LF in the index.
+# Declared explicitly so git never has to guess. The only reason a file is
+# *not* normalized is that it is intentionally binary (assets, snapshots).
+#
+# Pair this with `core.eolInput=false` so the working tree is LF too (see
+# `make env`). Without it, git re-emits CRLF on every checkout under
+# `core.autocrlf=true`, and a pull silently rewrites every file that was not
+# touched — a phantom diff that costs an AI agent a full normalisation pass.
 * text=auto
+
+# Binary: git's auto-detection gets this right already, but spell it out so a
+# future `text` rule cannot ever reach into an asset.
+*.png binary
+
+# Explicit text: keep normalized even though the extension is uncommon.
+# Without this git would auto-detect them as text anyway, so the real payoff
+# is that a stray NUL byte in one of these files cannot flip it to binary.
+*.ipynb text
+*.geojson text
+*.md text
+*.rst text
+*.yaml text
+*.toml text
+*.gitattributes text
+*.gitignore text
+
+# Build outputs are not checked in today, but if they are ever added they must
+# be pinned as binary: they are hashed (source maps, bundles) and line-ending
+# churn there is pure diff noise.
+foliplus/dist/** binary

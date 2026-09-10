@@ -1,0 +1,142 @@
+/* ════════════════════════════════════════════════════════════
+  Control buttons — reset, states, sizing, SVG defaults
+  The hover/focus/active recipe (accent-light bg + accent-primary text +
+  scale) shared by toggle buttons, tool buttons and search mode buttons.
+  Also owns the default SVG icon size and stroke for those buttons.
+  menu.css holds the floating dropdown/list item recipe and input.css the
+  form control states — same accent-light language, different surfaces.
+  icon.css holds concrete icon primitives (divider, delete icon).
+  ════════════════════════════════════════════════════════════ */
+
+/* ── Common Icon Size ──
+  All SVGs in foliplus components default to 18×18.
+  PIN_ICON, drag-handle override per their context.
+  ── */
+:is(
+    .foliplus-toggle-btn,
+    .foliplus-ctrl-btn,
+    .foliplus-tool-btn,
+    .foliplus-search-mode-btn,
+    .foliplus-hint-icon,
+    .foliplus-header-icon,
+    .foliplus-type-icon-col
+  )
+  svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  stroke: currentColor;
+  fill: none;
+  stroke-width: var(--stroke-icon);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Shared solid fill for SVG dots/circles that need fill instead of stroke */
+:is(.foliplus-layer-ctrl, .foliplus-measure-ctrl) svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ── Unified Component Button Reset ──
+   Base reset + hover/active/focus-visible/disabled states for all foliplus buttons.
+   Component-specific buttons (e.g. HeatmapControl btn-clear) override color
+   in their own CSS to keep their text white. */
+:is(
+  .foliplus-toggle-btn,
+  .foliplus-tool-btn,
+  .foliplus-search-mode-btn,
+  .foliplus-ctrl-btn
+) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+  will-change: transform;
+
+  /* ── Hover ── */
+  &:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+    border-radius: var(--radius-sm);
+    transform: scale(var(--scale-hover));
+  }
+
+  /* ── Active ──
+     MUST come AFTER :hover so it wins on same specificity (0,2,0).
+     Click/press gets the same background/color feedback as hover
+     so there's a tangible press-down feel. */
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+
+  /* ── Focus-visible ──
+     Unified keyboard focus ring across all foliplus controls.
+     Replaces the old harsh red outline with a soft double-ring:
+       - Inner: thin accent-primary hairline
+       - Outer: semi-transparent red glow (var(--shadow-sm) feel)
+     Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+    transition: box-shadow var(--transition-fast);
+  }
+
+  /* ── Disabled ──
+     Grayed out, no hover/active feedback, no pointer events. */
+  &:disabled {
+    opacity: var(--alpha-30);
+    pointer-events: none;
+    transform: none;
+  }
+}
+/* ── Button hover/active SVG scale ──
+  SVG-level parallax for buttons that also have button-level scale.
+  toggle-btn added via expanded context for fold controls. */
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):hover svg {
+  transform: scale(var(--scale-hover));
+}
+:is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):active svg {
+  transform: scale(var(--scale-press));
+}
+
+/* ── Toggle Button / Tool Button Base ──
+  Shared sizing for all control buttons.
+  Toggle-btns have rounded corners; tool-btns have square corners (0). */
+.foliplus-toggle-btn,
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  min-width: var(--ctrl-size);
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+.foliplus-toggle-btn {
+  border-radius: var(--radius-sm);
+  border: var(--border-thin) solid transparent;
+}
+.foliplus-tool-btn,
+.foliplus-search-mode-btn {
+  border-radius: 0;
+}
+/* Shared active state for tool buttons */
+.foliplus-tool-btn.active {
+  background-color: var(--input-bg);
+  color: var(--accent-primary);
+  border: var(--border-thin) solid var(--input-focus-border);
+  box-shadow: inset 0 0 0 var(--border-thick) var(--accent-soft-shadow);
+
+  svg {
+    stroke: var(--accent-primary);
+    transform: scale(var(--scale-hover));
+  }
+}

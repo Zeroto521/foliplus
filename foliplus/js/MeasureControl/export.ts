@@ -11,6 +11,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
@@ -18,6 +19,7 @@ import { MODE_MAP, MeasureMode } from "./mode/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
 
 /**
  * Serialize measurements as a GeoJSON FeatureCollection string.
@@ -253,7 +255,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   try {
     exportMeasurements(measurements, format);
   } catch (err) {
-    console.warn(`[${CONF.name}] export failed:`, err);
+    log.warn("export failed:", err);
     mgr.map.foliplus?.showHint?.(
       CONF.name,
       T("export_fail") + T("err_export"),
