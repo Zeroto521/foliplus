@@ -505,8 +505,13 @@ class LayerUI {
     // membership, the rows hold the truth. Reconcile hiddenIds against them
     // exactly once so the persisted set becomes absolute. It must come after
     // initLayerItem, not in attachUI: rows render checked by default and
-    // initLayerItem is what corrects them from map.hasLayer().
-    if (!this.isHiddenReconciled) {
+    // initLayerItem is what corrects them from map.hasLayer(). It also waits
+    // until every layer resolves — on the first pass (setTimeout 0) folium
+    // layers may not be linked into the registry yet, and reconciling then
+    // would read a visible layer as hidden and persist that (corrupting the
+    // local storage for every later test/load). The re-run triggered by
+    // CONTROL_ATTACHED converges here.
+    if (!this.isHiddenReconciled && this.allLayersResolved()) {
       this.isHiddenReconciled = true;
       this.reconcileHiddenIds();
     }
@@ -1713,6 +1718,13 @@ class LayerUI {
       T("focus_layer_base"),
       HINT_DURATION.SHORT,
     );
+  }
+
+  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
+   *  False during the first post-attach pass, when folium layers may not be in
+   *  the registry yet. */
+  private allLayersResolved(): boolean {
+    return this.m.layers.every(li => this.m.findLayer(li) != null);
   }
 
   /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
