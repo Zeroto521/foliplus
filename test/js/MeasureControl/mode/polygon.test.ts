@@ -415,16 +415,27 @@ describe("PolygonMode — preview cursor node", () => {
     click({ latlng: { lat: 31, lng: 121 } });
     click({ latlng: { lat: 32, lng: 122 } });
     handlers({ latlng: { lat: 33, lng: 123 } });
-    const cursor = window.L.circleMarker.mock.results.at(-1).value;
-    const created = window.L.circleMarker.mock.calls.length;
+    const first = window.L.circleMarker.mock.results.at(-1).value;
 
-    // Subsequent moves reuse the same node instead of stacking new ones.
+    // The cursor node is recreated on every move rather than moved in place:
+    // the preview polygon's `setLatLngs` triggers Leaflet's `_updatePath` →
+    // `setPane`, which re-sorts the SVG root and would paint over a node
+    // that only ever calls `setLatLng`. Re-adding each frame keeps "attach
+    // order == paint order" as an explicit invariant (PR #252).
     handlers({ latlng: { lat: 34, lng: 124 } });
-    expect(window.L.circleMarker).toHaveBeenCalledTimes(created);
-    expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 34, lng: 124 });
+    const second = window.L.circleMarker.mock.results.at(-1).value;
+    expect(second).not.toBe(first);
+    expect(window.L.circleMarker.mock.calls.at(-1)?.[0]).toEqual({
+      lat: 34,
+      lng: 124,
+    });
+    // The previous node was dropped from the map before the new one was
+    // added, so there is never a stale duplicate cursor dot.
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(first);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(second);
 
     contextmenu({ latlng: { lat: 34, lng: 124 }, originalEvent: {} });
-    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(second);
   });
 
   it("removes the node when the draw is aborted mid-way", () => {

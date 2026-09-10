@@ -85,10 +85,10 @@ class DistanceMode extends PreviewMode {
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
-    // Created on the first move, after the preview line, so the node paints
-    // above it. The cursor dot is the same hollow node as the circle mode's
-    // radius endpoint — it has no meaning before the first point is placed.
-    let cursorNode: L.CircleMarker | null = null;
+    // The cursor dot is the same hollow node as the circle mode's radius
+    // endpoint — it has no meaning before the first point is placed. Created
+    // via `moveCursorNode`, which recreates the node on every frame so the
+    // attach order keeps the node newest (see PreviewMode.moveCursorNode).
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
@@ -97,10 +97,7 @@ class DistanceMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
-      if (cursorNode) {
-        this.layers.removeLayer(cursorNode);
-        cursorNode = null;
-      }
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -120,10 +117,6 @@ class DistanceMode extends PreviewMode {
       }
       this.isFinished = true;
       this.layers.removeLayer(poly);
-      if (cursorNode) {
-        this.layers.removeLayer(cursorNode);
-        cursorNode = null;
-      }
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -183,6 +176,7 @@ class DistanceMode extends PreviewMode {
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -193,8 +187,7 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
-      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
-      else cursorNode.setLatLng(event.latlng);
+      this.moveCursorNode(event.latlng);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];

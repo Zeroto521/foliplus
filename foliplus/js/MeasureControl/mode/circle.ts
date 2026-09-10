@@ -185,11 +185,11 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      if (!previews.node) {
-        previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
-        previews.node.bringToFront();
-        // Keep the radius node glued to the cursor while drawing.
-      } else previews.node.setLatLng(event.latlng);
+      // Radius node: `moveCursorNode` recreates it every frame so it lands
+      // after the just-updated line in SVG order — otherwise the line's
+      // per-frame `setLatLngs` re-sort (see PreviewMode.moveCursorNode)
+      // would paint over it.
+      previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);
       if (!previews.label) {
@@ -323,6 +323,7 @@ class CircleMode extends PreviewMode {
 
     this._cleanup = () => {
       unbindMapEvents(this.map, circleEvents);
+      this.clearCursorNode();
       resetPreviews();
       map.foliplus!.hideHint(CONF.name);
     };

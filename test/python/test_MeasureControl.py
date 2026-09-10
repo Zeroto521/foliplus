@@ -443,6 +443,16 @@ class TestMeasureControlBrowser:
             # Leaflet SVG paint order (later siblings paint above).
             assert s["node"] > s["preview"], f"node below preview line: {s}"
             assert s["node"] > s["dashed"], f"node below dashed line: {s}"
+            # After a third move the recreated node must still be above both
+            # lines — the old in-place `setLatLng` path let the live line
+            # climb over it (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview line after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["dashed"], (
+                f"node climbed below dashed line after repeated moves: {s2}"
+            )
             assert state["removedAfterFinish"], "cursor node not removed on finish"
             assert not errors, f"JS errors: {errors}"
 
@@ -460,10 +470,19 @@ class TestMeasureControlBrowser:
             )
             assert state["idle"], "cursor node floated with no points placed"
             assert state["created"], "cursor node not rendered on the first move"
-            # The same DOM node must survive both moves — a re-created node would
-            # prove the move path drops and re-adds the dot instead of relocating it.
-            assert state["moved"], (
+            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
+            assert moved, (
                 f"polygon cursor node did not follow the mouse: {state}"
+            )
+            # Recreated each frame, so there must be exactly one dot at all
+            # times — the old path's DOM node identity is not a valid check.
+            assert state["dotsAfterTwo"] == 1, (
+                f"expected exactly one cursor dot after two moves, "
+                f"got {state['dotsAfterTwo']}"
+            )
+            assert state["dotsAfterThree"] == 1, (
+                f"expected exactly one cursor dot after three moves, "
+                f"got {state['dotsAfterThree']}"
             )
             s = state["stack"]
             # The node must come after both preview paths and the fill in DOM
@@ -471,6 +490,17 @@ class TestMeasureControlBrowser:
             assert s["node"] > s["preview"], f"node below preview outline: {s}"
             assert s["node"] > s["dashed"], f"node below dashed path: {s}"
             assert s["node"] > s["fill"], f"node below the shape fill: {s}"
+            # After a third move, the recreated node must still be above the
+            # fill — the old in-place `setLatLng` path let the fill climb over
+            # it because `setLatLngs` re-sorts the SVG root but `setLatLng`
+            # does not (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["fill"], (
+                f"node climbed below the shape fill after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview outline after repeated moves: {s2}"
+            )
             assert state["removedAfterFinish"], "cursor node not removed on finish"
             assert not errors, f"JS errors: {errors}"
 

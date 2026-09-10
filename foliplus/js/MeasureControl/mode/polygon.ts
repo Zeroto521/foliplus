@@ -98,10 +98,10 @@ class PolygonMode extends PreviewMode {
         interactive: false,
       }),
     );
-    // Created on the first move, after the preview polygon, so the node
-    // paints above it. The cursor dot is the same hollow node as the circle
-    // mode's radius endpoint — it has no meaning before the first point.
-    let cursorNode: L.CircleMarker | null = null;
+    // The cursor dot is the same hollow node as the circle mode's radius
+    // endpoint — it has no meaning before the first point. Created via
+    // `moveCursorNode`, which recreates it every frame so attach order keeps
+    // the node newest (see PreviewMode.moveCursorNode).
     const nodeMarkers: L.CircleMarker[] = [];
     const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
@@ -116,12 +116,9 @@ class PolygonMode extends PreviewMode {
       unbindMapEvents(this.map, polyEvents);
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(poly);
-      if (cursorNode) {
-        this.layers.removeLayer(cursorNode);
-        cursorNode = null;
-      }
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(finalPoly);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -140,10 +137,6 @@ class PolygonMode extends PreviewMode {
       this.isFinished = true;
       this.layers.removeLayer(poly);
       this.layers.removeLayer(previewPoly);
-      if (cursorNode) {
-        this.layers.removeLayer(cursorNode);
-        cursorNode = null;
-      }
       finalPoly.setLatLngs(points);
 
       Util.animateDashSweep(finalPoly.getElement() as SVGElement);
@@ -239,6 +232,7 @@ class PolygonMode extends PreviewMode {
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(poly);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -250,8 +244,7 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
-      if (!cursorNode) cursorNode = this.addPreview(Util.makePreviewNode(event.latlng));
-      else cursorNode.setLatLng(event.latlng);
+      this.moveCursorNode(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);

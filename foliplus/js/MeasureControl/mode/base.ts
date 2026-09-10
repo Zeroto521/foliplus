@@ -1,6 +1,7 @@
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import type { MeasureManager } from "../manager.js";
+import * as Util from "../util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 // `getNameLabel` relies on identity comparison: when no locale table exists,
@@ -91,11 +92,13 @@ class MeasureMode {
 class PreviewMode extends MeasureMode {
   previewLayers: L.Layer[];
   isFinished: boolean;
+  private cursorNode: L.CircleMarker | null;
 
   constructor(manager: MeasureManager) {
     super(manager);
     this.previewLayers = [];
     this.isFinished = false;
+    this.cursorNode = null;
   }
 
   /** Track a preview layer (adds to layer group + tracks for cleanup). */
@@ -116,6 +119,38 @@ class PreviewMode extends MeasureMode {
   clearPreviews(): void {
     this.previewLayers.forEach(l => this.layers.removeLayer(l));
     this.previewLayers = [];
+  }
+
+  /**
+   * The transient hollow cursor dot shown while a preview shape is being
+   * drawn — distance's trailing endpoint, polygon's next vertex, circle's
+   * radius endpoint.
+   *
+   * Recreated on every call rather than updated in place. Line and polygon
+   * preview shapes update their coordinates via `setLatLngs`, which triggers
+   * Leaflet's `_updatePath` → `setPane` and pushes the corresponding `<path>`
+   * to the tail of the SVG `_rootGroup` every frame. A node moved with
+   * `setLatLng` does not participate in that re-sort, so its DOM position
+   * stays where it was created — and the live preview line climbs over it
+   * after a few mousemoves. Removing and re-adding each frame keeps the
+   * invariant explicit: the cursor node is always the newest sibling, so
+   * paint order is attach order and nothing else matters.
+   *
+   * The `bringToFront` hack on individual calls (which the old circle
+   * preview code needed) is gone for the same reason — the re-add already
+   * puts the node at the SVG tail.
+   */
+  moveCursorNode(latlng: L.LatLng): L.CircleMarker {
+    if (this.cursorNode) this.removePreview(this.cursorNode);
+    this.cursorNode = this.addPreview(Util.makePreviewNode(latlng));
+    return this.cursorNode;
+  }
+
+  /** Drop the cursor node when drawing ends or is cancelled. */
+  clearCursorNode(): void {
+    if (!this.cursorNode) return;
+    this.removePreview(this.cursorNode);
+    this.cursorNode = null;
   }
 }
 
