@@ -23,7 +23,9 @@ async () => {
   const LL = L.latLng;
 
   const labelPane = () =>
-    document.querySelector(".foliplus-measure-label-radius")?.closest(".leaflet-pane") ?? null;
+    document
+      .querySelector(".foliplus-measure-label-radius")
+      ?.closest(".leaflet-pane") ?? null;
 
   // Radius-label chips in the pane, in DOM order.
   const chips = () =>
