@@ -127,19 +127,6 @@ describe("ListCursor", () => {
       empty.remove();
     });
 
-    it("adopt re-homes the index without painting the active visual", () => {
-      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
-      c.set(1);
-      const opts = [...root.querySelectorAll<HTMLElement>(".opt")];
-      expect(opts[1].classList.contains("on")).toBe(true);
-      c.adopt(2);
-      expect(c.index).toBe(2);
-      expect(root.querySelectorAll(".on")).toHaveLength(0);
-      // Roving tab stop still follows the adopted index.
-      expect(opts.map(o => o.tabIndex)).toEqual([-1, -1, 0]);
-      c.destroy();
-    });
-
     it("setIndex moves the tab stop without touching the active class", () => {
       const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
       c.set(1);

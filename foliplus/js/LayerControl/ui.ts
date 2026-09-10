@@ -540,7 +540,7 @@ class LayerUI {
     this.uiContainer.innerHTML = "";
     this.uiContainer.appendChild(frag);
 
-    // ARIA + roving tabindex on the rebuilt rows. adopt() follows activeIdx
+    // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
     // without painting the cursor class — restoreCursor() owns that visual.
     this.syncListCursor();
 

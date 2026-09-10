@@ -142,24 +142,6 @@ class ListCursor {
     this.onMove?.(-1, null);
   }
 
-  /**
-   * Re-home the index from a pointer click without painting the active
-   * visual (class / aria-selected). Still applies roving tabindex so the
-   * tab stop follows the keyboard target. Used by LayerControl: a click
-   * must target Space/Enter but must not look like a focus arrival.
-   */
-  adopt(index: number): void {
-    const n = this.items().length;
-    this._index = n === 0 ? -1 : Math.max(-1, Math.min(index, n - 1));
-    this.applyRovingTabindex();
-    // Clear any stale active visual without painting a new one.
-    for (const el of this.items()) {
-      el.classList.remove(this.activeClass);
-      if (this.itemRole === "option") el.setAttribute("aria-selected", "false");
-    }
-    if (this.input) this.input.removeAttribute("aria-activedescendant");
-  }
-
   /** Set index + roving tabindex without touching the active class. */
   setIndex(index: number): void {
     const n = this.items().length;
