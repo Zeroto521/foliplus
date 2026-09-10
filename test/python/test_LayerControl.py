@@ -3264,9 +3264,8 @@ class TestLayerControlBrowser:
             assert result["baseCheckedHover"]["glow"] is False, (
                 "base basemap must not show the cursor glow, got " + str(result)
             )
-            assert result["baseCheckedHover"]["cursor"] == "not-allowed", (
-                "base basemap hover must show the not-allowed cursor, got "
-                + str(result)
+            assert result["baseCheckedHover"]["cursor"] == "default", (
+                "base basemap hover must keep the default cursor, got " + str(result)
             )
             assert result["baseCheckedHover"]["bg"] == result["wash"], (
                 "checked base row must keep the wash on hover, got " + str(result)

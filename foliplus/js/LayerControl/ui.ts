@@ -1658,9 +1658,20 @@ class LayerUI {
     ) {
       return;
     }
+    // Base basemap / color picker have no meaningful extent to zoom to.
+    if (this.isFocusLayerDisabled(item)) return;
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);
+  }
+
+  /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
+   *  (nothing to show). The ⋮ menu item carries the not-allowed cursor. */
+  private isFocusLayerDisabled(item: HTMLElement): boolean {
+    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return true;
+    if (item.dataset.layerType === CONST.GROUP.BASE) return true;
+    const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    return box !== null && !box.checked;
   }
 
   /** Toggle visibility of the currently focused layer. */
@@ -1859,27 +1870,21 @@ class LayerUI {
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
-    // Color basemap has no bounds — focus is not meaningful, so skip the
-    // focus-layer menu item. Rename is still available (persistence only).
-    const skipFocus = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
+    // Focus-layer is disabled for basemaps (no useful extent) and hidden rows.
+    // The disabled li carries cursor: not-allowed (common menu CSS).
+    const focusDisabled = this.isFocusLayerDisabled(item);
 
-    if (!skipFocus) {
-      const isHidden =
-        (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
-          ?.checked === false;
+    const itemAttrs = {
+      "data-action": "focus-layer",
+      role: "menuitem",
+      tabindex: "0",
+      title: focusDisabled ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+      "aria-disabled": focusDisabled ? "true" : "false",
+    };
 
-      const itemAttrs = {
-        "data-action": "focus-layer",
-        role: "menuitem",
-        tabindex: "0",
-        title: isHidden ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
-        "aria-disabled": isHidden ? "true" : "false",
-      };
+    menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
-      menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
-
-      if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
-    }
+    if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
     menu.appendChild(
       dom.el(

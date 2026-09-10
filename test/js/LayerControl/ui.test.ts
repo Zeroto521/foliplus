@@ -1092,6 +1092,25 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
 
+    it("marks the menu item disabled on a base basemap row", () => {
+      const item = findItem(ui, "base1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement | null;
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("disabled")).toBe("disabled");
+    });
+
+    it("double-click on a base basemap row does not call focusLayer", () => {
+      const item = findItem(ui, "base1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("menu item is not disabled when layer is visible", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -1473,17 +1492,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
     // ─────────── color basemap (outside layerRegistry) ───────────
 
-    it("color layer more menu contains only rename-layer (no focus-layer)", () => {
+    it("color layer more menu shows a disabled focus-layer item", () => {
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.openMoreMenu(colorItem);
 
       const focusLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
-      );
+      ) as HTMLElement | null;
       const renameLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
-      expect(focusLi).toBeNull();
+      expect(focusLi).not.toBeNull();
+      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
       expect(renameLi).not.toBeNull();
     });
 
