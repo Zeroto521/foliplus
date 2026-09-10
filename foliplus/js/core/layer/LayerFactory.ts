@@ -130,8 +130,7 @@ class LayerFactory {
 
     /** Count content outside the sub-layer containers (which always exist
      *  once `opts.panes` is non-empty). */
-    const directCount = (): number =>
-      mainLayer.getLayers().length - subLayers.size;
+    const directCount = (): number => mainLayer.getLayers().length - subLayers.size;
 
     /** Route a layer to its target sub-layer by `paneName`. Vector layers
      *  additionally get pinned to the sub-pane's renderer so a later
@@ -253,8 +252,13 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    const { map, panes: _panes, registerLayer, unregisterLayer, bringLayerToFront } =
-      this.deps;
+    const {
+      map,
+      panes: _panes,
+      registerLayer,
+      unregisterLayer,
+      bringLayerToFront,
+    } = this.deps;
     if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
 
     const mapPane = map.getPanes().mapPane as HTMLElement;

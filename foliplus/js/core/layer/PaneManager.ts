@@ -244,7 +244,8 @@ class PaneManager {
   sweepChildPanes(layers: ReadonlyArray<{ subPanes?: string[] }>) {
     const used = new Set<string>();
     for (const li of layers) for (const pane of li.subPanes ?? []) used.add(pane);
-    for (const pane of this.childPanes) if (!used.has(pane)) this.childPanes.delete(pane);
+    for (const pane of this.childPanes)
+      if (!used.has(pane)) this.childPanes.delete(pane);
   }
 
   /**
@@ -276,9 +277,8 @@ class PaneManager {
    */
   ensureVector(layer: PathWithPane, paneName: string): L.Renderer {
     const key = CONST.RENDERER_KEY + paneName;
-    const cached = ((this.map as L.Map & PaneRendererMap)[key] ?? null) as
-      | L.Renderer
-      | null;
+    const cached = ((this.map as L.Map & PaneRendererMap)[key] ??
+      null) as L.Renderer | null;
     const target = cached || this.ensurePane(paneName, true).renderer!;
     layer.options.renderer = target;
     layer.options.pane = paneName;
