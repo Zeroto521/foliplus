@@ -405,6 +405,8 @@ class TestLayerControlRendering:
         assert "foliplus-color-layer-item" in css, (
             "color picker row must opt out of the cursor recipe"
         )
+        # Checked color basemap keeps the wash on hover.
+        assert "foliplus-color-layer-item.active" in css
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -3258,15 +3260,29 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, (
                 f"base basemap snippet failed: {result}"
             )
-            assert result["baseAfter"]["glow"] is False, (
+            # Checked base row: no glow, not white — keep the visibility wash.
+            assert result["baseCheckedHover"]["glow"] is False, (
                 "base basemap must not show the cursor glow, got " + str(result)
             )
-            assert result["baseAfter"]["cursor"] == "default", (
+            assert result["baseCheckedHover"]["cursor"] == "default", (
                 "base basemap hover must keep the default cursor, got " + str(result)
             )
+            assert result["baseCheckedHover"]["bg"] == result["wash"], (
+                "checked base row must keep the wash on hover, got " + str(result)
+            )
+            assert result["baseCheckedHover"]["bg"] != result["white"], (
+                "checked base row must not flash white on hover, got " + str(result)
+            )
+            # Overlay data row still gets the full recipe.
             assert result["overlayAfter"]["glow"] is True, (
                 "overlay row must still show the cursor glow, got " + str(result)
             )
+            # Color picker row is quiet when present.
+            if result["colorAfter"] is not None:
+                assert result["colorAfter"]["glow"] is False, (
+                    "color picker row must not show the cursor glow, got "
+                    + str(result)
+                )
 
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
         """Two quick checkbox toggles must not zoom the map (focusLayer).

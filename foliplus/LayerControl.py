@@ -49,7 +49,7 @@ class LayerControl(BaseControl):
        * - Double-click row
          - Zoom the map to that layer's extent (dashed rect). Hidden layers
            show a hint instead. Also from the ⋮ menu or Alt+Enter.
-       * - Ctrl+Enter / Alt+Enter
+       * - Alt+Enter
          - Zoom to the focused layer (same as double-click)
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.

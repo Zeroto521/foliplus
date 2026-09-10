@@ -7,29 +7,45 @@
   );
   if (!base || !overlay) return null;
 
+  const token = name => {
+    const probe = document.createElement("div");
+    probe.style.background = `var(${name})`;
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return c;
+  };
+  const white = token("--neutral-0");
+  const wash = token("--accent-light");
+
   const pick = el => {
     const cs = getComputedStyle(el);
     return {
       glow: cs.boxShadow !== "none",
       bg: cs.backgroundColor,
       cursor: cs.cursor,
+      active: el.classList.contains("active"),
     };
   };
 
+  // Force base checked → rest wash; hover must keep wash (no white/glow).
   const baseBox = base.querySelector('input[type="checkbox"]');
-  if (baseBox) baseBox.click();
-  base.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-  const baseAfter = pick(base);
+  if (baseBox && !baseBox.checked) {
+    baseBox.checked = true;
+    baseBox.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  base.classList.add("foliplus-layer-focused");
+  const baseCheckedHover = pick(base);
+  base.classList.remove("foliplus-layer-focused");
 
+  // Overlay row still gets the full cursor recipe.
   const overlayBox = overlay.querySelector('input[type="checkbox"]');
   if (overlayBox) overlayBox.click();
   const overlayAfter = pick(overlay);
 
-  const probe = document.createElement("div");
-  probe.style.background = "var(--neutral-0)";
-  document.body.appendChild(probe);
-  const white = getComputedStyle(probe).backgroundColor;
-  probe.remove();
+  // Color picker row is quiet too.
+  const color = panel.querySelector(".foliplus-color-layer-item");
+  const colorAfter = color ? pick(color) : null;
 
-  return { white, baseAfter, overlayAfter };
+  return { white, wash, baseCheckedHover, overlayAfter, colorAfter };
 };
