@@ -406,6 +406,11 @@ path.foliplus-focus-mask {
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
     &:is(:hover, .foliplus-layer-focused) {
+      /* Outboard box-shadow (the bottom glow) would be covered by the next
+         row's opaque surface — rows are never transparent (#277). Raise the
+         interaction target so both glow edges paint above its neighbors. */
+      position: relative;
+      z-index: 1;
       /* The left accent bar is deliberately NOT set here: it is a persistent
          "layer visible" (checked) indicator, so it only turns red on .active /
          a folded group, never on a transient hover/keyboard cursor. */

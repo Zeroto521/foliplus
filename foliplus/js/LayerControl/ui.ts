@@ -6,6 +6,7 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
+import { ListCursor } from "#core/listCursor.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -90,9 +91,8 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
-  /** Last row the pointer touched. Fallback for resolveActiveIdx, where
-   *  document.activeElement may still name the row focused before the click. */
-  clickedRow: HTMLElement | null;
+  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
+  private listCursor: ListCursor | null;
   private interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
@@ -147,7 +147,7 @@ class LayerUI {
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
     this.activeIdx = null;
-    this.clickedRow = null;
+    this.listCursor = null;
     this.unsubscribeCountChange = null;
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
@@ -196,6 +196,9 @@ class LayerUI {
     // loaded above but only applied here, so a row can never render visible
     // and get removed afterwards.
     this.applyUserState();
+    // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
+    // rebuilt rows.
+    this.syncListCursor();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -496,6 +499,8 @@ class LayerUI {
     this.m.enforceOrder();
     this.syncToggleAll(CONST.GROUP.OVERLAY);
     this.syncToggleAll(CONST.GROUP.BASE);
+    // enforceOrder may have moved rows; keep roving tabindex aligned.
+    this.syncListCursor();
   }
 
   renderInitialList() {
@@ -535,12 +540,36 @@ class LayerUI {
     this.uiContainer.innerHTML = "";
     this.uiContainer.appendChild(frag);
 
+    // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
+    // without painting the cursor class — restoreCursor() owns that visual.
+    this.syncListCursor();
+
     // Re-home the cursor on the rebuilt element and restore DOM focus. The
     // rebuild destroys the previously focused node, dropping focus to <body>;
     // the keyboard shortcuts are dispatched by a document-level listener whose
     // container guard requires focus inside the panel, so without this the
     // cursor dies the moment the list is rebuilt (e.g. after a fold click).
     this.restoreCursor(cursorRef);
+  }
+
+  /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
+   *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
+   *  restoreCursor) must keep it; only the pointer path adopts (strips). */
+  private syncListCursor(): void {
+    // initTypesAndVisibility is on a timer and can fire after the panel is
+    // torn down (unit tests, control remove) — do not touch a detached root.
+    if (!this.uiContainer?.isConnected) return;
+    if (!this.listCursor) {
+      this.listCursor = new ListCursor({
+        root: this.uiContainer,
+        // Same set as getNavigableItems(): layer rows + toggle-all, no color.
+        itemSelector: `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}),${CONST.SEL.TOGGLE_ALL}`,
+        activeClass: CONST.CLASSES.FOCUSED,
+        mode: "roving",
+      });
+    }
+    this.listCursor.refresh();
+    this.listCursor.setIndex(this.activeIdx ?? -1);
   }
 
   /** Identity of the row the keyboard cursor points at, for re-homing after a
@@ -623,6 +652,8 @@ class LayerUI {
     // of waiting for a later pass. Only this layer's id is applied — a full
     // sweep would re-rewrite every renamed row on each registration.
     this.applyUserState(layerInfo.id);
+    // New row must join the roving tabindex / ARIA set.
+    this.syncListCursor();
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -952,13 +983,22 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
-      // Record the row the pointer touched so the next Space/Enter toggles
-      // the right row. Do NOT paint the cursor visual: a pointer click is
-      // not a focus arrival (only Tab / arrows / :focus-visible are), and
-      // repeated checkbox toggles must not look "focused".
-      this.clickedRow =
-        el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
-      this.syncActiveIndex();
+      // One ledger: pointer re-homes the index, Tab stop, and paints the
+      // cursor visual. It stays until Escape, another row, or an outside
+      // press takes over — same contract as the keyboard cursor.
+      // (#278 only removed the accidental dblclick→focusLayer zoom.)
+      const row = owningRow(el);
+      if (row) {
+        const idx = this.getNavigableItems().indexOf(row);
+        if (idx !== -1) {
+          this.activeIdx = idx;
+          this.listCursor?.setIndex(idx);
+          this.blurActiveItem();
+          row.classList.add(CONST.CLASSES.FOCUSED);
+          // Keep DOM focus on the row so Space/Enter resolve from focus.
+          row.focus({ focusVisible: false } as FocusOptions);
+        }
+      }
 
       if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
@@ -967,9 +1007,9 @@ class LayerUI {
         this.m.enforceOrder();
         return;
       }
-      const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
-      if (!row || el.closest('[data-role="toggle-all"]')) return;
-      this.toggleFold(row.dataset.group ?? "");
+      const toggleAll = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+      if (!toggleAll || el.closest('[data-role="toggle-all"]')) return;
+      this.toggleFold(toggleAll.dataset.group ?? "");
     };
 
     this.onDragStart = event => this.handleDragStart(event);
@@ -978,24 +1018,23 @@ class LayerUI {
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
     this.onKeyDown = event => this.handleKeyDown(event);
-    // A real focus move supersedes the pointer: once focus lands elsewhere, the
-    // last-clicked row is stale and must not outrank it. Synthetic clicks and
-    // clicks on the non-focusable label don't fire focusin, so clickedRow still
-    // survives the cases that need it.
+    // A real focus move is the cursor: once focus lands on a row (or a child
+    // control), that row is the keyboard target.
     //
-    // `:focus-visible` is also sampled here — once, at the moment focus
-    // arrives — and mapped onto the row's JS cursor class. Child controls
-    // (checkbox / more / fold) attribute to the row via closest(ROW). The CSS
-    // recipe therefore never keys on `:focus-visible`, so Escape is just
-    // "remove the class" with no residual selector to suppress.
+    // `:focus-visible` is sampled once, at the moment focus arrives, and
+    // mapped onto the row's JS cursor class. Child controls (checkbox /
+    // more / fold) attribute to the row via closest(ROW). The CSS recipe
+    // never keys on `:focus-visible`, so Escape is just "remove the class".
     this.onFocusIn = event => {
-      this.clickedRow = null;
       const el = event.target as Element | null;
       const row = owningRow(el);
       if (!el || !row) return;
+      const idx = this.getNavigableItems().indexOf(row);
+      if (idx !== -1) this.activeIdx = idx;
       if (!isKeyboardVisibleFocus(el)) return;
       this.blurActiveItem();
       row.classList.add(CONST.CLASSES.FOCUSED);
+      this.listCursor?.setIndex(idx);
     };
     // Focus left the row entirely (Tab away, click outside, browser chrome):
     // drop the JS cursor class. Moves within the same row keep it.
@@ -1127,6 +1166,8 @@ class LayerUI {
       document.removeEventListener("click", this.onMoreMenuClick);
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
+    this.listCursor?.destroy();
+    this.listCursor = null;
     this.interactionCleanup?.();
     // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
@@ -1335,6 +1376,8 @@ class LayerUI {
     const idx = item ? items.indexOf(item) : -1;
     this.activeIdx = idx === -1 ? null : idx;
     item?.classList.add(CONST.CLASSES.FOCUSED);
+    // Tab stop follows the cursor; setIndex does not touch FOCUSED.
+    this.listCursor?.setIndex(this.activeIdx ?? -1);
   }
 
   /** Remove the focus marker from whichever item carries it.
@@ -1350,7 +1393,7 @@ class LayerUI {
   clearActiveItem(): void {
     this.blurActiveItem();
     this.activeIdx = null;
-    this.clickedRow = null;
+    this.listCursor?.setIndex(-1);
   }
 
   /**
@@ -1371,42 +1414,28 @@ class LayerUI {
     if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
   }
 
-  /** Index of the keyboard cursor, or null if none. DOM focus wins when it
-   *  names a row the pointer has since left; clickedRow wins when focus is
-   *  stale — a click on the label or checkbox does not move focus off the
-   *  previously focused row, which is what made Space/Enter toggle the wrong
-   *  row. The DOM-focus read is the bootstrap: the very first key has no
-   *  clickedRow yet and establishes the cursor. */
+  /** Index of the keyboard cursor from DOM focus, or the previous index.
+   *  One ledger: focus on a row (or a child control) *is* the cursor. */
   private resolveActiveIdx(items: HTMLElement[]): number | null {
-    const rows: (HTMLElement | null)[] = [];
-    if (this.clickedRow) rows.push(this.clickedRow);
-    rows.push(owningRow(document.activeElement));
-    for (const row of rows) {
-      if (!row) continue;
+    const row = owningRow(document.activeElement);
+    if (row) {
       const idx = items.indexOf(row);
       if (idx !== -1) {
         this.activeIdx = idx;
         return idx;
       }
     }
-    return null;
+    return this.activeIdx;
   }
 
   /** Align the cursor marker with whichever row resolveActiveIdx() names.
-   *  Queries once — resolveActiveIdx and moveActiveMarker both need the list. */
+   *  Keep the existing cursor when resolve cannot name a new row. */
   private syncActiveItem(): void {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
-    this.moveActiveMarker(idx === null ? null : items[idx], items);
-  }
-
-  /** Re-home activeIdx from clickedRow / DOM focus without painting the
-   *  cursor class. Used by pointer clicks: they must target Space/Enter but
-   *  must not look like a keyboard focus arrival. Also drops any stale
-   *  keyboard cursor visual so a click on row B does not leave row A lit. */
-  private syncActiveIndex(): void {
-    this.blurActiveItem();
-    this.activeIdx = this.resolveActiveIdx(this.getNavigableItems());
+    if (idx === null) return;
+    this.moveActiveMarker(items[idx], items);
+    this.listCursor?.setIndex(idx);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.
@@ -1434,11 +1463,7 @@ class LayerUI {
 
     // Escape discharges whatever is open, in the order the user would
     // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
-    // cursor guard below: the point of Escape is to drop the cursor, so a
-    // click on the label or checkbox (which sets clickedRow without moving
-    // DOM focus) must clear the cursor even when nothing is focused, and the
-    // rename / overflow menu / focus overlay are each their own cancel
-    // targets. Nothing after this point needs the cursor resolved.
+    // cursor guard below: the point of Escape is to drop the cursor.
     if (event.key === "Escape") {
       if (this.activeRenameId) {
         // finishRename() removes the input, which blurs it to `<body>`.
