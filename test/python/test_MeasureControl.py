@@ -1051,6 +1051,32 @@ class TestMeasureControlBrowser:
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
 
+    def test_circle_preview_label_reattached_every_frame(
+        self, browser, tmp_path
+    ):
+        """While the circle preview is live the radius label chip stays the
+        last marker child of the label pane.
+
+        The label was moved in place with `setLatLng`, which keeps the sibling
+        position from creation time. Once a finalised circle's label had
+        entered the pane after the preview started, the preview chip stayed
+        ahead of it and was painted under — the moving preview label visually
+        disappeared below the earlier measurement's label.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(
+                _js("MeasureControl/circle_preview_label_reattached")
+            )
+            # The planted chip plus the preview chip should both be present.
+            assert state["frames"], "no preview frames captured"
+            assert all(f["total"] == 2 for f in state["frames"]), (
+                f"expected planted + preview label: {state['frames']}"
+            )
+            assert state["alwaysLast"], (
+                f"preview label was not the last label-pane child on every frame: {state['frames']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_works_without_layercontrol(self, browser, tmp_path):
         """MeasureControl initializes without LayerControl (degradation)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)

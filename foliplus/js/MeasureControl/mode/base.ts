@@ -146,9 +146,9 @@ class PreviewMode extends MeasureMode {
    * reaches into Leaflet's private `_rootGroup`, while re-adding only relies
    * on the public layer-group contract.
    */
-  pinToTop<T extends L.Layer>(layer: T): T {
+  pinToTop<T extends L.Layer>(layer: T, paneName?: string): T {
     this.removePreview(layer);
-    return this.addPreview(layer);
+    return this.addPreview(layer, paneName);
   }
 
   /**

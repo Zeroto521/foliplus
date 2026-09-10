@@ -67,7 +67,7 @@
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 - `MeasureControl`: preview cursor dots and the circle's center dot covered by the live preview shape during drawing — `setLatLngs` re-sorts the SVG every frame while `setLatLng` does not, so preview nodes are now re-attached to stay above the moving shape ([#252](https://github.com/Zeroto521/foliplus/issues/252), [#271](https://github.com/Zeroto521/foliplus/pull/271))
-- `MeasureControl`: circle preview radius label covered by the geometry at a short radius — it was the only measure label not routed to the label pane ([#280](https://github.com/Zeroto521/foliplus/pull/280))
+- `MeasureControl`: circle preview radius label covered by the geometry — it was not routed to the label pane, and its in-place `setLatLng` update left the sibling order at creation so a later label painted over it; now re-attached every frame like the preview nodes ([#280](https://github.com/Zeroto521/foliplus/pull/280))
 
 ## [v0.3.0] (2026-08-02)
 
