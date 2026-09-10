@@ -1610,17 +1610,26 @@ class LayerUI {
   }
 
   /** Double-click on a layer row → focus the map on that layer.
-   *  Only dead space on the row counts: the checkbox, ⋮ menu and fold button
-   *  are controls — two quick toggles must not zoom the map. */
+   *  Only dead space on the row counts. Every control on the row is a
+   *  denylist hit: two quick toggles / menu clicks / rename edits must not
+   *  zoom the map. */
   handleDblClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
     if (!item) return;
     if (
-      target.closest(`.${CONST.CLASSES.MORE_BTN}`) ||
-      target.closest(`.${CONST.CLASSES.FOLD_BTN}`) ||
-      target.closest('input[type="checkbox"]') ||
-      target.closest(`.${CONST.CLASSES.COLOR_INPUT}`)
+      target.closest(
+        [
+          "input",
+          "button",
+          `.${CONST.CLASSES.MORE_BTN}`,
+          `.${CONST.CLASSES.FOLD_BTN}`,
+          `.${CONST.CLASSES.RENAME_INPUT}`,
+          `.${CONST.CLASSES.COLOR_INPUT}`,
+          ".foliplus-layer-more-menu",
+          ".drag-handle",
+        ].join(","),
+      )
     ) {
       return;
     }

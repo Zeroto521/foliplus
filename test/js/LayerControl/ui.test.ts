@@ -1879,6 +1879,44 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("does NOT focus the layer on a dblclick of the rename input", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.renameLayer("overlay1");
+      const input = ui.uiContainer.querySelector(
+        `.${CONST.CLASSES.RENAME_INPUT}`,
+      ) as HTMLElement;
+      expect(input).not.toBeNull();
+      ui.handleDblClick({ target: input, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of a more-menu item", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const overlay = findItem(ui, "overlay1");
+      const menuBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+      menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const menuItem = overlay.querySelector(
+        ".foliplus-layer-more-menu li",
+      ) as HTMLElement;
+      expect(menuItem).not.toBeNull();
+      ui.handleDblClick({ target: menuItem, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
+    it("does NOT focus the layer on a dblclick of the drag handle", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const handle = findItem(ui, "overlay1").querySelector(
+        ".drag-handle",
+      ) as HTMLElement;
+      ui.handleDblClick({ target: handle, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("ignores a dblclick outside the layer panel", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
