@@ -1659,7 +1659,10 @@ class LayerUI {
       return;
     }
     // Base basemap / color picker have no meaningful extent to zoom to.
-    if (this.isFocusLayerDisabled(item)) return;
+    // Hidden layers are NOT skipped here: focusLayer shows the "hidden"
+    // hint for them (menu items are disabled, the double-click is not).
+    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
+    if (item.dataset.layerType === CONST.GROUP.BASE) return;
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);

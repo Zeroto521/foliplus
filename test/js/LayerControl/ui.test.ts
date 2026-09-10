@@ -1891,6 +1891,20 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("double-click on a hidden row still reaches focusLayer (hint path)", () => {
+      // Hidden layers are NOT focusable via the menu, but double-click must
+      // still run focusLayer so the user gets the "hidden" hint instead of
+      // nothing.
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.checked = false;
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      focusSpy.mockRestore();
+    });
+
     it("does NOT focus the layer on a dblclick of the fold button", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const { foldBtn } = attachWithGroup(ui);
