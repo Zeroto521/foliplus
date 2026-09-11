@@ -144,7 +144,12 @@
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
-  Hint z-index is managed by runtime.js (HINT z-index = 10000).
-  CSS only defines floating/panel z-index (below hints). */
+  Hint z-index is managed by runtime.js, reading --z-index-hint (fallback 10000).
+  Fullscreen uses the browser Fullscreen API convention (99999).
+  --z-index-top sits above everything (export blocker/preview).
+  Order: floating (9990) < hint (10000) < fullscreen (99999) < top (100000). */
   --z-index-floating: 9990;
+  --z-index-hint: 10000;
+  --z-index-fullscreen: 99999;
+  --z-index-top: 100000;
 }

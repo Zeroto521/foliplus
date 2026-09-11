@@ -65,6 +65,15 @@ class TestFullscreeControlRendering:
         assert "ctrl-size" in html
         assert "foliplus-fullscreen-bar" in html
 
+    def test_css_z_index_tokenized(self):
+        """Fullscreen z-index 99999 is tokenized, not a magic number in a rule."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/FullscreenControl.css")
+        assert "var(--z-index-fullscreen)" in css
+        # The rule uses the token; the literal may only appear in a comment.
+        assert "z-index: 99999" not in css
+
     def test_zoom_svg_inline(self):
         """Zoom +/- use inline SVGs created by FullscreenControl.js."""
         html = render_control(FullscreenControl())

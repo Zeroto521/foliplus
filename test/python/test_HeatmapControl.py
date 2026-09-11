@@ -256,6 +256,15 @@ class TestHeatmapControlRendering:
         assert "foliplus-heatmap-weight-input" in css
         assert "input-breathe" in css
 
+    def test_focus_breathe_selector_single_definition(self):
+        """The breathing-focus selector list is defined once (no animation/reduced-motion duplication)."""
+        css = read_css_dir("foliplus/css/common", "reset.css")
+        # `foliplus-heatmap-weight-input` appears once inside the shared :is(...) list.
+        assert css.count("foliplus-heatmap-weight-input") == 1
+        # The animation is driven by a custom property so reduced-motion only
+        # overrides the value, not the selector list.
+        assert "var(--input-breathe-anim)" in css
+
     def test_label_toggle_renders(self):
         """Label toggle switch is rendered."""
         html = render_control(HeatmapControl())

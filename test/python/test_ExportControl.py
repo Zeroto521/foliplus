@@ -185,6 +185,15 @@ class TestExportControlRendering:
         assert "z-export-base" in html
         assert "calc(" in html
 
+    def test_css_top_z_index_tokenized(self):
+        """The 100000 'above everything' z-index is a token, not a magic number in a rule."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "var(--z-index-top)" in css
+        # The rule uses the token; the literal may only appear in a comment.
+        assert "z-index: 100000" not in css
+
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))
         assert "导出" in html
