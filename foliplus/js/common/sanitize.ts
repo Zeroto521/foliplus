@@ -132,7 +132,9 @@ const parseSVG = (html: string): string => {
 
 const stripAttrs = (el: Element): void => {
   for (const attr of [...el.attributes]) {
-    if (!isAllowedAttr(attr.name, attr.value, XMLNS_ATTRS.has(attr.name.toLowerCase()))) {
+    if (
+      !isAllowedAttr(attr.name, attr.value, XMLNS_ATTRS.has(attr.name.toLowerCase()))
+    ) {
       el.removeAttribute(attr.name);
     }
   }
