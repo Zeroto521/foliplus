@@ -1005,18 +1005,19 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     const ctrl = makeCtrl(m);
     const renderSpy = vi.spyOn(m, "renderHexagons");
 
-    initScan(ctrl, 3);
+    initScan(ctrl);
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBe("lonely");
     expect(renderSpy).toHaveBeenCalled();
   });
 
-  it("auto-selects a single layer that appears on the init retry", async () => {
+  it("auto-selects a single layer that appears when a control attaches", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();
-    // First scan finds nothing; a single layer appears on the retry.  This is
-    // still the initial scan phase (hasScanned not yet set), so it auto-selects.
+    // First scan finds nothing; a layer appears once LayerControl finishes
+    // attaching (CONTROL_ATTACHED). This is still the initial scan phase
+    // (hasScanned not yet set), so it auto-selects.
     window.map.foliplus.LayerAPI.isLayerControl = true;
     let calls = 0;
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => {
@@ -1028,18 +1029,19 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     ]);
     const ctrl = makeCtrl(m);
 
-    vi.useFakeTimers();
-    initScan(ctrl, 2);
-    await vi.runOnlyPendingTimersAsync();
-    await vi.advanceTimersByTimeAsync(CONST.TIMING.INIT_SCAN_INTERVAL);
-    await vi.runOnlyPendingTimersAsync();
-    vi.useRealTimers();
+    initScan(ctrl);
+    expect(m.hasScanned).toBe(false);
+
+    // LayerControl (or any control) finishing attach re-triggers the scan.
+    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+      component: "LayerControl",
+    });
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBe("late");
   });
 
-  it("sets hasScanned in the terminal no-layer path", async () => {
+  it("settles the no-layer hint after the synchronous attach sequence", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.showHint = vi.fn();
@@ -1048,10 +1050,43 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     const ctrl = makeCtrl(m);
 
     vi.useFakeTimers();
-    initScan(ctrl, 0); // attempt 0 = no retries, goes straight to the terminal hint
+    initScan(ctrl);
+    // The final pass fires one macrotask later — after the synchronous
+    // attach sequence, when the layer set is final.
+    await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBeNull();
+  });
+
+  it("cleanup unsubscribes CONTROL_ATTACHED and is idempotent", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.isLayerControl = true;
+    let calls = 0;
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => {
+      calls++;
+      return [];
+    });
+    const ctrl = makeCtrl(m);
+
+    vi.useFakeTimers();
+    const cleanup = initScan(ctrl);
+    expect(calls).toBe(1); // immediate first pass only
+
+    cleanup();
+    cleanup(); // second call is a no-op
+
+    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+      component: "LayerControl",
+    });
+    // Unsubscribed — no further scan ran, and no late settle.
+    expect(calls).toBe(1);
+    expect(m.hasScanned).toBe(false);
+
+    await vi.runOnlyPendingTimersAsync();
+    expect(calls).toBe(1); // settled pass also skipped (done)
+    vi.useRealTimers();
   });
 });

@@ -416,6 +416,18 @@ def panel_ready(page: Page, timeout: float = 5000) -> None:
     )
 
 
+def heatmap_ready(page: Page, timeout: float = 5000) -> None:
+    """Wait until the heatmap finished its initial point-layer scan.
+
+    HeatmapControl marks its root with ``data-ready`` when the scan settles
+    (dropdown rebuilt with layers, or the no-layer hint shown). Replaces the
+    ``wait_for_timeout`` boilerplate after panel expand / reload.
+    """
+    page.wait_for_selector(
+        ".foliplus-heatmap-ctrl[data-ready]", state="attached", timeout=timeout
+    )
+
+
 @contextmanager
 def use_raw_page(new_page_fn: Callable[[], Any], *args: Any, **kwargs: Any):
     """Create a raw Playwright page via *new_page_fn*, yield it, close on exit.

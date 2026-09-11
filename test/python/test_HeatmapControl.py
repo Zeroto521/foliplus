@@ -12,6 +12,7 @@ from conftest import (
     _js,
     assert_config_value,
     assert_locale,
+    heatmap_ready,
     make_browser_page,
     read_css_dir,
     render_control,
@@ -457,7 +458,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
             assert state["selectedLayerId"] is not None, "Layer should be auto-selected"
@@ -480,7 +481,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
             assert state["selectedLayerId"] is None, (
@@ -506,7 +507,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             options_count = page.evaluate(
                 "window.__heatmapCtrl.layerSelect.querySelectorAll('option').length"
@@ -556,7 +557,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             # Uncheck label
@@ -580,7 +581,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(3000)
+            heatmap_ready(page)
 
             # Select the first non-placeholder layer
             opts = page.evaluate(
@@ -613,7 +614,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             opts = page.evaluate(
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
@@ -674,7 +675,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             opts = page.evaluate(
                 "Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll('option')).slice(1).map(o => o.value)"
@@ -739,7 +740,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             def stored():
                 return page.evaluate(
@@ -801,7 +802,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(2000)
+            heatmap_ready(page)
 
             # Focus + set value + fire INPUT only — no change event, no blur.
             page.evaluate(
@@ -854,7 +855,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(3000)
+            heatmap_ready(page)
             opts = page.evaluate(
                 'Array.from(window.__heatmapCtrl.layerSelect.querySelectorAll("option")).slice(1).map(o => o.value)'
             )
@@ -888,7 +889,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_timeout(3000)
+            heatmap_ready(page)
 
             # Change some values
             page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
@@ -1083,7 +1084,7 @@ class TestHeatmapAutoFieldBrowser:
         page.wait_for_selector(
             ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
         )
-        page.wait_for_timeout(2000)
+        heatmap_ready(page)
 
         return page, errors
 
