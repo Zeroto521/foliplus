@@ -504,6 +504,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         updateFieldSelector(ctrl);
         if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
       }
+      ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
     } else if (final) {
@@ -518,6 +519,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         HINT_DURATION.LONG,
       );
       ctrl.m.hasScanned = true;
+      ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
     }
