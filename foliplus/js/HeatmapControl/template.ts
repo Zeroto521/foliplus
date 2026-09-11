@@ -73,7 +73,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
           <div class="foliplus-heatmap-scheme-bar" tabindex="0" role="combobox">
             <div class="foliplus-heatmap-scheme-bar-inner"></div>
           </div>
-          <select class="hidden" ${CONST.DATA_ATTR.SCHEME_HIDDEN}></select>
+          <select class="foliplus-heatmap-scheme-hidden" ${CONST.DATA_ATTR.SCHEME_HIDDEN}></select>
         </div>
       </div>
 

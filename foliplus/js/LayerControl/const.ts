@@ -61,7 +61,6 @@ const CLASSES = {
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
-  HIDDEN: "hidden",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */

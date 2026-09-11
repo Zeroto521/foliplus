@@ -159,7 +159,9 @@
     .foliplus-heatmap-form-control {
     position: relative;
   }
-  .hidden {
+  /* Scheme hidden select: visually collapsed but stays in layout (Bootstrap
+     also defines a global `.hidden`, so this uses a component-scoped name). */
+  .foliplus-heatmap-scheme-hidden {
     position: absolute;
     width: 0;
     height: 0;
