@@ -2,10 +2,9 @@
   const mm = window.__measureManager;
   const map = window.__map;
   mm.setMode("distance");
-  // The cursor dot is the only .foliplus-measure-node WITHOUT the -solid
-  // modifier (the placed anchor is NODE_SOLID).
+  // The cursor dot is the hollow variant; the placed anchor is NODE_SOLID.
   const node = () =>
-    document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
+    document.querySelector(".foliplus-measure-node.foliplus-dot-hollow");
   // Nothing to cursor at yet: entering the mode must not float a dot.
   const idle = node() === null;
 

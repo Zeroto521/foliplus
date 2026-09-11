@@ -121,17 +121,48 @@ describe("label div icons", () => {
 });
 
 describe("makeNode", () => {
-  it("creates a circle marker with default class", () => {
+  it("creates a circle marker with the fallback radius and default class", () => {
+    // jsdom's `getComputedStyle` returns "" for custom properties, so the token
+    // read misses and the fallback wins — the token path is exercised below.
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node" },
+      {
+        radius: 5,
+        className: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
+      },
     );
   });
 
   it("accepts a custom className", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+  });
+
+  it("halves the --dot-size token for the SVG radius", () => {
+    const real = window.getComputedStyle;
+    window.getComputedStyle = () =>
+      ({
+        getPropertyValue: (k: string) => (k === "--dot-size" ? "16px" : ""),
+      }) as CSSStyleDeclaration;
+    try {
+      Util.makeNode({ lat: 1, lng: 2 });
+      expect(window.L.circleMarker.mock.calls[0][1].radius).toBe(8);
+    } finally {
+      window.getComputedStyle = real;
+    }
+  });
+
+  it("keeps the fallback radius when the token is unset", () => {
+    const real = window.getComputedStyle;
+    window.getComputedStyle = () =>
+      ({ getPropertyValue: () => "" }) as CSSStyleDeclaration;
+    try {
+      Util.makeNode({ lat: 1, lng: 2 });
+      expect(window.L.circleMarker.mock.calls[0][1].radius).toBe(5);
+    } finally {
+      window.getComputedStyle = real;
+    }
   });
 });
 

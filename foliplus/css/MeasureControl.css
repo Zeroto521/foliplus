@@ -23,22 +23,6 @@
   cursor: pointer;
 }
 
-/* ── Measurement Nodes (circleMarker) ── */
-/* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
-.foliplus-measure-node {
-  fill: var(--neutral-0);
-  fill-opacity: 1;
-  stroke: var(--accent-primary);
-  stroke-width: 2.5px;
-}
-/* Solid nodes (distance start point, circle center, polygon centroid) are
-  filled with the accent color and outlined in neutral. */
-path.foliplus-measure-node-solid {
-  fill: var(--accent-primary);
-  fill-opacity: 1;
-  stroke: var(--neutral-0);
-}
-
 /* ── Measurement Paths (lines / circles / polygons) ──
   Three shared states: solid (final), dashed, preview.
   Area shapes additionally use .foliplus-measure-shape-fill for fill. */

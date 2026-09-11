@@ -1,4 +1,5 @@
 // MeasureControl utility functions — standalone, no manager dependency.
+import { cssVar } from "#common/cssvar.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupHtml } from "#common/dom.js";
 import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
@@ -98,12 +99,30 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
   );
 };
 
+/** SVG radius for a `.foliplus-dot` node, read from the same token that sizes
+ *  the DOM anchors: `--dot-size / 2`. Both renderings keep their stroke inside
+ *  the outer diameter — the DOM handles/center set `width` / `height` in
+ *  border-box, and Leaflet paints a marker's stroke within its geometry (the
+ *  bounding box ignores stroke-width), so `--dot-size / 2` is the radius for
+ *  both.
+ *
+ *  `L.circleMarker` rounds `radius` to an integer pixel when it writes the SVG
+ *  `d` attribute (1.9.3's `_projectCircle`: `Math.round(t._radiusY)`), so keep
+ *  `--dot-size` even — an odd value such as 11.5px renders as 12px on the SVG
+ *  side but 11.5px on the DOM side. Keeping the read here means a token change
+ *  sizes every dot at once — `CONST.MARKER.RADIUS` is only the token-less
+ *  fallback. */
+const nodeRadius = (): number => {
+  const size = parseFloat(cssVar(document.documentElement, "--dot-size", ""));
+  return Number.isFinite(size) ? size / 2 : CONST.MARKER.RADIUS;
+};
+
 /** Create a measure node circle marker. */
 const makeNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
-  return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+  return L.circleMarker(latlng, { radius: nodeRadius(), className });
 };
 
 /** A non-interactive node used for transient previews (center, centroid and
@@ -113,7 +132,7 @@ const makePreviewNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, {
-    radius: CONST.MARKER.RADIUS,
+    radius: nodeRadius(),
     className,
     interactive: false,
   });

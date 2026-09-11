@@ -1,12 +1,54 @@
 /* ════════════════════════════════════════════════════════════
-  Control buttons — reset, states, sizing, SVG defaults
+  Control buttons — reset, states, sizing, SVG defaults, anchor dots
   The hover/focus/active recipe (accent-light bg + accent-primary text +
   scale) shared by toggle buttons, tool buttons and search mode buttons.
-  Also owns the default SVG icon size and stroke for those buttons.
+  Also owns the default SVG icon size and stroke for those buttons, and the
+  `.foliplus-dot` geometry shared by the measure nodes and export anchors.
   menu.css holds the floating dropdown/list item recipe and input.css the
   form control states — same accent-light language, different surfaces.
   icon.css holds concrete icon primitives (divider, delete icon).
   ════════════════════════════════════════════════════════════ */
+
+/* ── Anchor Dot (shared by MeasureControl / ExportControl) ──
+   One visual dot on the map: the measure nodes and the export crop-box
+   center/handles are the same object in two renderings. `.foliplus-dot` owns the
+   shape — the four properties below — and every dot carries it, so a dot can
+   never be left unstyled by a missing variant class. The variant classes only
+   pick the palette; they declare no properties of their own.
+   SVG circleMarkers get `fill` / `stroke`; DOM anchors get `background` /
+   `border` instead, so the second rule is scoped to `:not(path)`. DOM anchors
+   set `width` / `height` in border-box, so the stroke is inside --dot-size;
+   the SVG node's radius is sized in JS to --dot-size / 2, which paints the
+   stroke inside the path the same way (Leaflet draws a marker's stroke within
+   the geometry, and a marker's bounding box ignores stroke-width entirely).
+   Both come out --dot-size across. */
+.foliplus-dot {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+  fill: var(--dot-fill);
+  fill-opacity: 1;
+  stroke: var(--dot-stroke-color);
+  stroke-width: var(--dot-stroke);
+}
+.foliplus-dot:not(path) {
+  background: var(--dot-fill);
+  /* The `border` shorthand, not the `border-width` longhand: on a non-replaced
+     element the longhand is silently ignored in Chromium even with !important,
+     so the shorthand is the only form that reliably sets the width. */
+  border: var(--dot-stroke) solid var(--dot-stroke-color);
+  border-radius: var(--radius-round);
+  box-sizing: border-box;
+}
+/* Hollow: neutral fill, accent ring. */
+.foliplus-dot-hollow {
+  --dot-fill: var(--neutral-0);
+  --dot-stroke-color: var(--accent-primary);
+}
+/* Solid: accent fill, neutral ring. */
+.foliplus-dot-solid {
+  --dot-fill: var(--accent-primary);
+  --dot-stroke-color: var(--neutral-0);
+}
 
 /* ── Common Icon Size ──
   All SVGs in foliplus components default to 18×18.
