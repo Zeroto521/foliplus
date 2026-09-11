@@ -37,6 +37,7 @@ class HeatmapControl extends BaseControl {
   declare labelChk: HTMLInputElement;
   declare closeSchemeDropdown: (event: MouseEvent) => void;
   declare toggleSchemeDropdown: () => void;
+  declare initScanCleanup: (() => void) | null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -67,6 +68,10 @@ class HeatmapControl extends BaseControl {
 
   destroy() {
     // Clean up map event listeners
+    if (this.initScanCleanup) {
+      this.initScanCleanup();
+      this.initScanCleanup = null;
+    }
     if (this.m.mapCleanup) this.m.mapCleanup();
     if (this.m.onZoomEnd) {
       this.m.onZoomEnd.cancel();
@@ -91,4 +96,4 @@ class HeatmapControl extends BaseControl {
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
-initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);
+heatmapCtrl.initScanCleanup = initScan(heatmapCtrl);

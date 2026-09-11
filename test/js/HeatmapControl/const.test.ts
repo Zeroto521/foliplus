@@ -6,7 +6,14 @@ describe("TIMING", () => {
   it("has expected debounce values", () => {
     expect(CONST.TIMING.ZOOM_DEBOUNCE).toBe(200);
     expect(CONST.TIMING.LAYER_SCAN_DEBOUNCE).toBe(200);
-    expect(CONST.TIMING.LOAD_SCRIPT_RETRIES).toBe(2);
+    // The init-scan and script-load constants were removed: the scan is
+    // signal-driven and script loading is handled elsewhere.
+    expect(
+      (CONST.TIMING as Record<string, unknown>).INIT_SCAN_TIMEOUT_MS,
+    ).toBeUndefined();
+    expect(
+      (CONST.TIMING as Record<string, unknown>).LOAD_SCRIPT_RETRIES,
+    ).toBeUndefined();
   });
 });
 
