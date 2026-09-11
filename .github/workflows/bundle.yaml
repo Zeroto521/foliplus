@@ -48,7 +48,7 @@ jobs:
           cp -a node_modules /tmp/base/node_modules
           (
             cd /tmp/base
-            npm run build
+            make build-js
           )
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
