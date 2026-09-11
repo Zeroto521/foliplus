@@ -46,29 +46,15 @@ repos:
     hooks:
       - id: codespell
 
-  # ── JS / CSS formatting (Prettier) ──
-  # The only JS tool left in pre-commit: it needs neither the typescript-eslint
-  # parser plugin nor type information, so it runs in pre-commit.ci's isolated
-  # env. ESLint moved to GitHub Actions (the `lint` / `typecheck` jobs) because
-  # its config imports packages that pre-commit.ci installs under NODE_PATH,
-  # which neither the ESM nor the CJS resolver consults by package name.
-  #
-  # `--check`, not `--write`: CI asserts on formatting rather than mutating a
-  # working tree. Local `npm run format` writes.
-  #
-  # Uses .prettierrc.cjs so the same config serves local and pre-commit.ci. The
-  # CJS file resolves the plugin to an absolute path, which is the only form
-  # that works there: prettier never asks for the plugin by name, so it never
-  # hits NODE_PATH package-name resolution. A bare `import`/`require()` would
-  # fail in the isolated env just the same.
-  - repo: local
-    hooks:
-      - id: format-prettier
-        name: format-prettier
-        entry: prettier --check
-        language: node
-        types_or: [css, javascript, ts]
-        files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
-        additional_dependencies:
-          - "prettier@3.9.5"
-          - "@trivago/prettier-plugin-sort-imports@5.2.2"
+  # ── JS / CSS formatting ──
+  # Prettier runs in GitHub Actions (the `format` job in test.yaml), not here.
+  # Keeping it in pre-commit as well would mean two version declarations —
+  # `additional_dependencies` pinning prettier here and `devDependencies` in
+  # package.json on the CI side — which drift: a caret range in package.json
+  # resolves to a newer patch than this static list, and the two runtimes end
+  # up formatting the same commit with different prettier versions. Same story
+  # as ESLint (which moved out for a different reason — its config imports
+  # packages that pre-commit.ci installs under NODE_PATH, which neither the ESM
+  # nor the CJS resolver consults by package name). Every hook left here is
+  # self-contained in its isolated env; Prettier is the only one whose config
+  # reads a project file, so it belongs with the other project-Node tools.
