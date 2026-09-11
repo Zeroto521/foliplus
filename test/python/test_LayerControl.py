@@ -983,6 +983,16 @@ class TestLayerControlBrowser:
             assert result["probe"]["svgs"] == 1, result["probe"]
             assert "<rect" in result["probe"]["html"], result["probe"]
 
+            # A namespace declaration is structural, not content: it has to
+            # survive, otherwise Chromium re-declares the SVG namespace on every
+            # element when serialising and a `class` attribute stops matching its
+            # CSS rule. This is a real-browser serialisation property — jsdom
+            # writes both shapes identically — so the assertion only exists here.
+            assert result["spin"] is not None, "spinner row never rendered"
+            assert result["spin"]["xmlnsCount"] == 1, result["spin"]
+            assert result["spin"]["class"] == "foliplus-spin", result["spin"]
+            assert result["spin"]["matches"] is True, result["spin"]
+
     def test_rename_input_fills_row_height(self, browser, tmp_path):
         """The inline rename input spans the full row height (not a 19.6px line).
 

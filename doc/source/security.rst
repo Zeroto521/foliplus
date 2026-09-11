@@ -34,7 +34,15 @@ Kept markup
   Any SVG element in the SVG namespace. Attributes are limited to geometry and
   paint values (``d``, ``points``, ``cx``, ``cy``, ``r``, ``rx``, ``ry``,
   ``x``, ``y``, ``transform``, ``viewBox``, ``fill``, ``stroke`` and their
-  opacity/line variants, fonts, ``class``, ``role``, ``aria-label``, ``xmlns``).
+  opacity/line variants, fonts, and ``class``, ``role``, ``aria-label``).
+
+  ``xmlns`` is not in that list because it is not an attribute in the security
+  sense — it is how a serialiser knows a subtree is SVG. It is always kept, with
+  its value still checked for a scheme, because dropping it changes how the
+  markup is written back out: a browser then re-declares the SVG namespace on
+  every element, and an attribute such as ``class`` can stop matching its CSS
+  rule. This is a serialisation concern with no security payoff, so the
+  declaration is kept rather than treated as content.
 
 Dropped markup
   ``script``, ``foreignObject``, ``iframe``, ``object``, ``embed``, and ``use``,

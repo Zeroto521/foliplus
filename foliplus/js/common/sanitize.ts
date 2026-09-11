@@ -54,9 +54,13 @@ const ALLOWED_ATTRS = new Set(
     "y2",
     "aria-label",
     "role",
-    "xmlns",
   ].map(a => a.toLowerCase()),
 );
+
+/** Namespace declarations are structural metadata, not content, and they are
+ *  required for a correct serialisation round trip (see `isAllowedAttr`). They
+ *  are deliberately absent from `ALLOWED_ATTRS`. */
+const XMLNS_ATTRS = new Set(["xmlns", "xmlns:xlink"]);
 
 /** Elements inside an SVG that can execute code or escape the SVG subtree.
  *  Parsing as `image/svg+xml` keeps them inert but still serialised, so they
@@ -128,7 +132,9 @@ const parseSVG = (html: string): string => {
 
 const stripAttrs = (el: Element): void => {
   for (const attr of [...el.attributes]) {
-    if (!isAllowedAttr(attr.name, attr.value)) el.removeAttribute(attr.name);
+    if (!isAllowedAttr(attr.name, attr.value, XMLNS_ATTRS.has(attr.name.toLowerCase()))) {
+      el.removeAttribute(attr.name);
+    }
   }
 };
 
@@ -151,11 +157,20 @@ const sanitizeSubtree = (node: Element): void => {
   }
 };
 
-const isAllowedAttr = (name: string, value: string): boolean => {
-  // Match by canonical lowercase form; `ALLOWED_ATTRS` is stored the same way.
+const isAllowedAttr = (
+  name: string,
+  value: string,
+  isNamespaceDecl = false,
+): boolean => {
   const lower = name.toLowerCase();
-  // Attribute names cannot be event handlers.
   if (lower.startsWith("on")) return false;
+  // A namespace declaration is structural metadata, not content: it is how the
+  // serialiser knows a subtree is SVG. Keeping it is required for a correct
+  // round trip — drop it and Chromium re-declares the SVG namespace on every
+  // element when innerHTML serialises back, so attributes like `class` end up
+  // as SVG-namespace attrs that no CSS selector can match. Only ever accept a
+  // value with no scheme.
+  if (isNamespaceDecl) return !isUrlValue(value);
   if (lower === "href") {
     // Only a same-document fragment — `#dot`, never a scheme or `#//evil`.
     const v = value.trim();

@@ -18,6 +18,15 @@ const mount = (html: string): Element => {
   return host;
 };
 
+/** Every element in `html` that carries an attribute with `name` (matched
+ *  case-insensitively). */
+const withAttr = (html: string, name: string): Element[] => {
+  const host = mount(html);
+  return [...host.querySelectorAll("*")].filter(el =>
+    [...el.attributes].some(a => a.name.toLowerCase() === name),
+  );
+};
+
 describe("parseSVG — accepts presentation SVG", () => {
   it("keeps a rect icon with viewBox and fill", () => {
     const out = parseSVG(
@@ -90,6 +99,38 @@ describe("parseSVG — strips executable content", () => {
     expect(rect.hasAttribute("onmouseover")).toBe(false);
     expect(rect.hasAttribute("onclick")).toBe(false);
     expect(rect.getAttribute("fill")).toBe("#000");
+  });
+
+  it("rejects a namespace declaration carrying a scheme", () => {
+    // `xmlns` is structural and always kept, so a hostile value there must not
+    // get through either. Match by attribute name rather than `hasAttribute` —
+    // that only sees the element's own default namespace.
+    const out = parseSVG(
+      '<svg viewBox="0 0 4 4" xmlns="http://x"><rect width="2" height="2" xmlns:xlink="javascript:alert(1)"/></svg>',
+    );
+    expect(out).toContain("http://x");
+    expect(withAttr(out, "xmlns:xlink")).toHaveLength(0);
+  });
+
+  it("keeps a namespace declaration the serializer needs to round-trip SVG", () => {
+    // Dropping `xmlns` was the latent defect in this gate: Chromium's `outerHTML`
+    // re-declares the SVG namespace on every element when the declaration is
+    // missing, which turns a `class` into an SVG-namespace attr no CSS selector
+    // can match. There is no security payoff to dropping it, so keep it and pin
+    // the round trip here — jsdom serialises both shapes identically, so only a
+    // real browser can see this, and only the declaration count in the output
+    // string is observable (not `hasAttribute`, which sees just the element's own
+    // default namespace).
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4">' +
+      '<g xmlns="http://www.w3.org/2000/svg"><rect width="2" height="2"/></g></svg>';
+    const out = parseSVG(src);
+    expect(out).toContain("http://www.w3.org/2000/svg");
+    // The parser normalises both declarations to the element's default
+    // namespace, so an explicit one becomes inert and is dropped. Only the
+    // root's survives — the serialiser's single point of truth.
+    expect(withAttr(out, "xmlns")).toHaveLength(1);
+    expect(out.match(/xmlns/g)).toHaveLength(1);
   });
 
   it("drops a style block that is not pure CSS rules", () => {

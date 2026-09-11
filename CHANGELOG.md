@@ -72,6 +72,7 @@
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 - `MeasureControl`: a hostile POI name in the reverse-geocode response could execute script in the location marker's popup — the popup body is now built as an element tree so the address can only ever reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286))
+- `LocateControl`: the reverse-geocode loading spinner rendered at popup width instead of icon size — `Icons.LOADING` has no intrinsic size, so it grew to fill the flex popup; `.foliplus-spin` now pins to `1em` ([#286](https://github.com/Zeroto521/foliplus/pull/286))
 
 ## [v0.3.0] (2026-08-02)
 

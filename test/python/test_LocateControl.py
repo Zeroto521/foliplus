@@ -167,9 +167,29 @@ class TestLocateControlBrowser:
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             # The marker's popup should show the located coordinates.
             popup = page.evaluate(_js("LocateControl/read_popup"))
-            assert popup and "119.3" in popup and "26.08" in popup, (
+            assert popup and "119.3" in popup["text"] and "26.08" in popup["text"], (
                 f"Expected located coords in popup, got: {popup!r}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_popup_spinner_stays_bounded(self, browser, tmp_path):
+        """The reverse-geocode loading spinner renders at icon size, not full width.
+
+        ``Icons.LOADING`` declares a ``viewBox`` but no ``width``/``height``, so it
+        has no intrinsic size. Its flex parent — the popup — then sizes it from a
+        flex base size of 0 and it grows to fill the popup (measured 213px wide in
+        a 213px popup, 301px in a full-viewport one). ``.foliplus-spin`` in
+        common.css pins it to ``1em``; with that rule removed this test measures
+        the spinner as wide as the popup.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LocateControl/click_success"))
+            page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
+            popup = page.evaluate(_js("LocateControl/read_popup"))
+            spin = popup["spinner"]
+            assert spin, f"no loading spinner found in the popup: {popup!r}"
+            assert spin["width"] <= 40, f"spinner too wide: {spin!r}"
+            assert spin["height"] <= 40, f"spinner too tall: {spin!r}"
             assert not errors, f"JS errors: {errors}"
 
     def test_button_spins_while_locating(self, browser, tmp_path):
