@@ -45,16 +45,3 @@ repos:
     rev: v2.4.3
     hooks:
       - id: codespell
-
-  # ── JS / CSS formatting ──
-  # Prettier runs in GitHub Actions (the `format` job in test.yaml), not here.
-  # Keeping it in pre-commit as well would mean two version declarations —
-  # `additional_dependencies` pinning prettier here and `devDependencies` in
-  # package.json on the CI side — which drift: a caret range in package.json
-  # resolves to a newer patch than this static list, and the two runtimes end
-  # up formatting the same commit with different prettier versions. Same story
-  # as ESLint (which moved out for a different reason — its config imports
-  # packages that pre-commit.ci installs under NODE_PATH, which neither the ESM
-  # nor the CJS resolver consults by package name). Every hook left here is
-  # self-contained in its isolated env; Prettier is the only one whose config
-  # reads a project file, so it belongs with the other project-Node tools.
