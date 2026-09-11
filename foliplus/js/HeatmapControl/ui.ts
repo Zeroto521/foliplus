@@ -213,8 +213,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
-    if (ctrl.schemeDropdown)
+    if (ctrl.schemeDropdown) {
       document.addEventListener("click", ctrl.closeSchemeDropdown);
+    }
   };
 
   const clearBtn = panelContent.querySelector(
@@ -264,8 +265,9 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED))
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+    }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
 };
@@ -310,8 +312,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.m.selectedLayerId = sel.value || null;
-    if (ctrl.extraBody)
+    if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+    }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
     if (ctrl.m.selectedLayerId) ctrl.m.renderHexagons();
@@ -320,8 +323,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  if (ctrl.extraBody)
+  if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+  }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
