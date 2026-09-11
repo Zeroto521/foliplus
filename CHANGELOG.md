@@ -52,6 +52,7 @@
 - `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
 - `LayerControl`/`HeatmapControl`: attach-time init is signal-driven (`CONTROL_ATTACHED` + `data-ready`), replacing fixed timers/retries; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283), [#285](https://github.com/Zeroto521/foliplus/pull/285))
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
+- `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
 
 ### Removed
 

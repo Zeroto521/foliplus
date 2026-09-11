@@ -171,7 +171,7 @@ describe("ListCursor", () => {
       const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
       const ev = (key: string) =>
         new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
-      let e = ev("ArrowDown");
+      const e = ev("ArrowDown");
       expect(c.handleKey(e)).toBe(true);
       expect(e.defaultPrevented).toBe(true);
       expect(c.index).toBe(0);

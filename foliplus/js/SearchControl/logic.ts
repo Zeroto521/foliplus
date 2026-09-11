@@ -81,8 +81,9 @@ const parseCoord = (raw: string): { lng: number; lat: number } | null => {
     lng > COORD_BOUNDS.LON ||
     lat < -COORD_BOUNDS.LAT ||
     lat > COORD_BOUNDS.LAT
-  )
+  ) {
     return null;
+  }
   return { lng, lat };
 };
 
@@ -417,8 +418,9 @@ const positionPanel = (ctrl: SearchControlState) => {
   if (!ctrl.panelWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
-  if (left + rect.width > window.innerWidth)
+  if (left + rect.width > window.innerWidth) {
     left = window.innerWidth - rect.width + window.scrollX;
+  }
   ctrl.panelWrap.style.left = `${left}px`;
   ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };

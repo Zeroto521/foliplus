@@ -262,8 +262,9 @@ class MeasureManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
 
     this.layers.register();
 
@@ -527,8 +528,9 @@ class MeasureManager {
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT)
+      if (btn.dataset.mode === CONST.MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      }
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
     // nodes directly draggable, leaving disables them.

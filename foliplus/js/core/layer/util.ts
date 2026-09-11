@@ -32,8 +32,9 @@ const traverse = (
   if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
   else if (container._layers) {
     for (const k in container._layers) {
-      if (Object.hasOwn(container._layers, k))
+      if (Object.hasOwn(container._layers, k)) {
         traverse(container._layers[k], fn, depth + 1, leafOnly);
+      }
     }
   } else if (leafOnly) fn(layer);
 };
@@ -151,9 +152,9 @@ const getGeometryType = (layer: L.Layer): string => {
   forEachLeaf(layer, l => leaves.push(l));
 
   let hasData = false; // any non-label leaf — labels are not data geometry
-  let hasPoly = false,
-    hasLine = false,
-    hasPoint = false;
+  let hasPoly = false;
+  let hasLine = false;
+  let hasPoint = false;
   for (const leaf of leaves) {
     // Labels are non-geometry nodes — same rule as countFeatureGeometry.
     if ((leaf as LabelAwareLayer).isLabel) continue;

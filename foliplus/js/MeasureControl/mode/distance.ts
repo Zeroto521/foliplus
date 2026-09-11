@@ -60,7 +60,7 @@ class DistanceMode extends PreviewMode {
       finalPoly,
       nodeMarkers,
       segLabels,
-      points: points,
+      points,
       id: data.id!,
       onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
@@ -162,7 +162,7 @@ class DistanceMode extends PreviewMode {
         finalPoly,
         nodeMarkers,
         segLabels,
-        points: points,
+        points,
         id: distId,
         onDelete: () => {
           this.m.store.remove(distId);
@@ -220,8 +220,9 @@ class DistanceMode extends PreviewMode {
         points.some(
           (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
         )
-      )
+      ) {
         return;
+      }
       L.DomEvent.stopPropagation(event);
       points.push(event.latlng);
       if (previewDistLabel) {
