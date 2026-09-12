@@ -10,6 +10,7 @@ this test fails with an explicit checklist instead.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -18,18 +19,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 PKG = ROOT / "foliplus"
 
-#: Not public controls — skip when discovering the registry.
-_NON_CONTROL_MODULES = frozenset(
-    {
-        "BaseControl",
-        "_cdn_loader",
-        "_typing",
-        "_validate",
-        "_version",
-        "__init__",
-        "locale",
-    }
-)
+#: Base class, not a public control component.
+_NON_CONTROL_MODULES = frozenset({"BaseControl"})
 
 #: JS dirs that are shared runtime, not control components (mirrors build.mjs).
 _NON_COMPONENT_JS_DIRS = frozenset({"core", "common", "runtime", "type"})
@@ -104,6 +95,17 @@ class TestPythonPackage:
                     missing.append(str(path.relative_to(ROOT)))
         assert not missing, f"missing locale tables: {missing}"
 
+    def test_locale_tables_have_code_and_name(self, controls: set[str]):
+        """Each table must declare its language so resolve_locale can pick it up."""
+        bad = []
+        for name in sorted(controls):
+            for code in ("en", "zh"):
+                path = PKG / "locale" / f"{name}.{code}.json"
+                table = json.loads(path.read_text(encoding="utf-8"))
+                if table.get("locale.code") != code or not table.get("locale.name"):
+                    bad.append(str(path.relative_to(ROOT)))
+        assert not bad, f"locale tables missing locale.code/locale.name: {bad}"
+
 
 class TestJsRegistries:
     def test_listed_in_components_constant(self, controls: set[str]):
@@ -165,3 +167,18 @@ class TestVitestCoverageExcludes:
             f"vitest coverage exclude missing index.ts for: {missing}\n"
             "Add them or switch the exclude to the glob foliplus/js/*/index.ts."
         )
+
+
+class TestScaffoldWiring:
+    def test_npm_script_registered(self):
+        text = _read(ROOT / "package.json")
+        assert '"new-control"' in text and "script/new-control.mjs" in text
+
+    def test_scaffold_uses_core_control_env(self):
+        """After #289 createControlEnv lives in #core/controlEnv, not #common/guard."""
+        text = _read(ROOT / "script" / "new-control.mjs")
+        assert '#core/controlEnv.js' in text
+        assert '#common/guard.js' not in text
+
+    def test_scaffold_script_exists(self):
+        assert (ROOT / "script" / "new-control.mjs").is_file()
