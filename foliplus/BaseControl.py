@@ -32,8 +32,6 @@ from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
-js_dir = src_dir / "js"
-css_dir = src_dir / "css"
 dist_dir = src_dir / "dist"
 
 # Stable child name used to deduplicate the shared asset bundle in a figure's

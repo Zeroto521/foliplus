@@ -88,6 +88,7 @@ class LayerManager implements LayerAPI {
     this.registerLayer = this.registerLayer.bind(this);
     this.unregisterLayer = this.unregisterLayer.bind(this);
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
+    this.touchLayer = this.touchLayer.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -417,6 +418,12 @@ class LayerManager implements LayerAPI {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
     }
+  }
+
+  /** Stamp `updatedAt` to now — call after a runtime mutation that does not
+   *  re-register (heatmap field change, measure add/edit/remove). */
+  touchLayer(id: string): boolean {
+    return this.layerRegistry.touch(id);
   }
 
   /**
