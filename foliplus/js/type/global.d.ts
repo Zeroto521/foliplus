@@ -297,10 +297,6 @@ declare global {
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */
     interaction: InteractionManager;
-    /** Per-map hint manager. Only written by `core/hint.destroyManager`
-     *  (map unload); kept to narrow `map.foliplus!.showHint` down to a
-     *  teardown-safe subset instead of `any`. */
-    hintManager?: HintManager;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

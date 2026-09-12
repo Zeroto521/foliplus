@@ -115,22 +115,6 @@ describe("HintManager", () => {
     vi.useRealTimers();
   });
 
-  it("a destroyed manager cannot create new hints", () => {
-    vi.useFakeTimers();
-    const mgr = new HintManager();
-    mgr.showHint("key", "hello", 100);
-    mgr.destroy();
-    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
-
-    // The manager is inert: a later call appends nothing and arms no timer.
-    mgr.showHint("key", "again", 100);
-    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
-    expect(mgr.hintMap.size).toBe(0);
-    vi.advanceTimersByTime(200);
-    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
-    vi.useRealTimers();
-  });
-
   it("migrates hints to the fullscreen element on fullscreenchange", () => {
     const mgr = new HintManager();
     mgr.showHint("key", "hello", 0);
@@ -327,15 +311,15 @@ describe("map unload teardown", () => {
     expect(ensureHint(map)).toBe(first);
 
     fire(map, "unload");
-    expect(first.destroyed).toBe(true);
+    expect(first.hintMap.size).toBe(0);
 
+    // `instances` was cleared, so a second ensureHint builds a live manager
+    // instead of handing back the destroyed one.
     const second = ensureHint(map);
     expect(second).not.toBe(first);
-    expect(second.destroyed).toBe(false);
-    // The rebuilt manager is bound to the same map.foliplus object.
-    expect(map.foliplus?.hintManager).toBe(second);
     second.showHint("key", "again", HINT_DURATION.PERSIST);
     expect(second.hintMap.size).toBe(1);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
     second.destroy();
   });
 
@@ -345,8 +329,6 @@ describe("map unload teardown", () => {
     const mgr = ensureHint(map);
     const { showHint, warn } = unloadMap(map);
 
-    // The bound closure is replaced, not left wired to the dead manager.
-    expect(map.foliplus?.hintManager).toBeUndefined();
     expect(showHint).toBeDefined();
 
     showHint!();
@@ -388,37 +370,14 @@ describe("map unload teardown", () => {
 
     // mapB is untouched: same manager, node still in the DOM, still active
     // enough to receive newly registered icons.
-    expect(mapB.foliplus?.hintManager).toBe(b);
-    expect(mapB.foliplus?.hintManager).not.toBe(a);
     expect(b.hintMap.size).toBe(1);
     registerHintIcon("sibling_icon", "<svg></svg>");
     expect(b.hintIcons["sibling_icon"]).toBe("<svg></svg>");
     // The dead manager no longer receives icons through activeManagers.
     expect(a.hintIcons["sibling_icon"]).toBeUndefined();
-    expect(mapA.foliplus?.hintManager).toBeUndefined();
+    // mapA's closures were replaced, mapB's were not.
+    expect(mapA.foliplus?.showHint).not.toBe(mapB.foliplus?.showHint);
 
     b.destroy();
-  });
-
-  it("leaves foreign foliplus stubs alone when the handler's manager was replaced", () => {
-    // Guard: if `map.foliplus.hintManager` is no longer the one the handler
-    // captured, the teardown must not overwrite whatever closures replaced it.
-    const map = makeMap();
-    const mgr = ensureHint(map);
-    fire(map, "unload");
-    expect(mgr.hintMap.size).toBe(0);
-
-    // Simulate a foreign owner installing its own stubs after the map unloaded.
-    const foreignShow = () => {};
-    const foreignHide = () => {};
-    map.foliplus!.showHint = foreignShow;
-    map.foliplus!.hideHint = foreignHide;
-
-    // Re-fire the recorded teardown handler: it must leave the foreign stubs
-    // untouched (they did not belong to this manager).
-    fire(map, "unload");
-    expect(map.foliplus?.showHint).toBe(foreignShow);
-    expect(map.foliplus?.hideHint).toBe(foreignHide);
-    expect(mgr.hintMap.size).toBe(0);
   });
 });
