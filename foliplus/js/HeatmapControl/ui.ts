@@ -42,7 +42,12 @@ interface HeatmapControlUI {
 }
 
 /** Save the current config after any user-initiated change. */
-const persist = (ctrl: HeatmapControlUI) => ctrl.m.saveConfig();
+const persist = (ctrl: HeatmapControlUI) => {
+  ctrl.m.saveConfig();
+  // Field/method/scheme changes rewrite the canvas — stamp the layer so the
+  // attributes panel's Updated row reflects the latest render.
+  ctrl.m.map.foliplus?.LayerAPI?.touchLayer?.(ctrl.m.layerId);
+};
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   panelContent.innerHTML = panelContentHTML(T);

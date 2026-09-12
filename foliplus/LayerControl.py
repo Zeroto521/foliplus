@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from folium.elements import Element
 from folium.map import Layer
 
 from ._typing import Position
@@ -89,8 +90,12 @@ class LayerControl(BaseControl):
 
         This is the canonical example of a control that needs render-time data the
         constructor cannot know: the layer list only exists once the control is added
-        to a map. Traverses the parent map's ``_children`` and emits a serializable
-        list of ``{name, id, isBase}`` dicts.
+        to a map. Layers may be attached to the control itself (the usual case, since
+        ``.add_to(control)`` is how layers are grouped for display) or to the parent
+        map (the historical case). Candidates from both are unioned and deduplicated
+        by ``get_name()``, because folium's ``add_child`` stores elements in an
+        ``OrderedDict`` under that name — the same ``Layer`` reached twice collapses
+        to one key, distinct layers never collide.
 
         Returns
         -------
@@ -99,20 +104,27 @@ class LayerControl(BaseControl):
             into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
+        seen: set[str] = set()
+        candidates: list[Element] = [*self._children.values()]
         if (parent := self._parent) is not None:
-            for item in parent._children.values():
-                # isinstance first — the control itself is a child but not a Layer
-                # (and has no `.control` attribute).
-                if not isinstance(item, Layer) or not item.control:
-                    continue
+            candidates += [*parent._children.values()]
 
-                data.append(
-                    {
-                        "name": item.layer_name,
-                        "id": item.get_name(),
-                        "isBase": not item.overlay,
-                    }
-                )
+        for item in candidates:
+            # isinstance first — the control itself is a child but not a Layer
+            # (and has no `.control` attribute).
+            if not isinstance(item, Layer) or not item.control:
+                continue
+            if (name := item.get_name()) in seen:
+                continue
+            seen.add(name)
+
+            data.append(
+                {
+                    "name": item.layer_name,
+                    "id": name,
+                    "isBase": not item.overlay,
+                }
+            )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: cast(bool, d["isBase"]))

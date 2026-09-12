@@ -91,6 +91,8 @@ const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
+  ATTRS_PANEL: "foliplus-layer-attrs-panel",
+  ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
 
 /** Data attribute names. */
@@ -102,7 +104,11 @@ const DATA = {
 };
 
 /** Overflow-menu action values (data-action). */
-const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+const ACTION = {
+  FOCUS_LAYER: "focus-layer",
+  RENAME_LAYER: "rename-layer",
+  ATTRS_LAYER: "layer-attributes",
+};
 
 /** DOM selectors. */
 const SEL = {

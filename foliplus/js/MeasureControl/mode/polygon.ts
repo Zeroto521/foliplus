@@ -20,7 +20,7 @@ class PolygonMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_polygon";
 
   /** Rebuild a persisted polygon measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
