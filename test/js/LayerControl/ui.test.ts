@@ -1121,7 +1121,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       // No grouping: third-party rows continue the same list, so there is no
       // separator and only one list in the panel.
       expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
-      expect(item.querySelectorAll(".foliplus-layer-attrs-list").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
     });
 
     it("omits the custom-attributes block when meta is empty", () => {
@@ -1133,7 +1133,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
       // One block only: a single heading and a single list.
       expect(item.querySelectorAll(".foliplus-header-title").length).toBe(1);
-      expect(item.querySelectorAll(".foliplus-layer-attrs-list").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
     });
 
     it("continues meta rows in the same list, after the built-in rows", () => {
@@ -1143,7 +1143,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       ui.openAttrsPanel(item);
 
       // One flat list: no separator, no second block heading.
-      expect(item.querySelectorAll(".foliplus-layer-attrs-list").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
       expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
 
       const labels = Array.from(item.querySelectorAll(".foliplus-form-label")).map(

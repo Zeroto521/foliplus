@@ -2118,7 +2118,7 @@ class LayerUI {
     const renderList = (listRows: AttrRow[]): HTMLElement =>
       dom.el(
         "dl",
-        { class: "foliplus-layer-attrs-list" },
+        {},
         ...listRows.map(([label, value, kind]) =>
           dom.el(
             "div",
