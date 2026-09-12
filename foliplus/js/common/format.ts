@@ -23,11 +23,12 @@ const formatNumber = (
   fractionDigits: number = 1,
 ): string => {
   // 'comma' is language-agnostic: always en grouping, fixed fraction digits.
-  if (style === "comma")
+  if (style === "comma") {
     return new Intl.NumberFormat("en", {
       minimumFractionDigits: fractionDigits,
       maximumFractionDigits: fractionDigits,
     }).format(val);
+  }
 
   const absVal = Math.abs(val);
 
@@ -40,11 +41,12 @@ const formatNumber = (
 
   // int: plain integer, no grouping separator (6000) — distinct from comma's
   // thousands separator (6,000). Both are locale-agnostic.
-  if (style === "int")
+  if (style === "int") {
     return new Intl.NumberFormat(locale, {
       maximumFractionDigits: 0,
       useGrouping: false,
     }).format(val);
+  }
 
   // auto: compact notation for large values, with fractional digits trimmed
   // once the integer part reaches 3 digits. Compact notation already renders

@@ -1,12 +1,12 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
 import { panelHTML } from "./template.js";
-import { LayerUI } from "./ui.js";
+import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
 const T = createScopedTranslator(CONF);

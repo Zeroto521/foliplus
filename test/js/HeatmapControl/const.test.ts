@@ -6,7 +6,14 @@ describe("TIMING", () => {
   it("has expected debounce values", () => {
     expect(CONST.TIMING.ZOOM_DEBOUNCE).toBe(200);
     expect(CONST.TIMING.LAYER_SCAN_DEBOUNCE).toBe(200);
-    expect(CONST.TIMING.LOAD_SCRIPT_RETRIES).toBe(2);
+    // The init-scan and script-load constants were removed: the scan is
+    // signal-driven and script loading is handled elsewhere.
+    expect(
+      (CONST.TIMING as Record<string, unknown>).INIT_SCAN_TIMEOUT_MS,
+    ).toBeUndefined();
+    expect(
+      (CONST.TIMING as Record<string, unknown>).LOAD_SCRIPT_RETRIES,
+    ).toBeUndefined();
   });
 });
 
@@ -38,6 +45,12 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FORM_ROW).toBe("foliplus-heatmap-form-row");
     expect(CONST.CLASSES.BTN_CONFIRM).toBe("foliplus-heatmap-btn-confirm");
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
+  });
+
+  it("HIDDEN is the shared foliplus-hidden class", () => {
+    // Extra body / field toggling reuses the shared hidden class instead of
+    // a component-local `.hidden` (which collided with Bootstrap's .hidden).
+    expect(CONST.CLASSES.HIDDEN).toBe("foliplus-hidden");
   });
 });
 

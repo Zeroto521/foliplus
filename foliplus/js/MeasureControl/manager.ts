@@ -160,6 +160,8 @@ class MeasureManager {
   /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
     this.store.persist();
+    // Runtime content changed — refresh the attributes panel timestamp.
+    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
@@ -262,8 +264,9 @@ class MeasureManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
 
     this.layers.register();
 
@@ -527,8 +530,9 @@ class MeasureManager {
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT)
+      if (btn.dataset.mode === CONST.MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      }
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
     // nodes directly draggable, leaving disables them.

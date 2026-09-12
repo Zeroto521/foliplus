@@ -6,11 +6,7 @@
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
   LAYER_SCAN_DEBOUNCE: 200,
-  INIT_SCAN_ATTEMPTS: 8,
-  INIT_SCAN_INTERVAL: 300,
   SCHEME_DROPDOWN_BLUR_DELAY: 150,
-  LOAD_SCRIPT_RETRIES: 2,
-  LOAD_SCRIPT_INTERVAL: 3000,
 };
 
 const GRAY = "#999";
@@ -77,7 +73,7 @@ const CLASSES = {
   FORM_LABEL: "foliplus-heatmap-form-label",
   FORM_CONTROL: "foliplus-heatmap-form-control",
   FORM_SELECT: "foliplus-heatmap-form-select",
-  HIDDEN: "hidden",
+  HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   ACTIVE: "active",

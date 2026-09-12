@@ -59,7 +59,7 @@ class MarkerMode extends MeasureMode {
           manager.store.persist();
         });
       },
-      onEnd: async (latlng: L.LatLng) => {
+      onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
         if (rafId) {
           cancelAnimationFrame(rafId);
@@ -69,20 +69,27 @@ class MarkerMode extends MeasureMode {
         measurement.lng = Util.roundCoord(latlng.lng);
         measurement.lat = Util.roundCoord(latlng.lat);
         const code = window.CONF?.locale_code ?? "en";
-        const addr = await Util.geocodeAddress(
+        // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
+        // geocode runs as a detached fire-and-forget chain. Swallow rejections
+        // to keep a failed lookup from surfacing as an unhandled rejection.
+        void Util.geocodeAddress(
           manager,
           measurement.lng!,
           measurement.lat!,
           code,
           measurement.address ?? null,
-        );
-        if (gen !== generation) return; // a newer drag superseded us
-        measurement.address = addr;
-        manager.store.persist();
-        if (marker.getPopup()?.isOpen())
-          marker.setPopupContent(
-            Util.buildPopup(measurement.lng!, measurement.lat!, addr),
-          );
+        )
+          .then(addr => {
+            if (gen !== generation) return; // a newer drag superseded us
+            measurement.address = addr;
+            manager.store.persist();
+            if (marker.getPopup()?.isOpen()) {
+              marker.setPopupContent(
+                Util.buildPopup(measurement.lng!, measurement.lat!, addr),
+              );
+            }
+          })
+          .catch(() => undefined);
       },
     });
     // Drag is gated by edit mode (no popup-first required), matching
@@ -157,8 +164,9 @@ class MarkerMode extends MeasureMode {
     );
 
     marker.on("popupopen", () => {
-      if (data.address !== null)
+      if (data.address !== null) {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
+      }
     });
 
     // Pass `data` by reference so drag mutations land on the store's backing
@@ -190,7 +198,7 @@ class MarkerMode extends MeasureMode {
   }
 
   /** Handle marker click. */
-  async handleMarkerClick(event: L.LeafletMouseEvent) {
+  handleMarkerClick(event: L.LeafletMouseEvent) {
     if (this.m.currentMode !== this.type) return;
     const lngNum = Util.roundCoord(event.latlng.lng);
     const latNum = Util.roundCoord(event.latlng.lat);
@@ -261,8 +269,9 @@ class MarkerMode extends MeasureMode {
     attachDelClick(delMarker, deleteMeasurement);
 
     marker.on("popupopen", () => {
-      if (measurement.address !== null)
+      if (measurement.address !== null) {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
+      }
     });
   }
 

@@ -1,8 +1,8 @@
-Security
-========
+Sanitising external markup
+--------------------------
 
-XSS
----
+Developer-facing topics: how foliplus behaves where the author does not control
+the input, and the guarantees that make extending it safe.
 
 foliplus renders its own UI into a page it does not own, so the three sinks that
 accept markup come from outside the author's control. Each one is covered.
@@ -24,7 +24,7 @@ Reverse-geocoded addresses
   ever be text.
 
 The gate
---------
+~~~~~~~~
 
 Sanitisation is an allowlist, not an escape hatch. ``common/sanitize.ts`` keeps
 a small set of presentation attributes and drops everything with the capacity to

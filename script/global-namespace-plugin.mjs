@@ -62,6 +62,7 @@ const sharedGlobalNamespace = spec => {
   if (spec === "#core/hint.js") return "foliplus.hint";
   if (spec === "#core/component.js") return "foliplus.core.component";
   if (spec === "#core/mode.js") return "foliplus.core.mode";
+  if (spec === "#core/controlEnv.js") return "foliplus.core.controlEnv";
   if (spec === "#core/interaction.js") return "foliplus.core.interaction";
   if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
   // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
@@ -166,12 +167,11 @@ const globalNamespacePlugin = sourceRoot => ({
       // - Star-imported with known usage: include only used props (auto-analysis)
       // - Named-imported: include only those names (auto-analysis)
       // - Unknown (e.g. dynamic import): fall back to all exports
-      let namesToShim;
       // Merge named + star imports — a module can be consumed both ways.
       const merged = new Set();
       if (usedExports.has(spec)) usedExports.get(spec).forEach(n => merged.add(n));
       if (starUsed.has(spec)) starUsed.get(spec).forEach(n => merged.add(n));
-      namesToShim = merged.size > 0 ? [...merged] : collectExports(sourcePath);
+      const namesToShim = merged.size > 0 ? [...merged] : collectExports(sourcePath);
 
       if (namesToShim.length === 0) return { contents: "", loader: "js" };
 

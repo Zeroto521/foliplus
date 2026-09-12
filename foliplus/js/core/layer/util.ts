@@ -3,7 +3,7 @@ import * as CONST from "./const.js";
 import type { LabelAwareLayer } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
- *  @param {Object} map - Leaflet map.
+ *  @param {L.Map} map - Leaflet map.
  *  @param {string} id - Layer id.
  *  @returns {Object|null} Leaflet layer. */
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
@@ -32,8 +32,9 @@ const traverse = (
   if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
   else if (container._layers) {
     for (const k in container._layers) {
-      if (Object.hasOwn(container._layers, k))
+      if (Object.hasOwn(container._layers, k)) {
         traverse(container._layers[k], fn, depth + 1, leafOnly);
+      }
     }
   } else if (leafOnly) fn(layer);
 };
@@ -74,7 +75,7 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
  * Container layers (LayerGroup) carry no interactivity of their own — walk a
  * tree with forEachLeaf and apply this per leaf.
  *
- * @param {Object} layer - Leaflet layer.
+ * @param {L.Layer} layer - Leaflet layer.
  * @param {boolean} interactive - Desired interactivity.
  */
 const setInteractive = (layer: L.Layer, interactive: boolean): void => {
@@ -121,7 +122,7 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
  * A `skip` predicate lets a caller exempt some leaves (e.g. edit mode keeps
  * its own measurement layers interactive while suspending everything else).
  *
- * @param {Object} map - Leaflet map.
+ * @param {L.Map} map - Leaflet map.
  * @param {Function} [skip] - Optional predicate: leaves it returns true for
  *   are left interactive.
  * @returns {Function} Restore closure re-enabling the disabled leaves.
@@ -144,16 +145,16 @@ const suspendMapInteractions = (
 
 /** Detect the geometry type of a layer tree.
  *  Ignores isLabel leaves — type represents the data geometry, never labels.
- *  @param {Object} layer - Leaflet layer.
+ *  @param {L.Layer} layer - Leaflet layer.
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
 const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
   forEachLeaf(layer, l => leaves.push(l));
 
   let hasData = false; // any non-label leaf — labels are not data geometry
-  let hasPoly = false,
-    hasLine = false,
-    hasPoint = false;
+  let hasPoly = false;
+  let hasLine = false;
+  let hasPoint = false;
   for (const leaf of leaves) {
     // Labels are non-geometry nodes — same rule as countFeatureGeometry.
     if ((leaf as LabelAwareLayer).isLabel) continue;
@@ -185,7 +186,7 @@ const getGeometryType = (layer: L.Layer): string => {
  *  Counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Marker).
  *  A plain L.Marker without .feature (e.g. folium.Marker()) still counts as a
  *  point feature.  Excludes label layers and non-geometric nodes.
- *  @param {Object} layer - Leaflet layer (container or leaf).
+ *  @param {L.Layer} layer - Leaflet layer (container or leaf).
  *  @returns {number} Number of geometric features. */
 const countFeatureGeometry = (layer: L.Layer): number => {
   let count = 0;

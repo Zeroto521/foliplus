@@ -1,11 +1,29 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
+import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { parseSVG } from "#common/sanitize.js";
 
-const BASE = { BOTTOM: 20, STACK_GAP: 40, ZINDEX: 10000 };
+const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
+const HINT_Z_INDEX_DEFAULT = 10000;
+
+/** Hint z-index base, read once from the --z-index-hint token (fallback 10000). */
+let hintZIndex: number | null = null;
+const zIndexBase = (): number => {
+  if (hintZIndex === null) {
+    hintZIndex =
+      Number(
+        cssVar(
+          document.documentElement,
+          "--z-index-hint",
+          String(HINT_Z_INDEX_DEFAULT),
+        ),
+      ) || HINT_Z_INDEX_DEFAULT;
+  }
+  return hintZIndex;
+};
 
 /** Make a non-body target a positioned ancestor so absolutely-positioned hints
  *  anchor to it (the default body/fullscreen root is already positioned). */
@@ -164,7 +182,7 @@ class HintManager {
     let idx = 0;
     for (const v of this.hintMap.values()) {
       v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
-      v.element.style.zIndex = String(BASE.ZINDEX + idx);
+      v.element.style.zIndex = String(zIndexBase() + idx);
       idx++;
     }
   }

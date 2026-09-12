@@ -1,5 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -41,7 +42,12 @@ interface HeatmapControlUI {
 }
 
 /** Save the current config after any user-initiated change. */
-const persist = (ctrl: HeatmapControlUI) => ctrl.m.saveConfig();
+const persist = (ctrl: HeatmapControlUI) => {
+  ctrl.m.saveConfig();
+  // Field/method/scheme changes rewrite the canvas — stamp the layer so the
+  // attributes panel's Updated row reflects the latest render.
+  ctrl.m.map.foliplus?.LayerAPI?.touchLayer?.(ctrl.m.layerId);
+};
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   panelContent.innerHTML = panelContentHTML(T);
@@ -212,8 +218,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
-    if (ctrl.schemeDropdown)
+    if (ctrl.schemeDropdown) {
       document.addEventListener("click", ctrl.closeSchemeDropdown);
+    }
   };
 
   const clearBtn = panelContent.querySelector(
@@ -263,8 +270,9 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED))
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+    }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
 };
@@ -309,8 +317,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.m.selectedLayerId = sel.value || null;
-    if (ctrl.extraBody)
+    if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+    }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
     if (ctrl.m.selectedLayerId) ctrl.m.renderHexagons();
@@ -319,8 +328,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  if (ctrl.extraBody)
+  if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+  }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
@@ -468,43 +478,77 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   persist(ctrl);
 };
 
-const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  try {
-    ctrl.m.scanMapLayers();
-  } catch {
-    // scanMapLayers may throw when LayerControl is missing (e.g.
-    // map.foliplus.LayerAPI is the lightweight stub that lacks the
-    // full registry methods).  The error is harmless — we just
-    // treat it as "no layers found" and continue to the hint logic.
-  }
-  if (ctrl.m.pointLayers.length === 0 && attempt > 0)
-    setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0) {
-    // Distinguish the two "no point layers" causes so the hint points the
-    // user at the right fix:  isLayerControl===false means only the
-    // lightweight LayerAPI stub is installed (no LayerControl added),
-    // whereas true means LayerControl is present but has no point data.
-    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
-    map.foliplus!.showHint(
-      CONF.name,
-      T(missingLayerControl ? "no_layercontrol" : "no_layer"),
-      HINT_DURATION.LONG,
-    );
-    ctrl.m.hasScanned = true;
-  } else {
-    rebuildLayerDropdown(ctrl);
-    // Mark scanned only after the first rebuild completes, so the
-    // one-shot single-layer auto-select inside buildLayerListItems can
-    // still fire for the initial map load but never again afterwards.
-    ctrl.m.hasScanned = true;
-    // Restore path: rebuild only syncs the dropdown value — refresh the
-    // field selector and draw the saved layer so a reload shows the saved
-    // configuration without waiting for user input.
-    if (ctrl.m.selectedLayerId) {
-      updateFieldSelector(ctrl);
-      if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+/**
+ * Scan the map for point layers. Driven by the ready signal instead of a
+ * retry loop: an immediate first pass, a re-scan on every CONTROL_ATTACHED
+ * (a control — usually LayerControl — finishing attach), and a final pass
+ * one macrotask later to settle the "no point layers" hint — every control
+ * attaches in the same synchronous script stack, so by then the layer set is
+ * final (dynamic layer changes after that flow through LAYER_CHANGE in the
+ * manager). Returns a cleanup that unsubscribes.
+ */
+const initScan = (ctrl: HeatmapControlUI): (() => void) => {
+  let done = false;
+
+  const scan = (final: boolean): void => {
+    if (done) return;
+    try {
+      ctrl.m.scanMapLayers();
+    } catch {
+      // scanMapLayers may throw when LayerControl is missing (e.g.
+      // map.foliplus.LayerAPI is the lightweight stub that lacks the
+      // full registry methods). The error is harmless — we just
+      // treat it as "no layers found" and continue to the hint logic.
     }
-  }
+    if (ctrl.m.pointLayers.length > 0) {
+      rebuildLayerDropdown(ctrl);
+      // Mark scanned only after the first rebuild completes, so the
+      // one-shot single-layer auto-select inside buildLayerListItems can
+      // still fire for the initial map load but never again afterwards.
+      ctrl.m.hasScanned = true;
+      // Restore path: rebuild only syncs the dropdown value — refresh the
+      // field selector and draw the saved layer so a reload shows the saved
+      // configuration without waiting for user input.
+      if (ctrl.m.selectedLayerId) {
+        updateFieldSelector(ctrl);
+        if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+      }
+      ctrl.ctrl?.setAttribute("data-ready", "true");
+      done = true;
+      cleanup();
+    } else if (final) {
+      // Settle: no point layer showed up. Distinguish the two causes so the
+      // hint points the user at the right fix: isLayerControl===false means
+      // only the lightweight LayerAPI stub is installed (no LayerControl
+      // added), whereas true means LayerControl is present but has no data.
+      const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
+      map.foliplus!.showHint(
+        CONF.name,
+        T(missingLayerControl ? "no_layercontrol" : "no_layer"),
+        HINT_DURATION.LONG,
+      );
+      ctrl.m.hasScanned = true;
+      ctrl.ctrl?.setAttribute("data-ready", "true");
+      done = true;
+      cleanup();
+    }
+  };
+
+  const cleanup = ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, () => scan(false));
+
+  // Settle after the synchronous attach sequence: a control that attached
+  // before this subscription (e.g. LayerControl added before Heatmap) is
+  // covered by the immediate pass below; the final pass here ends the
+  // initial scan. No fixed delay — the attach stack is synchronous.
+  setTimeout(() => scan(true), 0);
+
+  scan(false);
+
+  return () => {
+    if (done) return;
+    done = true;
+    cleanup();
+  };
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import folium
@@ -9,6 +10,7 @@ import pytest
 from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
 
 from foliplus import ExportControl
+from foliplus.locale import _load_tables
 
 
 class TestExportControlPython:
@@ -135,12 +137,24 @@ class TestExportControlPython:
     def test_max_pixels_custom(self):
         assert ExportControl(max_pixels=1000000).max_pixels == 1000000
 
-    def test_locale_config(self):
+    def test_locale_config_bare_has_no_custom_strings(self):
+        """A bare LocaleConfig records the code but ships no custom table.
+
+        The code is sent to JS, which ships the built-in tables and lets the
+        browser pick the language — so this asserts the *absence* of a custom
+        table rather than that translation took effect.
+        """
         from foliplus.locale import LocaleConfig
 
         cfg = LocaleConfig(language="zh")
         ctrl = ExportControl(locale=cfg)
         assert ctrl._locale_code == "zh"
+        conf = json.loads(ctrl._config_block)
+        assert conf["locale_code"] == "zh"
+        table = conf["locale_tables"]["zh"]
+        # Built-in table is present, unmodified — no custom override layered on.
+        builtin = _load_tables("ExportControl.*.json")["zh"]
+        assert table == builtin
 
 
 class TestExportControlRendering:
@@ -184,6 +198,15 @@ class TestExportControlRendering:
         html = render_control(ExportControl())
         assert "z-export-base" in html
         assert "calc(" in html
+
+    def test_css_top_z_index_tokenized(self):
+        """The 100000 'above everything' z-index is a token, not a magic number in a rule."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "var(--z-index-top)" in css
+        # The rule uses the token; the literal may only appear in a comment.
+        assert "z-index: 100000" not in css
 
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))

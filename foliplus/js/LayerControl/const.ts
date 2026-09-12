@@ -61,7 +61,6 @@ const CLASSES = {
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
-  HIDDEN: "hidden",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
@@ -92,6 +91,8 @@ const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
+  ATTRS_PANEL: "foliplus-layer-attrs-panel",
+  ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
 
 /** Data attribute names. */
@@ -103,7 +104,11 @@ const DATA = {
 };
 
 /** Overflow-menu action values (data-action). */
-const ACTION = { FOCUS_LAYER: "focus-layer", RENAME_LAYER: "rename-layer" };
+const ACTION = {
+  FOCUS_LAYER: "focus-layer",
+  RENAME_LAYER: "rename-layer",
+  ATTRS_LAYER: "layer-attributes",
+};
 
 /** DOM selectors. */
 const SEL = {

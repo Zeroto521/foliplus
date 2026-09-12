@@ -115,9 +115,9 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      )
+      ) {
         el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
-      else if (typeof child === "number") el.append(String(child));
+      } else if (typeof child === "number") el.append(String(child));
       else el.append(child as string | HTMLElement);
     }
     return el;
@@ -253,22 +253,25 @@ const createLocationMarker = (
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus;
     if (foliplus?.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
-        if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-          marker.setPopupContent(
-            buildPopupEl(
-              lng,
-              lat,
-              resolved,
-              titleText,
-              loadingText,
-              locLabelText,
-              addrLabelText,
-            ),
-          );
-        }
-      });
+      void foliplus
+        .reverseGeocode(map, lng, lat, code)
+        .then((resolved: string) => {
+          if (onAddress) onAddress(resolved);
+          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
+            marker.setPopupContent(
+              buildPopupEl(
+                lng,
+                lat,
+                resolved,
+                titleText,
+                loadingText,
+                locLabelText,
+                addrLabelText,
+              ),
+            );
+          }
+        })
+        .catch(() => undefined);
     }
   }
   return marker;
@@ -302,8 +305,9 @@ const updateItemLabel = (
   const toggle = item.querySelector(
     'input[type="checkbox"], input[type="color"]',
   ) as HTMLInputElement | null;
-  if (toggle && toggle.getAttribute("aria-label") !== name)
+  if (toggle && toggle.getAttribute("aria-label") !== name) {
     toggle.setAttribute("aria-label", name);
+  }
   return label;
 };
 

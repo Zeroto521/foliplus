@@ -55,11 +55,11 @@ class LayerRegistry {
   /**
    * Create a layer info object with all fields populated.
    *
-   * @param {Object} opts - Raw options from registerLayer().
-   * @param {Object} [existingLi] - Existing layer info for re-registration.
-   * @param {Object} [map] - Leaflet map. If provided, resolves `layer` from
+   * @param {RegisterLayerOpts} opts - Raw options from registerLayer().
+   * @param {LayerInfo} [existingLi] - Existing layer info for re-registration.
+   * @param {L.Map} [map] - Leaflet map. If provided, resolves `layer` from
    *   the map/window globals when `opts.layer` is absent.
-   * @returns {Object} A complete layerInfo object.
+   * @returns {LayerInfo} A complete layerInfo object.
    */
   createLayerInfo(
     opts: RegisterLayerOpts,
@@ -99,12 +99,22 @@ class LayerRegistry {
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
+      // Static caller-supplied metadata for the attributes panel. `??` (not
+      // a spread) so a re-registration leaves the previous values in place —
+      // the provider does not necessarily resend provenance on every call,
+      // and clearing it on a silent refresh would lose it.
+      source: opts.source ?? existingLi?.source ?? null,
+      updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
+      meta: opts.meta ?? existingLi?.meta ?? null,
+      // Registration time: set once on first registration, never rewritten by a
+      // provider re-registration.
+      registeredAt: existingLi?.registeredAt ?? Date.now(),
     };
   }
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => !!l.isBase);
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.isBase));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -150,6 +160,15 @@ class LayerRegistry {
 
   get(id: string) {
     return this.byId.get(id);
+  }
+
+  /** Stamp `updatedAt` to now — runtime mutations (heatmap field, measure
+   *  edits) that do not re-register the layer still refresh the attrs panel. */
+  touch(id: string): boolean {
+    const li = this.byId.get(id);
+    if (!li) return false;
+    li.updatedAt = Date.now();
+    return true;
   }
 
   has(id: string) {
@@ -258,7 +277,7 @@ class LayerRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (!!from.isBase !== !!to.isBase) return false;
+    if (Boolean(from.isBase) !== Boolean(to.isBase)) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;

@@ -58,6 +58,52 @@ class TestLayerControlPython:
         assert flags["OSM"] is True, f"OSM should be base: {flags}"
         assert flags["Points"] is False, f"Points should be overlay: {flags}"
 
+    def test_render_collects_layers_attached_to_control(self):
+        """Layers added to the control itself are collected, not just the map.
+
+        folium's add_child stores elements in an OrderedDict on the *parent*
+        object, and Map.get_root() returns the enclosing Figure — a different
+        object. So Map._children only holds controls after render(); layers live
+        on the Figure's script element. A layer added to the control is reached
+        only by reading the control's own _children, which is the union path in
+        _extra_config. Without it the control renders an empty panel.
+        """
+        m = folium.Map()
+        ctrl = LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            name="Carto",
+            overlay=False,
+            attr="&copy; OpenStreetMap contributors",
+        ).add_to(ctrl)
+        folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(ctrl)
+        m.render()
+
+        flags = {d["name"]: d["isBase"] for d in ctrl._config["data"]}
+        assert flags["Carto"] is True, f"Carto should be base: {flags}"
+        assert flags["Points"] is False, f"Points should be overlay: {flags}"
+
+    def test_render_dedupes_layer_reached_from_both(self):
+        """A layer on both the map and the control appears once, keyed by name."""
+        m = folium.Map()
+        ctrl = LayerControl().add_to(m)
+        layer = folium.TileLayer(
+            "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            name="Carto",
+            overlay=False,
+            attr="&copy; OpenStreetMap contributors",
+        )
+        layer.add_to(m)
+        layer.add_to(ctrl)
+        m.render()
+
+        names = [d["name"] for d in ctrl._config["data"]]
+        assert names.count("Carto") == 1, f"Carto duplicated: {names}"
+        # folium.Map() auto-adds its own 'openstreetmap' basemap, so the map
+        # child set is Carto + openstreetmap. What matters is that reaching
+        # Carto from two places did not double it.
+        assert set(names) == {"Carto", "openstreetmap"}, f"unexpected layers: {names}"
+
 
 class TestLayerControlRendering:
     def test_default_params(self):

@@ -45,24 +45,3 @@ repos:
     rev: v2.4.3
     hooks:
       - id: codespell
-
-  # ── JS / CSS formatting (Prettier) ──
-  # Uses language: node so pre-commit.ci sets up Node and installs prettier
-  # itself (its isolated env has no npx/node_modules).
-  #
-  # Uses .prettierrc.cjs (with require.resolve for the plugin) because
-  # prettier resolves plugins from package.json's "prettier" block via
-  # ESM `import()` from /code/noop.js — which fails in pre-commit.ci's
-  # isolated env (ESM does not honor NODE_PATH). require.resolve() in a
-  # .cjs file resolves via CJS module resolution, which honors NODE_PATH.
-  - repo: local
-    hooks:
-      - id: format-prettier
-        name: format-prettier
-        entry: prettier --write
-        language: node
-        types_or: [css, javascript, ts]
-        files: ^foliplus/(js|css)/|^script/.*\.(js|cjs|mjs|ts)$|^test/js/.*\.(js|cjs|mjs|ts)$
-        additional_dependencies:
-          - "prettier@3.9.5"
-          - "@trivago/prettier-plugin-sort-imports@5.2.2"
