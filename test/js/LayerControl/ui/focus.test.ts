@@ -1009,4 +1009,56 @@ describe("LayerUI focus", () => {
   });
 
   // ─────────────────── destroy ───────────────────
+  // ─────────────────── destroy() ───────────────────
+
+  describe("destroy()", () => {
+    it("removes the active focus rectangle", () => {
+      vi.useFakeTimers();
+      ui.focusLayer("overlay1");
+      const rect = ui.focusRect!;
+
+      manager.destroy();
+
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(ui.focusRect).toBeNull();
+    });
+
+    it("removes the active overflow menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+
+      manager.destroy();
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+
+    it("removes both focus rectangle and active menu simultaneously", () => {
+      vi.useFakeTimers();
+
+      const item = findItem(ui, "overlay1");
+      ui.focusLayer("overlay1");
+      ui.openMoreMenu(item);
+
+      const rect = ui.focusRect!;
+
+      manager.destroy();
+
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(ui.focusRect).toBeNull();
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+
+    it("releases the focus SVG renderer so it does not leak", () => {
+      ui.focusLayer("overlay1");
+      const renderer = ui.focusRenderer!;
+      expect(renderer).not.toBeNull();
+
+      manager.destroy();
+
+      expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+      expect(ui.focusRenderer).toBeNull();
+    });
+  });
 });
