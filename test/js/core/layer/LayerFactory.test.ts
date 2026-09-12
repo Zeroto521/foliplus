@@ -148,6 +148,25 @@ describe("LayerFactory", () => {
       expect(labelLayer.options.pane).toBe("label1");
     });
 
+    it("preserves existing options.pane when addLayer omits paneName", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [
+          { name: "graph1" },
+          { name: "node1" },
+          { name: "label1", isLabel: true },
+        ],
+      });
+      // Simulate a layer already routed to node1 (e.g. by mainLayer.addLayer),
+      // then re-added without an explicit pane (resortLayers path).
+      const nodeLayer = new window.L.Marker();
+      nodeLayer.options.pane = "node1";
+      nodeLayer.options.paneSet = true;
+      api.addLayer(nodeLayer);
+      expect(nodeLayer.options.pane).toBe("node1");
+    });
+
     it("marks a layer as isLabel when its pane is declared isLabel: true", () => {
       const api = factory.createLayers({
         id: "test",

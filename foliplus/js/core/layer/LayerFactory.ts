@@ -71,7 +71,7 @@ class LayerFactory {
 
     // The first name in `opts.panes` is the layer's base pane (recorded as
     // `paneName` on the registry entry); the rest are sub-panes with
-    // ascending z offsets from CHILD_PANE_OFFSET. An empty or absent list
+    // ascending z offsets from CHILD_PANE_STEP. An empty or absent list
     // means the layer is flat — a single `mainLayer` with no children.
     const paneEntries = opts.panes ?? [];
     const subPanes = paneEntries.map(p => p.name);
@@ -253,19 +253,15 @@ class LayerFactory {
      * feature-geometry counts, so the flag is kept for that contract.
      */
     const addLayer = (layer: L.Layer, paneName?: string): L.Layer => {
-      // Default to the base pane when the caller doesn't name one — the
-      // common case is graph geometry, which lives in `subPanes[0]`.
-      // Without this default, a caller writing `api.addLayer(layer)` with no
-      // pane would bypass the sub-layer routing and skip register /
-      // onDataChange / invalidateType.
-      const target = paneName ?? basePaneName ?? undefined;
+      // Only write options.pane when the caller explicitly names one.
+      // When paneName is omitted, mainLayer.addLayer's own default
+      // (basePaneName for unset pane, existing pane when paneSet is true)
+      // handles routing — overwriting here would collapse NODE/LABEL
+      // layers back to GRAPH on resort/re-add.
+      const target = paneName ?? undefined;
       if (target && subPanes.includes(target)) {
         (layer as LabelAwareLayer).options.pane = target;
         (layer as LabelAwareLayer).options.paneSet = true;
-        // Mark as a label if the pane is one of the caller's label panes.
-        // This preserves the `isLabel` contract that util.getGeometryType /
-        // countFeatureGeometry rely on to exclude label leaves from
-        // feature geometry counts and type detection.
         if (labelPanes.has(target)) {
           (layer as LabelAwareLayer).isLabel = true;
         }
