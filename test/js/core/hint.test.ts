@@ -48,8 +48,8 @@ const unloadMap = (map: StubMap) => {
   return {
     showHint: map.foliplus?.showHint as (() => void) | undefined,
     hideHint: map.foliplus?.hideHint as (() => void) | undefined,
-    registerHintIcon: map.foliplus
-      ?.registerHintIcon as ((key: string, svg: string) => void) | undefined,
+    registerHintIcon: map.foliplus?.registerHintIcon as
+      ((key: string, svg: string) => void) | undefined,
     warn,
   };
 };
@@ -411,7 +411,7 @@ describe("map unload teardown", () => {
     const { registerHintIcon: seal } = unloadMap(map);
     expect(typeof seal).toBe("function");
 
-    seal!("@unloaded", "<svg viewBox=\"0 0 8 8\"><rect/></svg>");
+    seal!("@unloaded", '<svg viewBox="0 0 8 8"><rect/></svg>');
     expect(new HintManager().hintIcons["@unloaded"]).toBeUndefined();
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
   });

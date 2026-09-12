@@ -285,9 +285,7 @@ describe("LayerRegistry", () => {
       // `layers` is the view consumers already read; the iterator must agree on
       // both order and identity, or `for...of` and spread silently diverge from
       // the rest of the API.
-      expect([...registry].map(l => l.id)).toEqual(
-        registry.layers.map(l => l.id),
-      );
+      expect([...registry].map(l => l.id)).toEqual(registry.layers.map(l => l.id));
     });
 
     it("yields the same objects the index holds", () => {
