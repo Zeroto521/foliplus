@@ -43,7 +43,13 @@ describe("HISTORY", () => {
   it("defines history config", () => {
     expect(CONST.HISTORY.MAX_ENTRIES).toBe(20);
     expect(CONST.HISTORY.MAX_DISPLAY).toBe(5);
-    expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus.search_history");
+  });
+
+  it("scopes the storage key to the map container", () => {
+    const containerId = globalThis.map.getContainer().id;
+    // Asserts the shape (prefix + separator + id) from the same input the source
+    // uses, so the expectation cannot drift from the template literal.
+    expect(CONST.HISTORY.STORAGE_KEY).toBe(`foliplus_search_${containerId}`);
   });
 });
 

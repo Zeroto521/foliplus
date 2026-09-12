@@ -32,8 +32,8 @@ const HISTORY = {
   MAX_ENTRIES: 20,
   /** Maximum entries to display per section (matches autocomplete limit). */
   MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
-  /** localStorage key for search history. */
-  STORAGE_KEY: "foliplus.search_history",
+  /** localStorage key for search history, scoped per map container. */
+  STORAGE_KEY: `foliplus_search_${map.getContainer().id}`,
 };
 
 export {
