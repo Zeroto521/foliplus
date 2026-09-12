@@ -897,21 +897,17 @@ path.foliplus-focus-mask {
     top: 100%;
     right: 0;
     z-index: 10;
+    display: flex;
     flex-direction: column;
     width: var(--style-panel-width);
     max-height: 320px;
     padding: 0;
     overflow-x: hidden;
-    /* Same card chrome as an expanded foliplus panel. */
-    border-radius: var(--radius-card);
-    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
+    /* Shell chrome (background, border, radius, shadow, entrance animation)
+       comes from the shared floating-surface recipe in common/menu.css —
+       the attrs panel and the overflow menu being the sibling cases. */
     font-size: var(--font-size-sm);
     color: var(--text-primary);
-    animation: foliplus-dropdown-in 0.15s ease-out;
-
-    @media (prefers-reduced-motion: reduce) {
-      animation: none;
-    }
   }
 
   /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit

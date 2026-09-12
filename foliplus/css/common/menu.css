@@ -11,7 +11,8 @@
   .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
   .foliplus-layer-more-menu,
-  .foliplus-layer-attrs-panel
+  .foliplus-layer-attrs-panel,
+  .foliplus-layer-style-panel
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -42,7 +43,8 @@
     .foliplus-search-result-panel,
     .foliplus-heatmap-scheme-dropdown,
     .foliplus-layer-more-menu,
-    .foliplus-layer-attrs-panel
+    .foliplus-layer-attrs-panel,
+    .foliplus-layer-style-panel
   ) {
     animation: none;
   }
