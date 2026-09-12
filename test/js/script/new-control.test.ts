@@ -211,7 +211,7 @@ describe("buildSkeleton", () => {
 
   it("only references design tokens that exist in token.css", () => {
     const css = skeleton.files.get("foliplus/css/FooControl.css");
-    const tokens = [...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]);
+    const tokens = [...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map(m => m[1]);
     const allowed = new Set([
       "--space-sm",
       "--space-md",

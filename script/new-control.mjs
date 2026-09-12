@@ -42,11 +42,14 @@ const SPEC = {
 const POSITIONS = new Set(["topleft", "topright", "bottomleft", "bottomright"]);
 
 /** PascalCase name ending in Control. */
-const isValidControlName = (name) => /^[A-Z][A-Za-z0-9]*Control$/.test(name);
+const isValidControlName = name => /^[A-Z][A-Za-z0-9]*Control$/.test(name);
 
 /** Strip the Control suffix and kebab-case the remainder (ScaleControl → scale). */
-const controlSlug = (name) =>
-  name.replace(/Control$/, "").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+const controlSlug = name =>
+  name
+    .replace(/Control$/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase();
 
 /**
  * Split argv into positionals and flag tokens (args.mjs only understands flags).
@@ -80,14 +83,14 @@ const splitArgv = (argv, spec = SPEC) => {
 const insertSortedLine = (text, block, line) => {
   if (text.includes(line)) return text;
   const lines = text.split("\n");
-  const start = lines.findIndex((l) => l.trim() === block.start);
+  const start = lines.findIndex(l => l.trim() === block.start);
   if (start < 0) throw new Error(`marker not found: ${block.start}`);
   let end = start + 1;
   while (end < lines.length && !lines[end].includes(block.end)) end++;
   if (end >= lines.length) throw new Error(`end marker not found: ${block.end}`);
 
   const body = lines.slice(start + 1, end);
-  const indent = (body.find((l) => l.trim()) ?? "  ").match(/^\s*/)?.[0] ?? "  ";
+  const indent = (body.find(l => l.trim()) ?? "  ").match(/^\s*/)?.[0] ?? "  ";
   const newLine = indent + line;
   let insertAt = end;
   for (let i = start + 1; i < end; i++) {
@@ -118,12 +121,12 @@ const patchInitPy = (text, name) => {
       if (body.includes(`"${name}"`)) return m;
       const items = body
         .split("\n")
-        .map((l) => l.trim())
+        .map(l => l.trim())
         .filter(Boolean)
-        .map((l) => l.replace(/,$/, "").replace(/^"|"$/g, ""));
+        .map(l => l.replace(/,$/, "").replace(/^"|"$/g, ""));
       if (!items.includes(name)) items.push(name);
       items.sort();
-      return head + items.map((i) => `    "${i}",`).join("\n") + tail;
+      return head + items.map(i => `    "${i}",`).join("\n") + tail;
     },
   );
 };
@@ -348,7 +351,7 @@ Example:
   });
 
   const p = (...parts) => resolve(ROOT, ...parts);
-  const rel = (path) =>
+  const rel = path =>
     path.replace(/\\/g, "/").replace(ROOT.replace(/\\/g, "/") + "/", "");
 
   const created = [];
@@ -389,15 +392,15 @@ Example:
     writeIfAbsent(p(...relPath.split("/")), content);
   }
 
-  patchFile(p("foliplus", "__init__.py"), (t) => patchInitPy(t, NAME));
-  patchFile(p("foliplus", "js", "core", "component.ts"), (t) =>
+  patchFile(p("foliplus", "__init__.py"), t => patchInitPy(t, NAME));
+  patchFile(p("foliplus", "js", "core", "component.ts"), t =>
     patchComponentTs(t, NAME),
   );
-  patchFile(p("doc", "source", "api.rst"), (t) => patchApiRst(t, NAME));
-  patchFile(p("README.md"), (t) => patchReadme(t, NAME, DESCRIPTION, ICON));
+  patchFile(p("doc", "source", "api.rst"), t => patchApiRst(t, NAME));
+  patchFile(p("README.md"), t => patchReadme(t, NAME, DESCRIPTION, ICON));
   // test_build.py derives COMPONENTS from the package — no patch needed.
   // vitest.config.mjs excludes foliplus/js/*/index.ts by glob — no patch needed.
-  patchFile(p("test", "python", "test_locale.py"), (t) => patchLocaleKeys(t, NAME));
+  patchFile(p("test", "python", "test_locale.py"), t => patchLocaleKeys(t, NAME));
 
   console.log(`${OK} scaffolded ${NAME}\n`);
   if (created.length) {
