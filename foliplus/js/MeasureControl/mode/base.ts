@@ -1,5 +1,6 @@
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 
@@ -171,6 +172,36 @@ class PreviewMode extends MeasureMode {
     if (!this.cursorNode) return;
     this.removePreview(this.cursorNode);
     this.cursorNode = null;
+  }
+
+  /**
+   * Create or update a preview label in the label pane.
+   *
+   * Every preview mode (circle radius, distance segment, polygon edge) needs
+   * a floating label that tracks a moving midpoint. This method owns the
+   * full lifecycle so no mode can forget `setLatLng` (position), `pinToTop`
+   * (paint order within the label pane), or the `CONST.PANES.LABEL` routing.
+   *
+   * @param label - Existing label to update, or `null` to create one.
+   * @param latlng - New midpoint position.
+   * @param text - New label text.
+   * @param makeIcon - Factory for the DivIcon (caller picks anchor/class).
+   * @returns The created or updated marker.
+   */
+  updateOrCreateLabel(
+    label: L.Marker | null,
+    latlng: L.LatLng,
+    text: string,
+    makeIcon: (text: string) => L.DivIcon,
+  ): L.Marker {
+    if (!label) {
+      const el = L.marker(latlng, { icon: makeIcon(text), interactive: false });
+      return this.addPreview(el, CONST.PANES.LABEL);
+    }
+    label.setLatLng(latlng);
+    this.pinToTop(label, CONST.PANES.LABEL);
+    Util.setLabelText(label, text);
+    return label;
   }
 }
 

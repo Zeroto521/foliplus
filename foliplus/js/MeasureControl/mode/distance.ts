@@ -193,18 +193,12 @@ class DistanceMode extends PreviewMode {
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
       const labelText = Util.formatSegmentLabel(lastPt, event.latlng, showDist);
-      if (!previewDistLabel) {
-        previewDistLabel = this.layers.addLayer(
-          L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(labelText),
-            interactive: false,
-          }),
-          CONST.PANES.LABEL,
-        ) as L.Marker;
-      } else {
-        previewDistLabel!.setLatLng([mid.lat, mid.lng]);
-        Util.setLabelText(previewDistLabel, labelText);
-      }
+      previewDistLabel = this.updateOrCreateLabel(
+        previewDistLabel,
+        mid,
+        labelText,
+        Util.makeMidLabelDivIcon,
+      );
     };
 
     const onDistClick = (event: L.LeafletMouseEvent) => {

@@ -196,21 +196,17 @@ class CircleMode extends PreviewMode {
       previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);
-      if (!previews.label) {
-        const previewLabel = L.marker(mid, {
-          icon: Util.makeLabelDivIcon(
-            Util.formatDistance(r),
+      previews.label = this.updateOrCreateLabel(
+        previews.label,
+        mid,
+        Util.formatDistance(r),
+        t =>
+          Util.makeLabelDivIcon(
+            t,
             CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
           ),
-          interactive: false,
-        });
-        previews.label = this.addPreview(previewLabel, CONST.PANES.LABEL);
-      } else {
-        previews.label.setLatLng(mid);
-        previews.label = this.pinToTop(previews.label, CONST.PANES.LABEL);
-        Util.setLabelText(previews.label, Util.formatDistance(r));
-      }
+      );
     };
 
     const onContext = (event: L.LeafletMouseEvent) => {
