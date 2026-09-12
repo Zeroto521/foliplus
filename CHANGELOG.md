@@ -63,7 +63,6 @@
 
 ### Fixed
 
-- `BaseControl`: escape config JSON and the shared locale tables through `htmlsafe_json_dumps` before inlining them into `<script>` tags, so a `</script>` in a model-supplied string (layer name, export filename, ...) can no longer close the script tag and execute as script
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
@@ -74,6 +73,7 @@
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 - `LocaleConfig`: custom strings from `from_json()` now reach the JS `CONF`, which previously shipped only the built-in tables and silently dropped every custom translation ([#292](https://github.com/Zeroto521/foliplus/pull/292))
+- `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 
 ## [v0.3.0] (2026-08-02)
 
