@@ -3,16 +3,18 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "../const.js";
 import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { initTypesAndVisibility, reindexItems, renderInitialList } from "./list.js";
+import { saveFoldState } from "./state.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
 const toggleFold = (ui: LayerUI, group: string): void => {
   if (ui.foldedGroups.has(group)) ui.foldedGroups.delete(group);
   else ui.foldedGroups.add(group);
-  ui.renderInitialList();
-  ui.initTypesAndVisibility();
+  renderInitialList(ui);
+  initTypesAndVisibility(ui);
   ui.refreshAllCounts();
-  ui.saveFoldState();
+  saveFoldState(ui);
 };
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
@@ -50,7 +52,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
 
   if (!ui.m.canReorderBetween(ui.dragIdx, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    ui.showReorderBlockedHint();
+    showReorderBlockedHint(ui);
     return;
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -86,7 +88,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const targetIdx = parseInt(target.dataset.index ?? "", 10);
   if (ui.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(ui.dragIdx, targetIdx)) {
-    ui.showReorderBlockedHint();
+    showReorderBlockedHint(ui);
     return;
   }
 
@@ -107,7 +109,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     target.parentNode.insertBefore(movedItem, target.nextSibling);
   }
 
-  ui.reindexItems();
+  reindexItems(ui);
   ui.m.enforceOrder();
   ui.m.saveOrder();
   ui.dragIdx = null;

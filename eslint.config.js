@@ -150,6 +150,8 @@ export default [
     rules: {
       // `const fn = () => {}` only — no `export function` / `function foo()`.
       "func-style": ["error", "expression", { allowArrowFunctions: true }],
+      // Catch `fn( arg )` — prettier usually fixes this, but keep an explicit gate.
+      "space-in-parens": ["error", "never"],
       // One `export { … }` block at the bottom of the file — no inline export.
       "no-restricted-syntax": [
         "error",

@@ -2,9 +2,20 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
+import { closeAttrsPanel } from "./attrs.js";
 import { T } from "./context.js";
 import { owningRow } from "./context.js";
+import { toggleFold } from "./drag.js";
+import {
+  cancelFocus,
+  focusLayer,
+  isFocusing,
+  showBaseFocusHint,
+  toggleFocusedLayer,
+} from "./focus.js";
 import type { LayerUI } from "./index.js";
+import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { finishRename, renameLayer } from "./rename.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
@@ -31,7 +42,7 @@ const syncListCursor = (ui: LayerUI): void => {
 
 const cursorRef = (ui: LayerUI): string | null => {
   if (ui.activeIdx === null) return null;
-  const el = ui.getNavigableItems()[ui.activeIdx];
+  const el = getNavigableItems(ui)[ui.activeIdx];
   return el
     ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
     : null;
@@ -46,7 +57,7 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
     ui.activeIdx = null;
     return;
   }
-  const items = ui.getNavigableItems();
+  const items = getNavigableItems(ui);
   let idx = items.findIndex(
     el =>
       el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
@@ -60,8 +71,8 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
         el.getAttribute("data-group") === group,
     );
   }
-  if (idx !== -1) ui.setActiveItem(idx);
-  else ui.clearActiveItem();
+  if (idx !== -1) setActiveItem(ui, idx);
+  else clearActiveItem(ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
@@ -100,20 +111,20 @@ const findVisibleNeighbor = (
 
 const getActiveLayerItem = (ui: LayerUI): HTMLElement | null => {
   if (ui.activeIdx === null) return null;
-  return ui.getNavigableItems()[ui.activeIdx] ?? null;
+  return getNavigableItems(ui)[ui.activeIdx] ?? null;
 };
 
 /** Set the active item index and apply focus styling. */
 
 const setActiveItem = (ui: LayerUI, idx: number): void => {
-  ui.clearActiveItem();
-  const items = ui.getNavigableItems();
+  clearActiveItem(ui);
+  const items = getNavigableItems(ui);
   if (idx < 0 || idx >= items.length) {
     ui.activeIdx = null;
     return;
   }
   const item = items[idx];
-  ui.moveActiveMarker(item, items);
+  moveActiveMarker(ui, item, items);
   item.focus();
 };
 
@@ -129,7 +140,7 @@ const moveActiveMarker = (
   item: HTMLElement | null,
   items: HTMLElement[],
 ): void => {
-  ui.blurActiveItem();
+  blurActiveItem(ui);
   // indexOf yields -1 for an item outside the list; normalize it to null so
   // activeIdx never holds an index getActiveLayerItem() would misread.
   const idx = item ? items.indexOf(item) : -1;
@@ -152,7 +163,7 @@ const blurActiveItem = (ui: LayerUI): void => {
 /** Clear the active item state. */
 
 const clearActiveItem = (ui: LayerUI): void => {
-  ui.blurActiveItem();
+  blurActiveItem(ui);
   ui.activeIdx = null;
   ui.listCursor?.setIndex(-1);
 };
@@ -175,7 +186,7 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement | null;
   if (!target || typeof target.closest !== "function") {
     ui.closeAttrsPanel(false);
-    ui.clearActiveItem();
+    clearActiveItem(ui);
     return;
   }
   // The attributes panel is a floating surface anchored to its row: a press
@@ -183,7 +194,7 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   // press —the overflow menu keeps its own click-delegated close in
   // interaction.ts, and Escape pops the menu before the panel.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
-  if (!target.closest(".foliplus-layer-ctrl")) ui.clearActiveItem();
+  if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
 };
 
 /** Index of the keyboard cursor from DOM focus, or the previous index.
@@ -205,10 +216,10 @@ const resolveActiveIdx = (ui: LayerUI, items: HTMLElement[]): number | null => {
  *  Keep the existing cursor when resolve cannot name a new row. */
 
 const syncActiveItem = (ui: LayerUI): void => {
-  const items = ui.getNavigableItems();
-  const idx = ui.resolveActiveIdx(items);
+  const items = getNavigableItems(ui);
+  const idx = resolveActiveIdx(ui, items);
   if (idx === null) return;
-  ui.moveActiveMarker(items[idx], items);
+  moveActiveMarker(ui, items[idx], items);
   ui.listCursor?.setIndex(idx);
 };
 
@@ -242,7 +253,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       // escapeClearCursor() below runs last and wins.
       const layerId = ui.activeRenameId;
       ui.finishRename();
-      ui.focusLayerRow(layerId);
+      focusLayerRow(ui, layerId);
     } else if (ui.activeMenu) {
       // closeMoreMenu returns focus to the row, so the cursor must be
       // dropped after it rather than before.
@@ -254,17 +265,17 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }
-    ui.escapeClearCursor();
+    escapeClearCursor(ui);
     return;
   }
 
-  const items = ui.getNavigableItems();
+  const items = getNavigableItems(ui);
   if (items.length === 0) return;
 
   // Re-resolve the cursor from DOM focus. Clicking the label and a re-render
   // both move focus, so a stored index could name a row the user has left.
   // This also establishes the cursor on the very first key.
-  ui.syncActiveItem();
+  syncActiveItem(ui);
   const idx = ui.activeIdx;
   if (idx === null || !items[idx]) return;
   const item = items[idx];
@@ -284,7 +295,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         map.foliplus!.showHint(CONF.name, T("reorder_bottom"), HINT_DURATION.SHORT);
       }
     }
-    const newItems = ui.getNavigableItems();
+    const newItems = getNavigableItems(ui);
     const next = newItems.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === id);
     // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
     // normalize it so activeIdx never holds an invalid index.
@@ -310,14 +321,14 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   switch (event.key) {
     case "ArrowUp": {
       event.preventDefault();
-      const up = ui.findVisibleNeighbor(items, idx, -1);
-      if (up !== -1) ui.setActiveItem(up);
+      const up = findVisibleNeighbor(ui, items, idx, -1);
+      if (up !== -1) setActiveItem(ui, up);
       break;
     }
     case "ArrowDown": {
       event.preventDefault();
-      const down = ui.findVisibleNeighbor(items, idx, 1);
-      if (down !== -1) ui.setActiveItem(down);
+      const down = findVisibleNeighbor(ui, items, idx, 1);
+      if (down !== -1) setActiveItem(ui, down);
       break;
     }
     case "ArrowLeft":
@@ -344,7 +355,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) ui.toggleFold(row.dataset.group ?? "");
+        if (row) toggleFold(ui, row.dataset.group ?? "");
         break;
       }
       // Menu item (li) is focused —trigger the focus-layer action.
@@ -373,7 +384,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         break;
       }
       event.preventDefault();
-      ui.toggleFocusedLayer();
+      toggleFocusedLayer(ui);
       break;
     }
   }
@@ -395,7 +406,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
  * keyboard-visible focus. */
 
 const escapeClearCursor = (ui: LayerUI): void => {
-  ui.blurActiveItem();
+  blurActiveItem(ui);
 };
 
 /** Return DOM focus to a layer's row. Used by the Escape-rename path:
@@ -437,11 +448,11 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // Base basemap / color picker have no meaningful extent to zoom to —  // explain instead of silently ignoring the double-click. Hidden layers
   // ARE passed through: focusLayer shows the "hidden" hint for them.
   if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) {
-    ui.showBaseFocusHint();
+    showBaseFocusHint(ui);
     return;
   }
   if (item.dataset.layerType === CONST.GROUP.BASE) {
-    ui.showBaseFocusHint();
+    showBaseFocusHint(ui);
     return;
   }
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";

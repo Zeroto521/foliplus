@@ -209,13 +209,9 @@ class LayerUI {
   }
 
   /** Alias for convenience */
-
-  /** Alias for convenience */
   get m() {
     return this.manager;
   }
-
-  /** The attached panel container. Only valid after attachUI(). */
 
   /** The attached panel container. Only valid after attachUI(). */
   get uiContainer(): HTMLElement {
@@ -223,16 +219,9 @@ class LayerUI {
   }
 
   /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
-
-  /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
   get mgmt(): LayerManager & { getFeatureCount: (i: string) => number | null } {
     return this.m as LayerManager & { getFeatureCount: (i: string) => number | null };
   }
-
-  /**
-   * Attach UI to the given container div.
-   * @param {HTMLElement} containerDiv - The panel-content div.
-   */
 
   /**
    * Attach UI to the given container div.
@@ -256,7 +245,7 @@ class LayerUI {
     this.applyUserState();
     // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
     // rebuilt rows.
-    this.syncListCursor();
+    syncListCursor(this);
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -282,11 +271,6 @@ class LayerUI {
    *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
    *  it lands after the synchronous attach sequence, so folium layers are
    *  already linked into the registry. */
-
-  /** Re-run the init pass when another control finishes attaching. Unsubscribes
-   *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
-   *  it lands after the synchronous attach sequence, so folium layers are
-   *  already linked into the registry. */
   private subscribeControlAttached(): void {
     this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
       EVENTS.CONTROL_ATTACHED,
@@ -298,7 +282,6 @@ class LayerUI {
   }
 
   /** Load every persisted dimension in one call. */
-
   bindEvents() {
     const container = this.uiContainer;
     if (!container) return;
@@ -355,14 +338,14 @@ class LayerUI {
       }
       const toggleAll = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
       if (!toggleAll || el.closest('[data-role="toggle-all"]')) return;
-      this.toggleFold(toggleAll.dataset.group ?? "");
+      toggleFold(this, toggleAll.dataset.group ?? "");
     };
 
-    this.onDragStart = event => this.handleDragStart(event);
-    this.onDragOver = event => this.handleDragOver(event);
-    this.onDragLeave = event => this.handleDragLeave(event);
-    this.onDrop = event => this.handleDrop(event);
-    this.onDragEnd = () => this.handleDragEnd();
+    this.onDragStart = event => handleDragStart(this, event);
+    this.onDragOver = event => handleDragOver(this, event);
+    this.onDragLeave = event => handleDragLeave(this, event);
+    this.onDrop = event => handleDrop(this, event);
+    this.onDragEnd = () => handleDragEnd(this);
     this.onKeyDown = event => this.handleKeyDown(event);
     // A real focus move is the cursor: once focus lands on a row (or a child
     // control), that row is the keyboard target.
@@ -437,11 +420,6 @@ class LayerUI {
    *  Re-computes geometry type so a layer that mixes geometry through the
    *  createLayers API (Point + LineString, etc.) shows the correct icon,
    *  not the one cached at initial attach. */
-
-  /** Called when a layer's content changes (count or type may shift at runtime).
-   *  Re-computes geometry type so a layer that mixes geometry through the
-   *  createLayers API (Point + LineString, etc.) shows the correct icon,
-   *  not the one cached at initial attach. */
   onLayerItemCountChange(id: string) {
     if (!this.uiContainer) return;
     const item = this.uiContainer.querySelector(
@@ -479,8 +457,6 @@ class LayerUI {
   }
 
   /** Refresh count column for every overlay item (no title change). */
-
-  /** Refresh count column for every overlay item (no title change). */
   refreshAllCounts() {
     if (!this.uiContainer) return;
     const items = this.uiContainer.querySelectorAll(
@@ -503,7 +479,7 @@ class LayerUI {
     this.closeMoreMenu(false);
     this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
-    this.dismissFocus();
+    dismissFocus(this);
     if (this.onChange) container.removeEventListener("change", this.onChange);
     if (this.onInput) container.removeEventListener("input", this.onInput);
     if (this.onClick) container.removeEventListener("click", this.onClick);
@@ -573,7 +549,7 @@ class LayerUI {
     if (changed) {
       for (let i = 0; i < this.m.layers.length; i++) {
         if (this.m.layers[i].isBase && i !== exceptIdx) {
-          this.syncHiddenId(this.m.layers[i].id, true);
+          syncHiddenId(this, this.m.layers[i].id, true);
         }
       }
     }
@@ -586,31 +562,18 @@ class LayerUI {
   saveFoldState() {
     return saveFoldState(this);
   }
+  syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
+    return syncHiddenId(this, id, hidden, persist);
+  }
   saveHiddenIds() {
     return saveHiddenIds(this);
   }
   applyUserState(id?: string) {
     return applyUserState(this, id);
   }
-  applyHiddenOne(layerInfo: LayerInfo, layerId: string) {
-    return applyHiddenOne(this, layerInfo, layerId);
-  }
-  applyHiddenStateOne(layerInfo: LayerInfo) {
-    return applyHiddenStateOne(this, layerInfo);
-  }
-  applyVisibleStateOne(layerInfo: LayerInfo) {
-    return applyVisibleStateOne(this, layerInfo);
-  }
-  reconcileHiddenIds() {
-    return reconcileHiddenIds(this);
-  }
   saveNamesState() {
     return saveNamesState(this);
   }
-  syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
-    return syncHiddenId(this, id, hidden, persist);
-  }
-
   // ── delegates: list ──
   initTypesAndVisibility() {
     return initTypesAndVisibility(this);
@@ -627,17 +590,8 @@ class LayerUI {
   displayName(layerId: string) {
     return displayName(this, layerId);
   }
-  renderToggleAllRow(group: string, labelKey: string) {
-    return renderToggleAllRow(this, group, labelKey);
-  }
-  renderLayerItem(layerInfo: LayerInfo, idx: number) {
-    return renderLayerItem(this, layerInfo, idx);
-  }
   colorLayerName() {
     return colorLayerName(this);
-  }
-  renderColorLayerItem() {
-    return renderColorLayerItem(this);
   }
   initLayerItem(layerInfo: LayerInfo) {
     return initLayerItem(this, layerInfo);
@@ -673,17 +627,8 @@ class LayerUI {
   getNavigableItems() {
     return getNavigableItems(this);
   }
-  findVisibleNeighbor(items: HTMLElement[], from: number, dir: 1 | -1) {
-    return findVisibleNeighbor(this, items, from, dir);
-  }
-  getActiveLayerItem() {
-    return getActiveLayerItem(this);
-  }
   setActiveItem(index: number) {
     return setActiveItem(this, index);
-  }
-  moveActiveMarker(item: HTMLElement | null, items: HTMLElement[]) {
-    return moveActiveMarker(this, item, items);
   }
   blurActiveItem() {
     return blurActiveItem(this);
@@ -694,55 +639,11 @@ class LayerUI {
   handleOutsideMousedown(event: MouseEvent) {
     return handleOutsideMousedown(this, event);
   }
-  resolveActiveIdx(items: HTMLElement[]) {
-    return resolveActiveIdx(this, items);
-  }
-  syncActiveItem() {
-    return syncActiveItem(this);
-  }
-  syncListCursor() {
-    return syncListCursor(this);
-  }
-  cursorRef() {
-    return cursorRef(this);
-  }
-  restoreCursor(ref: string | null) {
-    return restoreCursor(this, ref);
-  }
   handleKeyDown(event: KeyboardEvent) {
     return handleKeyDown(this, event);
   }
-  escapeClearCursor() {
-    return escapeClearCursor(this);
-  }
-  focusLayerRow(layerId: string) {
-    return focusLayerRow(this, layerId);
-  }
   handleDblClick(event: MouseEvent) {
     return handleDblClick(this, event);
-  }
-
-  // ── delegates: drag ──
-  toggleFold(group: string) {
-    return toggleFold(this, group);
-  }
-  handleDragStart(event: DragEvent) {
-    return handleDragStart(this, event);
-  }
-  showReorderBlockedHint() {
-    return showReorderBlockedHint(this);
-  }
-  handleDragOver(event: DragEvent) {
-    return handleDragOver(this, event);
-  }
-  handleDragLeave(event: DragEvent) {
-    return handleDragLeave(this, event);
-  }
-  handleDrop(event: DragEvent) {
-    return handleDrop(this, event);
-  }
-  handleDragEnd() {
-    return handleDragEnd(this);
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
@@ -770,15 +671,6 @@ class LayerUI {
   finishRename(cancel?: boolean) {
     return finishRename(this, cancel);
   }
-  showBaseFocusHint() {
-    return showBaseFocusHint(this);
-  }
-  isFocusLayerDisabled(item: HTMLElement) {
-    return isFocusLayerDisabled(this, item);
-  }
-  toggleFocusedLayer() {
-    return toggleFocusedLayer(this);
-  }
   focusLayer(layerId: string) {
     return focusLayer(this, layerId);
   }
@@ -788,46 +680,12 @@ class LayerUI {
   cancelFocus() {
     return cancelFocus(this);
   }
-  dismissFocus() {
-    return dismissFocus(this);
-  }
-
   // ── focus helpers (also used internally by focus.ts) ──
   /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
    *  False during the first post-attach pass, when folium layers may not be in
    *  the registry yet. */
   allLayersResolved(): boolean {
     return this.m.layers.every(li => this.m.findLayer(li) != null);
-  }
-  computeLayerBounds(layer: L.Layer) {
-    return computeLayerBounds(this, layer);
-  }
-  hideOtherLayers() {
-    return hideOtherLayers(this);
-  }
-  bringFocusedLayerToFront(layer: L.Layer | null, canvas: HTMLCanvasElement | null) {
-    return bringFocusedLayerToFront(this, layer, canvas);
-  }
-  highlightFocusedRow(itemEl: HTMLElement | null, layerId: string) {
-    return highlightFocusedRow(this, itemEl, layerId);
-  }
-  registerAutoCancel(layerId: string) {
-    return registerAutoCancel(this, layerId);
-  }
-  drawFocusMask(bounds: L.LatLngBounds) {
-    return drawFocusMask(this, bounds);
-  }
-  drawFocusRect(bounds: L.LatLngBounds) {
-    return drawFocusRect(this, bounds);
-  }
-  clearAutoCancel() {
-    return clearAutoCancel(this);
-  }
-  clearFocusedRowHighlight() {
-    return clearFocusedRowHighlight(this);
-  }
-  restoreHiddenLayers() {
-    return restoreHiddenLayers(this);
   }
 }
 

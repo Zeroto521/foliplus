@@ -8,10 +8,14 @@ import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
+import { showColorLayer } from "./color.js";
 import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
+import { reconcileHiddenIds } from "./state.js";
 import { applyUserState } from "./state.js";
+import { syncToggleAll, syncVisibility } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
@@ -20,11 +24,11 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. Hidden ids no longer in the
   // registry are dropped (their layer was removed).
-  ui.applyUserState();
+  applyUserState(ui);
 
   let anyBaseVisible = false;
   for (let i = 0; i < ui.m.layers.length; i++) {
-    if (ui.initLayerItem(ui.m.layers[i])) anyBaseVisible = true;
+    if (initLayerItem(ui, ui.m.layers[i])) anyBaseVisible = true;
   }
   // Once the pass above has written each checkbox from the map's real
   // membership, the rows hold the truth. Reconcile hiddenIds against them
@@ -38,7 +42,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // CONTROL_ATTACHED converges here.
   if (!ui.isHiddenReconciled && ui.allLayersResolved()) {
     ui.isHiddenReconciled = true;
-    ui.reconcileHiddenIds();
+    reconcileHiddenIds(ui);
   }
   // "All bases hidden" (not "any layer hidden") —hiding an overlay on a
   // base-less map must not suppress the color-layer background.
@@ -49,12 +53,12 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Only fall back to the color layer when there are no visible base layers
   // *and* the user never intentionally hid every base. Otherwise the
   // fallback would undo an explicit "hide all bases" choice.
-  if (!anyBaseVisible && !allBasesHidden) ui.showColorLayer(ui.currentColor);
+  if (!anyBaseVisible && !allBasesHidden) showColorLayer(ui, ui.currentColor);
   ui.m.enforceOrder();
-  ui.syncToggleAll(CONST.GROUP.OVERLAY);
-  ui.syncToggleAll(CONST.GROUP.BASE);
+  syncToggleAll(ui, CONST.GROUP.OVERLAY);
+  syncToggleAll(ui, CONST.GROUP.BASE);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
-  ui.syncListCursor();
+  syncListCursor(ui);
   // Ready signal for tests: checkbox titles / .active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
@@ -67,7 +71,7 @@ const renderInitialList = (ui: LayerUI) => {
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
   // established or Escape cleared it, and either way it should stay cleared.
-  const cursorRef = ui.cursorRef();
+  const ref = cursorRef(ui);
   const frag = document.createDocumentFragment();
   let hasBaseMaps = false;
   let hasOverlays = false;
@@ -76,19 +80,19 @@ const renderInitialList = (ui: LayerUI) => {
     const layerInfo = ui.m.layers[i];
     if (!layerInfo.isBase && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(ui.renderToggleAllRow(CONST.GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
     }
     if (layerInfo.isBase && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(ui.renderToggleAllRow(CONST.GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
-    const item = ui.renderLayerItem(layerInfo, i);
+    const item = renderLayerItem(ui, layerInfo, i);
     if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
   }
 
-  const colorItem = ui.renderColorLayerItem();
+  const colorItem = renderColorLayerItem(ui);
   if (ui.foldedGroups.has(CONST.GROUP.BASE)) {
     colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
@@ -99,14 +103,14 @@ const renderInitialList = (ui: LayerUI) => {
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class —restoreCursor() owns that visual.
-  ui.syncListCursor();
+  syncListCursor(ui);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
   // rebuild destroys the previously focused node, dropping focus to <body>;
   // the keyboard shortcuts are dispatched by a document-level listener whose
   // container guard requires focus inside the panel, so without this the
   // cursor dies the moment the list is rebuilt (e.g. after a fold click).
-  ui.restoreCursor(cursorRef);
+  restoreCursor(ui, ref);
 };
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
@@ -172,7 +176,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
   // updateItemLabel sets both the row label and the checkbox's aria-label,
   // so the name reaches assistive tech here without touching `title` —the
   // row's tooltip slot keeps the feature count + type.
-  updateItemLabel(item, ui.displayName(layerInfo.id));
+  updateItemLabel(item, displayName(ui, layerInfo.id));
   const checkbox = item.querySelector(
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
@@ -240,7 +244,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
  *  @param {number} idx - Position in the ordered registry.
  *  @returns {HTMLElement} The row element. */
 const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
-  const name = ui.displayName(layerInfo.id);
+  const name = displayName(ui, layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -304,13 +308,13 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. The color layer has no registry entry. */
 const colorLayerName = (ui: LayerUI): string => {
-  return ui.displayName(CONST.COLOR.MAP_ID);
+  return displayName(ui, CONST.COLOR.MAP_ID);
 };
 
 const renderColorLayerItem = (ui: LayerUI) => {
   // The input announces the same name as the row's label cell below, so a
   // rename reaches assistive tech on both —not just the visible text.
-  const colorName = ui.colorLayerName();
+  const colorName = colorLayerName(ui);
   const colorInput = dom.el("input", {
     type: "color",
     class: CONST.CLASSES.COLOR_INPUT,
@@ -348,7 +352,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
     },
     dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
     dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
-    dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, ui.colorLayerName()),
+    dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, colorLayerName(ui)),
     // count column is empty (color layers have no feature count).
     dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
     dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
@@ -361,7 +365,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return false;
-  const name = ui.displayName(layerInfo.id);
+  const name = displayName(ui, layerInfo.id);
   const inputs = ui.uiContainer.querySelectorAll(
     `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
   ) as NodeListOf<HTMLInputElement>;
@@ -376,7 +380,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
     const isCallbackOnly = !hasLayer && layerInfo.onToggle;
     if (isCallbackOnly) input.checked = layerInfo.visible !== false;
     else input.checked = hasLayer && ui.m.map.hasLayer(layer);
-    ui.syncVisibility(layerInfo, layer, input.checked);
+    syncVisibility(ui, layerInfo, layer, input.checked);
 
     input.title = T(input.checked ? "deselect_tooltip" : "select_tooltip");
 
@@ -462,8 +466,8 @@ const reindexItems = (ui: LayerUI) => {
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
 const reindexAfterMove = (ui: LayerUI): void => {
-  ui.renderInitialList();
-  ui.initTypesAndVisibility();
+  renderInitialList(ui);
+  initTypesAndVisibility(ui);
   ui.refreshAllCounts();
 };
 

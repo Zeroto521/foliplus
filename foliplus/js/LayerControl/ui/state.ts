@@ -60,7 +60,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // late registration, including layers the user never touched. A layer
     // that was never hidden must not be hidden, and a missing rename is a
     // no-op rather than a write of undefined over the registry's own name.
-    if (ui.hiddenIds.has(id)) ui.applyHiddenStateOne(layerInfo);
+    if (ui.hiddenIds.has(id)) applyHiddenStateOne(ui, layerInfo);
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
@@ -103,8 +103,8 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     }
     const layerInfo = registry.get(layerId);
     if (!layerInfo) continue; // stale id —pruned by persistence on save
-    if (ui.hiddenIds.has(layerId)) ui.applyHiddenOne(layerInfo, layerId);
-    else if (ui.hiddenHasState) ui.applyVisibleStateOne(layerInfo);
+    if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
+    else if (ui.hiddenHasState) applyVisibleStateOne(ui, layerInfo);
   }
 
   // Prune ids whose layers are gone for good, so stale persistence does not
@@ -125,7 +125,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   if (gone.length > 0) {
     ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => stillPresent(layerId)));
     ui.hiddenHasState = true;
-    ui.saveHiddenIds();
+    saveHiddenIds(ui);
   }
 };
 
@@ -144,7 +144,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
 
-  ui.applyHiddenStateOne(layerInfo);
+  applyHiddenStateOne(ui, layerInfo);
 
   if (checkbox) {
     checkbox.checked = false;
@@ -251,7 +251,7 @@ const reconcileHiddenIds = (ui: LayerUI) => {
   }
   if (changed) {
     ui.hiddenHasState = true;
-    ui.saveHiddenIds();
+    saveHiddenIds(ui);
   }
 };
 
@@ -283,7 +283,7 @@ const syncHiddenId = (
   // half of the sweep must stay off or an empty saved set would override the
   // author's `show=False` on the next load.
   ui.hiddenHasState = true;
-  if (persist) ui.saveHiddenIds();
+  if (persist) saveHiddenIds(ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM

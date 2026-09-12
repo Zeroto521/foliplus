@@ -5,6 +5,7 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
 import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { getActiveLayerItem } from "./keyboard.js";
 
 /** Basemaps / color pickers cannot be focused —hint instead of silence. */
 const showBaseFocusHint = (ui: LayerUI): void => {
@@ -25,7 +26,7 @@ const isFocusLayerDisabled = (ui: LayerUI, item: HTMLElement): boolean => {
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
-  const item = ui.getActiveLayerItem();
+  const item = getActiveLayerItem(ui);
   if (!item) return;
   const checkbox = item.querySelector(
     'input[type="checkbox"]',

@@ -1,8 +1,10 @@
 // LayerControl UI —Checkbox / group-toggle visibility.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
+import { hideColorLayer, showColorLayer } from "./color.js";
 import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { saveHiddenIds, syncHiddenId } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -11,7 +13,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
 };
 
 const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
-  const items = ui.getLayerItems(group);
+  const items = getLayerItems(ui, group);
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -30,21 +32,21 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     if (layer) newState ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
     if (newState && layer) layer.options.paneSet = false;
     if (layerInfo.onToggle) layerInfo.onToggle(newState);
-    ui.syncVisibility(layerInfo, layer, newState);
+    syncVisibility(ui, layerInfo, layer, newState);
     // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
-    ui.syncHiddenId(layerInfo.id, !newState, false);
+    syncHiddenId(ui, layerInfo.id, !newState, false);
   });
 
   // Persist hidden-set after bulk toggle (single debounced write for the batch).
-  ui.saveHiddenIds();
+  saveHiddenIds(ui);
 
   if (group === CONST.GROUP.BASE && !newState) {
-    ui.hideColorLayer();
-    ui.showColorLayer(ui.currentColor);
-  } else if (group === CONST.GROUP.BASE && newState) ui.hideColorLayer();
+    hideColorLayer(ui);
+    showColorLayer(ui, ui.currentColor);
+  } else if (group === CONST.GROUP.BASE && newState) hideColorLayer(ui);
 
-  ui.syncToggleAll(group);
+  syncToggleAll(ui, group);
   ui.m.debouncedEnforce();
 };
 
@@ -57,7 +59,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     '[data-role="toggle-all"]',
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  const items = ui.getLayerItems(group);
+  const items = getLayerItems(ui, group);
   const checkedCount = Array.from(items).filter((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -89,8 +91,8 @@ const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
     ui.deselectAllBaseMaps(-1);
-    ui.showColorLayer(target.value);
-    ui.syncToggleAll(CONST.GROUP.BASE);
+    showColorLayer(ui, target.value);
+    syncToggleAll(ui, CONST.GROUP.BASE);
     ui.m.enforceOrder();
     return;
   }
@@ -102,7 +104,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
   const layer = ui.m.findLayer(layerInfo);
   const item = target.closest(CONST.SEL.LAYER_ITEM);
 
-  if (layerInfo.isBase) ui.hideColorLayer();
+  if (layerInfo.isBase) hideColorLayer(ui);
   if (layer) {
     target.checked ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
   }
@@ -116,16 +118,16 @@ const handleChange = (ui: LayerUI, event: Event) => {
   target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
   if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
-  ui.syncVisibility(layerInfo, layer, target.checked);
-  ui.syncHiddenId(layerInfo.id, !target.checked);
+  syncVisibility(ui, layerInfo, layer, target.checked);
+  syncHiddenId(ui, layerInfo.id, !target.checked);
 
-  ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+  syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
   ui.m.debouncedEnforce();
 };
 
 const handleInput = (ui: LayerUI, event: Event) => {
   if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT)) {
-    ui.showColorLayer((event.target as HTMLInputElement).value);
+    showColorLayer(ui, (event.target as HTMLInputElement).value);
   }
 };
 

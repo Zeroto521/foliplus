@@ -4,7 +4,9 @@ import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import { T } from "./context.js";
+import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
+import { finishRename } from "./rename.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -13,14 +15,14 @@ import type { LayerUI } from "./index.js";
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Close any previously open menu first, and commit/cancel a rename so
   // the label text is fresh before we read the row.
-  ui.finishRename();
-  ui.closeMoreMenu(true);
+  finishRename(ui);
+  closeMoreMenu(ui, true);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent) and hidden rows.
   // The disabled li carries cursor: not-allowed (common menu CSS).
-  const focusDisabled = ui.isFocusLayerDisabled(item);
+  const focusDisabled = isFocusLayerDisabled(ui, item);
 
   const itemAttrs = {
     "data-action": "focus-layer",
