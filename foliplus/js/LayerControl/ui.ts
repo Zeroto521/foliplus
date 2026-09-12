@@ -560,13 +560,6 @@ class LayerUI {
     this.uiContainer?.setAttribute("data-ready", "true");
   }
 
-  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
-   *  False during the first post-attach pass, when folium layers may not be in
-   *  the registry yet. */
-  private allLayersResolved(): boolean {
-    return this.m.layers.every(li => this.m.findLayer(li) != null);
-  }
-
   renderInitialList() {
     // Remember the cursor by identity — the item elements are rebuilt below,
     // so an element reference would dangle. Layer rows key on data-layer-id,
@@ -1769,6 +1762,13 @@ class LayerUI {
     );
   }
 
+  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
+   *  False during the first post-attach pass, when folium layers may not be in
+   *  the registry yet. */
+  private allLayersResolved(): boolean {
+    return this.m.layers.every(li => this.m.findLayer(li) != null);
+  }
+
   /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
    *  (nothing to show). The ⋮ menu item carries the not-allowed cursor. */
   private isFocusLayerDisabled(item: HTMLElement): boolean {
@@ -2060,12 +2060,11 @@ class LayerUI {
     const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
     const layerInfo = isColor ? null : this.manager.layerRegistry.get(layerId);
 
-    // Row kinds: the name row leads the panel at a larger size ("hero"), and a
-    // value that runs long (a URL source) drops below its label and takes the
-    // full panel width instead of squeezing the label column. Width is measured
-    // in the panel's own fixed type size, so a short filename like `roads.shp`
-    // stays in the right-aligned value column.
-    type AttrRow = [string, string, "hero" | "wide" | ""];
+    // Row kind: a value that runs long (a URL source) drops below its label
+    // and takes the full panel width instead of squeezing the label column.
+    // Width is measured in the panel's own fixed type size, so a short
+    // filename like `roads.shp` stays in the right-aligned value column.
+    type AttrRow = [string, string, "wide" | ""];
 
     const isLong = (value: string): boolean => value.length > ATTRS_ROW_WRAP_CHARS;
 
@@ -2128,8 +2127,7 @@ class LayerUI {
               // heatmap's form rows; the attrs class stays as the hook.
               class: ["foliplus-form-row", kind].filter(Boolean).join(" "),
             },
-            // The hero leads the panel as its header (see the CSS); detail rows
-            // are plain label/value pairs.
+            // Label/value pair; `wide` drops the control onto its own line.
             dom.el("dt", { class: "foliplus-form-label" }, label),
             dom.el(
               "dd",

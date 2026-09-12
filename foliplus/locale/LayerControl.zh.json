@@ -45,7 +45,6 @@
   "LayerControl.attr_empty": "无数据",
   "LayerControl.attr_created_at": "创建",
   "LayerControl.attr_updated_at": "更新",
-  "LayerControl.attr_custom": "自定义",
   "LayerControl.rename_hint": "Enter 确认，Escape 取消",
   "LayerControl.rename_empty": "图层名称不能为空",
   "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI",
