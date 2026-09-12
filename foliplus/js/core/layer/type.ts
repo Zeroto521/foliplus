@@ -13,7 +13,7 @@ interface RegisterLayerOpts {
   paneName?: string | null;
   /**
    * Sub-panes for this layer, ordered by z ascending. The k-th name gets
-   * `CHILD_PANE_OFFSET[k]` in `PaneManager.bumpPanes`. Empty or absent
+   * `CHILD_PANE_STEP` offset in `PaneManager.bumpPanes`. Empty or absent
    * means the layer has a single flat pane (its `paneName`).
    *
    * Was `labelPane?: string | null` — that name was MeasureControl-specific
@@ -97,7 +97,7 @@ interface CreateLayersOpts {
    * The first entry's `name` is the layer's base pane and doubles as
    * `RegisterLayerOpts.paneName`. Every name is used as the z-target for
    * `PaneManager.bumpPanes` at the layer's base z; entries past the first
-   * get successive offsets from `CHILD_PANE_OFFSET`.
+   * get successive offsets via `CHILD_PANE_STEP`.
    *
    * Entries with `isLabel: true` mark their leaves with the `isLabel` flag,
    * which `countFeatureGeometry` / `util.getGeometryType` use to exclude

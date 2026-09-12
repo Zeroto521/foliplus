@@ -82,6 +82,7 @@ describe("ID", () => {
 describe("PANES", () => {
   it("defines pane names", () => {
     expect(CONST.PANES.GRAPH).toBe("measure_graph");
+    expect(CONST.PANES.NODE).toBe("measure_node");
     expect(CONST.PANES.LABEL).toBe("measure_label");
   });
 });
