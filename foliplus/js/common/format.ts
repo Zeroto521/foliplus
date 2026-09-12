@@ -1,6 +1,5 @@
 // Number, date and coordinate formatting for foliplus components.
 // Imported statically by components at build time.
-
 import { intlLocale } from "#common/locale.js";
 
 type NumberStyle = "auto" | "comma" | "int";
@@ -87,10 +86,7 @@ const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): str
  * `locale` is a project locale code, not a BCP-47 tag — the tag mapping for
  * `Date.prototype.toLocaleString` lives in `intlLocale`.
  */
-const formatTimestamp = (
-  value: number | string,
-  locale: string = "en",
-): string => {
+const formatTimestamp = (value: number | string, locale: string = "en"): string => {
   const date = new Date(typeof value === "number" ? value : Date.parse(value));
   if (Number.isNaN(date.getTime())) return "";
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
