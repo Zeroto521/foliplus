@@ -425,9 +425,7 @@ class TestMeasureControlBrowser:
             # SVG sibling order.
             assert s["nodePane"] == "node", f"radius node not in node pane: {s}"
             assert s["centerPane"] == "node", f"center node not in node pane: {s}"
-            assert s["node"] > s["circle"], (
-                f"node pane z below graph pane: {s}"
-            )
+            assert s["node"] > s["circle"], f"node pane z below graph pane: {s}"
             assert s["center"] > s["circle"], (
                 f"node pane z below graph pane (center): {s}"
             )
@@ -975,9 +973,7 @@ class TestMeasureControlBrowser:
             assert not info2.get("error"), (
                 f"post-zoom probe error: {info2.get('error')}"
             )
-            assert info2["dotAboveFill"], (
-                "after zoom: node pane z below graph pane"
-            )
+            assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
 
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
