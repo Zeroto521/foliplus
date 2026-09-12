@@ -17,6 +17,7 @@ from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl
 from .LocateControl import LocateControl
 from .MeasureControl import MeasureControl
+from .GuideControl import GuideControl
 from .ScaleControl import ScaleControl
 from .SearchControl import SearchControl
 
@@ -28,6 +29,7 @@ __all__ = [
     "LayerControl",
     "LocateControl",
     "MeasureControl",
+    "GuideControl",
     "ScaleControl",
     "SearchControl",
 ]

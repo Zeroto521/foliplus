@@ -1,0 +1,86 @@
+.leaflet-top.leaflet-center,
+.leaflet-bottom.leaflet-center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.foliplus-guide-control {
+  width: min(520px, calc(100vw - 260px));
+  margin: var(--space-md) 0 0;
+  pointer-events: auto;
+  font: var(--font-size-base) / var(--line-height-base) var(--font-family);
+  color: var(--text-primary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  box-sizing: border-box;
+  will-change: transform;
+}
+
+.leaflet-bottom .foliplus-guide-control {
+  margin: 0 0 var(--space-md);
+}
+
+.foliplus-guide-summary {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  padding: var(--space-sm) var(--space-md);
+  font-weight: var(--font-weight-semibold);
+  list-style-position: inside;
+}
+
+.foliplus-guide-control.foliplus-guide-static .foliplus-guide-summary {
+  cursor: pointer;
+}
+
+.foliplus-guide-control.foliplus-guide-dragging .foliplus-guide-summary {
+  cursor: grabbing;
+}
+
+.foliplus-guide-control[open] .foliplus-guide-summary {
+  border-bottom: 1px solid var(--panel-divider);
+}
+
+.foliplus-guide-body {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.foliplus-guide-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.foliplus-guide-metric {
+  padding: 2px var(--space-xs);
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+}
+
+.foliplus-guide-value,
+.foliplus-guide-section-title {
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.foliplus-guide-section {
+  margin: 0;
+}
+
+/* Narrow screens: keep the card usable instead of covering the map. */
+@media (max-width: 760px) {
+  .foliplus-guide-control {
+    width: calc(100vw - 112px);
+    font-size: var(--font-size-sm);
+  }
+
+  .foliplus-guide-body {
+    max-height: 42vh;
+    overflow: auto;
+  }
+}
