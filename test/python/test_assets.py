@@ -36,9 +36,7 @@ from foliplus.BaseControl import (
 from foliplus.ExportControl import ExportControl
 from foliplus.SearchControl import SearchControl
 
-# Controls that read a `dist/` bundle. `GuideControl` is excluded: it ships its
-# own inline template, so it has no artifact to expect and nothing for the
-# packaging tests below to check.
+# Controls that read a `dist/` bundle.
 COMPONENTS = (
     "ExportControl",
     "FullscreenControl",
