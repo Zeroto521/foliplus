@@ -63,27 +63,38 @@ jobs:
           # installs and imports cleanly but renders maps with no controls.
           # Render every control against the freshly installed copy.
           # `add_to` swaps the map's root for a Figure, so render through
-          # `get_root()`. GuideControl is skipped: it is a newer control that
-          # takes a required keyword-only `title`, so it needs its own fixture.
+          # `get_root()`.
+          #
+          # Controls in INLINE_TEMPLATE ship their own template and read no
+          # dist/ artifact, so they cannot be exercised by this test and are
+          # reported separately rather than silently dropped.
           python - <<'PY'
           import folium
           import foliplus
 
+          INLINE_TEMPLATE = {"GuideControl"}
+
           names = [
-              n for n in dir(foliplus)
+              n
+              for n in dir(foliplus)
               if n.endswith("Control")
-              and n != "BaseControl"
-              and n != "GuideControl"
+              and n not in {"BaseControl", *INLINE_TEMPLATE}
               and isinstance(getattr(foliplus, n), type)
           ]
           assert names, "no control classes exported"
 
+          rendered = []
           for name in sorted(names):
               m = folium.Map(location=[40.4, -3.7])
               getattr(foliplus, name)().add_to(m)
               html = m.get_root().render()
               assert "foliplus" in html, f"{name}: shared bundle not emitted"
-          print(f"rendered {len(names)} controls: {', '.join(sorted(names))}")
+              rendered.append(name)
+
+          skipped = sorted(set(dir(foliplus)) & INLINE_TEMPLATE)
+          print(f"rendered {len(rendered)} controls: {', '.join(rendered)}")
+          if skipped:
+              print(f"skipped (inline template): {', '.join(skipped)}")
           PY
 
       - run: make info

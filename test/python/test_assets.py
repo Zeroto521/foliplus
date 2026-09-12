@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import glob
 import subprocess
-import sys
 import tarfile
+import types
 import zipfile
 from pathlib import Path
 
@@ -24,18 +24,22 @@ import folium
 import pytest
 from conftest import render
 
+from foliplus import __path__
 from foliplus.BaseControl import (
     MissingAssetsError,
     _build_component_template,
     _build_shared_header,
+    _compile_component_template,
     _load_asset,
+    control_assets,
     dist_dir,
 )
 from foliplus.ExportControl import ExportControl
 from foliplus.SearchControl import SearchControl
 
-# Every control class this change set ships a widget for. `GuideControl` is
-# excluded: it belongs to a different change set.
+# Controls that read a `dist/` bundle. `GuideControl` is excluded: it ships its
+# own inline template, so it has no artifact to expect and nothing for the
+# packaging tests below to check.
 COMPONENTS = (
     "ExportControl",
     "FullscreenControl",
@@ -49,11 +53,14 @@ COMPONENTS = (
 
 SHARED = ("foliplus-common.min.js", "foliplus-common.min.css")
 
-# Member names relative to the package root, as the archive spells them.
-EXPECTED = [
-    *SHARED,
-    *(f"foliplus-{c}.{ext}" for c in COMPONENTS for ext in ("min.js", "min.css")),
-]
+# Basename of every artifact a wheel must carry. Derived from the same pair
+# the reader uses (`control_assets`) rather than restating the filenames —
+# a control with no stylesheet is not a valid control.
+EXPECTED = [*SHARED, *(f.name for c in COMPONENTS for f in control_assets(c))]
+
+# The one file on disk whose absence the `--verify` gate must fail on.
+REPO_ROOT = Path(__path__[0]).parent
+BUILD_SCRIPT = REPO_ROOT / "script" / "build.mjs"
 
 
 def _clear() -> None:
@@ -62,6 +69,30 @@ def _clear() -> None:
 
 
 # ── Missing-asset behaviour ─────────────────────────────────────────
+
+
+def test_control_assets_names_the_js_and_css_pair():
+    """The contract a control ships both artifacts, in the reader's own words."""
+    js, css = control_assets("ScaleControl")
+    assert js.name == "foliplus-ScaleControl.min.js"
+    assert css.name == "foliplus-ScaleControl.min.css"
+    assert js.parent == css.parent == dist_dir
+
+
+def test_expected_artifacts_come_from_the_reader():
+    """`EXPECTED` is derived from `control_assets`, so it cannot drift from it."""
+    assert EXPECTED == [
+        *SHARED,
+        *(f.name for c in COMPONENTS for f in control_assets(c)),
+    ]
+    assert len(EXPECTED) == 2 + 2 * len(COMPONENTS)
+
+
+def test_load_asset_reads_a_present_file():
+    """The success path: a present artifact is returned as text, untouched."""
+    js = dist_dir / "foliplus-common.min.js"
+    body = js.read_text(encoding="utf-8")
+    assert _load_asset(js) == body
 
 
 def test_load_asset_missing_js_not_empty():
@@ -82,11 +113,19 @@ def test_error_paths_are_repo_relative():
     assert "foliplus/dist" in str(err).replace("\\", "/")
 
 
+def test_error_names_component_artifacts_repo_relative():
+    """The same repo-relative form holds for a component bundle, not just shared."""
+    err = MissingAssetsError(list(control_assets("MeasureControl")))
+    text = str(err).replace("\\", "/")
+    assert "foliplus/dist/foliplus-MeasureControl.min.js" in text
+    assert "foliplus/dist/foliplus-MeasureControl.min.css" in text
+
+
 def test_error_is_a_runtime_error():
     assert issubclass(MissingAssetsError, RuntimeError)
 
 
-def test_shared_header_names_both_files(base_map: folium.Map):
+def test_shared_header_names_both_files():
     """Both shared artifacts missing → one error naming both, not two failures."""
     js = dist_dir / "foliplus-common.min.js"
     css = dist_dir / "foliplus-common.min.css"
@@ -106,7 +145,7 @@ def test_shared_header_names_both_files(base_map: folium.Map):
     assert "make dist" in message
 
 
-def test_shared_header_raises_with_one_present(base_map: folium.Map):
+def test_shared_header_raises_with_one_present():
     """A partially built dist/ is unusable — no silent half-render."""
     js = dist_dir / "foliplus-common.min.js"
     t_j = js.read_text(encoding="utf-8")
@@ -163,6 +202,91 @@ def test_full_control_pipeline_renders(base_map: folium.Map):
     assert "foliplus" in html
 
 
+# ── Template shape ──────────────────────────────────────────────────
+# `_compile_component_template` takes the JS/CSS as strings, so the
+# template's contract is assertable here without touching `dist/`. Macro
+# bodies come from `_template.module`, the way `branca.MacroElement` reads
+# them — `Template.render()` alone only executes the top-level nodes and
+# returns the newline between the two macros, which is why every
+# assertion below goes through the module.
+#
+# JS/CSS are payload, not template source — a bare `{{` makes `Template()`
+# raise, so payloads below carry balanced braces only.
+
+
+def test_compile_template_exposes_html_and_script_macros():
+    """The template exposes the two macros branca renders, and nothing extra."""
+    tpl = _compile_component_template("ScaleControl", "/*JS*/", "/*CSS*/")
+    module = set(tpl.module.__dict__)
+    assert {"html", "script"} <= module
+    assert "header" not in module
+
+
+def test_compile_template_emits_both_assets_in_the_right_macro():
+    """CSS belongs to the head (`html`), JS to the body (`script`)."""
+    module = _compile_component_template("ScaleControl", "/*JS*/", "/*CSS*/").module
+    html = module.html(_element_stub(), {})
+    script = module.script(_element_stub(), {})
+    assert "<style>" in html and "</style>" in html
+    assert "/*CSS*/" in html
+    assert "/*JS*/" not in html
+    assert "(() => {" in script and "})();" in script
+    assert "/*JS*/" in script
+    assert "/*CSS*/" not in script
+
+
+def test_compile_template_wraps_js_in_an_iife():
+    """The script runs once, with `map` and `CONF` as free variables."""
+    script = _compile_component_template("ScaleControl", "//body", "").module.script(
+        _element_stub(), {}
+    )
+    # The IIFE is a wrapper: the component body sits inside it.
+    assert script.index("(() => {") < script.index("//body") < script.index("})();")
+
+
+def test_compile_template_binds_map_and_conf_from_the_instance():
+    """`map` and `CONF` are resolved from the element, not hard-coded."""
+    script = _compile_component_template("ScaleControl", "//body", "").module.script(
+        _element_stub(map_name="_map_1", config="{}"), {}
+    )
+    assert "const map = _map_1;" in script
+    assert "const CONF = {};" in script
+
+
+def test_compile_template_payload_is_not_parsed_as_jinja():
+    """A `{{` / `{%` in the payload makes `Template()` raise — payload is data."""
+    with pytest.raises(Exception, match="end of print statement"):
+        _compile_component_template("ScaleControl", "var x = {{ }};", "")
+    with pytest.raises(Exception, match="Missing end of raw directive"):
+        _compile_component_template("ScaleControl", "", "{% raw %}")
+    # Balanced but non-meta braces are payload and must survive untouched.
+    module = _compile_component_template(
+        "ScaleControl", js="var x = { a: 1 };", css=".a { color: red; }"
+    ).module
+    assert "var x = { a: 1 };" in module.script(_element_stub(), {})
+    assert ".a { color: red; }" in module.html(_element_stub(), {})
+
+
+def _element_stub(map_name: str = "map", config: str = "{}"):
+    """Just enough of a folium element for the template's `this` contract."""
+    return types.SimpleNamespace(
+        _parent=types.SimpleNamespace(get_name=lambda: map_name),
+        _config_block=config,
+    )
+
+
+def test_shared_header_structure():
+    """The shared bundle is one <style> and one <script>, in that order."""
+    header = _build_shared_header()
+    assert header.count("<style>") == 1 and header.count("</style>") == 1
+    assert header.count("<script>") == 1 and header.count("</script>") == 1
+    assert header.index("<style>") < header.index("<script>")
+    # The runtime must be initialisable on its own before any control runs.
+    assert "window.foliplus = window.foliplus || {};" in header
+    # The locale tables ride along in the same bundle.
+    assert "window.foliplus._TABLES" in header
+
+
 # ── Distribution packaging ──────────────────────────────────────────
 
 
@@ -200,6 +324,61 @@ def test_dist_directory_is_complete():
     """The source tree holds every artifact `findComponents` would emit."""
     missing = [n for n in EXPECTED if not (dist_dir / n).is_file()]
     assert not missing, f"dist/ is incomplete: {missing}"
+
+
+def test_verify_gate_passes_on_a_complete_tree():
+    """The gate's success arm: a full dist/ exits 0, or `make build-python` is dead."""
+    if subprocess.run(["node", "--version"], capture_output=True).returncode != 0:
+        pytest.skip("node not available — the build gate cannot be exercised")
+    result = _run_verify()
+    assert result.returncode == 0, (
+        f"--verify must pass on a complete dist/, got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+
+
+def test_components_all_ship_both_artifacts():
+    """Every `COMPONENTS` entry resolves to a real pair on disk.
+
+    A control that ships JS without CSS (or vice versa) would pass the
+    build gate and then raise `MissingAssetsError` at attach time — this
+    is the asymmetry the `control_assets` pair exists to prevent.
+    """
+    for name in COMPONENTS:
+        js, css = control_assets(name)
+        for artifact in (js, css):
+            assert artifact.is_file(), f"{artifact.name} missing from dist/"
+
+
+def test_verify_gate_fails_on_a_missing_artifact():
+    """`npm run build:verify` is what gates `uv build` — prove it exits 1."""
+    assert BUILD_SCRIPT.is_file(), f"{BUILD_SCRIPT} not found"
+    if subprocess.run(["node", "--version"], capture_output=True).returncode != 0:
+        pytest.skip("node not available — the build gate cannot be exercised")
+
+    js = dist_dir / "foliplus-common.min.js"
+    body = js.read_text(encoding="utf-8")
+    try:
+        js.unlink()
+        result = _run_verify()
+        assert result.returncode == 1, (
+            f"--verify must fail on a missing artifact, got {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "foliplus-common.min.js" in (result.stderr + result.stdout)
+    finally:
+        js.write_text(body, encoding="utf-8")
+
+
+def _run_verify() -> subprocess.CompletedProcess[str]:
+    """Run `node script/build.mjs --verify` from the repo root."""
+    return subprocess.run(
+        ["node", str(BUILD_SCRIPT), "--verify"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
 
 def test_wheel_contains_all_artifacts():

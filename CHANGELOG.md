@@ -27,6 +27,7 @@
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 - `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
+- `sanitize`: gate the three sinks that accept markup from outside the author — `iconSvg` on `LayerAPI.registerLayer`/`createLayers`, registered hint icons, and reverse-geocoded marker addresses — through one shared allowlist, so a hostile layer icon, hint icon, or POI name can only ever reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286))
 
 ### Changed
 
@@ -74,7 +75,7 @@
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener
-- `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, and CI renders every control against the installed wheel
+- `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, and CI renders every control against the installed wheel; `make test` and the per-track targets also run the gate
 
 ## [v0.3.0] (2026-08-02)
 
