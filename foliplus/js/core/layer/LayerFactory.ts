@@ -40,16 +40,6 @@ interface LayerFactoryDeps {
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
 
-/**
- * A mutable PaneManager with the surface `createLayers` needs.
- * Only `childPanes` and the two methods below are used; the rest of the
- * class is accessed through the public `PaneManager` type elsewhere.
- */
-type LayerFactoryPanes = PaneManager & {
-  registerSubPanes(names: string[]): void;
-  ensureVector(layer: L.Path, paneName: string): L.Renderer;
-};
-
 class LayerFactory {
   private deps: LayerFactoryDeps;
 
@@ -67,7 +57,7 @@ class LayerFactory {
       invalidateType,
       onDataChange,
     } = this.deps;
-    const factoryPanes = panes as LayerFactoryPanes;
+    const factoryPanes = panes;
 
     // The first name in `opts.panes` is the layer's base pane (recorded as
     // `paneName` on the registry entry); the rest are sub-panes with
@@ -130,9 +120,7 @@ class LayerFactory {
     if (subPanes.length) factoryPanes.registerSubPanes(subPanes);
 
     const register = () => {
-      if (!registered) {
-        registered = true;
-      }
+      registered = true;
       registerLayer(layerOpts);
     };
 
@@ -189,8 +177,7 @@ class LayerFactory {
         } else {
           factoryPanes.ensurePane(requested, false);
         }
-        const target = subLayers.get(requested);
-        if (!target) return origAddLayer(layer);
+        const target = subLayers.get(requested)!;
         const result = target.addLayer(layer);
         // The mainLayer subtree changed and the added layer's options.pane
         // was set above — invalidate both discovery-cache entries (targeted).
@@ -262,9 +249,9 @@ class LayerFactory {
       if (target && subPanes.includes(target)) {
         (layer as LabelAwareLayer).options.pane = target;
         (layer as LabelAwareLayer).options.paneSet = true;
-        if (labelPanes.has(target)) {
-          (layer as LabelAwareLayer).isLabel = true;
-        }
+        // Set or clear the flag so a layer that moves from a label pane
+        // to a non-label pane (or vice versa) stays consistent.
+        (layer as LabelAwareLayer).isLabel = labelPanes.has(target);
       }
       mainLayer.addLayer(layer as LabelAwareLayer);
       return layer;

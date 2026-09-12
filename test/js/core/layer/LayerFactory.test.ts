@@ -193,7 +193,7 @@ describe("LayerFactory", () => {
       });
       const nodeLayer = new window.L.Path();
       api.addLayer(nodeLayer, "node1");
-      expect(nodeLayer.isLabel).toBeUndefined();
+      expect(nodeLayer.isLabel).toBe(false);
       const labelLayer = new window.L.Marker();
       api.addLayer(labelLayer, "label1");
       expect(labelLayer.isLabel).toBe(true);
@@ -207,7 +207,7 @@ describe("LayerFactory", () => {
       });
       const graphLayer = new window.L.Path();
       api.addLayer(graphLayer, "graph1");
-      expect(graphLayer.isLabel).toBeUndefined();
+      expect(graphLayer.isLabel).toBe(false);
     });
 
     it("falls through to origAddLayer when no panes declared", () => {
@@ -250,8 +250,8 @@ describe("LayerFactory", () => {
       const layer = new window.L.Path();
       api.addLayer(layer, "graph1");
       expect(layer.options.pane).toBe("graph1");
-      // Graph is index 0 �?not a label pane, so isLabel must not be set.
-      expect(layer.isLabel).toBeUndefined();
+      // Graph is index 0 — not a label pane, so isLabel is false.
+      expect(layer.isLabel).toBe(false);
     });
 
     it("addLayer without a paneName defaults to the base pane (subPanes[0])", () => {
@@ -263,6 +263,7 @@ describe("LayerFactory", () => {
       const layer = new window.L.Path();
       api.addLayer(layer);
       expect(layer.options.pane).toBe("graph1");
+      // No explicit paneName → wrapper skips isLabel; mainLayer routes to base.
       expect(layer.isLabel).toBeUndefined();
     });
 
