@@ -165,18 +165,6 @@ const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   )?.preventDefault?.();
 };
 
-/** Escape HTML special characters in a string. */
-const escapeHTML = (str: string | number | boolean | null | undefined): string => {
-  const map: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return String(str).replace(/[&<>"']/g, m => map[m]);
-};
-
 /**
  * Build the popup body for a location marker. Coordinates are pinned to the
  * shared readout precision, so a popup never echoes the raw stored value — a
@@ -407,7 +395,6 @@ export {
   createInlineEditInput,
   createLocationMarker,
   dom,
-  escapeHTML,
   removeInlineEditInput,
   stopEvent,
   updateItemLabel,

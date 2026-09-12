@@ -5,7 +5,6 @@ import {
   createInlineEditInput,
   createLocationMarker,
   dom,
-  escapeHTML,
   removeInlineEditInput,
   stopEvent,
   updateItemLabel,
@@ -426,16 +425,6 @@ describe("stopEvent", () => {
     stopEvent({ originalEvent: original });
     expect(original.stopPropagation).toHaveBeenCalled();
     expect(original.preventDefault).toHaveBeenCalled();
-  });
-});
-
-describe("escapeHTML", () => {
-  it("escapes HTML special characters", () => {
-    expect(escapeHTML(`<a href="x">&'`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
-  });
-
-  it("coerces non-strings", () => {
-    expect(escapeHTML(5)).toBe("5");
   });
 });
 
