@@ -3,7 +3,6 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   ATTRS_ROW_WRAP_CHARS,
   applyNameProjection,
-  formatTimestamp,
   isKeyboardVisibleFocus,
   owningRow,
 } from "#foliplus/LayerControl/ui/context.js";
@@ -24,18 +23,6 @@ describe("ui/context", () => {
   it("isKeyboardVisibleFocus is false in jsdom (no :focus-visible)", () => {
     const el = document.createElement("button");
     expect(isKeyboardVisibleFocus(el)).toBe(false);
-  });
-
-  it("formatTimestamp renders epoch ms in the browser timezone", () => {
-    const ms = Date.UTC(2026, 8, 12, 6, 5, 0);
-    const out = formatTimestamp(ms);
-    expect(out).toContain("2026");
-    expect(out).not.toBe("");
-  });
-
-  it("formatTimestamp returns empty string for unparsable input", () => {
-    expect(formatTimestamp("not-a-date")).toBe("");
-    expect(formatTimestamp(NaN)).toBe("");
   });
 
   it("ATTRS_ROW_WRAP_CHARS is a positive width threshold", () => {

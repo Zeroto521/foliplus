@@ -47,28 +47,9 @@ const applyNameProjection = (
  *  10px type and is rendered below its label on the full panel width. */
 const ATTRS_ROW_WRAP_CHARS = 32;
 
-/** Format an update timestamp for the attributes panel.
- *  Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
- *  input returns "" so the caller omits the row instead of showing a
- *  "Invalid Date" literal. Renders in the browser's local timezone. */
-const formatTimestamp = (value: string | number): string => {
-  const date = new Date(typeof value === "number" ? value : Date.parse(value));
-  if (Number.isNaN(date.getTime())) return "";
-  // "zh" is not a full BCP-47 tag — ICU wants zh-CN / zh-Hant etc. for
-  // medium date + short time; fall back to the raw code otherwise.
-  const locale = CONF.locale_code === "zh" ? "zh-CN" : (CONF.locale_code ?? "en");
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return date.toLocaleString(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  });
-};
-
 export {
   ATTRS_ROW_WRAP_CHARS,
   applyNameProjection,
-  formatTimestamp,
   isKeyboardVisibleFocus,
   mapContainer,
   owningRow,
