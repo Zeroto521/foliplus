@@ -1,7 +1,7 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { createControlEnv } from "#core/controlEnv.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
