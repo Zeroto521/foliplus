@@ -9,6 +9,8 @@ import {
 import * as CONST from "../const.js";
 import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { displayName } from "./list.js";
+import { applyUserState, saveNamesState } from "./state.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -21,7 +23,7 @@ import type { LayerUI } from "./index.js";
  */
 const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
-  ui.finishRename();
+  finishRename(ui);
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
   const isColorLayer = layerId === CONST.COLOR.MAP_ID;
@@ -35,7 +37,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
-  const currentName = ui.displayName(layerId);
+  const currentName = displayName(ui, layerId);
 
   ui.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
@@ -58,10 +60,10 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.
         ui.renamedNames[layerId] = trimmed;
-        ui.saveNamesState();
-        ui.applyUserState();
+        saveNamesState(ui);
+        applyUserState(ui);
       }
-      ui.finishRename(true);
+      finishRename(ui, true);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
@@ -79,9 +81,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // blur from re-committing. Enter and blur have no document-level
       // handler to reach, so they tear down immediately.
       if (reason === "escape") {
-        setTimeout(() => ui.finishRename(true), 0);
+        setTimeout(() => finishRename(ui, true), 0);
       } else {
-        ui.finishRename(true);
+        finishRename(ui, true);
       }
     },
   });
@@ -110,7 +112,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   item?.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
-  if (restoreText) updateItemLabel(item, ui.displayName(layerId));
+  if (restoreText) updateItemLabel(item, displayName(ui, layerId));
 };
 
 /**

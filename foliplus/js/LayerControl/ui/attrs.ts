@@ -10,6 +10,9 @@ import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import { T } from "./context.js";
 import { formatTimestamp } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { colorLayerName } from "./list.js";
+import { closeMoreMenu } from "./menu.js";
+import { finishRename } from "./rename.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
@@ -21,9 +24,9 @@ import type { LayerUI } from "./index.js";
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
-  ui.finishRename();
-  ui.closeMoreMenu(true);
-  ui.closeAttrsPanel(false);
+  finishRename(ui);
+  closeMoreMenu(ui, true);
+  closeAttrsPanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
@@ -124,7 +127,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     "",
   ]);
 
-  const displayName = isColor ? ui.colorLayerName() : (layerInfo?.name ?? layerId);
+  const displayName = isColor ? colorLayerName(ui) : (layerInfo?.name ?? layerId);
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
@@ -190,7 +193,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // The 脳 sits inside the header, so one listener covers both.
   panel
     .querySelector(".foliplus-panel-header")
-    ?.addEventListener("click", () => ui.closeAttrsPanel(true));
+    ?.addEventListener("click", () => closeAttrsPanel(ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. Capture-phase
@@ -210,11 +213,11 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     const t = event.target as HTMLElement | null;
     // Document-level dispatch can name `document` itself —no closest().
     if (!t || typeof t.closest !== "function") {
-      ui.closeAttrsPanel(false);
+      closeAttrsPanel(ui, false);
       return;
     }
     if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) return;
-    ui.closeAttrsPanel(false);
+    closeAttrsPanel(ui, false);
   };
   document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
 

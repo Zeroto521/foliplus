@@ -2,6 +2,7 @@
 import * as CONST from "../const.js";
 import { mapContainer } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { syncToggleAll } from "./visibility.js";
 
 const showColorLayer = (ui: LayerUI, color: string) => {
   ui.isColorActive = true;
@@ -36,7 +37,7 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   ui.uiContainer
     .querySelector(CONST.SEL.COLOR_ITEM)
     ?.classList.add(CONST.CLASSES.ACTIVE);
-  ui.syncToggleAll(CONST.GROUP.BASE);
+  syncToggleAll(ui, CONST.GROUP.BASE);
 };
 
 const hideColorLayer = (ui: LayerUI) => {
