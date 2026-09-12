@@ -87,12 +87,6 @@ Features
 
 .. toctree::
    :maxdepth: 1
-   :caption: Advanced Guide
-
-   security
-
-.. toctree::
-   :maxdepth: 1
    :caption: Changelog
 
    changelog
