@@ -13,6 +13,7 @@
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
  *   node script/build.mjs --check      # build and verify all artifacts exist
  *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
+ *   node script/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
@@ -58,6 +59,7 @@ const BUILD_SPEC = {
   root: { type: "string", default: ".", desc: "Project root directory" },
   dev: { type: "bool", desc: "Unminified, keepNames" },
   check: { type: "bool", desc: "Verify all artifacts exist" },
+  verify: { type: "bool", desc: "Don't build; assert the existing dist/ is complete" },
   sonda: { type: "bool", desc: "Generate sonda bundle report (HTML treemap)" },
 };
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
@@ -243,6 +245,31 @@ const mergeCommonCss = () => {
   return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
 };
 
+/** Assert the dist/ tree holds every artifact a complete build would emit.
+ *
+ * Same source of truth as the build itself (`findComponents`) plus the shared
+ * entry and the merged stylesheet — a package that ships fewer files than this
+ * is unusable, so the check runs in CI without re-running esbuild.
+ */
+const verifyDist = () => {
+  const expected = ["foliplus-common.min.js", "foliplus-common.min.css"];
+  for (const { name, css } of findComponents()) {
+    // The shared entry is written out as "common", so skip its source name
+    // (runtime/) — it has no runtime-prefixed artifact.
+    if (name === SHARED_ENTRY) continue;
+    expected.push(`foliplus-${name}.min.js`);
+    if (css) expected.push(`foliplus-${name}.min.css`);
+  }
+  const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
+  if (missing.length) {
+    console.error(
+      `Missing artifacts: ${missing.join(", ")} — run \`npm run build\` first`,
+    );
+    process.exit(1);
+  }
+  console.log(`${OK} ${expected.length} artifacts present in dist/`);
+};
+
 /** Build the full list of esbuild artifacts (components + merged common CSS).
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
@@ -298,6 +325,10 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 const main = async () => {
+  if (CFG.verify) {
+    verifyDist();
+    return;
+  }
   console.time("build");
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
@@ -367,7 +398,7 @@ const main = async () => {
   console.timeEnd("build");
 };
 
-// CLI entry point: `node script/build.mjs [--dev|--check|--sonda]`.
+// CLI entry point: `node script/build.mjs [--dev|--check|--verify|--sonda]`.
 // Guarded so importing this module has no side effects.
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch(e => {
