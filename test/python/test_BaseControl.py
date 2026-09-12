@@ -345,6 +345,7 @@ class TestBaseControlRendering:
         assert "panel-shadow" in html
         assert "ctrl-fold.expanded" in html
 
+
 # ---------------------------------------------------------------------------
 # Inline script escaping: both script emission sites (the per-control CONF line
 # and the once-per-map _TABLES line) funnel through _safe_json, which is pinned
