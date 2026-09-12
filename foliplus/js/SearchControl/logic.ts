@@ -132,35 +132,8 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
-/** Storage key to read: the scoped one, or the pre-scoping global key. */
-const historyStorageKey = (): string => {
-  // The fallback must key on presence, not on a parsed value: Storage.load()
-  // returns null for a missing key *and* for a corrupt one, so falling back on a
-  // parse failure would let a half-written scoped row silently resurrect stale
-  // global history. Presence is cheaper to check directly and, unlike load(),
-  // never logs a warning for a key that is simply not there.
-  //
-  // Guarded: in private mode or a sandboxed iframe a read throws, and the caller
-  // does not catch — storage unavailable means no history to read, so the scoped
-  // key is the right default and Storage.load() owns the warning.
-  try {
-    return window.localStorage.getItem(HISTORY.STORAGE_KEY) === null
-      ? HISTORY.LEGACY_STORAGE_KEY
-      : HISTORY.STORAGE_KEY;
-  } catch {
-    return HISTORY.STORAGE_KEY;
-  }
-};
-
-const loadHistory = (): SearchHistoryEntry[] => {
-  // One-time migration: the key was per-page global before this was scoped per
-  // map, so the absent scoped key falls back to the legacy one and the next
-  // saveHistory() carries the rows over. No removeItem — two maps on one page
-  // would otherwise race on that read.
-  return loadHistoryRows(
-    Storage.load<StoredHistoryEntry[]>(historyStorageKey(), CONF.name),
-  );
-};
+const loadHistory = (): SearchHistoryEntry[] =>
+  loadHistoryRows(Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name));
 
 /** Parse and migrate one history payload; [] for a corrupt or non-array store. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {

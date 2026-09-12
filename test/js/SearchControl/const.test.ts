@@ -50,11 +50,6 @@ describe("HISTORY", () => {
     // Asserts the shape (prefix + separator + id) from the same input the source
     // uses, so the expectation cannot drift from the template literal.
     expect(CONST.HISTORY.STORAGE_KEY).toBe(`foliplus_search_${containerId}`);
-    // The legacy key is the unscoped global one, kept only for migration, so the
-    // two must never collide.
-    expect(CONST.HISTORY.LEGACY_STORAGE_KEY).toBe("foliplus.search_history");
-    expect(CONST.HISTORY.LEGACY_STORAGE_KEY).not.toContain(containerId);
-    expect(CONST.HISTORY.STORAGE_KEY).not.toEqual(CONST.HISTORY.LEGACY_STORAGE_KEY);
   });
 });
 
