@@ -21,7 +21,7 @@ from pathlib import Path
 
 import folium
 import pytest
-from conftest import render
+from conftest import render, render_control
 
 from foliplus.BaseControl import (
     MissingAssetsError,
@@ -84,7 +84,7 @@ def test_error_is_a_runtime_error():
     assert issubclass(MissingAssetsError, RuntimeError)
 
 
-def test_shared_header_names_both_files(base_map: folium.Map):
+def test_shared_header_names_both_files():
     """Both shared artifacts missing → one error naming both, not two failures."""
     js = dist_dir / "foliplus-common.min.js"
     css = dist_dir / "foliplus-common.min.css"
@@ -104,7 +104,7 @@ def test_shared_header_names_both_files(base_map: folium.Map):
     assert "make dist" in message
 
 
-def test_shared_header_raises_with_one_present(base_map: folium.Map):
+def test_shared_header_raises_with_one_present():
     """A partially built dist/ is unusable — no silent half-render."""
     js = dist_dir / "foliplus-common.min.js"
     t_j = js.read_text(encoding="utf-8")
@@ -122,7 +122,7 @@ def test_shared_header_raises_with_one_present(base_map: folium.Map):
 
 
 @pytest.mark.parametrize("artifact", ("min.js", "min.css"))
-def test_component_render_raises(base_map: folium.Map, artifact: str):
+def test_component_render_raises(artifact: str):
     """A component missing either artifact fails at attach time, loudly."""
     p = dist_dir / f"foliplus-SearchControl.{artifact}"
     t = p.read_text(encoding="utf-8")
@@ -130,35 +130,30 @@ def test_component_render_raises(base_map: folium.Map, artifact: str):
     try:
         p.unlink()
         with pytest.raises(MissingAssetsError, match="SearchControl"):
-            SearchControl().add_to(base_map)
+            render_control(SearchControl())
     finally:
         p.write_text(t, encoding="utf-8")
         _clear()
 
 
-def test_shared_header_via_control(base_map: folium.Map):
+def test_shared_header_via_control():
     """A control on the map makes render() reach the shared header."""
     js = dist_dir / "foliplus-common.min.js"
     t_j = js.read_text(encoding="utf-8")
     _clear()
     try:
         js.unlink()
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        ExportControl().add_to(m)
         with pytest.raises(MissingAssetsError, match="common.min.js"):
-            render(m)
+            render_control(ExportControl())
     finally:
         js.write_text(t_j, encoding="utf-8")
         _clear()
 
 
-def test_full_control_pipeline_renders(base_map: folium.Map):
+def test_full_control_pipeline_renders():
     """Nothing missing → everything still renders."""
-    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    ExportControl().add_to(m)
-    SearchControl().add_to(m)
-    html = render(m)
-    assert "foliplus" in html
+    assert "foliplus" in render_control(ExportControl())
+    assert "foliplus" in render_control(SearchControl())
 
 
 # ── Distribution packaging ──────────────────────────────────────────

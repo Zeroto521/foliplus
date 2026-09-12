@@ -247,19 +247,17 @@ const mergeCommonCss = () => {
 
 /** Assert the dist/ tree holds every artifact a complete build would emit.
  *
- * Same source of truth as the build itself (`findComponents`) plus the shared
- * entry and the merged stylesheet — a package that ships fewer files than this
- * is unusable, so the check runs in CI without re-running esbuild.
+ * Derived from the build's own entry list rather than re-derived from
+ * `findComponents`, so the gate can never disagree with what a build would
+ * actually write. Runs in CI without re-running esbuild.
  */
 const verifyDist = () => {
-  const expected = ["foliplus-common.min.js", "foliplus-common.min.css"];
-  for (const { name, css } of findComponents()) {
-    // The shared entry is written out as "common", so skip its source name
-    // (runtime/) — it has no runtime-prefixed artifact.
-    if (name === SHARED_ENTRY) continue;
-    expected.push(`foliplus-${name}.min.js`);
-    if (css) expected.push(`foliplus-${name}.min.css`);
+  const components = findComponents();
+  if (!components.length) {
+    console.error(`${FAIL} no components found under ${srcDir}`);
+    process.exit(1);
   }
+  const expected = buildEntries(components, false).map(e => basename(e.outfile));
   const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
   if (missing.length) {
     console.error(
@@ -278,14 +276,14 @@ const buildEntries = (components, withSonda) => {
   // so set it once here rather than after every artifact() call.
   const enable = entry => (withSonda ? { ...entry, metafile: true } : entry);
 
-  const entries = [];
+  const artifacts = [];
   for (const { name, js, css } of components) {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
-    entries.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
+    artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
     if (css) {
-      entries.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
+      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
@@ -295,9 +293,9 @@ const buildEntries = (components, withSonda) => {
     mkdirSync(buildCss, { recursive: true });
     const tmpCss = resolve(buildCss, COMMON_CSS_TMP);
     writeFileSync(tmpCss, css, "utf-8");
-    entries.push(enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")));
+    artifacts.push(enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")));
   }
-  return entries;
+  return artifacts;
 };
 
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
@@ -387,7 +385,9 @@ const main = async () => {
 
   // ── Step 5: Verification (--check) ────────────────────────────
   if (CFG.check) {
-    const missing = entries.map(e => e.outfile).filter(f => !existsSync(f));
+    const missing = entries
+      .map(e => basename(e.outfile))
+      .filter(f => !existsSync(resolve(distDir, f)));
     if (missing.length) {
       console.error(`Missing artifacts: ${missing.join(", ")}`);
       process.exit(1);
