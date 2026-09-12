@@ -1,5 +1,5 @@
-API
-===
+API Reference
+============
 
 .. automodule:: foliplus
    :no-members:

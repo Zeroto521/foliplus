@@ -81,7 +81,7 @@ Features
 
 .. toctree::
    :maxdepth: 1
-   :caption: API
+   :caption: API Reference
 
    api
 
