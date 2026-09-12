@@ -193,4 +193,3 @@ class TestFoliumBaseline:
         assert ESCAPED in html
         assert PAYLOAD not in html
         assert PAYLOAD in resolve_js_unicode(html)
-
