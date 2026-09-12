@@ -80,6 +80,13 @@ import {
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 import {
+  applyAnnotationState,
+  closeStylePanel,
+  invalidateFields,
+  layerHasLabelFields,
+  openStylePanel,
+} from "./style.js";
+import {
   applyHiddenOne,
   applyHiddenStateOne,
   applyUserState,
@@ -164,6 +171,14 @@ class LayerUI {
    *  Capture is required: the layer control's disableClickPropagation
    *  stops bubble-phase events from ever reaching document. */
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Same capture-phase dismiss, for the style panel. */
+  styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Layer id whose annotation style panel is open, or null. */
+  stylePanelLayerId: string | null;
+  /** Per-layer label-field cache (collectFields walks every feature). */
+  fieldCache: Map<string, string[]>;
+  /** Persisted per-layer annotation configs, applied once layers resolve. */
+  annotationConfigs: Record<string, unknown>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -200,6 +215,10 @@ class LayerUI {
     this.onMoreMapClick = null;
     this.activeMenu = null;
     this.attrsOutsideHandler = null;
+    this.styleOutsideHandler = null;
+    this.stylePanelLayerId = null;
+    this.fieldCache = new Map();
+    this.annotationConfigs = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -431,6 +450,9 @@ class LayerUI {
     if (!item) return;
     const layerInfo = this.m.layerRegistry.get(id);
     if (!layerInfo || layerInfo.isBase) return;
+    // Features may have changed through createLayers — the label-field list
+    // must not serve a stale cache when the style panel re-renders.
+    this.invalidateFields(id);
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
     const typeCol = item.querySelector(
@@ -480,6 +502,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
+    this.closeStylePanel(false);
     this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
     dismissFocus(this);

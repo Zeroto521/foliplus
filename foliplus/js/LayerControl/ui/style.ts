@@ -84,9 +84,17 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => T(`label_format_${f}`) || f;
 
-  // Field options; the placeholder doubles as the "no field" choice.
-  const fieldOpts = dom.el("option", { value: "" }, T("label_field_placeholder"));
-  fields.forEach(f => fieldOpts.appendChild(dom.el("option", { value: f }, f)));
+  // Field options; the placeholder doubles as the "no field" choice. The
+  // per-field <option>s are appended to the select itself — appending them
+  // into the placeholder would nest <option> inside <option>, and the
+  // browser's select.options list skips nested options.
+  const fieldSelect = dom.el(
+    "select",
+    { class: "foliplus-form-select foliplus-style-field-select" },
+    dom.el("option", { value: "" }, T("label_field_placeholder")),
+  );
+  fields.forEach(f => fieldSelect.appendChild(dom.el("option", { value: f }, f)));
+  (fieldSelect as HTMLSelectElement).value = cfg.field || "";
 
   const formatOpts = [
     CONST.FORMAT.AUTO,
@@ -101,12 +109,6 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     checked: cfg.show ? "" : null,
     "aria-label": T("label_tooltip"),
   });
-  const fieldSelect = dom.el(
-    "select",
-    { class: "foliplus-form-select foliplus-style-field-select" },
-    fieldOpts,
-  );
-  (fieldSelect as HTMLSelectElement).value = cfg.field || "";
   const formatSelect = dom.el(
     "select",
     { class: "foliplus-form-select foliplus-style-format-select" },

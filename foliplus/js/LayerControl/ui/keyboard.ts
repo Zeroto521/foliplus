@@ -263,8 +263,14 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       ui.closeMoreMenu(true);
     } else if (ui.activeAttrsPanel) {
       // The attributes panel and the overflow menu both float from the same
-      // 鈰?button, so Escape dismisses whichever is on top.
+      // ⋮ button, so Escape dismisses whichever is on top.
       ui.closeAttrsPanel(true);
+    } else if (ui.stylePanelLayerId) {
+      // The style panel floats from the same ⋮ button; Escape dismisses it
+      // and returns focus to its row (the panel's own controls consume the
+      // key first, so this is the fallback for Escape from the row, the map,
+      // or a control that does not handle it).
+      ui.closeStylePanel(true);
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }

@@ -7,6 +7,7 @@ import { T } from "./context.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
+import { layerHasLabelFields } from "./style.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.

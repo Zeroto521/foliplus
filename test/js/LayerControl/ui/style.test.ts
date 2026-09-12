@@ -33,8 +33,9 @@ describe("LayerUI style panel", () => {
     }
   });
 
-  const panelOf = (item: HTMLElement): HTMLElement =>
-    item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
+  const panelOf = (item: HTMLElement): HTMLElement | undefined =>
+    (item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null) ??
+    undefined;
 
   // ─────────────────── open / close lifecycle ───────────────────
 
@@ -368,6 +369,7 @@ describe("LayerUI style panel", () => {
     // A layer registered with no labelable fields caches an empty list; a
     // runtime createLayers may later add features carrying properties, which
     // must un-stick the ⋮ menu's Style item.
+    ui.fieldCache.delete("overlay1");
     expect(ui.layerHasLabelFields("overlay1")).toBe(false);
     expect(ui.fieldCache.get("overlay1")).toEqual([]);
 
