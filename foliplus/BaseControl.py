@@ -18,7 +18,6 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 from __future__ import annotations
 
 from functools import cache
-from json import dumps
 from pathlib import Path
 from textwrap import dedent
 
@@ -26,6 +25,7 @@ from branca.element import Element, Figure
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
+from jinja2.utils import htmlsafe_json_dumps
 
 from ._typing import Position
 from ._validate import validate
@@ -59,7 +59,7 @@ def _build_shared_header() -> str:
         "<script>\n"
         f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
+        f"window.foliplus._TABLES = {htmlsafe_json_dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
         "</script>"
     )
 
@@ -176,12 +176,18 @@ class BaseControl(JSCSSMixin, MacroElement):
 
         Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
         inline ``<script>`` injection.
+
+        The JSON is escaped through Jinja's ``htmlsafe_json_dumps`` (the same routine
+        behind folium's own ``|tojson`` filter) rather than plain ``json.dumps``:
+        config values can carry model-supplied strings (layer names, export filenames,
+        ...), and a literal ``</script>`` inside them would otherwise close the inline
+        script tag and let the rest of the string execute as script.
         """
         config = dict(self._build_config())
         config["locale_tables"] = _load_tables(f"{self._name}.*.json")
         config["locale_code"] = self._locale.code if self._locale else ""
         # config always contains at least name/position — never empty.
-        return dumps(config)
+        return str(htmlsafe_json_dumps(config, ensure_ascii=False))
 
     def _extra_config(self) -> dict:
         """Return render-time config injected into the JS ``CONF`` object.
