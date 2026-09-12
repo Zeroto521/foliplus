@@ -31,6 +31,9 @@ from ._typing import Position
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
+src_dir = Path(__file__).parent
+dist_dir = src_dir / "dist"
+
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,
 # so this pass matches what folium already guarantees for the same payload.
@@ -45,8 +48,7 @@ def _safe_json(value: object) -> str:
     model-supplied string can never close the script tag.
 
     Adds one thing folium does not: U+2028/U+2029 are emitted as ``\\u2028``
-    escapes instead of literal characters, which are valid JSON but would
-    terminate the enclosing statement if written bare.
+    escapes instead of literal characters.
 
     ``ensure_ascii=False`` is deliberate — layer names are usually CJK, and
     ``\\uXXXX`` escapes would roughly double the size of the shared locale
@@ -57,9 +59,6 @@ def _safe_json(value: object) -> str:
         text = text.replace(raw, escape)
     return text
 
-
-src_dir = Path(__file__).parent
-dist_dir = src_dir / "dist"
 
 # Stable child name used to deduplicate the shared asset bundle in a figure's
 # header, so runtime.js / the merged shared stylesheet / locale tables are
