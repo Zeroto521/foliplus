@@ -25,6 +25,12 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
   });
 
+  it("maps controlEnv.js to foliplus.core.controlEnv", () => {
+    expect(sharedGlobalNamespace("#core/controlEnv.js")).toBe(
+      "foliplus.core.controlEnv",
+    );
+  });
+
   it("maps core subdirectory to foliplus.core.sub", () => {
     expect(sharedGlobalNamespace("#core/layer/index.js")).toBe("foliplus.core.layer");
     expect(sharedGlobalNamespace("#core/event/index.js")).toBe("foliplus.core.event");

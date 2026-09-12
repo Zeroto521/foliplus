@@ -1,7 +1,7 @@
 import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
+import { createControlEnv } from "#core/controlEnv.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { locateMe, removeMarker } from "./logic.js";

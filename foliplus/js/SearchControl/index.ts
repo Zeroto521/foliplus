@@ -3,7 +3,7 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
+import { createControlEnv } from "#core/controlEnv.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";

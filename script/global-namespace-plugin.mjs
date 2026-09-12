@@ -62,6 +62,7 @@ const sharedGlobalNamespace = spec => {
   if (spec === "#core/hint.js") return "foliplus.hint";
   if (spec === "#core/component.js") return "foliplus.core.component";
   if (spec === "#core/mode.js") return "foliplus.core.mode";
+  if (spec === "#core/controlEnv.js") return "foliplus.core.controlEnv";
   if (spec === "#core/interaction.js") return "foliplus.core.interaction";
   if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
   // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,

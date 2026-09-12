@@ -1,6 +1,6 @@
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createControlEnv } from "#common/guard.js";
+import { createControlEnv } from "#core/controlEnv.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
