@@ -234,11 +234,34 @@ class TestLocaleConfig:
         cfg = resolve_locale("en", "HeatmapControl")
         assert cfg.get("nonexistent.key") == "nonexistent.key"
 
+    def test_explicit_empty_default_honoured(self):
+        """get(k, "") stays "" — an empty translation is expressible."""
+        assert LocaleConfig("en").get("no.such.key", "") == ""
+        assert LocaleConfig("en").get("no.such.key") == "no.such.key"
+
     def test_empty_localeconfig_defaults_to_en(self):
-        # A bare LocaleConfig has no strings; code falls back to en.
+        # A bare LocaleConfig carries no strings, so it means "auto-detect at runtime".
+        # Keep this assertion: it guards the empty-table fallback in BaseControl.
         cfg = LocaleConfig()
         assert cfg.code == "en"
+        assert cfg._strings == {}
         assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_language_without_strings_does_not_load_builtin_table(self):
+        """LocaleConfig(language=...) records the code only — no built-in strings."""
+        cfg = LocaleConfig("zh")
+        assert cfg.code == "zh"
+        assert cfg._strings == {}
+        assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_control_uses_builtin_table_for_string_locale(self):
+        """A str locale reaches the JS CONF as a non-empty per-code table."""
+        from foliplus import HeatmapControl
+
+        conf = json.loads(HeatmapControl(locale="zh")._config_block)
+        assert conf["locale_code"] == "zh"
+        tables = conf["locale_tables"]
+        assert "zh" in tables and tables["zh"]["HeatmapControl.title"]
 
     def test_code_property(self):
         assert resolve_locale("en", "HeatmapControl").code == "en"
@@ -314,6 +337,26 @@ class TestFromFile:
         finally:
             os.unlink(tmp)
 
+    def test_custom_table_reaches_conf(self):
+        """A LocaleConfig from JSON is shipped in CONF — custom strings must win."""
+        from foliplus import HeatmapControl
+
+        data = {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            conf = json.loads(
+                HeatmapControl(locale=LocaleConfig.from_json(tmp))._config_block
+            )
+            assert conf["locale_code"] == "ja"
+            assert "ja" in conf["locale_tables"]
+            assert conf["locale_tables"]["ja"]["HeatmapControl.title"] == "こんにちは"
+        finally:
+            os.unlink(tmp)
+
     def test_unsupported_format(self):
         """Unsupported file extension raises ValueError."""
         with tempfile.NamedTemporaryFile(
@@ -329,6 +372,116 @@ class TestFromFile:
         finally:
             os.unlink(tmp)
 
+    @pytest.mark.parametrize("payload", [[1, 2, 3], "hi", None, 5])
+    def test_non_object_root_raises(self, payload):
+        """A JSON array/string/null root raises ValueError, not AttributeError."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(payload, f)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="must contain a JSON object"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+    def test_missing_locale_code_raises(self):
+        """A missing locale.code raises instead of silently shipping under 'en'."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump({"HeatmapControl.title": "translated"}, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="must contain a 'locale.code' string"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"locale.code": "ja", "k": 123},
+            {"locale.code": "ja", "k": None},
+            {"locale.code": "ja", "k": ["a"]},
+        ],
+    )
+    def test_non_string_value_raises(self, payload):
+        """Non-string values are rejected: get() promises str."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(payload, f)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="values must all be strings"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+
+class TestPartialCustomTable:
+    """A partial custom table keeps the built-in translation for keys it omits."""
+
+    def _conf(self, control, data: dict) -> dict:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            return json.loads(control(locale=LocaleConfig.from_json(tmp))._config_block)
+        finally:
+            os.unlink(tmp)
+
+    def test_omitted_keys_keep_builtin_translation(self):
+        """One custom key overrides; the other 27 keep their built-in strings."""
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        table = conf["locale_tables"]["ja"]
+        assert table["HeatmapControl.title"] == "こんにちは"
+        # Builtin en table carries every key, so the fallback is a real
+        # translation, not a bare key.
+        assert table["HeatmapControl.layer"] == "Layer"
+
+    def test_custom_table_not_bare_key(self):
+        """Every key of the builtin table resolves to a real string."""
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        builtin = _load_tables("HeatmapControl.en.json")["en"]
+        table = conf["locale_tables"]["ja"]
+        for key in builtin:
+            assert table[key], f"key {key!r} fell through to a bare key"
+
+    def test_custom_table_ships_only_its_own_code(self):
+        """Common keys (foliplus.*) come from the shared bundle, not conf."""
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        assert set(conf["locale_tables"]) == {"ja"}
+        assert "foliplus.close_label" not in conf["locale_tables"]["ja"]
+        assert conf["locale_code"] == "ja"
+
+    def test_works_for_other_control(self):
+        """The merge path is component-agnostic."""
+        from foliplus import SearchControl
+
+        conf = self._conf(
+            SearchControl, {"locale.code": "de", "SearchControl.btn_title": "Suchen"}
+        )
+        table = conf["locale_tables"]["de"]
+        assert table["SearchControl.btn_title"] == "Suchen"
+        assert table["SearchControl.coord_placeholder"]
+
 
 class TestToFile:
     def test_to_file_roundtrip(self):
@@ -342,6 +495,34 @@ class TestToFile:
             assert loaded.get("HeatmapControl.title") == "网格聚合"
             assert loaded.get("HeatmapControl.layer") == "图层"
         finally:
+            os.unlink(tmp)
+            os.rmdir(os.path.dirname(tmp))
+
+    def test_bare_localeconfig_to_json_raises(self):
+        """A stringless config has no table; writing {} would reload as English."""
+        with pytest.raises(ValueError, match="has no strings to export"):
+            LocaleConfig("zh").to_json("/tmp/foliplus-test-no-such-dir/x.json")
+
+    def test_to_json_always_writes_locale_code(self):
+        """The written file round-trips its code — not silently 'en'."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(
+                {"locale.code": "ja", "HeatmapControl.title": "こんにちは"},
+                f,
+                ensure_ascii=False,
+            )
+            src = f.name
+        tmp = os.path.join(tempfile.mkdtemp(), "roundtrip.json")
+        try:
+            loaded = LocaleConfig.from_json(src)
+            loaded.to_json(tmp)
+            written = json.loads(open(tmp, encoding="utf-8").read())
+            assert written["locale.code"] == "ja"
+            assert LocaleConfig.from_json(tmp).code == "ja"
+        finally:
+            os.unlink(src)
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))
 
