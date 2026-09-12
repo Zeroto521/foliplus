@@ -560,7 +560,9 @@ class LayerUI {
     this.uiContainer?.setAttribute("data-ready", "true");
   }
 
-  /** True once every registry entry has a resolved Leaflet layer. */
+  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
+   *  False during the first post-attach pass, when folium layers may not be in
+   *  the registry yet. */
   private allLayersResolved(): boolean {
     return this.m.layers.every(li => this.m.findLayer(li) != null);
   }
