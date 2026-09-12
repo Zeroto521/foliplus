@@ -124,6 +124,7 @@ class HeatmapManager {
   declare mapCleanup: () => void;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
+  declare removeExportListener: () => void;
   declare onZoomEnd: Debounced;
 
   /** The layer id used to register this manager's heatmap canvas. */
@@ -165,14 +166,19 @@ class HeatmapManager {
       getBounds: () => this.computeBounds(),
     });
     // Subscribe to export events for full-content capture (ExportControl).
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
+    const bus = ensureEvents(this.map);
+    const unsubBefore = bus.on(EVENTS.BEFORE_EXPORT, () => {
       this.renderAll = true;
       this.redrawHeatmap();
     });
-    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
+    const unsubAfter = bus.on(EVENTS.AFTER_EXPORT, () => {
       this.renderAll = false;
       this.redrawHeatmap();
     });
+    this.removeExportListener = () => {
+      unsubBefore();
+      unsubAfter();
+    };
     this.ui = null;
     this.cachedPoints = null;
     this.cachedFeatures = null;

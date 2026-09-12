@@ -76,6 +76,7 @@
 - `LocaleConfig`: custom strings from `from_json()` now reach the JS `CONF`, which previously shipped only the built-in tables and silently dropped every custom translation ([#292](https://github.com/Zeroto521/foliplus/pull/292))
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload` and detaches the bound `showHint`/`hideHint` closures, removing its toasts, pending timers, and the document-level `fullscreenchange` listener ([#295](https://github.com/Zeroto521/foliplus/pull/295))
+- `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal so a destroyed heatmap stops triggering redraws ([#297](https://github.com/Zeroto521/foliplus/pull/297))
 
 ## [v0.3.0] (2026-08-02)
 

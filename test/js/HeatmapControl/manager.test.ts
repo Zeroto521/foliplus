@@ -607,6 +607,20 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(m.renderAll).toBe(false);
     expect(redrawSpy).toHaveBeenCalled();
   });
+
+  it("removeExportListener unsubscribes both export handlers", () => {
+    const m = makeManager();
+    m.renderAll = false;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+
+    m.removeExportListener();
+    expect(redrawSpy).not.toHaveBeenCalled();
+
+    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(m.renderAll).toBe(false);
+    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(redrawSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("HeatmapManager — persistence", () => {
