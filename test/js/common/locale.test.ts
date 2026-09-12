@@ -1,5 +1,25 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import {
+  createScopedTranslator,
+  createTranslator,
+  intlLocale,
+} from "#common/locale.js";
+
+describe("intlLocale", () => {
+  it("maps the short project codes to full BCP-47 tags", () => {
+    expect(intlLocale("en")).toBe("en");
+    expect(intlLocale("zh")).toBe("zh-CN");
+  });
+
+  it("passes through codes with no mapping", () => {
+    // Full tags and third-party languages from a custom LocaleConfig keep
+    // their own spelling — Intl understands them better than a remap would.
+    expect(intlLocale("zh-Hant")).toBe("zh-Hant");
+    expect(intlLocale("fr")).toBe("fr");
+    expect(intlLocale("ja")).toBe("ja");
+    expect(intlLocale("")).toBe("");
+  });
+});
 
 describe("createTranslator", () => {
   beforeEach(() => {

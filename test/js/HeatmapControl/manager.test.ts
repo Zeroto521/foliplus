@@ -590,22 +590,151 @@ describe("renderHexagons", () => {
 });
 
 describe("HeatmapManager — export event subscriptions", () => {
-  it("BEFORE_EXPORT sets renderAll and redraws", () => {
+  // The two export handlers are named methods, so the tests below assert on
+  // them.  A bus that stopped delivering — or a subscription that went
+  // unbound — flips toHaveBeenCalled to toHaveBeenCalledTimes(0), which is the
+  // regression this block is guarding.  (Spying on redrawHeatmap alone would
+  // still pass with an empty bus, because vi.fn().mockClear() clears the spy
+  // but not any subscription-level bookkeeping.)
+  it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
+    const m = makeManager();
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(1);
+    expect(m.renderAll).toBe(true);
+  });
+
+  it("AFTER_EXPORT returns to clip mode via onAfterExport", () => {
+    const m = makeManager();
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(afterSpy).toHaveBeenCalledTimes(1);
+    expect(m.renderAll).toBe(false);
+  });
+
+  it("removeExportListener stops BOTH events, and only those", () => {
+    const m = makeManager();
+    m.removeExportListener();
+    const bus = ensureEvents(m.map);
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    // Independent listener proves the bus is alive on both events — the
+    // negative assertion cannot pass merely because the bus is dead.
+    const probeBefore = vi.fn();
+    const probeAfter = vi.fn();
+    bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
+    bus.on(EVENTS.AFTER_EXPORT, probeAfter);
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+
+    expect(beforeSpy).not.toHaveBeenCalled();
+    expect(afterSpy).not.toHaveBeenCalled();
+    expect(m.renderAll).toBe(false);
+    expect(probeBefore).toHaveBeenCalledTimes(1);
+    expect(probeAfter).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.BEFORE_EXPORT, probeBefore);
+    bus.off(EVENTS.AFTER_EXPORT, probeAfter);
+  });
+
+  it("removeExportListener is idempotent — a second call does not throw", () => {
+    const m = makeManager();
+    m.removeExportListener();
+    expect(() => m.removeExportListener()).not.toThrow();
+  });
+
+  it("each export event is delivered exactly once (no double subscription)", () => {
+    const m = makeManager();
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    const bus = ensureEvents(m.map);
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(1);
+    expect(afterSpy).not.toHaveBeenCalled();
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(2);
+    expect(afterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("onBeforeExport and onAfterExport set renderAll and redraw", () => {
     const m = makeManager();
     m.renderAll = false;
     const redrawSpy = vi.spyOn(m, "redrawHeatmap");
-    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+
+    m.onBeforeExport();
     expect(m.renderAll).toBe(true);
-    expect(redrawSpy).toHaveBeenCalled();
+    expect(redrawSpy).toHaveBeenCalledTimes(1);
+
+    m.onAfterExport();
+    expect(m.renderAll).toBe(false);
+    expect(redrawSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("AFTER_EXPORT clears renderAll and redraws", () => {
+  it("removeLayerChangeListener stops LAYER_CHANGE fan-out", () => {
     const m = makeManager();
-    m.renderAll = true;
-    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
-    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    const scanSpy = vi.spyOn(m, "scanMapLayers");
+    m.removeLayerChangeListener();
+    const bus = ensureEvents(m.map);
+    // Independent listener: proves the bus still fans out LAYER_CHANGE.
+    const probe = vi.fn();
+    bus.on(EVENTS.LAYER_CHANGE, probe);
+
+    bus.emit(EVENTS.LAYER_CHANGE);
+
+    expect(scanSpy).not.toHaveBeenCalled();
+    expect(probe).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.LAYER_CHANGE, probe);
+  });
+
+  it("destroy releases every subscription and the canvas, in that order", () => {
+    const m = makeManager();
+    const destroySpy = vi.fn();
+    m.overlay = {
+      canvas: {},
+      ctx: null,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+      destroy: destroySpy,
+    };
+    const bus = ensureEvents(m.map);
+    const beforeProbe = vi.fn();
+    const afterProbe = vi.fn();
+    const layerProbe = vi.fn();
+    bus.on(EVENTS.BEFORE_EXPORT, beforeProbe);
+    bus.on(EVENTS.AFTER_EXPORT, afterProbe);
+    bus.on(EVENTS.LAYER_CHANGE, layerProbe);
+
+    // Mirror HeatmapControl#destroy: subscribers out, then content, then overlay.
+    m.mapCleanup();
+    m.onZoomEnd.cancel();
+    m.map.off("zoomend", m.onZoomEnd);
+    m.onLayerChange.cancel();
+    m.removeLayerChangeListener();
+    m.removeExportListener();
+    m.clearHeatmapCanvas();
+    m.overlay.destroy();
+
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(m.map.off).toHaveBeenCalledWith("zoomend", m.onZoomEnd);
+    expect(m.cachedFeatures).toBeNull();
+    expect(m.overlay.unregister).toHaveBeenCalled();
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.LAYER_CHANGE);
     expect(m.renderAll).toBe(false);
-    expect(redrawSpy).toHaveBeenCalled();
+    // The manager's own handlers are gone; only the probe listeners remain.
+    expect(beforeProbe).toHaveBeenCalledTimes(1);
+    expect(afterProbe).toHaveBeenCalledTimes(1);
+    expect(layerProbe).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.BEFORE_EXPORT, beforeProbe);
+    bus.off(EVENTS.AFTER_EXPORT, afterProbe);
+    bus.off(EVENTS.LAYER_CHANGE, layerProbe);
   });
 });
 

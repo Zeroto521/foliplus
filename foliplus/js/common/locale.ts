@@ -83,6 +83,21 @@ const resolveLocale = (
 };
 
 /**
+ * BCP-47 tags for the Intl APIs (`Intl.NumberFormat`, `Date.prototype.toLocale*`).
+ * A project short code is a valid tag for those, but `zh` carries no script
+ * variant, so `dateStyle` + `timeStyle` can't pick one and ICU degrades to the
+ * English fallback chain. Keep this separate from the table keys — `accept-
+ * language` and `notation: "compact"` both take `zh` correctly.
+ */
+const INTL_LOCALES: Record<string, string> = {
+  en: "en",
+  zh: "zh-CN",
+};
+
+/** The Intl tag for a resolved locale code, or the code itself. */
+const intlLocale = (code: string): string => INTL_LOCALES[code] ?? code;
+
+/**
  * Resolve the active locale code from a component's CONF.
  * Uses explicit code when provided, otherwise auto-detects via URL/HTML/browser.
  * Mutates ``conf.locale_code`` with the resolved code so subsequent calls
@@ -122,4 +137,4 @@ const createScopedTranslator = (conf: ComponentConfig): ((key: string) => string
   return (k: string): string => _(`${conf.name}.${k}`);
 };
 
-export { createTranslator, createScopedTranslator };
+export { createTranslator, createScopedTranslator, intlLocale };
