@@ -3,7 +3,10 @@
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
+
+const log = createLogger("Hint");
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
@@ -198,6 +201,20 @@ class HintManager {
   }
 }
 
+/** Per-map teardown hook, called from the `unload` handler in `ensureHint`.
+ *  Clears the `instances` WeakMap entry so `ensureHint` for the same map object
+ *  rebuilds a fresh manager, and detaches the bound `showHint`/`hideHint`
+ *  closures on `map.foliplus` — `destroy()` alone would leave them wired to a
+ *  manager whose nodes and timers are already gone, so a call after unload would
+ *  append nodes to `document.body` forever. Every call site reaches hints through
+ *  `map.foliplus`, so replacing the closures here covers all of them. */
+const destroyManager = (map: L.Map, mgr: HintManager): void => {
+  mgr.destroy();
+  instances.delete(map);
+  map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
+  map.foliplus!.hideHint = () => {};
+};
+
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
 const ensureHint = (map: L.Map): HintManager => {
   const existing = instances.get(map);
@@ -211,7 +228,13 @@ const ensureHint = (map: L.Map): HintManager => {
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };
+  // On map unload, tear down hints and unbind the document-level
+  // fullscreenchange listener. Without this the manager outlives its map: the
+  // WeakMap entry frees the instance, but document.body hints, the open
+  // setTimeout timers, and the document listener all leak. Mirrors the per-map
+  // cleanup pattern used by core/mode and core/interaction.
+  map.on("unload", () => destroyManager(map, mgr));
   return mgr;
 };
 
-export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };
+export { destroyManager, ensureHint, HINT_DURATION, HintManager, registerHintIcon };
