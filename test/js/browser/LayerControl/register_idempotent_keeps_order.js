@@ -6,7 +6,7 @@
     const mg = api.createLayers({
       id: "__idem_" + i + "__",
       name: "Idem" + i,
-      panes: [{name:"__idem_g" + i + "__"}],
+      panes: [{ name: "__idem_g" + i + "__" }],
     });
     mg.mainLayer.addLayer(
       L.polyline([

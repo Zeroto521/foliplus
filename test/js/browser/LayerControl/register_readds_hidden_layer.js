@@ -5,7 +5,7 @@
   const layers = api.createLayers({
     id: "__test_measure__",
     name: "Test Measure",
-    panes: [{name:"test_graph"}, {name:"test_label"}],
+    panes: [{ name: "test_graph" }, { name: "test_label" }],
   });
   // Add content (triggers register)
   const mkr = L.circleMarker([26.08, 119.3]);
