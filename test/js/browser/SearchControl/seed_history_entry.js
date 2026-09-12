@@ -2,7 +2,9 @@
   // Seed one coordinate-mode history entry whose reverse-geocoded address
   // ("Shanghai, China") differs from its stored key ("121.47,31.23").
   // Reload the page afterwards so the component picks it up on init.
-  const KEY = "foliplus.search_history";
+  // The scoped key shape; the map container id is the same one
+  // `HISTORY.STORAGE_KEY` is built from at bundle time.
+  const KEY = `foliplus_search_${document.getElementById("map").id}`;
   localStorage.setItem(
     KEY,
     JSON.stringify([
