@@ -117,10 +117,10 @@ describe("PaneManager", () => {
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
 
-  it("ensurePane does not set z-index (deferred to bumpPanes)", () => {
-    // ensurePane used to write CONST.Z_INDEX.BASE + k*CHILD_PANE_STEP,
-    // which conflicted with bumpPanes's position-based base (computeZIndex).
-    // Now only bumpPanes assigns z-index, so a freshly created pane is blank.
+  it("ensurePane sets provisional z-index on first creation only", () => {
+    // First creation: graph=BASE, node=BASE+STEP, label=BASE+2*STEP.
+    // Re-entry (pane already exists) must NOT touch z-index — bumpPanes
+    // may have already overwritten it with a position-based base.
     const panes: Record<string, HTMLElement> = {};
     const map = {
       getPane: vi.fn((name: string) => panes[name] ?? null),
@@ -136,9 +136,16 @@ describe("PaneManager", () => {
     pm.ensurePane("measure_node", false);
     pm.ensurePane("measure_graph", false);
 
-    expect(panes["measure_graph"]!.style.zIndex).toBe("");
-    expect(panes["measure_node"]!.style.zIndex).toBe("");
-    expect(panes["measure_label"]!.style.zIndex).toBe("");
+    const base = CONST.Z_INDEX.BASE;
+    const step = Number(CONST.CHILD_PANE_STEP);
+    expect(panes["measure_graph"]!.style.zIndex).toBe(String(base));
+    expect(panes["measure_node"]!.style.zIndex).toBe(String(base + step));
+    expect(panes["measure_label"]!.style.zIndex).toBe(String(base + 2 * step));
+
+    // Simulate bumpPanes overwriting with a higher position-based base.
+    panes["measure_label"]!.style.zIndex = "622";
+    pm.ensurePane("measure_label", false);
+    expect(panes["measure_label"]!.style.zIndex).toBe("622");
   });
 
   it("ensurePane creates an SVG renderer when needRenderer is true", () => {
