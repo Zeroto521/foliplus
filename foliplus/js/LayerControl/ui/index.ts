@@ -209,19 +209,16 @@ class LayerUI {
   }
 
   /** Alias for convenience */
-
   get m() {
     return this.manager;
   }
 
   /** The attached panel container. Only valid after attachUI(). */
-
   get uiContainer(): HTMLElement {
     return this.m.uiContainer!;
   }
 
   /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
-
   get mgmt(): LayerManager & { getFeatureCount: (i: string) => number | null } {
     return this.m as LayerManager & { getFeatureCount: (i: string) => number | null };
   }
@@ -230,7 +227,6 @@ class LayerUI {
    * Attach UI to the given container div.
    * @param {HTMLElement} containerDiv - The panel-content div.
    */
-
   attachUI(containerDiv: HTMLElement) {
     this.m.uiContainer = containerDiv;
     this.loadPersistedState();
@@ -275,7 +271,6 @@ class LayerUI {
    *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
    *  it lands after the synchronous attach sequence, so folium layers are
    *  already linked into the registry. */
-
   private subscribeControlAttached(): void {
     this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
       EVENTS.CONTROL_ATTACHED,
@@ -287,7 +282,6 @@ class LayerUI {
   }
 
   /** Load every persisted dimension in one call. */
-
   bindEvents() {
     const container = this.uiContainer;
     if (!container) return;
@@ -426,7 +420,6 @@ class LayerUI {
    *  Re-computes geometry type so a layer that mixes geometry through the
    *  createLayers API (Point + LineString, etc.) shows the correct icon,
    *  not the one cached at initial attach. */
-
   onLayerItemCountChange(id: string) {
     if (!this.uiContainer) return;
     const item = this.uiContainer.querySelector(
@@ -464,7 +457,6 @@ class LayerUI {
   }
 
   /** Refresh count column for every overlay item (no title change). */
-
   refreshAllCounts() {
     if (!this.uiContainer) return;
     const items = this.uiContainer.querySelectorAll(

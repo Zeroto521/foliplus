@@ -36,7 +36,7 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   ui.uiContainer
     .querySelector(CONST.SEL.COLOR_ITEM)
     ?.classList.add(CONST.CLASSES.ACTIVE);
-  ui.syncToggleAll( CONST.GROUP.BASE);
+  ui.syncToggleAll(CONST.GROUP.BASE);
 };
 
 const hideColorLayer = (ui: LayerUI) => {
