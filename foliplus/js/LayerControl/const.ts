@@ -95,15 +95,12 @@ const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
-<<<<<<< HEAD
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
   /** Marker wrapper element used to render an annotation label. */
   ANNOTATION_LABEL: "foliplus-annotation-label",
-=======
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
->>>>>>> origin/main
 };
 
 /** Data attribute names. */
