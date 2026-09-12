@@ -78,8 +78,9 @@ class PaneManager {
       // pane came from, so sub-pane ordering is a contract rather than an
       // accident of div append order.
       const k = Array.from(this.childPanes).indexOf(paneName);
-      if (k > 0)
+      if (k > 0) {
         pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
+      }
     }
     let renderer: L.SVG | null = null;
     if (needRenderer) {
@@ -257,9 +258,16 @@ class PaneManager {
    * array here keeps the two APIs in lockstep. */
   sweepChildPanes(layers: ReadonlyArray<{ subPanes?: string[] }>) {
     const used = new Set<string>();
-    for (const li of layers) for (const pane of li.subPanes ?? []) used.add(pane);
-    for (const pane of this.childPanes)
-      if (!used.has(pane)) this.childPanes.delete(pane);
+    for (const li of layers) {
+      for (const pane of li.subPanes ?? []) {
+        used.add(pane);
+      }
+    }
+    for (const pane of this.childPanes) {
+      if (!used.has(pane)) {
+        this.childPanes.delete(pane);
+      }
+    }
   }
 
   /**

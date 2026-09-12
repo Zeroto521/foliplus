@@ -174,8 +174,8 @@ describe("PaneManager", () => {
     } as unknown as L.Layer;
     pm.bumpPanes(layer, 600, ["g", "label"]);
     // base pane at k=0, label pane at k=1 * STEP
-    expect(graph.style.zIndex).toBe(String(600 + 0 * CONST.CHILD_PANE_STEP));
-    expect(label.style.zIndex).toBe(String(600 + 1 * CONST.CHILD_PANE_STEP));
+    expect(graph.style.zIndex).toBe(String(600 + 0 * Number(CONST.CHILD_PANE_STEP)));
+    expect(label.style.zIndex).toBe(String(600 + 1 * Number(CONST.CHILD_PANE_STEP)));
   });
 
   it("bumpPanes handles three sub-panes with ascending offsets", () => {
@@ -201,9 +201,9 @@ describe("PaneManager", () => {
       },
     } as unknown as L.Layer;
     pm.bumpPanes(layer, 600, ["g", "n", "label"]);
-    expect(graph.style.zIndex).toBe(String(600 + 0 * CONST.CHILD_PANE_STEP));
-    expect(node.style.zIndex).toBe(String(600 + 1 * CONST.CHILD_PANE_STEP));
-    expect(label.style.zIndex).toBe(String(600 + 2 * CONST.CHILD_PANE_STEP));
+    expect(graph.style.zIndex).toBe(String(600 + 0 * Number(CONST.CHILD_PANE_STEP)));
+    expect(node.style.zIndex).toBe(String(600 + 1 * Number(CONST.CHILD_PANE_STEP)));
+    expect(label.style.zIndex).toBe(String(600 + 2 * Number(CONST.CHILD_PANE_STEP)));
   });
 
   it("bumpPanes ignores child panes not in the caller's subPanes list", () => {
