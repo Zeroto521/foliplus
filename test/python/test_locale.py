@@ -152,7 +152,6 @@ _JS_USED_KEYS = {
     "LayerControl.attr_empty",
     "LayerControl.attr_created_at",
     "LayerControl.attr_updated_at",
-    "LayerControl.attr_close",
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",
     "MeasureControl.hint_edit_empty",

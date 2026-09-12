@@ -2188,8 +2188,8 @@ class LayerUI {
         // panel's own ×, so position, size and hover are identical.
         class: "foliplus-ctrl-btn foliplus-close-btn",
         type: "button",
-        title: T("attr_close"),
-        "aria-label": T("attr_close"),
+        title: T("close_title"),
+        "aria-label": T("close_title"),
       },
       // The same CLOSE glyph the layer panel's header uses (not a text "×").
       { html: Icons.CLOSE },
@@ -2208,9 +2208,10 @@ class LayerUI {
       // Header bar — literally the shared panel header: the type logo sits
       // inside the title (as in the layer panel) and the × is the shared
       // close button, so both line up with every other foliplus panel.
+      // Hover title is close_title (收起 / Collapse), same as the main panel.
       dom.el(
         "div",
-        { class: "foliplus-panel-header" },
+        { class: "foliplus-panel-header", title: T("close_title") },
         dom.el(
           "span",
           { class: "foliplus-header-title" },
