@@ -48,6 +48,7 @@ const ensureLayerAPI = (map: L.Map): LayerAPI => {
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
+    touchLayer: () => false,
     createLayers: opts => factory.createLayers(opts),
     createCanvas: opts => factory.createCanvas(opts),
     extractPoints: () => [],

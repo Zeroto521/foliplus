@@ -1321,6 +1321,29 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(() => ui.closeAttrsPanel(false)).not.toThrow();
     });
 
+    it("document capture mousedown outside the panel dismisses it", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+
+      // Capture phase: the layer control's disableClickPropagation never
+      // lets a bubble-phase press reach document.
+      document.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
+    it("mousedown inside the panel does not dismiss it", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      panel.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+    });
+
     it("Escape closes an open attributes panel and returns focus to its row", () => {
       const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();

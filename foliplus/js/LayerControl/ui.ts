@@ -74,13 +74,18 @@ const ATTRS_ROW_WRAP_CHARS = 32;
 /** Format an update timestamp for the attributes panel.
  *  Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
  *  input returns "" so the caller omits the row instead of showing a
- *  "Invalid Date" literal. */
+ *  "Invalid Date" literal. Renders in the browser's local timezone. */
 const formatTimestamp = (value: string | number): string => {
   const date = new Date(typeof value === "number" ? value : Date.parse(value));
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(CONF.locale_code, {
+  // "zh" is not a full BCP-47 tag — ICU wants zh-CN / zh-Hant etc. for
+  // medium date + short time; fall back to the raw code otherwise.
+  const locale = CONF.locale_code === "zh" ? "zh-CN" : (CONF.locale_code ?? "en");
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return date.toLocaleString(locale, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone,
   });
 };
 
@@ -144,6 +149,10 @@ class LayerUI {
     panel: HTMLElement;
     layerId: string;
   } | null;
+  /** Document capture-phase mousedown used to dismiss the attrs panel.
+   *  Capture is required: the layer control's disableClickPropagation
+   *  stops bubble-phase events from ever reaching document. */
+  private attrsOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   private focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -179,6 +188,7 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.activeMenu = null;
+    this.attrsOutsideHandler = null;
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -1477,7 +1487,11 @@ class LayerUI {
    */
   handleOutsideMousedown(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
-    if (!target) return;
+    if (!target || typeof target.closest !== "function") {
+      this.closeAttrsPanel(false);
+      this.clearActiveItem();
+      return;
+    }
     // The attributes panel is a floating surface anchored to its row: a press
     // anywhere outside it dismisses it, panel and map alike. One surface per
     // press — the overflow menu keeps its own click-delegated close in
@@ -2227,14 +2241,41 @@ class LayerUI {
       .querySelector(".foliplus-panel-header")
       ?.addEventListener("click", () => this.closeAttrsPanel(true));
 
+    // The panel sits inside a draggable layer row: a press on the panel must
+    // neither start a row drag nor inherit `user-select: none`. Capture-phase
+    // stop keeps HTML5 drag from treating the press as a drag candidate.
+    panel.addEventListener("mousedown", e => e.stopPropagation());
+    panel.addEventListener("dragstart", e => {
+      if (e.target instanceof Node && panel.contains(e.target)) e.preventDefault();
+    });
+
     item.style.position = "relative";
     item.appendChild(panel);
+
+    // Document capture dismiss: disableClickPropagation on the layer control
+    // stops bubble-phase mousedown from reaching document, so a press on the
+    // map or another foliplus control would never close the panel otherwise.
+    this.attrsOutsideHandler = (event: MouseEvent) => {
+      const t = event.target as HTMLElement | null;
+      // Document-level dispatch can name `document` itself — no closest().
+      if (!t || typeof t.closest !== "function") {
+        this.closeAttrsPanel(false);
+        return;
+      }
+      if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) return;
+      this.closeAttrsPanel(false);
+    };
+    document.addEventListener("mousedown", this.attrsOutsideHandler, true);
 
     this.activeAttrsPanel = { item, panel, layerId };
   }
 
   /** Close the attributes panel. setFocus = true returns focus to the row. */
   closeAttrsPanel(setFocus: boolean) {
+    if (this.attrsOutsideHandler) {
+      document.removeEventListener("mousedown", this.attrsOutsideHandler, true);
+      this.attrsOutsideHandler = null;
+    }
     if (!this.activeAttrsPanel) return;
     const item = this.activeAttrsPanel.item;
     this.activeAttrsPanel.panel.remove();

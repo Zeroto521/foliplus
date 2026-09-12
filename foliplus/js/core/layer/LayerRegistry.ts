@@ -153,6 +153,15 @@ class LayerRegistry {
     return this.byId.get(id);
   }
 
+  /** Stamp `updatedAt` to now — runtime mutations (heatmap field, measure
+   *  edits) that do not re-register the layer still refresh the attrs panel. */
+  touch(id: string): boolean {
+    const li = this.byId.get(id);
+    if (!li) return false;
+    li.updatedAt = Date.now();
+    return true;
+  }
+
   has(id: string) {
     return this.byId.has(id);
   }

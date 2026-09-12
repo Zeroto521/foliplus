@@ -168,6 +168,8 @@ interface LayerAPI {
   /** Return the number of geometric features in a registered layer.
    *  Null when the layer cannot be counted (e.g. Canvas without provider). */
   getFeatureCount?: (id: string) => number | null;
+  /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
+  touchLayer?: (id: string) => boolean;
 }
 
 export type {

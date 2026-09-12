@@ -656,6 +656,7 @@ path.foliplus-focus-mask {
     position: absolute;
     top: 100%;
     right: 0;
+    z-index: 10;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -666,6 +667,9 @@ path.foliplus-focus-mask {
     /* Same card chrome as an expanded foliplus panel. */
     border-radius: var(--radius-card);
     box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
+    /* Read-only metadata must stay copyable; the parent row is user-select:none. */
+    user-select: text;
+    cursor: default;
   }
   /* Header closes the panel — same affordance as the main Layer/Heatmap
      panels (bindPanelToggle collapses on header click). */
