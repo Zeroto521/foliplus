@@ -13,11 +13,11 @@ except ImportError:
 from .BaseControl import BaseControl
 from .ExportControl import ExportControl
 from .FullscreenControl import FullscreenControl
+from .GuideControl import GuideControl
 from .HeatmapControl import HeatmapControl
 from .LayerControl import LayerControl
 from .LocateControl import LocateControl
 from .MeasureControl import MeasureControl
-from .GuideControl import GuideControl
 from .ScaleControl import ScaleControl
 from .SearchControl import SearchControl
 
