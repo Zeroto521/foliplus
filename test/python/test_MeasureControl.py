@@ -1051,9 +1051,7 @@ class TestMeasureControlBrowser:
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
 
-    def test_circle_preview_label_reattached_every_frame(
-        self, browser, tmp_path
-    ):
+    def test_circle_preview_label_reattached_every_frame(self, browser, tmp_path):
         """While the circle preview is live the radius label chip stays the
         last marker child of the label pane.
 
@@ -1064,9 +1062,7 @@ class TestMeasureControlBrowser:
         disappeared below the earlier measurement's label.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            state = page.evaluate(
-                _js("MeasureControl/circle_preview_label_reattached")
-            )
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_reattached"))
             # The planted chip plus the preview chip should both be present.
             assert state["frames"], "no preview frames captured"
             assert all(f["total"] == 2 for f in state["frames"]), (
