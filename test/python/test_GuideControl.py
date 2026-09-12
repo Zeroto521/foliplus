@@ -58,7 +58,9 @@ class TestMetrics:
 class TestSections:
     def test_normalises_title_and_text(self):
         guide = _guide(sections=[{"title": "How to read", "text": "Green is a store."}])
-        assert guide.sections == [{"title": "How to read", "text": "Green is a store."}]
+        assert guide.sections == [
+            {"title": "How to read", "text": "Green is a store."}
+        ]
 
     def test_requires_text(self):
         with pytest.raises(TypeError, match=r"sections\[0\]\.text"):
