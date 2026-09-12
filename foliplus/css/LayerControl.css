@@ -667,11 +667,8 @@ path.foliplus-focus-mask {
     border-radius: var(--radius-card);
     box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
   }
-  /* Not a toggle: the real panels' header opens and closes its own panel,
-     this one is purely informational (the × button is the affordance). */
-  .foliplus-layer-attrs-panel .foliplus-panel-header {
-    cursor: default;
-  }
+  /* Header closes the panel — same affordance as the main Layer/Heatmap
+     panels (bindPanelToggle collapses on header click). */
   /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
      inside the shared .foliplus-header-icon box. */
   .foliplus-layer-attrs-icon svg {
@@ -691,17 +688,15 @@ path.foliplus-focus-mask {
   .foliplus-layer-attrs-panel .foliplus-form-control.wide {
     flex-basis: 100%;
   }
-  /* Labels are scaffolding: hierarchy comes from contrast (muted label,
-     primary value), not from weight — bolding every value would flatten
-     the header's semibold and read as noise. */
-  .foliplus-layer-attrs-panel .foliplus-form-label {
-    color: var(--text-muted);
-  }
+  /* Label/typography stay on the shared form recipe (sm / text-primary) so
+     the attrs panel and the heatmap config read as one product. This block
+     only adjusts the <dd> control column. */
   .foliplus-layer-attrs-panel .foliplus-form-control {
     /* Read-only text reads like a control: left-aligned, wrapping, and with
        tabular figures so counts and timestamps line up column-wise. `margin: 0`
        because a <dd> carries a UA block margin the heatmap's <div> does not. */
     margin: 0;
+    font-size: var(--font-size-md);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }

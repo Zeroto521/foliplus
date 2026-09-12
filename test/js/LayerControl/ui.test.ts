@@ -1166,8 +1166,8 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(header.querySelector(".foliplus-header-title")!.textContent).toContain(
         "Parks",
       );
-      // A close affordance sits at the end of the header bar.
-      expect(header.querySelector(".foliplus-layer-attrs-close")).not.toBeNull();
+      // A close affordance sits at the end of the header bar (shared ×).
+      expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
       const wide = item.querySelector(".foliplus-form-control.wide");
       expect(wide!.textContent).toBe("https://example.com/parks.geojson");
     });

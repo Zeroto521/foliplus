@@ -130,6 +130,8 @@ class LayerUI {
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
+  /** Unsubscribe for the control-attached ready signal. */
+  private unsubscribeControlAttached: (() => void) | null;
   /** Currently visible overflow menu (or null). */
   declare activeMenu: {
     item: HTMLElement;
@@ -172,6 +174,7 @@ class LayerUI {
     this.activeIdx = null;
     this.listCursor = null;
     this.unsubscribeCountChange = null;
+    this.unsubscribeControlAttached = null;
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
@@ -230,14 +233,31 @@ class LayerUI {
     // column may update a second time — that is driven by the event bus.
     this.refreshAllCounts();
 
-    // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
-    // other components finish their own attach/onAdd before we finalize type
-    // icons and checkbox visibility. Counts are refreshed synchronously
-    // above so the user sees them immediately; Heatmap publishes its final
-    // count during initScan, which re-runs the refresh via the event bus.
+    // Init pass, driven by a ready signal instead of a fixed timer: run once
+    // right after the synchronous attach sequence (setTimeout 0 — every
+    // control finishes attaching in the same script stack, and folium layers
+    // are only linked into the registry after that), then re-run whenever a
+    // control attaches later (Heatmap / Measure may register layers at
+    // runtime). initTypesAndVisibility is idempotent — repeated runs are
+    // cheap and converge on the final layer state.
+    this.subscribeControlAttached();
     setTimeout(() => {
       if (this.uiContainer?.isConnected) this.initTypesAndVisibility();
     }, 0);
+  }
+
+  /** Re-run the init pass when another control finishes attaching. Unsubscribes
+   *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
+   *  it lands after the synchronous attach sequence, so folium layers are
+   *  already linked into the registry. */
+  private subscribeControlAttached(): void {
+    this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
+      EVENTS.CONTROL_ATTACHED,
+      () => {
+        if (!this.uiContainer?.isConnected) return;
+        this.initTypesAndVisibility();
+      },
+    );
   }
 
   /** Load every persisted dimension in one call. */
@@ -491,7 +511,9 @@ class LayerUI {
     this.m.persistence.saveNames(() => this.renamedNames);
   }
 
-  /** Full re-scan of every row (used on attach/fold-toggle). */
+  /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+   *  re-run on each CONTROL_ATTACHED so late-registering components are
+   *  folded in. Marks the panel ready for tests/consumers. */
   initTypesAndVisibility() {
     // Apply persisted hidden state first so initLayerItem reads the corrected
     // map state: folium adds every layer before the control IIFE runs, so on
@@ -507,8 +529,13 @@ class LayerUI {
     // membership, the rows hold the truth. Reconcile hiddenIds against them
     // exactly once so the persisted set becomes absolute. It must come after
     // initLayerItem, not in attachUI: rows render checked by default and
-    // initLayerItem is what corrects them from map.hasLayer().
-    if (!this.isHiddenReconciled) {
+    // initLayerItem is what corrects them from map.hasLayer(). It also waits
+    // until every layer resolves — on the first pass (setTimeout 0) folium
+    // layers may not be linked into the registry yet, and reconciling then
+    // would read a visible layer as hidden and persist that (corrupting the
+    // local storage for every later test/load). The re-run triggered by
+    // CONTROL_ATTACHED converges here.
+    if (!this.isHiddenReconciled && this.allLayersResolved()) {
       this.isHiddenReconciled = true;
       this.reconcileHiddenIds();
     }
@@ -527,6 +554,15 @@ class LayerUI {
     this.syncToggleAll(CONST.GROUP.BASE);
     // enforceOrder may have moved rows; keep roving tabindex aligned.
     this.syncListCursor();
+    // Ready signal for tests: checkbox titles / .active / counts are final
+    // for the current layer set (late components re-trigger this pass and
+    // re-set the attribute, so "ready" always reflects the latest pass).
+    this.uiContainer?.setAttribute("data-ready", "true");
+  }
+
+  /** True once every registry entry has a resolved Leaflet layer. */
+  private allLayersResolved(): boolean {
+    return this.m.layers.every(li => this.m.findLayer(li) != null);
   }
 
   renderInitialList() {
@@ -1209,6 +1245,10 @@ class LayerUI {
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
       this.unsubscribeCountChange = null;
+    }
+    if (this.unsubscribeControlAttached) {
+      this.unsubscribeControlAttached();
+      this.unsubscribeControlAttached = null;
     }
   }
 
@@ -2132,7 +2172,7 @@ class LayerUI {
       {
         // The shared header close affordance — same classes as the layer
         // panel's own ×, so position, size and hover are identical.
-        class: `${CONST.CLASSES.ATTRS_CLOSE} foliplus-ctrl-btn foliplus-close-btn`,
+        class: "foliplus-ctrl-btn foliplus-close-btn",
         type: "button",
         title: T("attr_close"),
         "aria-label": T("attr_close"),
@@ -2140,7 +2180,6 @@ class LayerUI {
       // The same CLOSE glyph the layer panel's header uses (not a text "×").
       { html: Icons.CLOSE },
     );
-    closeBtn.addEventListener("click", () => this.closeAttrsPanel(true));
 
     const panel = dom.el(
       "div",
@@ -2181,6 +2220,12 @@ class LayerUI {
         renderList([...rows, ...metaRows]),
       ),
     );
+
+    // Header click dismisses, matching bindPanelToggle on the main panels.
+    // The × sits inside the header, so one listener covers both.
+    panel
+      .querySelector(".foliplus-panel-header")
+      ?.addEventListener("click", () => this.closeAttrsPanel(true));
 
     item.style.position = "relative";
     item.appendChild(panel);

@@ -93,7 +93,6 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
-  ATTRS_CLOSE: "foliplus-layer-attrs-close",
 };
 
 /** Data attribute names. */
