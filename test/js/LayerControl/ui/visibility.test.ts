@@ -48,8 +48,6 @@ describe("ui/visibility", () => {
     const input = ui.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
-    expect(() =>
-      handleInput(ui, { target: input } as unknown as Event),
-    ).not.toThrow();
+    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
   });
 });
