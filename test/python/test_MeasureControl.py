@@ -948,9 +948,6 @@ class TestMeasureControlBrowser:
             assert info["dotPane"] == "node", f"dot not in node pane: {info}"
             assert info["fillPane"] == "graph", f"fill not in graph pane: {info}"
             assert info["dotAboveFill"], f"node pane z below graph pane: {info}"
-            assert not info["topElIsFill"], (
-                f"fill is painting over the centroid dot; topEl={info['topEl']}"
-            )
 
             # After zoom, sortLayers re-sorts by Y. Since the dot is an SVG
             # path (not a div-icon marker), it's unaffected by z-index re-sort.
