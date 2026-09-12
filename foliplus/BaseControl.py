@@ -57,6 +57,7 @@ def _safe_json(value: object) -> str:
         text = text.replace(raw, escape)
     return text
 
+
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
 
