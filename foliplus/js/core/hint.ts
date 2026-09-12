@@ -3,6 +3,9 @@
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { createLogger } from "#common/log.js";
+
+const log = createLogger("Hint");
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
@@ -61,6 +64,8 @@ const activeManagers = new Set<HintManager>();
 class HintManager {
   hintIcons: Record<string, string>;
   hintMap: Map<string, HintEntry>;
+  /** Set only by `destroy()`; `true` once the manager must not create hints. */
+  destroyed = false;
   private onFullscreenChange: () => void;
 
   constructor() {
@@ -101,6 +106,11 @@ class HintManager {
     append?: boolean,
     subkey?: string,
   ) {
+    // A destroyed manager must not re-add nodes. The bound closure on
+    // `map.foliplus!.showHint` is detached by `destroyManager`, but keeping the
+    // invariant local means a direct reference to the instance stays inert too.
+    if (this.destroyed) return;
+
     if (subkey) this.hideHint(key, subkey);
     else if (!append) this.hideHint(key);
 
@@ -182,8 +192,32 @@ class HintManager {
     this.hintMap.clear();
     document.removeEventListener("fullscreenchange", this.onFullscreenChange);
     activeManagers.delete(this);
+    // `destroy()` is only called from `destroyManager` on map unload, which is
+    // a one-shot; the WeakMap instance is discarded after. Keep it inert so a
+    // stray second call cannot re-add nodes through the leftover bound
+    // `map.foliplus.showHint` (Leaflet fires `unload` exactly once, and
+    // `_initEvents(true)` runs before it, so `map.on()` afterwards is inert —
+    // neither can revive a manager, but the guard costs one boolean).
+    this.destroyed = true;
   }
 }
+
+/** Per-map teardown hook, called from the `unload` handler in `ensureHint`.
+ *  Clears the `instances` WeakMap entry so `ensureHint` for the same map object
+ *  rebuilds a fresh manager, and detaches the bound `showHint`/`hideHint`
+ *  closures on `map.foliplus` — `destroy()` alone would leave them wired to a
+ *  manager whose nodes and timers are already gone, so a call after unload would
+ *  append nodes to `document.body` forever. `showHint` warns once when that
+ *  happens: it is the only signal that something reached into a dead map. */
+const destroyManager = (map: L.Map, mgr: HintManager): void => {
+  mgr.destroy();
+  instances.delete(map);
+  const foliplus = map.foliplus;
+  if (foliplus?.hintManager !== mgr) return;
+  foliplus.hintManager = undefined;
+  foliplus.showHint = () => log.warn("showHint called after the map unloaded");
+  foliplus.hideHint = () => {};
+};
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
 const ensureHint = (map: L.Map): HintManager => {
@@ -193,6 +227,7 @@ const ensureHint = (map: L.Map): HintManager => {
   instances.set(map, mgr);
   // Ensure map.foliplus exists so components can call map.foliplus!.showHint
   if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
+  map.foliplus!.hintManager = mgr;
   map.foliplus!.showHint = mgr.showHint.bind(mgr);
   map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
@@ -203,8 +238,8 @@ const ensureHint = (map: L.Map): HintManager => {
   // WeakMap entry frees the instance, but document.body hints, the open
   // setTimeout timers, and the document listener all leak. Mirrors the per-map
   // cleanup pattern used by core/mode and core/interaction.
-  map.on("unload", () => mgr.destroy());
+  map.on("unload", () => destroyManager(map, mgr));
   return mgr;
 };
 
-export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };
+export { destroyManager, ensureHint, HINT_DURATION, HintManager, registerHintIcon };
