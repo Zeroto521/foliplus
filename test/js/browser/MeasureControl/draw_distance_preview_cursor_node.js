@@ -34,6 +34,12 @@
   map.fire("mousemove", { latlng: L.latLng(26.09, 119.31) });
   const r2 = node()?.getBoundingClientRect();
   const s = stack();
+  // Third mousemove: the recreated node must still sit above both preview
+  // paths in DOM order. The old in-place `setLatLng` path let the live line
+  // climb over it — `setLatLngs` re-sorts the SVG root but `setLatLng` does
+  // not (regression: PR #252).
+  map.fire("mousemove", { latlng: L.latLng(26.091, 119.311) });
+  const s2 = stack();
   // Right-click finishes: the transient preview node must be removed.
   map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
   return {
@@ -43,6 +49,7 @@
     x2: r2?.x ?? null,
     y2: r2?.y ?? null,
     stack: s,
+    stackAfterThirdMove: s2,
     removedAfterFinish: !node(),
   };
 };
