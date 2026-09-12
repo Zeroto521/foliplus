@@ -122,9 +122,10 @@ class HeatmapManager {
    */
   hasScanned: boolean;
   declare mapCleanup: () => void;
+  declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
-  declare onZoomEnd: Debounced;
+  declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
@@ -164,15 +165,19 @@ class HeatmapManager {
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
     });
-    // Subscribe to export events for full-content capture (ExportControl).
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
-      this.renderAll = true;
-      this.redrawHeatmap();
-    });
-    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
-      this.renderAll = false;
-      this.redrawHeatmap();
-    });
+    // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
+    // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
+    // recompute, then clip again afterwards.  Named methods rather than
+    // arrow literals so the two unsubs stay bound to stable identities and
+    // removeExportListener below can release both as one pair.
+    const bus = ensureEvents(this.map);
+    this.removeExportListener = (() => {
+      const unsubs = [
+        bus.on(EVENTS.BEFORE_EXPORT, () => this.onBeforeExport()),
+        bus.on(EVENTS.AFTER_EXPORT, () => this.onAfterExport()),
+      ];
+      return () => unsubs.forEach(unsub => unsub());
+    })();
     this.ui = null;
     this.cachedPoints = null;
     this.cachedFeatures = null;
@@ -227,6 +232,18 @@ class HeatmapManager {
       EVENTS.LAYER_CHANGE,
       () => this.onLayerChange(),
     );
+  }
+
+  /** Drop out of export clip mode: redraw with the full feature set. */
+  onBeforeExport() {
+    this.renderAll = true;
+    this.redrawHeatmap();
+  }
+
+  /** Restore normal clip mode after export capture. */
+  onAfterExport() {
+    this.renderAll = false;
+    this.redrawHeatmap();
   }
 
   /** Redraw the heatmap canvas from cached features. */
