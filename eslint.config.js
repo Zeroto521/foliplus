@@ -78,6 +78,7 @@ export default [
       "object-shorthand": ["error", "always"],
       "one-var": ["error", "never"],
       "prefer-const": "error",
+
       // Zero-cost guards: every one of these flagged nothing across the tree,
       // so they are pure future-proofing rather than churn. The one exception
       // is no-irregular-whitespace, whose skipRegExps is load-bearing —
@@ -140,6 +141,24 @@ export default [
     files: ["foliplus/js/**/*.ts"],
     rules: {
       "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+
+  // Module surface style (source only — tests may use function declarations).
+  {
+    files: ["foliplus/js/**/*.ts"],
+    rules: {
+      // `const fn = () => {}` only — no `export function` / `function foo()`.
+      "func-style": ["error", "expression", { allowArrowFunctions: true }],
+      // One `export { … }` block at the bottom of the file — no inline export.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ExportNamedDeclaration[declaration]",
+          message:
+            "Use a single export { … } block at the bottom of the file instead of inline export.",
+        },
+      ],
     },
   },
 ];

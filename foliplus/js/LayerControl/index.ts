@@ -6,7 +6,7 @@ import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
 import { panelHTML } from "./template.js";
-import { LayerUI } from "./ui.js";
+import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
 const T = createScopedTranslator(CONF);

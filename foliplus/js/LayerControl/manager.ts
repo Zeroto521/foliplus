@@ -24,7 +24,7 @@ import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { LayerUI } from "./ui.js";
+import { LayerUI } from "./ui/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
