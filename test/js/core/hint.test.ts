@@ -48,6 +48,8 @@ const unloadMap = (map: StubMap) => {
   return {
     showHint: map.foliplus?.showHint as (() => void) | undefined,
     hideHint: map.foliplus?.hideHint as (() => void) | undefined,
+    registerHintIcon: map.foliplus
+      ?.registerHintIcon as ((key: string, svg: string) => void) | undefined,
     warn,
   };
 };
@@ -395,6 +397,23 @@ describe("map unload teardown", () => {
     expect(mgr.hintMap.size).toBe(0);
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     warn.mockRestore();
+  });
+
+  it("severs registerHintIcon after unload so no global registry write survives", () => {
+    // `registerHintIcon` writes into the module-level registry, which every
+    // other live map reads. A post-unload call would still mutate that global
+    // while the dead manager's showHint (a copied hintIcons) never rendered
+    // it — a silent half-failure, so the closure is replaced like the other two.
+    // The registry itself is module-private, so assert through the public
+    // seeding path: a manager built after the call would inherit the write.
+    const map = makeMap();
+    ensureHint(map);
+    const { registerHintIcon: seal } = unloadMap(map);
+    expect(typeof seal).toBe("function");
+
+    seal!("@unloaded", "<svg viewBox=\"0 0 8 8\"><rect/></svg>");
+    expect(new HintManager().hintIcons["@unloaded"]).toBeUndefined();
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
   });
 
   it("teardown is scoped per map — a sibling map keeps its manager", () => {

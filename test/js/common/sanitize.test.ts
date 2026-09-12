@@ -252,4 +252,13 @@ describe("safeSVG", () => {
     expect(safeSVG("<svg></svg>")).toBe("");
     expect(safeSVG("<svg/>", "FB")).toBe("FB");
   });
+
+  it("returns the fallback when the entire document is executable", () => {
+    // A payload where every element is dropped is "nothing to show", so the
+    // caller's fallback wins instead of an empty string — the difference is
+    // visible: a fallback glyph beats a blank icon cell.
+    expect(safeSVG("<script>alert(1)</script>", "FB")).toBe("FB");
+    expect(safeSVG('<object data="x"></object>', "FB")).toBe("FB");
+    expect(safeSVG("<iframe src='x'></iframe>", "FB")).toBe("FB");
+  });
 });

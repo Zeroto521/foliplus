@@ -213,6 +213,7 @@ const destroyManager = (map: L.Map, mgr: HintManager): void => {
   instances.delete(map);
   map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
   map.foliplus!.hideHint = () => {};
+  map.foliplus!.registerHintIcon = () => {};
 };
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */

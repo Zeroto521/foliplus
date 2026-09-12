@@ -352,6 +352,46 @@ describe("createLocationMarker", () => {
       ),
     ).not.toThrow();
   });
+
+  it("leaves the loading placeholder when the popup is closed by the time the lookup resolves", async () => {
+    // A slow lookup resolving after the user closed the marker would otherwise
+    // overwrite the closed marker's content with the resolved address. The
+    // popup must stay closed and keep its loading placeholder.
+    const openPopup = vi.fn().mockReturnThis();
+    const setPopupContent = vi.fn();
+    let open = true;
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup,
+      setPopupContent,
+      getPopup: () => ({
+        _closeButton: null,
+        isOpen: () => open,
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    const deferred = new Promise<string>(resolve => {
+      open = false;
+      setTimeout(() => resolve("Resolved Address"), 0);
+    });
+    window.foliplus.reverseGeocode = vi.fn(() => deferred);
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+    );
+
+    await new Promise(r => setTimeout(r, 10));
+    expect(setPopupContent).not.toHaveBeenCalled();
+    expect(openPopup).toHaveBeenCalled();
+  });
 });
 
 describe("createIconButton", () => {
