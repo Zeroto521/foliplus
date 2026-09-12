@@ -73,7 +73,7 @@ const CLASSES = {
   FORM_LABEL: "foliplus-heatmap-form-label",
   FORM_CONTROL: "foliplus-heatmap-form-control",
   FORM_SELECT: "foliplus-heatmap-form-select",
-  HIDDEN: "hidden",
+  HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   ACTIVE: "active",

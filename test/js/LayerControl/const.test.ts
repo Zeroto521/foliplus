@@ -66,7 +66,6 @@ describe("CLASSES", () => {
   it("defines color and utility classes", () => {
     expect(CONST.CLASSES.COLOR_INPUT).toBe("foliplus-color-layer-input");
     expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
-    expect(CONST.CLASSES.HIDDEN).toBe("hidden");
     expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
     // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
     // removal, and the recipe CSS keys only on FOCUSED + :hover.

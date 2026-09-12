@@ -159,7 +159,9 @@
     .foliplus-heatmap-form-control {
     position: relative;
   }
-  .hidden {
+  /* Scheme hidden select: visually collapsed but stays in layout (Bootstrap
+     also defines a global `.hidden`, so this uses a component-scoped name). */
+  .foliplus-heatmap-scheme-hidden {
     position: absolute;
     width: 0;
     height: 0;
@@ -395,18 +397,17 @@
   pointer-events: none;
   image-rendering: auto;
 
-  /* ── Canvas visibility ── */
+  /* ── Canvas visibility ──
+    `.hidden` here is the core LayerFactory toggle (canvas element), not the
+    shared `foliplus-hidden` class used by the panel sections. */
   &.hidden {
     display: none;
   }
 }
 
-/* Field selector: `.hidden` toggled by JS to hide the auto field block */
-.foliplus-heatmap-ctrl
-  :is(.foliplus-heatmap-extra-body, .foliplus-heatmap-field).hidden {
-  display: none;
-}
-
+/* Field selector: extra body / field reuse the shared `foliplus-hidden`
+   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN.
+   No component-local `.hidden` rule is needed — see reset.css. */
 /* Placeholder select styling */
 :is(
   .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,

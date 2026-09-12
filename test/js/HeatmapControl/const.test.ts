@@ -46,6 +46,12 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.BTN_CONFIRM).toBe("foliplus-heatmap-btn-confirm");
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
   });
+
+  it("HIDDEN is the shared foliplus-hidden class", () => {
+    // Extra body / field toggling reuses the shared hidden class instead of
+    // a component-local `.hidden` (which collided with Bootstrap's .hidden).
+    expect(CONST.CLASSES.HIDDEN).toBe("foliplus-hidden");
+  });
 });
 
 describe("SEL", () => {

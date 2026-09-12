@@ -46,6 +46,12 @@
   }
 }
 
+/* Breathing animation value, single-sourced so the reduced-motion override
+   below only flips the variable instead of repeating the selector list. */
+:root {
+  --input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
+}
+
 /* ── Focus: breathing glow ──
   Only non-checkbox inputs get the breathing animation, using :focus so it
   triggers on both mouse click and keyboard Tab — important for color inputs
@@ -54,8 +60,7 @@
   causing the animation to run indefinitely.
   `.foliplus-input` is the shared text-input class (SearchControl + LayerControl
   rename); heatmap controls keep their own classes. Add any new focusable text
-  input / scheme bar here — it must be added to BOTH the animation rule and the
-  reduced-motion override below. */
+  input / scheme bar to this single selector list. */
 :is(
   .foliplus-input,
   .foliplus-heatmap-ctrl select,
@@ -64,20 +69,13 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
 ):focus,
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-  animation: foliplus-input-breathe 2s ease-in-out infinite;
+  animation: var(--input-breathe-anim);
 }
 
-/* Respect reduced motion: disable breathing animation for all inputs */
+/* Respect reduced motion: disable breathing animation by clearing the value */
 @media (prefers-reduced-motion: reduce) {
-  :is(
-    .foliplus-input,
-    .foliplus-heatmap-ctrl select,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
-    .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
-  ):focus,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-    animation: none;
+  :root {
+    --input-breathe-anim: none;
   }
 }
 
