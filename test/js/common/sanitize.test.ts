@@ -114,7 +114,7 @@ describe("parseSVG — strips executable content", () => {
 
   it("keeps a namespace declaration the serializer needs to round-trip SVG", () => {
     // Dropping `xmlns` was the latent defect in this gate: Chromium's `outerHTML`
-    // re-declares the SVG namespace on every element when the declaration is
+    // redeclares the SVG namespace on every element when the declaration is
     // missing, which turns a `class` into an SVG-namespace attr no CSS selector
     // can match. There is no security payoff to dropping it, so keep it and pin
     // the round trip here — jsdom serialises both shapes identically, so only a

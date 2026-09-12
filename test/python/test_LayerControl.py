@@ -1030,7 +1030,7 @@ class TestLayerControlBrowser:
             assert "<rect" in result["probe"]["html"], result["probe"]
 
             # A namespace declaration is structural, not content: it has to
-            # survive, otherwise Chromium re-declares the SVG namespace on every
+            # survive, otherwise Chromium redeclares the SVG namespace on every
             # element when serialising and a `class` attribute stops matching its
             # CSS rule. This is a real-browser serialisation property — jsdom
             # writes both shapes identically — so the assertion only exists here.
