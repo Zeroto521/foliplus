@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import {
+  applyHiddenOne,
+  applyVisibleStateOne,
+  saveFoldState,
+} from "#foliplus/LayerControl/ui/state.js";
+import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -615,5 +621,79 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.layerRegistry.get("canvas1")?.visible).toBe(false);
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
     });
+  });
+});
+
+describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
+  const makeApplyUi = (hasLayer: boolean): LayerUI => {
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `
+      <div class="foliplus-layer-item" data-layer-id="a">
+        <input type="checkbox" checked />
+      </div>
+    `;
+    return {
+      uiContainer,
+      m: {
+        findLayer: vi.fn(() => layer),
+        map: {
+          hasLayer: vi.fn(() => hasLayer),
+          removeLayer: vi.fn(),
+          addLayer: vi.fn(),
+        },
+      },
+    } as unknown as LayerUI;
+  };
+
+  it("applyHiddenOne removes a present layer and unchecks the row", () => {
+    const ui = makeApplyUi(true);
+    const onToggle = vi.fn();
+    const layerInfo = {
+      id: "a",
+      onToggle,
+      isBase: false,
+    } as unknown as LayerInfo;
+    applyHiddenOne(ui, layerInfo, "a");
+    expect(ui.m.map.removeLayer).toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(false);
+    const box = ui.uiContainer.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    )!;
+    expect(box.checked).toBe(false);
+  });
+
+  it("applyHiddenOne fires onToggle(false) for a callback-only layer", () => {
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const onToggle = vi.fn();
+    const layerInfo = { id: "a", onToggle } as unknown as LayerInfo;
+    applyHiddenOne(ui, layerInfo, "a");
+    expect(onToggle).toHaveBeenCalledWith(false);
+  });
+
+  it("applyVisibleStateOne re-adds a layer that is off the map", () => {
+    const ui = makeApplyUi(false);
+    const onToggle = vi.fn();
+    const layerInfo = {
+      id: "a",
+      onToggle,
+      isBase: false,
+    } as unknown as LayerInfo;
+    applyVisibleStateOne(ui, layerInfo);
+    expect(ui.m.map.addLayer).toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
+});
+
+describe("ui/state saveFoldState", () => {
+  it("writes the folded set through persistence", () => {
+    const save = vi.fn();
+    const ui = {
+      foldedGroups: new Set(["overlay"]),
+      m: { persistence: { saveFoldedGroups: save } },
+    } as unknown as LayerUI;
+    saveFoldState(ui);
+    expect(save).toHaveBeenCalledWith(ui.foldedGroups);
   });
 });

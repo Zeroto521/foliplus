@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { handleDrop, toggleFold } from "#foliplus/LayerControl/ui/drag.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { saveFoldState } from "#foliplus/LayerControl/ui/state.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { initFixture } from "./fixture.js";
 
@@ -25,10 +24,9 @@ const makeUi = (
     row.appendChild(box);
     uiContainer.appendChild(row);
   }
-  const folded = new Set<string>();
   return {
     uiContainer,
-    foldedGroups: folded,
+    foldedGroups: new Set<string>(),
     saveFoldState: vi.fn(),
     m: {
       layers: opts.layers ?? [],
@@ -100,17 +98,5 @@ describe("LayerUI.deselectAllBaseMaps", () => {
     // The excluded base keeps its checkbox; the other base is cleared.
     const checked = boxes.filter(b => b.checked).length;
     expect(checked).toBe(1);
-  });
-});
-
-describe("ui/state saveFoldState", () => {
-  it("writes the folded set through persistence", () => {
-    const save = vi.fn();
-    const ui = {
-      foldedGroups: new Set(["overlay"]),
-      m: { persistence: { saveFoldedGroups: save } },
-    } as unknown as LayerUI;
-    saveFoldState(ui);
-    expect(save).toHaveBeenCalledWith(ui.foldedGroups);
   });
 });
