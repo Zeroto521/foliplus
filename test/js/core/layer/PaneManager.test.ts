@@ -117,6 +117,25 @@ describe("PaneManager", () => {
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
 
+  it("ensurePane assigns the sub-pane offset on first creation", () => {
+    // Regression: the offset was only applied on re-entry, so a pane first
+    // created after registerSubPanes sat at BASE (same as the graph pane)
+    // until a second ensurePane call — labels hidden under geometry.
+    const graph = document.createElement("div");
+    const label = document.createElement("div");
+    const map = {
+      getPane: vi.fn(name => (name === "measure_graph" ? graph : null)),
+      createPane: vi.fn(() => label),
+    };
+    const pm = new PaneManager(map);
+    pm.registerSubPanes(["measure_graph", "measure_label"]);
+    const result = pm.ensurePane("measure_label", false);
+    expect(result.pane).toBe(label);
+    expect(label.style.zIndex).toBe(
+      String(CONST.Z_INDEX.BASE + 1 * Number(CONST.CHILD_PANE_STEP)),
+    );
+  });
+
   it("ensurePane creates an SVG renderer when needRenderer is true", () => {
     const pane = document.createElement("div");
     const map = {

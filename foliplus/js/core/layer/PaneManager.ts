@@ -70,10 +70,12 @@ class PaneManager {
     // Always assign the sub-pane offset, not just on re-entry. A pane
     // created before `registerSubPanes` ran would otherwise sit at BASE
     // (same as the graph pane) until a second `ensurePane` call.
+    // Only touch registered sub-panes: a foreign pane (k < 0, e.g. a
+    // third-party layer's custom pane) keeps whatever z-index it had.
     const k = Array.from(this.childPanes).indexOf(paneName);
-    pane.style.zIndex = String(
-      CONST.Z_INDEX.BASE + Math.max(0, k) * CONST.CHILD_PANE_STEP,
-    );
+    if (k >= 0) {
+      pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
+    }
     let renderer: L.SVG | null = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;

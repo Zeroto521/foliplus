@@ -165,6 +165,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
       makeDelIcon(node.getLatLng(), {
         title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
       }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     nodeDelMarkers.push(delMarker);
 
@@ -498,6 +499,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     // above its own segment labels.
     centroidDot = layers.addLayer(
       Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
@@ -516,6 +518,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     );
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     attachDelClick(centroidDelMarker, deleteMeasurement);
   };
@@ -552,6 +555,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       makeDelIcon(node.getLatLng(), {
         title: is3pt ? T("del_all") : T("del_node"),
       }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     nodeDelMarkers.push(delMarker);
 

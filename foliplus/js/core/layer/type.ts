@@ -80,16 +80,20 @@ interface CreateLayersOpts {
   /**
    * Sub-panes this layer's content may live in, ordered by z ascending.
    *
-   * The first name is the layer's base pane and doubles as `RegisterLayerOpts.paneName`.
-   * Every name is used as the z-target for `PaneManager.bumpPanes` at the
-   * layer's base z; names past the first get successive offsets from
-   * `CHILD_PANE_OFFSET`.
+   * The first entry's `name` is the layer's base pane and doubles as
+   * `RegisterLayerOpts.paneName`. Every name is used as the z-target for
+   * `PaneManager.bumpPanes` at the layer's base z; entries past the first
+   * get successive offsets from `CHILD_PANE_OFFSET`.
+   *
+   * Entries with `isLabel: true` mark their leaves with the `isLabel` flag,
+   * which `countFeatureGeometry` / `util.getGeometryType` use to exclude
+   * label leaves from feature-geometry counts.
    *
    * Was `{ graphPane?: string; labelPane?: string }` — the pair hard-coded
    * a two-pane shape (paths under labels) that couldn't express a node
    * pane between them, and it made core aware of measure-specific roles.
-   * A flat list lets the caller name any N panes in any order; core only
-   * knows they exist and paints them above the base by index.
+   * An ordered entry list lets the caller name any N panes in any order;
+   * core only knows they exist and paints them above the base by index.
    *
    * When empty or absent, the layer is a single flat layer with no sub-panes.
    */

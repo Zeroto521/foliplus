@@ -54,12 +54,15 @@ class CircleMode extends PreviewMode {
     ) as L.Polyline;
     const radiusNode = manager.layers.addLayer(
       Util.makeNode(targetLatLng),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+      CONST.PANES.NODE,
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -187,12 +190,9 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      // Both endpoints must stay above the preview circle and the radius
-      // line. Those shapes re-sort themselves to the SVG tail on every frame
-      // via `setLatLngs` / `setRadius` (see PreviewMode.pinToTop), so an
-      // endpoint moved only with `setLatLng` would be painted over within a
-      // few mousemoves. The center never moves, so re-attaching it is free;
-      // the radius endpoint already re-attaches through moveCursorNode.
+      // Both endpoints live in the node pane, which sits above the graph
+      // pane (circle + radius line) by z-order — no per-frame re-ordering
+      // needed. The radius endpoint re-creates through moveCursorNode.
       previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);
@@ -252,14 +252,19 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
+      const radiusNode = this.layers.addLayer(
+        Util.makeNode(finalTargetLatLng),
+        CONST.PANES.NODE,
+      );
 
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        CONST.PANES.NODE,
       );
 
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+        CONST.PANES.NODE,
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);

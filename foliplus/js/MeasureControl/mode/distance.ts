@@ -29,6 +29,7 @@ class DistanceMode extends PreviewMode {
     points.forEach((pt: L.LatLng, i: number) => {
       const node = manager.layers.addLayer(
         Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
+        CONST.PANES.NODE,
       ) as L.CircleMarker;
       node.bringToFront();
       nodeMarkers.push(node);
@@ -223,6 +224,7 @@ class DistanceMode extends PreviewMode {
           event.latlng,
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
+        CONST.PANES.NODE,
       ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);

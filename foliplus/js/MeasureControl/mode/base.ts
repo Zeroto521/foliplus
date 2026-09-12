@@ -131,17 +131,18 @@ class PreviewMode extends MeasureMode {
   }
 
   /**
-   * Re-attach a preview layer so it becomes the newest sibling of the SVG
-   * `_rootGroup` — i.e. it paints above everything else in the preview.
+   * Re-attach a preview layer so it becomes the newest sibling in its pane —
+   * i.e. it paints above earlier siblings within that pane.
    *
    * Preview shapes update their coordinates with `setLatLngs`, which triggers
    * Leaflet's `_updatePath` → `setPane` and pushes that `<path>` to the tail
-   * of `_rootGroup` every frame. Markers and circle markers moved with
-   * `setLatLng` / `setRadius` do not participate in that re-sort, so they keep
-   * the DOM position they were created at — and the preview line (or circle)
-   * climbs over them after a few mousemoves. "Attach order == paint order"
-   * therefore only holds at creation time; any preview node that must stay
-   * above a live shape needs re-attaching on every frame.
+   * of `_rootGroup` every frame. Markers moved with `setLatLng` do not
+   * participate in that re-sort, so within the label pane the preview label
+   * would drop under previously-confirmed labels after a few mousemoves.
+   * Remove + re-add keeps the moving label the newest sibling.
+   *
+   * Pane-level z-order (graph < node < label) already keeps nodes above
+   * shapes and labels above nodes — this only orders siblings *within* a pane.
    *
    * Remove + re-add is used rather than `bringToFront()` because the latter
    * reaches into Leaflet's private `_rootGroup`, while re-adding only relies
@@ -157,16 +158,14 @@ class PreviewMode extends MeasureMode {
    * drawn — distance's trailing endpoint, polygon's next vertex, circle's
    * radius endpoint.
    *
-   * Recreated on every call rather than moved with `setLatLng`, because the
-   * position changes every frame anyway and the re-add doubles as the
-   * re-order that `pinToTop` exists for.
+   * Lives in the node pane (above the graph pane's shapes by z-order, below
+   * the label pane). Recreated on every call rather than moved with
+   * `setLatLng`, because the position changes every frame anyway and the
+   * re-add keeps it the newest node sibling within the node pane.
    */
   moveCursorNode(latlng: L.LatLng): L.CircleMarker {
     if (this.cursorNode) this.removePreview(this.cursorNode);
-    this.cursorNode = this.addPreview(
-      Util.makePreviewNode(latlng),
-      CONST.PANES.NODE,
-    );
+    this.cursorNode = this.addPreview(Util.makePreviewNode(latlng), CONST.PANES.NODE);
     return this.cursorNode;
   }
 

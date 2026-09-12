@@ -76,9 +76,7 @@ class LayerFactory {
     const paneEntries = opts.panes ?? [];
     const subPanes = paneEntries.map(p => p.name);
     const basePaneName = subPanes[0] ?? null;
-    const labelPanes = new Set(
-      paneEntries.filter(p => p.isLabel).map(p => p.name),
-    );
+    const labelPanes = new Set(paneEntries.filter(p => p.isLabel).map(p => p.name));
 
     // Components that supply featureCountProvider (MeasureControl, Heatmap)
     // manage their own counts via emit(LAYER_ITEM_COUNT_CHANGE). For them,
@@ -245,8 +243,8 @@ class LayerFactory {
      * `mainLayer.addLayer` routes by that field, so callers reading
      * `layer.options.pane` (e.g. `discoverChildPanes`, `getLayerPanes`)
      * see the same truth. `isLabel` is also set on the leaf when the
-     * pane's index in `subPanes` is ≥ 1: `util.getGeometryType` and
-     * `countFeatureGeometry` still use it to exclude label leaves from
+     * pane is declared with `isLabel: true` in `panes`: `util.getGeometryType`
+     * and `countFeatureGeometry` still use it to exclude label leaves from
      * feature-geometry counts, so the flag is kept for that contract.
      */
     const addLayer = (layer: L.Layer, paneName?: string): L.Layer => {

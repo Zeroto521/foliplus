@@ -410,10 +410,7 @@ describe("DistanceMode — preview cursor node", () => {
 
     // Mounted through addPreview in the node pane, above the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(
-      cursor,
-      CONST.PANES.NODE,
-    );
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor, CONST.PANES.NODE);
   });
 
   it("moves the node with the cursor and removes it when the shape is finished", () => {
@@ -450,10 +447,7 @@ describe("DistanceMode — preview cursor node", () => {
     // The previous node was dropped from the map before the new one was
     // added, so there is never a stale duplicate cursor dot.
     expect(manager.layers.removeLayer).toHaveBeenCalledWith(first);
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(
-      second,
-      CONST.PANES.NODE,
-    );
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(second, CONST.PANES.NODE);
 
     // Context-menu finishes: the latest node leaves the map with the other
     // preview artifacts, while the confirmed nodes stay.

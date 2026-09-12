@@ -219,7 +219,7 @@ describe("LayerManager", () => {
     const api = manager.createLayers({
       id: "g1",
       name: "Group",
-      panes: ["g1_base", "g1_label"],
+      panes: [{ name: "g1_base" }, { name: "g1_label", isLabel: true }],
     });
     api.register();
     expect(manager.panes.childPanes.has("g1_label")).toBe(true);

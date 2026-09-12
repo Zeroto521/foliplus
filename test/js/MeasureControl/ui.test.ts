@@ -577,7 +577,7 @@ describe("attachPolygonUI", () => {
     expect(centroidCalls.length).toBe(1);
   });
 
-  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+  it("routes the centroid dot to the node pane and the label to the label pane", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
     const addLayerCalls: Array<{ layer: any; pane: string | undefined }> = [];
@@ -588,22 +588,21 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
-    // no paneName → graph pane), [1]=centroidLabel (pane=measure_label),
-    // [2]=centroidDelMarker (no paneName → graph pane). The dot is an SVG
-    // path (CircleMarker), so it shares the SVG renderer with the fill and
-    // needs no zIndexOffset — DOM order within the SVG guarantees it paints
-    // above the fill.
+    // node pane), [1]=centroidLabel (pane=measure_label),
+    // [2]=centroidDelMarker (node pane). The dot is an SVG path (CircleMarker),
+    // so it lives above the fill by pane z-order (node > graph).
     // The label's offset (CENTROID_Z_OFFSET) keeps it above segment labels
     // after sortLayers re-sorts by Y on zoom.
-    // [0] = centroidDot (CircleMarker): no pane → graph
-    expect(addLayerCalls[0].pane).toBeUndefined();
+    // [0] = centroidDot (CircleMarker): node pane
+    expect(addLayerCalls[0].pane).toBe(CONST.PANES.NODE);
     // [1] = centroidLabel: pane = LABEL → label, has offset
     expect(addLayerCalls[1].pane).toBe(CONST.PANES.LABEL);
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
-    // Del icon: no pane → graph.
+    // Del icon: node pane.
     expect(makeDelIcon).toHaveBeenCalled();
+    expect(addLayerCalls[2].pane).toBe(CONST.PANES.NODE);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
