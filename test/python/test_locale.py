@@ -8,6 +8,7 @@ import tempfile
 
 import pytest
 
+from foliplus import HeatmapControl
 from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_locale
 
 
@@ -235,10 +236,26 @@ class TestLocaleConfig:
         assert cfg.get("nonexistent.key") == "nonexistent.key"
 
     def test_empty_localeconfig_defaults_to_en(self):
-        # A bare LocaleConfig has no strings; code falls back to en.
+        # A bare LocaleConfig carries no strings, so it means "auto-detect at runtime".
+        # Keep this assertion: it guards the empty-table fallback in BaseControl.
         cfg = LocaleConfig()
         assert cfg.code == "en"
+        assert cfg._strings == {}
         assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_language_without_strings_does_not_load_builtin_table(self):
+        """LocaleConfig(language=...) records the code only — no built-in strings."""
+        cfg = LocaleConfig("zh")
+        assert cfg.code == "zh"
+        assert cfg._strings == {}
+        assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_control_uses_builtin_table_for_string_locale(self):
+        """A str locale reaches the JS CONF as a non-empty per-code table."""
+        conf = json.loads(HeatmapControl(locale="zh")._config_block)
+        assert conf["locale_code"] == "zh"
+        tables = conf["locale_tables"]
+        assert "zh" in tables and tables["zh"]["HeatmapControl.title"]
 
     def test_code_property(self):
         assert resolve_locale("en", "HeatmapControl").code == "en"
@@ -311,6 +328,24 @@ class TestFromFile:
             cfg = LocaleConfig.from_json(tmp)
             assert cfg.code == "fr"
             assert cfg.get("hello") == "Bonjour"
+        finally:
+            os.unlink(tmp)
+
+    def test_custom_table_reaches_conf(self):
+        """A LocaleConfig from JSON is shipped in CONF — custom strings must win."""
+        data = {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            conf = json.loads(
+                HeatmapControl(locale=LocaleConfig.from_json(tmp))._config_block
+            )
+            assert conf["locale_code"] == "ja"
+            assert "ja" in conf["locale_tables"]
+            assert conf["locale_tables"]["ja"]["HeatmapControl.title"] == "こんにちは"
         finally:
             os.unlink(tmp)
 

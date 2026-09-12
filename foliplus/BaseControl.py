@@ -178,7 +178,15 @@ class BaseControl(JSCSSMixin, MacroElement):
         inline ``<script>`` injection.
         """
         config = dict(self._build_config())
-        config["locale_tables"] = _load_tables(f"{self._name}.*.json")
+        # A LocaleConfig carrying its own strings (from_json / resolve_locale) supplies
+        # that single table; empty strings mean "auto-detect at runtime", so fall back
+        # to the built-in per-component tables.
+        strings = self._locale._strings if self._locale else {}
+        config["locale_tables"] = (
+            {self._locale.code: strings}
+            if strings
+            else _load_tables(f"{self._name}.*.json")
+        )
         config["locale_code"] = self._locale.code if self._locale else ""
         # config always contains at least name/position — never empty.
         return dumps(config)

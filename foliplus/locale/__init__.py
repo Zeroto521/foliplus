@@ -103,23 +103,24 @@ def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleC
 class LocaleConfig:
     """Locale configuration for a control instance.
 
-    Stores the selected language code and provides string lookup.
+    Stores a language code and a custom string table. The ``language`` argument only
+    records the code — it does **not** load the built-in string table, so a bare
+    ``LocaleConfig("zh")`` has no strings and the control falls back to English. Pass a
+    ``str`` language code directly to a control (``HeatmapControl(locale="zh")``) or use
+    :meth:`from_json` when the control should actually use translated strings.
 
     Parameters
     ----------
     language : str, default "en"
-        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if the code is not
-        in :data:`_LOCALES_TABLES`.
-
-    table : dict or None
-        Optional custom string table (key → localized text).
-        If provided, *language* is only used to set ``locale.code``.
+        Language code, e.g. ``"en"``, ``"zh"``. Custom codes such as ``"fr"`` are
+        accepted as-is; without strings from :meth:`from_json` the control still
+        renders English text.
 
     Examples
     --------
-    >>> LocaleConfig("zh")
-    >>> LocaleConfig("en")
-    >>> LocaleConfig(table={"locale.code": "ja", "hello": "こんにちは"})
+    >>> from foliplus import HeatmapControl
+    >>> HeatmapControl(locale="zh")
+    >>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
     """
 
     language: str = "en"
