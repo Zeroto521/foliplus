@@ -8,7 +8,6 @@ import tempfile
 
 import pytest
 
-from foliplus import HeatmapControl
 from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_locale
 
 
@@ -257,6 +256,8 @@ class TestLocaleConfig:
 
     def test_control_uses_builtin_table_for_string_locale(self):
         """A str locale reaches the JS CONF as a non-empty per-code table."""
+        from foliplus import HeatmapControl
+
         conf = json.loads(HeatmapControl(locale="zh")._config_block)
         assert conf["locale_code"] == "zh"
         tables = conf["locale_tables"]
@@ -338,6 +339,8 @@ class TestFromFile:
 
     def test_custom_table_reaches_conf(self):
         """A LocaleConfig from JSON is shipped in CONF — custom strings must win."""
+        from foliplus import HeatmapControl
+
         data = {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, encoding="utf-8"
@@ -421,7 +424,7 @@ class TestFromFile:
 class TestPartialCustomTable:
     """A partial custom table keeps the built-in translation for keys it omits."""
 
-    def _conf(self, data: dict, control=HeatmapControl) -> dict:
+    def _conf(self, control, data: dict) -> dict:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, encoding="utf-8"
         ) as f:
@@ -434,7 +437,11 @@ class TestPartialCustomTable:
 
     def test_omitted_keys_keep_builtin_translation(self):
         """One custom key overrides; the other 27 keep their built-in strings."""
-        conf = self._conf({"locale.code": "ja", "HeatmapControl.title": "こんにちは"})
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
         table = conf["locale_tables"]["ja"]
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
@@ -443,7 +450,11 @@ class TestPartialCustomTable:
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""
-        conf = self._conf({"locale.code": "ja", "HeatmapControl.title": "こんにちは"})
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
         builtin = _load_tables("HeatmapControl.en.json")["en"]
         table = conf["locale_tables"]["ja"]
         for key in builtin:
@@ -451,7 +462,11 @@ class TestPartialCustomTable:
 
     def test_custom_table_ships_only_its_own_code(self):
         """Common keys (foliplus.*) come from the shared bundle, not conf."""
-        conf = self._conf({"locale.code": "ja", "HeatmapControl.title": "こんにちは"})
+        from foliplus import HeatmapControl
+
+        conf = self._conf(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
         assert set(conf["locale_tables"]) == {"ja"}
         assert "foliplus.close_label" not in conf["locale_tables"]["ja"]
         assert conf["locale_code"] == "ja"
@@ -461,8 +476,7 @@ class TestPartialCustomTable:
         from foliplus import SearchControl
 
         conf = self._conf(
-            {"locale.code": "de", "SearchControl.btn_title": "Suchen"},
-            control=SearchControl,
+            SearchControl, {"locale.code": "de", "SearchControl.btn_title": "Suchen"}
         )
         table = conf["locale_tables"]["de"]
         assert table["SearchControl.btn_title"] == "Suchen"
