@@ -117,23 +117,28 @@ describe("PaneManager", () => {
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
 
-  it("ensurePane assigns the sub-pane offset on first creation", () => {
-    // Regression: the offset was only applied on re-entry, so a pane first
-    // created after registerSubPanes sat at BASE (same as the graph pane)
-    // until a second ensurePane call — labels hidden under geometry.
-    const graph = document.createElement("div");
-    const label = document.createElement("div");
+  it("ensurePane does not set z-index (deferred to bumpPanes)", () => {
+    // ensurePane used to write CONST.Z_INDEX.BASE + k*CHILD_PANE_STEP,
+    // which conflicted with bumpPanes's position-based base (computeZIndex).
+    // Now only bumpPanes assigns z-index, so a freshly created pane is blank.
+    const panes: Record<string, HTMLElement> = {};
     const map = {
-      getPane: vi.fn(name => (name === "measure_graph" ? graph : null)),
-      createPane: vi.fn(() => label),
+      getPane: vi.fn((name: string) => panes[name] ?? null),
+      createPane: vi.fn((name: string) => {
+        panes[name] = document.createElement("div");
+        return panes[name];
+      }),
     };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["measure_graph", "measure_label"]);
-    const result = pm.ensurePane("measure_label", false);
-    expect(result.pane).toBe(label);
-    expect(label.style.zIndex).toBe(
-      String(CONST.Z_INDEX.BASE + 1 * Number(CONST.CHILD_PANE_STEP)),
-    );
+    pm.registerSubPanes(["measure_graph", "measure_node", "measure_label"]);
+
+    pm.ensurePane("measure_label", false);
+    pm.ensurePane("measure_node", false);
+    pm.ensurePane("measure_graph", false);
+
+    expect(panes["measure_graph"]!.style.zIndex).toBe("");
+    expect(panes["measure_node"]!.style.zIndex).toBe("");
+    expect(panes["measure_label"]!.style.zIndex).toBe("");
   });
 
   it("ensurePane creates an SVG renderer when needRenderer is true", () => {

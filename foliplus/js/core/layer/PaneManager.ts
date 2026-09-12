@@ -67,15 +67,9 @@ class PaneManager {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
     }
-    // Always assign the sub-pane offset, not just on re-entry. A pane
-    // created before `registerSubPanes` ran would otherwise sit at BASE
-    // (same as the graph pane) until a second `ensurePane` call.
-    // Only touch registered sub-panes: a foreign pane (k < 0, e.g. a
-    // third-party layer's custom pane) keeps whatever z-index it had.
-    const k = Array.from(this.childPanes).indexOf(paneName);
-    if (k >= 0) {
-      pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
-    }
+    // z-index is assigned by bumpPanes (via enforceOrder), which uses the
+    // layer's own computeZIndex base — not CONST.Z_INDEX.BASE. Setting it
+    // here would use a different base and break the sub-pane ordering.
     let renderer: L.SVG | null = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;
