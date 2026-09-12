@@ -113,7 +113,7 @@ class TestJsRegistries:
         missing = [n for n in sorted(controls) if f'{n}: "{n}"' not in text]
         assert not missing, (
             f"missing from core/component.ts COMPONENTS: {missing}\n"
-            "Add `{Name}: \"{Name}\",` or run: node script/new-control.mjs <Name>"
+            'Add `{Name}: "{Name}",` or run: node script/new-control.mjs <Name>'
         )
 
 
@@ -159,9 +159,7 @@ class TestVitestCoverageExcludes:
         if "foliplus/js/*/index.ts" in text or "foliplus/js/**/index.ts" in text:
             return
         missing = [
-            n
-            for n in sorted(controls)
-            if f"foliplus/js/{n}/index.ts" not in text
+            n for n in sorted(controls) if f"foliplus/js/{n}/index.ts" not in text
         ]
         assert not missing, (
             f"vitest coverage exclude missing index.ts for: {missing}\n"
@@ -177,8 +175,8 @@ class TestScaffoldWiring:
     def test_scaffold_uses_core_control_env(self):
         """After #289 createControlEnv lives in #core/controlEnv, not #common/guard."""
         text = _read(ROOT / "script" / "new-control.mjs")
-        assert '#core/controlEnv.js' in text
-        assert '#common/guard.js' not in text
+        assert "#core/controlEnv.js" in text
+        assert "#common/guard.js" not in text
 
     def test_scaffold_script_exists(self):
         assert (ROOT / "script" / "new-control.mjs").is_file()
