@@ -43,7 +43,14 @@ describe("HISTORY", () => {
   it("defines history config", () => {
     expect(CONST.HISTORY.MAX_ENTRIES).toBe(20);
     expect(CONST.HISTORY.MAX_DISPLAY).toBe(5);
-    expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus.search_history");
+  });
+
+  it("scopes the storage key to the map container", () => {
+    expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus_search_test-map");
+    // The legacy key is the unscoped global one; the legacy path exists only to
+    // migrate existing history, so it must differ from the scoped key.
+    expect(CONST.HISTORY.LEGACY_STORAGE_KEY).toBe("foliplus.search_history");
+    expect(CONST.HISTORY.STORAGE_KEY).not.toEqual(CONST.HISTORY.LEGACY_STORAGE_KEY);
   });
 });
 

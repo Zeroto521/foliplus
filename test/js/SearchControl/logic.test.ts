@@ -1760,6 +1760,67 @@ describe("SearchControl history", () => {
       expect(loadHistory()).toEqual([]);
     });
 
+    it("migrates history stored under the legacy unscoped key", () => {
+      localStorage.setItem(
+        HISTORY.LEGACY_STORAGE_KEY,
+        JSON.stringify([
+          { type: MODE.ADDR, addrDisplay: "Paris", lng: 2.3, lat: 48.8 },
+        ]),
+      );
+      expect(loadHistory()).toEqual([
+        {
+          query: "",
+          type: MODE.ADDR,
+          coordDisplay: "",
+          addrDisplay: "Paris",
+          lng: 2.3,
+          lat: 48.8,
+          ts: expect.any(Number),
+          count: 1,
+        },
+      ]);
+    });
+
+    it("prefers the scoped key over the legacy one", () => {
+      localStorage.setItem(
+        HISTORY.LEGACY_STORAGE_KEY,
+        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Legacy", lng: 0, lat: 0 }]),
+      );
+      localStorage.setItem(
+        HISTORY.STORAGE_KEY,
+        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Scoped", lng: 0, lat: 0 }]),
+      );
+      expect(loadHistory().map(e => e.addrDisplay)).toEqual(["Scoped"]);
+    });
+
+    it("ignores corrupt legacy data instead of falling back to it", () => {
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, "not json");
+      expect(loadHistory()).toEqual([]);
+    });
+
+    it("writes back under the scoped key, leaving the legacy row orphaned", () => {
+      localStorage.setItem(
+        HISTORY.LEGACY_STORAGE_KEY,
+        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]),
+      );
+      saveHistory(loadHistory());
+      expect(localStorage.getItem(HISTORY.STORAGE_KEY)).toContain("Paris");
+      // Deliberately not removed: two maps on one page would race on that read.
+      expect(localStorage.getItem(HISTORY.LEGACY_STORAGE_KEY)).toContain("Paris");
+    });
+
+    it("keeps history separate per map container", () => {
+      // Two maps on one page must resolve to different keys, not collide.
+      const keyFor = (id: string): string => {
+        const el = document.createElement("div");
+        el.id = id;
+        return `foliplus_search_${el.id}`;
+      };
+      expect(keyFor("map-a")).not.toBe(keyFor("map-b"));
+      // And the real key tracks the container id it is built from.
+      expect(HISTORY.STORAGE_KEY).toBe(keyFor(map.getContainer().id));
+    });
+
     it("returns empty array for non-array data", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, '"string"');
       expect(loadHistory()).toEqual([]);

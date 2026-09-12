@@ -133,7 +133,13 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
 const loadHistory = (): SearchHistoryEntry[] => {
-  const data = Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
+  // One-time migration: the key was per-page global before this was scoped per
+  // map, so a missing scoped key falls back to the legacy one. The next
+  // saveHistory() writes back under the scoped key and the legacy row orphans.
+  // No removeItem — two maps on one page would otherwise race on that read.
+  const data =
+    Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name) ??
+    Storage.load<StoredHistoryEntry[]>(HISTORY.LEGACY_STORAGE_KEY, CONF.name);
   if (!Array.isArray(data)) return [];
   // Drop non-object rows ([null], strings, numbers) that a corrupted store
   // can produce; reading `row.type` on them would throw.
