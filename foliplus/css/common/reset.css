@@ -23,6 +23,15 @@
 }
 
 .foliplus-spin {
+  /* Icons.LOADING declares a viewBox but no width/height, so it has no intrinsic
+     size. Inline it is fine — the font metrics of the line keep it small — but a
+     flex parent (the location popup) sizes it from a flex base size of 0 and it
+     grows to fill the popup. Pin it to the font size so every consumer is
+     bounded; `flex-shrink: 0` stops a flex parent squashing it instead. */
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
   animation: foliplus-spin 0.8s linear infinite;
   vertical-align: middle;
 }

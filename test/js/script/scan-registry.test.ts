@@ -123,10 +123,10 @@ describe("scanImports", () => {
   it("aggregates imports across files", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { dom } from "#common/dom.js";`,
-      "Component2/index.ts": `import { cssVar, escapeHTML } from "#common/dom.js";`,
+      "Component2/index.ts": `import { createIconButton, dom } from "#common/dom.js";`,
     });
     const result = scanImports(dir);
-    expect(result["common/dom"]).toEqual(["cssVar", "dom", "escapeHTML"]);
+    expect(result["common/dom"]).toEqual(["createIconButton", "dom"]);
   });
 
   it("handles empty directory", () => {

@@ -4,6 +4,7 @@
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
+import { parseSVG } from "#common/sanitize.js";
 
 const log = createLogger("Hint");
 
@@ -49,9 +50,14 @@ const hintIconRegistry: Record<string, string> = {};
 
 /** Register an SVG icon for a hint type and sync it into every active manager.
  *  Icons may be registered AFTER a manager was created (a later control's
- *  createControlEnv), so all live managers must be re-seeded. */
+ *  createControlEnv), so all live managers must be re-seeded.
+ *
+ *  This is a public runtime API — a plugin author can reach it through
+ *  `map.foliplus.registerHintIcon()`, and the value lands in an innerHTML
+ *  sink on every hint that carries this key. Clean it on the way in so no
+ *  caller can bypass the allowlist. */
 const registerHintIcon = (key: string, iconSvg: string) => {
-  hintIconRegistry[key] = iconSvg;
+  hintIconRegistry[key] = parseSVG(iconSvg);
   for (const mgr of activeManagers) mgr.syncIcons();
 };
 
@@ -117,11 +123,18 @@ class HintManager {
         : `${CLASS} ${CLASS}-${key}`;
 
     const icon = (this.hintIcons && this.hintIcons[key]) || "";
-    const el = dom.el("div", {
-      class: `${cls} ${CLASS}`,
-      parent: hintTarget,
-      innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
-    });
+    // The icon is the only HTML in a hint (`registerHintIcon` sanitises it at
+    // entry); the text is locale JSON and must stay a TextNode, so a rogue
+    // locale value cannot turn a hint into markup. `{ html }` must be a
+    // CHILD, not an attr — `dom.el` sets an attr for any unrecognised key.
+    const el = dom.el(
+      "div",
+      { class: `${cls} ${CLASS}`, parent: hintTarget },
+      ...(icon
+        ? [dom.el("span", { class: "foliplus-hint-icon" }, { html: icon })]
+        : []),
+      text,
+    );
     anchorRelative(hintTarget);
     const storeKey = subkey
       ? `${key}|${subkey}`
@@ -200,6 +213,7 @@ const destroyManager = (map: L.Map, mgr: HintManager): void => {
   instances.delete(map);
   map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
   map.foliplus!.hideHint = () => {};
+  map.foliplus!.registerHintIcon = () => {};
 };
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
