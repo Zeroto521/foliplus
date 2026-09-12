@@ -272,6 +272,44 @@ describe("createPanelControl", () => {
     expect(domEvent.disableClickPropagation).toHaveBeenCalled();
   });
 
+  it("marks the header as a labelled dialog for screen readers", () => {
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    const header = result.ctrl.querySelector(".foliplus-panel-header");
+    expect(header).not.toBeNull();
+    expect(header.getAttribute("role")).toBe("dialog");
+    expect(header.getAttribute("aria-label")).toBe("Panel");
+    // The toggle button is the only reachable control in the collapsed state,
+    // so its accessible name must not depend on inner SVG text.
+    expect(result.toggleBtn.getAttribute("aria-label")).toBe("Toggle");
+  });
+
+  it("applies ctrlId when given and omits the id attribute otherwise", () => {
+    const withId = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+      ctrlId: "LayerControl_ctrl",
+    });
+    expect(withId.ctrl.id).toBe("LayerControl_ctrl");
+
+    const without = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    expect(without.ctrl.id).toBe("");
+  });
+
   it("toggle button expands the panel", () => {
     const result = createPanelControl({
       cssClass: "heatmap-ctrl",

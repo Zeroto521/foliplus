@@ -3414,3 +3414,31 @@ class TestLayerControlBrowser:
                     f"{info['name']!r}: count column changed to {info['countText']!r} "
                     f"after an unrelated checkbox click"
                 )
+
+    def test_click_outside_collapses_panel(self, browser, tmp_path):
+        """Clicking the map outside the panel collapses it.
+
+        Behavioural parity guard: LayerControl used to wire only
+        bindPanelToggle, so it stayed open when you clicked the map, while
+        HeatmapControl (createPanelControl) collapsed. Both panels now build
+        their shell from createPanelControl, which adds bindOutsideCollapse.
+        """
+        layer = folium.FeatureGroup(name="Outside click")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="outside_click"
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            page.evaluate("document.querySelector('.leaflet-container').click()")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
+            ), "panel stayed expanded after clicking outside"
