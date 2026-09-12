@@ -54,12 +54,15 @@ class CircleMode extends PreviewMode {
     ) as L.Polyline;
     const radiusNode = manager.layers.addLayer(
       Util.makeNode(targetLatLng),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+      CONST.PANES.NODE,
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -72,7 +75,7 @@ class CircleMode extends PreviewMode {
         ),
         interactive: false,
       }),
-      true,
+      CONST.PANES.LABEL,
     ) as L.Marker;
 
     attachCircleUI(manager, {
@@ -138,6 +141,7 @@ class CircleMode extends PreviewMode {
         center = event.latlng;
         previews.center = this.addPreview(
           Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          CONST.PANES.NODE,
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -186,27 +190,23 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      if (!previews.node) {
-        previews.node = this.addPreview(Util.makePreviewNode(event.latlng));
-        previews.node.bringToFront();
-        // Keep the radius node glued to the cursor while drawing.
-      } else previews.node.setLatLng(event.latlng);
+      // Both endpoints live in the node pane, which sits above the graph
+      // pane (circle + radius line) by z-order — no per-frame re-ordering
+      // needed. The radius endpoint re-creates through moveCursorNode.
+      previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);
-      if (!previews.label) {
-        const previewLabel = L.marker(mid, {
-          icon: Util.makeLabelDivIcon(
-            Util.formatDistance(r),
+      previews.label = this.updateOrCreateLabel(
+        previews.label,
+        mid,
+        Util.formatDistance(r),
+        t =>
+          Util.makeLabelDivIcon(
+            t,
             CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
           ),
-          interactive: false,
-        });
-        previews.label = this.addPreview(previewLabel);
-      } else {
-        previews.label.setLatLng(mid);
-        Util.setLabelText(previews.label, Util.formatDistance(r));
-      }
+      );
     };
 
     const onContext = (event: L.LeafletMouseEvent) => {
@@ -252,14 +252,19 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
+      const radiusNode = this.layers.addLayer(
+        Util.makeNode(finalTargetLatLng),
+        CONST.PANES.NODE,
+      );
 
       const centerFinal = this.layers.addLayer(
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        CONST.PANES.NODE,
       );
 
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+        CONST.PANES.NODE,
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
@@ -272,7 +277,7 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         }),
-        true,
+        CONST.PANES.LABEL,
       );
 
       const circleId = this.nextMeasurementId();
@@ -324,6 +329,7 @@ class CircleMode extends PreviewMode {
 
     this._cleanup = () => {
       unbindMapEvents(this.map, circleEvents);
+      this.clearCursorNode();
       resetPreviews();
       map.foliplus!.hideHint(CONF.name);
     };

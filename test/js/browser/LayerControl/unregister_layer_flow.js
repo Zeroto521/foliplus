@@ -4,7 +4,7 @@
   const mg = api.createLayers({
     id: "__test_unreg__",
     name: "UnregTest",
-    graphPane: "__test_unreg_graph__",
+    panes: [{ name: "__test_unreg_graph__" }],
   });
   mg.mainLayer.addLayer(
     L.polyline([

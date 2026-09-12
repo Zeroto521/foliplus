@@ -78,6 +78,7 @@ class LayerRegistry {
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
+      subPanes: opts.subPanes ?? existingLi?.subPanes ?? [],
       // The only externally supplied HTML in the layer model: callers of
       // LayerAPI.registerLayer / createLayers may pass arbitrary markup, and
       // it lands in an innerHTML sink on the type-icon column. Clean it once,

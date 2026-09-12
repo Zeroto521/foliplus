@@ -161,6 +161,7 @@ class MarkerMode extends MeasureMode {
         title: T("del_tooltip"),
         iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
+      CONST.PANES.NODE,
     );
 
     marker.on("popupopen", () => {
@@ -246,6 +247,7 @@ class MarkerMode extends MeasureMode {
         title: T("del_tooltip"),
         iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
       }),
+      CONST.PANES.NODE,
     );
 
     // Bind delete + popup events BEFORE async geocode so the X works even

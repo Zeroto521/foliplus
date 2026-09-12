@@ -132,8 +132,11 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
-const loadHistory = (): SearchHistoryEntry[] => {
-  const data = Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name);
+const loadHistory = (): SearchHistoryEntry[] =>
+  loadHistoryRows(Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name));
+
+/** Parse and migrate one history payload; [] for a corrupt or non-array store. */
+const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
   if (!Array.isArray(data)) return [];
   // Drop non-object rows ([null], strings, numbers) that a corrupted store
   // can produce; reading `row.type` on them would throw.
