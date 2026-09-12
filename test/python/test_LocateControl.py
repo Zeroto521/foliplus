@@ -226,3 +226,70 @@ class TestLocateControlBrowser:
                 f"spinner stuck after reject: {state!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_hint_icon_is_sanitised_in_the_dom(self, browser, tmp_path):
+        """A registered hint icon is gated before it reaches the DOM.
+
+        ``registerHintIcon`` is a public runtime API, so a hostile icon string
+        lands in an innerHTML sink on every hint carrying that key. The gate
+        runs at registration and the browser re-parses whatever it serialises
+        — jsdom's DOMParser and insertion model disagree with a real browser's,
+        so only a browser shows what actually lands and whether any of it is
+        still live.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            r = page.evaluate(_js("LocateControl/hint_icon_sanitized"))
+
+            # Hostile payload: every active construct is stripped or emptied,
+            # and no handler in it fired.
+            h = r["hostile"]
+            assert h["hint"] is True
+            assert h["scripts"] == 0
+            assert h["imgs"] == 0
+            # <foreignObject> is the SVG's only HTML-namespace escape hatch, so
+            # the wrapper itself must go — an empty wrapper left behind would
+            # still be an injection point for later DOM mutation.
+            assert h["foreign"] == 0
+            assert not h["onload"]
+            assert not h["onmouseover"]
+            assert not any(r["leaked"]), f"handler leaked: {r['leaked']}"
+
+            # foreignObject is the blacklist entry that carries the most weight:
+            # it is where the browser is permitted to host foreign markup. With
+            # only SVG children inside it the wrapper would otherwise look like
+            # harmless layout, so this pins that the tag rule — not the HTML
+            # namespace check — is what strips it.
+            f = r["foreignSvg"]
+            assert f["hint"] is True
+            assert f["foreign"] == 0
+            assert f["rectInsideForeign"] == 0
+            assert f["text"] == "fsvg"
+
+            # Benign payload: the allowlist keeps presentation attributes and
+            # their CSS hooks, so the icon still matches its stylesheet rule.
+            b = r["benign"]
+            assert b["hint"] is True
+            assert b["iconSpan"] is True
+            assert b["svg"] is True
+            assert b["rootClass"] == "foliplus-spin"
+            assert b["rootMatches"] is True
+            assert b["rectClass"] == "foliplus-spin"
+            assert b["rectMatches"] is True
+            assert b["fill"] == "currentColor"
+            assert b["stroke"] == "currentColor"
+            assert b["text"] == "locating"
+
+            # A second round trip through innerHTML keeps the same shape.
+            assert r["roundTrip"]["svg"] is True
+            assert r["roundTrip"]["matches"] is True
+            assert r["roundTrip"]["rectMatches"] is True
+
+            # The hint text stayed a TextNode: a rogue locale value cannot
+            # become markup.
+            assert h["text"] == r["poisonText"]
+
+            # An icon whose whole tree is active content is dropped, with the
+            # text still shown.
+            assert r["dropped"]["iconSpan"] is False
+            assert r["dropped"]["text"] == "dead"
+            assert not errors, f"JS errors: {errors}"

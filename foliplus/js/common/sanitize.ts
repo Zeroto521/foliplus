@@ -57,22 +57,27 @@ const ALLOWED_ATTRS = new Set(
   ].map(a => a.toLowerCase()),
 );
 
-/** Namespace declarations are structural metadata, not content, and they are
- *  required for a correct serialisation round trip (see `isAllowedAttr`). They
- *  are deliberately absent from `ALLOWED_ATTRS`. */
+/** Namespace declarations are metadata, not content, so they never join
+ *  `ALLOWED_ATTRS`. They are re-admitted on their own — with the value still
+ *  URL-checked — because they carry no security risk of their own: what makes
+ *  `<script>` and `<foreignObject>` inert is the tag blacklist below, not the
+ *  namespace. */
 const XMLNS_ATTRS = new Set(["xmlns", "xmlns:xlink"]);
 
 /** Elements inside an SVG that can execute code or escape the SVG subtree.
  *  Parsing as `image/svg+xml` keeps them inert but still serialised, so they
- *  are dropped here rather than left for the downstream innerHTML sink. */
-const FORBIDDEN_TAGS = new Set([
-  "script",
-  "foreignObject",
-  "iframe",
-  "object",
-  "embed",
-  "use",
-]);
+ *  are dropped here rather than left for the downstream innerHTML sink.
+ *
+ *  Stored lowercased — the comparison at the call site lowercases the parsed
+ *  `tagName`, which for `image/svg+xml` is the element's case-preserving
+ *  serialised name (`foreignObject` → `foreignobject`), not the source casing.
+ *  Uppercase entries here would never match and the tag rule would silently
+ *  become dead code. */
+const FORBIDDEN_TAGS = new Set(
+  ["script", "foreignObject", "iframe", "object", "embed", "use"].map(t =>
+    t.toLowerCase(),
+  ),
+);
 
 /** A `<style>` inside an SVG must be pure CSS rules — no `javascript:` and no
  *  tag-like content that could break out of the style text. Repository icons
@@ -166,12 +171,11 @@ const isAllowedAttr = (
 ): boolean => {
   const lower = name.toLowerCase();
   if (lower.startsWith("on")) return false;
-  // A namespace declaration is structural metadata, not content: it is how the
-  // serialiser knows a subtree is SVG. Keeping it is required for a correct
-  // round trip — drop it and Chromium re-declares the SVG namespace on every
-  // element when innerHTML serialises back, so attributes like `class` end up
-  // as SVG-namespace attrs that no CSS selector can match. Only ever accept a
-  // value with no scheme.
+  // A namespace declaration is metadata, not content. Keeping it is a
+  // no-op for safety — script inertness comes from the tag blacklist — and a
+  // no-op for behaviour: without it the browser still puts the children back
+  // in the SVG namespace and `class="foliplus-spin"` still matches. It is kept
+  // only so an incoming declaration survives verbatim. No scheme.
   if (isNamespaceDecl) return !isUrlValue(value);
   if (lower === "href") {
     // Only a same-document fragment — `#dot`, never a scheme or `#//evil`.
