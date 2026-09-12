@@ -4,16 +4,18 @@
 }
 
 /* ── Edit-mode cursor ──
-   Measurement shapes/nodes (graph pane) and the polygon centroid dot (label
-   pane) are only interactive in edit mode. Outside edit mode, override
-   Leaflet's default pointer cursor so they don't look clickable. In edit mode
-   they read as clickable; draggable nodes get an inline `move` cursor
-   (bindNodeDrag) for the whole edit session. */
+   Measurement shapes (graph pane), nodes/centroid dot (node pane), and
+   labels (label pane) are only interactive in edit mode. Outside edit
+   mode, override Leaflet's default pointer cursor so they don't look
+   clickable. In edit mode they read as clickable; draggable nodes get
+   an inline `move` cursor (bindNodeDrag) for the whole edit session. */
 .leaflet-measure_graph-pane .leaflet-interactive,
+.leaflet-measure_node-pane .leaflet-interactive,
 .leaflet-measure_label-pane .leaflet-interactive {
   cursor: default;
 }
 .foliplus-measure-editing .leaflet-measure_graph-pane .leaflet-interactive,
+.foliplus-measure-editing .leaflet-measure_node-pane .leaflet-interactive,
 .foliplus-measure-editing .leaflet-measure_label-pane .leaflet-interactive {
   cursor: pointer;
 }

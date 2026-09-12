@@ -577,33 +577,32 @@ describe("attachPolygonUI", () => {
     expect(centroidCalls.length).toBe(1);
   });
 
-  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+  it("routes the centroid dot to the node pane and the label to the label pane", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
-    const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
-    opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
-      addLayerCalls.push({ layer, isLabel: Boolean(isLabel) });
+    const addLayerCalls: Array<{ layer: any; pane: string | undefined }> = [];
+    opts.layers.addLayer = vi.fn((layer: any, pane?: string) => {
+      addLayerCalls.push({ layer, pane });
       return layer;
     });
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
-    // no isLabel → graph pane), [1]=centroidLabel (isLabel → label pane),
-    // [2]=centroidDelMarker (no isLabel → graph pane). The dot is an SVG
-    // path (CircleMarker), so it shares the SVG renderer with the fill and
-    // needs no zIndexOffset — DOM order within the SVG guarantees it paints
-    // above the fill.
+    // node pane), [1]=centroidLabel (pane=measure_label),
+    // [2]=centroidDelMarker (node pane). The dot is an SVG path (CircleMarker),
+    // so it lives above the fill by pane z-order (node > graph).
     // The label's offset (CENTROID_Z_OFFSET) keeps it above segment labels
     // after sortLayers re-sorts by Y on zoom.
-    // [0] = centroidDot (CircleMarker): isLabel=false → graph pane
-    expect(addLayerCalls[0].isLabel).toBe(false);
-    // [1] = centroidLabel: isLabel=true → label pane, has offset
-    expect(addLayerCalls[1].isLabel).toBe(true);
+    // [0] = centroidDot (CircleMarker): node pane
+    expect(addLayerCalls[0].pane).toBe(CONST.PANES.NODE);
+    // [1] = centroidLabel: pane = LABEL → label, has offset
+    expect(addLayerCalls[1].pane).toBe(CONST.PANES.LABEL);
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
-    // Del icon: no isLabel flag → graph pane.
+    // Del icon: node pane.
     expect(makeDelIcon).toHaveBeenCalled();
+    expect(addLayerCalls[2].pane).toBe(CONST.PANES.NODE);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {

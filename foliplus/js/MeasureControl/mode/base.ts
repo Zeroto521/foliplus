@@ -1,6 +1,8 @@
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
+import * as Util from "../util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 // `getNameLabel` relies on identity comparison: when no locale table exists,
@@ -91,17 +93,27 @@ class MeasureMode {
 class PreviewMode extends MeasureMode {
   previewLayers: L.Layer[];
   isFinished: boolean;
+  private cursorNode: L.CircleMarker | null;
 
   constructor(manager: MeasureManager) {
     super(manager);
     this.previewLayers = [];
     this.isFinished = false;
+    this.cursorNode = null;
   }
 
-  /** Track a preview layer (adds to layer group + tracks for cleanup). */
-  addPreview<T extends L.Layer>(layer: T): T {
+  /**
+   * Track a preview layer (adds to layer group + tracks for cleanup).
+   *
+   * `paneName` is forwarded to `addLayer`; omit it for geometry, which lands
+   * in the base pane. Labels must pass `CONST.PANES.LABEL` explicitly — an
+   * omitted name silently defaults to the base pane, where a label competes
+   * for SVG paint order with the geometry instead of sitting above it by pane
+   * ordering.
+   */
+  addPreview<T extends L.Layer>(layer: T, paneName?: string): T {
     this.previewLayers.push(layer);
-    this.layers.addLayer(layer);
+    this.layers.addLayer(layer, paneName);
     return layer;
   }
 
@@ -116,6 +128,82 @@ class PreviewMode extends MeasureMode {
   clearPreviews(): void {
     this.previewLayers.forEach(l => this.layers.removeLayer(l));
     this.previewLayers = [];
+  }
+
+  /**
+   * Re-attach a preview layer so it becomes the newest sibling in its pane —
+   * i.e. it paints above earlier siblings within that pane.
+   *
+   * Preview shapes update their coordinates with `setLatLngs`, which triggers
+   * Leaflet's `_updatePath` → `setPane` and pushes that `<path>` to the tail
+   * of `_rootGroup` every frame. Markers moved with `setLatLng` do not
+   * participate in that re-sort, so within the label pane the preview label
+   * would drop under previously-confirmed labels after a few mousemoves.
+   * Remove + re-add keeps the moving label the newest sibling.
+   *
+   * Pane-level z-order (graph < node < label) already keeps nodes above
+   * shapes and labels above nodes — this only orders siblings *within* a pane.
+   *
+   * Remove + re-add is used rather than `bringToFront()` because the latter
+   * reaches into Leaflet's private `_rootGroup`, while re-adding only relies
+   * on the public layer-group contract.
+   */
+  pinToTop<T extends L.Layer>(layer: T, paneName?: string): T {
+    this.removePreview(layer);
+    return this.addPreview(layer, paneName);
+  }
+
+  /**
+   * The transient hollow cursor dot shown while a preview shape is being
+   * drawn — distance's trailing endpoint, polygon's next vertex, circle's
+   * radius endpoint.
+   *
+   * Lives in the node pane (above the graph pane's shapes by z-order, below
+   * the label pane). Recreated on every call rather than moved with
+   * `setLatLng`, because the position changes every frame anyway and the
+   * re-add keeps it the newest node sibling within the node pane.
+   */
+  moveCursorNode(latlng: L.LatLng): L.CircleMarker {
+    if (this.cursorNode) this.removePreview(this.cursorNode);
+    this.cursorNode = this.addPreview(Util.makePreviewNode(latlng), CONST.PANES.NODE);
+    return this.cursorNode;
+  }
+
+  /** Drop the cursor node when drawing ends or is cancelled. */
+  clearCursorNode(): void {
+    if (!this.cursorNode) return;
+    this.removePreview(this.cursorNode);
+    this.cursorNode = null;
+  }
+
+  /**
+   * Create or update a preview label in the label pane.
+   *
+   * Every preview mode (circle radius, distance segment, polygon edge) needs
+   * a floating label that tracks a moving midpoint. This method owns the
+   * full lifecycle so no mode can forget `setLatLng` (position), `pinToTop`
+   * (paint order within the label pane), or the `CONST.PANES.LABEL` routing.
+   *
+   * @param label - Existing label to update, or `null` to create one.
+   * @param latlng - New midpoint position.
+   * @param text - New label text.
+   * @param makeIcon - Factory for the DivIcon (caller picks anchor/class).
+   * @returns The created or updated marker.
+   */
+  updateOrCreateLabel(
+    label: L.Marker | null,
+    latlng: L.LatLng,
+    text: string,
+    makeIcon: (text: string) => L.DivIcon,
+  ): L.Marker {
+    if (!label) {
+      const el = L.marker(latlng, { icon: makeIcon(text), interactive: false });
+      return this.addPreview(el, CONST.PANES.LABEL);
+    }
+    label.setLatLng(latlng);
+    this.pinToTop(label, CONST.PANES.LABEL);
+    Util.setLabelText(label, text);
+    return label;
   }
 }
 

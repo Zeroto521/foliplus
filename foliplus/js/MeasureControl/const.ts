@@ -17,7 +17,7 @@ const LABEL = {
   // The centroid label shares the same latlng as the center dot. The dot is
   // a CircleMarker (SVG path) in measure_graph, so it shares the SVG renderer
   // with the fill and needs no zIndexOffset — DOM order guarantees paint
-  // order. The label is isLabel (measure_label, z = graph + 1), so it always
+  // order. The label's pane is measure_label (z = graph + 1), so it always
   // paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
@@ -70,7 +70,11 @@ const FORMAT = {
 
 /** IDs and pane names. */
 const ID = "foliplus_measure";
-const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
+const PANES = {
+  GRAPH: "measure_graph",
+  NODE: "measure_node",
+  LABEL: "measure_label",
+};
 
 /** CSS class names. */
 const CLASSES = {

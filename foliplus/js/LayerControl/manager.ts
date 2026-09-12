@@ -349,7 +349,7 @@ class LayerManager implements LayerAPI {
     if (opts.paneName) this.panes.ensurePane(opts.paneName);
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer)) {
-        this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+        this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
       }
       // options.pane is updated below — invalidate only this layer's cache.
       this.panes.reset(L.stamp(opts.layer));
@@ -445,8 +445,8 @@ class LayerManager implements LayerAPI {
     // The layer is off the map first (above), so the pane teardown never
     // touches a live layer's renderer or path nodes.
     this.panes.releaseFallbackPane(layerStamp);
-    // Drop label-pane bookkeeping for layers that no longer use it.
-    this.panes.sweepLabelPanes(this.layers);
+    // Drop child-pane bookkeeping for layers that no longer use them.
+    this.panes.sweepChildPanes(this.layers);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -575,7 +575,7 @@ class LayerManager implements LayerAPI {
       if (layer.options.pane !== paneName || !layer.options.paneSet) {
         layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
       }
-      this.panes.bumpLabelPanes(layer, z);
+      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
       return;
     }
 
@@ -594,11 +594,11 @@ class LayerManager implements LayerAPI {
     const childPanes = this.panes.discoverChildPanes(layer);
     if (childPanes.length > 0) {
       childPanes.forEach((cp: string) => {
-        const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
+        const needRenderer = !isTile && !this.panes.childPanes.has(cp);
         const paneEntry = this.panes.ensurePane(cp, needRenderer);
         paneEntry.pane.style.zIndex = String(z);
       });
-      this.panes.bumpLabelPanes(layer, z);
+      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
       layer.options.paneSet = true;
       return;
     }

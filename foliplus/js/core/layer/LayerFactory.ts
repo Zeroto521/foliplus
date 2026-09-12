@@ -29,6 +29,9 @@ interface LayerFactoryDeps {
    * third party mutates the layer tree through the createLayers API.
    * NOTE: if a featureCountProvider is supplied, this is skipped — the
    * owning component manages its own counts via emit(LAYER_ITEM_COUNT_CHANGE).
+   * For them, onDataChange would over-fire on every addLayer (preview layers
+   * in MeasureControl alone call addLayer 6-7 times per measurement),
+   * causing redundant UI refreshes of an unchanged count. Skip it.
    */
   onDataChange?: (id: string) => void;
 }
@@ -36,6 +39,16 @@ interface LayerFactoryDeps {
 // core/layer is not a component dir, so CONF is unavailable here — the module
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
+
+/**
+ * A mutable PaneManager with the surface `createLayers` needs.
+ * Only `childPanes` and the two methods below are used; the rest of the
+ * class is accessed through the public `PaneManager` type elsewhere.
+ */
+type LayerFactoryPanes = PaneManager & {
+  registerSubPanes(names: string[]): void;
+  ensureVector(layer: L.Path, paneName: string): L.Renderer;
+};
 
 class LayerFactory {
   private deps: LayerFactoryDeps;
@@ -54,6 +67,17 @@ class LayerFactory {
       invalidateType,
       onDataChange,
     } = this.deps;
+    const factoryPanes = panes as LayerFactoryPanes;
+
+    // The first name in `opts.panes` is the layer's base pane (recorded as
+    // `paneName` on the registry entry); the rest are sub-panes with
+    // ascending z offsets from CHILD_PANE_STEP. An empty or absent list
+    // means the layer is flat — a single `mainLayer` with no children.
+    const paneEntries = opts.panes ?? [];
+    const subPanes = paneEntries.map(p => p.name);
+    const basePaneName = subPanes[0] ?? null;
+    const labelPanes = new Set(paneEntries.filter(p => p.isLabel).map(p => p.name));
+
     // Components that supply featureCountProvider (MeasureControl, Heatmap)
     // manage their own counts via emit(LAYER_ITEM_COUNT_CHANGE). For them,
     // onDataChange would over-fire on every addLayer (preview layers in
@@ -61,31 +85,53 @@ class LayerFactory {
     // redundant UI refreshes of an unchanged count. Skip it.
     const onDataChangeSkip = Boolean(opts.featureCountProvider);
     const mainLayer = L.layerGroup();
-    const graphLayer = opts.graphPane
-      ? L.layerGroup([], { pane: opts.graphPane })
-      : null;
-    const labelLayer = opts.labelPane
-      ? L.layerGroup([], { pane: opts.labelPane })
-      : null;
-    if (graphLayer) mainLayer.addLayer(graphLayer);
-    if (labelLayer) mainLayer.addLayer(labelLayer);
+    // Build one sub-layer per declared sub-pane. The base sub-layer exists
+    // even when there is exactly one pane — mainLayer always routes through
+    // it so `paneName` on `RegisterLayerOpts` is well-defined.
+    const subLayers = new Map<string, L.LayerGroup>();
+    for (const name of subPanes) {
+      const g = L.layerGroup([], { pane: name });
+      subLayers.set(name, g);
+      mainLayer.addLayer(g);
+    }
 
     let registered = false;
+
+    // Capture the original LayerGroup.prototype methods before we shadow them
+    // on the instance a few lines below. `mainLayer.addLayer = fn` on the
+    // instance hides the prototype method, but if we bound the (then-current)
+    // `mainLayer.addLayer` first the wrapper would end up calling itself —
+    // infinite self-recursion until the stack returns to the caller with the
+    // default Leaflet pane. Pull from `L.LayerGroup.prototype` directly to
+    // sidestep the shadow. The null-guard fallback is for the JS unit test,
+    // which mocks `L.layerGroup` as a plain factory without a `prototype`.
+    const proto = L.LayerGroup?.prototype;
+    const origAddLayer = proto
+      ? proto.addLayer.bind(mainLayer)
+      : mainLayer.addLayer.bind(mainLayer);
+    const origRemoveLayer = proto
+      ? proto.removeLayer.bind(mainLayer)
+      : mainLayer.removeLayer.bind(mainLayer);
 
     const layerOpts: RegisterLayerOpts = {
       name: opts.name,
       id: opts.id,
       isBase: false,
       layer: mainLayer,
-      paneName: opts.graphPane || null,
-      labelPane: opts.labelPane || null,
+      paneName: basePaneName,
+      subPanes: [...subPanes],
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
     };
+    // Register sub-panes eagerly so ensurePane can assign provisional
+    // z-index on first creation. register() only fires when the first
+    // layer is added, but ensurePane may run earlier via ensureVector
+    // or bumpPanes — at that point childPanes must already be populated.
+    if (subPanes.length) factoryPanes.registerSubPanes(subPanes);
+
     const register = () => {
       if (!registered) {
         registered = true;
-        if (opts.labelPane) panes.labelPanes.add(opts.labelPane);
       }
       registerLayer(layerOpts);
     };
@@ -93,31 +139,61 @@ class LayerFactory {
     const unregister = () => {
       if (!registered) return;
       const hasContent =
-        (graphLayer && graphLayer.getLayers().length > 0) ||
-        (labelLayer && labelLayer.getLayers().length > 0);
+        directCount() > 0 ||
+        Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
       if (!hasContent) {
         registered = false;
         unregisterLayer(opts.id);
       }
     };
 
-    const origAddLayer = mainLayer.addLayer.bind(mainLayer);
-    const origRemoveLayer = mainLayer.removeLayer.bind(mainLayer);
+    /** Count content outside the sub-layer containers (which always exist
+     *  once `opts.panes` is non-empty). */
+    const directCount = (): number => mainLayer.getLayers().length - subLayers.size;
 
+    /** Route a layer to its target sub-layer by `options.pane`. If the
+     *  caller did not preset `options.pane` — or left it at Leaflet's
+     *  class-default (`'overlayPane'` for paths, `'markerPane'` for
+     *  markers, etc.) — default to `subPanes[0]`, the base pane where
+     *  graph geometry normally lives. This mirrors the pre-refactor
+     *  `mainLayer.addLayer(layer)` contract (which auto-routed unflagged
+     *  leaves to graphPane) so existing callers that rely on
+     *  `mainLayer.addLayer(poly)` without setting `options.pane` keep
+     *  working. Explicit `options.pane` values in `subPanes` are honoured;
+     *  values outside `subPanes` (or empty `subPanes`) fall through to
+     *  `origAddLayer` unchanged.
+     *
+     *  Distinguishing "explicit" from "class-default" uses `options.paneSet`
+     *  — the flag `PaneManager.migrateLayers` / `ensureVector` /
+     *  `LayerFactory.addLayer` set when they actually write `options.pane`.
+     *  Without it, every `L.polyline()` carries `options.pane ===
+     *  'overlayPane'` and the auto-default below would never fire.
+     *
+     *  Vector layers additionally get pinned to the sub-pane's renderer so
+     *  a later `setPane()` call cannot fall through to Leaflet's default
+     *  SVG and cause the "already-owned element" `appendChild` crash.
+     *  Non-vector leaves are dropped onto their sub-layer's own renderer
+     *  via `ensurePane` — cheap no-op once the pane is live. */
     mainLayer.addLayer = (layer: LabelAwareLayer) => {
-      const isLabel = layer.isLabel;
-      const target = isLabel ? labelLayer : graphLayer;
-      if (target) {
+      const declared = layer.options.pane;
+      const requested = layer.options.paneSet ? declared : basePaneName;
+      if (requested && subPanes.includes(requested)) {
+        // Pin the target name so downstream code (discoverChildPanes,
+        // getLayerPanes, ensureVector) sees the truth even if the caller
+        // left `options.pane` empty and we defaulted.
+        layer.options.pane = requested;
+        layer.options.paneSet = true;
         if (!map.hasLayer(mainLayer)) register();
-        const paneName = isLabel ? opts.labelPane : opts.graphPane;
-        layer.options.pane = paneName;
         if (layer instanceof L.Path) {
-          const { renderer } = panes.ensurePane(opts.graphPane!);
-          layer.options.renderer = renderer ?? undefined;
-        } else if (paneName) panes.ensurePane(paneName, false);
+          factoryPanes.ensureVector(layer, requested);
+        } else {
+          factoryPanes.ensurePane(requested, false);
+        }
+        const target = subLayers.get(requested);
+        if (!target) return origAddLayer(layer);
         const result = target.addLayer(layer);
-        // The mainLayer subtree changed and the added layer's options.pane was
-        // set above — invalidate both discovery-cache entries (targeted).
+        // The mainLayer subtree changed and the added layer's options.pane
+        // was set above — invalidate both discovery-cache entries (targeted).
         panes.reset(L.stamp(mainLayer));
         panes.reset(L.stamp(layer));
         invalidateType(opts.id);
@@ -128,51 +204,74 @@ class LayerFactory {
     };
 
     mainLayer.removeLayer = (layer: LabelAwareLayer) => {
-      if (graphLayer && graphLayer.hasLayer(layer)) {
-        const result = graphLayer.removeLayer(layer);
-        panes.reset(L.stamp(mainLayer));
-        panes.reset(L.stamp(layer));
-        invalidateType(opts.id);
-        if (!onDataChangeSkip) onDataChange?.(opts.id);
-        return result;
-      }
-      if (labelLayer && labelLayer.hasLayer(layer)) {
-        const result = labelLayer.removeLayer(layer);
-        panes.reset(L.stamp(mainLayer));
-        panes.reset(L.stamp(layer));
-        invalidateType(opts.id);
-        if (!onDataChangeSkip) onDataChange?.(opts.id);
-        return result;
+      for (const g of subLayers.values()) {
+        if (g.hasLayer(layer)) {
+          const result = g.removeLayer(layer);
+          panes.reset(L.stamp(mainLayer));
+          panes.reset(L.stamp(layer));
+          invalidateType(opts.id);
+          if (!onDataChangeSkip) onDataChange?.(opts.id);
+          return result;
+        }
       }
       return origRemoveLayer(layer);
     };
 
     mainLayer.clearLayers = () => {
-      // mainLayer always holds the (possibly empty) graph/label sub-layers as
-      // children; content may also be added directly (no pane configured).
-      // Count only actual content, not the sub-layer containers themselves.
-      const directCount =
-        mainLayer.getLayers().length - (graphLayer ? 1 : 0) - (labelLayer ? 1 : 0);
+      // mainLayer always holds the (possibly empty) sub-layers as children;
+      // content may also be added directly (no sub-pane). Count only actual
+      // content, not the sub-layer containers themselves.
       const hadContent =
-        directCount > 0 ||
-        (graphLayer ? graphLayer.getLayers().length > 0 : false) ||
-        (labelLayer ? labelLayer.getLayers().length > 0 : false);
-      if (graphLayer) graphLayer.clearLayers();
-      if (labelLayer) labelLayer.clearLayers();
+        directCount() > 0 ||
+        Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
+      for (const g of subLayers.values()) g.clearLayers();
       if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
       if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
       unregister();
       return mainLayer;
     };
 
-    const addLayer = (layer: LabelAwareLayer, isLabel?: boolean) => {
-      if (isLabel) layer.isLabel = true;
-      mainLayer.addLayer(layer);
+    /**
+     * Add a layer into this tree, pinned to the given sub-pane. The pane
+     * name must have been declared via `opts.panes` — the values are
+     * component-owned (MeasureControl/const.ts:PANES supplies them, so
+     * callers never write pane-name string literals).
+     *
+     * Passing no name defaults to `subPanes[0]` — the base pane, where
+     * graph geometry normally lives. Passing a name not in the list
+     * falls through to the base layerGroup with no pin: that is the
+     * same shape as a flat layer. Kept silent rather than throwing
+     * because a mis-routed layer is a caller bug that would still
+     * render; a thrown error would kill a live measurement.
+     *
+     * `paneName` is written directly onto `layer.options.pane` —
+     * `mainLayer.addLayer` routes by that field, so callers reading
+     * `layer.options.pane` (e.g. `discoverChildPanes`, `getLayerPanes`)
+     * see the same truth. `isLabel` is also set on the leaf when the
+     * pane is declared with `isLabel: true` in `panes`: `util.getGeometryType`
+     * and `countFeatureGeometry` still use it to exclude label leaves from
+     * feature-geometry counts, so the flag is kept for that contract.
+     */
+    const addLayer = (layer: L.Layer, paneName?: string): L.Layer => {
+      // Only write options.pane when the caller explicitly names one.
+      // When paneName is omitted, mainLayer.addLayer's own default
+      // (basePaneName for unset pane, existing pane when paneSet is true)
+      // handles routing — overwriting here would collapse NODE/LABEL
+      // layers back to GRAPH on resort/re-add.
+      const target = paneName ?? undefined;
+      if (target && subPanes.includes(target)) {
+        (layer as LabelAwareLayer).options.pane = target;
+        (layer as LabelAwareLayer).options.paneSet = true;
+        if (labelPanes.has(target)) {
+          (layer as LabelAwareLayer).isLabel = true;
+        }
+      }
+      mainLayer.addLayer(layer as LabelAwareLayer);
       return layer;
     };
     const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
       items.forEach(l => {
-        if (l != null) mainLayer.removeLayer(l);
+        if (l != null) mainLayer.removeLayer(l as LabelAwareLayer);
       });
     };
     const clearLayers = () => {
@@ -192,7 +291,13 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
+    const {
+      map,
+      panes: _panes,
+      registerLayer,
+      unregisterLayer,
+      bringLayerToFront,
+    } = this.deps;
     if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
 
     const mapPane = map.getPanes().mapPane as HTMLElement;

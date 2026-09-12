@@ -165,6 +165,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
       makeDelIcon(node.getLatLng(), {
         title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
       }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     nodeDelMarkers.push(delMarker);
 
@@ -472,7 +473,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
             Util.formatDistance(Util.distance(points[i], points[next])),
           ),
         }),
-        true,
+        CONST.PANES.LABEL,
       ) as L.Marker;
       segLabels.push(label);
       label.on("click", openOverlay);
@@ -488,16 +489,16 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot is a CircleMarker (SVG path) in the graph pane —
-    // same approach as the circle center. Both share the SVG renderer with
-    // the fill, so no zIndexOffset is needed; DOM order within the SVG
-    // guarantees the dot paints above the fill.
-    // The centroid label is isLabel → label pane, which paints above the
-    // graph pane. Segment labels (also isLabel) sit at z = Y; after zoom
-    // `sortLayers` re-sorts by Y, so the label's offset (2000) keeps it
-    // above its own segment labels.
+    // The centroid dot is a CircleMarker (SVG path) in the node pane —
+    // same approach as the circle center. The node pane paints above the
+    // graph pane by pane z-index, so the dot always covers the fill.
+    // The centroid label lives in the label pane (z = graph + 2), which
+    // paints above the node pane. Segment labels (also in the label pane)
+    // sit at z = Y; after zoom `sortLayers` re-sorts by Y, so the label's
+    // offset (2000) keeps it above its own segment labels.
     centroidDot = layers.addLayer(
       Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
@@ -508,7 +509,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         zIndexOffset: CONST.LABEL.CENTROID_Z_OFFSET,
         interactive: false,
       }),
-      true,
+      CONST.PANES.LABEL,
     ) as L.Marker;
     unregisterCentroid = mgr.registerLabel(
       centroidLabel,
@@ -516,6 +517,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     );
     centroidDelMarker = layers.addLayer(
       makeDelIcon(centroid, { title: T("del_all") }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     attachDelClick(centroidDelMarker, deleteMeasurement);
   };
@@ -552,6 +554,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       makeDelIcon(node.getLatLng(), {
         title: is3pt ? T("del_all") : T("del_node"),
       }),
+      CONST.PANES.NODE,
     ) as L.Marker;
     nodeDelMarkers.push(delMarker);
 

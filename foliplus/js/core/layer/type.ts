@@ -11,7 +11,17 @@ interface RegisterLayerOpts {
   layer?: L.Layer | null;
   isBase?: boolean;
   paneName?: string | null;
-  labelPane?: string | null;
+  /**
+   * Sub-panes for this layer, ordered by z ascending. The k-th name gets
+   * `CHILD_PANE_OFFSET[k]` in `PaneManager.bumpPanes`. Empty or absent
+   * means the layer has a single flat pane (its `paneName`).
+   *
+   * Was `labelPane?: string | null` — that name was MeasureControl-specific
+   * and couldn't express a second, third, or fourth sub-pane. Measuring a
+   * circle now puts nodes in a middle pane between paths and labels; this
+   * field names that third slot without renaming core.
+   */
+  subPanes?: string[];
   iconSvg?: string | null;
   visible?: boolean;
   canvas?: HTMLCanvasElement | null;
@@ -40,7 +50,8 @@ interface LayerInfo {
   visible: boolean;
   isBase: boolean;
   paneName: string | null;
-  labelPane?: string | null;
+  /** Sub-panes (see `RegisterLayerOpts.subPanes`). Ordered by z ascending. */
+  subPanes: string[];
   iconSvg: string | null;
   type: string | null;
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
@@ -80,8 +91,27 @@ interface LabelAwareLayer extends L.Layer {
 interface CreateLayersOpts {
   id: string;
   name?: string;
-  graphPane?: string;
-  labelPane?: string;
+  /**
+   * Sub-panes this layer's content may live in, ordered by z ascending.
+   *
+   * The first entry's `name` is the layer's base pane and doubles as
+   * `RegisterLayerOpts.paneName`. Every name is used as the z-target for
+   * `PaneManager.bumpPanes` at the layer's base z; entries past the first
+   * get successive offsets from `CHILD_PANE_OFFSET`.
+   *
+   * Entries with `isLabel: true` mark their leaves with the `isLabel` flag,
+   * which `countFeatureGeometry` / `util.getGeometryType` use to exclude
+   * label leaves from feature-geometry counts.
+   *
+   * Was `{ graphPane?: string; labelPane?: string }` — the pair hard-coded
+   * a two-pane shape (paths under labels) that couldn't express a node
+   * pane between them, and it made core aware of measure-specific roles.
+   * An ordered entry list lets the caller name any N panes in any order;
+   * core only knows they exist and paints them above the base by index.
+   *
+   * When empty or absent, the layer is a single flat layer with no sub-panes.
+   */
+  panes?: Array<{ name: string; isLabel?: boolean }>;
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default
@@ -125,7 +155,23 @@ interface CreateCanvasAPI {
 /** Return type of `LayerAPI.createLayers`. */
 interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
-  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+  /**
+   * Add a layer into this layer's tree, pinned to the given sub-pane.
+   *
+   * `paneName` must be one of the pane names passed via `createLayers`'s
+   * `opts.panes` (component-defined — `MeasureControl/const.ts:PANES`
+   * supplies the values, so callers never write pane-name string literals).
+   * Passing a name not in that list routes to the base layerGroup and
+   * silently ignores the pin; that is the same behavior as an empty
+   * `opts.panes` — the layer goes in as-is.
+   *
+   * Was `(layer, isLabel?: boolean) => L.Layer`, which was a single boolean
+   * dispatch between graph and label. `isNode` had to be added to that
+   * dispatch for MeasureControl to keep nodes above paths — each new role
+   * meant another boolean. `paneName` accepts a component-owned string and
+   * scales to any number of roles without another parameter.
+   */
+  addLayer: (layer: L.Layer, paneName?: string) => L.Layer;
   removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
   clearLayers: () => void;
   register: () => void;

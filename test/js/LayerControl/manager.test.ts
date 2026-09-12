@@ -214,17 +214,17 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("nonexistent")).toBe(false);
   });
 
-  it("unregisterLayer sweeps label panes no longer referenced", () => {
+  it("unregisterLayer sweeps child panes no longer referenced", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const api = manager.createLayers({
       id: "g1",
       name: "Group",
-      labelPane: "g1_label",
+      panes: [{ name: "g1_base" }, { name: "g1_label", isLabel: true }],
     });
     api.register();
-    expect(manager.panes.labelPanes.has("g1_label")).toBe(true);
+    expect(manager.panes.childPanes.has("g1_label")).toBe(true);
     expect(manager.unregisterLayer("g1")).toBe(true);
-    expect(manager.panes.labelPanes.has("g1_label")).toBe(false);
+    expect(manager.panes.childPanes.has("g1_label")).toBe(false);
   });
 
   it("unregisterLayer returns true when layer is found and removed", () => {

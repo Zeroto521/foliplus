@@ -4,7 +4,7 @@
   const mg = api.createLayers({
     id: "__test_marker_pane__",
     name: "MarkerPane",
-    graphPane: "__test_marker_pane_graph__",
+    panes: [{ name: "__test_marker_pane_graph__" }],
   });
   const mkr = L.marker([26.08, 119.3]);
   mg.mainLayer.addLayer(mkr);

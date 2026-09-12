@@ -419,6 +419,52 @@ class TestMeasureControlBrowser:
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
             assert moved, f"circle preview node did not follow the mouse: {state}"
+            s = state["stack"]
+            # 3-pane layout: nodes live in the node pane, geometry in the
+            # graph pane. Paint order is guaranteed by pane z-index, not
+            # SVG sibling order.
+            assert s["nodePane"] == "node", f"radius node not in node pane: {s}"
+            assert s["centerPane"] == "node", f"center node not in node pane: {s}"
+            assert s["node"] > s["circle"], f"node pane z below graph pane: {s}"
+            assert s["center"] > s["circle"], (
+                f"node pane z below graph pane (center): {s}"
+            )
+            # After a third move the pane z-index ordering must hold.
+            s3 = state["stackAfterThirdMove"]
+            assert s3["node"] > s3["circle"], (
+                f"node pane z dropped below graph after repeated moves: {s3}"
+            )
+            assert s3["center"] > s3["circle"], (
+                f"center pane z dropped below graph after repeated moves: {s3}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_circle_preview_label_in_label_pane(self, browser, tmp_path):
+        """The circle preview radius label must land in the label pane.
+
+        `PreviewMode.addPreview` used to forward no pane name, so the label
+        silently defaulted to the graph pane alongside the circle fill, the
+        radius line and both nodes. There the label competes for SVG paint
+        order with the geometry, so at a short radius the dots cover it.
+        Distance and polygon always routed their preview labels through
+        CONST.PANES.LABEL, which is why only circle mode showed this.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.wait_for_timeout(300)
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_pane"))
+            panes = {p["name"]: int(p["z"]) for p in state["allPanes"]}
+            # 3-pane layout: graph (k=0), node (k=1), label (k=2)
+            assert panes.get("graph") == 600, f"graph pane z wrong: {state}"
+            assert panes.get("label") == 602, (
+                f"label pane z wrong (expected graph+2): {state}"
+            )
+            for phase in ("near", "far"):
+                assert "measure_label-pane" in state[phase]["pane"], (
+                    f"circle preview label is in {state[phase]['pane']} at {phase} radius"
+                )
+                assert int(state[phase]["z"]) == panes["label"], (
+                    f"label pane z={state[phase]['z']} not {panes['label']}"
+                )
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_preview_cursor_node_follows_mouse(self, browser, tmp_path):
@@ -443,6 +489,16 @@ class TestMeasureControlBrowser:
             # Leaflet SVG paint order (later siblings paint above).
             assert s["node"] > s["preview"], f"node below preview line: {s}"
             assert s["node"] > s["dashed"], f"node below dashed line: {s}"
+            # After a third move the recreated node must still be above both
+            # lines — the old in-place `setLatLng` path let the live line
+            # climb over it (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview line after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["dashed"], (
+                f"node climbed below dashed line after repeated moves: {s2}"
+            )
             assert state["removedAfterFinish"], "cursor node not removed on finish"
             assert not errors, f"JS errors: {errors}"
 
@@ -460,10 +516,17 @@ class TestMeasureControlBrowser:
             )
             assert state["idle"], "cursor node floated with no points placed"
             assert state["created"], "cursor node not rendered on the first move"
-            # The same DOM node must survive both moves — a re-created node would
-            # prove the move path drops and re-adds the dot instead of relocating it.
-            assert state["moved"], (
-                f"polygon cursor node did not follow the mouse: {state}"
+            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
+            assert moved, f"polygon cursor node did not follow the mouse: {state}"
+            # Recreated each frame, so there must be exactly one dot at all
+            # times — the old path's DOM node identity is not a valid check.
+            assert state["dotsAfterTwo"] == 1, (
+                f"expected exactly one cursor dot after two moves, "
+                f"got {state['dotsAfterTwo']}"
+            )
+            assert state["dotsAfterThree"] == 1, (
+                f"expected exactly one cursor dot after three moves, "
+                f"got {state['dotsAfterThree']}"
             )
             s = state["stack"]
             # The node must come after both preview paths and the fill in DOM
@@ -471,6 +534,17 @@ class TestMeasureControlBrowser:
             assert s["node"] > s["preview"], f"node below preview outline: {s}"
             assert s["node"] > s["dashed"], f"node below dashed path: {s}"
             assert s["node"] > s["fill"], f"node below the shape fill: {s}"
+            # After a third move, the recreated node must still be above the
+            # fill — the old in-place `setLatLng` path let the fill climb over
+            # it because `setLatLngs` re-sorts the SVG root but `setLatLng`
+            # does not (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["fill"], (
+                f"node climbed below the shape fill after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview outline after repeated moves: {s2}"
+            )
             assert state["removedAfterFinish"], "cursor node not removed on finish"
             assert not errors, f"JS errors: {errors}"
 
@@ -847,28 +921,33 @@ class TestMeasureControlBrowser:
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
-                const dotSvg = dot.closest('svg');
-                const fillSvg = fill.closest('svg');
-                if (!dotSvg || !fillSvg) return { error: 'no SVG renderer found' };
-                if (dotSvg !== fillSvg) return { error: 'dot and fill in different SVGs' };
-                const rect = dot.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const topEl = document.elementFromPoint(cx, cy);
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                const paneName = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    if (!pane) return null;
+                    const m = pane.className.match(/measure_(\\w+)-pane/);
+                    return m ? m[1] : null;
+                };
+                const dotZ = paneZ(dot);
+                const fillZ = paneZ(fill);
                 return {
                     dotIsPath: dot.tagName === 'path',
-                    sameSvg: dotSvg === fillSvg,
-                    topEl: topEl ? topEl.tagName + '.' + (topEl.getAttribute('class') || '') : null,
-                    topElIsFill: topEl === fill,
+                    dotPane: paneName(dot),
+                    fillPane: paneName(fill),
+                    dotZ,
+                    fillZ,
+                    dotAboveFill: dotZ > fillZ,
                 };
             }""")
             assert not info.get("error"), f"probe error: {info.get('error')}"
             assert not errors, f"JS errors: {errors}"
             assert info["dotIsPath"], "centroid dot should be an SVG path"
-            assert info["sameSvg"], "dot and fill must share the SVG renderer"
-            assert not info["topElIsFill"], (
-                f"fill is painting over the centroid dot; topEl={info['topEl']}"
-            )
+            assert info["dotPane"] == "node", f"dot not in node pane: {info}"
+            assert info["fillPane"] == "graph", f"fill not in graph pane: {info}"
+            assert info["dotAboveFill"], f"node pane z below graph pane: {info}"
 
             # After zoom, sortLayers re-sorts by Y. Since the dot is an SVG
             # path (not a div-icon marker), it's unaffected by z-index re-sort.
@@ -882,22 +961,16 @@ class TestMeasureControlBrowser:
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
-                const dotSvg = dot.closest('svg');
-                const fillSvg = fill.closest('svg');
-                if (!dotSvg || !fillSvg || dotSvg !== fillSvg)
-                    return { error: 'dot/fill SVG mismatch after zoom' };
-                const rect = dot.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const topEl = document.elementFromPoint(cx, cy);
-                return { topElIsFill: topEl === fill };
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                return { dotAboveFill: paneZ(dot) > paneZ(fill) };
             }""")
             assert not info2.get("error"), (
                 f"post-zoom probe error: {info2.get('error')}"
             )
-            assert not info2["topElIsFill"], (
-                "after zoom: fill is painting over the centroid dot"
-            )
+            assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
 
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
@@ -973,6 +1046,28 @@ class TestMeasureControlBrowser:
                 assert abs(off["dy"] - ref["dy"]) <= 2, (
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
+
+    def test_circle_preview_label_reattached_every_frame(self, browser, tmp_path):
+        """While the circle preview is live the radius label chip stays the
+        last marker child of the label pane.
+
+        The label was moved in place with `setLatLng`, which keeps the sibling
+        position from creation time. Once a finalised circle's label had
+        entered the pane after the preview started, the preview chip stayed
+        ahead of it and was painted under — the moving preview label visually
+        disappeared below the earlier measurement's label.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_reattached"))
+            # The planted chip plus the preview chip should both be present.
+            assert state["frames"], "no preview frames captured"
+            assert all(f["total"] == 2 for f in state["frames"]), (
+                f"expected planted + preview label: {state['frames']}"
+            )
+            assert state["alwaysLast"], (
+                f"preview label was not the last label-pane child on every frame: {state['frames']}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_works_without_layercontrol(self, browser, tmp_path):
         """MeasureControl initializes without LayerControl (degradation)."""
