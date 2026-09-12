@@ -1,5 +1,7 @@
-// Number formatting for foliplus components.
+// Number, date and coordinate formatting for foliplus components.
 // Imported statically by components at build time.
+
+import { intlLocale } from "#common/locale.js";
 
 type NumberStyle = "auto" | "comma" | "int";
 
@@ -76,4 +78,34 @@ const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
 const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): string =>
   `${formatCoord(lng, digits)}, ${formatCoord(lat, digits)}`;
 
-export { type NumberStyle, formatNumber, LAT_LNG_PRECISION, formatCoord, formatLatLng };
+/** Format a timestamp for display in the browser's local timezone.
+ *
+ * Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
+ * input returns "" so the caller can omit the row instead of showing an
+ * "Invalid Date" literal.
+ *
+ * `locale` is a project locale code, not a BCP-47 tag — the tag mapping for
+ * `Date.prototype.toLocaleString` lives in `intlLocale`.
+ */
+const formatTimestamp = (
+  value: number | string,
+  locale: string = "en",
+): string => {
+  const date = new Date(typeof value === "number" ? value : Date.parse(value));
+  if (Number.isNaN(date.getTime())) return "";
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return date.toLocaleString(intlLocale(locale), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  });
+};
+
+export {
+  type NumberStyle,
+  formatNumber,
+  formatTimestamp,
+  LAT_LNG_PRECISION,
+  formatCoord,
+  formatLatLng,
+};
