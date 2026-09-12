@@ -15,7 +15,7 @@
 - `SearchControl`: search history panel — persist search history to localStorage, split by address/coordinate mode, sort by frequency then recency, reverse-geocode for address display ([#164](https://github.com/Zeroto521/foliplus/tree/164), [#206](https://github.com/Zeroto521/foliplus/pull/206), [#218](https://github.com/Zeroto521/foliplus/pull/218))
 - `InteractionManager`: per-map centralized event manager (`core/interaction.ts`) — replaces per-component `document.addEventListener` for keyboard and mouse events. Supports document-level, container-scoped, and element-level bindings with auto-cleanup on DOM removal and map unload. Each component now has a dedicated `interaction.ts` for event registration ([#165](https://github.com/Zeroto521/foliplus/pull/165), [#188](https://github.com/Zeroto521/foliplus/pull/188))
 - `MeasureControl`: export measurements to GeoJSON or CSV — selectable via the `export_format` parameter; the CSV carries a WKT column plus a UTF-8 BOM so Excel detects the encoding ([#168](https://github.com/Zeroto521/foliplus/pull/168), [#250](https://github.com/Zeroto521/foliplus/pull/250), [#253](https://github.com/Zeroto521/foliplus/pull/253))
-- `LayerControl`: focus-layer overflow menu — zoom the map to a layer's extent ([#194](https://github.com/Zeroto521/foliplus/pull/194), [#278](https://github.com/Zeroto521/foliplus/pull/278))
+- `LayerControl`: focus-layer overflow menu — zoom the map to a layer's extent ([#194](https://github.com/Zeroto521/foliplus/pull/194), [#278](https://github.com/Zeroto521/foliplus/pull/278), [#282](https://github.com/Zeroto521/foliplus/pull/282))
 - `MeasureControl`: edit mode — click a measurement to reveal its × handles and drag nodes to reposition it ([#196](https://github.com/Zeroto521/foliplus/pull/196), [#235](https://github.com/Zeroto521/foliplus/pull/235), [#243](https://github.com/Zeroto521/foliplus/pull/243))
 - `HeatmapControl`: persist configuration to localStorage — restored on reload, reset to the Python-side values on a fresh render ([#211](https://github.com/Zeroto521/foliplus/pull/211))
 - `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
@@ -23,6 +23,8 @@
 - `MeasureControl`: `show_live_coords` parameter (default `true`) — a chip trails the cursor while a drawing mode or edit mode is armed, showing the coordinate about to be placed, and disappears once the measurement is finalized ([#246](https://github.com/Zeroto521/foliplus/pull/246))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227), [#254](https://github.com/Zeroto521/foliplus/pull/254))
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
+- `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
+- `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
 
 ### Changed
 
@@ -48,6 +50,9 @@
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 - `MeasureControl`/`SearchControl`: location coordinates are now pinned to six decimals by one shared formatter (`formatCoord` / `formatLatLng` in `common/format.ts`) — a search result or a popup rendered from a history entry saved as `121.47` used to read `121.47` where the cursor readout reads `121.470000` ([#260](https://github.com/Zeroto521/foliplus/pull/260))
 - `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
+- `LayerControl`/`HeatmapControl`: attach-time init is signal-driven (`CONTROL_ATTACHED` + `data-ready`), replacing fixed timers/retries; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283), [#285](https://github.com/Zeroto521/foliplus/pull/285))
+- `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
+- `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
 
 ### Removed
 

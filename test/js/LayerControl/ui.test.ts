@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui.js";
@@ -32,16 +33,21 @@ const initFixture = (
   window.CONF.locale_code = "en";
 
   class Renderer {}
+
   class Path {
     options = {};
   }
+
   class Polygon {
     options = {};
   }
+
   class Polyline {
     options = {};
   }
+
   class Marker {}
+
   class CircleMarker {
     constructor(_latlng: any, _opts: any) {}
     addTo(_map: any) {
@@ -203,16 +209,17 @@ const initFixture = (
   manager.enforceOrder();
   manager.ui = new LayerUI(manager);
 
-  // Switch to fake timers BEFORE attachUI so the 300ms initTypesAndVisibility
-  // timeout from attachUI is controllable. If the timer were REAL and
-  // advanceTimersByTime didn't flush it, the callback would fire after
-  // afterEach clears the DOM and throw on the detached container.
+  // Switch to fake timers BEFORE attachUI so the initTypesAndVisibility
+  // pass (setTimeout 0 after the synchronous attach sequence) is flushable.
+  // If the timer were REAL and advanceTimersByTime didn't flush it, the
+  // callback would fire after afterEach clears the DOM and throw on the
+  // detached container.
   vi.useFakeTimers();
 
   manager.attachUI(container);
   const ui = manager.ui!;
 
-  vi.advanceTimersByTime(350);
+  vi.advanceTimersByTime(50);
   vi.useRealTimers();
 
   return { manager, ui, map };
@@ -268,7 +275,9 @@ const overlayFoldBtn = (root: ParentNode) =>
 
 // ===========================================================================
 describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
-  let manager: LayerManager, ui: LayerUI, map: any;
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
@@ -276,13 +285,14 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // single-child "no toggle-all" layout. Registered here (not in the tests)
     // because initFixture() flushes the 300ms initTypesAndVisibility timeout
     // AFTER any nested beforeEach, which would drop a layer added inside a test.
-    if (!manager.layerRegistry.get("overlay2"))
+    if (!manager.layerRegistry.get("overlay2")) {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
         isBase: false,
         layer: { options: {}, eachLayer: vi.fn() },
       });
+    }
     ui.foldedGroups = new Set();
     ui.hiddenIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
@@ -298,8 +308,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     // LayerControl holds "focusing" mode during an in-flight focus; clear it
     // on the FIXTURE map (not window.map) so a focus-holding test cannot leak.
     const modes = ensureModes(map);
-    if (modes.getMode("LayerControl") === "focusing")
+    if (modes.getMode("LayerControl") === "focusing") {
       modes.setMode("LayerControl", null);
+    }
   });
 
   // ─────────────────── focusLayer() ───────────────────
@@ -1092,6 +1103,25 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
 
+    it("marks the menu item disabled on a base basemap row", () => {
+      const item = findItem(ui, "base1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement | null;
+      expect(li).not.toBeNull();
+      expect(li?.getAttribute("disabled")).toBe("disabled");
+    });
+
+    it("double-click on a base basemap row does not call focusLayer", () => {
+      const item = findItem(ui, "base1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+    });
+
     it("menu item is not disabled when layer is visible", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -1473,17 +1503,18 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
     // ─────────── color basemap (outside layerRegistry) ───────────
 
-    it("color layer more menu contains only rename-layer (no focus-layer)", () => {
+    it("color layer more menu shows a disabled focus-layer item", () => {
       const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
       ui.openMoreMenu(colorItem);
 
       const focusLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
-      );
+      ) as HTMLElement | null;
       const renameLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
-      expect(focusLi).toBeNull();
+      expect(focusLi).not.toBeNull();
+      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
       expect(renameLi).not.toBeNull();
     });
 
@@ -1871,6 +1902,37 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       focusSpy.mockRestore();
     });
 
+    it("double-click on a base basemap row shows a hint instead of focusLayer", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "base1");
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+      focusSpy.mockRestore();
+    });
+
+    it("double-click on a hidden row still reaches focusLayer (hint path)", () => {
+      // Hidden layers are NOT focusable via the menu, but double-click must
+      // still run focusLayer so the user gets the "hidden" hint instead of
+      // nothing.
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.checked = false;
+
+      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      focusSpy.mockRestore();
+    });
+
     it("does NOT focus the layer on a dblclick of the fold button", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const { foldBtn } = attachWithGroup(ui);
@@ -2102,6 +2164,38 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
   });
 
+  describe("ListCursor ARIA + roving tabindex", () => {
+    it("tags the list and rows with listbox roles", () => {
+      expect(ui.uiContainer.getAttribute("role")).toBe("listbox");
+      const rows = ui.getNavigableItems();
+      expect(rows.length).toBeGreaterThan(0);
+      rows.forEach(r => {
+        expect(r.getAttribute("role")).toBe("option");
+        expect(r.id).toBeTruthy();
+      });
+    });
+
+    it("exactly one row is a Tab stop", () => {
+      // In-row checkbox / more / fold stay Tab-reachable (user-facing).
+      // Roving only manages the row elements themselves.
+      const rows = ui.getNavigableItems();
+      const tabStops = rows.filter(r => r.tabIndex === 0);
+      expect(tabStops).toHaveLength(1);
+    });
+
+    it("pointer click paints the cursor class and moves the Tab stop", () => {
+      const rows = ui.getNavigableItems();
+      const target = rows[1];
+      const checkbox = target.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(target.tabIndex).toBe(0);
+      expect(rows[0].tabIndex).toBe(-1);
+      expect(target.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    });
+  });
+
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
   describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
@@ -2164,7 +2258,7 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
-    it("clearActiveItem removes the FOCUSED class and resets activeIdx/clickedRow", () => {
+    it("clearActiveItem removes the FOCUSED class and resets activeIdx", () => {
       const overlay = findItem(ui, "overlay1");
 
       ui.setActiveItem(indexFor("overlay1"));
@@ -2178,7 +2272,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
         0,
       );
       expect(ui.activeIdx).toBeNull();
-      expect((ui as any).clickedRow).toBeNull();
     });
 
     it("Escape keydown clears the FOCUSED class", () => {
@@ -2212,10 +2305,9 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(document.activeElement).toBe(checkbox);
     });
 
-    it("repeated checkbox clicks never leave the row cursor visual on", () => {
-      // Pointer toggles are not a focus arrival: they must not paint the
-      // white+glow recipe. Keyboard (Tab / arrows) still lights it via
-      // setActiveItem / focusin.
+    it("repeated checkbox clicks keep the row cursor visual on", () => {
+      // Click is a cursor arrival: the visual stays until Escape / another
+      // row / an outside press. (#278 only removed dblclick→focusLayer.)
       const overlay = findItem(ui, "overlay1");
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -2224,20 +2316,17 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       for (let i = 0; i < 3; i++) {
         checkbox.checked = !checkbox.checked;
         checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-        expect(
-          ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`),
-        ).toHaveLength(0);
+        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       }
-      // Space/Enter must still target the last-clicked row.
-      expect((ui as any).clickedRow).toBe(overlay);
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        1,
+      );
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
-    it("clicking another row drops a stale keyboard cursor visual", () => {
-      // Arrow-keys light row A. A pointer click on row B re-homes the index
-      // but must also clear A's FOCUSED class — otherwise B is the target
-      // while A still glows.
+    it("clicking another row hands the cursor visual over", () => {
+      // Arrow-keys light row A. A pointer click on row B must move the class
+      // — never leave A glowing while B is the target.
       const a = findItem(ui, "overlay1");
       const b = findItem(ui, "base1");
       const bBox = b.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -2249,21 +2338,17 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       bBox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect((ui as any).clickedRow).toBe(b);
+      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       expect(ui.activeIdx).toBe(indexFor("base1"));
     });
 
-    it("label click targets Space without painting the cursor; Escape is a no-op visual", () => {
+    it("label click paints the cursor; Escape lifts it", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // A click on the row label sets clickedRow but must NOT paint the
-      // cursor visual — pointer is not a focus arrival.
       const label = overlay.querySelector("label") as HTMLElement;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect((ui as any).clickedRow).toBe(overlay);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(document.activeElement).not.toBe(overlay);
+      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
 
       pressKey(overlay, "Escape");
 
@@ -2271,8 +2356,6 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      // pressKey focuses the row, so focusin clears clickedRow.
-      expect((ui as any).clickedRow).toBeNull();
       expect(document.activeElement).toBe(overlay);
     });
 
@@ -2636,6 +2719,15 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
 
       expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
+    });
+
+    it("fold click re-homes the FOCUSED cursor onto the toggle-all row", () => {
+      attachWithGroup(ui);
+      const foldBtn = overlayFoldBtn(ui.uiContainer);
+      foldBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(lit).not.toBeNull();
+      expect(lit!.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
     });
 
     it("Space folds too, and Enter again unfolds", () => {
@@ -3468,6 +3560,36 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.layerRegistry.get("base1")?.visible).toBe(false);
       expect(m.layerRegistry.get("canvas1")?.visible).toBe(false);
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
+    });
+  });
+
+  // ─────────────────── signal-driven init pass (CONTROL_ATTACHED) ──
+
+  describe("signal-driven init pass", () => {
+    it("marks the panel data-ready once the init pass has run", () => {
+      const { ui } = initFixture();
+      expect(ui.uiContainer.getAttribute("data-ready")).toBe("true");
+    });
+
+    it("re-runs the init pass when another control attaches", () => {
+      const { ui, map } = initFixture();
+      const spy = vi.spyOn(ui, "initTypesAndVisibility");
+      ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, {
+        component: "HeatmapControl",
+      });
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("unsubscribes CONTROL_ATTACHED in unbindEvents", () => {
+      const { ui, map } = initFixture();
+      const spy = vi.spyOn(ui, "initTypesAndVisibility");
+      ui.unbindEvents();
+      ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, {
+        component: "HeatmapControl",
+      });
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 });

@@ -204,8 +204,8 @@ class ExportManager {
   loadSavedBounds() {
     const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
-    const nw = data.nw,
-      se = data.se;
+    const nw = data.nw;
+    const se = data.se;
     const validLat =
       nw.lat >= -COORD_BOUNDS.LAT &&
       nw.lat <= COORD_BOUNDS.LAT &&
@@ -259,14 +259,14 @@ class ExportManager {
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE))
+    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
       this.dragState.dragType = target.dataset.pos ?? null;
-    else if (
+    } else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
-    )
+    ) {
       this.dragState.dragType = "move";
-    else return;
+    } else return;
 
     this.dragState.dragging = true;
     // Disable the box transition during drag so it tracks the cursor
@@ -337,8 +337,9 @@ class ExportManager {
     // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
-    if (this.cropState?.box)
+    if (this.cropState?.box) {
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+    }
   }
 
   registerShortcuts(): void {
@@ -368,8 +369,9 @@ class ExportManager {
       // On initial press the loop nudges one step synchronously (so the box
       // moves the moment the key is pressed), then keeps nudging at ~60Hz
       // so holding the key feels continuous. Stop on keyup.
-      if (this.isEditing() && event.key !== this.nudgeActiveKey)
+      if (this.isEditing() && event.key !== this.nudgeActiveKey) {
         this.nudgeStart(event.key);
+      }
     }
   }
 
@@ -557,8 +559,9 @@ class ExportManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
     this.isExporting = true;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
@@ -584,8 +587,9 @@ class ExportManager {
     this.lockMap();
 
     let scaleValue = CONF.scale;
-    if (typeof scaleValue !== "number" || isNaN(scaleValue))
+    if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
       scaleValue = window.devicePixelRatio || 1;
+    }
     const bg = CONF.background;
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
@@ -627,9 +631,9 @@ class ExportManager {
       r.left + r.width > vpW * 1.02 ||
       r.top + r.height > vpH * 1.02;
 
-    if (needsBigger && geoBounds && geoBounds.nw)
+    if (needsBigger && geoBounds && geoBounds.nw) {
       this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
-    else this.doRender(r, scaleValue, bg, geoBounds, onProgress);
+    } else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -646,7 +650,7 @@ class ExportManager {
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
     // render passes sees the final positions after hiding controls.
-    this.mapContainer.offsetHeight;
+    void this.mapContainer.offsetHeight;
 
     if (geoBounds && geoBounds.nw) {
       const nw = this.map.latLngToContainerPoint(
@@ -720,8 +724,10 @@ class ExportManager {
     this.map.invalidateSize(false);
     this.map.setView(cropCenter, savedZoom, { animate: false });
     requestAnimationFrame(() => {
-      this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds, onProgress).finally(restore);
+      void this.mapContainer.offsetHeight; // Force synchronous reflow
+      void this.doRender(r, scaleValue, bg, geoBounds, onProgress)
+        .finally(restore)
+        .catch(() => undefined);
     });
   }
 
@@ -758,11 +764,8 @@ class ExportManager {
       this.showPreview(blob);
       // GeoTIFF needs embedded georeferencing, so it ships as its own
       // container file; every other format is the encoded blob itself.
-      if (format.geotiff) {
-        await this.downloadGeoTiff(canvas, name);
-      } else {
-        this.claimDownload(blob, `${name}.${format.ext}`);
-      }
+      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
+      else this.claimDownload(blob, `${name}.${format.ext}`);
       this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
@@ -821,7 +824,7 @@ class ExportManager {
    * and ModelPixelScale tags for WGS84 (EPSG:4326).
    * Falls back to a plain image download if geo bounds are unavailable.
    */
-  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+  downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
     // doExport() clears cropState via removeCropBox() before the render
     // callback fires, so cropState.geoBounds is gone by the time we
     // reach downloadGeoTiff.  Use the geoBounds saved in doExport

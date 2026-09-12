@@ -68,6 +68,42 @@ class TestExportControlPython:
     def test_timeout_zero(self):
         assert ExportControl(timeout=0).timeout == 0
 
+    def test_invalid_position_raises(self):
+        """Position is validated by BaseControl, so every control inherits it."""
+        with pytest.raises(ValueError, match="position must be one of"):
+            ExportControl(position="center")
+
+    def test_quality_above_range_raises(self):
+        with pytest.raises(
+            ValueError, match="quality must be a number between 0.0 and 1.0"
+        ):
+            ExportControl(quality=1.5)
+
+    def test_quality_below_range_raises(self):
+        with pytest.raises(
+            ValueError, match="quality must be a number between 0.0 and 1.0"
+        ):
+            ExportControl(quality=-0.1)
+
+    def test_scale_must_be_positive(self):
+        with pytest.raises(ValueError, match="scale must be a positive number"):
+            ExportControl(scale=0)
+
+    def test_negative_timeout_raises(self):
+        with pytest.raises(ValueError, match=r"timeout must be an int >= 0"):
+            ExportControl(timeout=-1)
+
+    def test_zero_max_pixels_raises(self):
+        with pytest.raises(ValueError, match="max_pixels must be a positive int"):
+            ExportControl(max_pixels=0)
+
+    def test_numpy_scalars_are_accepted(self):
+        """numpy scalars are not int/float subclasses, yet they must pass."""
+        numpy = pytest.importorskip("numpy")
+        ctrl = ExportControl(quality=numpy.float64(0.5), timeout=numpy.int64(100))
+        assert ctrl.quality == 0.5
+        assert ctrl.timeout == 100
+
     def test_format_default(self):
         assert ExportControl().format == "png"
 
@@ -148,6 +184,15 @@ class TestExportControlRendering:
         html = render_control(ExportControl())
         assert "z-export-base" in html
         assert "calc(" in html
+
+    def test_css_top_z_index_tokenized(self):
+        """The 100000 'above everything' z-index is a token, not a magic number in a rule."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "var(--z-index-top)" in css
+        # The rule uses the token; the literal may only appear in a comment.
+        assert "z-index: 100000" not in css
 
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))

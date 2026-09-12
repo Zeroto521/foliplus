@@ -170,19 +170,11 @@ class MeasureManager {
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
     this.store.hydrate(this.store.load());
-    // Older persisted measurements may lack an `id`. Assign one before
-    // rebuild so later onUpdate / onDelete paths (which match by id) resolve
-    // to the right measurement and exports carry a stable id.
-    const loaded = this.store.all();
-    let stabilized = false;
-    for (const m of loaded) {
-      if (!m.id) {
-        m.id = this.store.nextId(m.type);
-        stabilized = true;
-      }
-    }
-    if (stabilized) this.store.persist();
-    loaded.forEach(m => {
+    // Older persisted measurements may lack an `id`. Assign one before rebuild
+    // so later onUpdate / onDelete paths (which match by id) resolve to the right
+    // measurement and exports carry a stable id.
+    if (this.store.assignMissingIds()) this.store.persist();
+    this.store.all().forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
     // Notify LayerControl to refresh the count column now that the
@@ -269,8 +261,9 @@ class MeasureManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
 
     this.layers.register();
 
@@ -534,8 +527,9 @@ class MeasureManager {
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT)
+      if (btn.dataset.mode === CONST.MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      }
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
     // nodes directly draggable, leaving disables them.

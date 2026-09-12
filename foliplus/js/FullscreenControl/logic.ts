@@ -13,7 +13,7 @@ const T = createScopedTranslator(CONF);
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
-  const isFull = !!getFullscreenEl() || map.isFullscreen;
+  const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
@@ -54,14 +54,14 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = false;
         })
         .catch(() => {
-          map.isFullscreen = !!getFullscreenEl();
+          map.isFullscreen = Boolean(getFullscreenEl());
           updateUI(map, fsBtn, container);
         });
       return;
-    } else {
-      map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
-      map.invalidateSize();
     }
+    map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+    map.invalidateSize();
+
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
@@ -72,14 +72,14 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
           map.isFullscreen = true;
         })
         .catch(() => {
-          map.isFullscreen = !!getFullscreenEl();
+          map.isFullscreen = Boolean(getFullscreenEl());
           updateUI(map, fsBtn, container);
         });
       return;
-    } else {
-      map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
-      map.invalidateSize();
     }
+    map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    map.invalidateSize();
+
     map.isFullscreen = true;
   }
   updateUI(map, fsBtn, container);
@@ -94,7 +94,7 @@ const bindFullscreenEvents = (
   container: HTMLElement,
 ) => {
   const handleFSChange = () => {
-    map.isFullscreen = !!getFullscreenEl();
+    map.isFullscreen = Boolean(getFullscreenEl());
     updateUI(map, fsBtn, container);
   };
 

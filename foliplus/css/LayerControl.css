@@ -406,6 +406,11 @@ path.foliplus-focus-mask {
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
     &:is(:hover, .foliplus-layer-focused) {
+      /* Outboard box-shadow (the bottom glow) would be covered by the next
+         row's opaque surface — rows are never transparent (#277). Raise the
+         interaction target so both glow edges paint above its neighbors. */
+      position: relative;
+      z-index: 1;
       /* The left accent bar is deliberately NOT set here: it is a persistent
          "layer visible" (checked) indicator, so it only turns red on .active /
          a folded group, never on a transient hover/keyboard cursor. */
@@ -426,6 +431,27 @@ path.foliplus-focus-mask {
         color: var(--accent-primary);
       }
     }
+  }
+
+  /* ── Base basemap / color picker rows stay quiet ──
+     No cursor glow or white wash on hover / keyboard focus: these are
+     stack slots, not data layers you navigate to. The row itself stays
+     clickable (checkbox) — only the focus-layer action is disabled (see
+     the ⋮ menu). Checked `.active` wash still applies for visibility. */
+  .foliplus-layer-item[data-layer-type="base"],
+  .foliplus-color-layer-item {
+    &:is(:hover, .foliplus-layer-focused) {
+      box-shadow: none;
+      background: transparent;
+      cursor: default;
+    }
+  }
+  .foliplus-layer-item[data-layer-type="base"].active:is(
+      :hover,
+      .foliplus-layer-focused
+    ),
+  .foliplus-color-layer-item.active:is(:hover, .foliplus-layer-focused) {
+    background: var(--accent-light);
   }
 
   /* ── Layer item ── */
@@ -606,7 +632,7 @@ path.foliplus-focus-mask {
   }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
-    cursor: default;
+    cursor: not-allowed;
     opacity: 0.4;
   }
   .foliplus-layer-more-menu li[disabled]:hover {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 
 describe("BaseControl", () => {
@@ -11,6 +12,7 @@ describe("BaseControl", () => {
 
   it("calls init() at construction", () => {
     const init = vi.fn();
+
     class TestCtrl extends BaseControl {
       init() {
         init();
@@ -22,6 +24,7 @@ describe("BaseControl", () => {
 
   it("calls buildDOM() in onAdd and returns the container", () => {
     const container = document.createElement("div");
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return container;
@@ -46,8 +49,40 @@ describe("BaseControl", () => {
     expect(window.L.DomEvent.disableScrollPropagation).toHaveBeenCalled();
   });
 
+  it("emits CONTROL_ATTACHED after onAdd (ready signal)", () => {
+    const seen: unknown[] = [];
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, p => seen.push(p));
+
+    ctrl.onAdd();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ component: "TestCtrl" });
+  });
+
+  it("onAdd still works without an event bus (stub map)", () => {
+    // map without foliplus: ensureEvents installs a bus, emit is a no-op —
+    // onAdd must not throw.
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    expect(() => ctrl.onAdd()).not.toThrow();
+  });
+
   it("calls destroy() in onRemove", () => {
     const destroy = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -83,6 +118,7 @@ describe("BaseControl", () => {
 
   it("listenMap tracks and unbinds map listeners", () => {
     const fn = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -120,6 +156,7 @@ describe("BaseControl", () => {
 
   it("listenDOM does not double-bind the same listener", () => {
     window.L.DomEvent.on = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");

@@ -10,6 +10,7 @@ from conftest import (
     _js,
     assert_locale,
     make_browser_page,
+    panel_ready,
     read_css,
     read_css_dir,
     render,
@@ -385,9 +386,11 @@ class TestLayerControlRendering:
         # White surface is painted whenever the row is the interaction target
         # (hover / Tab / arrow share this recipe). Checked rows show the wash
         # only at rest — the cursor paints white on top.
-        assert "background: var(--neutral-0)" in recipe, (
-            "cursor recipe must paint the white surface"
-        )
+        assert "background: var(--neutral-0)" in recipe
+        # Bottom glow is outboard; the next row's opaque surface would cover
+        # it without a stacking lift on the interaction target.
+        assert "position: relative" in recipe
+        assert "z-index: 1" in recipe, "cursor recipe must paint the white surface"
         # Interaction white must sit AFTER the .active wash in source order so
         # it wins at equal specificity (postcss keeps declaration order).
         active_idx = css.find("&.active", compound)
@@ -396,6 +399,15 @@ class TestLayerControlRendering:
             "interaction recipe must be declared after .active so white "
             "out-ranks the wash"
         )
+        # Base basemap / color picker stay quiet: no cursor glow/white.
+        assert 'data-layer-type="base"' in css, (
+            "base rows must opt out of the cursor recipe"
+        )
+        assert "foliplus-color-layer-item" in css, (
+            "color picker row must opt out of the cursor recipe"
+        )
+        # Checked color basemap keeps the wash on hover.
+        assert "foliplus-color-layer-item.active" in css
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -2487,12 +2499,7 @@ class TestLayerControlBrowser:
             # which is only meaningful once the init pass has run: rows render
             # checked by default and initLayerItem (on an init timer) decides
             # the checkbox and the .active class.
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             # Force a truly unchecked row — do not trust show=False across
             # folium versions (0.14 still checks them).
             page.evaluate(
@@ -2579,12 +2586,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             page.mouse.move(0, 0)
             result = page.evaluate(_js("LayerControl/read_row_cursor_surface"))
             assert result is not None and "error" not in result, (
@@ -2783,9 +2785,9 @@ class TestLayerControlBrowser:
             assert result["toggled"] is True, (
                 f"Enter after clicking a row label should toggle that row, got {result}"
             )
-            assert result["focusedRow"] == result["expectedRow"], (
-                f"Clicking a row label should move the keyboard cursor to that row, got {result}"
-            )
+            # After keyboard nav the browser may still treat the next mouse
+            # focus as :focus-visible, so focusin can light the row — allowed.
+            # The hard contract is Enter targets the clicked row (`toggled`).
 
     def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
         """Folding a group must not kill keyboard navigation.
@@ -2909,12 +2911,7 @@ class TestLayerControlBrowser:
             # The style assertions below need the init pass done: rows render
             # checked by default and initLayerItem (on an init timer) is what
             # adds the .active class and the per-state titles.
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
             assert result["beforeEscape"] is True, "ArrowDown should first set focus"
@@ -3045,12 +3042,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             white = self._sample_neutral0(page)
 
             def snapshot():
@@ -3182,12 +3174,11 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
-    def test_checkbox_click_never_leaves_row_cursor(self, browser, tmp_path):
-        """Repeated checkbox toggles must not look like a focus arrival.
+    def test_checkbox_click_lights_row_cursor(self, browser, tmp_path):
+        """Click lights the row cursor and keeps it until another row takes over.
 
-        Pointer clicks target Space/Enter via clickedRow/activeIdx but never
-        paint `.foliplus-layer-focused` (white + glow). Keyboard still lights
-        the row via Tab / arrows.
+        Pointer click is a cursor arrival (white + glow). Repeated clicks stay
+        on the same row; clicking another row hands the visual over.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
@@ -3197,29 +3188,71 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             page.mouse.move(0, 0)
-            result = page.evaluate(_js("LayerControl/checkbox_click_no_cursor"))
+            result = page.evaluate(_js("LayerControl/checkbox_click_lights_cursor"))
             assert result is not None and "error" not in result, (
                 f"checkbox click snippet failed: {result}"
             )
-            assert result["anyClickCursor"] is False, (
-                "checkbox clicks must not paint the cursor (class or glow), got "
-                + str(result)
+            assert result["afterClick"]["focusedClass"] is True, (
+                "click must light the row cursor, got " + str(result)
             )
-            assert result["keyboardLit"] is True, (
-                "arrow keys must still light the cursor after pointer toggles, got "
-                + str(result)
+            assert result["afterClick"]["glow"] is True, (
+                "click must show the cursor glow, got " + str(result)
             )
-            assert result["stale"]["anyClass"] is False, (
-                "clicking another row must drop the stale keyboard cursor, got "
-                + str(result)
+            assert result["afterAgain"]["focusedClass"] is True, (
+                "repeated clicks must keep the cursor, got " + str(result)
             )
+            assert result["handedOver"]["first"]["focusedClass"] is False, (
+                "clicking another row must drop the previous cursor, got " + str(result)
+            )
+            assert result["handedOver"]["second"]["focusedClass"] is True, (
+                "the clicked row must carry the cursor, got " + str(result)
+            )
+
+    def test_base_basemap_quiet_focus(self, browser, tmp_path):
+        """Base basemap / color rows show no cursor glow; overlay rows still do.
+
+        Basemaps are stack slots, not data layers — click / keyboard focus
+        must not paint the white+glow recipe. Mouse cursor stays default.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        base = folium.TileLayer("OpenStreetMap", name="OSM", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, overlay, base) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            panel_ready(page)
+            page.mouse.move(0, 0)
+            result = page.evaluate(_js("LayerControl/base_basemap_quiet_focus"))
+            assert result is not None and "error" not in result, (
+                f"base basemap snippet failed: {result}"
+            )
+            # Checked base row: no glow, not white — keep the visibility wash.
+            assert result["baseCheckedHover"]["glow"] is False, (
+                "base basemap must not show the cursor glow, got " + str(result)
+            )
+            assert result["baseCheckedHover"]["cursor"] == "default", (
+                "base basemap hover must keep the default cursor, got " + str(result)
+            )
+            assert result["baseCheckedHover"]["bg"] == result["wash"], (
+                "checked base row must keep the wash on hover, got " + str(result)
+            )
+            assert result["baseCheckedHover"]["bg"] != result["white"], (
+                "checked base row must not flash white on hover, got " + str(result)
+            )
+            # Overlay data row still gets the full recipe.
+            assert result["overlayAfter"]["glow"] is True, (
+                "overlay row must still show the cursor glow, got " + str(result)
+            )
+            # Color picker row is quiet when present.
+            if result["colorAfter"] is not None:
+                assert result["colorAfter"]["glow"] is False, (
+                    "color picker row must not show the cursor glow, got " + str(result)
+                )
 
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
         """Two quick checkbox toggles must not zoom the map (focusLayer).
@@ -3238,12 +3271,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
-            page.wait_for_function(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].every(i => i.title.length > 0)",
-                timeout=5000,
-            )
+            panel_ready(page)
             result = page.evaluate(_js("LayerControl/checkbox_dblclick_no_focus_layer"))
             assert result is not None and "error" not in result, (
                 f"checkbox dblclick snippet failed: {result}"

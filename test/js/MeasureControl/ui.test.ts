@@ -580,7 +580,7 @@ describe("attachPolygonUI", () => {
   it("routes the centroid dot to the graph pane and the label to the label pane", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
-    const addLayerCalls: Array<{ layer: any; pane: string | undefined }> = [];
+const addLayerCalls: Array<{ layer: any; pane: string | undefined }> = [];
     opts.layers.addLayer = vi.fn((layer: any, pane?: string) => {
       addLayerCalls.push({ layer, pane });
       return layer;

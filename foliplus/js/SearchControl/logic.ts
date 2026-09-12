@@ -81,8 +81,9 @@ const parseCoord = (raw: string): { lng: number; lat: number } | null => {
     lng > COORD_BOUNDS.LON ||
     lat < -COORD_BOUNDS.LAT ||
     lat > COORD_BOUNDS.LAT
-  )
+  ) {
     return null;
+  }
   return { lng, lat };
 };
 
@@ -408,14 +409,18 @@ const removePanel = (ctrl: SearchControlState) => {
   }
   ctrl.selectedIdx = -1;
   ctrl.currentItems = [];
+  const withCursor = ctrl as { listCursor?: { destroy: () => void } | null };
+  withCursor.listCursor?.destroy();
+  withCursor.listCursor = null;
 };
 
 const positionPanel = (ctrl: SearchControlState) => {
   if (!ctrl.panelWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
-  if (left + rect.width > window.innerWidth)
+  if (left + rect.width > window.innerWidth) {
     left = window.innerWidth - rect.width + window.scrollX;
+  }
   ctrl.panelWrap.style.left = `${left}px`;
   ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
@@ -485,6 +490,9 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
       ),
     );
   }
+  // Re-tag ARIA after the rebuild (cursor may already exist from a prior panel).
+  const withCursor = ctrl as { listCursor?: { refresh: () => void } | null };
+  withCursor.listCursor?.refresh();
 };
 
 const renderSuggestions = (

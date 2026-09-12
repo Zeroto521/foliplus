@@ -202,8 +202,9 @@ class PaneManager {
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
-        if (pathEl && pathEl.parentNode !== container)
+        if (pathEl && pathEl.parentNode !== container) {
           groups.get(container)!.push(pathEl);
+        }
         if (l instanceof L.Marker && paneEl) {
           const marker = l as MarkerWithShadow;
           if (marker._shadow && marker._shadow.parentNode !== paneEl) {

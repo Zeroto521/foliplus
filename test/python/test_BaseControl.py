@@ -11,7 +11,7 @@ import json
 
 import folium
 import pytest
-from conftest import assert_config_block, render, render_control
+from conftest import assert_config_block, read_css_dir, render, render_control
 
 
 class TestBaseControlPython:
@@ -34,6 +34,19 @@ class TestBaseControlPython:
         assert_config_block(
             BaseControl(), {"name": "BaseControl", "position": "topleft"}
         )
+
+    def test_invalid_position_raises(self):
+        """An unknown position is rejected instead of silently falling back."""
+        from foliplus.BaseControl import BaseControl
+
+        with pytest.raises(ValueError, match="position must be one of"):
+            BaseControl(position="center")
+
+    def test_every_position_is_accepted(self):
+        from foliplus.BaseControl import BaseControl
+
+        for position in ("topleft", "topright", "bottomleft", "bottomright"):
+            assert BaseControl(position=position).position == position
 
     def test_build_config_caches_on_self_config(self):
         from foliplus.BaseControl import BaseControl
@@ -249,6 +262,14 @@ class TestBaseControlRendering:
         html = render_control(SearchControl())
         assert "--z-index-floating" in html
         assert "9990" in html
+
+    def test_z_index_ladder_tokens(self, base_map: folium.Map):
+        """The z-index ladder is fully tokenized in token.css (no magic numbers in components)."""
+        css = read_css_dir("foliplus/css/common", "token.css")
+        assert "--z-index-floating" in css
+        assert "--z-index-hint" in css
+        assert "--z-index-fullscreen" in css
+        assert "--z-index-top" in css
 
     def test_ctrl_fold_classes(self, base_map: folium.Map):
         """ctrl-fold is a common pattern for expand/collapse panels."""

@@ -33,6 +33,7 @@
   "LayerControl.focus_layer": "Focus",
   "LayerControl.focus_layer_tooltip": "Zoom to this layer and highlight it",
   "LayerControl.focus_layer_hidden": "Layer is hidden — cannot focus",
+  "LayerControl.focus_layer_base": "Base map cannot be focused",
   "LayerControl.focus_cancelled": "Focus cancelled",
   "LayerControl.rename_layer": "Rename",
   "LayerControl.rename_layer_tooltip": "Rename this layer",

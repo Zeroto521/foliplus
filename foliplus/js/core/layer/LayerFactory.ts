@@ -81,8 +81,7 @@ class LayerFactory {
     // onDataChange would over-fire on every addLayer (preview layers in
     // MeasureControl alone call addLayer 6-7 times per measurement), causing
     // redundant UI refreshes of an unchanged count. Skip it.
-    const onDataChangeSkip = !!opts.featureCountProvider;
-
+const onDataChangeSkip = Boolean(opts.featureCountProvider);
     const mainLayer = L.layerGroup();
     // Build one sub-layer per declared sub-pane. The base sub-layer exists
     // even when there is exactly one pane — mainLayer always routes through

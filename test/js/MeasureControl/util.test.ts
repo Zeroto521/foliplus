@@ -331,6 +331,7 @@ describe("buildEditOverlay", () => {
       off: vi.fn(),
     } as any;
   }
+
   function makeMgr(overrides: Record<string, unknown> = {}) {
     return { map: makeMap(), isEditMode: true, ...overrides };
   }

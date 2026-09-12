@@ -6,6 +6,7 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
+import { ListCursor } from "#core/listCursor.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
@@ -90,9 +91,8 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
-  /** Last row the pointer touched. Fallback for resolveActiveIdx, where
-   *  document.activeElement may still name the row focused before the click. */
-  clickedRow: HTMLElement | null;
+  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
+  private listCursor: ListCursor | null;
   private interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
@@ -113,6 +113,8 @@ class LayerUI {
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
+  /** Unsubscribe for the control-attached ready signal. */
+  private unsubscribeControlAttached: (() => void) | null;
   /** Currently visible overflow menu (or null). */
   activeMenu: {
     item: HTMLElement;
@@ -147,8 +149,9 @@ class LayerUI {
     this.lastDragHintAt = 0;
     this.lastDragOverItem = null;
     this.activeIdx = null;
-    this.clickedRow = null;
+    this.listCursor = null;
     this.unsubscribeCountChange = null;
+    this.unsubscribeControlAttached = null;
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
@@ -196,6 +199,9 @@ class LayerUI {
     // loaded above but only applied here, so a row can never render visible
     // and get removed afterwards.
     this.applyUserState();
+    // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
+    // rebuilt rows.
+    this.syncListCursor();
 
     // Refresh counts synchronously now. Counts are cheap to compute (the
     // provider is invoked on demand; a missing Canvas just returns null),
@@ -204,12 +210,31 @@ class LayerUI {
     // column may update a second time — that is driven by the event bus.
     this.refreshAllCounts();
 
-    // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
-    // other components finish their own attach/onAdd before we finalize type
-    // icons and checkbox visibility. Counts are refreshed synchronously
-    // above so the user sees them immediately; Heatmap publishes its final
-    // count during initScan, which re-runs the refresh via the event bus.
-    setTimeout(() => this.initTypesAndVisibility(), CONST.INIT_DELAY_MS);
+    // Init pass, driven by a ready signal instead of a fixed timer: run once
+    // right after the synchronous attach sequence (setTimeout 0 — every
+    // control finishes attaching in the same script stack, and folium layers
+    // are only linked into the registry after that), then re-run whenever a
+    // control attaches later (Heatmap / Measure may register layers at
+    // runtime). initTypesAndVisibility is idempotent — repeated runs are
+    // cheap and converge on the final layer state.
+    this.subscribeControlAttached();
+    setTimeout(() => {
+      if (this.uiContainer?.isConnected) this.initTypesAndVisibility();
+    }, 0);
+  }
+
+  /** Re-run the init pass when another control finishes attaching. Unsubscribes
+   *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
+   *  it lands after the synchronous attach sequence, so folium layers are
+   *  already linked into the registry. */
+  private subscribeControlAttached(): void {
+    this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
+      EVENTS.CONTROL_ATTACHED,
+      () => {
+        if (!this.uiContainer?.isConnected) return;
+        this.initTypesAndVisibility();
+      },
+    );
   }
 
   /** Load every persisted dimension in one call. */
@@ -266,8 +291,9 @@ class LayerUI {
       // that was never hidden must not be hidden, and a missing rename is a
       // no-op rather than a write of undefined over the registry's own name.
       if (this.hiddenIds.has(id)) this.applyHiddenStateOne(layerInfo);
-      if (id in this.renamedNames)
+      if (id in this.renamedNames) {
         applyNameProjection(layerInfo, null, this.renamedNames[id]);
+      }
       return;
     }
 
@@ -462,7 +488,9 @@ class LayerUI {
     this.m.persistence.saveNames(() => this.renamedNames);
   }
 
-  /** Full re-scan of every row (used on attach/fold-toggle). */
+  /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+   *  re-run on each CONTROL_ATTACHED so late-registering components are
+   *  folded in. Marks the panel ready for tests/consumers. */
   initTypesAndVisibility() {
     // Apply persisted hidden state first so initLayerItem reads the corrected
     // map state: folium adds every layer before the control IIFE runs, so on
@@ -478,8 +506,13 @@ class LayerUI {
     // membership, the rows hold the truth. Reconcile hiddenIds against them
     // exactly once so the persisted set becomes absolute. It must come after
     // initLayerItem, not in attachUI: rows render checked by default and
-    // initLayerItem is what corrects them from map.hasLayer().
-    if (!this.isHiddenReconciled) {
+    // initLayerItem is what corrects them from map.hasLayer(). It also waits
+    // until every layer resolves — on the first pass (setTimeout 0) folium
+    // layers may not be linked into the registry yet, and reconciling then
+    // would read a visible layer as hidden and persist that (corrupting the
+    // local storage for every later test/load). The re-run triggered by
+    // CONTROL_ATTACHED converges here.
+    if (!this.isHiddenReconciled && this.allLayersResolved()) {
       this.isHiddenReconciled = true;
       this.reconcileHiddenIds();
     }
@@ -496,6 +529,12 @@ class LayerUI {
     this.m.enforceOrder();
     this.syncToggleAll(CONST.GROUP.OVERLAY);
     this.syncToggleAll(CONST.GROUP.BASE);
+    // enforceOrder may have moved rows; keep roving tabindex aligned.
+    this.syncListCursor();
+    // Ready signal for tests: checkbox titles / .active / counts are final
+    // for the current layer set (late components re-trigger this pass and
+    // re-set the attribute, so "ready" always reflects the latest pass).
+    this.uiContainer?.setAttribute("data-ready", "true");
   }
 
   renderInitialList() {
@@ -528,12 +567,17 @@ class LayerUI {
     }
 
     const colorItem = this.renderColorLayerItem();
-    if (this.foldedGroups.has(CONST.GROUP.BASE))
+    if (this.foldedGroups.has(CONST.GROUP.BASE)) {
       colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    }
     frag.appendChild(colorItem);
 
     this.uiContainer.innerHTML = "";
     this.uiContainer.appendChild(frag);
+
+    // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
+    // without painting the cursor class — restoreCursor() owns that visual.
+    this.syncListCursor();
 
     // Re-home the cursor on the rebuilt element and restore DOM focus. The
     // rebuild destroys the previously focused node, dropping focus to <body>;
@@ -541,6 +585,26 @@ class LayerUI {
     // container guard requires focus inside the panel, so without this the
     // cursor dies the moment the list is rebuilt (e.g. after a fold click).
     this.restoreCursor(cursorRef);
+  }
+
+  /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
+   *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
+   *  restoreCursor) must keep it; only the pointer path adopts (strips). */
+  private syncListCursor(): void {
+    // initTypesAndVisibility is on a timer and can fire after the panel is
+    // torn down (unit tests, control remove) — do not touch a detached root.
+    if (!this.uiContainer?.isConnected) return;
+    if (!this.listCursor) {
+      this.listCursor = new ListCursor({
+        root: this.uiContainer,
+        // Same set as getNavigableItems(): layer rows + toggle-all, no color.
+        itemSelector: `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}),${CONST.SEL.TOGGLE_ALL}`,
+        activeClass: CONST.CLASSES.FOCUSED,
+        mode: "roving",
+      });
+    }
+    this.listCursor.refresh();
+    this.listCursor.setIndex(this.activeIdx ?? -1);
   }
 
   /** Identity of the row the keyboard cursor points at, for re-homing after a
@@ -623,6 +687,8 @@ class LayerUI {
     // of waiting for a later pass. Only this layer's id is applied — a full
     // sweep would re-rewrite every renamed row on each registration.
     this.applyUserState(layerInfo.id);
+    // New row must join the roving tabindex / ARIA set.
+    this.syncListCursor();
   }
 
   updateLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -890,9 +956,9 @@ class LayerUI {
         // Update count column (right-aligned, adjacent to type icon).
         const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
         if (countCol) {
-          if (count !== null && count !== undefined)
+          if (count !== null && count !== undefined) {
             countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
-          else countCol.textContent = "";
+          } else countCol.textContent = "";
         }
         // Hover tooltip shows count + type label together.
         const typeLabel = typeKey;
@@ -952,13 +1018,22 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
-      // Record the row the pointer touched so the next Space/Enter toggles
-      // the right row. Do NOT paint the cursor visual: a pointer click is
-      // not a focus arrival (only Tab / arrows / :focus-visible are), and
-      // repeated checkbox toggles must not look "focused".
-      this.clickedRow =
-        el.closest(CONST.SEL.LAYER_ITEM) ?? el.closest(CONST.SEL.TOGGLE_ALL);
-      this.syncActiveIndex();
+      // One ledger: pointer re-homes the index, Tab stop, and paints the
+      // cursor visual. It stays until Escape, another row, or an outside
+      // press takes over — same contract as the keyboard cursor.
+      // (#278 only removed the accidental dblclick→focusLayer zoom.)
+      const row = owningRow(el);
+      if (row) {
+        const idx = this.getNavigableItems().indexOf(row);
+        if (idx !== -1) {
+          this.activeIdx = idx;
+          this.listCursor?.setIndex(idx);
+          this.blurActiveItem();
+          row.classList.add(CONST.CLASSES.FOCUSED);
+          // Keep DOM focus on the row so Space/Enter resolve from focus.
+          row.focus({ focusVisible: false } as FocusOptions);
+        }
+      }
 
       if (el.closest(CONST.SEL.COLOR_ITEM)) {
         this.deselectAllBaseMaps(-1);
@@ -967,9 +1042,9 @@ class LayerUI {
         this.m.enforceOrder();
         return;
       }
-      const row = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
-      if (!row || el.closest('[data-role="toggle-all"]')) return;
-      this.toggleFold(row.dataset.group ?? "");
+      const toggleAll = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+      if (!toggleAll || el.closest('[data-role="toggle-all"]')) return;
+      this.toggleFold(toggleAll.dataset.group ?? "");
     };
 
     this.onDragStart = event => this.handleDragStart(event);
@@ -978,24 +1053,23 @@ class LayerUI {
     this.onDrop = event => this.handleDrop(event);
     this.onDragEnd = () => this.handleDragEnd();
     this.onKeyDown = event => this.handleKeyDown(event);
-    // A real focus move supersedes the pointer: once focus lands elsewhere, the
-    // last-clicked row is stale and must not outrank it. Synthetic clicks and
-    // clicks on the non-focusable label don't fire focusin, so clickedRow still
-    // survives the cases that need it.
+    // A real focus move is the cursor: once focus lands on a row (or a child
+    // control), that row is the keyboard target.
     //
-    // `:focus-visible` is also sampled here — once, at the moment focus
-    // arrives — and mapped onto the row's JS cursor class. Child controls
-    // (checkbox / more / fold) attribute to the row via closest(ROW). The CSS
-    // recipe therefore never keys on `:focus-visible`, so Escape is just
-    // "remove the class" with no residual selector to suppress.
+    // `:focus-visible` is sampled once, at the moment focus arrives, and
+    // mapped onto the row's JS cursor class. Child controls (checkbox /
+    // more / fold) attribute to the row via closest(ROW). The CSS recipe
+    // never keys on `:focus-visible`, so Escape is just "remove the class".
     this.onFocusIn = event => {
-      this.clickedRow = null;
       const el = event.target as Element | null;
       const row = owningRow(el);
       if (!el || !row) return;
+      const idx = this.getNavigableItems().indexOf(row);
+      if (idx !== -1) this.activeIdx = idx;
       if (!isKeyboardVisibleFocus(el)) return;
       this.blurActiveItem();
       row.classList.add(CONST.CLASSES.FOCUSED);
+      this.listCursor?.setIndex(idx);
     };
     // Focus left the row entirely (Tab away, click outside, browser chrome):
     // drop the JS cursor class. Moves within the same row keep it.
@@ -1099,9 +1173,9 @@ class LayerUI {
       if (!id) return;
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-      if (countCol && count !== null && count !== undefined)
+      if (countCol && count !== null && count !== undefined) {
         countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
-      else if (countCol) countCol.textContent = "";
+      } else if (countCol) countCol.textContent = "";
     });
   }
 
@@ -1123,10 +1197,13 @@ class LayerUI {
     if (this.onDrop) container.removeEventListener("drop", this.onDrop);
     if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
     if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
-    if (this.onMoreMenuClick)
+    if (this.onMoreMenuClick) {
       document.removeEventListener("click", this.onMoreMenuClick);
+    }
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
     this.clearActiveItem();
+    this.listCursor?.destroy();
+    this.listCursor = null;
     this.interactionCleanup?.();
     // Flush the last pending write before the timer is cleared.
     this.m.persistence.flushAll();
@@ -1140,6 +1217,10 @@ class LayerUI {
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
       this.unsubscribeCountChange = null;
+    }
+    if (this.unsubscribeControlAttached) {
+      this.unsubscribeControlAttached();
+      this.unsubscribeControlAttached = null;
     }
   }
 
@@ -1237,13 +1318,15 @@ class LayerUI {
     const item = target.closest(CONST.SEL.LAYER_ITEM);
 
     if (layerInfo.isBase) this.hideColorLayer();
-    if (layer)
+    if (layer) {
       target.checked ? this.m.map.addLayer(layer) : this.m.map.removeLayer(layer);
+    }
     if (target.checked && layer) layer.options.paneSet = false;
-    if (item)
+    if (item) {
       target.checked
         ? item.classList.add(CONST.CLASSES.ACTIVE)
         : item.classList.remove(CONST.CLASSES.ACTIVE);
+    }
 
     target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
@@ -1256,8 +1339,9 @@ class LayerUI {
   }
 
   handleInput(event: Event) {
-    if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT))
+    if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT)) {
       this.showColorLayer((event.target as HTMLInputElement).value);
+    }
   }
 
   /**
@@ -1335,6 +1419,8 @@ class LayerUI {
     const idx = item ? items.indexOf(item) : -1;
     this.activeIdx = idx === -1 ? null : idx;
     item?.classList.add(CONST.CLASSES.FOCUSED);
+    // Tab stop follows the cursor; setIndex does not touch FOCUSED.
+    this.listCursor?.setIndex(this.activeIdx ?? -1);
   }
 
   /** Remove the focus marker from whichever item carries it.
@@ -1350,7 +1436,7 @@ class LayerUI {
   clearActiveItem(): void {
     this.blurActiveItem();
     this.activeIdx = null;
-    this.clickedRow = null;
+    this.listCursor?.setIndex(-1);
   }
 
   /**
@@ -1371,42 +1457,28 @@ class LayerUI {
     if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
   }
 
-  /** Index of the keyboard cursor, or null if none. DOM focus wins when it
-   *  names a row the pointer has since left; clickedRow wins when focus is
-   *  stale — a click on the label or checkbox does not move focus off the
-   *  previously focused row, which is what made Space/Enter toggle the wrong
-   *  row. The DOM-focus read is the bootstrap: the very first key has no
-   *  clickedRow yet and establishes the cursor. */
+  /** Index of the keyboard cursor from DOM focus, or the previous index.
+   *  One ledger: focus on a row (or a child control) *is* the cursor. */
   private resolveActiveIdx(items: HTMLElement[]): number | null {
-    const rows: (HTMLElement | null)[] = [];
-    if (this.clickedRow) rows.push(this.clickedRow);
-    rows.push(owningRow(document.activeElement));
-    for (const row of rows) {
-      if (!row) continue;
+    const row = owningRow(document.activeElement);
+    if (row) {
       const idx = items.indexOf(row);
       if (idx !== -1) {
         this.activeIdx = idx;
         return idx;
       }
     }
-    return null;
+    return this.activeIdx;
   }
 
   /** Align the cursor marker with whichever row resolveActiveIdx() names.
-   *  Queries once — resolveActiveIdx and moveActiveMarker both need the list. */
+   *  Keep the existing cursor when resolve cannot name a new row. */
   private syncActiveItem(): void {
     const items = this.getNavigableItems();
     const idx = this.resolveActiveIdx(items);
-    this.moveActiveMarker(idx === null ? null : items[idx], items);
-  }
-
-  /** Re-home activeIdx from clickedRow / DOM focus without painting the
-   *  cursor class. Used by pointer clicks: they must target Space/Enter but
-   *  must not look like a keyboard focus arrival. Also drops any stale
-   *  keyboard cursor visual so a click on row B does not leave row A lit. */
-  private syncActiveIndex(): void {
-    this.blurActiveItem();
-    this.activeIdx = this.resolveActiveIdx(this.getNavigableItems());
+    if (idx === null) return;
+    this.moveActiveMarker(items[idx], items);
+    this.listCursor?.setIndex(idx);
   }
 
   /** Reindex all layer items after a move, preserving the active focus position.
@@ -1434,11 +1506,7 @@ class LayerUI {
 
     // Escape discharges whatever is open, in the order the user would
     // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
-    // cursor guard below: the point of Escape is to drop the cursor, so a
-    // click on the label or checkbox (which sets clickedRow without moving
-    // DOM focus) must clear the cursor even when nothing is focused, and the
-    // rename / overflow menu / focus overlay are each their own cancel
-    // targets. Nothing after this point needs the cursor resolved.
+    // cursor guard below: the point of Escape is to drop the cursor.
     if (event.key === "Escape") {
       if (this.activeRenameId) {
         // finishRename() removes the input, which blurs it to `<body>`.
@@ -1513,20 +1581,22 @@ class LayerUI {
     }
 
     switch (event.key) {
-      case "ArrowUp":
+      case "ArrowUp": {
         event.preventDefault();
         const up = this.findVisibleNeighbor(items, idx, -1);
         if (up !== -1) this.setActiveItem(up);
         break;
-      case "ArrowDown":
+      }
+      case "ArrowDown": {
         event.preventDefault();
         const down = this.findVisibleNeighbor(items, idx, 1);
         if (down !== -1) this.setActiveItem(down);
         break;
+      }
       case "ArrowLeft":
       case "ArrowRight":
       case " ":
-      case "Enter":
+      case "Enter": {
         // A ⋮ button is focused — that key opens the overflow menu, not the
         // row checkbox.
         if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
@@ -1567,9 +1637,9 @@ class LayerUI {
             );
             break;
           }
-          if (action === CONST.ACTION.RENAME_LAYER)
+          if (action === CONST.ACTION.RENAME_LAYER) {
             this.renameLayer(this.activeMenu.layerId);
-          else {
+          } else {
             this.focusLayer(this.activeMenu.layerId);
             this.closeMoreMenu(true);
           }
@@ -1578,6 +1648,7 @@ class LayerUI {
         event.preventDefault();
         this.toggleFocusedLayer();
         break;
+      }
     }
   }
 
@@ -1633,9 +1704,45 @@ class LayerUI {
     ) {
       return;
     }
+    // Base basemap / color picker have no meaningful extent to zoom to —
+    // explain instead of silently ignoring the double-click. Hidden layers
+    // ARE passed through: focusLayer shows the "hidden" hint for them.
+    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) {
+      this.showBaseFocusHint();
+      return;
+    }
+    if (item.dataset.layerType === CONST.GROUP.BASE) {
+      this.showBaseFocusHint();
+      return;
+    }
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (!layerId) return;
     this.focusLayer(layerId);
+  }
+
+  /** Basemaps / color pickers cannot be focused — hint instead of silence. */
+  private showBaseFocusHint(): void {
+    this.m.map.foliplus!.showHint(
+      CONF.name,
+      T("focus_layer_base"),
+      HINT_DURATION.SHORT,
+    );
+  }
+
+  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
+   *  False during the first post-attach pass, when folium layers may not be in
+   *  the registry yet. */
+  private allLayersResolved(): boolean {
+    return this.m.layers.every(li => this.m.findLayer(li) != null);
+  }
+
+  /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
+   *  (nothing to show). The ⋮ menu item carries the not-allowed cursor. */
+  private isFocusLayerDisabled(item: HTMLElement): boolean {
+    if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return true;
+    if (item.dataset.layerType === CONST.GROUP.BASE) return true;
+    const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    return box !== null && !box.checked;
   }
 
   /** Toggle visibility of the currently focused layer. */
@@ -1688,11 +1795,12 @@ class LayerUI {
 
     const targetIdx = parseInt(item.dataset.index ?? "", 10);
     const prev = this.lastDragOverItem;
-    if (prev && prev !== item)
+    if (prev && prev !== item) {
       prev.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+    }
     item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
     this.lastDragOverItem = item;
 
@@ -1704,19 +1812,21 @@ class LayerUI {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
     if (targetIdx < this.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-    else if (targetIdx > this.dragIdx)
+    else if (targetIdx > this.dragIdx) {
       item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+    }
   }
 
   handleDragLeave(event: DragEvent) {
     const item = (event.target as HTMLElement).closest(
       CONST.SEL.LAYER_ITEM,
     ) as HTMLElement | null;
-    if (item)
+    if (item) {
       item.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
       );
+    }
   }
 
   handleDrop(event: DragEvent) {
@@ -1834,27 +1944,21 @@ class LayerUI {
 
     const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
-    // Color basemap has no bounds — focus is not meaningful, so skip the
-    // focus-layer menu item. Rename is still available (persistence only).
-    const skipFocus = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
+    // Focus-layer is disabled for basemaps (no useful extent) and hidden rows.
+    // The disabled li carries cursor: not-allowed (common menu CSS).
+    const focusDisabled = this.isFocusLayerDisabled(item);
 
-    if (!skipFocus) {
-      const isHidden =
-        (item.querySelector('input[type="checkbox"]') as HTMLInputElement | null)
-          ?.checked === false;
+    const itemAttrs = {
+      "data-action": "focus-layer",
+      role: "menuitem",
+      tabindex: "0",
+      title: focusDisabled ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+      "aria-disabled": focusDisabled ? "true" : "false",
+    };
 
-      const itemAttrs = {
-        "data-action": "focus-layer",
-        role: "menuitem",
-        tabindex: "0",
-        title: isHidden ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
-        "aria-disabled": isHidden ? "true" : "false",
-      };
+    menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
-      menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
-
-      if (isHidden) menu.lastElementChild!.setAttribute("disabled", "disabled");
-    }
+    if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
     menu.appendChild(
       dom.el(
@@ -2328,15 +2432,14 @@ class LayerUI {
   /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
   private registerAutoCancel(layerId: string): void {
     this.focusingLayerId = layerId;
-    const self = this;
     const handler = () => {
-      if (self.focusingLayerId !== layerId) return;
+      if (this.focusingLayerId !== layerId) return;
       // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
       // completion, which should NOT auto-cancel. Any move/zoom *after* the
       // grace window is a deliberate user action → cancel.
       setTimeout(() => {
-        if (self.focusingLayerId === layerId) {
-          self.dismissFocus();
+        if (this.focusingLayerId === layerId) {
+          this.dismissFocus();
         }
       }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
     };
@@ -2373,7 +2476,7 @@ class LayerUI {
       `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
     ) as NodeListOf<HTMLInputElement>;
     let changed = false;
-    for (let i = 0; i < this.m.layers.length; i++)
+    for (let i = 0; i < this.m.layers.length; i++) {
       if (this.m.layers[i].isBase && i !== exceptIdx) {
         const bLayer = this.m.findLayer(this.m.layers[i]);
         if (bLayer && this.m.map.hasLayer(bLayer)) {
@@ -2390,15 +2493,18 @@ class LayerUI {
           }
         }
       }
+    }
     // Excluded from handleChange: it is the mutual-exclusion half of that
     // handler, so walking it would recurse. The bases it deselects are hidden
     // by the user's own choice, so they still need to persist -- otherwise a
     // reload re-checks them and the "only one base at a time" invariant
     // silently resets. The selected base is already tracked by the caller.
     if (changed) {
-      for (let i = 0; i < this.m.layers.length; i++)
-        if (this.m.layers[i].isBase && i !== exceptIdx)
+      for (let i = 0; i < this.m.layers.length; i++) {
+        if (this.m.layers[i].isBase && i !== exceptIdx) {
           this.syncHiddenId(this.m.layers[i].id, true);
+        }
+      }
     }
   }
 }

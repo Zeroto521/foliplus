@@ -665,8 +665,9 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
     const ctx = makeMockCtx();
     ctx.drawImage.mockImplementation((src?: unknown) => {
-      if (src && typeof src === "object" && (src as { _bad?: boolean })._bad)
+      if (src && typeof src === "object" && (src as { _bad?: boolean })._bad) {
         throw new Error("draw failed");
+      }
     });
     UTIL.loadImageBitmap
       .mockImplementationOnce(() =>
@@ -2134,8 +2135,9 @@ describe("ExportRenderer.tilePositions", () => {
       dw: 256,
       dh: 256,
     });
-    for (const url of ["right", "above", "below"])
+    for (const url of ["right", "above", "below"]) {
       expect(survivors.map((t: any) => t.url)).not.toContain(url);
+    }
   });
 
   it("drops tiles whose viewport position is past the crop, even when they intersect the output", () => {

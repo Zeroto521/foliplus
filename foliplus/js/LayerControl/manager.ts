@@ -124,8 +124,9 @@ class LayerManager implements LayerAPI {
         this.isDestroyed ||
         event.layer === this.map ||
         event.layer instanceof L.Renderer
-      )
+      ) {
         return;
+      }
 
       if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
@@ -287,7 +288,7 @@ class LayerManager implements LayerAPI {
   private isFeatureContainer(layer: L.Layer): boolean {
     return (
       typeof (layer as L.LayerGroup).eachLayer === "function" ||
-      !!(layer as L.LayerGroup)._layers
+      Boolean((layer as L.LayerGroup)._layers)
     );
   }
 
@@ -339,15 +340,16 @@ class LayerManager implements LayerAPI {
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.isBase) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      if (firstBaseIdx === -1)
+      if (firstBaseIdx === -1) {
         this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
     if (opts.paneName) this.panes.ensurePane(opts.paneName);
     if (opts.layer) {
-      for (const cp of this.panes.discoverChildPanes(opts.layer))
+      for (const cp of this.panes.discoverChildPanes(opts.layer)) {
         this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
+      }
       // options.pane is updated below — invalidate only this layer's cache.
       this.panes.reset(L.stamp(opts.layer));
     }
@@ -474,13 +476,14 @@ class LayerManager implements LayerAPI {
     if (
       "clearLayers" in layer &&
       typeof (layer as L.LayerGroup).clearLayers === "function"
-    )
+    ) {
       (layer as L.LayerGroup).clearLayers();
-    else if (
+    } else if (
       "eachLayer" in layer &&
       typeof (layer as L.LayerGroup).eachLayer === "function"
-    )
+    ) {
       (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
+    }
   }
 
   computeZIndex(i: number, isTile: boolean): number {
@@ -562,8 +565,9 @@ class LayerManager implements LayerAPI {
     if (paneName) {
       const paneEntry = this.panes.ensurePane(paneName, !isTile);
       paneEntry.pane.style.zIndex = String(z);
-      if (layer.options.pane !== paneName || !layer.options.paneSet)
+      if (layer.options.pane !== paneName || !layer.options.paneSet) {
         layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
+      }
       this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
       return;
     }
@@ -596,8 +600,9 @@ class LayerManager implements LayerAPI {
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
     const paneEntry = this.panes.ensurePane(fbName, !isTile);
     paneEntry.pane.style.zIndex = String(z);
-    if (layer.options.pane !== fbName || !layer.options.paneSet)
+    if (layer.options.pane !== fbName || !layer.options.paneSet) {
       layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
+    }
   }
 
   syncAttribution() {

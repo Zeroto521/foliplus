@@ -16,30 +16,21 @@
     glow: getComputedStyle(el).boxShadow !== "none",
   });
 
-  // 1) Repeated pointer toggles must not light the row.
-  const clickStates = [];
-  for (let i = 0; i < 3; i++) {
-    checkbox.click();
-    clickStates.push(lit(row));
-  }
+  // 1) Click lights the row and keeps it (until Escape / another row / outside).
+  checkbox.click();
+  const afterClick = lit(row);
 
-  // 2) Keyboard still lights the row (Tab/arrow path via the JS class).
-  row.focus();
-  row.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-  const afterArrow = panel.querySelector(".foliplus-layer-focused");
-  const keyboardLit = Boolean(afterArrow);
+  // 2) Repeated clicks stay on the same row.
+  checkbox.click();
+  const afterAgain = lit(row);
 
-  // 3) A pointer click on another row must drop the stale keyboard cursor.
+  // 3) Clicking another row hands the visual over.
   otherBox.click();
-  const stale = {
+  const handedOver = {
     first: lit(row),
     second: lit(other),
     anyClass: Boolean(panel.querySelector(".foliplus-layer-focused")),
   };
 
-  return {
-    anyClickCursor: clickStates.some(s => s.focusedClass || s.glow),
-    keyboardLit,
-    stale,
-  };
+  return { afterClick, afterAgain, handedOver };
 };
