@@ -582,7 +582,7 @@ describe("attachPolygonUI", () => {
     const opts = makeOpts();
     const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
     opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
-      addLayerCalls.push({ layer, isLabel: !!isLabel });
+      addLayerCalls.push({ layer, isLabel: Boolean(isLabel) });
       return layer;
     });
     UI.attachPolygonUI(mgr as any, opts as any);

@@ -25,7 +25,7 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { LayerUI } from "./ui.js";
+import { LayerUI } from "./ui/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -90,6 +90,7 @@ class LayerManager implements LayerAPI {
     this.registerLayer = this.registerLayer.bind(this);
     this.unregisterLayer = this.unregisterLayer.bind(this);
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
+    this.touchLayer = this.touchLayer.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -126,8 +127,9 @@ class LayerManager implements LayerAPI {
         this.isDestroyed ||
         event.layer === this.map ||
         event.layer instanceof L.Renderer
-      )
+      ) {
         return;
+      }
 
       if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
@@ -290,7 +292,7 @@ class LayerManager implements LayerAPI {
   private isFeatureContainer(layer: L.Layer): boolean {
     return (
       typeof (layer as L.LayerGroup).eachLayer === "function" ||
-      !!(layer as L.LayerGroup)._layers
+      Boolean((layer as L.LayerGroup)._layers)
     );
   }
 
@@ -342,15 +344,16 @@ class LayerManager implements LayerAPI {
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.isBase) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      if (firstBaseIdx === -1)
+      if (firstBaseIdx === -1) {
         this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
     if (opts.paneName) this.panes.ensurePane(opts.paneName);
     if (opts.layer) {
-      for (const cp of this.panes.discoverChildPanes(opts.layer))
+      for (const cp of this.panes.discoverChildPanes(opts.layer)) {
         this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+      }
       // options.pane is updated below — invalidate only this layer's cache.
       this.panes.reset(L.stamp(opts.layer));
     }
@@ -420,6 +423,12 @@ class LayerManager implements LayerAPI {
     }
   }
 
+  /** Stamp `updatedAt` to now — call after a runtime mutation that does not
+   *  re-register (heatmap field change, measure add/edit/remove). */
+  touchLayer(id: string): boolean {
+    return this.layerRegistry.touch(id);
+  }
+
   /**
    * Unregister and remove a layer from the map and panel.
    * @param {string} id - The layer ID previously passed to registerLayer().
@@ -484,13 +493,14 @@ class LayerManager implements LayerAPI {
     if (
       "clearLayers" in layer &&
       typeof (layer as L.LayerGroup).clearLayers === "function"
-    )
+    ) {
       (layer as L.LayerGroup).clearLayers();
-    else if (
+    } else if (
       "eachLayer" in layer &&
       typeof (layer as L.LayerGroup).eachLayer === "function"
-    )
+    ) {
       (layer as L.LayerGroup).eachLayer(c => this.clearAllLayers(c));
+    }
   }
 
   computeZIndex(i: number, isTile: boolean): number {
@@ -572,8 +582,9 @@ class LayerManager implements LayerAPI {
     if (paneName) {
       const paneEntry = this.panes.ensurePane(paneName, !isTile);
       paneEntry.pane.style.zIndex = String(z);
-      if (layer.options.pane !== paneName || !layer.options.paneSet)
+      if (layer.options.pane !== paneName || !layer.options.paneSet) {
         layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
+      }
       this.panes.bumpLabelPanes(layer, z);
       return;
     }
@@ -606,8 +617,9 @@ class LayerManager implements LayerAPI {
     this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
     const paneEntry = this.panes.ensurePane(fbName, !isTile);
     paneEntry.pane.style.zIndex = String(z);
-    if (layer.options.pane !== fbName || !layer.options.paneSet)
+    if (layer.options.pane !== fbName || !layer.options.paneSet) {
       layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
+    }
   }
 
   syncAttribution() {

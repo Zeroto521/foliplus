@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Annotated, Literal
 
 from ._cdn_loader import load_cdn
-from ._typing import Position
+from ._typing import Fraction, Position, PositiveInt
+from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -64,12 +65,14 @@ class ExportControl(BaseControl):
 
     scale : float, default 2.0
         DPI scaling. 1.0 is original resolution, 2.0 is suitable for Retina screens,
-        3.0 for printing. Note: excessively high values may crash the browser.
+        3.0 for printing. Must be positive. Note: excessively high values may crash
+        the browser.
 
     max_pixels : int, default 10240000
         Maximum number of pixels in the exported image (``width * height``). Larger
         exports may exceed the browser canvas limit or exhaust memory. Default is
-        10,240,000 (e.g. 3200×3200). Set to ``None`` to disable the limit.
+        10,240,000 (e.g. 3200×3200). Set to ``None`` to disable the limit; otherwise
+        it must be positive.
 
     background : str, optional
         Export background color (e.g., ``"#ffffff"``). Default is None (transparent).
@@ -77,6 +80,7 @@ class ExportControl(BaseControl):
 
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
+        Must not be negative.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -122,24 +126,20 @@ class ExportControl(BaseControl):
         "timeout",
     )
 
+    @validate
     def __init__(
         self,
         *,
         position: Position = "bottomright",
         filename: str = "map",
         format: FORMAT = "png",
-        quality: float = 0.92,
-        scale: float = 2.0,
-        max_pixels: int | None = 10_240_000,
+        quality: Fraction = 0.92,
+        scale: Annotated[float, Bound(0.0, None, exclusive_low=True)] = 2.0,
+        max_pixels: PositiveInt | None = 10_240_000,
         background: str | None = None,
-        timeout: int = 7500,
+        timeout: Annotated[int, Bound(0, None)] = 7500,
         locale: str | LocaleConfig | None = None,
     ):
-        if format not in get_args(FORMAT):
-            raise ValueError(
-                f"format must be one of {get_args(FORMAT)}, got {format!r}"
-            )
-
         super().__init__(position=position, locale=locale)
         self.filename = filename
         self.format = format

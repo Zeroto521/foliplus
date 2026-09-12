@@ -17,6 +17,9 @@ const EVENTS = {
   AFTER_EXPORT: "foliplus:export:after",
   /** A layer's feature count changed (data update / feature add/remove). */
   LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count-change",
+  /** A control finished attaching to the map (onAdd complete). Lets
+   *  LayerControl run its init pass from a ready signal instead of a timer. */
+  CONTROL_ATTACHED: "foliplus:control:attached",
 } as const;
 
 // ── Type-safe payload map ──
@@ -28,6 +31,7 @@ interface EventPayloadMap {
   [EVENTS.BEFORE_EXPORT]: { component: string };
   [EVENTS.AFTER_EXPORT]: { component: string };
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { id: string };
+  [EVENTS.CONTROL_ATTACHED]: { component: string };
 }
 
 // ── Event metadata registry ──
@@ -77,6 +81,12 @@ const EVENT_REGISTRY: Record<string, EventMeta> = {
     publisher: "LayerManager",
     subscribers: [COMPONENTS.LayerControl],
     payload: "{ id: string }",
+  },
+  [EVENTS.CONTROL_ATTACHED]: {
+    description: "A control finished attaching to the map (onAdd complete)",
+    publisher: "BaseControl",
+    subscribers: [COMPONENTS.LayerControl],
+    payload: "{ component: string }",
   },
 };
 

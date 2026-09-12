@@ -379,10 +379,11 @@ const check = (args, root = ROOT) => {
 
   if (failures.length > 0) {
     console.error(`\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:`);
-    for (const f of failures)
+    for (const f of failures) {
       console.error(
         `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
       );
+    }
     console.error("\nBundle growth exceeded the threshold — review the change.");
     return 1;
   }

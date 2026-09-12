@@ -49,4 +49,11 @@ const DOWNLOAD = `
     <line x1="12" y1="15" x2="12" y2="3"/>
   </svg>`;
 
-export { CLOSE, DOWNLOAD, EDIT, GLOBE, LOADING, LOCATE, PIN_ICON };
+const INFO = `
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="11" x2="12" y2="16.5"/>
+    <circle cx="12" cy="7.4" r="1.15" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+export { CLOSE, DOWNLOAD, EDIT, GLOBE, INFO, LOADING, LOCATE, PIN_ICON };

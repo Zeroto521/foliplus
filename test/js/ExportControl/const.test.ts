@@ -77,8 +77,9 @@ describe("FORMAT", () => {
 
 describe("resolveFormat", () => {
   it("returns the key for every known format", () => {
-    for (const fmt of Object.keys(CONST.FORMAT))
+    for (const fmt of Object.keys(CONST.FORMAT)) {
       expect(CONST.resolveFormat(fmt)).toBe(fmt);
+    }
   });
 
   it("falls back to png for unknown or missing values", () => {

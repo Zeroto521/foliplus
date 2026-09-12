@@ -1,6 +1,6 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
@@ -37,6 +37,7 @@ class HeatmapControl extends BaseControl {
   declare labelChk: HTMLInputElement;
   declare closeSchemeDropdown: (event: MouseEvent) => void;
   declare toggleSchemeDropdown: () => void;
+  declare initScanCleanup: (() => void) | null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -67,6 +68,12 @@ class HeatmapControl extends BaseControl {
 
   destroy() {
     // Clean up map event listeners
+    if (this.initScanCleanup) {
+      this.initScanCleanup();
+      this.initScanCleanup = null;
+    }
+    // Unsubscribe from the map first, then drop content: a deferred handler
+    // firing after the canvas is gone would draw onto a removed element.
     if (this.m.mapCleanup) this.m.mapCleanup();
     if (this.m.onZoomEnd) {
       this.m.onZoomEnd.cancel();
@@ -74,14 +81,15 @@ class HeatmapControl extends BaseControl {
     }
     if (this.m.onLayerChange) {
       this.m.onLayerChange.cancel();
-      if (this.m.removeLayerChangeListener) this.m.removeLayerChangeListener();
+      this.m.removeLayerChangeListener();
     }
+    this.m.removeExportListener();
 
     // Disconnect MutationObserver
     if (this.observer) this.observer.disconnect();
 
     this.m.clearHeatmapCanvas();
-    if (this.m.overlay) this.m.overlay.destroy();
+    this.m.overlay.destroy();
     this.m.ui = null;
   }
 }
@@ -91,4 +99,4 @@ class HeatmapControl extends BaseControl {
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });
 
 heatmapCtrl.addTo(map);
-initScan(heatmapCtrl, CONST.TIMING.INIT_SCAN_ATTEMPTS);
+heatmapCtrl.initScanCleanup = initScan(heatmapCtrl);

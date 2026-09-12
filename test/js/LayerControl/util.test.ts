@@ -3,8 +3,11 @@ import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { getTypeSVG } from "#foliplus/LayerControl/util.js";
 
 class Polygon {}
+
 class Polyline {}
+
 class CircleMarker {}
+
 class Marker {}
 
 const makeContainer = children => ({

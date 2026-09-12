@@ -6,7 +6,42 @@ import {
   formatCoord,
   formatLatLng,
   formatNumber,
+  formatTimestamp,
 } from "#common/format.js";
+
+describe("formatTimestamp", () => {
+  it("renders epoch ms and date strings", () => {
+    expect(formatTimestamp(Date.UTC(2026, 8, 12, 6, 5, 0))).toContain("2026");
+    expect(formatTimestamp("2026-09-12T06:05:00Z")).toContain("2026");
+  });
+
+  it("returns an empty string for unparsable input", () => {
+    expect(formatTimestamp("not-a-date")).toBe("");
+    expect(formatTimestamp(NaN)).toBe("");
+  });
+
+  it("uses the mapped locale for the short code, not the code itself", () => {
+    // zh maps to zh-CN (intlLocale), so the date renders in the zh-CN
+    // calendar with a digit day, and never degrades to the English month
+    // name. en stays en.
+    const ms = Date.UTC(2026, 8, 12, 6, 5, 0);
+    expect(formatTimestamp(ms, "zh")).toBe(
+      new Date(ms).toLocaleString("zh-CN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    );
+    expect(formatTimestamp(ms, "zh")).not.toMatch(/September/);
+    expect(formatTimestamp(ms, "en")).toBe(
+      new Date(ms).toLocaleString("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    );
+  });
+});
 
 describe("formatNumber", () => {
   it("defaults to 'auto' style and 'en' locale", () => {

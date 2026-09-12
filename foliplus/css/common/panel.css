@@ -72,6 +72,33 @@
     overflow-y: auto;
   }
 
+  /* ── Form Row ──
+     One label/control line, shared by every panel that lists fields (the
+     heatmap config and the layer attributes panel): a fixed-width
+     right-aligned label column plus a control column that takes the rest. */
+  --form-label-width: 85px;
+
+  .foliplus-form-row {
+    display: flex;
+    align-items: center;
+    min-height: var(--toggle-size);
+    gap: var(--space-md);
+    box-sizing: border-box;
+  }
+  .foliplus-form-label {
+    flex-shrink: 0;
+    width: var(--form-label-width);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    text-align: right;
+    white-space: nowrap;
+    padding-right: var(--space-xs);
+  }
+  .foliplus-form-control {
+    flex: 1;
+    min-width: 0;
+  }
+
   /* ── Expanded State ── */
   &.expanded {
     width: var(--panel-width);

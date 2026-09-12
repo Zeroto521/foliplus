@@ -141,8 +141,9 @@ const bindNodeDrag = (
     if (
       !moved &&
       Math.abs(pt.x - startPt.x) + Math.abs(pt.y - startPt.y) < DRAG_THRESHOLD
-    )
+    ) {
       return;
+    }
     moved = true;
     // Notify handlers BEFORE repositioning the node so handlers that locate
     // the node by its current latlng (distance/polygon `findPtIdx`) can still

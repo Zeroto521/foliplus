@@ -87,10 +87,11 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-100KB)", () => {
+  it("common JS has reasonable size (20-110KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    expect(size).toBeLessThan(100000);
+    // Unminified dev build (CI path); ListCursor pushed past 100KB.
+    expect(size).toBeLessThan(110000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

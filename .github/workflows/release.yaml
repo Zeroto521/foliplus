@@ -39,6 +39,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
 
       - run: npm install
 

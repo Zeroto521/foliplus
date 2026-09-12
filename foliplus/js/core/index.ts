@@ -2,6 +2,13 @@
 // Each subdomain (layer, events, modes, …) lives in its own subdirectory;
 // this index is the single export surface for consumers.
 export * from "./layer/index.js";
+export { createControlEnv } from "./controlEnv.js";
 export { registerHintIcon } from "./hint.js";
 export * from "./event/index.js";
 export * from "./mode.js";
+export { ListCursor } from "./listCursor.js";
+export type {
+  ListCursorMode,
+  ListCursorOptions,
+  ListCursorRoles,
+} from "./listCursor.js";

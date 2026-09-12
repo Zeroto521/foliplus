@@ -18,7 +18,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
     </div>
   </div>
 
-  <div class="foliplus-heatmap-extra-body hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
+  <div class="foliplus-heatmap-extra-body foliplus-hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
 
     <div class="foliplus-heatmap-form-row">
       <label class="foliplus-heatmap-form-label">${T("agg_method")}</label>
@@ -33,7 +33,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-heatmap-form-row foliplus-heatmap-field hidden" ${CONST.DATA_ATTR.FIELD}>
+    <div class="foliplus-heatmap-form-row foliplus-heatmap-field foliplus-hidden" ${CONST.DATA_ATTR.FIELD}>
       <label class="foliplus-heatmap-form-label">${T("field")}</label>
       <div class="foliplus-heatmap-form-control">
         <select class="foliplus-heatmap-form-select" ${CONST.DATA_ATTR.FIELD_SELECT}></select>
@@ -73,7 +73,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
           <div class="foliplus-heatmap-scheme-bar" tabindex="0" role="combobox">
             <div class="foliplus-heatmap-scheme-bar-inner"></div>
           </div>
-          <select class="hidden" ${CONST.DATA_ATTR.SCHEME_HIDDEN}></select>
+          <select class="foliplus-heatmap-scheme-hidden" ${CONST.DATA_ATTR.SCHEME_HIDDEN}></select>
         </div>
       </div>
 

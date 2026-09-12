@@ -122,9 +122,10 @@ class HeatmapManager {
    */
   hasScanned: boolean;
   declare mapCleanup: () => void;
+  declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
-  declare onZoomEnd: Debounced;
+  declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
@@ -164,15 +165,19 @@ class HeatmapManager {
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
     });
-    // Subscribe to export events for full-content capture (ExportControl).
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
-      this.renderAll = true;
-      this.redrawHeatmap();
-    });
-    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
-      this.renderAll = false;
-      this.redrawHeatmap();
-    });
+    // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
+    // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
+    // recompute, then clip again afterwards.  Named methods rather than
+    // arrow literals so the two unsubs stay bound to stable identities and
+    // removeExportListener below can release both as one pair.
+    const bus = ensureEvents(this.map);
+    this.removeExportListener = (() => {
+      const unsubs = [
+        bus.on(EVENTS.BEFORE_EXPORT, () => this.onBeforeExport()),
+        bus.on(EVENTS.AFTER_EXPORT, () => this.onAfterExport()),
+      ];
+      return () => unsubs.forEach(unsub => unsub());
+    })();
     this.ui = null;
     this.cachedPoints = null;
     this.cachedFeatures = null;
@@ -227,6 +232,18 @@ class HeatmapManager {
       EVENTS.LAYER_CHANGE,
       () => this.onLayerChange(),
     );
+  }
+
+  /** Drop out of export clip mode: redraw with the full feature set. */
+  onBeforeExport() {
+    this.renderAll = true;
+    this.redrawHeatmap();
+  }
+
+  /** Restore normal clip mode after export capture. */
+  onAfterExport() {
+    this.renderAll = false;
+    this.redrawHeatmap();
   }
 
   /** Redraw the heatmap canvas from cached features. */
@@ -427,8 +444,9 @@ class HeatmapManager {
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
     const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
-    if (this.cachedPoints && this.cachedPoints.key === key)
+    if (this.cachedPoints && this.cachedPoints.key === key) {
       return this.cachedPoints.pts;
+    }
 
     const pts: SelectedPoint[] = [];
     if (!this.selectedLayerId) return pts;
@@ -455,8 +473,9 @@ class HeatmapManager {
   }
 
   getColorScale(name: string, n: number): string[] {
-    if (typeof chroma !== "undefined")
+    if (typeof chroma !== "undefined") {
       return chroma.scale(name).mode("lab").colors(n) as string[];
+    }
     return Array(n).fill(CONST.GRAY);
   }
 
@@ -482,20 +501,21 @@ class HeatmapManager {
       return [lo, hi];
     } else if (method === CONST.METHOD.QUANTILE) {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
+      for (let i = 1; i < nClasses; i++) {
         b.push(ss.quantileSorted(sorted, i / nClasses));
+      }
       return b.concat(hi);
     } else if (method === CONST.METHOD.HEADS) {
       const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++)
+      for (let i = 1; i < nClasses; i++) {
         b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
+      }
       return b.concat(hi);
-    } else {
-      const step = (hi - lo) / nClasses;
-      const b: number[] = [];
-      for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-      return b;
     }
+    const step = (hi - lo) / nClasses;
+    const b: number[] = [];
+    for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
+    return b;
   }
 
   renderHexagons() {
@@ -509,9 +529,9 @@ class HeatmapManager {
     const res = this.getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
-    if (this.cachedAgg && this.cachedAgg.key === aggKey)
+    if (this.cachedAgg && this.cachedAgg.key === aggKey) {
       aggregated = this.cachedAgg.data;
-    else {
+    } else {
       aggregated = this.aggregateData(pts, res) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
@@ -525,8 +545,9 @@ class HeatmapManager {
     pts.forEach(pt => {
       try {
         const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx])
+        if (!hexCells[h3Idx]) {
           hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
+        }
         const cell = hexCells[h3Idx];
         cell.sum += pt.value;
         cell.count += 1;
@@ -594,8 +615,8 @@ class HeatmapManager {
         const coords = boundary.map(p => [p[1], p[0]]);
         coords.push(coords[0]);
         if (!centroid) {
-          let cx = 0,
-            cy = 0;
+          let cx = 0;
+          let cy = 0;
           for (let j = 0; j < coords.length - 1; j++) {
             cx += coords[j][0];
             cy += coords[j][1];

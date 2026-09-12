@@ -1,7 +1,7 @@
 // LayerControl interaction — keyboard navigation + overflow-menu click handlers.
 import { ensureInteraction } from "#core/interaction.js";
 import * as CONST from "./const.js";
-import type { LayerUI } from "./ui.js";
+import type { LayerUI } from "./ui/index.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
@@ -48,21 +48,35 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
 
 /** Click handler for the overflow menu items (focus-layer action). */
 const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
-  const li = (event.target as HTMLElement).closest(
-    `.foliplus-layer-more-menu li`,
-  ) as HTMLElement | null;
+  const target = event.target as HTMLElement;
+  // Any click that is not on the open menu closes it — panel, map, another
+  // control. The ⋮ button's own click stops propagation, so re-opening the
+  // menu from the same button still works (onClick re-creates it).
+  if (!target.closest(".foliplus-layer-more-menu")) {
+    if (ui.activeMenu) ui.closeMoreMenu(false);
+    return;
+  }
+  const li = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
   if (!li) return;
   const action = li.dataset.action ?? "";
   // Skip disabled items (hidden layer). Keep menu open so user sees why.
   if (li.getAttribute("disabled")) return;
-  if (action === "focus-layer") ui.focusLayer(ui.activeMenu?.layerId ?? "");
-  if (action === "rename-layer") ui.renameLayer(ui.activeMenu?.layerId ?? "");
-  if (action === "style-layer") ui.openStylePanel(ui.activeMenu?.layerId ?? "");
+  if (action === CONST.ACTION.FOCUS_LAYER) ui.focusLayer(ui.activeMenu?.layerId ?? "");
+  if (action === CONST.ACTION.RENAME_LAYER) {
+    ui.renameLayer(ui.activeMenu?.layerId ?? "");
+  }
+  if (action === CONST.ACTION.STYLE_LAYER) ui.openStylePanel(ui.activeMenu?.layerId ?? "");
+  // Attributes anchors to the menu's own row — the menu is the source of
+  // truth for which row owns it, and falling back to `li` would anchor the
+  // panel to the menu's own <li> if the menu state were lost.
+  if (action === CONST.ACTION.ATTRS_LAYER) {
+    ui.openAttrsPanel(ui.activeMenu?.item ?? li);
+  }
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
   // Any other menu item (focus-layer, style-layer, or an unknown action)
   // closes the menu and returns focus to the layer row.
-  ui.closeMoreMenu(action !== "rename-layer");
+  ui.closeMoreMenu(action !== CONST.ACTION.RENAME_LAYER);
 };
 
 export { registerInteractions, handleMoreClick, handleMoreMenuClick };

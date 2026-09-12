@@ -32,7 +32,7 @@ class CircleMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_circle";
 
   /** Rebuild a persisted circle measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);
@@ -125,8 +125,9 @@ class CircleMode extends PreviewMode {
         isFinalizing ||
         this.m.currentMode !== this.type ||
         (phase !== 0 && phase !== 1)
-      )
+      ) {
         return;
+      }
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(event);

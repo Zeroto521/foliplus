@@ -23,6 +23,12 @@ interface RegisterLayerOpts {
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Data provenance shown in the layer attributes panel (a URL or filename). */
+  source?: string | null;
+  /** Last-update timestamp; epoch ms or any value `new Date()` can parse. */
+  updatedAt?: string | number | null;
+  /** Third-party label/value pairs appended to the attributes panel. */
+  meta?: Record<string, string | number> | null;
   [key: string]: unknown;
 }
 
@@ -49,6 +55,14 @@ interface LayerInfo {
   featureCountProvider?: (() => number) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Static caller-supplied provenance / freshness for the attributes panel.
+   *  These survive a provider re-registration (merged with `??`). */
+  source?: string | null;
+  updatedAt?: string | number | null;
+  meta?: Record<string, string | number> | null;
+  /** Epoch ms of the layer's first registration. Set by the registry itself —
+   *  never by the provider — so a re-registration keeps the original value. */
+  registeredAt?: number;
   [key: string]: unknown;
 }
 
@@ -154,6 +168,8 @@ interface LayerAPI {
   /** Return the number of geometric features in a registered layer.
    *  Null when the layer cannot be counted (e.g. Canvas without provider). */
   getFeatureCount?: (id: string) => number | null;
+  /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
+  touchLayer?: (id: string) => boolean;
 }
 
 export type {

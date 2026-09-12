@@ -52,6 +52,16 @@ class TestSearchControlPython:
         with pytest.raises(ValueError, match="zoom must be an int between 1 and 18"):
             SearchControl(zoom=0)
 
+    def test_invalid_position_raises(self):
+        """An unknown position is rejected, not silently ignored."""
+        with pytest.raises(ValueError, match="position must be one of"):
+            SearchControl(position="middle")
+
+    def test_numpy_zoom_is_accepted(self):
+        """A zoom read straight out of numpy is not an ``int`` subclass."""
+        numpy = pytest.importorskip("numpy")
+        assert SearchControl(zoom=numpy.int64(12)).zoom == 12
+
 
 class TestSearchControlRendering:
     """Rendering output tests (stable across minification)."""

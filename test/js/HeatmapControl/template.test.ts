@@ -174,16 +174,15 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-btn-confirm");
   });
 
-  it("extra body has hidden class by default", () => {
+  it("extra body uses shared foliplus-hidden class by default", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("data-hm-extra-body>");
-    // The class should include "hidden"
-    expect(html).toMatch(/foliplus-heatmap-extra-body\s+hidden/);
+    expect(html).toMatch(/foliplus-heatmap-extra-body\s+foliplus-hidden/);
   });
 
-  it("field selector has hidden class by default", () => {
+  it("field selector uses shared foliplus-hidden class by default", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-field");
-    expect(html).toMatch(/foliplus-heatmap-field\s+hidden/);
+    expect(html).toMatch(/foliplus-heatmap-field\s+foliplus-hidden/);
   });
 });

@@ -169,7 +169,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     nodeDelMarkers.push(delMarker);
 
     if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeasurement);
-    else
+    else {
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = findPointIndex(points, latlng);
@@ -209,6 +209,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         relabel();
         if (onUpdate) onUpdate(points);
       });
+    }
 
     bindOpenOverlay(delMarker, openOverlay);
 
@@ -347,11 +348,12 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
       circle.setLatLng(latlng);
       centerFinal.setLatLng(latlng);
       delMarker.setLatLng(latlng);
-      if (radiusNode)
+      if (radiusNode) {
         radiusNode.setLatLng({
           lat: radiusNode.getLatLng().lat + dy,
           lng: radiusNode.getLatLng().lng + dx,
         });
+      }
       if (radiusLine) radiusLine.setLatLngs([latlng, radiusNode!.getLatLng()]);
       updateLabel();
     },
@@ -554,7 +556,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     nodeDelMarkers.push(delMarker);
 
     if (is3pt) attachDelClick(delMarker, deleteMeasurement);
-    else
+    else {
       attachDelClick(delMarker, () => {
         const latlng = node.getLatLng();
         const ptIdx = findPointIndex(points, latlng);
@@ -592,6 +594,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
           onUpdate();
         }
       });
+    }
 
     bindOpenOverlay(delMarker, openOverlay);
 

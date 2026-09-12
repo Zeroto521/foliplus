@@ -1,7 +1,6 @@
 import type { NumberStyle } from "#common/format.js";
 
 /** Timing / delay constants. */
-const INIT_DELAY_MS = 300;
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 const SAVE_ORDER_DEBOUNCE_MS = 100;
 
@@ -66,7 +65,6 @@ const CLASSES = {
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
-  HIDDEN: "hidden",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
@@ -97,10 +95,15 @@ const CLASSES = {
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
+<<<<<<< HEAD
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
   /** Marker wrapper element used to render an annotation label. */
   ANNOTATION_LABEL: "foliplus-annotation-label",
+=======
+  ATTRS_PANEL: "foliplus-layer-attrs-panel",
+  ATTRS_ICON: "foliplus-layer-attrs-icon",
+>>>>>>> origin/main
 };
 
 /** Data attribute names. */
@@ -116,6 +119,7 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
+  ATTRS_LAYER: "layer-attributes",
 };
 
 /** DOM selectors. */
@@ -164,7 +168,6 @@ export {
   FOCUS,
   FOCUS_PANE,
   GROUP,
-  INIT_DELAY_MS,
   SAVE_ORDER_DEBOUNCE_MS,
   SEL,
   STORAGE,

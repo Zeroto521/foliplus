@@ -48,6 +48,7 @@ const ensureLayerAPI = (map: L.Map): LayerAPI => {
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
+    touchLayer: () => false,
     createLayers: opts => factory.createLayers(opts),
     createCanvas: opts => factory.createCanvas(opts),
     extractPoints: () => [],
@@ -76,7 +77,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   const own =
     Object.getOwnPropertyDescriptor(api, "layers") ||
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
-  return !!(own && own.get);
+  return Boolean(own && own.get);
 };
 
 /**

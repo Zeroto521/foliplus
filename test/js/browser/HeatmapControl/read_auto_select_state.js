@@ -5,7 +5,7 @@
     selectedLayerId: m.selectedLayerId,
     hasCachedFeatures: m.cachedFeatures !== null && m.cachedFeatures !== undefined,
     extraBodyHidden: window.__heatmapCtrl.extraBody
-      ? window.__heatmapCtrl.extraBody.classList.contains("hidden")
+      ? window.__heatmapCtrl.extraBody.classList.contains("foliplus-hidden")
       : null,
   };
 };

@@ -12,15 +12,11 @@ import pytest
 
 import foliplus
 
-COMPONENTS = (
-    "ExportControl",
-    "FullscreenControl",
-    "HeatmapControl",
-    "LayerControl",
-    "LocateControl",
-    "MeasureControl",
-    "ScaleControl",
-    "SearchControl",
+_PKG = Path(foliplus.__file__).parent
+# Discover from the package so a scaffolded control is covered without
+# hand-editing this tuple. BaseControl is the shared base, not a component.
+COMPONENTS = tuple(
+    sorted(p.stem for p in _PKG.glob("*Control.py") if p.stem != "BaseControl")
 )
 
 

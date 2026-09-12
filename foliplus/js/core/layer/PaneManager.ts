@@ -159,8 +159,9 @@ class PaneManager {
         l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
-        if (pathEl && pathEl.parentNode !== container)
+        if (pathEl && pathEl.parentNode !== container) {
           groups.get(container)!.push(pathEl);
+        }
         if (l instanceof L.Marker && paneEl) {
           const marker = l as MarkerWithShadow;
           if (marker._shadow && marker._shadow.parentNode !== paneEl) {
@@ -210,8 +211,9 @@ class PaneManager {
   sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
     const used = new Set<string>();
     for (const li of layers) if (li.labelPane) used.add(li.labelPane);
-    for (const pane of this.labelPanes)
+    for (const pane of this.labelPanes) {
       if (!used.has(pane)) this.labelPanes.delete(pane);
+    }
   }
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────

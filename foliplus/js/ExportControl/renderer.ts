@@ -241,8 +241,9 @@ class ExportRenderer {
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
         for (const li of layers) {
-          if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url)
+          if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url) {
             continue;
+          }
           const tiles = this.tilePositions(
             rc,
             this.calcTiles(li.layer, geoBounds, zoom, scale),
@@ -371,8 +372,9 @@ class ExportRenderer {
       const dh = tile.size * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
       if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
-      if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height)
+      if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) {
         continue;
+      }
       visibleTiles.push({ ...tile, dx, dy, dw, dh });
     }
     return visibleTiles;
@@ -478,8 +480,9 @@ class ExportRenderer {
       }
 
       let src = new XMLSerializer().serializeToString(clone);
-      if (!src.includes(`xmlns="${CONST.SVG_NS}"`))
+      if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
         src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
+      }
       if (src.length < 100) continue;
 
       const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
@@ -554,8 +557,9 @@ class ExportRenderer {
           el.tagName === "SVG" ||
           el.matches(CONST.SEL.SKIP_EXPORT) ||
           el.querySelector(CONST.SEL.SKIP_EXPORT)
-        )
+        ) {
           continue;
+        }
         if (seen.has(el)) continue;
         seen.add(el);
         roots.push(el);
@@ -576,8 +580,9 @@ class ExportRenderer {
           scs.backgroundImage &&
           scs.backgroundImage.includes("url(") &&
           scs.backgroundImage !== "none"
-        )
+        ) {
           drawableEls.push(sub as HTMLElement);
+        }
       }
     }
 
@@ -624,7 +629,8 @@ class ExportRenderer {
         if (!sprite) continue;
         const bgs = cs.backgroundSize || "auto";
         const bgsParts = bgs.trim().split(/\s+/);
-        let cssBgW: number, cssBgH: number;
+        let cssBgW: number;
+        let cssBgH: number;
         if (bgs === "auto" || bgs === "auto auto") {
           cssBgW = sprite.width / (window.devicePixelRatio || 1);
           cssBgH = sprite.height / (window.devicePixelRatio || 1);
@@ -702,10 +708,10 @@ class ExportRenderer {
       let fontWeight = before.fontWeight || iconCS.fontWeight || "900";
       if (fontWeight === "normal") fontWeight = "400";
       if (fontWeight === "bold") fontWeight = "700";
-      let iconDX = dx,
-        iconDY = dy,
-        iconDW = dw,
-        iconDH = dh;
+      let iconDX = dx;
+      let iconDY = dy;
+      let iconDW = dw;
+      let iconDH = dh;
       const ir = iconEl.getBoundingClientRect();
       const il = ir.left - contRect.left;
       const it = ir.top - contRect.top;
@@ -742,8 +748,9 @@ class ExportRenderer {
         rootCS.backgroundImage &&
         rootCS.backgroundImage !== "none" &&
         rootCS.backgroundImage.includes("url(")
-      )
+      ) {
         continue;
+      }
 
       const textCS = window.getComputedStyle(textEl);
       const tr = textEl.getBoundingClientRect();
@@ -803,8 +810,9 @@ class ExportRenderer {
       const lines = text.trim().split("\n");
       const lineHeight = fontSize * 1.2;
       const startY = cy - ((lines.length - 1) * lineHeight) / 2;
-      for (let i = 0; i < lines.length; i++)
+      for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
+      }
 
       ctx.restore();
     }
@@ -860,11 +868,13 @@ class ExportRenderer {
           const rootColor = colorParent
             ? window.getComputedStyle(colorParent).color
             : "";
-          if (rootColor && rootColor !== "rgb(0, 0, 0)")
+          if (rootColor && rootColor !== "rgb(0, 0, 0)") {
             clone.setAttribute("color", rootColor);
+          }
           let src = new XMLSerializer().serializeToString(clone);
-          if (!src.includes(`xmlns="${CONST.SVG_NS}"`))
+          if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
             src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
+          }
           const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
           const url = URL.createObjectURL(blob);
           try {

@@ -14,14 +14,16 @@ import {
 describe("core/layer util", () => {
   beforeEach(() => {
     // setup.ts does not define L.Marker — stub one so instanceof checks work.
-    if (!window.L.Marker)
+    if (!window.L.Marker) {
       window.L.Marker = class Marker {
         feature: unknown = null;
       };
-    if (!window.L.CircleMarker)
+    }
+    if (!window.L.CircleMarker) {
       window.L.CircleMarker = class CircleMarker {
         feature: unknown = null;
       };
+    }
   });
 
   describe("findLayer", () => {

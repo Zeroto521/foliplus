@@ -20,7 +20,7 @@ class PolygonMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_polygon";
 
   /** Rebuild a persisted polygon measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
@@ -60,7 +60,7 @@ class PolygonMode extends PreviewMode {
       finalPoly,
       nodeMarkers,
       segLabels,
-      points: points,
+      points,
       area: data.area ?? 0,
       id: data.id!,
       onDelete: () => manager.store.remove(data.id!),
@@ -278,8 +278,9 @@ class PolygonMode extends PreviewMode {
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
-      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng))
+      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng)) {
         return;
+      }
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(event);
@@ -307,8 +308,12 @@ class PolygonMode extends PreviewMode {
         L.DomEvent.stopPropagation(event);
         if (points.length < 3) return;
         // Click first or last point → finish
-        if (marker === nodeMarkers[0] || marker === nodeMarkers[nodeMarkers.length - 1])
+        if (
+          marker === nodeMarkers[0] ||
+          marker === nodeMarkers[nodeMarkers.length - 1]
+        ) {
           finishPoly();
+        }
       });
 
       if (points.length > 1) {

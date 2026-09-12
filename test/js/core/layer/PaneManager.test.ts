@@ -32,8 +32,9 @@ const makeMap = (
     hasLayer: vi.fn(() => true),
     _panes: panes,
   };
-  for (const [pane, r] of Object.entries(renderer ?? {}))
+  for (const [pane, r] of Object.entries(renderer ?? {})) {
     map[`${CONST.RENDERER_KEY}${pane}`] = r;
+  }
   if (leafletRenderer) map._paneRenderers = leafletRenderer;
   return map;
 };

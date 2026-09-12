@@ -590,22 +590,151 @@ describe("renderHexagons", () => {
 });
 
 describe("HeatmapManager — export event subscriptions", () => {
-  it("BEFORE_EXPORT sets renderAll and redraws", () => {
+  // The two export handlers are named methods, so the tests below assert on
+  // them.  A bus that stopped delivering — or a subscription that went
+  // unbound — flips toHaveBeenCalled to toHaveBeenCalledTimes(0), which is the
+  // regression this block is guarding.  (Spying on redrawHeatmap alone would
+  // still pass with an empty bus, because vi.fn().mockClear() clears the spy
+  // but not any subscription-level bookkeeping.)
+  it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
+    const m = makeManager();
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(1);
+    expect(m.renderAll).toBe(true);
+  });
+
+  it("AFTER_EXPORT returns to clip mode via onAfterExport", () => {
+    const m = makeManager();
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(afterSpy).toHaveBeenCalledTimes(1);
+    expect(m.renderAll).toBe(false);
+  });
+
+  it("removeExportListener stops BOTH events, and only those", () => {
+    const m = makeManager();
+    m.removeExportListener();
+    const bus = ensureEvents(m.map);
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    // Independent listener proves the bus is alive on both events — the
+    // negative assertion cannot pass merely because the bus is dead.
+    const probeBefore = vi.fn();
+    const probeAfter = vi.fn();
+    bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
+    bus.on(EVENTS.AFTER_EXPORT, probeAfter);
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+
+    expect(beforeSpy).not.toHaveBeenCalled();
+    expect(afterSpy).not.toHaveBeenCalled();
+    expect(m.renderAll).toBe(false);
+    expect(probeBefore).toHaveBeenCalledTimes(1);
+    expect(probeAfter).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.BEFORE_EXPORT, probeBefore);
+    bus.off(EVENTS.AFTER_EXPORT, probeAfter);
+  });
+
+  it("removeExportListener is idempotent — a second call does not throw", () => {
+    const m = makeManager();
+    m.removeExportListener();
+    expect(() => m.removeExportListener()).not.toThrow();
+  });
+
+  it("each export event is delivered exactly once (no double subscription)", () => {
+    const m = makeManager();
+    const beforeSpy = vi.spyOn(m, "onBeforeExport");
+    const afterSpy = vi.spyOn(m, "onAfterExport");
+    const bus = ensureEvents(m.map);
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(1);
+    expect(afterSpy).not.toHaveBeenCalled();
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    expect(beforeSpy).toHaveBeenCalledTimes(2);
+    expect(afterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("onBeforeExport and onAfterExport set renderAll and redraw", () => {
     const m = makeManager();
     m.renderAll = false;
     const redrawSpy = vi.spyOn(m, "redrawHeatmap");
-    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+
+    m.onBeforeExport();
     expect(m.renderAll).toBe(true);
-    expect(redrawSpy).toHaveBeenCalled();
+    expect(redrawSpy).toHaveBeenCalledTimes(1);
+
+    m.onAfterExport();
+    expect(m.renderAll).toBe(false);
+    expect(redrawSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("AFTER_EXPORT clears renderAll and redraws", () => {
+  it("removeLayerChangeListener stops LAYER_CHANGE fan-out", () => {
     const m = makeManager();
-    m.renderAll = true;
-    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
-    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    const scanSpy = vi.spyOn(m, "scanMapLayers");
+    m.removeLayerChangeListener();
+    const bus = ensureEvents(m.map);
+    // Independent listener: proves the bus still fans out LAYER_CHANGE.
+    const probe = vi.fn();
+    bus.on(EVENTS.LAYER_CHANGE, probe);
+
+    bus.emit(EVENTS.LAYER_CHANGE);
+
+    expect(scanSpy).not.toHaveBeenCalled();
+    expect(probe).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.LAYER_CHANGE, probe);
+  });
+
+  it("destroy releases every subscription and the canvas, in that order", () => {
+    const m = makeManager();
+    const destroySpy = vi.fn();
+    m.overlay = {
+      canvas: {},
+      ctx: null,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+      destroy: destroySpy,
+    };
+    const bus = ensureEvents(m.map);
+    const beforeProbe = vi.fn();
+    const afterProbe = vi.fn();
+    const layerProbe = vi.fn();
+    bus.on(EVENTS.BEFORE_EXPORT, beforeProbe);
+    bus.on(EVENTS.AFTER_EXPORT, afterProbe);
+    bus.on(EVENTS.LAYER_CHANGE, layerProbe);
+
+    // Mirror HeatmapControl#destroy: subscribers out, then content, then overlay.
+    m.mapCleanup();
+    m.onZoomEnd.cancel();
+    m.map.off("zoomend", m.onZoomEnd);
+    m.onLayerChange.cancel();
+    m.removeLayerChangeListener();
+    m.removeExportListener();
+    m.clearHeatmapCanvas();
+    m.overlay.destroy();
+
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(m.map.off).toHaveBeenCalledWith("zoomend", m.onZoomEnd);
+    expect(m.cachedFeatures).toBeNull();
+    expect(m.overlay.unregister).toHaveBeenCalled();
+
+    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    bus.emit(EVENTS.LAYER_CHANGE);
     expect(m.renderAll).toBe(false);
-    expect(redrawSpy).toHaveBeenCalled();
+    // The manager's own handlers are gone; only the probe listeners remain.
+    expect(beforeProbe).toHaveBeenCalledTimes(1);
+    expect(afterProbe).toHaveBeenCalledTimes(1);
+    expect(layerProbe).toHaveBeenCalledTimes(1);
+    bus.off(EVENTS.BEFORE_EXPORT, beforeProbe);
+    bus.off(EVENTS.AFTER_EXPORT, afterProbe);
+    bus.off(EVENTS.LAYER_CHANGE, layerProbe);
   });
 });
 
@@ -833,9 +962,7 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
   // buildLayerListItems calls scanMapLayers internally; stub it so the
   // pre-seeded pointLayers state used by these tests survives the rebuild.
   beforeEach(() => {
-    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function (
-      this: HeatmapManager,
-    ) {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
       // no-op: keep the manually seeded pointLayers
     });
   });
@@ -1007,18 +1134,19 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     const ctrl = makeCtrl(m);
     const renderSpy = vi.spyOn(m, "renderHexagons");
 
-    initScan(ctrl, 3);
+    initScan(ctrl);
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBe("lonely");
     expect(renderSpy).toHaveBeenCalled();
   });
 
-  it("auto-selects a single layer that appears on the init retry", async () => {
+  it("auto-selects a single layer that appears when a control attaches", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();
-    // First scan finds nothing; a single layer appears on the retry.  This is
-    // still the initial scan phase (hasScanned not yet set), so it auto-selects.
+    // First scan finds nothing; a layer appears once LayerControl finishes
+    // attaching (CONTROL_ATTACHED). This is still the initial scan phase
+    // (hasScanned not yet set), so it auto-selects.
     window.map.foliplus.LayerAPI.isLayerControl = true;
     let calls = 0;
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => {
@@ -1030,18 +1158,19 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     ]);
     const ctrl = makeCtrl(m);
 
-    vi.useFakeTimers();
-    initScan(ctrl, 2);
-    await vi.runOnlyPendingTimersAsync();
-    await vi.advanceTimersByTimeAsync(CONST.TIMING.INIT_SCAN_INTERVAL);
-    await vi.runOnlyPendingTimersAsync();
-    vi.useRealTimers();
+    initScan(ctrl);
+    expect(m.hasScanned).toBe(false);
+
+    // LayerControl (or any control) finishing attach re-triggers the scan.
+    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+      component: "LayerControl",
+    });
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBe("late");
   });
 
-  it("sets hasScanned in the terminal no-layer path", async () => {
+  it("settles the no-layer hint after the synchronous attach sequence", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.showHint = vi.fn();
@@ -1050,10 +1179,43 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     const ctrl = makeCtrl(m);
 
     vi.useFakeTimers();
-    initScan(ctrl, 0); // attempt 0 = no retries, goes straight to the terminal hint
+    initScan(ctrl);
+    // The final pass fires one macrotask later — after the synchronous
+    // attach sequence, when the layer set is final.
+    await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
     expect(m.hasScanned).toBe(true);
     expect(m.selectedLayerId).toBeNull();
+  });
+
+  it("cleanup unsubscribes CONTROL_ATTACHED and is idempotent", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.isLayerControl = true;
+    let calls = 0;
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => {
+      calls++;
+      return [];
+    });
+    const ctrl = makeCtrl(m);
+
+    vi.useFakeTimers();
+    const cleanup = initScan(ctrl);
+    expect(calls).toBe(1); // immediate first pass only
+
+    cleanup();
+    cleanup(); // second call is a no-op
+
+    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+      component: "LayerControl",
+    });
+    // Unsubscribed — no further scan ran, and no late settle.
+    expect(calls).toBe(1);
+    expect(m.hasScanned).toBe(false);
+
+    await vi.runOnlyPendingTimersAsync();
+    expect(calls).toBe(1); // settled pass also skipped (done)
+    vi.useRealTimers();
   });
 });

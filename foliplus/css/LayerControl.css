@@ -367,9 +367,9 @@ path.foliplus-focus-mask {
   /* ── Row cursor ──
      ONE recipe for a row that is the interaction target: mouse hover and the
      JS cursor class (.foliplus-layer-focused). They share the recipe, so the
-     glow, drag grip, type icon and more button read identically whichever way
-     the user arrives at the row. The fold (toggle-all) row joins the same
-     selector group, so it cannot drift back into its own hover style.
+     white surface, glow, drag grip, type icon and more button read identically
+     whichever way the user arrives at the row. The fold (toggle-all) row joins
+     the same selector group, so it cannot drift back into its own hover style.
 
      :focus-visible is deliberately NOT a CSS trigger. Tab focus is sampled
      once in the container's focusin delegate (`el.matches(':focus-visible')`)
@@ -382,12 +382,11 @@ path.foliplus-focus-mask {
      would flash the already-checked rows on each rebuild. */
   .foliplus-layer-item,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
-    /* The row paints no surface of its own: the white the user sees is the
-       control container's (--ctrl-bg) showing through. Declared explicitly
-       so the rest contract is written down — the wash (checked) is the only
-       background a row ever carries, and the glow (cursor/hover) is the only
-       thing ever painted on top of it. */
-    background: transparent;
+    /* Rows always paint an explicit surface — never transparent — so a
+       resting unchecked row and an interaction target cannot disagree
+       (one "white via the container", one "painted white"). Checked rows
+       override with the wash below; hover / Tab / arrow paint white on top. */
+    background: var(--neutral-0);
 
     /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
        default dark outline is never the focus signal here — the red glow is —
@@ -401,19 +400,26 @@ path.foliplus-focus-mask {
 
     &.active {
       border-left-color: var(--accent-primary);
+      background: var(--accent-light);
     }
+    /* Declared after .active so the interaction target wins over the wash
+       at equal specificity: a checked row turns white when hover / Tab /
+       arrow arrives, and the wash returns when it leaves. */
     &:is(:hover, .foliplus-layer-focused) {
+      /* Outboard box-shadow (the bottom glow) would be covered by the next
+         row's opaque surface — rows are never transparent (#277). Raise the
+         interaction target so both glow edges paint above its neighbors. */
+      position: relative;
+      z-index: 1;
       /* The left accent bar is deliberately NOT set here: it is a persistent
          "layer visible" (checked) indicator, so it only turns red on .active /
          a folded group, never on a transient hover/keyboard cursor. */
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
-         vertical (no left/right bleed). No surface here: the row keeps
-         whatever its state paints (the container's white on unchecked rows,
-         the .active wash on checked rows) — a checked row must not lose its
-         selected wash just because the cursor arrives. */
+         vertical (no left/right bleed). */
       box-shadow:
         0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
         0 var(--size-2) var(--size-4) var(--accent-primary);
+      background: var(--neutral-0);
 
       .foliplus-drag-cell .drag-handle {
         opacity: 1;
@@ -425,6 +431,27 @@ path.foliplus-focus-mask {
         color: var(--accent-primary);
       }
     }
+  }
+
+  /* ── Base basemap / color picker rows stay quiet ──
+     No cursor glow or white wash on hover / keyboard focus: these are
+     stack slots, not data layers you navigate to. The row itself stays
+     clickable (checkbox) — only the focus-layer action is disabled (see
+     the ⋮ menu). Checked `.active` wash still applies for visibility. */
+  .foliplus-layer-item[data-layer-type="base"],
+  .foliplus-color-layer-item {
+    &:is(:hover, .foliplus-layer-focused) {
+      box-shadow: none;
+      background: transparent;
+      cursor: default;
+    }
+  }
+  .foliplus-layer-item[data-layer-type="base"].active:is(
+      :hover,
+      .foliplus-layer-focused
+    ),
+  .foliplus-color-layer-item.active:is(:hover, .foliplus-layer-focused) {
+    background: var(--accent-light);
   }
 
   /* ── Layer item ── */
@@ -475,10 +502,9 @@ path.foliplus-focus-mask {
     &[draggable="true"] {
       cursor: move;
     }
-    &.active {
-      border-left-color: var(--accent-primary);
-      background: var(--accent-light);
-    }
+    /* .active surface/border live with the Row-cursor recipe above so the
+       interaction white (later, equal specificity) can out-rank the wash.
+       This block only carries the type-icon wake. */
     /* Identity: gray at rest, wakes to black on hover and when the row is
        active. Accent stays reserved for actions (more) and status (border),
        so the type icon reads as focus, not as a call-to-action. */
@@ -606,7 +632,7 @@ path.foliplus-focus-mask {
   }
   /* Disabled menu item (e.g. layer is hidden). */
   .foliplus-layer-more-menu li[disabled] {
-    cursor: default;
+    cursor: not-allowed;
     opacity: 0.4;
   }
   .foliplus-layer-more-menu li[disabled]:hover {
@@ -614,6 +640,69 @@ path.foliplus-focus-mask {
     /* Keep text muted: the unified hover tints text accent, but a disabled
        item must not answer with accent. */
     color: var(--text-primary);
+  }
+
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. It IS a foliplus panel: the surface
+     carries `foliplus-panel` and its header/content use the shared panel
+     classes, so every visual rule comes from common/panel.css. This block only
+     positions the surface, sizes the type logo, adds the close affordance and
+     lays out the label/value rows (the heatmap form-row rhythm).
+
+     The width is capped at the anchoring row on purpose: the panel content
+     clips horizontally (common/panel.css `overflow-x: hidden`), so a fixed
+     width wider than `--panel-width` slices the left column off. */
+  .foliplus-layer-attrs-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: var(--panel-width);
+    max-height: 340px;
+    padding: 0;
+    overflow-x: hidden;
+    /* Same card chrome as an expanded foliplus panel. */
+    border-radius: var(--radius-card);
+    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
+    /* Read-only metadata must stay copyable; the parent row is user-select:none. */
+    user-select: text;
+    cursor: default;
+  }
+  /* Header closes the panel — same affordance as the main Layer/Heatmap
+     panels (bindPanelToggle collapses on header click). */
+  /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
+     inside the shared .foliplus-header-icon box. */
+  .foliplus-layer-attrs-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* Detail rows reuse the shared label/control geometry
+     (common/panel.css .foliplus-form-row / -label / -control), the same one the
+     heatmap's form rows use — these hooks only carry the panel specifics. */
+  .foliplus-layer-attrs-panel .foliplus-form-row {
+    padding: 0 var(--space-lg);
+  }
+  /* A long value (a URL source) takes its own line under the label. */
+  .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
+    flex-wrap: wrap;
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
+    flex-basis: 100%;
+  }
+  /* Label/typography stay on the shared form recipe (sm / text-primary) so
+     the attrs panel and the heatmap config read as one product. This block
+     only adjusts the <dd> control column. */
+  .foliplus-layer-attrs-panel .foliplus-form-control {
+    /* Read-only text reads like a control: left-aligned, wrapping, and with
+       tabular figures so counts and timestamps line up column-wise. `margin: 0`
+       because a <dd> carries a UA block margin the heatmap's <div> does not. */
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
 
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
@@ -794,64 +883,63 @@ path.foliplus-focus-mask {
 
 /* ══════════════════════════════════════════════════════════════════════
   Annotation style panel
-  Floating panel opened from a data layer's overflow menu, mounted as a
-  sibling of the layer list (outside the scrollable panel-content) so it can
-  overflow freely. Shares form primitives with common.css.
+  Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel:
+  the surface carries `foliplus-panel` and is anchored to its layer row with
+  the shared header/content classes — the attributes panel's twin. This block
+  only positions the surface, sizes the label glyph, and styles the form rows
+  + reset affordance (form primitives come from common/form.css).
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   --style-panel-width: 240px;
+
   .foliplus-layer-style-panel {
     position: absolute;
-    /* Hidden until .expanded below — positionStylePanel always positions the
-       panel, so display is the only gate. Kept as a defensive fallback for a
-       panel appended without the class. */
-    display: none;
-    width: var(--style-panel-width);
-    top: 0;
-    right: calc(-1 * var(--style-panel-width) - var(--space-sm));
-    background: var(--ctrl-bg);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--panel-shadow);
-    z-index: var(--z-index-floating);
+    top: 100%;
+    right: 0;
+    z-index: 10;
     flex-direction: column;
-    animation: foliplus-dropdown-in 0.15s ease-out;
+    width: var(--style-panel-width);
+    max-height: 320px;
+    padding: 0;
+    overflow-x: hidden;
+    /* Same card chrome as an expanded foliplus panel. */
+    border-radius: var(--radius-card);
+    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
     font-size: var(--font-size-sm);
     color: var(--text-primary);
-    box-sizing: border-box;
+    animation: foliplus-dropdown-in 0.15s ease-out;
 
     @media (prefers-reduced-motion: reduce) {
       animation: none;
     }
-
-    .foliplus-form-row {
-      padding: var(--space-xs) var(--space-lg);
-      height: auto;
-      min-height: var(--toggle-size);
-    }
-
-    /* Section heading inside the panel — a bit more breathing than the
-       shared base so the panel header reads as a real title. */
-    .foliplus-style-section-heading {
-      border-bottom: var(--border-thin) solid var(--divider-color);
-    }
   }
-  /* Only render the panel when the list is expanded (the parent control
-     root is `.expanded` when the layer panel is open). */
-  &.expanded .foliplus-layer-style-panel {
+
+  /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
+     size inside the shared .foliplus-header-icon box (attrs panel recipe). */
+  .foliplus-layer-style-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Detail rows reuse the shared label/control geometry
+     (common/panel.css .foliplus-form-row / -label / -control), the same one
+     the attrs panel and the heatmap config use. */
+  .foliplus-layer-style-panel .foliplus-form-row {
+    padding: 0 var(--space-lg);
+    height: auto;
+  }
+
+  .foliplus-layer-style-panel .foliplus-toggle-switch {
     display: flex;
   }
 
-  .foliplus-form-row .foliplus-toggle-switch {
-    display: flex;
-  }
-
-  .foliplus-btn-row {
+  .foliplus-layer-style-panel .foliplus-btn-row {
     display: flex;
     gap: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
+    padding: var(--space-sm) var(--space-lg);
     border-top: var(--border-thin) solid var(--divider-color);
   }
+
   .foliplus-style-reset-btn {
     flex: 1;
     height: var(--ctrl-size);
