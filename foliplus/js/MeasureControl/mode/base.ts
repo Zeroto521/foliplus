@@ -195,7 +195,11 @@ class PreviewMode extends MeasureMode {
     makeIcon: (text: string) => L.DivIcon,
   ): L.Marker {
     if (!label) {
-      const el = L.marker(latlng, { icon: makeIcon(text), interactive: false });
+      const el = L.marker(latlng, {
+        icon: makeIcon(text),
+        interactive: false,
+        zIndexOffset: 1000,
+      });
       return this.addPreview(el, CONST.PANES.LABEL);
     }
     label.setLatLng(latlng);
