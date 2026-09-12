@@ -457,9 +457,10 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(300)
             state = page.evaluate(_js("MeasureControl/circle_preview_label_pane"))
             panes = {p["name"]: int(p["z"]) for p in state["allPanes"]}
+            # 3-pane layout: graph (k=0), node (k=1), label (k=2)
             assert panes.get("graph") == 600, f"graph pane z wrong: {state}"
-            assert panes.get("label") == 601, (
-                f"label pane z wrong (expected graph+1): {state}"
+            assert panes.get("label") == 602, (
+                f"label pane z wrong (expected graph+2): {state}"
             )
             for phase in ("near", "far"):
                 assert "measure_label-pane" in state[phase]["pane"], (

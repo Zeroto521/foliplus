@@ -123,10 +123,15 @@ class LayerFactory {
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
     };
+    // Register sub-panes eagerly so ensurePane can assign provisional
+    // z-index on first creation. register() only fires when the first
+    // layer is added, but ensurePane may run earlier via ensureVector
+    // or bumpPanes — at that point childPanes must already be populated.
+    if (subPanes.length) factoryPanes.registerSubPanes(subPanes);
+
     const register = () => {
       if (!registered) {
         registered = true;
-        if (subPanes.length) factoryPanes.registerSubPanes(subPanes);
       }
       registerLayer(layerOpts);
     };
