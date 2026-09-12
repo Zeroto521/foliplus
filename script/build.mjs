@@ -245,6 +245,15 @@ const mergeCommonCss = () => {
   return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
 };
 
+/** Every artifact `BaseControl._build_component_template` reads for a control.
+ *  That reader takes both halves unconditionally — it has no fallback path —
+ *  so the gate must expect both too, or a control missing its stylesheet slips
+ *  through here and blows up at attach time. */
+const controlArtifacts = name => [
+  `foliplus-${name}.min.js`,
+  `foliplus-${name}.min.css`,
+];
+
 /** Assert the dist/ tree holds every artifact a complete build would emit.
  *
  * Same source of truth as the build itself (`findComponents`) plus the shared
@@ -253,12 +262,11 @@ const mergeCommonCss = () => {
  */
 const verifyDist = () => {
   const expected = ["foliplus-common.min.js", "foliplus-common.min.css"];
-  for (const { name, css } of findComponents()) {
+  for (const { name } of findComponents()) {
     // The shared entry is written out as "common", so skip its source name
     // (runtime/) — it has no runtime-prefixed artifact.
     if (name === SHARED_ENTRY) continue;
-    expected.push(`foliplus-${name}.min.js`);
-    if (css) expected.push(`foliplus-${name}.min.css`);
+    expected.push(...controlArtifacts(name));
   }
   const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
   if (missing.length) {
