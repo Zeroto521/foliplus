@@ -131,7 +131,9 @@ class TestDocs:
     def test_readme_table_lists_controls(self, controls: set[str]):
         text = _read(ROOT / "README.md")
         missing = [n for n in sorted(controls) if f"**{n}**" not in text]
-        assert not missing, f"missing from README.md features table: {missing}\n{_SCAFFOLD}"
+        assert not missing, (
+            f"missing from README.md features table: {missing}\n{_SCAFFOLD}"
+        )
 
 
 class TestPythonTests:
