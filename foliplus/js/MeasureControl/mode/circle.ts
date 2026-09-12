@@ -32,7 +32,7 @@ class CircleMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_circle";
 
   /** Rebuild a persisted circle measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);

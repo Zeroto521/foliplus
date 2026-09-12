@@ -642,6 +642,70 @@ path.foliplus-focus-mask {
     color: var(--text-primary);
   }
 
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. It IS a foliplus panel: the surface
+     carries `foliplus-panel` and its header/content use the shared panel
+     classes, so every visual rule comes from common/panel.css. This block only
+     positions the surface, sizes the type logo, adds the close affordance and
+     lays out the label/value rows (the heatmap form-row rhythm).
+
+     The width is capped at the anchoring row on purpose: the panel content
+     clips horizontally (common/panel.css `overflow-x: hidden`), so a fixed
+     width wider than `--panel-width` slices the left column off. */
+  .foliplus-layer-attrs-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: var(--panel-width);
+    max-height: 340px;
+    padding: 0;
+    overflow-x: hidden;
+    /* Same card chrome as an expanded foliplus panel. */
+    border-radius: var(--radius-card);
+    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
+  }
+  /* Not a toggle: the real panels' header opens and closes its own panel,
+     this one is purely informational (the × button is the affordance). */
+  .foliplus-layer-attrs-panel .foliplus-panel-header {
+    cursor: default;
+  }
+  /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
+     inside the shared .foliplus-header-icon box. */
+  .foliplus-layer-attrs-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* Detail rows reuse the shared label/control geometry
+     (common/panel.css .foliplus-form-row / -label / -control), the same one the
+     heatmap's form rows use — these hooks only carry the panel specifics. */
+  .foliplus-layer-attrs-panel .foliplus-form-row {
+    padding: 0 var(--space-lg);
+  }
+  /* A long value (a URL source) takes its own line under the label. */
+  .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
+    flex-wrap: wrap;
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
+    flex-basis: 100%;
+  }
+  /* Labels are scaffolding: hierarchy comes from contrast (muted label,
+     primary value), not from weight — bolding every value would flatten
+     the header's semibold and read as noise. */
+  .foliplus-layer-attrs-panel .foliplus-form-label {
+    color: var(--text-muted);
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-control {
+    /* Read-only text reads like a control: left-aligned, wrapping, and with
+       tabular figures so counts and timestamps line up column-wise. `margin: 0`
+       because a <dd> carries a UA block margin the heatmap's <div> does not. */
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
   .foliplus-layer-item.foliplus-layer-focusing {
     border-left-color: var(--accent-primary);

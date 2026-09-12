@@ -54,11 +54,11 @@ class LayerRegistry {
   /**
    * Create a layer info object with all fields populated.
    *
-   * @param {Object} opts - Raw options from registerLayer().
-   * @param {Object} [existingLi] - Existing layer info for re-registration.
-   * @param {Object} [map] - Leaflet map. If provided, resolves `layer` from
+   * @param {RegisterLayerOpts} opts - Raw options from registerLayer().
+   * @param {LayerInfo} [existingLi] - Existing layer info for re-registration.
+   * @param {L.Map} [map] - Leaflet map. If provided, resolves `layer` from
    *   the map/window globals when `opts.layer` is absent.
-   * @returns {Object} A complete layerInfo object.
+   * @returns {LayerInfo} A complete layerInfo object.
    */
   createLayerInfo(
     opts: RegisterLayerOpts,
@@ -90,6 +90,16 @@ class LayerRegistry {
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
+      // Static caller-supplied metadata for the attributes panel. `??` (not
+      // a spread) so a re-registration leaves the previous values in place —
+      // the provider does not necessarily resend provenance on every call,
+      // and clearing it on a silent refresh would lose it.
+      source: opts.source ?? existingLi?.source ?? null,
+      updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
+      meta: opts.meta ?? existingLi?.meta ?? null,
+      // Registration time: set once on first registration, never rewritten by a
+      // provider re-registration.
+      registeredAt: existingLi?.registeredAt ?? Date.now(),
     };
   }
 

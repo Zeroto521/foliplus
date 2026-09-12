@@ -67,6 +67,23 @@ const applyNameProjection = (
   updateItemLabel(item, name);
 };
 
+/** Above this length a value overflows the value column at the panel's fixed
+ *  10px type and is rendered below its label on the full panel width. */
+const ATTRS_ROW_WRAP_CHARS = 32;
+
+/** Format an update timestamp for the attributes panel.
+ *  Accepts an epoch-ms number or any value `new Date()` can parse. Invalid
+ *  input returns "" so the caller omits the row instead of showing a
+ *  "Invalid Date" literal. */
+const formatTimestamp = (value: string | number): string => {
+  const date = new Date(typeof value === "number" ? value : Date.parse(value));
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(CONF.locale_code, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
 /** UI Controller for LayerControl. Handles DOM rendering, events, and drag-and-drop. */
 class LayerUI {
   manager: LayerManager;
@@ -113,12 +130,16 @@ class LayerUI {
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
-  /** Unsubscribe for the control-attached ready signal. */
-  private unsubscribeControlAttached: (() => void) | null;
   /** Currently visible overflow menu (or null). */
-  activeMenu: {
+  declare activeMenu: {
     item: HTMLElement;
     menu: HTMLElement;
+    layerId: string;
+  } | null;
+  /** Currently visible attributes panel (or null). */
+  declare activeAttrsPanel: {
+    item: HTMLElement;
+    panel: HTMLElement;
     layerId: string;
   } | null;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
@@ -151,7 +172,6 @@ class LayerUI {
     this.activeIdx = null;
     this.listCursor = null;
     this.unsubscribeCountChange = null;
-    this.unsubscribeControlAttached = null;
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
@@ -210,31 +230,14 @@ class LayerUI {
     // column may update a second time — that is driven by the event bus.
     this.refreshAllCounts();
 
-    // Init pass, driven by a ready signal instead of a fixed timer: run once
-    // right after the synchronous attach sequence (setTimeout 0 — every
-    // control finishes attaching in the same script stack, and folium layers
-    // are only linked into the registry after that), then re-run whenever a
-    // control attaches later (Heatmap / Measure may register layers at
-    // runtime). initTypesAndVisibility is idempotent — repeated runs are
-    // cheap and converge on the final layer state.
-    this.subscribeControlAttached();
+    // initTypesAndVisibility needs a short delay so that Heatmap/Measure and
+    // other components finish their own attach/onAdd before we finalize type
+    // icons and checkbox visibility. Counts are refreshed synchronously
+    // above so the user sees them immediately; Heatmap publishes its final
+    // count during initScan, which re-runs the refresh via the event bus.
     setTimeout(() => {
       if (this.uiContainer?.isConnected) this.initTypesAndVisibility();
     }, 0);
-  }
-
-  /** Re-run the init pass when another control finishes attaching. Unsubscribes
-   *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
-   *  it lands after the synchronous attach sequence, so folium layers are
-   *  already linked into the registry. */
-  private subscribeControlAttached(): void {
-    this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
-      EVENTS.CONTROL_ATTACHED,
-      () => {
-        if (!this.uiContainer?.isConnected) return;
-        this.initTypesAndVisibility();
-      },
-    );
   }
 
   /** Load every persisted dimension in one call. */
@@ -488,9 +491,7 @@ class LayerUI {
     this.m.persistence.saveNames(() => this.renamedNames);
   }
 
-  /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
-   *  re-run on each CONTROL_ATTACHED so late-registering components are
-   *  folded in. Marks the panel ready for tests/consumers. */
+  /** Full re-scan of every row (used on attach/fold-toggle). */
   initTypesAndVisibility() {
     // Apply persisted hidden state first so initLayerItem reads the corrected
     // map state: folium adds every layer before the control IIFE runs, so on
@@ -506,13 +507,8 @@ class LayerUI {
     // membership, the rows hold the truth. Reconcile hiddenIds against them
     // exactly once so the persisted set becomes absolute. It must come after
     // initLayerItem, not in attachUI: rows render checked by default and
-    // initLayerItem is what corrects them from map.hasLayer(). It also waits
-    // until every layer resolves — on the first pass (setTimeout 0) folium
-    // layers may not be linked into the registry yet, and reconciling then
-    // would read a visible layer as hidden and persist that (corrupting the
-    // local storage for every later test/load). The re-run triggered by
-    // CONTROL_ATTACHED converges here.
-    if (!this.isHiddenReconciled && this.allLayersResolved()) {
+    // initLayerItem is what corrects them from map.hasLayer().
+    if (!this.isHiddenReconciled) {
       this.isHiddenReconciled = true;
       this.reconcileHiddenIds();
     }
@@ -531,10 +527,6 @@ class LayerUI {
     this.syncToggleAll(CONST.GROUP.BASE);
     // enforceOrder may have moved rows; keep roving tabindex aligned.
     this.syncListCursor();
-    // Ready signal for tests: checkbox titles / .active / counts are final
-    // for the current layer set (late components re-trigger this pass and
-    // re-set the attribute, so "ready" always reflects the latest pass).
-    this.uiContainer?.setAttribute("data-ready", "true");
   }
 
   renderInitialList() {
@@ -764,7 +756,7 @@ class LayerUI {
    *  the two right-side decorations stay visually grouped.  The count value
    *  is populated lazily by initLayerItem (layer may not be resolved yet at
    *  render time) and refreshed by onLayerItemCountChange.
-   *  @param {Object} layerInfo - Layer metadata.
+   *  @param {LayerInfo} layerInfo - Layer metadata.
    *  @param {number} idx - Position in the ordered registry.
    *  @returns {HTMLElement} The row element. */
   renderLayerItem(layerInfo: LayerInfo, idx: number) {
@@ -1218,10 +1210,6 @@ class LayerUI {
       this.unsubscribeCountChange();
       this.unsubscribeCountChange = null;
     }
-    if (this.unsubscribeControlAttached) {
-      this.unsubscribeControlAttached();
-      this.unsubscribeControlAttached = null;
-    }
   }
 
   getLayerItems(group: string): NodeListOf<Element> {
@@ -1454,7 +1442,13 @@ class LayerUI {
    */
   handleOutsideMousedown(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
-    if (target && !target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
+    if (!target) return;
+    // The attributes panel is a floating surface anchored to its row: a press
+    // anywhere outside it dismisses it, panel and map alike. One surface per
+    // press — the overflow menu keeps its own click-delegated close in
+    // interaction.ts, and Escape pops the menu before the panel.
+    if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) this.closeAttrsPanel(false);
+    if (!target.closest(".foliplus-layer-ctrl")) this.clearActiveItem();
   }
 
   /** Index of the keyboard cursor from DOM focus, or the previous index.
@@ -1498,8 +1492,8 @@ class LayerUI {
    *   ArrowUp / ArrowDown - Navigate between layer items
    *   ArrowLeft / ArrowRight / Space / Enter - Toggle visibility of focused layer
    *   Ctrl+ArrowUp / Ctrl+ArrowDown - Move focused layer up/down in z-order
-   *   Escape - Cancel: inline rename, overflow menu, the layer focus
-   *     overlay, or the row keyboard cursor
+   *   Escape - Cancel: inline rename, overflow menu, the attributes panel,
+   *     the layer focus overlay, or the row keyboard cursor
    */
   handleKeyDown(event: KeyboardEvent): void {
     if (!this.uiContainer.contains(document.activeElement)) return;
@@ -1522,6 +1516,10 @@ class LayerUI {
         // closeMoreMenu returns focus to the row, so the cursor must be
         // dropped after it rather than before.
         this.closeMoreMenu(true);
+      } else if (this.activeAttrsPanel) {
+        // The attributes panel and the overflow menu both float from the same
+        // ⋮ button, so Escape dismisses whichever is on top.
+        this.closeAttrsPanel(true);
       } else if (this.isFocusing()) {
         this.cancelFocus();
       }
@@ -1727,13 +1725,6 @@ class LayerUI {
       T("focus_layer_base"),
       HINT_DURATION.SHORT,
     );
-  }
-
-  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
-   *  False during the first post-attach pass, when folium layers may not be in
-   *  the registry yet. */
-  private allLayersResolved(): boolean {
-    return this.m.layers.every(li => this.m.findLayer(li) != null);
   }
 
   /** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
@@ -1974,6 +1965,22 @@ class LayerUI {
       ),
     );
 
+    // Attributes is display-only, so it is never disabled — a hidden layer
+    // still has name / source / visibility to show.
+    menu.appendChild(
+      dom.el(
+        "li",
+        {
+          "data-action": CONST.ACTION.ATTRS_LAYER,
+          role: "menuitem",
+          tabindex: "0",
+          title: T("attributes_layer_tooltip"),
+        },
+        { html: Icons.INFO },
+        T("attributes_layer"),
+      ),
+    );
+
     item.style.position = "relative";
     item.appendChild(menu);
 
@@ -1990,6 +1997,203 @@ class LayerUI {
     const item = this.activeMenu.item;
     this.activeMenu.menu.remove();
     this.activeMenu = null;
+    if (setFocus) item.focus();
+  }
+
+  /**
+   * Open the attributes panel for a given layer row: display-only metadata
+   * (name, provenance, feature count, last update, visibility) plus any
+   * third-party `meta` entries passed to registerLayer.
+   *
+   * Rows are omitted when they carry no value — a panel is not padded with
+   * "—". The color basemap is included (it carries no provider data, but the
+   * fixed rows still read).
+   */
+  openAttrsPanel(item: HTMLElement) {
+    this.finishRename();
+    this.closeMoreMenu(true);
+    this.closeAttrsPanel(false);
+
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
+    const layerInfo = isColor ? null : this.manager.layerRegistry.get(layerId);
+
+    // Row kinds: the name row leads the panel at a larger size ("hero"), and a
+    // value that runs long (a URL source) drops below its label and takes the
+    // full panel width instead of squeezing the label column. Width is measured
+    // in the panel's own fixed type size, so a short filename like `roads.shp`
+    // stays in the right-aligned value column.
+    type AttrRow = [string, string, "hero" | "wide" | ""];
+
+    const isLong = (value: string): boolean => value.length > ATTRS_ROW_WRAP_CHARS;
+
+    const rows: AttrRow[] = [];
+
+    // Every row is built as label + resolved value; a row whose value is an
+    // empty string is dropped. That covers both "no data registered" and
+    // "updatedAt parses to nothing" — formatTimestamp returns "" for invalid
+    // input, so an unparsable timestamp vanishes instead of leaving an
+    // empty-value row.
+    const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {
+      if (value) rows.push([label, value, kind]);
+    };
+
+    // Every field is listed by default; addRow drops a row whose value is
+    // empty. The order mirrors how the layer row reads: type, feature count,
+    // then provenance (source / created / updated).
+    const layer = layerInfo?.layer ?? null;
+    // getGeometryType returns EMPTY for a container with no data geometry and
+    // UNKNOWN for mixed/unrecognisable data — both have locale keys.
+    const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
+    const gtype = !rawGtype ? "unknown" : rawGtype;
+    // A basemap has no data geometry, so name it by what it is rather than by
+    // a geometry type it never had.
+    const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
+    const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
+    addRow(T("attr_type"), T(typeKey));
+    if (!isColor) {
+      const count = layerInfo ? this.manager.getFeatureCount(layerId) : null;
+      // The panel is the detail view, so the count is grouped (1,234) rather
+      // than compacted — and `comma` defaults to one fraction digit, which
+      // would render a whole number as "1,234.0", so pass 0 explicitly.
+      addRow(
+        T("attr_feature_count"),
+        count == null
+          ? T("attr_empty")
+          : formatNumber(count, "comma", CONF.locale_code, 0),
+      );
+    }
+    addRow(
+      T("attr_source"),
+      layerInfo?.source ?? "",
+      isLong(layerInfo?.source ?? "") ? "wide" : "",
+    );
+    if (!isColor) {
+      // First-registration time, recorded by the registry itself.
+      addRow(T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
+      addRow(T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
+    }
+
+    const renderList = (listRows: AttrRow[]): HTMLElement =>
+      dom.el(
+        "dl",
+        { class: "foliplus-layer-attrs-list" },
+        ...listRows.map(([label, value, kind]) =>
+          dom.el(
+            "div",
+            {
+              // Shared label/control geometry (common/panel.css), same as the
+              // heatmap's form rows; the attrs class stays as the hook.
+              class: ["foliplus-form-row", kind].filter(Boolean).join(" "),
+            },
+            // The hero leads the panel as its header (see the CSS); detail rows
+            // are plain label/value pairs.
+            dom.el("dt", { class: "foliplus-form-label" }, label),
+            dom.el(
+              "dd",
+              {
+                class: ["foliplus-form-control", kind].filter(Boolean).join(" "),
+                title: value,
+              },
+              value,
+            ),
+          ),
+        ),
+      );
+
+    // Third-party meta rows continue the same list — no heading, no separator:
+    // the panel is one flat column of facts, in the same order every time.
+    const metaEntries = Object.entries(layerInfo?.meta ?? {}).filter(
+      ([, v]) => v != null && v !== "",
+    );
+    const metaRows: AttrRow[] = metaEntries.map(([key, value]) => [
+      key,
+      typeof value === "number"
+        ? // Integers group without a trailing ".0"; decimals keep one digit.
+          formatNumber(
+            value,
+            "comma",
+            CONF.locale_code,
+            Number.isInteger(value) ? 0 : 1,
+          )
+        : String(value),
+      "",
+    ]);
+
+    const displayName = isColor ? this.colorLayerName() : (layerInfo?.name ?? layerId);
+    // iconSvg is the layer's own logo (basemaps and custom layers ship one);
+    // otherwise fall back to the geometry glyph the layer row shows.
+    const typeSvg =
+      layerInfo?.iconSvg ??
+      (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
+
+    const closeBtn = dom.el(
+      "button",
+      {
+        // The shared header close affordance — same classes as the layer
+        // panel's own ×, so position, size and hover are identical.
+        class: `${CONST.CLASSES.ATTRS_CLOSE} foliplus-ctrl-btn foliplus-close-btn`,
+        type: "button",
+        title: T("attr_close"),
+        "aria-label": T("attr_close"),
+      },
+      // The same CLOSE glyph the layer panel's header uses (not a text "×").
+      { html: Icons.CLOSE },
+    );
+    closeBtn.addEventListener("click", () => this.closeAttrsPanel(true));
+
+    const panel = dom.el(
+      "div",
+      {
+        // `foliplus-panel` pulls in the shared panel vocabulary, so the
+        // attributes surface is styled by the same rules as every other panel
+        // (header bar, content scroll) instead of a lookalike.
+        class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
+        role: "dialog",
+        "aria-label": T("attributes_layer"),
+      },
+      // Header bar — literally the shared panel header: the type logo sits
+      // inside the title (as in the layer panel) and the × is the shared
+      // close button, so both line up with every other foliplus panel.
+      dom.el(
+        "div",
+        { class: "foliplus-panel-header" },
+        dom.el(
+          "span",
+          { class: "foliplus-header-title" },
+          dom.el(
+            "span",
+            {
+              class: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+              "aria-hidden": "true",
+            },
+            { html: typeSvg },
+          ),
+          displayName,
+        ),
+        closeBtn,
+      ),
+      // One flat list: third-party meta rows continue the same rhythm instead
+      // of opening a second group, so the panel reads as one column of facts.
+      dom.el(
+        "div",
+        { class: "foliplus-panel-content" },
+        renderList([...rows, ...metaRows]),
+      ),
+    );
+
+    item.style.position = "relative";
+    item.appendChild(panel);
+
+    this.activeAttrsPanel = { item, panel, layerId };
+  }
+
+  /** Close the attributes panel. setFocus = true returns focus to the row. */
+  closeAttrsPanel(setFocus: boolean) {
+    if (!this.activeAttrsPanel) return;
+    const item = this.activeAttrsPanel.item;
+    this.activeAttrsPanel.panel.remove();
+    this.activeAttrsPanel = null;
     if (setFocus) item.focus();
   }
 
