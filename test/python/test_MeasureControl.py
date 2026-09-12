@@ -420,26 +420,24 @@ class TestMeasureControlBrowser:
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
             assert moved, f"circle preview node did not follow the mouse: {state}"
             s = state["stack"]
-            assert s["node"] > s["circle"], f"radius node below preview circle: {s}"
-            assert s["node"] > s["dashed"], f"radius node below radius line: {s}"
-            assert s["center"] > s["circle"], f"center node below preview circle: {s}"
-            assert s["center"] > s["dashed"], f"center node below radius line: {s}"
-            # After a third move the preview circle's `setRadius` and the
-            # line's `setLatLngs` have both re-sorted the SVG root to their
-            # own tails, so without a matching re-add the center node would
-            # be painted over (regression: PR #252).
+            # 3-pane layout: nodes live in the node pane, geometry in the
+            # graph pane. Paint order is guaranteed by pane z-index, not
+            # SVG sibling order.
+            assert s["nodePane"] == "node", f"radius node not in node pane: {s}"
+            assert s["centerPane"] == "node", f"center node not in node pane: {s}"
+            assert s["node"] > s["circle"], (
+                f"node pane z below graph pane: {s}"
+            )
+            assert s["center"] > s["circle"], (
+                f"node pane z below graph pane (center): {s}"
+            )
+            # After a third move the pane z-index ordering must hold.
             s3 = state["stackAfterThirdMove"]
-            assert s3["center"] > s3["circle"], (
-                f"center node climbed below preview circle after repeated moves: {s3}"
-            )
-            assert s3["center"] > s3["dashed"], (
-                f"center node climbed below radius line after repeated moves: {s3}"
-            )
             assert s3["node"] > s3["circle"], (
-                f"radius node climbed below preview circle after repeated moves: {s3}"
+                f"node pane z dropped below graph after repeated moves: {s3}"
             )
-            assert s3["node"] > s3["dashed"], (
-                f"radius node climbed below radius line after repeated moves: {s3}"
+            assert s3["center"] > s3["circle"], (
+                f"center pane z dropped below graph after repeated moves: {s3}"
             )
             assert not errors, f"JS errors: {errors}"
 
@@ -925,25 +923,33 @@ class TestMeasureControlBrowser:
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
-                const dotSvg = dot.closest('svg');
-                const fillSvg = fill.closest('svg');
-                if (!dotSvg || !fillSvg) return { error: 'no SVG renderer found' };
-                if (dotSvg !== fillSvg) return { error: 'dot and fill in different SVGs' };
-                const rect = dot.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const topEl = document.elementFromPoint(cx, cy);
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                const paneName = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    if (!pane) return null;
+                    const m = pane.className.match(/measure_(\\w+)-pane/);
+                    return m ? m[1] : null;
+                };
+                const dotZ = paneZ(dot);
+                const fillZ = paneZ(fill);
                 return {
                     dotIsPath: dot.tagName === 'path',
-                    sameSvg: dotSvg === fillSvg,
-                    topEl: topEl ? topEl.tagName + '.' + (topEl.getAttribute('class') || '') : null,
-                    topElIsFill: topEl === fill,
+                    dotPane: paneName(dot),
+                    fillPane: paneName(fill),
+                    dotZ,
+                    fillZ,
+                    dotAboveFill: dotZ > fillZ,
                 };
             }""")
             assert not info.get("error"), f"probe error: {info.get('error')}"
             assert not errors, f"JS errors: {errors}"
             assert info["dotIsPath"], "centroid dot should be an SVG path"
-            assert info["sameSvg"], "dot and fill must share the SVG renderer"
+            assert info["dotPane"] == "node", f"dot not in node pane: {info}"
+            assert info["fillPane"] == "graph", f"fill not in graph pane: {info}"
+            assert info["dotAboveFill"], f"node pane z below graph pane: {info}"
             assert not info["topElIsFill"], (
                 f"fill is painting over the centroid dot; topEl={info['topEl']}"
             )
@@ -960,21 +966,17 @@ class TestMeasureControlBrowser:
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
-                const dotSvg = dot.closest('svg');
-                const fillSvg = fill.closest('svg');
-                if (!dotSvg || !fillSvg || dotSvg !== fillSvg)
-                    return { error: 'dot/fill SVG mismatch after zoom' };
-                const rect = dot.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const topEl = document.elementFromPoint(cx, cy);
-                return { topElIsFill: topEl === fill };
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                return { dotAboveFill: paneZ(dot) > paneZ(fill) };
             }""")
             assert not info2.get("error"), (
                 f"post-zoom probe error: {info2.get('error')}"
             )
-            assert not info2["topElIsFill"], (
-                "after zoom: fill is painting over the centroid dot"
+            assert info2["dotAboveFill"], (
+                "after zoom: node pane z below graph pane"
             )
 
     def test_polygon_node_delete(self, browser, tmp_path):
