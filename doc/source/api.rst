@@ -13,6 +13,7 @@ API
    FullscreenControl
    HeatmapControl
    LayerControl
+   LocateControl
    MeasureControl
    ScaleControl
    SearchControl

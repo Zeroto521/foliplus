@@ -26,6 +26,7 @@
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 - `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
+- `script/new-control.mjs`: scaffold a new control (`npm run new-control -- FooControl`) — generates the dual-stack skeleton and patches `__init__.py`, `COMPONENTS`, `api.rst`, README, and `_JS_USED_KEYS`; `test_component_registry.py` fails with an explicit checklist when any registration point drifts from the filesystem
 
 ### Changed
 
@@ -54,6 +55,7 @@
 - `LayerControl`/`HeatmapControl`: attach-time init is signal-driven (`CONTROL_ATTACHED` + `data-ready`), replacing fixed timers/retries; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283), [#285](https://github.com/Zeroto521/foliplus/pull/285))
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
 - `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
+- `Frontend tooling`: vitest coverage excludes component `index.ts` by glob; `test_build.py` derives `COMPONENTS` from the package instead of a hand-maintained tuple
 
 ### Removed
 
@@ -72,6 +74,8 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `ScaleControl`: add the missing entry to `core/component.ts` `COMPONENTS` (identity registry)
+- `LocateControl`: add the missing entry to `doc/source/api.rst` autosummary
 
 ## [v0.3.0] (2026-08-02)
 
