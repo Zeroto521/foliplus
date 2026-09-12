@@ -1280,18 +1280,23 @@ describe("LayerUI focusLayer / openMoreMenu / closeMoreMenu", () => {
     });
 
     it("prefers the layer's own iconSvg for the header logo", () => {
-      manager.registerLayer({
-        id: "attr-logo1",
-        name: "Logo Layer",
-        iconSvg: '<svg data-logo="1"></svg>',
-      });
+      // A non-empty logo: the registry rejects an icon with no content (the
+      // allowlist gate treats a bare `<svg></svg>` as "no icon") and falls
+      // through to the geometry glyph, which is what this test must beat. The
+      // mark rides on `class` — the gate keeps presentation attributes, never
+      // `data-*`.
+      const logo =
+        '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
+      manager.registerLayer({ id: "attr-logo1", name: "Logo Layer", iconSvg: logo });
 
       const item = findItem(ui, "attr-logo1");
       ui.openAttrsPanel(item);
 
-      expect(item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML).toContain(
-        'data-logo="1"',
-      );
+      const icon = item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML;
+      // Both marks are this layer's logo; the UNKNOWN/geometry glyphs do not
+      // carry either.
+      expect(icon).toContain('r="10"');
+      expect(icon).toContain('class="logo"');
     });
 
     it("closeAttrsPanel(setFocus=true) returns focus to the layer row", () => {
