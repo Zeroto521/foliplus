@@ -1,15 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   POSITIONS,
+  SPEC,
   buildSkeleton,
   controlSlug,
   insertSortedLine,
   isValidControlName,
+  parseArgs,
   patchApiRst,
   patchComponentTs,
   patchInitPy,
   patchLocaleKeys,
   patchReadme,
+  report,
+  scaffoldControl,
   splitArgv,
 } from "#script/new-control.mjs";
 
@@ -50,6 +57,38 @@ const LOCALE_PY = `_JS_USED_KEYS = {
 }
 `;
 
+/** Minimal repo fixture that scaffoldControl can patch. */
+function mkFixture(files: Record<string, string>): string {
+  const root = join(tmpdir(), "new-control-test-" + Date.now() + Math.random());
+  for (const [rel, content] of Object.entries(files)) {
+    const path = join(root, ...rel.split("/"));
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, content, "utf-8");
+  }
+  return root;
+}
+
+const FIXTURE = {
+  "foliplus/__init__.py": INIT_PY,
+  "foliplus/js/core/component.ts": COMPONENT_TS,
+  "doc/source/api.rst": API_RST,
+  "README.md": README,
+  "test/python/test_locale.py": LOCALE_PY,
+};
+
+let tmpRoot: string | undefined;
+
+afterEach(() => {
+  if (tmpRoot) {
+    try {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+    tmpRoot = undefined;
+  }
+});
+
 describe("isValidControlName", () => {
   it("accepts PascalCase *Control", () => {
     expect(isValidControlName("FooControl")).toBe(true);
@@ -61,6 +100,7 @@ describe("isValidControlName", () => {
     expect(isValidControlName("fooControl")).toBe(false);
     expect(isValidControlName("Control")).toBe(false);
     expect(isValidControlName("FooBar")).toBe(false);
+    expect(isValidControlName("")).toBe(false);
   });
 });
 
@@ -97,6 +137,31 @@ describe("splitArgv", () => {
     expect(positional).toEqual(["FooControl"]);
     expect(flagTokens).toEqual(["--description", "hello world", "--icon", "🧪"]);
   });
+
+  it("handles empty argv", () => {
+    expect(splitArgv([])).toEqual({ positional: [], flagTokens: [] });
+  });
+});
+
+describe("parseArgs", () => {
+  it("lifts the positional name onto the result", () => {
+    const opts = parseArgs(["FooControl", "--force"]);
+    expect(opts.name).toBe("FooControl");
+    expect(opts.force).toBe(true);
+    expect(opts.errors).toEqual([]);
+  });
+
+  it("defaults position and leaves name null when absent", () => {
+    const opts = parseArgs([]);
+    expect(opts.name).toBeNull();
+    expect(opts.position).toBe("topleft");
+    expect(opts.description).toBe("");
+  });
+
+  it("surfaces unknown-flag errors", () => {
+    const opts = parseArgs(["--nope"]);
+    expect(opts.errors.length).toBeGreaterThan(0);
+  });
 });
 
 describe("insertSortedLine", () => {
@@ -107,9 +172,22 @@ describe("insertSortedLine", () => {
       'ScaleControl: "ScaleControl",',
     );
     expect(out).toContain('ScaleControl: "ScaleControl",');
-    // E < H < M < S — Scale lands after MeasureControl, before the closing brace.
     expect(out.indexOf("MeasureControl")).toBeLessThan(out.indexOf("ScaleControl"));
     expect(out.indexOf("ScaleControl")).toBeLessThan(out.indexOf("} as const;"));
+  });
+
+  it("skips comment lines when ordering", () => {
+    const text = `const COMPONENTS = {
+  // header
+  ExportControl: "ExportControl",
+} as const;
+`;
+    const out = insertSortedLine(
+      text,
+      { start: "const COMPONENTS = {", end: "} as const;" },
+      'ScaleControl: "ScaleControl",',
+    );
+    expect(out.indexOf("ExportControl")).toBeLessThan(out.indexOf("ScaleControl"));
   });
 
   it("is a no-op when the line already exists", () => {
@@ -128,6 +206,16 @@ describe("insertSortedLine", () => {
       insertSortedLine("nope", { start: "const X = {", end: "}" }, "a: 1,"),
     ).toThrow(/marker not found/);
   });
+
+  it("throws when the end marker is missing", () => {
+    expect(() =>
+      insertSortedLine(
+        "const COMPONENTS = {\n  A: 1,\n",
+        { start: "const COMPONENTS = {", end: "} as const;" },
+        "B: 2,",
+      ),
+    ).toThrow(/end marker not found/);
+  });
 });
 
 describe("patchInitPy", () => {
@@ -138,9 +226,22 @@ describe("patchInitPy", () => {
     expect(out.indexOf('"BaseControl"')).toBeLessThan(out.indexOf('"ExportControl"'));
   });
 
-  it("is idempotent", () => {
+  it("is idempotent when the import already exists", () => {
     const once = patchInitPy(INIT_PY, "AlphaControl");
     expect(patchInitPy(once, "AlphaControl")).toBe(once);
+  });
+
+  it("keeps __all__ sorted when only the export is missing", () => {
+    const text = `from .BaseControl import BaseControl
+from .ScaleControl import ScaleControl
+
+__all__ = [
+    "BaseControl",
+]
+`;
+    const out = patchInitPy(text, "ScaleControl");
+    // Import already present → no change.
+    expect(out).toBe(text);
   });
 });
 
@@ -173,6 +274,12 @@ describe("patchReadme", () => {
   it("does not duplicate an existing row", () => {
     expect(patchReadme(README, "ExportControl", "x", "x")).toBe(README);
   });
+
+  it("throws when no control table row exists", () => {
+    expect(() => patchReadme("no table", "FooControl", "x")).toThrow(
+      /README control table/,
+    );
+  });
 });
 
 describe("patchLocaleKeys", () => {
@@ -181,6 +288,26 @@ describe("patchLocaleKeys", () => {
     expect(out).toContain("# ScaleControl");
     expect(out).toContain('"ScaleControl.title"');
     expect(out.indexOf("ScaleControl.title")).toBeLessThan(out.indexOf("\n}"));
+  });
+
+  it("is a no-op when the key already exists", () => {
+    const text = `_JS_USED_KEYS = {
+    "ScaleControl.title",
+}
+`;
+    expect(patchLocaleKeys(text, "ScaleControl")).toBe(text);
+  });
+
+  it("throws when _JS_USED_KEYS is missing", () => {
+    expect(() => patchLocaleKeys("nothing", "FooControl")).toThrow(
+      /_JS_USED_KEYS not found/,
+    );
+  });
+
+  it("throws when the set has no closing brace line", () => {
+    expect(() => patchLocaleKeys("_JS_USED_KEYS = {\n", "FooControl")).toThrow(
+      /closing brace/,
+    );
   });
 });
 
@@ -222,6 +349,7 @@ describe("buildSkeleton", () => {
       "--radius-lg",
       "--font-size-sm",
     ]);
+    expect(tokens.length).toBeGreaterThan(0);
     for (const t of tokens) expect(allowed.has(t)).toBe(true);
   });
 
@@ -234,12 +362,118 @@ describe("buildSkeleton", () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort());
   });
 
-  it("accepts only known Leaflet positions at the type level", () => {
+  it("accepts only known Leaflet positions", () => {
     expect([...POSITIONS].sort()).toEqual([
       "bottomleft",
       "bottomright",
       "topleft",
       "topright",
     ]);
+  });
+});
+
+describe("scaffoldControl", () => {
+  it("creates skeleton files and patches every registry", () => {
+    tmpRoot = mkFixture(FIXTURE);
+    const result = scaffoldControl(
+      { name: "FooControl", description: "Foo.", position: "topright", icon: "🧪" },
+      tmpRoot,
+    );
+
+    expect(result.created.sort()).toEqual([
+      "foliplus/FooControl.py",
+      "foliplus/css/FooControl.css",
+      "foliplus/js/FooControl/index.ts",
+      "foliplus/locale/FooControl.en.json",
+      "foliplus/locale/FooControl.zh.json",
+      "test/python/test_FooControl.py",
+    ]);
+    expect(result.patched.sort()).toEqual([
+      "README.md",
+      "doc/source/api.rst",
+      "foliplus/__init__.py",
+      "foliplus/js/core/component.ts",
+      "test/python/test_locale.py",
+    ]);
+    expect(result.skipped).toEqual([]);
+
+    expect(readFileSync(join(tmpRoot, "foliplus", "__init__.py"), "utf-8")).toContain(
+      "from .FooControl import FooControl",
+    );
+    expect(
+      readFileSync(join(tmpRoot, "foliplus", "js", "core", "component.ts"), "utf-8"),
+    ).toContain('FooControl: "FooControl",');
+    expect(readFileSync(join(tmpRoot, "doc", "source", "api.rst"), "utf-8")).toContain(
+      "FooControl",
+    );
+    expect(readFileSync(join(tmpRoot, "README.md"), "utf-8")).toContain(
+      "**FooControl**",
+    );
+    expect(
+      readFileSync(join(tmpRoot, "test", "python", "test_locale.py"), "utf-8"),
+    ).toContain('"FooControl.title"');
+    expect(
+      readFileSync(join(tmpRoot, "foliplus", "js", "FooControl", "index.ts"), "utf-8"),
+    ).toContain('from "#core/controlEnv.js"');
+  });
+
+  it("is idempotent on a second run without --force", () => {
+    tmpRoot = mkFixture(FIXTURE);
+    scaffoldControl({ name: "FooControl", description: "Foo." }, tmpRoot);
+    const again = scaffoldControl({ name: "FooControl", description: "Foo." }, tmpRoot);
+    expect(again.created).toEqual([]);
+    expect(again.patched).toEqual([]);
+    expect(again.skipped.length).toBeGreaterThan(0);
+  });
+
+  it("uses CRLF-preserving patches when the fixture is CRLF", () => {
+    const crlfInit = INIT_PY.replace(/\n/g, "\r\n");
+    tmpRoot = mkFixture({ ...FIXTURE, "foliplus/__init__.py": crlfInit });
+    scaffoldControl({ name: "FooControl", description: "Foo." }, tmpRoot);
+    const out = readFileSync(join(tmpRoot, "foliplus", "__init__.py"), "utf-8");
+    expect(out).toContain("from .FooControl import FooControl");
+    expect(out.includes("\r\n")).toBe(true);
+  });
+
+  it("rethrows and logs when a registry mutator fails", () => {
+    // README without any **…Control** row → patchReadme throws.
+    tmpRoot = mkFixture({ ...FIXTURE, "README.md": "no table here\n" });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() =>
+      scaffoldControl({ name: "FooControl", description: "x" }, tmpRoot),
+    ).toThrow(/README control table/);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
+describe("report", () => {
+  it("prints created / patched / skipped sections", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    report({
+      created: ["foliplus/FooControl.py"],
+      patched: ["README.md"],
+      skipped: ["foliplus/__init__.py"],
+      name: "FooControl",
+      description: "x",
+      position: "topleft",
+      icon: "x",
+    });
+    const out = spy.mock.calls.map(c => c.join(" ")).join("\n");
+    expect(out).toContain("scaffolded FooControl");
+    expect(out).toContain("+ foliplus/FooControl.py");
+    expect(out).toContain("~ README.md");
+    expect(out).toContain("· foliplus/__init__.py");
+    expect(out).toContain("Manual next steps");
+    spy.mockRestore();
+  });
+});
+
+describe("SPEC", () => {
+  it("documents root / description / position / icon / force", () => {
+    for (const key of ["root", "description", "position", "icon", "force", "help"]) {
+      expect(SPEC).toHaveProperty(key);
+    }
+    expect(SPEC.root.default).toBeTruthy();
   });
 });

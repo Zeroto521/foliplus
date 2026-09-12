@@ -2,24 +2,36 @@
 /**
  * Scaffold a new foliplus control and patch every registration point.
  *
+ * Creates the dual-stack skeleton (Python + TS + CSS + locale + minimal test)
+ * and updates the registries a control must appear in. Pure helpers are
+ * exported for unit tests; the CLI entry is guarded so importing the module
+ * has no side effects.
+ *
  * Usage:
  *   node script/new-control.mjs FooControl --description="..." --position=topleft --icon=⚙
  *   npm run new-control -- FooControl
  *
- * Creates the dual-stack skeleton (Python + TS + CSS + locale) and updates the
- * registries that a control must appear in. Pure helpers are exported for unit
- * tests; the CLI entry is guarded so importing the module has no side effects.
+ * Registration points (auto-patched):
+ *   foliplus/__init__.py, core/component.ts, doc/source/api.rst,
+ *   README.md, test/python/test_locale.py
+ * Auto-derived (no patch): test_build.py COMPONENTS, vitest index.ts glob.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { dirname, relative, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { help, parseArgs } from "./args.mjs";
+import { help, parseArgs as parseArgsCore } from "./args.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..");
 
 const SPEC = {
   help: { type: "bool", short: "h", desc: "Show this help" },
+  root: {
+    type: "string",
+    default: ROOT,
+    desc: "Project root directory",
+  },
   description: {
     type: "string",
     default: "",
@@ -38,7 +50,7 @@ const SPEC = {
   force: { type: "bool", desc: "Overwrite existing skeleton files" },
 };
 
-/** Valid Leaflet control positions accepted by BaseControl. */
+/** Leaflet control positions accepted by BaseControl. */
 const POSITIONS = new Set(["topleft", "topright", "bottomleft", "bottomright"]);
 
 /** PascalCase name ending in Control. */
@@ -52,8 +64,9 @@ const controlSlug = name =>
     .toLowerCase();
 
 /**
- * Split argv into positionals and flag tokens (args.mjs only understands flags).
- * Flag values that do not start with `-` stay attached to their flag.
+ * Split argv into positionals and flag tokens. args.mjs only understands
+ * flags, so the control name rides as a bare positional. Flag values that
+ * do not start with `-` stay attached to their flag.
  */
 const splitArgv = (argv, spec = SPEC) => {
   const positional = [];
@@ -74,6 +87,16 @@ const splitArgv = (argv, spec = SPEC) => {
     }
   }
   return { positional, flagTokens };
+};
+
+/**
+ * Parse CLI argv (positional name + flags) into one options object.
+ * Mirrors bundle-size-check's parseArgs wrapper.
+ */
+const parseArgs = (argv = process.argv.slice(2), spec = SPEC) => {
+  const { positional, flagTokens } = splitArgv(argv, spec);
+  const raw = parseArgsCore(flagTokens, spec);
+  return { ...raw, name: positional[0] ?? null };
 };
 
 /**
@@ -301,65 +324,27 @@ class Test${name}Rendering:
   return { files, slug, cssClass, localeKey, icon };
 };
 
-// ── CLI ─────────────────────────────────────────────────────────
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
-const runCli = () => {
-  const ROOT = resolve(__dirname, "..");
-  const { positional, flagTokens } = splitArgv(process.argv.slice(2));
-  const _raw = parseArgs(flagTokens, SPEC);
+/**
+ * Write skeleton files and patch every registration point under `root`.
+ * Returns { created, patched, skipped } of repo-relative paths.
+ */
+const scaffoldControl = (opts, root = ROOT) => {
+  const name = opts.name;
+  const description = opts.description || `${name} for foliplus maps.`;
+  const position = opts.position ?? "topleft";
+  const icon = opts.icon ?? "🧩";
+  const force = Boolean(opts.force);
+  const { files } = buildSkeleton({ name, description, position, icon });
 
-  if (_raw.help) {
-    console.log(help(SPEC));
-    console.log(`
-Example:
-  node script/new-control.mjs FooControl --description="Foo the map" --icon=🧪`);
-    process.exit(0);
-  }
-
-  const nameArg = positional[0];
-  if (!nameArg || _raw.errors.length) {
-    if (_raw.errors.length) console.error(_raw.errors.join("\n"));
-    console.error("Usage: node script/new-control.mjs <NameControl> [options]");
-    console.error(help(SPEC));
-    process.exit(1);
-  }
-
-  if (!isValidControlName(nameArg)) {
-    console.error(
-      `${FAIL} name must be PascalCase ending in Control (got "${nameArg}")`,
-    );
-    process.exit(1);
-  }
-
-  const position = _raw.position;
-  if (!POSITIONS.has(position)) {
-    console.error(
-      `${FAIL} --position must be one of ${[...POSITIONS].join(", ")} (got "${position}")`,
-    );
-    process.exit(1);
-  }
-
-  const NAME = nameArg;
-  const DESCRIPTION = _raw.description || `${NAME} for foliplus maps.`;
-  const ICON = _raw.icon;
-  const FORCE = Boolean(_raw.force);
-  const { files, localeKey } = buildSkeleton({
-    name: NAME,
-    description: DESCRIPTION,
-    position,
-    icon: ICON,
-  });
-
-  const p = (...parts) => resolve(ROOT, ...parts);
-  const rel = path =>
-    path.replace(/\\/g, "/").replace(ROOT.replace(/\\/g, "/") + "/", "");
+  const abs = (...parts) => resolve(root, ...parts);
+  const rel = path => relative(root, path).replace(/\\/g, "/");
 
   const created = [];
   const patched = [];
   const skipped = [];
 
   const writeIfAbsent = (path, content) => {
-    if (existsSync(path) && !FORCE) {
+    if (existsSync(path) && !force) {
       skipped.push(rel(path));
       return false;
     }
@@ -381,7 +366,7 @@ Example:
       throw err;
     }
     if (after === before) {
-      if (!before.includes(NAME)) skipped.push(rel(path) + " (already present)");
+      if (!before.includes(name)) skipped.push(rel(path) + " (already present)");
       return;
     }
     writeFileSync(path, after.replace(/\n/g, eol), "utf-8");
@@ -389,20 +374,26 @@ Example:
   };
 
   for (const [relPath, content] of files) {
-    writeIfAbsent(p(...relPath.split("/")), content);
+    writeIfAbsent(abs(...relPath.split("/")), content);
   }
 
-  patchFile(p("foliplus", "__init__.py"), t => patchInitPy(t, NAME));
-  patchFile(p("foliplus", "js", "core", "component.ts"), t =>
-    patchComponentTs(t, NAME),
+  patchFile(abs("foliplus", "__init__.py"), t => patchInitPy(t, name));
+  patchFile(abs("foliplus", "js", "core", "component.ts"), t =>
+    patchComponentTs(t, name),
   );
-  patchFile(p("doc", "source", "api.rst"), t => patchApiRst(t, NAME));
-  patchFile(p("README.md"), t => patchReadme(t, NAME, DESCRIPTION, ICON));
+  patchFile(abs("doc", "source", "api.rst"), t => patchApiRst(t, name));
+  patchFile(abs("README.md"), t => patchReadme(t, name, description, icon));
   // test_build.py derives COMPONENTS from the package — no patch needed.
   // vitest.config.mjs excludes foliplus/js/*/index.ts by glob — no patch needed.
-  patchFile(p("test", "python", "test_locale.py"), t => patchLocaleKeys(t, NAME));
+  patchFile(abs("test", "python", "test_locale.py"), t => patchLocaleKeys(t, name));
 
-  console.log(`${OK} scaffolded ${NAME}\n`);
+  return { created, patched, skipped, name, description, position, icon };
+};
+
+/** Pretty-print a scaffoldControl result. */
+const report = result => {
+  const { created, patched, skipped, name } = result;
+  console.log(`${OK} scaffolded ${name}\n`);
   if (created.length) {
     console.log("Created:");
     for (const f of created) console.log(`  + ${f}`);
@@ -418,7 +409,7 @@ Example:
   console.log(`
 Manual next steps:
   1. Implement buildDOM() / __init__ kwargs / _export_fields as needed
-  2. Add real locale strings to foliplus/locale/${NAME}.{en,zh}.json
+  2. Add real locale strings to foliplus/locale/${name}.{en,zh}.json
      and keep test/python/test_locale.py::_JS_USED_KEYS in sync
   3. If the control participates in mode locking or EventBus, register it in
      foliplus/js/core/mode.ts and foliplus/js/core/event/const.ts
@@ -429,19 +420,52 @@ Manual next steps:
 
 export {
   POSITIONS,
+  SPEC,
   buildSkeleton,
   controlSlug,
   insertSortedLine,
   isValidControlName,
+  parseArgs,
   patchApiRst,
   patchComponentTs,
   patchInitPy,
   patchLocaleKeys,
   patchReadme,
+  report,
+  scaffoldControl,
   splitArgv,
 };
 
+// CLI entry point: `node script/new-control.mjs <NameControl> [options]`.
+// Guarded so importing this module (for tests) has no side effects.
+/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  runCli();
+  const opts = parseArgs();
+  if (opts.help) {
+    console.log(help(SPEC));
+    console.log(`
+Example:
+  node script/new-control.mjs FooControl --description="Foo the map" --icon=🧪`);
+    process.exit(0);
+  }
+  if (!opts.name || opts.errors.length) {
+    if (opts.errors.length) console.error(opts.errors.join("\n"));
+    console.error("Usage: node script/new-control.mjs <NameControl> [options]");
+    console.error(help(SPEC));
+    process.exit(1);
+  }
+  if (!isValidControlName(opts.name)) {
+    console.error(
+      `${FAIL} name must be PascalCase ending in Control (got "${opts.name}")`,
+    );
+    process.exit(1);
+  }
+  if (!POSITIONS.has(opts.position)) {
+    console.error(
+      `${FAIL} --position must be one of ${[...POSITIONS].join(", ")} (got "${opts.position}")`,
+    );
+    process.exit(1);
+  }
+  report(scaffoldControl(opts, resolve(opts.root)));
 }
 /* v8 ignore stop */

@@ -25,6 +25,9 @@ _NON_CONTROL_MODULES = frozenset({"BaseControl"})
 #: JS dirs that are shared runtime, not control components (mirrors build.mjs).
 _NON_COMPONENT_JS_DIRS = frozenset({"core", "common", "runtime", "type"})
 
+#: Every miss-points here — the scaffold is the happy path, this test is the net.
+_SCAFFOLD = "Prefer: npm run new-control -- <NameControl>"
+
 
 def discover_python_controls() -> set[str]:
     names: set[str] = set()
@@ -83,7 +86,7 @@ class TestPythonPackage:
         ]
         assert not missing, (
             f"missing from foliplus/__init__.py: {missing}\n"
-            "Add `from .{Name} import {Name}` and include it in __all__."
+            f"Add `from .{{Name}} import {{Name}}` and __all__. {_SCAFFOLD}"
         )
 
     def test_locale_tables_exist(self, controls: set[str]):
@@ -93,7 +96,7 @@ class TestPythonPackage:
                 path = PKG / "locale" / f"{name}.{code}.json"
                 if not path.is_file():
                     missing.append(str(path.relative_to(ROOT)))
-        assert not missing, f"missing locale tables: {missing}"
+        assert not missing, f"missing locale tables: {missing}\n{_SCAFFOLD}"
 
     def test_locale_tables_have_code_and_name(self, controls: set[str]):
         """Each table must declare its language so resolve_locale can pick it up."""
@@ -113,7 +116,7 @@ class TestJsRegistries:
         missing = [n for n in sorted(controls) if f'{n}: "{n}"' not in text]
         assert not missing, (
             f"missing from core/component.ts COMPONENTS: {missing}\n"
-            'Add `{Name}: "{Name}",` or run: node script/new-control.mjs <Name>'
+            f'Add `{{Name}}: "{{Name}}",`. {_SCAFFOLD}'
         )
 
 
@@ -123,12 +126,12 @@ class TestDocs:
         missing = [
             n for n in sorted(controls) if not re.search(rf"^\s+{n}\s*$", text, re.M)
         ]
-        assert not missing, f"missing from doc/source/api.rst: {missing}"
+        assert not missing, f"missing from doc/source/api.rst: {missing}\n{_SCAFFOLD}"
 
     def test_readme_table_lists_controls(self, controls: set[str]):
         text = _read(ROOT / "README.md")
         missing = [n for n in sorted(controls) if f"**{n}**" not in text]
-        assert not missing, f"missing from README.md features table: {missing}"
+        assert not missing, f"missing from README.md features table: {missing}\n{_SCAFFOLD}"
 
 
 class TestPythonTests:
@@ -148,7 +151,7 @@ class TestPythonTests:
         missing = [n for n in sorted(controls) if f'"{n}.' not in text]
         assert not missing, (
             f"no <Name>.* keys in test_locale.py::_JS_USED_KEYS for: {missing}\n"
-            'Add the keys the JS actually uses (T("...") under CONST.name).'
+            f'Add the keys the JS actually uses (T("...") under CONST.name). {_SCAFFOLD}'
         )
 
 
