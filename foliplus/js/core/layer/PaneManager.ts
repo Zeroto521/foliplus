@@ -66,22 +66,14 @@ class PaneManager {
     if (!pane) {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
-      pane.style.zIndex = String(CONST.Z_INDEX.BASE);
-    } else {
-      // `bumpPanes` only assigns a child pane its `+k` offset during
-      // LayerControl's `enforceOrder`, which fires on registration and
-      // layer-change events — not when a layer first lands in a sub-pane
-      // after init (MeasureControl's preview labels arrive on mousemove).
-      // Two panes left at the same z-index fall back to DOM insertion
-      // order, so the sub-pane would only outrank the base pane by luck of
-      // construction. Pin it here, keyed to the same registration the base
-      // pane came from, so sub-pane ordering is a contract rather than an
-      // accident of div append order.
-      const k = Array.from(this.childPanes).indexOf(paneName);
-      if (k > 0) {
-        pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
-      }
     }
+    // Always assign the sub-pane offset, not just on re-entry. A pane
+    // created before `registerSubPanes` ran would otherwise sit at BASE
+    // (same as the graph pane) until a second `ensurePane` call.
+    const k = Array.from(this.childPanes).indexOf(paneName);
+    pane.style.zIndex = String(
+      CONST.Z_INDEX.BASE + Math.max(0, k) * CONST.CHILD_PANE_STEP,
+    );
     let renderer: L.SVG | null = null;
     if (needRenderer) {
       const key = CONST.RENDERER_KEY + paneName;
