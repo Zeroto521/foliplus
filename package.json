@@ -21,6 +21,7 @@
     "build": "node script/build.mjs",
     "build:dev": "node script/build.mjs --dev",
     "build:check": "node script/build.mjs --check",
+    "build:verify": "node script/build.mjs --verify",
     "build:sonda": "node script/build.mjs --sonda",
     "new-control": "node script/new-control.mjs",
     "test": "vitest run --coverage",

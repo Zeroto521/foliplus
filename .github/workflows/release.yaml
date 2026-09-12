@@ -56,6 +56,34 @@ jobs:
         run: make dist
 
       - run: pip install dist/*.whl
+
+      - name: Smoke-test the installed wheel
+        run: |
+          # `foliplus/dist` is gitignored, so a bad build yields a wheel that
+          # installs and imports cleanly but renders maps with no controls.
+          # Render every control against the freshly installed copy.
+          # `add_to` swaps the map's root for a Figure, so render through
+          # `get_root()`.
+          python - <<'PY'
+          import folium
+          import foliplus
+
+          names = [
+              n for n in dir(foliplus)
+              if n.endswith("Control")
+              and n != "BaseControl"
+              and isinstance(getattr(foliplus, n), type)
+          ]
+          assert names, "no control classes exported"
+
+          for name in sorted(names):
+              m = folium.Map(location=[40.4, -3.7])
+              getattr(foliplus, name)().add_to(m)
+              html = m.get_root().render()
+              assert "foliplus" in html, f"{name}: shared bundle not emitted"
+          print(f"rendered {len(names)} controls: {', '.join(sorted(names))}")
+          PY
+
       - run: make info
 
       - uses: actions/upload-artifact@v7
