@@ -1,7 +1,7 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import {

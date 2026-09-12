@@ -1,6 +1,6 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
