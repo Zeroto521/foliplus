@@ -57,45 +57,13 @@ jobs:
 
       - run: pip install dist/*.whl
 
-      - name: Smoke-test the installed wheel
+      - name: Smoke-test the built wheel
+        # Render every control against the distribution under test. Install
+        # into an isolated target and point PYTHONPATH there so the import
+        # cannot resolve to the source checkout instead.
         run: |
-          # `foliplus/dist` is gitignored, so a bad build yields a wheel that
-          # installs and imports cleanly but renders maps with no controls.
-          # Render every control against the freshly installed copy.
-          # `add_to` swaps the map's root for a Figure, so render through
-          # `get_root()`.
-          #
-          # Controls in INLINE_TEMPLATE ship their own template and read no
-          # dist/ artifact, so they cannot be exercised by this test and are
-          # reported separately rather than silently dropped.
-          python - <<'PY'
-          import folium
-          import foliplus
-
-          INLINE_TEMPLATE = {"GuideControl"}
-
-          names = [
-              n
-              for n in dir(foliplus)
-              if n.endswith("Control")
-              and n not in {"BaseControl", *INLINE_TEMPLATE}
-              and isinstance(getattr(foliplus, n), type)
-          ]
-          assert names, "no control classes exported"
-
-          rendered = []
-          for name in sorted(names):
-              m = folium.Map(location=[40.4, -3.7])
-              getattr(foliplus, name)().add_to(m)
-              html = m.get_root().render()
-              assert "foliplus" in html, f"{name}: shared bundle not emitted"
-              rendered.append(name)
-
-          skipped = sorted(set(dir(foliplus)) & INLINE_TEMPLATE)
-          print(f"rendered {len(rendered)} controls: {', '.join(rendered)}")
-          if skipped:
-              print(f"skipped (inline template): {', '.join(skipped)}")
-          PY
+          pip install --target ./.wheelcheck dist/*.whl
+          PYTHONPATH=./.wheelcheck python script/smoke-wheel.py
 
       - run: make info
 
