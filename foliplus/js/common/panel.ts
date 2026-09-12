@@ -224,6 +224,7 @@ const createPanelControl = (opts: {
   toggleSvg: string;
   panelTitle: string;
   closeTitle: string;
+  ctrlId?: string;
 }): {
   container: HTMLElement;
   ctrl: HTMLElement;
@@ -233,16 +234,26 @@ const createPanelControl = (opts: {
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
     class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${CLASSES.COLLAPSED}`,
+    ...(opts.ctrlId ? { id: opts.ctrlId } : {}),
   });
   ctrl.appendChild(
     dom.el(
       "button",
-      { class: CLASSES.TOGGLE_BTN, title: opts.toggleTitle },
+      {
+        class: CLASSES.TOGGLE_BTN,
+        title: opts.toggleTitle,
+        "aria-label": opts.toggleTitle,
+      },
       { html: opts.toggleSvg },
     ),
   );
   const panelWrap = dom.el("div", { class: "foliplus-panel-wrap" });
-  const header = dom.el("div", { class: CLASSES.PANEL_HEADER });
+  const header = dom.el("div", {
+    class: CLASSES.PANEL_HEADER,
+    role: "dialog",
+    "aria-label": opts.panelTitle,
+    title: opts.closeTitle,
+  });
   header.appendChild(
     dom.el(
       "span",
