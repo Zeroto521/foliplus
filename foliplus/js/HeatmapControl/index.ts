@@ -72,6 +72,8 @@ class HeatmapControl extends BaseControl {
       this.initScanCleanup();
       this.initScanCleanup = null;
     }
+    // Unsubscribe from the map first, then drop content: a deferred handler
+    // firing after the canvas is gone would draw onto a removed element.
     if (this.m.mapCleanup) this.m.mapCleanup();
     if (this.m.onZoomEnd) {
       this.m.onZoomEnd.cancel();
@@ -79,14 +81,15 @@ class HeatmapControl extends BaseControl {
     }
     if (this.m.onLayerChange) {
       this.m.onLayerChange.cancel();
-      if (this.m.removeLayerChangeListener) this.m.removeLayerChangeListener();
+      this.m.removeLayerChangeListener();
     }
+    this.m.removeExportListener();
 
     // Disconnect MutationObserver
     if (this.observer) this.observer.disconnect();
 
     this.m.clearHeatmapCanvas();
-    if (this.m.overlay) this.m.overlay.destroy();
+    this.m.overlay.destroy();
     this.m.ui = null;
   }
 }
