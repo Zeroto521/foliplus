@@ -22,6 +22,7 @@
     "build:dev": "node script/build.mjs --dev",
     "build:check": "node script/build.mjs --check",
     "build:sonda": "node script/build.mjs --sonda",
+    "new-control": "node script/new-control.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && eslint -c eslint.config.js -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
