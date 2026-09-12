@@ -4,16 +4,28 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
-import * as CONST from "./const.js";
-import * as SVGs from "./icon.js";
+import * as CONST from "../const.js";
+import * as SVGs from "../icon.js";
 import {
   handleMoreClick,
   handleMoreMenuClick,
   registerInteractions,
-} from "./interaction.js";
-import type { LayerManager } from "./manager.js";
-import { closeAttrsPanel, openAttrsPanel } from "./ui/attrs.js";
-import { hideColorLayer, showColorLayer } from "./ui/color.js";
+} from "../interaction.js";
+import type { LayerManager } from "../manager.js";
+import * as Util from "../util.js";
+import {
+  closeAttrsPanel,
+  openAttrsPanel,
+} from "./attrs.js";
+import {
+  hideColorLayer,
+  showColorLayer,
+} from "./color.js";
+import {
+  isKeyboardVisibleFocus,
+  owningRow,
+  T,
+} from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -22,7 +34,7 @@ import {
   handleDrop,
   showReorderBlockedHint,
   toggleFold,
-} from "./ui/drag.js";
+} from "./drag.js";
 import {
   bringFocusedLayerToFront,
   cancelFocus,
@@ -33,15 +45,15 @@ import {
   drawFocusMask,
   drawFocusRect,
   focusLayer,
-  hideOtherLayers,
   highlightFocusedRow,
+  hideOtherLayers,
   isFocusLayerDisabled,
   isFocusing,
   registerAutoCancel,
   restoreHiddenLayers,
   showBaseFocusHint,
   toggleFocusedLayer,
-} from "./ui/focus.js";
+} from "./focus.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -60,7 +72,7 @@ import {
   setActiveItem,
   syncActiveItem,
   syncListCursor,
-} from "./ui/keyboard.js";
+} from "./keyboard.js";
 import {
   colorLayerName,
   displayName,
@@ -74,10 +86,15 @@ import {
   renderLayerItem,
   renderToggleAllRow,
   updateLayerItem,
-} from "./ui/list.js";
-import { closeMoreMenu, openMoreMenu } from "./ui/menu.js";
-import { finishRename, renameLayer } from "./ui/rename.js";
-import { T, isKeyboardVisibleFocus, owningRow } from "./ui/shared.js";
+} from "./list.js";
+import {
+  closeMoreMenu,
+  openMoreMenu,
+} from "./menu.js";
+import {
+  finishRename,
+  renameLayer,
+} from "./rename.js";
 import {
   applyHiddenOne,
   applyHiddenStateOne,
@@ -89,7 +106,7 @@ import {
   saveHiddenIds,
   saveNamesState,
   syncHiddenId,
-} from "./ui/state.js";
+} from "./state.js";
 import {
   getLayerItems,
   handleChange,
@@ -97,8 +114,7 @@ import {
   syncToggleAll,
   syncVisibility,
   toggleAll,
-} from "./ui/visibility.js";
-import * as Util from "./util.js";
+} from "./visibility.js";
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -832,3 +848,14 @@ class LayerUI {
 }
 
 export { LayerUI };
+export * from "./attrs.js";
+export * from "./color.js";
+export * from "./context.js";
+export * from "./drag.js";
+export * from "./focus.js";
+export * from "./keyboard.js";
+export * from "./list.js";
+export * from "./menu.js";
+export * from "./rename.js";
+export * from "./state.js";
+export * from "./visibility.js";

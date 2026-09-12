@@ -2,14 +2,14 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "../ui.js";
-import { T } from "./shared.js";
-import { owningRow } from "./shared.js";
+import type { LayerUI } from "./index.js";
+import { T } from "./context.js";
+import { owningRow } from "./context.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
-export function syncListCursor(ui: LayerUI): void {
+const syncListCursor = (ui: LayerUI): void => {
   // initTypesAndVisibility is on a timer and can fire after the panel is
   // torn down (unit tests, control remove) 鈥?do not touch a detached root.
   if (!ui.uiContainer?.isConnected) return;
@@ -24,29 +24,24 @@ export function syncListCursor(ui: LayerUI): void {
   }
   ui.listCursor.refresh();
   ui.listCursor.setIndex(ui.activeIdx ?? -1);
-}
+};
 
 /** Identity of the row the keyboard cursor points at, for re-homing after a
  *  rebuild: a layer row's id, or a toggle-all row's group. */
 
-/** Identity of the row the keyboard cursor points at, for re-homing after a
- *  rebuild: a layer row's id, or a toggle-all row's group. */
-export function cursorRef(ui: LayerUI): string | null {
+const cursorRef = (ui: LayerUI): string | null => {
   if (ui.activeIdx === null) return null;
   const el = ui.getNavigableItems()[ui.activeIdx];
   return el
     ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
     : null;
-}
+};
 
 /** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
  *  by folding is not focusable, so the cursor falls back to that group's
  *  toggle-all row. If the row is gone entirely, the cursor is cleared. */
 
-/** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
- *  by folding is not focusable, so the cursor falls back to that group's
- *  toggle-all row. If the row is gone entirely, the cursor is cleared. */
-export function restoreCursor(ui: LayerUI, ref: string | null): void {
+const restoreCursor = (ui: LayerUI, ref: string | null): void => {
   if (ref === null) {
     ui.activeIdx = null;
     return;
@@ -67,7 +62,7 @@ export function restoreCursor(ui: LayerUI, ref: string | null): void {
   }
   if (idx !== -1) ui.setActiveItem(idx);
   else ui.clearActiveItem();
-}
+};
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
  *  order. The color item is excluded (it is a picker, not a layer).
@@ -77,45 +72,35 @@ export function restoreCursor(ui: LayerUI, ref: string | null): void {
  *  arrow-key navigation and Tab order could disagree about which rows exist.
  *  Rows are selected by class rather than `[tabindex]` because the inline
  *  rename input is also `tabindex=0` and is not a navigable row. */
-export function getNavigableItems(ui: LayerUI): HTMLElement[] {
+const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
   return Array.from(
     ui.uiContainer.querySelectorAll<HTMLElement>(
       `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
     ),
   ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
-}
+};
 
 /** Index of the nearest row in `step` direction that is not folded away,
  *  or -1 when the cursor would leave the list. Folded rows are display:none
  *  and not focusable, so plain index 卤 1 would strand the cursor on them. */
 
-/** Index of the nearest row in `step` direction that is not folded away,
- *  or -1 when the cursor would leave the list. Folded rows are display:none
- *  and not focusable, so plain index 卤 1 would strand the cursor on them. */
-export function findVisibleNeighbor(
-  ui: LayerUI,
-  items: HTMLElement[],
-  idx: number,
-  step: 1 | -1,
-): number {
+const findVisibleNeighbor = ( ui: LayerUI, items: HTMLElement[], idx: number, step: 1 | -1, ): number => {
   for (let i = idx + step; i >= 0 && i < items.length; i += step) {
     if (!items[i].classList.contains(CONST.CLASSES.GROUP_FOLDED)) return i;
   }
   return -1;
-}
+};
 
 /** Get the currently focused layer item element. */
 
-/** Get the currently focused layer item element. */
-export function getActiveLayerItem(ui: LayerUI): HTMLElement | null {
+const getActiveLayerItem = (ui: LayerUI): HTMLElement | null => {
   if (ui.activeIdx === null) return null;
   return ui.getNavigableItems()[ui.activeIdx] ?? null;
-}
+};
 
 /** Set the active item index and apply focus styling. */
 
-/** Set the active item index and apply focus styling. */
-export function setActiveItem(ui: LayerUI, idx: number): void {
+const setActiveItem = (ui: LayerUI, idx: number): void => {
   ui.clearActiveItem();
   const items = ui.getNavigableItems();
   if (idx < 0 || idx >= items.length) {
@@ -125,7 +110,7 @@ export function setActiveItem(ui: LayerUI, idx: number): void {
   const item = items[idx];
   ui.moveActiveMarker(item, items);
   item.focus();
-}
+};
 
 /** Move the focus marker onto an item. The marker lives on the element as
  *  well as in activeIdx, so it must travel with the cursor 鈥?otherwise the
@@ -134,17 +119,7 @@ export function setActiveItem(ui: LayerUI, idx: number): void {
  *  marker stranded on an old, rebuilt element is picked up too. Callers pass
  *  the item list they already hold rather than re-querying for indexOf. */
 
-/** Move the focus marker onto an item. The marker lives on the element as
- *  well as in activeIdx, so it must travel with the cursor 鈥?otherwise the
- *  row that was clicked before keeps the marker and reads as the active row.
- *  blurActiveItem() scans the DOM rather than following activeIdx, so a
- *  marker stranded on an old, rebuilt element is picked up too. Callers pass
- *  the item list they already hold rather than re-querying for indexOf. */
-export function moveActiveMarker(
-  ui: LayerUI,
-  item: HTMLElement | null,
-  items: HTMLElement[],
-): void {
+const moveActiveMarker = ( ui: LayerUI, item: HTMLElement | null, items: HTMLElement[], ): void => {
   ui.blurActiveItem();
   // indexOf yields -1 for an item outside the list; normalize it to null so
   // activeIdx never holds an index getActiveLayerItem() would misread.
@@ -153,29 +128,25 @@ export function moveActiveMarker(
   item?.classList.add(CONST.CLASSES.FOCUSED);
   // Tab stop follows the cursor; setIndex does not touch FOCUSED.
   ui.listCursor?.setIndex(ui.activeIdx ?? -1);
-}
+};
 
 /** Remove the focus marker from whichever item carries it.
  *  Scans the DOM instead of following activeIdx: a re-render rebuilds the
  *  item elements, leaving the marker on an old, now-detached node. */
 
-/** Remove the focus marker from whichever item carries it.
- *  Scans the DOM instead of following activeIdx: a re-render rebuilds the
- *  item elements, leaving the marker on an old, now-detached node. */
-export function blurActiveItem(ui: LayerUI): void {
+const blurActiveItem = (ui: LayerUI): void => {
   ui.uiContainer
     .querySelector(`.${CONST.CLASSES.FOCUSED}`)
     ?.classList.remove(CONST.CLASSES.FOCUSED);
-}
+};
 
 /** Clear the active item state. */
 
-/** Clear the active item state. */
-export function clearActiveItem(ui: LayerUI): void {
+const clearActiveItem = (ui: LayerUI): void => {
   ui.blurActiveItem();
   ui.activeIdx = null;
   ui.listCursor?.setIndex(-1);
-}
+};
 
 /**
  * Mousedown outside the panel drops the keyboard cursor 鈥?the pointer
@@ -191,20 +162,7 @@ export function clearActiveItem(ui: LayerUI): void {
  * not just this instance's container.
  */
 
-/**
- * Mousedown outside the panel drops the keyboard cursor 鈥?the pointer
- * counterpart of Escape, dispatched by InteractionManager (event observed,
- * not swallowed: the press keeps its native behavior). This is a full reset
- * (clearActiveItem, not blurActiveItem): unlike Escape the user has left the
- * panel, so the next ArrowDown re-bootstraps rather than resuming.
- *
- * mousedown (not click) is what makes the target test safe: it fires before
- * the click-driven list rebuild, so the target is still connected 鈥?clicking
- * a fold button (which rebuilds the list) stays inside the panel and won't
- * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
- * not just this instance's container.
- */
-export function handleOutsideMousedown(ui: LayerUI, event: MouseEvent): void {
+const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement | null;
   if (!target || typeof target.closest !== "function") {
     ui.closeAttrsPanel(false);
@@ -217,14 +175,12 @@ export function handleOutsideMousedown(ui: LayerUI, event: MouseEvent): void {
   // interaction.ts, and Escape pops the menu before the panel.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
   if (!target.closest(".foliplus-layer-ctrl")) ui.clearActiveItem();
-}
+};
 
 /** Index of the keyboard cursor from DOM focus, or the previous index.
  *  One ledger: focus on a row (or a child control) *is* the cursor. */
 
-/** Index of the keyboard cursor from DOM focus, or the previous index.
- *  One ledger: focus on a row (or a child control) *is* the cursor. */
-export function resolveActiveIdx(ui: LayerUI, items: HTMLElement[]): number | null {
+const resolveActiveIdx = (ui: LayerUI, items: HTMLElement[]): number | null => {
   const row = owningRow(document.activeElement);
   if (row) {
     const idx = items.indexOf(row);
@@ -234,20 +190,18 @@ export function resolveActiveIdx(ui: LayerUI, items: HTMLElement[]): number | nu
     }
   }
   return ui.activeIdx;
-}
+};
 
 /** Align the cursor marker with whichever row resolveActiveIdx() names.
  *  Keep the existing cursor when resolve cannot name a new row. */
 
-/** Align the cursor marker with whichever row resolveActiveIdx() names.
- *  Keep the existing cursor when resolve cannot name a new row. */
-export function syncActiveItem(ui: LayerUI): void {
+const syncActiveItem = (ui: LayerUI): void => {
   const items = ui.getNavigableItems();
   const idx = ui.resolveActiveIdx(items);
   if (idx === null) return;
   ui.moveActiveMarker(items[idx], items);
   ui.listCursor?.setIndex(idx);
-}
+};
 
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
@@ -264,7 +218,7 @@ export function syncActiveItem(ui: LayerUI): void {
  *   Escape - Cancel: inline rename, overflow menu, the attributes panel,
  *     the layer focus overlay, or the row keyboard cursor
  */
-export function handleKeyDown(ui: LayerUI, event: KeyboardEvent): void {
+const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   if (!ui.uiContainer.contains(document.activeElement)) return;
 
   // Escape discharges whatever is open, in the order the user would
@@ -414,7 +368,7 @@ export function handleKeyDown(ui: LayerUI, event: KeyboardEvent): void {
       break;
     }
   }
-}
+};
 
 /** Drop the row keyboard cursor.
  *
@@ -431,48 +385,27 @@ export function handleKeyDown(ui: LayerUI, event: KeyboardEvent): void {
  * focusin re-applies the class only if the browser still reports
  * keyboard-visible focus. */
 
-/** Drop the row keyboard cursor.
- *
- * blurActiveItem() rather than clearActiveItem(): clearActiveItem() resets
- * activeIdx, so the next ArrowUp / ArrowDown would call syncActiveItem() to
- * bootstrap a fresh cursor from document.activeElement 鈥?the very row the
- * user just cancelled 鈥?and instantly redraw it. Blur-only keeps activeIdx
- * pointing at the last row, so arrow keys resume from there instead of
- * re-lighting the escaped one.
- *
- * Removing the class is sufficient: the CSS recipe keys only on
- * `.foliplus-layer-focused` + `:hover`, never on `:focus-visible`. DOM
- * focus stays on the row (Escape must not blur to `<body>`), and a later
- * focusin re-applies the class only if the browser still reports
- * keyboard-visible focus. */
-export function escapeClearCursor(ui: LayerUI): void {
+const escapeClearCursor = (ui: LayerUI): void => {
   ui.blurActiveItem();
-}
+};
 
 /** Return DOM focus to a layer's row. Used by the Escape-rename path:
  *  finishRename() removes the inline input, which blurs it to `<body>` and
  *  would leave the panel unreachable. */
 
-/** Return DOM focus to a layer's row. Used by the Escape-rename path:
- *  finishRename() removes the inline input, which blurs it to `<body>` and
- *  would leave the panel unreachable. */
-export function focusLayerRow(ui: LayerUI, layerId: string): void {
+const focusLayerRow = (ui: LayerUI, layerId: string): void => {
   if (!ui.uiContainer || !layerId) return;
   ui.uiContainer
     .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)
     ?.focus();
-}
+};
 
 /** Double-click on a layer row 鈫?focus the map on that layer.
  *  Only dead space on the row counts. Every control on the row is a
  *  denylist hit: two quick toggles / menu clicks / rename edits must not
  *  zoom the map. */
 
-/** Double-click on a layer row 鈫?focus the map on that layer.
- *  Only dead space on the row counts. Every control on the row is a
- *  denylist hit: two quick toggles / menu clicks / rename edits must not
- *  zoom the map. */
-export function handleDblClick(ui: LayerUI, event: MouseEvent): void {
+const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
@@ -505,6 +438,26 @@ export function handleDblClick(ui: LayerUI, event: MouseEvent): void {
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   if (!layerId) return;
   ui.focusLayer(layerId);
-}
+};
 
 /** Basemaps / color pickers cannot be focused 鈥?hint instead of silence. */
+
+export {
+  syncListCursor,
+  cursorRef,
+  restoreCursor,
+  getNavigableItems,
+  findVisibleNeighbor,
+  getActiveLayerItem,
+  setActiveItem,
+  moveActiveMarker,
+  blurActiveItem,
+  clearActiveItem,
+  handleOutsideMousedown,
+  resolveActiveIdx,
+  syncActiveItem,
+  handleKeyDown,
+  escapeClearCursor,
+  focusLayerRow,
+  handleDblClick,
+};

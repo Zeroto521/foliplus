@@ -1,16 +1,16 @@
 ﻿// LayerControl UI 鈥?Checkbox / group-toggle visibility.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "../ui.js";
-import { T } from "./shared.js";
+import type { LayerUI } from "./index.js";
+import { T } from "./context.js";
 
-export function getLayerItems(ui: LayerUI, group: string): NodeListOf<Element> {
+const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
     `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
   );
-}
+};
 
-export function toggleAll(ui: LayerUI, group: string, newState: boolean) {
+const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   const items = ui.getLayerItems(group);
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
@@ -46,9 +46,9 @@ export function toggleAll(ui: LayerUI, group: string, newState: boolean) {
 
   ui.syncToggleAll(group);
   ui.m.debouncedEnforce();
-}
+};
 
-export function syncToggleAll(ui: LayerUI, group: string) {
+const syncToggleAll = (ui: LayerUI, group: string) => {
   const row = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
@@ -73,19 +73,14 @@ export function syncToggleAll(ui: LayerUI, group: string) {
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
   );
-}
+};
 
-export function syncVisibility(
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  layer: L.Layer | null,
-  fallback: boolean,
-) {
+const syncVisibility = ( ui: LayerUI, layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean, ) => {
   layerInfo.visible = layer ? ui.m.map.hasLayer(layer) : fallback;
   return layerInfo.visible;
-}
+};
 
-export function handleChange(ui: LayerUI, event: Event) {
+const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
     ui.deselectAllBaseMaps(-1);
@@ -121,13 +116,13 @@ export function handleChange(ui: LayerUI, event: Event) {
 
   ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
   ui.m.debouncedEnforce();
-}
+};
 
-export function handleInput(ui: LayerUI, event: Event) {
+const handleInput = (ui: LayerUI, event: Event) => {
   if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT)) {
     ui.showColorLayer((event.target as HTMLInputElement).value);
   }
-}
+};
 
 /**
  * Update the persisted hidden set for a layer toggle.
@@ -135,3 +130,12 @@ export function handleInput(ui: LayerUI, event: Event) {
  *   caller schedules a single save after the loop instead of resetting the
  *   debounce timer for every layer.
  */
+
+export {
+  getLayerItems,
+  toggleAll,
+  syncToggleAll,
+  syncVisibility,
+  handleChange,
+  handleInput,
+};

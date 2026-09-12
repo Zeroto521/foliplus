@@ -3,14 +3,14 @@ import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "../ui.js";
-import { T } from "./shared.js";
+import type { LayerUI } from "./index.js";
+import { T } from "./context.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
  * Every layer (data + base) has this button; it exposes focus + rename.
  */
-export function openMoreMenu(ui: LayerUI, item: HTMLElement) {
+const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Close any previously open menu first, and commit/cancel a rename so
   // the label text is fresh before we read the row.
   ui.finishRename();
@@ -72,18 +72,17 @@ export function openMoreMenu(ui: LayerUI, item: HTMLElement) {
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
   if (firstItem) firstItem.focus();
-}
+};
 
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
-/** Close the overflow menu. setFocus = true returns focus to the layer row. */
-export function closeMoreMenu(ui: LayerUI, setFocus: boolean) {
+const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (!ui.activeMenu) return;
   const item = ui.activeMenu.item;
   ui.activeMenu.menu.remove();
   ui.activeMenu = null;
   if (setFocus) item.focus();
-}
+};
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
@@ -94,3 +93,8 @@ export function closeMoreMenu(ui: LayerUI, setFocus: boolean) {
  * "鈥?. The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
+
+export {
+  openMoreMenu,
+  closeMoreMenu,
+};

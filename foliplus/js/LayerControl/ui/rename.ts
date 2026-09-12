@@ -7,8 +7,8 @@ import {
   updateItemLabel,
 } from "#common/dom.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "../ui.js";
-import { T } from "./shared.js";
+import type { LayerUI } from "./index.js";
+import { T } from "./context.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -19,7 +19,7 @@ import { T } from "./shared.js";
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
-export function renameLayer(ui: LayerUI, layerId: string): void {
+const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
   ui.finishRename();
 
@@ -85,7 +85,7 @@ export function renameLayer(ui: LayerUI, layerId: string): void {
       }
     },
   });
-}
+};
 
 /**
  * Tear down an in-flight rename input, restoring the label text.
@@ -94,13 +94,7 @@ export function renameLayer(ui: LayerUI, layerId: string): void {
  *   after (used internally to avoid a double write).
  */
 
-/**
- * Tear down an in-flight rename input, restoring the label text.
- * @param {boolean} [restoreText=true] Re-set the label text from the
- *   registry. When false, the caller will write its own text immediately
- *   after (used internally to avoid a double write).
- */
-export function finishRename(ui: LayerUI, restoreText = true): void {
+const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.activeRenameId) return;
   const layerId = ui.activeRenameId;
   ui.activeRenameId = null;
@@ -117,7 +111,7 @@ export function finishRename(ui: LayerUI, restoreText = true): void {
   item?.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
   if (restoreText) updateItemLabel(item, ui.displayName(layerId));
-}
+};
 
 /**
  * Focus the map on a registered layer's bounding box.
@@ -138,3 +132,8 @@ export function finishRename(ui: LayerUI, restoreText = true): void {
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
  *    doesn't linger while the user navigates elsewhere.
  */
+
+export {
+  renameLayer,
+  finishRename,
+};

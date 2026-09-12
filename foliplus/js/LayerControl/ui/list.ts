@@ -7,15 +7,15 @@ import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "../ui.js";
+import type { LayerUI } from "./index.js";
 import * as Util from "../util.js";
 import { syncListCursor } from "./keyboard.js";
-import { T } from "./shared.js";
+import { T } from "./context.js";
 import { applyUserState } from "./state.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent 鈥? *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
-export function initTypesAndVisibility(ui: LayerUI) {
+const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. Hidden ids no longer in the
@@ -59,9 +59,9 @@ export function initTypesAndVisibility(ui: LayerUI) {
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
   ui.uiContainer?.setAttribute("data-ready", "true");
-}
+};
 
-export function renderInitialList(ui: LayerUI) {
+const renderInitialList = (ui: LayerUI) => {
   // Remember the cursor by identity 鈥?the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
@@ -107,17 +107,13 @@ export function renderInitialList(ui: LayerUI) {
   // container guard requires focus inside the panel, so without this the
   // cursor dies the moment the list is rebuilt (e.g. after a fold click).
   ui.restoreCursor(cursorRef);
-}
+};
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-export function insertLayerItem(
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  { reindex = true }: { reindex?: boolean } = {},
-) {
+const insertLayerItem = ( ui: LayerUI, layerInfo: LayerInfo, { reindex = true }: { reindex?: boolean } = {}, ) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -161,9 +157,9 @@ export function insertLayerItem(
   applyUserState(ui, layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
-}
+};
 
-export function updateLayerItem(ui: LayerUI, layerInfo: LayerInfo, idx: number) {
+const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
@@ -177,7 +173,7 @@ export function updateLayerItem(ui: LayerUI, layerInfo: LayerInfo, idx: number) 
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox) checkbox.dataset.index = String(idx);
-}
+};
 
 /**
  * Effective panel display name for a layer: the user-assigned rename wins,
@@ -188,24 +184,15 @@ export function updateLayerItem(ui: LayerUI, layerInfo: LayerInfo, idx: number) 
  * (re-registration, type refresh) can no longer resurrect the original
  * third-party name over a rename.
  */
-/**
- * Effective panel display name for a layer: the user-assigned rename wins,
- * falling back to the registry name, then to the locale label for the
- * virtual color basemap 鈥?the only row with no registry entry.
- *
- * Every render path resolves names through here so a registry mutation
- * (re-registration, type refresh) can no longer resurrect the original
- * third-party name over a rename.
- */
-export function displayName(ui: LayerUI, id: string): string {
+const displayName = (ui: LayerUI, id: string): string => {
   return (
     ui.renamedNames[id] ??
     ui.m.layerRegistry.get(id)?.name ??
     (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
   );
-}
+};
 
-export function renderToggleAllRow(ui: LayerUI, group: string, labelKey: string) {
+const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
   const isFolded = ui.foldedGroups.has(group);
   return dom.el(
     "div",
@@ -237,7 +224,7 @@ export function renderToggleAllRow(ui: LayerUI, group: string, labelKey: string)
     dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
-}
+};
 
 /** Render a single layer row.
  *  Structure: [drag-handle][checkbox][label (flex)] [count][type-icon-col].
@@ -248,16 +235,7 @@ export function renderToggleAllRow(ui: LayerUI, group: string, labelKey: string)
  *  @param {LayerInfo} layerInfo - Layer metadata.
  *  @param {number} idx - Position in the ordered registry.
  *  @returns {HTMLElement} The row element. */
-/** Render a single layer row.
- *  Structure: [drag-handle][checkbox][label (flex)] [count][type-icon-col].
- *  The count column is inserted immediately before the type-icon column so
- *  the two right-side decorations stay visually grouped.  The count value
- *  is populated lazily by initLayerItem (layer may not be resolved yet at
- *  render time) and refreshed by onLayerItemCountChange.
- *  @param {LayerInfo} layerInfo - Layer metadata.
- *  @param {number} idx - Position in the ordered registry.
- *  @returns {HTMLElement} The row element. */
-export function renderLayerItem(ui: LayerUI, layerInfo: LayerInfo, idx: number) {
+const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
   const name = ui.displayName(layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
@@ -317,17 +295,15 @@ export function renderLayerItem(ui: LayerUI, layerInfo: LayerInfo, idx: number) 
     },
     ...children,
   );
-}
+};
 
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. The color layer has no registry entry. */
-/** Current display name for the virtual color basemap: persisted rename if
- *  present, else the locale label. The color layer has no registry entry. */
-export function colorLayerName(ui: LayerUI): string {
+const colorLayerName = (ui: LayerUI): string => {
   return ui.displayName(CONST.COLOR.MAP_ID);
-}
+};
 
-export function renderColorLayerItem(ui: LayerUI) {
+const renderColorLayerItem = (ui: LayerUI) => {
   // The input announces the same name as the row's label cell below, so a
   // rename reaches assistive tech on both 鈥?not just the visible text.
   const colorName = ui.colorLayerName();
@@ -374,13 +350,11 @@ export function renderColorLayerItem(ui: LayerUI) {
     dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
     moreBtn,
   );
-}
+};
 
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
-/** Initialize one layer row's checkbox + type icon (incremental path).
- *  @returns {boolean} true when the row is a visible base layer. */
-export function initLayerItem(ui: LayerUI, layerInfo: LayerInfo): boolean {
+const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return false;
   const name = ui.displayName(layerInfo.id);
@@ -465,9 +439,9 @@ export function initLayerItem(ui: LayerUI, layerInfo: LayerInfo): boolean {
   }
 
   return baseVisible;
-}
+};
 
-export function reindexItems(ui: LayerUI) {
+const reindexItems = (ui: LayerUI) => {
   const items = ui.uiContainer.querySelectorAll(
     `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
   ) as NodeListOf<HTMLElement>;
@@ -478,16 +452,16 @@ export function reindexItems(ui: LayerUI) {
     ) as HTMLInputElement | null;
     if (checkbox) checkbox.dataset.index = String(i);
   }
-}
+};
 
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
-export function reindexAfterMove(ui: LayerUI): void {
+const reindexAfterMove = (ui: LayerUI): void => {
   ui.renderInitialList();
   ui.initTypesAndVisibility();
   ui.refreshAllCounts();
-}
+};
 
 /**
  * Keyboard event handler for layer navigation and interaction.
@@ -500,3 +474,18 @@ export function reindexAfterMove(ui: LayerUI): void {
  *   Escape - Cancel: inline rename, overflow menu, the attributes panel,
  *     the layer focus overlay, or the row keyboard cursor
  */
+
+export {
+  initTypesAndVisibility,
+  renderInitialList,
+  insertLayerItem,
+  updateLayerItem,
+  displayName,
+  renderToggleAllRow,
+  renderLayerItem,
+  colorLayerName,
+  renderColorLayerItem,
+  initLayerItem,
+  reindexItems,
+  reindexAfterMove,
+};

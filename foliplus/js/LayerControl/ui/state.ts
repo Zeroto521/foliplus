@@ -1,32 +1,30 @@
 ﻿// LayerControl UI 鈥?Persisted user state (fold / hidden / names) apply + save.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "../ui.js";
-import { T } from "./shared.js";
-import { applyNameProjection } from "./shared.js";
+import type { LayerUI } from "./index.js";
+import { T } from "./context.js";
+import { applyNameProjection } from "./context.js";
 
 /** Load every persisted dimension in one call. */
-export function loadPersistedState(ui: LayerUI) {
+const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
   ui.foldedGroups = state.foldedGroups;
   ui.hiddenIds = state.hiddenIds;
   ui.renamedNames = state.names;
   ui.hiddenHasState = state.hiddenHasState;
-}
+};
 
 /** Save fold state to localStorage. */
 
-/** Save fold state to localStorage. */
-export function saveFoldState(ui: LayerUI) {
+const saveFoldState = (ui: LayerUI) => {
   ui.m.persistence.saveFoldedGroups(ui.foldedGroups);
-}
+};
 
 /** Save hidden-layer ids to localStorage, coalescing rapid calls. */
 
-/** Save hidden-layer ids to localStorage, coalescing rapid calls. */
-export function saveHiddenIds(ui: LayerUI) {
+const saveHiddenIds = (ui: LayerUI) => {
   ui.m.persistence.saveHiddenIds(() => ui.hiddenIds);
-}
+};
 
 /**
  * Propagate the user's stored state 鈥?hidden visibility and renames 鈥? * into the registry and the rendered rows.
@@ -51,29 +49,7 @@ export function saveHiddenIds(ui: LayerUI) {
  *   hidden and a missing rename must not write undefined.
  */
 
-/**
- * Propagate the user's stored state 鈥?hidden visibility and renames 鈥? * into the registry and the rendered rows.
- *
- * `hiddenIds` and `renamedNames` are the source of truth; the registry's
- * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
- * are their projections, refreshed here whenever a row or the registry is
- * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
- * overwrite of `visible`, so it writes straight through; name is a
- * cross-axis projection that must preserve the author's original name, so
- * it goes through `applyNameProjection`, which writes only where the
- * projection still differs 鈥?a repeated pass is therefore a no-op.
- *
- * The sweep also prunes ids whose layers no longer exist so stale
- * persistence doesn't accumulate.
- *
- * @param {string} [id] Restrict to one layer id 鈥?a late-arriving row is
- *   already rendered with the right label, so it only needs its registry
- *   projection; a full sweep would re-rewrite every renamed row for no
- *   gain. Both projections are membership-guarded on this path: the drain
- *   runs for every late registration, so an unhidden layer must not be
- *   hidden and a missing rename must not write undefined.
- */
-export function applyUserState(ui: LayerUI, id?: string) {
+const applyUserState = (ui: LayerUI, id?: string) => {
   const registry = ui.m.layerRegistry;
   const container = ui.uiContainer;
 
@@ -151,7 +127,7 @@ export function applyUserState(ui: LayerUI, id?: string) {
     ui.hiddenHasState = true;
     ui.saveHiddenIds();
   }
-}
+};
 
 /**
  * Apply one hidden id: remove the layer from the map, fire the toggle
@@ -159,12 +135,7 @@ export function applyUserState(ui: LayerUI, id?: string) {
  * sync the row's checkbox and tooltip.
  */
 
-/**
- * Apply one hidden id: remove the layer from the map, fire the toggle
- * callback (so callback-only canvas/heatmap layers hide themselves), and
- * sync the row's checkbox and tooltip.
- */
-export function applyHiddenOne(ui: LayerUI, layerInfo: LayerInfo, id: string) {
+const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
   const container = ui.uiContainer;
   const item = container
     ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
@@ -180,7 +151,7 @@ export function applyHiddenOne(ui: LayerUI, layerInfo: LayerInfo, id: string) {
     checkbox.title = T("select_tooltip");
   }
   item?.classList.remove(CONST.CLASSES.ACTIVE);
-}
+};
 
 /**
  * Hide one layer without touching its row 鈥?the map removal, the callback
@@ -193,17 +164,7 @@ export function applyHiddenOne(ui: LayerUI, layerInfo: LayerInfo, id: string) {
  * "visible" until the next full sweep and re-enter the map.
  */
 
-/**
- * Hide one layer without touching its row 鈥?the map removal, the callback
- * for canvas-only layers, and the registry's `visible` flag.
- *
- * Split from {@link LayerUI.applyHiddenOne} because the registry projection
- * must run before the row is rendered: a late registration gets its
- * projection via {@link LayerUI.applyUserState}(id) before its row lands in
- * the DOM, so a callback-only layer hidden that way would otherwise stay
- * "visible" until the next full sweep and re-enter the map.
- */
-export function applyHiddenStateOne(ui: LayerUI, layerInfo: LayerInfo) {
+const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   const layer = ui.m.findLayer(layerInfo);
 
   // Callback-only layers (canvas) have no Leaflet layer to remove 鈥?fire
@@ -212,7 +173,7 @@ export function applyHiddenStateOne(ui: LayerUI, layerInfo: LayerInfo) {
   else if (layer && ui.m.map.hasLayer(layer)) ui.m.map.removeLayer(layer);
 
   layerInfo.visible = false;
-}
+};
 
 /**
  * Bring one layer back on to the map 鈥?the inverse of
@@ -230,29 +191,14 @@ export function applyHiddenStateOne(ui: LayerUI, layerInfo: LayerInfo) {
  * layer to add, so they get the callback instead.
  */
 
-/**
- * Bring one layer back on to the map 鈥?the inverse of
- * {@link LayerUI.applyHiddenStateOne}.
- *
- * Needed because folium renders a `show=False` layer absent from the map
- * and nothing else ever puts it back. On reload such a layer is correctly
- * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
- * leaves it alone 鈥?and the map comes up with the author's default rather
- * than the user's last choice. This closes that half of the round trip.
- *
- * `addLayer` is a no-op when the layer is already on the map, so the sweep
- * can call this for every unhidden layer without re-adding the layers
- * folium already placed. Callback-only layers (canvas) have no Leaflet
- * layer to add, so they get the callback instead.
- */
-export function applyVisibleStateOne(ui: LayerUI, layerInfo: LayerInfo) {
+const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   const layer = ui.m.findLayer(layerInfo);
 
   if (!layer && layerInfo.onToggle) layerInfo.onToggle(true);
   else if (layer && !ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
 
   layerInfo.visible = true;
-}
+};
 
 /**
  * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
@@ -280,32 +226,7 @@ export function applyVisibleStateOne(ui: LayerUI, layerInfo: LayerInfo) {
  * the user made. Skipping keeps the load read-only.
  */
 
-/**
- * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
- * absolute instead of "ids the user toggled".
- *
- * A layer the author declared `show=False` is off the map and absent from
- * `hiddenIds`, so checking it on calls `hiddenIds.delete(id)` on an id that
- * was never added and leaves the set unchanged. Every subsequent toggle then
- * differs from the author's defaults by zero entries, so the saved set cannot
- * distinguish "user hid this" from "author hid this" and a reload restores the
- * author's `show=False` instead of the user's choice. Reading the rows closes
- * that gap.
- *
- * Runs once, straight after the first
- * {@link LayerUI.initTypesAndVisibility} pass has corrected every checkbox
- * from `map.hasLayer()`. That pass repeats on fold-toggle, and only ids
- * already in the registry are considered, so the set never acquires a stale
- * id and no later pass writes again.
- *
- * It writes only when the set actually changed. On an unchanged load -- the
- * common case, where the user comes back and sees the author's defaults -- a
- * write would replace a previously saved set with the current one, which
- * still holds ids this map no longer registers. Those ids had been pruned
- * before the rows rendered, so this would be a write that drops saved state
- * the user made. Skipping keeps the load read-only.
- */
-export function reconcileHiddenIds(ui: LayerUI) {
+const reconcileHiddenIds = (ui: LayerUI) => {
   const container = ui.uiContainer;
   if (!container) return;
 
@@ -332,14 +253,13 @@ export function reconcileHiddenIds(ui: LayerUI) {
     ui.hiddenHasState = true;
     ui.saveHiddenIds();
   }
-}
+};
 
 /** Save user-assigned names, coalescing rapid calls. */
 
-/** Save user-assigned names, coalescing rapid calls. */
-export function saveNamesState(ui: LayerUI) {
+const saveNamesState = (ui: LayerUI) => {
   ui.m.persistence.saveNames(() => ui.renamedNames);
-}
+};
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent 鈥? *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
@@ -350,12 +270,7 @@ export function saveNamesState(ui: LayerUI) {
  *   caller schedules a single save after the loop instead of resetting the
  *   debounce timer for every layer.
  */
-export function syncHiddenId(
-  ui: LayerUI,
-  id: string,
-  hidden: boolean,
-  persist: boolean = true,
-) {
+const syncHiddenId = ( ui: LayerUI, id: string, hidden: boolean, persist: boolean = true, ) => {
   if (hidden) ui.hiddenIds.add(id);
   else ui.hiddenIds.delete(id);
   // The first change is what turns author defaults into the user's state.
@@ -364,7 +279,7 @@ export function syncHiddenId(
   // author's `show=False` on the next load.
   ui.hiddenHasState = true;
   if (persist) ui.saveHiddenIds();
-}
+};
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
  *  order. The color item is excluded (it is a picker, not a layer).
@@ -374,3 +289,16 @@ export function syncHiddenId(
  *  arrow-key navigation and Tab order could disagree about which rows exist.
  *  Rows are selected by class rather than `[tabindex]` because the inline
  *  rename input is also `tabindex=0` and is not a navigable row. */
+
+export {
+  loadPersistedState,
+  saveFoldState,
+  saveHiddenIds,
+  applyUserState,
+  applyHiddenOne,
+  applyHiddenStateOne,
+  applyVisibleStateOne,
+  reconcileHiddenIds,
+  saveNamesState,
+  syncHiddenId,
+};

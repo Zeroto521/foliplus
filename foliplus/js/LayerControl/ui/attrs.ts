@@ -5,11 +5,11 @@ import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "../ui.js";
+import type { LayerUI } from "./index.js";
 import * as Util from "../util.js";
-import { ATTRS_ROW_WRAP_CHARS } from "./shared.js";
-import { T } from "./shared.js";
-import { formatTimestamp } from "./shared.js";
+import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
+import { T } from "./context.js";
+import { formatTimestamp } from "./context.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
@@ -20,7 +20,7 @@ import { formatTimestamp } from "./shared.js";
  * "鈥?. The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
-export function openAttrsPanel(ui: LayerUI, item: HTMLElement) {
+const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   ui.finishRename();
   ui.closeMoreMenu(true);
   ui.closeAttrsPanel(false);
@@ -219,12 +219,11 @@ export function openAttrsPanel(ui: LayerUI, item: HTMLElement) {
   document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
 
   ui.activeAttrsPanel = { item, panel, layerId };
-}
+};
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
-/** Close the attributes panel. setFocus = true returns focus to the row. */
-export function closeAttrsPanel(ui: LayerUI, setFocus: boolean) {
+const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
   if (ui.attrsOutsideHandler) {
     document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
     ui.attrsOutsideHandler = null;
@@ -234,7 +233,7 @@ export function closeAttrsPanel(ui: LayerUI, setFocus: boolean) {
   ui.activeAttrsPanel.panel.remove();
   ui.activeAttrsPanel = null;
   if (setFocus) item.focus();
-}
+};
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -245,3 +244,8 @@ export function closeAttrsPanel(ui: LayerUI, setFocus: boolean) {
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
+
+export {
+  openAttrsPanel,
+  closeAttrsPanel,
+};
