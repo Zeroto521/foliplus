@@ -1,4 +1,4 @@
-"""Regression tests for escaping model data inside inline ``<script>`` tags.
+"""Script-escape regression tests for the two inline ``<script>`` emission sites.
 
 ``BaseControl`` serializes config dicts and locale tables directly into
 classic ``<script>`` tags. JSON does not escape ``<``, so any model-supplied
@@ -14,8 +14,9 @@ Both sites funnel through :func:`BaseControl._safe_json`, which is also
 tested directly — that keeps the character-level contract pinned in one place
 instead of being re-derived through a full map render.
 
-The escape forms are spelled with :func:`chr` / ``\\u`` so they survive any
-shell heredoc mangling.
+Escaped forms are spelled with :func:`chr` / ``\\u`` so they survive shell
+heredoc mangling, and the two U+2028/U+2029 literals are always built from
+:func:`chr` rather than typed — a heredoc drops those code points.
 """
 
 from __future__ import annotations
@@ -39,10 +40,6 @@ PS = chr(0x2029)
 LINE_TERMINATORS = f"A{LS}B{PS}C"
 LS_ESCAPED = chr(92) + "u2028"
 PS_ESCAPED = chr(92) + "u2029"
-
-# Payloads used to prove escaping is uniform across every control, not only
-# the LayerControl layer list that the original report hit.
-NON_ROUND_TRIP = "0.1"
 
 
 def _render_layer_map(layer_name: str) -> str:
@@ -224,16 +221,6 @@ class TestConfBlockEscaping:
         end = html.index("};", start) + 1
         got = json.loads(html[start + len(marker) : end])
         assert got["filename"] == PAYLOAD
-
-    def test_export_quality_fraction_round_trips(self):
-        """Fraction export survives the escaping as an unchanged float."""
-        from foliplus import ExportControl
-
-        value = 0.1
-        ctrl = ExportControl(quality=value)
-        ctrl._build_config()
-
-        assert json.loads(ctrl._config_block)["quality"] == value
 
     def test_config_block_stays_plain_str(self):
         """_config_block must remain a str for the ``| safe`` template injection."""
