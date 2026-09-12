@@ -87,9 +87,9 @@ Features
 
 .. toctree::
    :maxdepth: 1
-   :caption: Reference
+   :caption: Advanced
 
-   security
+   advanced
 
 .. toctree::
    :maxdepth: 1
