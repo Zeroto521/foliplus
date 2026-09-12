@@ -159,7 +159,11 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _locale_code(self) -> str:
-        """Legacy property — returns the locale code for tests."""
+        """The resolved locale code, or ``""`` when unset (auto-detect at runtime).
+
+        A lightweight assertion point: it exposes the resolved code without
+        rendering, which would otherwise require the full Jinja2 + dist pipeline.
+        """
         return self._locale.code if self._locale else ""
 
     @property
@@ -178,8 +182,20 @@ class BaseControl(JSCSSMixin, MacroElement):
         inline ``<script>`` injection.
         """
         config = dict(self._build_config())
-        config["locale_tables"] = _load_tables(f"{self._name}.*.json")
-        config["locale_code"] = self._locale.code if self._locale else ""
+        # A LocaleConfig carrying its own strings (from_json / resolve_locale) layers
+        # those over a built-in per-component table, so a partial custom table only
+        # overrides the keys it declares and leaves the rest translated. A code that
+        # has no built-in table (a genuinely new language from from_json) falls back
+        # to English, which carries every key. Empty strings mean "auto-detect at
+        # runtime", so ship the built-in tables with no overlay.
+        code = self._locale.code if self._locale else ""
+        strings = self._locale._strings if self._locale else {}
+        builtins = _load_tables(f"{self._name}.*.json")
+        base = dict(builtins.get(code, builtins.get("en", {})))
+        config["locale_tables"] = {
+            code or "en": {**base, **strings} if strings else base
+        }
+        config["locale_code"] = code
         # config always contains at least name/position — never empty.
         return dumps(config)
 

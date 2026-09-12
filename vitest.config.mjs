@@ -28,15 +28,10 @@ export default defineConfig({
         // the full build pipeline; not unit-testable in isolation.
         "script/build.mjs",
         "foliplus/js/runtime/**",
-        // Entry modules — require full Leaflet runtime (L.Control, addTo)
-        "foliplus/js/ExportControl/index.ts",
-        "foliplus/js/FullscreenControl/index.ts",
-        "foliplus/js/HeatmapControl/index.ts",
-        "foliplus/js/LayerControl/index.ts",
-        "foliplus/js/LocateControl/index.ts",
-        "foliplus/js/MeasureControl/index.ts",
-        "foliplus/js/ScaleControl/index.ts",
-        "foliplus/js/SearchControl/index.ts",
+        // Entry modules — require full Leaflet runtime (L.Control, addTo).
+        // Glob so a newly scaffolded control is excluded without editing this list.
+        "foliplus/js/*/index.ts",
+        "foliplus/js/MeasureControl/mode/index.ts",
         // UI modules — pure DOM builders, covered by browser tests
         "foliplus/js/ExportControl/ui.ts",
         "foliplus/js/HeatmapControl/ui.ts",
