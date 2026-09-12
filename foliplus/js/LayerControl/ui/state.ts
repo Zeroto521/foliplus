@@ -1,9 +1,9 @@
-﻿// LayerControl UI 鈥?Persisted user state (fold / hidden / names) apply + save.
+// LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
 import { T } from "./context.js";
 import { applyNameProjection } from "./context.js";
+import type { LayerUI } from "./index.js";
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
@@ -27,7 +27,7 @@ const saveHiddenIds = (ui: LayerUI) => {
 };
 
 /**
- * Propagate the user's stored state 鈥?hidden visibility and renames 鈥? * into the registry and the rendered rows.
+ * Propagate the user's stored state —hidden visibility and renames — * into the registry and the rendered rows.
  *
  * `hiddenIds` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
@@ -36,12 +36,12 @@ const saveHiddenIds = (ui: LayerUI) => {
  * overwrite of `visible`, so it writes straight through; name is a
  * cross-axis projection that must preserve the author's original name, so
  * it goes through `applyNameProjection`, which writes only where the
- * projection still differs 鈥?a repeated pass is therefore a no-op.
+ * projection still differs —a repeated pass is therefore a no-op.
  *
  * The sweep also prunes ids whose layers no longer exist so stale
  * persistence doesn't accumulate.
  *
- * @param {string} [id] Restrict to one layer id 鈥?a late-arriving row is
+ * @param {string} [id] Restrict to one layer id —a late-arriving row is
  *   already rendered with the right label, so it only needs its registry
  *   projection; a full sweep would re-rewrite every renamed row for no
  *   gain. Both projections are membership-guarded on this path: the drain
@@ -55,8 +55,8 @@ const applyUserState = (ui: LayerUI, id?: string) => {
 
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // stale id 鈥?pruned by persistence on save
-    // Both projections are membership-guarded 鈥?this path runs for every
+    if (!layerInfo) return; // stale id —pruned by persistence on save
+    // Both projections are membership-guarded —this path runs for every
     // late registration, including layers the user never touched. A layer
     // that was never hidden must not be hidden, and a missing rename is a
     // no-op rather than a write of undefined over the registry's own name.
@@ -81,7 +81,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   for (const layerId of ids) {
     if (layerId in ui.renamedNames) {
       if (layerId === CONST.COLOR.MAP_ID) {
-        // The color basemap has no registry entry 鈥?only its row label.
+        // The color basemap has no registry entry —only its row label.
         applyNameProjection(
           null,
           container?.querySelector(
@@ -92,7 +92,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
         continue;
       }
       const layerInfo = registry.get(layerId);
-      if (!layerInfo) continue; // stale id 鈥?pruned by persistence on save
+      if (!layerInfo) continue; // stale id —pruned by persistence on save
       applyNameProjection(
         layerInfo,
         container?.querySelector(
@@ -102,14 +102,14 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       );
     }
     const layerInfo = registry.get(layerId);
-    if (!layerInfo) continue; // stale id 鈥?pruned by persistence on save
+    if (!layerInfo) continue; // stale id —pruned by persistence on save
     if (ui.hiddenIds.has(layerId)) ui.applyHiddenOne(layerInfo, layerId);
     else if (ui.hiddenHasState) ui.applyVisibleStateOne(layerInfo);
   }
 
   // Prune ids whose layers are gone for good, so stale persistence does not
   // accumulate. Live means "in the registry or still queued in
-  // pendingRegistrations" 鈥?attachUI drains that queue before this sweep, so
+  // pendingRegistrations" —attachUI drains that queue before this sweep, so
   // neither implies a layer that will come back. The cost is a third-party
   // layer hidden and re-registered on a later activation: it re-enters
   // visible rather than coming back hidden. Keeping such ids would make the
@@ -154,7 +154,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
 };
 
 /**
- * Hide one layer without touching its row 鈥?the map removal, the callback
+ * Hide one layer without touching its row —the map removal, the callback
  * for canvas-only layers, and the registry's `visible` flag.
  *
  * Split from {@link LayerUI.applyHiddenOne} because the registry projection
@@ -167,7 +167,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
 const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   const layer = ui.m.findLayer(layerInfo);
 
-  // Callback-only layers (canvas) have no Leaflet layer to remove 鈥?fire
+  // Callback-only layers (canvas) have no Leaflet layer to remove —fire
   // the toggle callback so the canvas itself hides.
   if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
   else if (layer && ui.m.map.hasLayer(layer)) ui.m.map.removeLayer(layer);
@@ -176,13 +176,13 @@ const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
 };
 
 /**
- * Bring one layer back on to the map 鈥?the inverse of
+ * Bring one layer back on to the map —the inverse of
  * {@link LayerUI.applyHiddenStateOne}.
  *
  * Needed because folium renders a `show=False` layer absent from the map
  * and nothing else ever puts it back. On reload such a layer is correctly
  * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
- * leaves it alone 鈥?and the map comes up with the author's default rather
+ * leaves it alone —and the map comes up with the author's default rather
  * than the user's last choice. This closes that half of the round trip.
  *
  * `addLayer` is a no-op when the layer is already on the map, so the sweep
@@ -261,7 +261,7 @@ const saveNamesState = (ui: LayerUI) => {
   ui.m.persistence.saveNames(() => ui.renamedNames);
 };
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent 鈥? *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 
 /**
@@ -270,7 +270,12 @@ const saveNamesState = (ui: LayerUI) => {
  *   caller schedules a single save after the loop instead of resetting the
  *   debounce timer for every layer.
  */
-const syncHiddenId = ( ui: LayerUI, id: string, hidden: boolean, persist: boolean = true, ) => {
+const syncHiddenId = (
+  ui: LayerUI,
+  id: string,
+  hidden: boolean,
+  persist: boolean = true,
+) => {
   if (hidden) ui.hiddenIds.add(id);
   else ui.hiddenIds.delete(id);
   // The first change is what turns author defaults into the user's state.

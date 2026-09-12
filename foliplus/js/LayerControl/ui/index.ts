@@ -13,19 +13,9 @@ import {
 } from "../interaction.js";
 import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
-import {
-  closeAttrsPanel,
-  openAttrsPanel,
-} from "./attrs.js";
-import {
-  hideColorLayer,
-  showColorLayer,
-} from "./color.js";
-import {
-  isKeyboardVisibleFocus,
-  owningRow,
-  T,
-} from "./context.js";
+import { closeAttrsPanel, openAttrsPanel } from "./attrs.js";
+import { hideColorLayer, showColorLayer } from "./color.js";
+import { T, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -45,8 +35,8 @@ import {
   drawFocusMask,
   drawFocusRect,
   focusLayer,
-  highlightFocusedRow,
   hideOtherLayers,
+  highlightFocusedRow,
   isFocusLayerDisabled,
   isFocusing,
   registerAutoCancel,
@@ -87,14 +77,8 @@ import {
   renderToggleAllRow,
   updateLayerItem,
 } from "./list.js";
-import {
-  closeMoreMenu,
-  openMoreMenu,
-} from "./menu.js";
-import {
-  finishRename,
-  renameLayer,
-} from "./rename.js";
+import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { finishRename, renameLayer } from "./rename.js";
 import {
   applyHiddenOne,
   applyHiddenStateOne,
@@ -848,14 +832,3 @@ class LayerUI {
 }
 
 export { LayerUI };
-export * from "./attrs.js";
-export * from "./color.js";
-export * from "./context.js";
-export * from "./drag.js";
-export * from "./focus.js";
-export * from "./keyboard.js";
-export * from "./list.js";
-export * from "./menu.js";
-export * from "./rename.js";
-export * from "./state.js";
-export * from "./visibility.js";

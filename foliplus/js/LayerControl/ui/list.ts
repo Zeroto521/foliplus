@@ -1,4 +1,4 @@
-﻿// LayerControl UI 鈥?Layer row render / insert / reindex.
+// LayerControl UI —Layer row render / insert / reindex.
 import { GEOM_TYPE } from "#core/layer/index.js";
 import { getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
@@ -7,13 +7,13 @@ import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "./index.js";
 import * as Util from "../util.js";
-import { syncListCursor } from "./keyboard.js";
 import { T } from "./context.js";
+import type { LayerUI } from "./index.js";
+import { syncListCursor } from "./keyboard.js";
 import { applyUserState } from "./state.js";
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent 鈥? *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -31,7 +31,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // exactly once so the persisted set becomes absolute. It must come after
   // initLayerItem, not in attachUI: rows render checked by default and
   // initLayerItem is what corrects them from map.hasLayer(). It also waits
-  // until every layer resolves 鈥?on the first pass (setTimeout 0) folium
+  // until every layer resolves —on the first pass (setTimeout 0) folium
   // layers may not be linked into the registry yet, and reconciling then
   // would read a visible layer as hidden and persist that (corrupting the
   // local storage for every later test/load). The re-run triggered by
@@ -40,7 +40,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
     ui.isHiddenReconciled = true;
     ui.reconcileHiddenIds();
   }
-  // "All bases hidden" (not "any layer hidden") 鈥?hiding an overlay on a
+  // "All bases hidden" (not "any layer hidden") —hiding an overlay on a
   // base-less map must not suppress the color-layer background.
   const baseIds = [...ui.m.layers].filter(li => li.isBase).map(li => li.id);
   const allBasesHidden =
@@ -62,7 +62,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
 };
 
 const renderInitialList = (ui: LayerUI) => {
-  // Remember the cursor by identity 鈥?the item elements are rebuilt below,
+  // Remember the cursor by identity —the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
@@ -98,7 +98,7 @@ const renderInitialList = (ui: LayerUI) => {
   ui.uiContainer.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
-  // without painting the cursor class 鈥?restoreCursor() owns that visual.
+  // without painting the cursor class —restoreCursor() owns that visual.
   ui.syncListCursor();
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
@@ -113,7 +113,11 @@ const renderInitialList = (ui: LayerUI) => {
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = ( ui: LayerUI, layerInfo: LayerInfo, { reindex = true }: { reindex?: boolean } = {}, ) => {
+const insertLayerItem = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  { reindex = true }: { reindex?: boolean } = {},
+) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -152,7 +156,7 @@ const insertLayerItem = ( ui: LayerUI, layerInfo: LayerInfo, { reindex = true }:
   if (reindex) reindexItems(ui);
   // insertLayerItem is where a late-registered (third-party) layer first
   // shows up, so the user's name and visibility land with the row instead
-  // of waiting for a later pass. Only this layer's id is applied 鈥?a full
+  // of waiting for a later pass. Only this layer's id is applied —a full
   // sweep would re-rewrite every renamed row on each registration.
   applyUserState(ui, layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
@@ -166,7 +170,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
   if (!item) return;
   item.dataset.index = String(idx);
   // updateItemLabel sets both the row label and the checkbox's aria-label,
-  // so the name reaches assistive tech here without touching `title` 鈥?the
+  // so the name reaches assistive tech here without touching `title` —the
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, ui.displayName(layerInfo.id));
   const checkbox = item.querySelector(
@@ -178,7 +182,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
 /**
  * Effective panel display name for a layer: the user-assigned rename wins,
  * falling back to the registry name, then to the locale label for the
- * virtual color basemap 鈥?the only row with no registry entry.
+ * virtual color basemap —the only row with no registry entry.
  *
  * Every render path resolves names through here so a registry mutation
  * (re-registration, type refresh) can no longer resurrect the original
@@ -251,7 +255,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
     },
     { html: SVGs.MORE },
   );
-  // All layers get the "more" button 鈥?data layers can focus + rename, base
+  // All layers get the "more" button —data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
   const children: HTMLElement[] = [
@@ -268,7 +272,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
         checked: "",
         [CONST.DATA.INDEX]: String(idx),
         // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot 鈥?initLayerItem sets it per checked state
+        // Select/Deselect slot —initLayerItem sets it per checked state
         // before this row can be hovered, so leave it unseeded rather than
         // flashing the layer name.
         "aria-label": name,
@@ -305,7 +309,7 @@ const colorLayerName = (ui: LayerUI): string => {
 
 const renderColorLayerItem = (ui: LayerUI) => {
   // The input announces the same name as the row's label cell below, so a
-  // rename reaches assistive tech on both 鈥?not just the visible text.
+  // rename reaches assistive tech on both —not just the visible text.
   const colorName = ui.colorLayerName();
   const colorInput = dom.el("input", {
     type: "color",
@@ -314,7 +318,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
     "aria-label": colorName,
   });
 
-  // Color layer lives outside layerRegistry 鈥?rename is the only overflow
+  // Color layer lives outside layerRegistry —rename is the only overflow
   // action (no focus on a basemap without bounds).
   const moreBtn = dom.el(
     "button",
@@ -331,7 +335,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
   // row, which shows "count 路 type"); the layer name lives in the label
   // cell, not the tooltip. Persist the type label in data-item-title so a
   // rebuild can restore it; this must be the constant T("type_color_map"),
-  // NOT colorLayerName() 鈥?a rename must not change the tooltip.
+  // NOT colorLayerName() —a rename must not change the tooltip.
   const colorType = T("type_color_map");
   return dom.el(
     "div",
@@ -380,7 +384,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
     if (item) {
       if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
       else item.classList.remove(CONST.CLASSES.ACTIVE);
-      // The rename must survive a full init pass 鈥?initLayerItem is the
+      // The rename must survive a full init pass —initLayerItem is the
       // only incremental path that refreshes a row without re-rendering it.
       // aria-label carries the name; the title slot stays Select/Deselect
       // as set above.

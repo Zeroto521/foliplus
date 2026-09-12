@@ -1,8 +1,8 @@
-﻿// LayerControl UI 鈥?Checkbox / group-toggle visibility.
+// LayerControl UI —Checkbox / group-toggle visibility.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
 import { T } from "./context.js";
+import type { LayerUI } from "./index.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -31,7 +31,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     if (newState && layer) layer.options.paneSet = false;
     if (layerInfo.onToggle) layerInfo.onToggle(newState);
     ui.syncVisibility(layerInfo, layer, newState);
-    // No persist per iteration 鈥?schedule a single debounced write after the
+    // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
     ui.syncHiddenId(layerInfo.id, !newState, false);
   });
@@ -75,7 +75,12 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   );
 };
 
-const syncVisibility = ( ui: LayerUI, layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean, ) => {
+const syncVisibility = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  layer: L.Layer | null,
+  fallback: boolean,
+) => {
   layerInfo.visible = layer ? ui.m.map.hasLayer(layer) : fallback;
   return layerInfo.visible;
 };

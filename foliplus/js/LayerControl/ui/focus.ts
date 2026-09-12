@@ -1,12 +1,12 @@
-﻿// LayerControl UI 鈥?Focus-layer overlay (mask / rect / fly-to).
+// LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
 import { HINT_DURATION } from "#core/hint.js";
 import { forEachLeaf } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
 import { T } from "./context.js";
+import type { LayerUI } from "./index.js";
 
-/** Basemaps / color pickers cannot be focused 鈥?hint instead of silence. */
+/** Basemaps / color pickers cannot be focused —hint instead of silence. */
 const showBaseFocusHint = (ui: LayerUI): void => {
   ui.m.map.foliplus!.showHint(CONF.name, T("focus_layer_base"), HINT_DURATION.SHORT);
 };
@@ -46,11 +46,11 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` 鈥? *    `fitBounds` on a degenerate box has no effect.
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` — *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
  * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
- *    class so the list 鈫?map linkage is visible.
+ *    class so the list →map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
@@ -66,7 +66,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   if (!layerInfo) return;
   const layer = ui.m.findLayer(layerInfo);
 
-  // Hidden layer: nothing to focus on 鈥?show a hint instead.
+  // Hidden layer: nothing to focus on —show a hint instead.
   const itemEl = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
@@ -97,23 +97,23 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Cancel any in-flight focus first.
   dismissFocus(ui);
 
-  // Hide every other visible layer so the focused one stands out 鈥?including
+  // Hide every other visible layer so the focused one stands out —including
   // layers that overlap the focused bounds (the mask only dims outside).
   hideOtherLayers(ui);
   // Lift it above the hidden peers (so it can't be covered) and apply the
-  // accent glow 鈥?one O(panes) pass, not a per-leaf-element loop.
+  // accent glow —one O(panes) pass, not a per-leaf-element loop.
   bringFocusedLayerToFront(ui, layer, layerInfo.canvas ?? null);
 
   // Register LayerControl's own mode for the duration of the focus, BEFORE
   // the fitBounds/flyTo branching. Both paths draw a focus overlay and
-  // register the same auto-cancel, so both must hold the mode 鈥?a missing
+  // register the same auto-cancel, so both must hold the mode —a missing
   // setMode on the flyTo path would let export/measure render through a
-  // live focus overlay. Cleared on dismissFocus 鈥?called by the auto-timeout,
+  // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
   // the manual cancel, and a subsequent focus (dismissFocus runs at the top
   // of focusLayer).
   ensureModes(ui.m.map).setMode(CONF.name, "focusing");
 
-  // Single-point / tiny bounds 鈫?flyTo the center.
+  // Single-point / tiny bounds →flyTo the center.
   const southWest = bounds.getSouthWest();
   const northEast = bounds.getNorthEast();
   const area =
@@ -155,7 +155,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   }, CONST.FOCUS.RECT_DURATION_MS);
 
   // One-shot map move/zoom handler that auto-cancels focus when the user
-  // starts navigating elsewhere 鈥?prevents the rect from lingering.
+  // starts navigating elsewhere —prevents the rect from lingering.
   registerAutoCancel(ui, layerId);
 };
 
@@ -213,7 +213,7 @@ const dismissFocus = (ui: LayerUI): void => {
  *
  * Declarative: one class write on the map container. CSS
  * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
- * hides every layer pane except the focused one 鈥?instead of a JS
+ * hides every layer pane except the focused one —instead of a JS
  * visibility loop over N panes. `bringFocusedLayerToFront` marks the
  * focused pane(s)/canvas with `foliplus-focus-pane` so they stay visible.
  */
@@ -223,7 +223,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
 
 /**
  * Temporarily lift the focused layer's pane above every other layer so the
- * hidden layers stacked above it cannot cover it 鈥?a layer at the bottom
+ * hidden layers stacked above it cannot cover it —a layer at the bottom
  * of the z-order stays hidden even with the boost glow. Canvas layers
  * (heatmap) have no pane; their canvas element's z-index is lifted instead.
  *
@@ -233,7 +233,11 @@ const hideOtherLayers = (ui: LayerUI): void => {
  * dense layer (e.g. thousands of CircleMarkers) stays cheap. Restored on
  * cancel via focusedPaneRestores.
  */
-const bringFocusedLayerToFront = ( ui: LayerUI, layer: L.Layer | null, canvas: HTMLCanvasElement | null, ): void => {
+const bringFocusedLayerToFront = (
+  ui: LayerUI,
+  layer: L.Layer | null,
+  canvas: HTMLCanvasElement | null,
+): void => {
   const restores: Array<() => void> = [];
   const lift = (el: HTMLElement): void => {
     const orig = el.style.zIndex;
@@ -255,7 +259,7 @@ const bringFocusedLayerToFront = ( ui: LayerUI, layer: L.Layer | null, canvas: H
   } else if (layer) {
     // Best-effort: some third-party layers expose children without a pane
     // (getLayerPanes walks options.pane), so skip the lift if discovery
-    // throws 鈥?the hide + glow still work without it.
+    // throws —the hide + glow still work without it.
     let panes: string[] = [];
     try {
       panes = ui.m.getLayerPanes(layer);
@@ -264,7 +268,7 @@ const bringFocusedLayerToFront = ( ui: LayerUI, layer: L.Layer | null, canvas: H
     }
     for (const name of panes) {
       // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
-      // fallback panes are unique and safe to lift 鈥?and hideOtherLayers
+      // fallback panes are unique and safe to lift —and hideOtherLayers
       // already hides them, so the two must stay symmetric.
       if (ui.m.panes.defaultPanes.has(name)) continue;
       const pane = ui.m.map.getPane(name);
@@ -303,7 +307,7 @@ const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null 
 };
 
 /**
- * Draw an inverse mask that dims everything outside the focused bounds 鈥? * the same "inside highlighted / outside dimmed" spotlight as the export
+ * Draw an inverse mask that dims everything outside the focused bounds — * the same "inside highlighted / outside dimmed" spotlight as the export
  * crop box. The mask is a polygon of the visible view with the layer bounds
  * as a hole, rendered in a high-z pane above the layer panes but below the
  * focus rectangle, so the focused layer inside the hole stays bright.
@@ -373,7 +377,7 @@ const registerAutoCancel = (ui: LayerUI, layerId: string): void => {
     if (ui.focusingLayerId !== layerId) return;
     // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
     // completion, which should NOT auto-cancel. Any move/zoom *after* the
-    // grace window is a deliberate user action 鈫?cancel.
+    // grace window is a deliberate user action →cancel.
     setTimeout(() => {
       if (ui.focusingLayerId === layerId) {
         dismissFocus(ui);
@@ -394,8 +398,12 @@ const clearAutoCancel = (ui: LayerUI): void => {
   }
 };
 
-/** Highlight the layer row that is being focused (list 鈫?map linkage). */
-const highlightFocusedRow = ( ui: LayerUI, itemEl: HTMLElement | null, layerId: string, ): void => {
+/** Highlight the layer row that is being focused (list →map linkage). */
+const highlightFocusedRow = (
+  ui: LayerUI,
+  itemEl: HTMLElement | null,
+  layerId: string,
+): void => {
   clearFocusedRowHighlight(ui);
   if (!itemEl) return;
   itemEl.classList.add(CONST.CLASSES.FOCUSING);

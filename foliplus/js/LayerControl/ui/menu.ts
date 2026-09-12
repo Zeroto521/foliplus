@@ -1,10 +1,10 @@
-﻿// LayerControl UI 鈥?Overflow (鈰? menu.
+// LayerControl UI —Overflow (鈰? menu.
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "./index.js";
 import { T } from "./context.js";
+import type { LayerUI } from "./index.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -48,7 +48,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     ),
   );
 
-  // Attributes is display-only, so it is never disabled 鈥?a hidden layer
+  // Attributes is display-only, so it is never disabled —a hidden layer
   // still has name / source / visibility to show.
   menu.appendChild(
     dom.el(
@@ -89,12 +89,9 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
  * (name, provenance, feature count, last update, visibility) plus any
  * third-party `meta` entries passed to registerLayer.
  *
- * Rows are omitted when they carry no value 鈥?a panel is not padded with
- * "鈥?. The color basemap is included (it carries no provider data, but the
+ * Rows are omitted when they carry no value —a panel is not padded with
+ * "—. The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
 
-export {
-  openMoreMenu,
-  closeMoreMenu,
-};
+export { openMoreMenu, closeMoreMenu };

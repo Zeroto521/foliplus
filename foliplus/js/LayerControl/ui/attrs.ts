@@ -1,23 +1,23 @@
-﻿// LayerControl UI 鈥?Layer attributes panel.
+// LayerControl UI —Layer attributes panel.
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import type { LayerUI } from "./index.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import { T } from "./context.js";
 import { formatTimestamp } from "./context.js";
+import type { LayerUI } from "./index.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
  * (name, provenance, feature count, last update, visibility) plus any
  * third-party `meta` entries passed to registerLayer.
  *
- * Rows are omitted when they carry no value 鈥?a panel is not padded with
- * "鈥?. The color basemap is included (it carries no provider data, but the
+ * Rows are omitted when they carry no value —a panel is not padded with
+ * "—. The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
@@ -41,7 +41,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Every row is built as label + resolved value; a row whose value is an
   // empty string is dropped. That covers both "no data registered" and
-  // "updatedAt parses to nothing" 鈥?formatTimestamp returns "" for invalid
+  // "updatedAt parses to nothing" —formatTimestamp returns "" for invalid
   // input, so an unparsable timestamp vanishes instead of leaving an
   // empty-value row.
   const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {
@@ -53,7 +53,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // then provenance (source / created / updated).
   const layer = layerInfo?.layer ?? null;
   // getGeometryType returns EMPTY for a container with no data geometry and
-  // UNKNOWN for mixed/unrecognisable data 鈥?both have locale keys.
+  // UNKNOWN for mixed/unrecognisable data —both have locale keys.
   const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
@@ -64,7 +64,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   if (!isColor) {
     const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted 鈥?and `comma` defaults to one fraction digit, which
+    // than compacted —and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
       T("attr_feature_count"),
@@ -110,7 +110,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ),
     );
 
-  // Third-party meta rows continue the same list 鈥?no heading, no separator:
+  // Third-party meta rows continue the same list —no heading, no separator:
   // the panel is one flat column of facts, in the same order every time.
   const metaEntries = Object.entries(layerInfo?.meta ?? {}).filter(
     ([, v]) => v != null && v !== "",
@@ -134,7 +134,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const closeBtn = dom.el(
     "button",
     {
-      // The shared header close affordance 鈥?same classes as the layer
+      // The shared header close affordance —same classes as the layer
       // panel's own 脳, so position, size and hover are identical.
       class: "foliplus-ctrl-btn foliplus-close-btn",
       type: "button",
@@ -155,7 +155,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       role: "dialog",
       "aria-label": T("attributes_layer"),
     },
-    // Header bar 鈥?literally the shared panel header: the type logo sits
+    // Header bar —literally the shared panel header: the type logo sits
     // inside the title (as in the layer panel) and the 脳 is the shared
     // close button, so both line up with every other foliplus panel.
     // Hover title is close_title (鏀惰捣 / Collapse), same as the main panel.
@@ -208,7 +208,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // map or another foliplus control would never close the panel otherwise.
   ui.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself 鈥?no closest().
+    // Document-level dispatch can name `document` itself —no closest().
     if (!t || typeof t.closest !== "function") {
       ui.closeAttrsPanel(false);
       return;
@@ -245,7 +245,4 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
  * gap, so the value is trimmed on commit.
  */
 
-export {
-  openAttrsPanel,
-  closeAttrsPanel,
-};
+export { openAttrsPanel, closeAttrsPanel };

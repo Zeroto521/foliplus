@@ -1,7 +1,7 @@
-﻿// LayerControl UI 鈥?Solid-color basemap visibility.
+// LayerControl UI —Solid-color basemap visibility.
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
 import { mapContainer } from "./context.js";
+import type { LayerUI } from "./index.js";
 
 const showColorLayer = (ui: LayerUI, color: string) => {
   ui.isColorActive = true;
@@ -50,7 +50,4 @@ const hideColorLayer = (ui: LayerUI) => {
     ?.classList.remove(CONST.CLASSES.ACTIVE);
 };
 
-export {
-  showColorLayer,
-  hideColorLayer,
-};
+export { showColorLayer, hideColorLayer };
