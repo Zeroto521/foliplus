@@ -125,7 +125,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1"],
+        panes: [{ name: "graph1" }],
       });
       api.addLayer(new window.L.Path());
       expect(registerLayer).toHaveBeenCalled();
@@ -141,7 +141,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const labelLayer = new window.L.Marker();
       api.addLayer(labelLayer, "label1");
@@ -152,7 +152,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const labelLayer = new window.L.Marker();
       api.addLayer(labelLayer, "label1");
@@ -163,7 +163,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const graphLayer = new window.L.Path();
       api.addLayer(graphLayer, "graph1");
@@ -188,13 +188,13 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const layer = new window.L.Marker();
       api.addLayer(layer, "does_not_exist");
       // The api.addLayer wrapper does not write options.pane for a name
       // outside subPanes; mainLayer.addLayer then auto-routes to the base
-      // sub-pane (subPanes[0]) â€” the same place a bare addLayer(layer) with
+      // sub-pane (subPanes[0]) â€?the same place a bare addLayer(layer) with
       // no name goes. Documented so a future tightening has a test to
       // update.
       expect(layer.options.pane).toBe("graph1");
@@ -205,12 +205,12 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const layer = new window.L.Path();
       api.addLayer(layer, "graph1");
       expect(layer.options.pane).toBe("graph1");
-      // Graph is index 0 â€” not a label pane, so isLabel must not be set.
+      // Graph is index 0 â€?not a label pane, so isLabel must not be set.
       expect(layer.isLabel).toBeUndefined();
     });
 
@@ -218,7 +218,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const layer = new window.L.Path();
       api.addLayer(layer);
@@ -230,13 +230,13 @@ describe("LayerFactory", () => {
       // Pre-refactor, mainLayer.addLayer(layer) wrote options.pane = graphPane
       // automatically when layer.isLabel was absent. The refactor initially
       // dropped that write, silently breaking the mainLayer.addLayer(poly)
-      // contract that browser tests and MeasureControl rely on â€” the CI run
+      // contract that browser tests and MeasureControl rely on â€?the CI run
       // caught it as "assert 'overlayPane' == '__pane_test_graph__'". This
       // test pins the restored auto-route behavior.
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const layer = new window.L.Path();
       expect(layer.options.pane).toBeUndefined();
@@ -253,7 +253,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const layer = new window.L.Path();
       layer.options.pane = "label1";
@@ -275,7 +275,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1"],
+        panes: [{ name: "graph1" }],
       });
       const layer = new window.L.Path();
       layer.options.pane = "__not_ours__";
@@ -299,7 +299,7 @@ describe("LayerFactory", () => {
         invalidateType,
         onDataChange,
       });
-      const api = f.createLayers({ id: "test", name: "Test", panes: ["g1"] });
+      const api = f.createLayers({ id: "test", name: "Test", panes: [{ name: "g1" }] });
       const layer = new window.L.Path();
       api.addLayer(layer);
       expect(onDataChange).toHaveBeenCalledWith("test");
@@ -322,7 +322,7 @@ describe("LayerFactory", () => {
       const api = f.createLayers({
         id: "measure",
         name: "Measure",
-        panes: ["g1"],
+        panes: [{ name: "g1" }],
         featureCountProvider: () => 0,
       });
       const layer = new window.L.Path();
@@ -368,14 +368,14 @@ describe("LayerFactory", () => {
         invalidateType,
         onDataChange,
       });
-      const api = f.createLayers({ id: "test", name: "Test", panes: ["g1"] });
+      const api = f.createLayers({ id: "test", name: "Test", panes: [{ name: "g1" }] });
       api.register();
       api.clearLayers(); // panes declared but contains no data
       expect(onDataChange).not.toHaveBeenCalled();
     });
 
     it("does not crash when onDataChange is not provided", () => {
-      const api = factory.createLayers({ id: "test", name: "Test", panes: ["g1"] });
+      const api = factory.createLayers({ id: "test", name: "Test", panes: [{ name: "g1" }] });
       const layer = new window.L.Path();
       expect(() => api.addLayer(layer)).not.toThrow();
       expect(() => api.removeLayer(layer)).not.toThrow();
@@ -385,7 +385,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1"],
+        panes: [{ name: "graph1" }],
       });
       const layer = new window.L.Path();
       api.addLayer(layer);
@@ -430,9 +430,9 @@ describe("LayerFactory", () => {
         bringLayerToFront: vi.fn(),
         invalidateType: vi.fn(),
       });
-      const api = f.createLayers({ id: "test", name: "Test", panes: ["graph1"] });
+      const api = f.createLayers({ id: "test", name: "Test", panes: [{ name: "graph1" }] });
       api.addLayer(new window.L.Path());
-      api.register(); // second call â€” register() always calls registerLayer
+      api.register(); // second call â€?register() always calls registerLayer
       expect(reg).toHaveBeenCalledTimes(2);
     });
 
@@ -446,7 +446,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1"],
+        panes: [{ name: "graph1" }],
       });
       expect(api.registered()).toBe(false);
       api.addLayer(new window.L.Path());
@@ -463,7 +463,7 @@ describe("LayerFactory", () => {
         bringLayerToFront: vi.fn(),
         invalidateType: vi.fn(),
       });
-      const api = f.createLayers({ id: "test", name: "Test", panes: ["graph1"] });
+      const api = f.createLayers({ id: "test", name: "Test", panes: [{ name: "graph1" }] });
       api.addLayer(new window.L.Path(), "graph1");
       expect(ensureVectorSpy).toHaveBeenCalledWith(expect.anything(), "graph1");
       ensureVectorSpy.mockRestore();
@@ -626,7 +626,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1"],
+        panes: [{ name: "graph1" }],
       });
       const layer = new window.L.Path();
       api.addLayer(layer, "graph1");
@@ -641,7 +641,7 @@ describe("LayerFactory", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
-        panes: ["graph1", "label1"],
+        panes: [{ name: "graph1" }, { name: "label1", isLabel: true }],
       });
       const labelLayer = new window.L.Marker();
       api.addLayer(labelLayer, "label1");
@@ -666,7 +666,7 @@ describe("LayerFactory", () => {
         id: "test",
         name: "Test",
         iconSvg: "<svg/>",
-        panes: ["g1"],
+        panes: [{ name: "g1" }],
       });
       api.addLayer(new window.L.Path(), "g1");
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg: "<svg/>" }));

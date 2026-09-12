@@ -138,6 +138,7 @@ class CircleMode extends PreviewMode {
         center = event.latlng;
         previews.center = this.addPreview(
           Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          CONST.PANES.NODE,
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -192,7 +193,6 @@ class CircleMode extends PreviewMode {
       // endpoint moved only with `setLatLng` would be painted over within a
       // few mousemoves. The center never moves, so re-attaching it is free;
       // the radius endpoint already re-attaches through moveCursorNode.
-      if (previews.center) this.pinToTop(previews.center);
       previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);

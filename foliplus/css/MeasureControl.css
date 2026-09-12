@@ -10,10 +10,12 @@
    they read as clickable; draggable nodes get an inline `move` cursor
    (bindNodeDrag) for the whole edit session. */
 .leaflet-measure_graph-pane .leaflet-interactive,
+.leaflet-measure_node-pane .leaflet-interactive,
 .leaflet-measure_label-pane .leaflet-interactive {
   cursor: default;
 }
 .foliplus-measure-editing .leaflet-measure_graph-pane .leaflet-interactive,
+.foliplus-measure-editing .leaflet-measure_node-pane .leaflet-interactive,
 .foliplus-measure-editing .leaflet-measure_label-pane .leaflet-interactive {
   cursor: pointer;
 }

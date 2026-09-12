@@ -163,7 +163,10 @@ class PreviewMode extends MeasureMode {
    */
   moveCursorNode(latlng: L.LatLng): L.CircleMarker {
     if (this.cursorNode) this.removePreview(this.cursorNode);
-    this.cursorNode = this.addPreview(Util.makePreviewNode(latlng));
+    this.cursorNode = this.addPreview(
+      Util.makePreviewNode(latlng),
+      CONST.PANES.NODE,
+    );
     return this.cursorNode;
   }
 
@@ -195,11 +198,7 @@ class PreviewMode extends MeasureMode {
     makeIcon: (text: string) => L.DivIcon,
   ): L.Marker {
     if (!label) {
-      const el = L.marker(latlng, {
-        icon: makeIcon(text),
-        interactive: false,
-        zIndexOffset: 1000,
-      });
+      const el = L.marker(latlng, { icon: makeIcon(text), interactive: false });
       return this.addPreview(el, CONST.PANES.LABEL);
     }
     label.setLatLng(latlng);

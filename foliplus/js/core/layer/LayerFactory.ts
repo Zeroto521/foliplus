@@ -73,8 +73,12 @@ class LayerFactory {
     // `paneName` on the registry entry); the rest are sub-panes with
     // ascending z offsets from CHILD_PANE_OFFSET. An empty or absent list
     // means the layer is flat — a single `mainLayer` with no children.
-    const subPanes = opts.panes ?? [];
+    const paneEntries = opts.panes ?? [];
+    const subPanes = paneEntries.map(p => p.name);
     const basePaneName = subPanes[0] ?? null;
+    const labelPanes = new Set(
+      paneEntries.filter(p => p.isLabel).map(p => p.name),
+    );
 
     // Components that supply featureCountProvider (MeasureControl, Heatmap)
     // manage their own counts via emit(LAYER_ITEM_COUNT_CHANGE). For them,
@@ -255,12 +259,11 @@ class LayerFactory {
       if (target && subPanes.includes(target)) {
         (layer as LabelAwareLayer).options.pane = target;
         (layer as LabelAwareLayer).options.paneSet = true;
-        // Mark as a label if the pane is one of the layer's label panes
-        // (index ≥ 1 — the base pane is index 0). This preserves the
-        // existing `isLabel` contract that util.getGeometryType /
+        // Mark as a label if the pane is one of the caller's label panes.
+        // This preserves the `isLabel` contract that util.getGeometryType /
         // countFeatureGeometry rely on to exclude label leaves from
         // feature geometry counts and type detection.
-        if (subPanes.indexOf(target) > 0) {
+        if (labelPanes.has(target)) {
           (layer as LabelAwareLayer).isLabel = true;
         }
       }

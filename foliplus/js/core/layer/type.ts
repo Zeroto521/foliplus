@@ -93,7 +93,7 @@ interface CreateLayersOpts {
    *
    * When empty or absent, the layer is a single flat layer with no sub-panes.
    */
-  panes?: string[];
+  panes?: Array<{ name: string; isLabel?: boolean }>;
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default

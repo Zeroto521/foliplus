@@ -70,7 +70,11 @@ const FORMAT = {
 
 /** IDs and pane names. */
 const ID = "foliplus_measure";
-const PANES = { GRAPH: "measure_graph", LABEL: "measure_label" };
+const PANES = {
+  GRAPH: "measure_graph",
+  NODE: "measure_node",
+  LABEL: "measure_label",
+};
 
 /** CSS class names. */
 const CLASSES = {
