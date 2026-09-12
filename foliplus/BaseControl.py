@@ -18,7 +18,6 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 from __future__ import annotations
 
 from functools import cache
-from json import dumps
 from pathlib import Path
 from textwrap import dedent
 
@@ -26,15 +25,40 @@ from branca.element import Element, Figure
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
+from jinja2.utils import htmlsafe_json_dumps
 
 from ._typing import Position
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
-js_dir = src_dir / "js"
-css_dir = src_dir / "css"
 dist_dir = src_dir / "dist"
+
+# JS line terminators. Legal JSON, but emitted literally they would end the
+# containing ``<script>`` statement early — folium's ``|tojson`` drops them,
+# so this pass matches what folium already guarantees for the same payload.
+_LINE_TERMINATORS = {chr(0x2028): "\\u2028", chr(0x2029): "\\u2029"}
+
+
+def _safe_json(value: object) -> str:
+    """Serialize ``value`` for injection into a classic ``<script>`` tag.
+
+    Wraps Jinja's :func:`htmlsafe_json_dumps` — the same routine behind
+    folium's own ``|tojson`` filter — so a ``<``, ``>``, ``&``, or ``'`` in a
+    model-supplied string can never close the script tag.
+
+    Adds one thing folium does not: U+2028/U+2029 are emitted as ``\\u2028``
+    escapes instead of literal characters.
+
+    ``ensure_ascii=False`` is deliberate — layer names are usually CJK, and
+    ``\\uXXXX`` escapes would roughly double the size of the shared locale
+    tables injected once per map.
+    """
+    text = str(htmlsafe_json_dumps(value, ensure_ascii=False))
+    for raw, escape in _LINE_TERMINATORS.items():
+        text = text.replace(raw, escape)
+    return text
+
 
 # Stable child name used to deduplicate the shared asset bundle in a figure's
 # header, so runtime.js / the merged shared stylesheet / locale tables are
@@ -61,7 +85,7 @@ def _build_shared_header() -> str:
         "<script>\n"
         f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
+        f"window.foliplus._TABLES = {_safe_json(_load_tables('common.*.json'))};\n"
         "</script>"
     )
 
@@ -161,7 +185,11 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _locale_code(self) -> str:
-        """Legacy property — returns the locale code for tests."""
+        """The resolved locale code, or ``""`` when unset (auto-detect at runtime).
+
+        A lightweight assertion point: it exposes the resolved code without
+        rendering, which would otherwise require the full Jinja2 + dist pipeline.
+        """
         return self._locale.code if self._locale else ""
 
     @property
@@ -178,12 +206,30 @@ class BaseControl(JSCSSMixin, MacroElement):
 
         Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
         inline ``<script>`` injection.
+
+        The JSON is escaped through :func:`_safe_json` rather than plain
+        ``json.dumps``: config values can carry model-supplied strings (layer
+        names, export filenames, ...), and a literal ``</script>`` inside them
+        would otherwise close the inline script tag and let the rest of the
+        string execute as script.
         """
         config = dict(self._build_config())
-        config["locale_tables"] = _load_tables(f"{self._name}.*.json")
-        config["locale_code"] = self._locale.code if self._locale else ""
+        # A LocaleConfig carrying its own strings (from_json / resolve_locale) layers
+        # those over a built-in per-component table, so a partial custom table only
+        # overrides the keys it declares and leaves the rest translated. A code that
+        # has no built-in table (a genuinely new language from from_json) falls back
+        # to English, which carries every key. Empty strings mean "auto-detect at
+        # runtime", so ship the built-in tables with no overlay.
+        code = self._locale.code if self._locale else ""
+        strings = self._locale._strings if self._locale else {}
+        builtins = _load_tables(f"{self._name}.*.json")
+        base = dict(builtins.get(code, builtins.get("en", {})))
+        config["locale_tables"] = {
+            code or "en": {**base, **strings} if strings else base
+        }
+        config["locale_code"] = code
         # config always contains at least name/position — never empty.
-        return dumps(config)
+        return _safe_json(config)
 
     def _extra_config(self) -> dict:
         """Return render-time config injected into the JS ``CONF`` object.

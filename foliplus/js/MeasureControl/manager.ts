@@ -167,6 +167,8 @@ class MeasureManager {
   /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
     this.store.persist();
+    // Runtime content changed — refresh the attributes panel timestamp.
+    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".

@@ -7,7 +7,7 @@ import {
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
-import { LayerUI } from "#foliplus/LayerControl/ui.js";
+import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
