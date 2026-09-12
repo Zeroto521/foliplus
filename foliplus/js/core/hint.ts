@@ -198,6 +198,12 @@ const ensureHint = (map: L.Map): HintManager => {
   map.foliplus!.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };
+  // On map unload, tear down hints and unbind the document-level
+  // fullscreenchange listener. Without this the manager outlives its map: the
+  // WeakMap entry frees the instance, but document.body hints, the open
+  // setTimeout timers, and the document listener all leak. Mirrors the per-map
+  // cleanup pattern used by core/mode and core/interaction.
+  map.on("unload", () => mgr.destroy());
   return mgr;
 };
 

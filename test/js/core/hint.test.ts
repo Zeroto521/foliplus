@@ -137,21 +137,21 @@ describe("HintManager", () => {
 
 describe("ensureHint", () => {
   it("attaches showHint/hideHint to map.foliplus", () => {
-    const map = { foliplus: {} } as any;
+    const map = { foliplus: {}, on: vi.fn() } as any;
     ensureHint(map);
     expect(typeof map.foliplus.showHint).toBe("function");
     expect(typeof map.foliplus.hideHint).toBe("function");
   });
 
   it("is idempotent — repeated calls return the same instance", () => {
-    const map = { foliplus: {} } as any;
+    const map = { foliplus: {}, on: vi.fn() } as any;
     const a = ensureHint(map);
     const b = ensureHint(map);
     expect(b).toBe(a);
   });
 
   it("exposes registerHintIcon on map.foliplus", () => {
-    const map = { foliplus: {} } as any;
+    const map = { foliplus: {}, on: vi.fn() } as any;
     ensureHint(map);
     expect(typeof map.foliplus.registerHintIcon).toBe("function");
     map.foliplus.registerHintIcon("via_map", "<svg></svg>");
@@ -160,8 +160,8 @@ describe("ensureHint", () => {
   });
 
   it("is per-map — separate maps get separate instances", () => {
-    const mapA = {} as any;
-    const mapB = {} as any;
+    const mapA = { on: vi.fn() } as any;
+    const mapB = { on: vi.fn() } as any;
     const a = ensureHint(mapA);
     const b = ensureHint(mapB);
     expect(a).not.toBe(b);
@@ -170,12 +170,14 @@ describe("ensureHint", () => {
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
     a.hideHint("key");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+    b.hideHint("key");
   });
+
 
   it("syncs icons registered AFTER an existing manager was created (regression)", () => {
     // A later control's createControlEnv registers its icon after ensureHint
     // already created the manager — the new icon must appear.
-    const map = {} as any;
+    const map = { on: vi.fn() } as any;
     ensureHint(map); // manager created BEFORE the icon is registered
     registerHintIcon("late_icon", "<svg></svg>");
     map.foliplus.showHint("late_icon", "text", 0);
@@ -197,7 +199,7 @@ describe("ensureHint", () => {
     // Historically LocateControl / MeasureControl / ExportControl hints were
     // missing icons in this order (registerHintIcon only updated the module
     // registry, never re-seeding the already-created manager).
-    const map = {} as any;
+    const map = { on: vi.fn() } as any;
     ensureHint(map); // manager created BEFORE the components below register
     const components = [
       "ExportControl",
@@ -220,5 +222,51 @@ describe("ensureHint", () => {
         name + " icon should match",
       ).toBe(name);
     }
+  });
+});
+
+
+describe("map unload teardown", () => {
+  it("destroys the manager on map unload, unbinding the fullscreenchange listener", () => {
+    vi.useFakeTimers();
+    const on = vi.fn();
+    const map = { on } as any;
+    const mgr = ensureHint(map);
+    // migrateHints is called through a bound arrow, so spying the class
+    // method is the only way to observe the document listener afterwards.
+    const migrateSpy = vi.spyOn(mgr, "migrateHints" as any);
+    mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
+    // Grab the element this manager just created. A global selector would
+    // also match stray nodes left behind by sibling tests.
+    const el = mgr.hintMap.values().next().value.element;
+    const unloadHandler = on.mock.calls.find(
+      ([event]: [string]) => event === "unload",
+    )?.[1];
+    expect(unloadHandler).toBeDefined();
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(migrateSpy).toHaveBeenCalledTimes(1); // listener still bound
+    expect(el.isConnected).toBe(true);
+
+    unloadHandler();
+    expect(mgr.hintMap.size).toBe(0);
+    expect(el.isConnected).toBe(false);
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(migrateSpy).toHaveBeenCalledTimes(1); // listener unbound
+
+    // A second manager (another map on the page) proves teardown is scoped:
+    // it still receives newly registered icons, and icon propagation does not
+    // reach the destroyed manager.
+    const other = new HintManager();
+    other.showHint("persist", "other map", HINT_DURATION.PERSIST);
+    registerHintIcon("late", "<svg></svg>");
+    other.showHint("late", "late", HINT_DURATION.PERSIST);
+    expect(other.hintMap.size).toBe(2);
+    expect(mgr.hintMap.size).toBe(0); // dead manager untouched
+
+    other.destroy();
+    migrateSpy.mockRestore();
+    vi.useRealTimers();
   });
 });
