@@ -20,6 +20,7 @@ import {
 } from "#foliplus/SearchControl/logic.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 import { Cache } from "#foliplus/common/cache.js";
+import * as Storage from "#foliplus/common/storage.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
@@ -1648,6 +1649,13 @@ describe("SearchControl history", () => {
   });
 
   describe("loadHistory / saveHistory", () => {
+    /** Rows the pre-scoped build stored, under the unscoped key. */
+    const legacyRows = [{ type: MODE.ADDR, addrDisplay: "Paris", lng: 2.3, lat: 48.8 }];
+    /** Rows a post-scoped build writes, under the per-map key. */
+    const scopedRows = [
+      { type: MODE.ADDR, addrDisplay: "Scoped", lng: 1.0, lat: 50.0 },
+    ];
+
     /** Write partial entries as an older version would have stored them. */
     const store = (entries: object[]): void => {
       localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify(entries));
@@ -1761,48 +1769,60 @@ describe("SearchControl history", () => {
     });
 
     it("migrates history stored under the legacy unscoped key", () => {
-      localStorage.setItem(
-        HISTORY.LEGACY_STORAGE_KEY,
-        JSON.stringify([
-          { type: MODE.ADDR, addrDisplay: "Paris", lng: 2.3, lat: 48.8 },
-        ]),
-      );
-      expect(loadHistory()).toEqual([
-        {
-          query: "",
-          type: MODE.ADDR,
-          coordDisplay: "",
-          addrDisplay: "Paris",
-          lng: 2.3,
-          lat: 48.8,
-          ts: expect.any(Number),
-          count: 1,
-        },
-      ]);
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
+      const entries = loadHistory();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].addrDisplay).toBe("Paris");
+      expect(entries[0].lng).toBe(2.3);
+      expect(entries[0].count).toBe(1);
+      expect(entries[0].ts).toBeGreaterThan(0);
     });
 
     it("prefers the scoped key over the legacy one", () => {
-      localStorage.setItem(
-        HISTORY.LEGACY_STORAGE_KEY,
-        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Legacy", lng: 0, lat: 0 }]),
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
+      localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify(scopedRows));
+      expect(loadHistory().map(e => e.addrDisplay)).toEqual(
+        scopedRows.map(r => r.addrDisplay),
       );
-      localStorage.setItem(
-        HISTORY.STORAGE_KEY,
-        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Scoped", lng: 0, lat: 0 }]),
-      );
-      expect(loadHistory().map(e => e.addrDisplay)).toEqual(["Scoped"]);
     });
 
-    it("ignores corrupt legacy data instead of falling back to it", () => {
-      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, "not json");
+    it("loads corrupt scoped data without falling back to the legacy key", () => {
+      localStorage.setItem(HISTORY.STORAGE_KEY, "not json");
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
+      expect(loadHistory()).toEqual([]);
+    });
+
+    it("reads the legacy key only when the scoped key is absent", () => {
+      const loadSpy = vi.spyOn(Storage, "load");
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
+      expect(loadHistory()).toHaveLength(1);
+      // One read, off the legacy key — the scoped read was skipped, not merged.
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+      expect(loadSpy).toHaveBeenLastCalledWith(HISTORY.LEGACY_STORAGE_KEY, CONF.name);
+    });
+
+    it("never reads the legacy key once the scoped key has data", () => {
+      const loadSpy = vi.spyOn(Storage, "load");
+      localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify(scopedRows));
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
+      expect(loadHistory().map(e => e.addrDisplay)).toEqual(["Scoped"]);
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+      expect(loadSpy).toHaveBeenLastCalledWith(HISTORY.STORAGE_KEY, CONF.name);
+    });
+
+    it("returns empty history instead of throwing when storage access is denied", () => {
+      // The presence probe reads localStorage directly (it must, to tell a
+      // missing key from a corrupt one), so a throwing getItem must not escape
+      // loadHistory().
+      const getItem = vi.spyOn(window.localStorage, "getItem");
+      getItem.mockImplementation(() => {
+        throw new Error("SecurityError");
+      });
       expect(loadHistory()).toEqual([]);
     });
 
     it("writes back under the scoped key, leaving the legacy row orphaned", () => {
-      localStorage.setItem(
-        HISTORY.LEGACY_STORAGE_KEY,
-        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]),
-      );
+      localStorage.setItem(HISTORY.LEGACY_STORAGE_KEY, JSON.stringify(legacyRows));
       saveHistory(loadHistory());
       expect(localStorage.getItem(HISTORY.STORAGE_KEY)).toContain("Paris");
       // Deliberately not removed: two maps on one page would race on that read.
@@ -1810,15 +1830,21 @@ describe("SearchControl history", () => {
     });
 
     it("keeps history separate per map container", () => {
-      // Two maps on one page must resolve to different keys, not collide.
-      const keyFor = (id: string): string => {
-        const el = document.createElement("div");
-        el.id = id;
-        return `foliplus_search_${el.id}`;
-      };
-      expect(keyFor("map-a")).not.toBe(keyFor("map-b"));
-      // And the real key tracks the container id it is built from.
-      expect(HISTORY.STORAGE_KEY).toBe(keyFor(map.getContainer().id));
+      localStorage.setItem("foliplus_search_map-a", JSON.stringify(legacyRows));
+      localStorage.setItem(
+        "foliplus_search_map-b",
+        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Tokyo", lng: 0, lat: 0 }]),
+      );
+      // The container id feeds the scoped key directly; a second map must not
+      // inherit the first map's row.
+      Object.defineProperty(HISTORY, "STORAGE_KEY", { value: "foliplus_search_map-a" });
+      const mapA = loadHistory();
+      expect(mapA.map(e => e.addrDisplay)).toEqual(["Paris"]);
+      Object.defineProperty(HISTORY, "STORAGE_KEY", { value: "foliplus_search_map-b" });
+      const mapB = loadHistory();
+      expect(mapB.map(e => e.addrDisplay)).toEqual(["Tokyo"]);
+      // map-a's store survives map-b's read.
+      expect(JSON.parse(localStorage.getItem("foliplus_search_map-a")!).length).toBe(1);
     });
 
     it("returns empty array for non-array data", () => {

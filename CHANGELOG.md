@@ -26,7 +26,7 @@
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
 - `ListCursor`: shared list keyboard cursor — roving tabindex + ARIA in `core/listCursor.ts`. LayerControl Tab enters/exits in one step; SearchControl paints ARIA from it ([#279](https://github.com/Zeroto521/foliplus/pull/279))
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
-- `SearchControl`: scope the search-history localStorage key to the map container (`foliplus_search_<map id>`) so multiple maps on one page do not share history, with a one-time read of the old unscoped key so existing history is carried over ([#297](https://github.com/Zeroto521/foliplus/pull/297))
+- `SearchControl`: scope the search-history localStorage key to the map container (`foliplus_search_<map id>`) so multiple maps on one page do not share history, with a one-time read of the old unscoped key so existing history is carried over ([#PENDING](https://github.com/Zeroto521/foliplus/pull/PENDING))
 
 ### Changed
 

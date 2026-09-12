@@ -34,7 +34,7 @@ const HISTORY = {
   MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
   /** localStorage key for search history, scoped per map container. */
   STORAGE_KEY: `foliplus_search_${map.getContainer().id}`,
-  /** Pre-#296 unscoped key, read once to migrate existing history. */
+  /** Pre-scoping unscoped key, read once to migrate existing history. */
   LEGACY_STORAGE_KEY: "foliplus.search_history",
 };
 

@@ -46,10 +46,14 @@ describe("HISTORY", () => {
   });
 
   it("scopes the storage key to the map container", () => {
-    expect(CONST.HISTORY.STORAGE_KEY).toBe("foliplus_search_test-map");
-    // The legacy key is the unscoped global one; the legacy path exists only to
-    // migrate existing history, so it must differ from the scoped key.
+    const containerId = globalThis.map.getContainer().id;
+    // Asserts the shape (prefix + separator + id) from the same input the source
+    // uses, so the expectation cannot drift from the template literal.
+    expect(CONST.HISTORY.STORAGE_KEY).toBe(`foliplus_search_${containerId}`);
+    // The legacy key is the unscoped global one, kept only for migration, so the
+    // two must never collide.
     expect(CONST.HISTORY.LEGACY_STORAGE_KEY).toBe("foliplus.search_history");
+    expect(CONST.HISTORY.LEGACY_STORAGE_KEY).not.toContain(containerId);
     expect(CONST.HISTORY.STORAGE_KEY).not.toEqual(CONST.HISTORY.LEGACY_STORAGE_KEY);
   });
 });
