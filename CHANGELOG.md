@@ -4,6 +4,7 @@
 
 ### Added
 
+- `GuideControl`: collapsible, draggable map guide card — the caller passes a title, metrics and explanation paragraphs and the control owns the DOM, escaping, collapsing and its mounting corner
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#167](https://github.com/Zeroto521/foliplus/pull/167), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242), [#245](https://github.com/Zeroto521/foliplus/pull/245), [#251](https://github.com/Zeroto521/foliplus/pull/251))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
@@ -72,6 +73,7 @@
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
+- `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener
 
 ## [v0.3.0] (2026-08-02)
 
