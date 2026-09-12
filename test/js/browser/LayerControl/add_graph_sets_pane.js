@@ -4,7 +4,7 @@
   const mg = api.createLayers({
     id: "__test_pane__",
     name: "PaneTest",
-    panes: ["__pane_test_graph__", "__pane_test_label__"],
+    panes: [{name:"__pane_test_graph__"}, {name:"__pane_test_label__"}],
   });
   const poly = L.polyline([
     [26.08, 119.3],
