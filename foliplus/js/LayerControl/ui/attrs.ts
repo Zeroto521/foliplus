@@ -26,10 +26,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   finishRename(ui);
   closeMoreMenu(ui, true);
   closeAttrsPanel(ui, false);
-  // The style panel floats from the same ⋮ menu; never show both. The
-  // delegate call (not a direct import) keeps the style ↔ attrs module pair
-  // cycle-free.
-  ui.closeStylePanel(false);
+  // The style panel floats from the same ⋮ menu; never show both.
+  closeStylePanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);

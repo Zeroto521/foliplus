@@ -86,9 +86,12 @@ const fieldIsNumeric = (ui: LayerUI, layerId: string, field: string): boolean =>
   // findLayer may be null between calls (canvas layers, missing tiles); in
   // that case treat as non-numeric and hide the format dropdown.
   if (!l) return false;
-  const feature = (l as L.GeoJSON).feature;
-  const props = (feature as GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>)
-    ?.properties;
+  // L.GeoJSON is a Leaflet value (class), not a type in this setup, so read
+  // the GeoJSON feature structurally — a `.feature` with `.properties`.
+  const feature = (l as unknown as { feature?: unknown }).feature;
+  const props = (
+    feature as GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>> | null
+  )?.properties;
   if (!props) return false;
   const raw = props[field];
   if (raw == null) return false;
@@ -213,7 +216,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // header then matches the attributes panel by construction.
   const header = createPanelHeader({
     title: ui.T("style_layer"),
-    iconSvg: SVGs.LABEL,
+    iconSvg: SVGs.STYLE,
     closeTitle: ui.T("close_title"),
     titleClass: "foliplus-header-title",
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",

@@ -26,7 +26,7 @@ describe("LayerUI shell — event subscriptions", () => {
 
   it("CONTROL_ATTACHED re-runs the init pass and reapplies annotation state", () => {
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
-    const applySpy = vi.spyOn(ui, "applyAnnotationState");
+    const applySpy = vi.spyOn(ui, "applyStyleLabelState");
 
     ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 

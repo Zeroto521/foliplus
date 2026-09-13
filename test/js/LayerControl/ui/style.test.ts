@@ -311,7 +311,7 @@ describe("LayerUI style panel", () => {
       `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
     expect(styleItem.getAttribute("disabled")).toBe("disabled");
-    expect(styleItem.getAttribute("title")).toBe("LayerControl.label_no_data");
+    expect(styleItem.getAttribute("title")).toBe("LayerControl.style_label_no_data");
   });
 
   it("the ⋮ menu's Style item is enabled once the layer has fields", () => {
@@ -399,19 +399,19 @@ describe("LayerUI style panel", () => {
 
   // ─────────────────── persisted state ───────────────────
 
-  it("applyAnnotationState re-renders labels for show+field configs only", () => {
+  it("applyStyleLabelState re-renders labels for show+field configs only", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
       format: CONST.FORMAT.AUTO,
     });
-    ui.annotationConfigs = {
+    ui.labelConfigs = {
       overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
     };
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
-    ui.applyAnnotationState();
+    ui.applyStyleLabelState();
 
     expect(setConfig).toHaveBeenCalledWith("overlay1", {
       show: true,
@@ -421,23 +421,23 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
   });
 
-  it("applyAnnotationState skips configs without show+field", () => {
-    ui.annotationConfigs = { overlay1: { show: true, field: "" } };
+  it("applyStyleLabelState skips configs without show+field", () => {
+    ui.labelConfigs = { overlay1: { show: true, field: "" } };
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
-    ui.applyAnnotationState();
+    ui.applyStyleLabelState();
 
     expect(renderLabels).not.toHaveBeenCalled();
   });
 
-  it("applyAnnotationState skips stale ids whose layers are gone", () => {
-    ui.annotationConfigs = {
+  it("applyStyleLabelState skips stale ids whose layers are gone", () => {
+    ui.labelConfigs = {
       ghost: { show: true, field: "count", format: CONST.FORMAT.AUTO },
     };
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
-    ui.applyAnnotationState();
+    ui.applyStyleLabelState();
 
     // A stale id must not be written back into the live config map, or the
     // next annotations save would resurrect a removed layer.

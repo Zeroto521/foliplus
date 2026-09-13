@@ -68,7 +68,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
-      { html: SVGs.LABEL },
+      { html: SVGs.STYLE },
       ui.T("style_layer"),
     ),
   );
