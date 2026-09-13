@@ -42,8 +42,8 @@ describe("AGG", () => {
 
 describe("CLASSES", () => {
   it("has expected CSS class constants", () => {
-    expect(CONST.CLASSES.FORM_ROW).toBe("foliplus-heatmap-form-row");
-    expect(CONST.CLASSES.BTN_CONFIRM).toBe("foliplus-heatmap-btn-confirm");
+    // form-row/label/control/select and the toggle live in common/form.css
+    // as shared foliplus-form-* classes — not component constants.
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
   });
 
@@ -57,7 +57,6 @@ describe("CLASSES", () => {
 describe("SEL", () => {
   it("has expected selectors", () => {
     expect(CONST.SEL.SCHEME_BAR).toBe(".foliplus-heatmap-scheme-bar");
-    expect(CONST.SEL.FORM_SELECT).toBe(".foliplus-heatmap-form-select");
   });
 });
 
@@ -114,12 +113,11 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
     expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
-    expect(CONST.DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
   });
 
-  it("has 14 data-hm attribute keys", () => {
+  it("has 13 data-hm attribute keys (no confirm button)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(14);
+    expect(keys.length).toBe(13);
   });
 });
 

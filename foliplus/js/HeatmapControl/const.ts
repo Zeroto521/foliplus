@@ -69,10 +69,6 @@ const BORDER = {
 };
 
 const CLASSES = {
-  FORM_ROW: "foliplus-heatmap-form-row",
-  FORM_LABEL: "foliplus-heatmap-form-label",
-  FORM_CONTROL: "foliplus-heatmap-form-control",
-  FORM_SELECT: "foliplus-heatmap-form-select",
   HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
@@ -94,9 +90,6 @@ const CLASSES = {
   BTN: "foliplus-heatmap-btn",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BTN_CONFIRM: "foliplus-heatmap-btn-confirm",
-  TOGGLE_SWITCH: "foliplus-heatmap-toggle-switch",
-  TOGGLE_SLIDER: "foliplus-heatmap-toggle-slider",
   BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",
   BORDER_WEIGHT_INPUT: "foliplus-heatmap-weight-input",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
@@ -111,8 +104,6 @@ const SEL = {
   SCHEME_DROPDOWN_BAR: ".foliplus-heatmap-scheme-dropdown-bar",
   SCHEME_BAR: ".foliplus-heatmap-scheme-bar",
   SCHEME_BAR_INNER: ".foliplus-heatmap-scheme-bar-inner",
-  FORM_SELECT: ".foliplus-heatmap-form-select",
-  FORM_LABEL: ".foliplus-heatmap-form-label",
 };
 
 /** Persistent storage key for heatmap configuration. */
@@ -132,7 +123,6 @@ const DATA_ATTR = {
   BORDER_WEIGHT: "data-hm-border-weight",
   LABEL_CHK: "data-hm-label-chk",
   BTN_CLEAR: "data-hm-btn-clear",
-  BTN_CONFIRM: "data-hm-btn-confirm",
 };
 
 export {

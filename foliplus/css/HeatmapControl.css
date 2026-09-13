@@ -22,21 +22,10 @@
 .foliplus-heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  --toggle-off-bg: var(--neutral-300);
-  --accent-shadow-sm: 0 var(--size-2) var(--size-8)
-    rgba(var(--red-rgb), var(--alpha-30));
-  --accent-shadow-md: 0 var(--size-4) var(--size-12)
-    rgba(var(--red-rgb), var(--alpha-50));
-  --heatmap-label-width: 85px;
-  --heatmap-select-pad-right: var(--space-xxl);
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
-  --heatmap-toggle-width: 40px;
-  --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
-  --heatmap-select-arrow-width: var(--size-8);
-  --heatmap-select-arrow-height: var(--size-6);
   /* Label Canvas – CSS-driven parameters for Canvas text rendering */
   --heatmap-label-font-family: sans-serif;
   --heatmap-label-font-weight: bold;
@@ -50,55 +39,14 @@
     padding: 0;
   }
 
-  /* ── Form Row ── */
-  .foliplus-heatmap-form-row {
-    display: flex;
-    align-items: center;
-    height: var(--toggle-size);
-    gap: var(--space-md);
-    box-sizing: border-box;
-  }
-  .foliplus-heatmap-form-label {
-    flex-shrink: 0;
-    width: var(--heatmap-label-width);
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    text-align: right;
-    white-space: nowrap;
-    padding-right: var(--space-xs);
-  }
-  .foliplus-heatmap-form-control {
-    flex: 1;
-    min-width: 0;
-  }
+  /* Inline control group (two selects, or color + weight inputs) sharing
+     one form-control cell — a layout variant, not covered by form.css. */
   .foliplus-heatmap-form-inline {
     display: flex;
     gap: var(--space-sm);
   }
 
-  /* Shared select/input styles */
-  .foliplus-heatmap-form-select,
-  .foliplus-heatmap-ctrl select {
-    width: 100%;
-    height: var(--ctrl-size);
-    font-size: var(--font-size-md);
-    padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg)
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
-      no-repeat right var(--space-md) center;
-    background-size: var(--heatmap-select-arrow-width)
-      var(--heatmap-select-arrow-height);
-    color: var(--text-primary);
-    cursor: pointer;
-    outline: none;
-    box-sizing: border-box;
-    appearance: none;
-    transition: var(--transition-input);
-  }
-
-  /* Class count small select */
+  /* Class count small select — width override on the shared form-select. */
   .foliplus-heatmap-class-select {
     width: var(--heatmap-inline-width);
     flex-shrink: 0;
@@ -256,67 +204,6 @@
     }
   }
 
-  /* ── Label Toggle ── */
-  .foliplus-heatmap-toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: var(--heatmap-toggle-width);
-    height: var(--heatmap-toggle-height);
-    flex-shrink: 0;
-    cursor: pointer;
-
-    input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-  }
-  .foliplus-heatmap-toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    background-color: var(--toggle-off-bg);
-    border-radius: 10px;
-    transition: background-color var(--transition-fast);
-
-    &::before {
-      content: "";
-      position: absolute;
-      height: var(--size-16);
-      width: var(--size-16);
-      left: var(--size-2);
-      bottom: var(--size-2);
-      background-color: var(--neutral-0);
-      border-radius: var(--radius-round);
-      transition:
-        transform var(--transition-fast),
-        box-shadow var(--transition-fast);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
-    }
-  }
-  /* hover + checked states: flat selectors (avoid nested & on combinator RHS,
-     which postcss-nesting edition 2021 compiles to an incorrect :is() form) */
-  .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
-    background-color: var(--neutral-500);
-
-    &::before {
-      box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
-    }
-  }
-  .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
-    background-color: var(--accent-primary);
-
-    &::before {
-      transform: translateX(var(--size-20)) scale(1.15);
-    }
-  }
-  .foliplus-heatmap-toggle-switch:hover
-    input:checked
-    + .foliplus-heatmap-toggle-slider {
-    background-color: var(--btn-primary-hover);
-  }
-
   /* ── Bottom Buttons ── */
   .foliplus-heatmap-btn-row {
     display: flex;
@@ -353,21 +240,6 @@
     }
     &:active {
       background: var(--text-primary);
-      transform: scale(var(--scale-press));
-    }
-  }
-  .foliplus-heatmap-btn-confirm {
-    background: var(--btn-primary-bg);
-    box-shadow: var(--accent-shadow-sm);
-
-    &:hover {
-      background: var(--btn-primary-hover);
-      box-shadow: var(--accent-shadow-md);
-      transform: scale(var(--scale-hover));
-    }
-    &:active {
-      background: var(--btn-primary-hover);
-      box-shadow: var(--accent-shadow-md);
       transform: scale(var(--scale-press));
     }
   }
