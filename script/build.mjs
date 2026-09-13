@@ -311,9 +311,7 @@ this is the one they read. Written only on a real build — `--verify` runs
 on a checkout that may not have `dist/` at all, and it must not touch it.
 */
 const writeArtifactManifest = filenames => {
-  const names = filenames.map(name =>
-    name === SHARED_ENTRY ? "common" : name,
-  );
+  const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
   writeFileSync(
     resolve(distDir, "artifacts.json"),
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
