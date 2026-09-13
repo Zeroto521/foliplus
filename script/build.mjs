@@ -17,14 +17,7 @@
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
@@ -76,9 +69,10 @@ CFG.root = resolve(CFG.root);
 const srcDir = resolve(CFG.root, "foliplus/js");
 const cssDir = resolve(CFG.root, "foliplus/css");
 const distDir = resolve(CFG.root, "foliplus/dist");
+// Only real cache: scan-registry.mjs writes _shared-registry.ts here and
+// resolveSharedRegistryPlugin reads it back. CSS needs none — the merged
+// stylesheet is served to esbuild in memory (see serveCss).
 const buildJs = resolve(CFG.root, "foliplus/.build/js");
-const buildCss = resolve(CFG.root, "foliplus/.build/css");
-const COMMON_CSS_TMP = "common.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
 // `git describe` (tag + distance + commit) — identical in local dev and CI,
@@ -130,6 +124,26 @@ const resolveSharedRegistryPlugin = {
   },
 };
 
+/** Serve the merged shared stylesheet to esbuild without writing it to disk.
+
+esbuild 0.24 cannot inline content into a string entrypoint (`sourceText`
+arrives in 0.25), and the `esbuild:` scheme would fail too: a file-path-less
+id must carry a namespace, and the shared postcss plugin reads `args.path` off
+disk either way. So the entrypoint stays a real existing module — esbuild only
+validates that it resolves — and this onLoad replaces its content. The filter
+can only see absolute paths, which are backslashed Windows paths here, so the
+match is a plain equality test rather than a regex: esbuild filters are Go RE2,
+where a backslash escaping an unknown character fails to compile.
+*/
+const serveCss = (css, entry) => ({
+  name: "serve-css",
+  setup(build) {
+    build.onLoad({ filter: /\.css$/ }, args =>
+      args.path === entry ? { contents: css, loader: "css" } : null,
+    );
+  },
+});
+
 // ── Shared esbuild options ──────────────────────────────────────
 // `alias` maps `#common/*` to the source tree. Compressed sources are
 // delivered at bundle time via sourceTransformPlugin (esbuild onLoad).
@@ -160,19 +174,25 @@ const esbuildCfg = {
  *  shaking and the plugin list, both keyed on whether this is the shared
  *  entry. Component bundles read shared modules from the global namespace
  *  (so they tree-shake unused exports); the shared entry bundles them,
- *  which makes tree shaking meaningless and adds the registry plugin. */
-const artifact = (entryPoints, outfile, name) => {
+ *  which makes tree shaking meaningless and adds the registry plugin.
+ *
+ *  Order matters: esbuild runs onLoad plugins in reverse registration order,
+ *  so `extraPlugins` must come first in the list to fire before postcssPlugin.
+ *  Appending it at the end made serveCss win the merged stylesheet and emit
+ *  raw nested CSS straight through, skipping the whole PostCSS pipeline. */
+const artifact = (entryPoints, outfile, name, extraPlugins = []) => {
   const shared = name === SHARED_ENTRY;
   // Identical for JS and CSS, but esbuild requires banner to be an object.
   const bannerText = `/*! foliplus@${BUILD_VERSION} · ${name} */\n`;
+  const plugins = shared
+    ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
+    : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)];
   return {
     entryPoints,
     outfile,
     ...esbuildCfg,
     treeShaking: !shared,
-    plugins: shared
-      ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
-      : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
+    plugins: [...extraPlugins, ...plugins],
     banner: { js: bannerText, css: bannerText },
   };
 };
@@ -285,14 +305,18 @@ const buildEntries = (components, withSonda) => {
     }
   }
 
-  // Merge the shared stylesheet modules into a single artifact
+  // esbuild needs a resolvable entry path but never reads it: serveCss swaps
+  // the real module for the whole merged stylesheet. Any listed module works,
+  // and mergeCommonCss has already asserted every one exists.
   const css = mergeCommonCss();
   if (css) {
-    mkdirSync(buildCss, { recursive: true });
-    const tmpCss = resolve(buildCss, COMMON_CSS_TMP);
-    writeFileSync(tmpCss, css, "utf-8");
+    const entry = resolve(cssDir, "common", COMMON_CSS_ORDER[0]);
     artifacts.push(
-      enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")),
+      enable(
+        artifact([entry], out("foliplus-common.min.css"), "common", [
+          serveCss(css, entry),
+        ]),
+      ),
     );
   }
   return artifacts;
@@ -351,8 +375,6 @@ const main = async () => {
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
   mkdirSync(buildJs, { recursive: true });
-  rmSync(buildCss, { recursive: true, force: true });
-  mkdirSync(buildCss, { recursive: true });
 
   // ── Step 2.5: Generate shared registry ────────────────────────
   // Auto-registers every common/core module on window.foliplus (P5).

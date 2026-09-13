@@ -1,10 +1,12 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
-const distDir = resolve(__dirname, "foliplus/dist");
+// Four levels up from test/js/script/ is the repo root. Resolving from the
+// module's own path keeps this independent of where the test is launched.
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const distDir = resolve(repoRoot, "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
 // writes on every real build — the same list `test/python/test_assets.py`
@@ -76,16 +78,14 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-130KB)", () => {
+  it("common JS has reasonable size (20-115KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path). The common bundle is tree-shaken from the
     // component imports scanned into _shared-registry.ts, so this is a real
-    // budget: ListCursor pushed it past 100KB, the createLayers panes
-    // generalisation (#280) added the per-pane routing, and the pluggable
-    // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
-    // in the same bundle because the runtime registers it on foliplus.core.
-    expect(size).toBeLessThan(130000);
+    // budget: ListCursor pushed it past 100KB, and the createLayers panes
+    // generalisation (#280) added the per-pane routing to the same bundle.
+    expect(size).toBeLessThan(115000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
