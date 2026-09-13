@@ -53,11 +53,12 @@ const formatNumber = (
   // percent: fraction × 100 with % suffix (0.35 → 35%) — meant for 0..1
   // fractional values such as a share/ratio column. Locale-grouped like any
   // other standard-notation format, one trailing digit to spare.
-  if (style === "percent")
+  if (style === "percent") {
     return new Intl.NumberFormat(locale, {
       style: "percent",
       maximumFractionDigits: 1,
     }).format(val);
+  }
 
   // auto: compact notation for large values, with fractional digits trimmed
   // once the integer part reaches 3 digits. Compact notation already renders

@@ -80,13 +80,6 @@ import {
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 import {
-  applyAnnotationState,
-  closeStylePanel,
-  invalidateFields,
-  layerHasLabelFields,
-  openStylePanel,
-} from "./style.js";
-import {
   applyHiddenOne,
   applyHiddenStateOne,
   applyUserState,
@@ -98,6 +91,13 @@ import {
   saveNamesState,
   syncHiddenId,
 } from "./state.js";
+import {
+  applyAnnotationState,
+  closeStylePanel,
+  invalidateFields,
+  layerHasLabelFields,
+  openStylePanel,
+} from "./style.js";
 import {
   getLayerItems,
   handleChange,
