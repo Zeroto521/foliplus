@@ -23,7 +23,11 @@
 }
 
 .foliplus-spin {
-  /* Icons.LOADING declares a viewBox but no width/height, so it has no intrinsic
+  /* Size lives here, paint lives on the icon itself (fill/stroke in Icons.LOADING):
+     the two rules answer different questions, and size must stay in CSS because
+     every consumer needs the same 1em regardless of host.
+
+     Icons.LOADING declares a viewBox but no width/height, so it has no intrinsic
      size. Inline it is fine — the font metrics of the line keep it small — but a
      flex parent (the location popup) sizes it from a flex base size of 0 and it
      grows to fill the popup. Pin it to the font size so every consumer is
