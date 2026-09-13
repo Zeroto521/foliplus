@@ -469,7 +469,9 @@ describe("createPanelHeader", () => {
   it("accepts component class overrides for title and icon", () => {
     // The layer attributes panel adds its own hook class without giving up the
     // shared ones, so it is styled by the same rules plus its own.
-    const header = build({ iconClass: "foliplus-layer-attrs-icon foliplus-header-icon" });
+    const header = build({
+      iconClass: "foliplus-layer-attrs-icon foliplus-header-icon",
+    });
     const icon = header.querySelector(".foliplus-header-icon") as HTMLElement;
     expect(icon.classList.contains("foliplus-layer-attrs-icon")).toBe(true);
   });

@@ -1,8 +1,8 @@
 // LayerControl UI —Layer attributes panel.
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { createPanelHeader } from "#common/panel.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
+import { createPanelHeader } from "#common/panel.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
