@@ -1,8 +1,8 @@
 // LayerControl UI —Layer attributes panel.
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
+import { createPanelHeader } from "#common/panel.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -133,20 +133,6 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     layerInfo?.iconSvg ??
     (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
 
-  const closeBtn = dom.el(
-    "button",
-    {
-      // The shared header close affordance —same classes as the layer
-      // panel's own 脳, so position, size and hover are identical.
-      class: "foliplus-ctrl-btn foliplus-close-btn",
-      type: "button",
-      title: T("close_title"),
-      "aria-label": T("close_title"),
-    },
-    // The same CLOSE glyph the layer panel's header uses (not a text "脳").
-    { html: Icons.CLOSE },
-  );
-
   const panel = dom.el(
     "div",
     {
@@ -157,28 +143,16 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       role: "dialog",
       "aria-label": T("attributes_layer"),
     },
-    // Header bar —literally the shared panel header: the type logo sits
-    // inside the title (as in the layer panel) and the 脳 is the shared
-    // close button, so both line up with every other foliplus panel.
-    // Hover title is close_title (鏀惰捣 / Collapse), same as the main panel.
-    dom.el(
-      "div",
-      { class: "foliplus-panel-header", title: T("close_title") },
-      dom.el(
-        "span",
-        { class: "foliplus-header-title" },
-        dom.el(
-          "span",
-          {
-            class: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
-            "aria-hidden": "true",
-          },
-          { html: typeSvg },
-        ),
-        displayName,
-      ),
-      closeBtn,
-    ),
+    // Header bar — built by the same factory the fold panels use, so the type
+    // logo, title, and × line up with every other foliplus panel and cannot
+    // drift into a lookalike. Hover title is close_title (收起 / Collapse),
+    // same as the main panel.
+    createPanelHeader({
+      title: displayName,
+      iconSvg: typeSvg,
+      closeTitle: T("close_title"),
+      iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+    }),
     // One flat list: third-party meta rows continue the same rhythm instead
     // of opening a second group, so the panel reads as one column of facts.
     dom.el(

@@ -52,13 +52,16 @@ class HeatmapControl extends BaseControl {
   }
 
   buildDOM() {
-    const { container, ctrl, panelContent } = createPanelControl({
+    const { container, ctrl, panelContent, destroy } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
       toggleTitle: T("title"),
       toggleSvg: SVGs.HEXAGON,
       panelTitle: T("title"),
       closeTitle: T("close_title"),
     });
+    // See LayerControl.buildDOM: keeps the factory's document-level listeners
+    // from outliving a control that is removed but not garbage-collected.
+    this.trackCleanup(destroy);
     this.ctrl = ctrl;
     this.m.ui = this;
     bindControls(this, panelContent);

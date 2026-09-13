@@ -3,6 +3,8 @@
   Two shared icon primitives: the inline section divider used in panel
   section rows, and the floating delete icon used by MeasureControl and
   LocateControl, built by the shared del-icon helper in the common JS module.
+  Button host recipes (hover/focus/active) live in button.css for controls and
+  menu.css for the panel header close action — the single owner of each.
   ════════════════════════════════════════════════════════════ */
 
 /* ── Section Divider ── */

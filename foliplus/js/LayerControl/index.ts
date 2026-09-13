@@ -29,7 +29,7 @@ class LayerControl extends BaseControl {
 
   buildDOM() {
     patchBringToFront();
-    const { container, panelContent } = createPanelControl({
+    const { container, panelContent, destroy } = createPanelControl({
       cssClass: "foliplus-layer-ctrl",
       ctrlId: `${CONF.name}_ctrl`,
       toggleTitle: T("toggle_title"),
@@ -37,6 +37,11 @@ class LayerControl extends BaseControl {
       panelTitle: T("panel_title"),
       closeTitle: T("close_title"),
     });
+
+    // The factory's document listeners outlive the MutationObserver when the
+    // control is detached but kept around, so hand its unbind to the base
+    // class for teardown on remove.
+    this.trackCleanup(destroy);
 
     this.m.attachUI(panelContent);
 
