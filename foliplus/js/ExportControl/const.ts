@@ -90,6 +90,19 @@ const SEL = {
 
 const DEFAULT_CONCURRENCY = 6; // HTTP/1.x-era per-origin default
 
+/**
+ * The subset of the Network Information API that detectConcurrency reads.
+ * Kept here rather than augmented onto `Navigator` because the interface is a
+ * draft: it lives at `navigator.connection` in Chrome and behind the
+ * moz/webkit prefixes elsewhere, so it cannot be declared as a plain member.
+ * `downlink`/`effectiveType` are read defensively at the call site because the
+ * properties can also be absent per-agent.
+ */
+type NetworkInformation = {
+  downlink?: number;
+  effectiveType?: string;
+};
+
 const CONN_CONCURRENCY: Record<string, number> = {
   "slow-2g": 2,
   "2g": 2,
@@ -122,10 +135,11 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  * Safari work.  Standard `navigator.connection` wins when present.
  */
 const detectConcurrency = (): number => {
-  const conn =
-    (navigator as any).connection ||
-    (navigator as any).mozConnection ||
-    (navigator as any).webkitConnection;
+  const conn: NetworkInformation | undefined =
+    (navigator as Navigator & { connection?: NetworkInformation }).connection ||
+    (navigator as Navigator & { mozConnection?: NetworkInformation }).mozConnection ||
+    (navigator as Navigator & { webkitConnection?: NetworkInformation })
+      .webkitConnection;
   if (!conn) return DEFAULT_CONCURRENCY;
 
   const down = typeof conn.downlink === "number" ? conn.downlink : 0;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markRequest } from "#core/geocode/index.js";
 import { AUTOCOMPLETE, HISTORY, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
@@ -27,6 +28,9 @@ import { ensureModes } from "#foliplus/core/mode.js";
 // Use vi.spyOn to track calls on those already-setup mocks.
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reset the provider-wide request clock (shared module state) so a prior
+  // test's suggestion/geocoder request never throttles this one.
+  markRequest("nominatim", 0);
 });
 
 describe("removePanel", () => {
@@ -318,7 +322,52 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en");
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(
+      map,
+      "X",
+      "en",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a custom provider spec to foliplus.geocode", async () => {
+    const original = window.CONF.provider;
+    const originalCfg = window.CONF.provider_config;
+    try {
+      window.CONF = {
+        ...window.CONF,
+        provider: { id: "myapi", baseUrl: "https://x.example.com" },
+        provider_config: null,
+      };
+      (window.foliplus.geocode as any).mockResolvedValue({
+        lat: 1,
+        lng: 2,
+        display_name: "A",
+      });
+      const ctrl: any = {
+        cachedAddress: {},
+        addrAbortController: null,
+        inp: { value: "X" },
+        marker: null,
+      };
+      searchAddress(ctrl, "X");
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      expect(window.foliplus.geocode).toHaveBeenCalledWith(
+        map,
+        "X",
+        "en",
+        { id: "myapi", baseUrl: "https://x.example.com" },
+        null,
+      );
+    } finally {
+      window.CONF = {
+        ...window.CONF,
+        provider: original,
+        provider_config: originalCfg,
+      };
+    }
   });
 
   it("shows hint and clears input when geocode returns null", async () => {
@@ -359,6 +408,29 @@ describe("searchAddress", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
     expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
     expect(ctrl.marker).not.toBeNull();
+  });
+
+  it("loading hint is plain text, not an inline SVG string", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "nowhere" },
+    };
+    searchAddress(ctrl, "nowhere");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    // Hint text is rendered as a TextNode, so an inline SVG would appear as
+    // source code instead of an icon; withLoadingIcon renders the built-in
+    // spinner in the hint's icon slot instead.
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.popup_loading",
+      0,
+      undefined,
+      undefined,
+      true,
+    );
   });
 });
 
@@ -535,10 +607,81 @@ describe("fetchSuggestions", () => {
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
       "abc",
-      30.0,
       120.0,
+      30.0,
       expect.any(String),
+      undefined,
+      undefined,
     );
+  });
+
+  it("falls back to Nominatim when the configured provider id is unknown", () => {
+    const original = window.CONF.provider;
+    try {
+      window.CONF = { ...window.CONF, provider: "bogus" };
+      const url = buildSearchUrl({} as any, "Paris", 5);
+      expect(url).toContain("nominatim.openstreetmap.org/search");
+    } finally {
+      window.CONF = { ...window.CONF, provider: original };
+    }
+  });
+
+  it("discards a suggestion response when the query changed meanwhile", async () => {
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise(resolve =>
+          setTimeout(
+            () =>
+              resolve({
+                json: () =>
+                  Promise.resolve([
+                    { lat: "30.0", lon: "120.0", display_name: "Paris, France" },
+                  ]),
+              }),
+            10,
+          ),
+        ),
+    ) as unknown as typeof fetch;
+    const cache = new Cache<string, object>(50);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: cache,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "Paris" },
+    };
+    fetchSuggestions(ctrl, "Paris");
+    ctrl.inp.value = "Rome"; // query changed before the response lands
+    await new Promise(r => setTimeout(r, 30));
+    expect(cache.get("Paris")).toBeUndefined(); // never cached
+    expect(ctrl.panelWrap).toBeNull(); // never rendered
+  });
+
+  it("defers a suggestion when the provider-wide window is still cooling down", () => {
+    globalThis.fetch = vi.fn();
+    markRequest("nominatim", Date.now()); // a geocoder request just landed
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // deferred, not issued
+    expect(ctrl.throttleTimer).not.toBeNull();
   });
 });
 
@@ -1032,7 +1175,10 @@ describe("fetchSuggestions: throttle and abort", () => {
     fetchSuggestions(ctrl, "abc");
     const prev = ctrl.suggestAbortController;
     expect(prev).toBeInstanceOf(AbortController);
+    // Move both clocks back so the second call passes the throttle window
+    // (the first call also marked the provider-wide clock).
     ctrl.lastSuggestFetch = Date.now() - 2000;
+    markRequest("nominatim", Date.now() - 2000);
     fetchSuggestions(ctrl, "def");
     expect(prev.signal.aborted).toBe(true);
   });
@@ -1220,9 +1366,11 @@ describe("fetchSuggestions: render behavior", () => {
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
       "paris",
-      48.8,
       2.3,
+      48.8,
       expect.any(String),
+      undefined,
+      undefined,
     );
     expect(
       ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item"),
@@ -1258,9 +1406,11 @@ describe("fetchSuggestions: render behavior", () => {
     expect(cacheSuggestionSpy).toHaveBeenCalledWith(
       map,
       "abc",
-      30,
       120,
+      30,
       "abc", // formatAddress("12345") returns "" → falls back to the query
+      undefined,
+      undefined,
     );
     cacheSuggestionSpy.mockRestore();
   });

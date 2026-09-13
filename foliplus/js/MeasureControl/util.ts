@@ -1,8 +1,8 @@
 // MeasureControl utility functions — standalone, no manager dependency.
+import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupEl } from "#common/dom.js";
 import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
-import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";

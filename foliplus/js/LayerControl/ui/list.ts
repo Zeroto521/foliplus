@@ -9,7 +9,6 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { showColorLayer } from "./color.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
@@ -196,7 +195,7 @@ const displayName = (ui: LayerUI, id: string): string => {
   return (
     ui.renamedNames[id] ??
     ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.COLOR.MAP_ID ? T("color_map_label") : "")
+    (id === CONST.COLOR.MAP_ID ? ui.T("color_map_label") : "")
   );
 };
 
@@ -210,7 +209,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -226,10 +225,10 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: T("toggle_all_deselect_tooltip"),
+        title: ui.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, ui.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };
@@ -254,8 +253,8 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
     {
       class: CONST.CLASSES.MORE_BTN,
       type: "button",
-      title: T("more_tooltip"),
-      "aria-label": T("more_tooltip"),
+      title: ui.T("more_tooltip"),
+      "aria-label": ui.T("more_tooltip"),
     },
     { html: SVGs.MORE },
   );
@@ -265,7 +264,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
   const children: HTMLElement[] = [
     dom.el(
       "span",
-      { class: CONST.CLASSES.DRAG_CELL, title: T("drag_tooltip") },
+      { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
       { html: SVGs.DRAG_HANDLE },
     ),
     dom.el(
@@ -329,8 +328,8 @@ const renderColorLayerItem = (ui: LayerUI) => {
     {
       class: CONST.CLASSES.MORE_BTN,
       type: "button",
-      title: T("more_tooltip"),
-      "aria-label": T("more_tooltip"),
+      title: ui.T("more_tooltip"),
+      "aria-label": ui.T("more_tooltip"),
     },
     { html: SVGs.MORE },
   );
@@ -338,9 +337,9 @@ const renderColorLayerItem = (ui: LayerUI) => {
   // The color basemap's hover tooltip is its TYPE label (like every other
   // row, which shows "count 路 type"); the layer name lives in the label
   // cell, not the tooltip. Persist the type label in data-item-title so a
-  // rebuild can restore it; this must be the constant T("type_color_map"),
+  // rebuild can restore it; this must be the constant ui.T("type_color_map"),
   // NOT colorLayerName() —a rename must not change the tooltip.
-  const colorType = T("type_color_map");
+  const colorType = ui.T("type_color_map");
   return dom.el(
     "div",
     {
@@ -382,7 +381,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
     else input.checked = hasLayer && ui.m.map.hasLayer(layer);
     syncVisibility(ui, layerInfo, layer, input.checked);
 
-    input.title = T(input.checked ? "deselect_tooltip" : "select_tooltip");
+    input.title = ui.T(input.checked ? "deselect_tooltip" : "select_tooltip");
 
     const item = input.closest(CONST.SEL.LAYER_ITEM);
     if (item) {
@@ -401,23 +400,23 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
     let type: string | null = null;
     if (layerInfo.isBase) {
       typeCol.innerHTML = Icons.GLOBE;
-      typeKey = T("type_base");
+      typeKey = ui.T("type_base");
       type = CONST.GROUP.BASE;
       layerInfo.type = type;
       if (input?.checked) baseVisible = true;
     } else if (layerInfo.iconSvg) {
       typeCol.innerHTML = layerInfo.iconSvg;
-      typeKey = T("type_custom");
+      typeKey = ui.T("type_custom");
       type = GEOM_TYPE.CUSTOM;
       layerInfo.type = type;
     } else if (layer) {
       const gtype = getGeometryType(layer);
       typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
-      typeKey = T(`type_${gtype}`);
+      typeKey = ui.T(`type_${gtype}`);
       type = gtype;
       layerInfo.type = type;
     } else {
-      typeKey = T("type_unknown");
+      typeKey = ui.T("type_unknown");
       type = GEOM_TYPE.UNKNOWN;
       layerInfo.type = type;
     }
@@ -431,7 +430,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol) {
         if (count !== null && count !== undefined) {
-          countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+          countCol.textContent = formatNumber(count, "auto", ui.conf.locale_code);
         } else countCol.textContent = "";
       }
       // Hover tooltip shows count + type label together.
@@ -441,7 +440,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
       item.setAttribute(CONST.DATA.TITLE, typeLabel);
       item.title =
         count !== null && count !== undefined
-          ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+          ? `${formatNumber(count, "auto", ui.conf.locale_code)} ${typeLabel}`
           : typeLabel;
     }
   }

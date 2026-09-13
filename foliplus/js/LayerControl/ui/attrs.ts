@@ -7,7 +7,6 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
@@ -62,28 +61,28 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // a geometry type it never had.
   const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
   const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
-  addRow(T("attr_type"), T(typeKey));
+  addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
     const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
     // than compacted —and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
-      T("attr_feature_count"),
+      ui.T("attr_feature_count"),
       count == null
-        ? T("attr_empty")
-        : formatNumber(count, "comma", CONF.locale_code, 0),
+        ? ui.T("attr_empty")
+        : formatNumber(count, "comma", ui.conf.locale_code, 0),
     );
   }
   addRow(
-    T("attr_source"),
+    ui.T("attr_source"),
     layerInfo?.source ?? "",
     isLong(layerInfo?.source ?? "") ? "wide" : "",
   );
   if (!isColor) {
     // First-registration time, recorded by the registry itself.
-    addRow(T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
-    addRow(T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
+    addRow(ui.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
+    addRow(ui.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
   }
 
   const renderList = (listRows: AttrRow[]): HTMLElement =>
@@ -121,7 +120,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     key,
     typeof value === "number"
       ? // Integers group without a trailing ".0"; decimals keep one digit.
-        formatNumber(value, "comma", CONF.locale_code, Number.isInteger(value) ? 0 : 1)
+        formatNumber(
+          value,
+          "comma",
+          ui.conf.locale_code,
+          Number.isInteger(value) ? 0 : 1,
+        )
       : String(value),
     "",
   ]);
@@ -140,8 +144,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       // panel's own 脳, so position, size and hover are identical.
       class: "foliplus-ctrl-btn foliplus-close-btn",
       type: "button",
-      title: T("close_title"),
-      "aria-label": T("close_title"),
+      title: ui.T("close_title"),
+      "aria-label": ui.T("close_title"),
     },
     // The same CLOSE glyph the layer panel's header uses (not a text "脳").
     { html: Icons.CLOSE },
@@ -155,7 +159,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       // (header bar, content scroll) instead of a lookalike.
       class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
       role: "dialog",
-      "aria-label": T("attributes_layer"),
+      "aria-label": ui.T("attributes_layer"),
     },
     // Header bar —literally the shared panel header: the type logo sits
     // inside the title (as in the layer panel) and the 脳 is the shared
@@ -163,7 +167,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     // Hover title is close_title (鏀惰捣 / Collapse), same as the main panel.
     dom.el(
       "div",
-      { class: "foliplus-panel-header", title: T("close_title") },
+      { class: "foliplus-panel-header", title: ui.T("close_title") },
       dom.el(
         "span",
         { class: "foliplus-header-title" },
