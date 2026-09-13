@@ -32,7 +32,10 @@ export default defineConfig({
         // Glob so a newly scaffolded control is excluded without editing this list.
         "foliplus/js/*/index.ts",
         // UI builders — pure DOM construction, covered by browser tests instead.
-        "foliplus/js/*/ui.ts",
+        // HeatmapControl/ui.ts has a dedicated ui.test.ts (100% line coverage),
+        // so it is deliberately left out of this glob.
+        "foliplus/js/ExportControl*/ui.ts",
+        "foliplus/js/MeasureControl*/ui.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
         // Glob so a newly added mode is excluded without editing this list.
         "foliplus/js/MeasureControl/mode/*.ts",
