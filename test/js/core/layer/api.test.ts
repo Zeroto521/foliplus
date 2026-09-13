@@ -1,7 +1,30 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
+// Pinned deliberately: this `as unknown as` is the only one in the file and it
+// is a real cast, not a bypass. An empty tuple literal is `readonly []` and
+// cannot be assigned to LayerInfo[] directly (readonly arrays are not
+// assignable to mutable ones), so one double-step through unknown is the
+// cheapest true claim. If a cheaper route appears, take it and delete the pin.
+const SELF = resolve(
+  fileURLToPath(import.meta.url),
+  "../../../../../foliplus/js/core/layer/api.ts",
+);
+
 const mockShowHint = vi.fn();
+
+describe("source pins", () => {
+  it("layer/api.ts: one `as unknown as`, in the layers field", () => {
+    const src = readFileSync(SELF, "utf-8");
+    expect(src.match(/as unknown as/g)).toHaveLength(1);
+    expect(src.includes("layers: Object.freeze([]) as unknown as LayerInfo[]")).toBe(
+      true,
+    );
+  });
+});
 
 describe("ensureLayerAPI", () => {
   let map: any;
@@ -59,7 +82,7 @@ describe("ensureLayerAPI", () => {
     expect(api).toBe(existing);
   });
 
-  it("is idempotent â€?repeated calls return the same instance", () => {
+  it("is idempotent ï¿½?repeated calls return the same instance", () => {
     const api1 = ensureLayerAPI(map);
     const api2 = ensureLayerAPI(map);
     expect(api2).toBe(api1);
@@ -81,7 +104,7 @@ describe("ensureLayerAPI", () => {
     expect(typeof canvas.destroy).toBe("function");
   });
 
-  it("lightweight registerLayer is a no-op â€?never touches the map", () => {
+  it("lightweight registerLayer is a no-op ï¿½?never touches the map", () => {
     const addLayer = vi.fn();
     const fresh = {
       foliplus: null as any,
@@ -95,7 +118,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    // The lightweight stub does not register into the map â€?no-op by design.
+    // The lightweight stub does not register into the map ï¿½?no-op by design.
     expect(api.registerLayer({ id: "x", layer: { options: {} } } as any)).toBeNull();
     expect(addLayer).not.toHaveBeenCalled();
     expect(fresh.hasLayer).not.toHaveBeenCalled();

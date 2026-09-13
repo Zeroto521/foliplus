@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 
@@ -8,7 +11,26 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 // placeholder LayerAPI value is a load-bearing sentinel that the factories are
 // expected to replace rather than read.
 
+// Pinned deliberately: every member of MapFoliplus is required, so a literal
+// carrying only the LayerAPI sentinel must cross one double-step to be
+// assigned. That is the whole reason the other four factories can `!`-assert a
+// member they did not set without a TS2722. If the type ever gains optional
+// members this pin stops being true — in which case the cast is also wrong and
+// the 42 call sites would start failing on their own.
+const SELF = resolve(
+  fileURLToPath(import.meta.url),
+  "../../../../foliplus/js/core/mapApi.ts",
+);
+
 type StubMap = { foliplus?: Record<string, unknown> };
+
+describe("source pins", () => {
+  it("mapApi.ts: one `as unknown as`, in the seed literal", () => {
+    const src = readFileSync(SELF, "utf-8");
+    expect(src.match(/as unknown as/g)).toHaveLength(1);
+    expect(src.includes("{ LayerAPI: null! } as unknown as MapFoliplus")).toBe(true);
+  });
+});
 
 describe("ensureMapFoliplus", () => {
   it("creates the namespace when the map has none", () => {

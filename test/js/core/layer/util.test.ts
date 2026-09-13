@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/core/layer/const.js";
 import {
@@ -10,6 +13,23 @@ import {
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
+
+// Pinned deliberately: `_map` is a Leaflet-internal field with no public type,
+// so it cannot be read through an L.Layer declaration at all. The cast narrows
+// to just the field being probed rather than widening the whole layer to any,
+// which is what makes it a real cast and not a bypass.
+const SELF = resolve(
+  fileURLToPath(import.meta.url),
+  "../../../../../foliplus/js/core/layer/util.ts",
+);
+
+describe("source pins", () => {
+  it("layer/util.ts: one `as unknown as`, in the _map probe", () => {
+    const src = readFileSync(SELF, "utf-8");
+    expect(src.match(/as unknown as/g)).toHaveLength(1);
+    expect(src.includes("layer as unknown as { _map?: L.Map })._map")).toBe(true);
+  });
+});
 
 describe("core/layer util", () => {
   beforeEach(() => {

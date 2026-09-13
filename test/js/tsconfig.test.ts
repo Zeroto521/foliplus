@@ -35,6 +35,18 @@ const files = walk(SRC);
 const read = (p: string) => readFileSync(p, "utf-8");
 const rel = (p: string) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
 
+// tsconfig.json is JSON with comments (tsconfig's own dialect), which JSON.parse
+// rejects. Strip line comments before parsing — the file carries no // inside
+// a string value, so a per-line strip is exact here.
+const stripJsonComments = (text: string): string =>
+  text
+    .split("\n")
+    .map(line => {
+      const i = line.indexOf("//");
+      return i >= 0 ? line.slice(0, i) : line;
+    })
+    .join("\n");
+
 const BANNED: Array<{ name: string; re: RegExp }> = [
   { name: "`as any`", re: /\bas\s+any\b/g },
   { name: "`@ts-ignore`", re: /@ts-ignore/g },
@@ -57,12 +69,16 @@ describe("production type-system bypasses", () => {
   }
 
   it("test/js/tsconfig.json extends the production program", () => {
-    const cfg = JSON.parse(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8"));
+    const cfg = JSON.parse(
+      stripJsonComments(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8")),
+    );
     expect(cfg.extends).toBe("../../tsconfig.json");
   });
 
   it("test/js/tsconfig.json does not relax strictness", () => {
-    const cfg = JSON.parse(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8"));
+    const cfg = JSON.parse(
+      stripJsonComments(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8")),
+    );
     expect(cfg.compilerOptions.strict).not.toBe(false);
   });
 });
