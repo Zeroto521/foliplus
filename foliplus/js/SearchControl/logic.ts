@@ -1,8 +1,9 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
+import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#core/geo/index.js";
+import { NOMINATIM, formatAddress, nominatimUrl } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
-import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#common/coord.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
@@ -13,7 +14,6 @@ import {
 import { createLocationMarker, dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";

@@ -1,6 +1,5 @@
 // Geodesic coordinate helpers (turf.js) — pure functions shared by components.
-// Imported statically by components. `turf` and `L` are globals
-// provided by the page (Leaflet + turf via CDN), as before.
+// `turf` and `L` are globals provided by the page (Leaflet + turf via CDN).
 
 interface LatLngPoint {
   lng: number;

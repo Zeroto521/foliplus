@@ -2,32 +2,23 @@
 // Bidirectional global cache: address -> coordinates (forward) and
 // coordinates -> address (reverse). Shared cache + throttle queue must be
 // global once per map (Nominatim rate limit is global, not per-map).
-// Pure helpers (NOMINATIM, nominatimUrl, formatAddress) live in
-// common/geocode.js and are statically imported by components.
+// The Nominatim provider + URL/format helpers live in nominatim.ts (same
+// subdomain); this module owns CRS adaption, caching, and rate limiting.
+import { fromWgs84, getMapCrsType, toWgs84 } from "#core/geo/coord.js";
 import { Cache } from "#common/cache.js";
-import { fromWgs84, getMapCrsType, toWgs84 } from "#common/coord.js";
-import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#common/geocode.js";
+import { NOMINATIM, NominatimProvider, formatAddress } from "./nominatim.js";
+import type { GeocodeItem } from "./provider.js";
+import { createThrottleQueue } from "./rateLimit.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 // Entries expire after 24h so Nominatim result changes are not served stale.
 const GEO_CACHE_MAX = 500;
 const GEO_TTL_MS = 24 * 60 * 60 * 1000;
 const geoCache = new Cache<string, string>(GEO_CACHE_MAX, GEO_TTL_MS);
-let geoPromise: Promise<unknown> = Promise.resolve();
-let geoLastReq = 0;
 
-/** Serialize requests through a throttled queue (Nominatim 1 req/s). */
-const throttled = <T>(fn: () => Promise<T>): Promise<T> => {
-  geoPromise = geoPromise.then(() => {
-    const wait = Math.max(0, NOMINATIM.THROTTLE_MS - (Date.now() - geoLastReq));
-    return new Promise(r => setTimeout(r, wait));
-  });
-  return geoPromise.then(() => {
-    geoLastReq = Date.now();
-    return fn();
-  });
-};
+// All Nominatim traffic funnels through one throttled queue (1 req/s).
+const throttled = createThrottleQueue(NOMINATIM.THROTTLE_MS);
+const provider = new NominatimProvider();
 
 const localeFallback = (code: string, key: string, fallback: string) => {
   const foliplus = window.foliplus || {};
@@ -47,19 +38,14 @@ const reverseGeocode = (
   if (cached) return Promise.resolve(cached);
 
   const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
-  const url = nominatimUrl(
-    "/reverse",
-    { lon: wgs[0], lat: wgs[1], zoom: NOMINATIM.ZOOM },
-    code,
-  );
   const notFound = localeFallback(code, "foliplus.addr_not_found", "Address not found");
   const fail = localeFallback(code, "foliplus.geo_fail", "Lookup failed");
 
   return throttled(() =>
-    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
-      .then(r => r.json())
-      .then(data => {
-        const addr = formatAddress(data.display_name, map, code) || notFound;
+    provider
+      .reverse(wgs[0], wgs[1], code)
+      .then(item => {
+        const addr = formatAddress(item?.display_name ?? "", map, code) || notFound;
         geoCache.set(key, addr);
         return addr;
       })
@@ -67,12 +53,8 @@ const reverseGeocode = (
   );
 };
 
-/** A resolved forward-geocode result. */
-interface GeocodeResult {
-  lat: number;
-  lng: number;
-  display_name: string;
-}
+/** A resolved forward-geocode result (map CRS). */
+type GeocodeResult = GeocodeItem;
 
 /** Forward geocode an address to coordinates via Nominatim (cached, throttled). */
 const geocode = (
@@ -96,18 +78,16 @@ const geocode = (
     }
   }
 
-  const url = nominatimUrl("/search", { q: address, limit: 1, format: "jsonv2" }, code);
-
   return throttled(() =>
-    fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
-      .then(r => r.json())
-      .then((data: Array<{ lat: string; lon: string; display_name: string }>) => {
-        const first = Array.isArray(data) ? data[0] : null;
+    provider
+      .search(address, code)
+      .then(items => {
+        const first = items[0] ?? null;
         if (!first) return null;
         // Nominatim always returns WGS84 - convert to the map CRS so
         // downstream code (SearchControl, etc.) always gets coordinates
         // in the same CRS as map-displayed coordinates.
-        const [lng, lat] = fromWgs84(map, parseFloat(first.lon), parseFloat(first.lat));
+        const [lng, lat] = fromWgs84(map, first.lng, first.lat);
         const result: GeocodeResult = {
           lat,
           lng,
