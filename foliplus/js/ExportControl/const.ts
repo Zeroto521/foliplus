@@ -138,7 +138,8 @@ const detectConcurrency = (): number => {
   const conn: NetworkInformation | undefined =
     (navigator as Navigator & { connection?: NetworkInformation }).connection ||
     (navigator as Navigator & { mozConnection?: NetworkInformation }).mozConnection ||
-    (navigator as Navigator & { webkitConnection?: NetworkInformation }).webkitConnection;
+    (navigator as Navigator & { webkitConnection?: NetworkInformation })
+      .webkitConnection;
   if (!conn) return DEFAULT_CONCURRENCY;
 
   const down = typeof conn.downlink === "number" ? conn.downlink : 0;

@@ -21,7 +21,8 @@ const walk = (dir: string): string[] => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full));
-    else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) out.push(full);
+    else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts"))
+      out.push(full);
   }
   return out;
 };

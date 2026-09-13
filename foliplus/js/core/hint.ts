@@ -1,11 +1,11 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
-import { ensureMapFoliplus } from "#core/mapApi.js";
 
 const log = createLogger("Hint");
 

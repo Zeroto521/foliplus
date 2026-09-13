@@ -5,8 +5,8 @@
 import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureMapFoliplus } from "#core/mapApi.js";
 import { suspendMapInteractions } from "#core/layer/util.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 interface ModeChangePayload {
   component: string;

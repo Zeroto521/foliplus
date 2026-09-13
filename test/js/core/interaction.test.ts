@@ -22,7 +22,7 @@ function makeBareMap(): any {
 }
 
 describe("InteractionManager", () => {
-  afterEach(() => document.body.innerHTML = "");
+  afterEach(() => (document.body.innerHTML = ""));
 
   it("register returns a cleanup function", async () => {
     const { ensureInteraction } = await import("#core/interaction.js");
@@ -468,7 +468,10 @@ describe("InteractionManager", () => {
     const { ensureInteraction } = await import("#core/interaction.js");
     const im = ensureInteraction(makeMap());
     im.register("A", [{ key: "a", handler: vi.fn() }]);
-    im.register("B", [{ key: "b", handler: vi.fn() }, { key: "c", handler: vi.fn() }]);
+    im.register("B", [
+      { key: "b", handler: vi.fn() },
+      { key: "c", handler: vi.fn() },
+    ]);
     const orders = (im["shortcuts"] as any[]).map(s => s.order);
     expect(orders).toEqual([0, 1, 2]);
   });
@@ -516,9 +519,7 @@ describe("InteractionManager", () => {
     const im = ensureInteraction(makeMap());
     const el = document.createElement("input");
     const handler = vi.fn();
-    im.register("El", [
-      { key: "Enter", element: el, event: "mousedown", handler },
-    ]);
+    im.register("El", [{ key: "Enter", element: el, event: "mousedown", handler }]);
     el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(handler).toHaveBeenCalledTimes(1);
     im.unregister("El");

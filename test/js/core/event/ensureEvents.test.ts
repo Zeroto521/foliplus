@@ -6,7 +6,10 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 // object reachable as map.foliplus.events — components talk to each other
 // through that handle, not through their own local reference.
 
-type StubMap = { foliplus?: Record<string, unknown>; on: (t: string, f: unknown) => void };
+type StubMap = {
+  foliplus?: Record<string, unknown>;
+  on: (t: string, f: unknown) => void;
+};
 
 const makeMap = (): StubMap => ({ on: vi.fn() });
 
@@ -44,7 +47,10 @@ describe("ensureEvents", () => {
   it("emits through the namespace handle components actually read", () => {
     const map = makeMap();
     ensureEvents(map);
-    const bus = map.foliplus?.events as { on: (e: string, h: unknown) => void; emit: (e: string, p: unknown) => void };
+    const bus = map.foliplus?.events as {
+      on: (e: string, h: unknown) => void;
+      emit: (e: string, p: unknown) => void;
+    };
     const seen: unknown[] = [];
     bus.on(EVENTS.MODE_CHANGE, p => seen.push(p));
     bus.emit(EVENTS.MODE_CHANGE, { mode: "distance" });
