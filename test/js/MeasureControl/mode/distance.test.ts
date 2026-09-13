@@ -408,10 +408,9 @@ describe("DistanceMode — preview cursor node", () => {
     expect(cursorCall[1].interactive).toBe(false);
     expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
 
-    // Mounted through addPreview, so it lands in the same layer group as the
-    // preview line and paints above the preview stroke.
+    // Mounted through addPreview in the node pane, above the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
-    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(cursor, CONST.PANES.NODE);
   });
 
   it("moves the node with the cursor and removes it when the shape is finished", () => {
@@ -431,18 +430,29 @@ describe("DistanceMode — preview cursor node", () => {
     click({ latlng: { lat: 30, lng: 120 } });
     click({ latlng: { lat: 31, lng: 121 } });
     handlers({ latlng: { lat: 32, lng: 122 } });
-    const cursor = window.L.circleMarker.mock.results.at(-1).value;
-    const created = window.L.circleMarker.mock.calls.length;
+    const first = window.L.circleMarker.mock.results.at(-1).value;
 
-    // Subsequent moves reuse the same node instead of stacking new ones.
+    // The cursor node is recreated on every move rather than moved in place:
+    // the preview line's `setLatLngs` triggers Leaflet's `_updatePath` →
+    // `setPane`, which re-sorts the SVG root and would paint over a node
+    // that only ever calls `setLatLng`. Re-adding each frame keeps "attach
+    // order == paint order" as an explicit invariant (PR #252).
     handlers({ latlng: { lat: 33, lng: 123 } });
-    expect(window.L.circleMarker).toHaveBeenCalledTimes(created);
-    expect(cursor.setLatLng).toHaveBeenCalledWith({ lat: 33, lng: 123 });
+    const second = window.L.circleMarker.mock.results.at(-1).value;
+    expect(second).not.toBe(first);
+    expect(window.L.circleMarker.mock.calls.at(-1)?.[0]).toEqual({
+      lat: 33,
+      lng: 123,
+    });
+    // The previous node was dropped from the map before the new one was
+    // added, so there is never a stale duplicate cursor dot.
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(first);
+    expect(manager.layers.addLayer).toHaveBeenCalledWith(second, CONST.PANES.NODE);
 
-    // Context-menu finishes: the node leaves the map with the other preview
-    // artifacts, while the confirmed nodes stay.
+    // Context-menu finishes: the latest node leaves the map with the other
+    // preview artifacts, while the confirmed nodes stay.
     contextmenu({ latlng: { lat: 33, lng: 123 }, originalEvent: {} });
-    expect(manager.layers.removeLayer).toHaveBeenCalledWith(cursor);
+    expect(manager.layers.removeLayer).toHaveBeenCalledWith(second);
   });
 
   it("removes the node when the draw is aborted mid-way", () => {

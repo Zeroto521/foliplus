@@ -4,8 +4,7 @@
   const mg = api.createLayers({
     id: "__test__",
     name: "Test",
-    graphPane: "__test_graph__",
-    labelPane: "__test_label__",
+    panes: [{ name: "__test_graph__" }, { name: "__test_label__" }],
   });
   return {
     hasClearLayers: typeof mg.clearLayers === "function",

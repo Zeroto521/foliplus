@@ -33,22 +33,38 @@
   };
   // First mousemove: the cursor dot must be created and positioned here.
   map.fire("mousemove", { latlng: L.latLng(26.09, 119.31) });
-  const c1 = cursor();
-  // Second mousemove: the same node must follow the cursor.
+  const r1 = cursor()?.getBoundingClientRect();
+  // Second mousemove: the node must follow the cursor. It is recreated each
+  // frame (see PreviewMode.moveCursorNode) so the DOM node identity changes —
+  // only the visual position and the "still exactly one dot" invariant hold.
   map.fire("mousemove", { latlng: L.latLng(26.095, 119.315) });
-  const c2 = cursor();
-  const s = stack(c2);
+  const r2 = cursor()?.getBoundingClientRect();
+  const dotsAfterTwo = document.querySelectorAll(
+    ".foliplus-measure-node:not(.leaflet-interactive)",
+  ).length;
+  const s = stack(cursor());
+  // Third mousemove: the recreated node must still sit above the preview
+  // fill in DOM order — the old in-place `setLatLng` path let the fill climb
+  // over it because `setLatLngs` re-sorts the SVG root but `setLatLng` does
+  // not. Recreating keeps "newest sibling wins" as the only rule.
+  map.fire("mousemove", { latlng: L.latLng(26.096, 119.316) });
+  const dotsAfterThree = document.querySelectorAll(
+    ".foliplus-measure-node:not(.leaflet-interactive)",
+  ).length;
+  const s2 = stack(cursor());
   // Right-click with fewer than 3 points cancels: preview node must be removed.
   map.fire("contextmenu", { latlng: L.latLng(26.095, 119.315) });
   return {
     idle,
-    created: !!c1,
-    moved: c1 && c2 && c1 === c2,
-    x1: c1?.getBoundingClientRect()?.x ?? null,
-    y1: c1?.getBoundingClientRect()?.y ?? null,
-    x2: c2?.getBoundingClientRect()?.x ?? null,
-    y2: c2?.getBoundingClientRect()?.y ?? null,
+    created: !!r1,
+    x1: r1?.x ?? null,
+    y1: r1?.y ?? null,
+    x2: r2?.x ?? null,
+    y2: r2?.y ?? null,
+    dotsAfterTwo,
+    dotsAfterThree,
     stack: s,
+    stackAfterThirdMove: s2,
     removedAfterFinish: !cursor(),
   };
 };

@@ -27,7 +27,11 @@ const T = createScopedTranslator(CONF);
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
-const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
+const skipMeasureLayers = isLayerInPanes([
+  CONST.PANES.GRAPH,
+  CONST.PANES.NODE,
+  CONST.PANES.LABEL,
+]);
 
 /** Group key for edit registrations that carry no measurement id (tests,
  *  one-off call sites) — each such handle stays isolated. A string literal is
@@ -116,8 +120,11 @@ class MeasureManager {
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
-      graphPane: CONST.PANES.GRAPH,
-      labelPane: CONST.PANES.LABEL,
+      panes: [
+        { name: CONST.PANES.GRAPH },
+        { name: CONST.PANES.NODE },
+        { name: CONST.PANES.LABEL, isLabel: true },
+      ],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),
     });
