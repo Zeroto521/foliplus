@@ -1,14 +1,14 @@
 // Coordinate transformation and CRS detection for foliplus components.
 //
-// Pure functions (no module-level state) — imported statically by components.
-// The runtime geocoder (geocode.js) also imports these, which is fine:
-// esbuild inlines a copy into runtime.min.js as well.
+// Pure functions (no module-level state) — imported statically by components
+// and by core/geocode (which lives in the shared runtime bundle, so esbuild
+// bundles this module into foliplus-common.min.js exactly once).
 //
 // These functions operate on Leaflet maps and coordinate systems.
-import { createLogger } from "./log.js";
+import { createLogger } from "#common/log.js";
 
-// coord.ts has no CONF — it is shared by five components — so the library
-// name is the only prefix that is correct here.
+// coord.ts has no CONF — it is shared across components and core — so the
+// library name is the only prefix that is correct here.
 const log = createLogger("foliplus");
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
