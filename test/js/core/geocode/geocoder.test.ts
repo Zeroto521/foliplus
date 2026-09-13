@@ -243,3 +243,55 @@ describe("custom provider (declarative dict)", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit, no API call
   });
 });
+
+describe("map-default provider", () => {
+  const photonMap = {
+    ...mockMap,
+    foliplus: { geocodeProvider: "photon" },
+  } as any;
+
+  it("geocode falls back to map.foliplus.geocodeProvider without an explicit spec", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [13.405, 52.52] },
+            properties: { name: "Berlin", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const r = await geocode(photonMap, "Berlin MapDefault", "en");
+    expect(r).toEqual({ lat: 52.52, lng: 13.405, display_name: "Berlin, Germany" });
+    const [url, init] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io");
+    expect(init.headers["X-User-Agent"]).toBe("foliplus");
+  });
+
+  it("reverseGeocode without a spec uses the map-default provider", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [8.682, 50.11] },
+            properties: { name: "Frankfurt", country: "Germany" },
+          },
+        ],
+      }),
+    );
+    const addr = await reverseGeocode(photonMap, 7.682, 49.11, "en");
+    expect(addr).toBe("Frankfurt,Germany");
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("photon.komoot.io/reverse");
+  });
+
+  it("an explicit provider spec wins over the map default", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lon: "119.3", lat: "26.08", display_name: "Fuzhou" }]),
+    );
+    const r = await geocode(photonMap, "Fuzhou Override", "en", "nominatim");
+    expect(r).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    const [url] = (globalThis.fetch as any).mock.calls[0];
+    expect(url).toContain("nominatim.openstreetmap.org");
+  });
+});

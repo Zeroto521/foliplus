@@ -8,10 +8,6 @@ import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import type { SearchSource, SearchType } from "./const.js";
 
-// Re-export the shared provider result shape so SearchControl sub-modules
-// (logic.ts, index.ts) import it from one place.
-export type { SuggestItem };
-
 /** Cached address result: the raw item + its formatted display name. */
 interface AddressResult {
   item: SuggestItem;

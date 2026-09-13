@@ -2,14 +2,16 @@
 // Bidirectional global cache: address -> coordinates (forward) and
 // coordinates -> address (reverse). Cache keys are scoped by provider id and
 // CRS; the throttle queue is per-provider (each API has its own rate limit).
-// Provider definitions and URL/format helpers live in the same subdomain
-// (registry.ts / nominatim.ts); this module owns CRS adaption, caching, and
+// Providers are pure WGS84 (registry.ts / nominatim.ts); this module wraps
+// them map-aware via withMapCRS (the single CRS boundary), owns caching and
 // rate limiting. Callers may pass an explicit provider spec (e.g. SearchControl
-// forwards its configured provider so cache keys stay consistent) — components
-// that omit it fall back to the default Nominatim provider.
-import { fromWgs84, getMapCrsType, toWgs84 } from "#core/geo/coord.js";
+// forwards its configured provider so cache keys stay consistent); components
+// that omit it fall back to the map-default provider (map.foliplus.geocodeProvider,
+// set by provider-aware controls) and finally to Nominatim.
+import { getMapCrsType } from "#core/geo/coord.js";
 import { Cache } from "#common/cache.js";
 import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";
 import { resolveProvider } from "./registry.js";
@@ -53,17 +55,23 @@ const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =
   }).then(r => r.json());
 
 /**
- * Resolve a provider spec defensively — falls back to Nominatim on an unknown
- * id so a misconfigured spec degrades gracefully instead of throwing mid-search.
+ * Resolve a provider spec for a map, defensively. Priority: explicit spec >
+ * map default (`map.foliplus.geocodeProvider`, registered by provider-aware
+ * controls) > Nominatim. Unknown ids fall back to Nominatim so a misconfigured
+ * spec degrades gracefully instead of throwing mid-search. The result is
+ * wrapped map-aware (CRS conversion), so callers pass map-CRS coordinates and
+ * receive map-CRS results regardless of the underlying API.
  */
 const safeResolve = (
+  map: L.Map,
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ): GeocodeProvider => {
   try {
-    return resolveProvider(provider, providerConfig);
+    const spec = provider ?? map.foliplus?.geocodeProvider;
+    return withMapCRS(resolveProvider(spec, providerConfig), map);
   } catch {
-    return resolveProvider();
+    return withMapCRS(resolveProvider(), map);
   }
 };
 
@@ -76,13 +84,13 @@ const reverseGeocode = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ): Promise<string> => {
-  const resolved = safeResolve(provider, providerConfig);
+  const resolved = safeResolve(map, provider, providerConfig);
   const key = `reverse:${resolved.id}:${lng},${lat}`;
   const cached = geoCache.get(key);
   if (cached) return Promise.resolve(cached);
 
-  const wgs = toWgs84(map, parseFloat(String(lng)), parseFloat(String(lat)));
-  const url = resolved.reverse(wgs[0], wgs[1], code);
+  // Coordinates are in the map CRS; withMapCRS converts to WGS84 for the API.
+  const url = resolved.reverse(parseFloat(String(lng)), parseFloat(String(lat)), code);
   const notFound = localeFallback(code, "foliplus.addr_not_found", "Address not found");
   const fail = localeFallback(code, "foliplus.geo_fail", "Lookup failed");
 
@@ -113,7 +121,7 @@ const geocode = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ): Promise<GeocodeResult | null> => {
-  const resolved = safeResolve(provider, providerConfig);
+  const resolved = safeResolve(map, provider, providerConfig);
   // CRS-aware key so the same address on different maps (e.g. GCJ02 vs
   // WGS84) — or on different providers — do not share a stale cached result.
   const crs = getMapCrsType(map);
@@ -135,15 +143,12 @@ const geocode = (
   return throttled(resolved, () =>
     requestJson(resolved, url)
       .then(data => {
+        // normalizeSearch returns map-CRS coordinates (withMapCRS converts).
         const item = resolved.normalizeSearch(data);
         if (!item) return null;
-        // All built-in providers return WGS84 - convert to the map CRS so
-        // downstream code always gets coordinates in the same CRS as map-
-        // displayed coordinates.
-        const [lng, lat] = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
         const result: GeocodeResult = {
-          lat,
-          lng,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lng),
           display_name: item.display_name,
         };
         geoCache.set(
@@ -151,7 +156,10 @@ const geocode = (
           `${result.lat}${SEP}${result.lng}${SEP}${result.display_name}`,
         );
         // Safe: (lng, lat) is unique per provider - no collision risk
-        geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, result.display_name);
+        geoCache.set(
+          `reverse:${resolved.id}:${result.lng},${result.lat}`,
+          result.display_name,
+        );
         return result;
       })
       .catch(() => null),
@@ -168,7 +176,7 @@ const cacheSuggestion = (
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
 ) => {
-  const resolved = safeResolve(provider, providerConfig);
+  const resolved = safeResolve(map, provider, providerConfig);
   const crs = getMapCrsType(map);
   const key = `forward:${resolved.id}:${address}:${crs}`;
   geoCache.set(key, `${lat}${SEP}${lng}${SEP}${displayName}`);

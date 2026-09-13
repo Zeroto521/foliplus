@@ -1,7 +1,11 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#core/geo/index.js";
 import { formatAddress, resolveProvider } from "#core/geocode/index.js";
-import type { GeocodeProvider, ProviderConfig } from "#core/geocode/index.js";
+import type {
+  GeocodeProvider,
+  ProviderConfig,
+  SuggestItem,
+} from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
@@ -28,12 +32,7 @@ import {
   type SearchType,
   ZOOM,
 } from "./const.js";
-import type {
-  AddressResult,
-  ResultItem,
-  SearchHistoryEntry,
-  SuggestItem,
-} from "./type.js";
+import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
@@ -54,12 +53,9 @@ const getProvider = (): GeocodeProvider => {
 /** Raw provider spec from CONF, forwarded to the shared runtime geocoder so
  *  custom providers resolve identically there (cache keys stay consistent). */
 const providerArgs = (): [
-  string | Record<string, unknown> | undefined,
+  string | ProviderConfig | undefined,
   Record<string, unknown> | null | undefined,
-] => [
-  CONF.provider as string | Record<string, unknown> | undefined,
-  CONF.provider_config,
-];
+] => [CONF.provider, CONF.provider_config];
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
@@ -667,8 +663,13 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   })
     .then(r => r.json())
     .then((raw: unknown) => {
-      // Provider normalizes raw API JSON into the shared SuggestItem shape.
-      const results: SuggestItem[] = provider.normalizeSuggest(raw);
+      // Provider normalizes raw API JSON into the shared SuggestItem shape
+      // (WGS84). Convert to the map CRS so the panel coordinates, the placed
+      // marker and the cache-warmed forward entry all agree with the map.
+      const results: SuggestItem[] = provider.normalizeSuggest(raw).map(item => {
+        const [lng, lat] = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
+        return { ...item, lng: String(lng), lat: String(lat) };
+      });
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
       // Cache first result so searchAddress can serve it from geoCache.
@@ -702,12 +703,9 @@ const initDebouncedFetch = (ctrl: SearchControlState) => {
 
 const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
   const center = map.getCenter();
-  return getProvider().suggest(
-    q,
-    limit,
-    [center.lng, center.lat],
-    CONF.locale_code ?? "en",
-  );
+  // Providers expect WGS84 bias coordinates — convert from the map CRS.
+  const wgs = toWgs84(map, center.lng, center.lat);
+  return getProvider().suggest(q, limit, [wgs[0], wgs[1]], CONF.locale_code ?? "en");
 };
 
 export {
