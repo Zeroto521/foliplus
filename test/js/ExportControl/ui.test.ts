@@ -135,8 +135,8 @@ describe("ExportControl ui — showGlobalHint", () => {
     window.CONF = { ...window.CONF, name: "ExportControl" };
   });
 
-  it("routes loading states to the <name>-loading hint key", () => {
-    showGlobalHint("Exporting map... (42%)", 0, "ExportControl-loading");
+  it("withLoadingIcon routes the hint to the <name>-loading spinner key", () => {
+    showGlobalHint("Exporting map... (42%)", 0, true);
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "ExportControl-loading",
       "Exporting map... (42%)",

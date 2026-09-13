@@ -78,13 +78,17 @@ const syncCropKeyboard = (mgr: ExportManager) => {
 };
 
 /** Show a global hint (e.g. exporting status). Loading states pass the
- *  `<name>-loading` hint key so the shared spinner renders in the icon slot. */
+ *  spinner hint key so the shared loader renders in the icon slot. */
 const showGlobalHint = (
   text: string,
   duration = HINT_DURATION.PERSIST,
-  key = CONF.name,
+  withLoadingIcon = false,
 ) => {
-  map.foliplus!.showHint(key, text, duration || HINT_DURATION.PERSIST);
+  map.foliplus!.showHint(
+    withLoadingIcon ? `${CONF.name}-loading` : CONF.name,
+    text,
+    duration || HINT_DURATION.PERSIST,
+  );
 };
 
 /** Show a hint with crop box size info. */

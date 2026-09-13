@@ -145,7 +145,11 @@ class ExportManager {
   declare removeCropBox: () => void;
   declare updateBoxStyle: (el: HTMLElement, r: Rect) => void;
   declare showHintWithInfo: (r: Rect, instruction?: string) => void;
-  declare showGlobalHint: (text: string, duration: number, key?: string) => void;
+  declare showGlobalHint: (
+    text: string,
+    duration: number,
+    withLoadingIcon?: boolean,
+  ) => void;
 
   constructor(
     mapInstance: L.Map,
@@ -188,8 +192,8 @@ class ExportManager {
     this.updateBoxStyle = (el: HTMLElement, r: Rect) => updateBoxStyle(this, el, r);
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
-    this.showGlobalHint = (text: string, duration: number, key?: string) =>
-      showGlobalHint(text, duration, key);
+    this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
+      showGlobalHint(text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
@@ -607,22 +611,14 @@ class ExportManager {
     this.map.foliplus!.hideHint(CONF.name, "size");
     this.map.foliplus!.hideHint(CONF.name, "limit");
 
-    this.showGlobalHint(
-      T("status_exporting"),
-      HINT_DURATION.PERSIST,
-      `${CONF.name}-loading`,
-    );
+    this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
     // Progress callback: format the percentage with locale text and refresh
     // the persistent hint.  render() reports 0..90 over the drawing passes;
     // this callback owns the final stretch, so 100 is reserved for the
     // download having started rather than the tiles having finished.
     const onProgress = (percent: number) => {
-      this.showGlobalHint(
-        formatProgress(percent),
-        HINT_DURATION.PERSIST,
-        `${CONF.name}-loading`,
-      );
+      this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
     };
 
     const vpW = this.mapContainer.clientWidth;
@@ -791,11 +787,7 @@ class ExportManager {
    * browser is doing.
    */
   private claimDownload(blob: Blob, filename: string) {
-    this.showGlobalHint(
-      formatProgress(100),
-      HINT_DURATION.PERSIST,
-      `${CONF.name}-loading`,
-    );
+    this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
     download(blob, filename);
   }
 
