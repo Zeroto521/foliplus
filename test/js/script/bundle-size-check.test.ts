@@ -422,6 +422,40 @@ describe("check", () => {
     expect(readFileSync(summary, "utf-8")).toContain("Bundle Size Check");
   });
 
+  it("names the base and head commits in the report", () => {
+    // The report is read out of the base branch's build, so the commit pair is
+    // what tells the reader which two trees are being compared.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+      "--base=239e0a2b1c2d3e4f",
+      "--head=3374c53a1b2c3d4e",
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).toContain(
+      "_Comparing base (239e0a2b1c2d3e4f) to head (3374c53a1b2c3d4e)._",
+    );
+  });
+
+  it("drops the comparison line when no commits are given", () => {
+    // A bare local run has no base/head pair, so the line would render "(?)".
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
+    expect(readFileSync(report, "utf-8")).not.toContain("Comparing base");
+  });
+
   it("compares against a custom baseline via --baseline", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);

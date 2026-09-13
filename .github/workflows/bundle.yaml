@@ -54,7 +54,10 @@ jobs:
           git worktree remove --force /tmp/base
 
       - name: Compare with base
-        run: node script/bundle-size-check.mjs --baseline=base-sizes.json --report=bundle-report.md || true
+        run: |
+          node script/bundle-size-check.mjs --baseline=base-sizes.json \
+            --base="${{ github.base_sha }}" --head="${{ github.sha }}" \
+            --report=bundle-report.md || true
 
       - uses: actions/upload-artifact@v7
         id: upload
