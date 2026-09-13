@@ -318,7 +318,52 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.foliplus.geocode).toHaveBeenCalledWith(map, "X", "en");
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(
+      map,
+      "X",
+      "en",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a custom provider spec to foliplus.geocode", async () => {
+    const original = window.CONF.provider;
+    const originalCfg = window.CONF.provider_config;
+    try {
+      window.CONF = {
+        ...window.CONF,
+        provider: { id: "myapi", baseUrl: "https://x.example.com" },
+        provider_config: null,
+      };
+      (window.foliplus.geocode as any).mockResolvedValue({
+        lat: 1,
+        lng: 2,
+        display_name: "A",
+      });
+      const ctrl: any = {
+        cachedAddress: {},
+        addrAbortController: null,
+        inp: { value: "X" },
+        marker: null,
+      };
+      searchAddress(ctrl, "X");
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      expect(window.foliplus.geocode).toHaveBeenCalledWith(
+        map,
+        "X",
+        "en",
+        { id: "myapi", baseUrl: "https://x.example.com" },
+        null,
+      );
+    } finally {
+      window.CONF = {
+        ...window.CONF,
+        provider: original,
+        provider_config: originalCfg,
+      };
+    }
   });
 
   it("shows hint and clears input when geocode returns null", async () => {
@@ -538,6 +583,8 @@ describe("fetchSuggestions", () => {
       30.0,
       120.0,
       expect.any(String),
+      undefined,
+      undefined,
     );
   });
 });
@@ -1223,6 +1270,8 @@ describe("fetchSuggestions: render behavior", () => {
       48.8,
       2.3,
       expect.any(String),
+      undefined,
+      undefined,
     );
     expect(
       ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item"),
@@ -1261,6 +1310,8 @@ describe("fetchSuggestions: render behavior", () => {
       30,
       120,
       "abc", // formatAddress("12345") returns "" → falls back to the query
+      undefined,
+      undefined,
     );
     cacheSuggestionSpy.mockRestore();
   });

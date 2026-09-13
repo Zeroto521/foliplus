@@ -226,6 +226,8 @@ describe("bindEvents", () => {
       map,
       "Paris",
       CONF.locale_code,
+      undefined,
+      undefined,
     );
   });
 

@@ -13,9 +13,9 @@ import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
 import type {
   AddressResult,
-  NominatimItem,
   ResultItem,
   SearchHistoryEntry,
+  SuggestItem,
 } from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
@@ -32,7 +32,7 @@ class SearchControl extends BaseControl {
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
-  declare cachedSuggestions: Cache<string, NominatimItem[]>;
+  declare cachedSuggestions: Cache<string, SuggestItem[]>;
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -122,7 +122,7 @@ class SearchControl extends BaseControl {
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
-    this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
+    this.cachedSuggestions = new Cache<string, SuggestItem[]>(50);
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;
