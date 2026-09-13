@@ -238,14 +238,19 @@ const totalCells = t => ({
   pct: t.pct == null ? "—" : fmtPct(t.curr, t.prev),
 });
 
-/** The `base … head` commit line for the report. CI resolves the two SHAs with
- *  git, so they need no shortening here. Rendered only when both are given —
- *  one side empty is a setup mistake (an unresolved ref, or a substitution the
- *  runner did not make), and a partial range with a `?` reads worse than no
- *  range at all. */
+/** The `base … head` commit line for the report, both SHAs shortened to 7
+ *  characters — enough to be unique in this repo while staying on one line.
+ *  A full SHA makes the pair twice as wide for no gain. Rendered only when
+ *  both are given: one side empty is a setup mistake (an unresolved ref, or a
+ *  substitution the runner did not make), and a partial range with a `?`
+ *  reads worse than no range at all. */
+const shortSha = sha => (sha && sha.length > 7 ? sha.slice(0, 7) : sha);
+
 const rangeLine = (base, head) => {
-  if (!base || !head) return [];
-  return [`_Comparing base (${base}) to head (${head})._`];
+  const b = shortSha(base);
+  const h = shortSha(head);
+  if (!b || !h) return [];
+  return [`Comparing base (${b}) to head (${h}).`];
 };
 
 const renderTable = (rows, threshold, base, head) => {
@@ -424,7 +429,9 @@ export {
   fmtKB,
   fmtPct,
   parseArgs,
+  rangeLine,
   rowCells,
+  shortSha,
   stripLeadingBlockComment,
   summarize,
   toolMismatch,

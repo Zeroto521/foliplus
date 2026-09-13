@@ -11,7 +11,9 @@ import {
   fmtKB,
   fmtPct,
   parseArgs,
+  rangeLine,
   rowCells,
+  shortSha,
   stripLeadingBlockComment,
   summarize,
   toolVersion,
@@ -437,9 +439,20 @@ describe("check", () => {
     ]);
     expect(check(args, root)).toBe(0);
     const md = readFileSync(report, "utf-8");
-    expect(md).toContain(
-      "_Comparing base (239e0a2b1c2d3e4f) to head (3374c53a1b2c3d4e)._",
-    );
+    expect(md).toContain("Comparing base (239e0a2) to head (3374c53).");
+  });
+
+  it("shortens SHAs longer than seven characters", () => {
+    // CI passes full 40-char SHAs; a reader only needs a unique prefix.
+    expect(
+      rangeLine(
+        "98cc41ee67ab7a9ad03d01687db3cf14a54e858f",
+        "19f86a90f24f72f4c9b81e4a77ac274087d2e2d5",
+      ),
+    ).toEqual(["Comparing base (98cc41e) to head (19f86a9)."]);
+    expect(shortSha("98cc41e")).toBe("98cc41e");
+    expect(shortSha("abcd1234")).toBe("abcd123");
+    expect(shortSha("a")).toBe("a");
   });
 
   it("drops the comparison line when neither commit is given", () => {
@@ -457,8 +470,8 @@ describe("check", () => {
   });
 
   it("drops the comparison line when only one commit is given", () => {
-    // One side empty means the CI context was not fully substituted — a non-PR
-    // trigger, or a step that lost its `run:` context. A partial range like
+    // One side empty means a substitution did not resolve — an unresolved ref,
+    // or a step that lost its `run:` context. A partial range like
     // "base (?) to head (3374c53)" reads worse than no range, so the line is
     // suppressed rather than padded.
     const root = mkTmp();
