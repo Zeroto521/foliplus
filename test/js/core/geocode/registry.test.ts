@@ -177,6 +177,7 @@ describe("providerFromConfig", () => {
     expect(
       provider.normalizeSearch({ hits: [{ lon: 1, lat: 2, label: "A" }] }),
     ).toEqual({ lng: "1", lat: "2", name: undefined, display_name: "A" });
+    expect(provider.normalizeSearch({ hits: [] })).toBeNull();
   });
 
   it("returns an empty string when the reverse normalizer yields a non-string", () => {

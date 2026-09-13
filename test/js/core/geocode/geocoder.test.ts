@@ -295,3 +295,36 @@ describe("map-default provider", () => {
     expect(url).toContain("nominatim.openstreetmap.org");
   });
 });
+
+describe("error boundary", () => {
+  it("reverseGeocode returns the locale fail text when the fetch fails", async () => {
+    (globalThis.fetch as any).mockRejectedValue(new Error("network"));
+    const addr = await reverseGeocode(mockMap, 115.1, 35.1, "en");
+    expect(addr).toBe("Lookup failed");
+  });
+
+  it("geocode returns null when the fetch fails", async () => {
+    (globalThis.fetch as any).mockRejectedValue(new Error("network"));
+    const r = await geocode(mockMap, "NetworkFail City", "en");
+    expect(r).toBeNull();
+  });
+
+  it("recovers after a failure (the queue stays usable)", async () => {
+    (globalThis.fetch as any)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(
+        jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+      );
+    const first = await geocode(mockMap, "Recover Address", "en");
+    expect(first).toBeNull();
+    const second = await geocode(mockMap, "Recover Address", "en");
+    expect(second).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+  });
+
+  it("uses the default fail text when the runtime locale tables are missing", async () => {
+    (window as any).foliplus = null;
+    (globalThis.fetch as any).mockRejectedValue(new Error("network"));
+    const addr = await reverseGeocode(mockMap, 116.1, 36.1, "en");
+    expect(addr).toBe("Lookup failed");
+  });
+});
