@@ -3,7 +3,13 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-// Regression guard for PR #305: production sources carry no type-system bypasses.
+// Repo-wide regression guard: production sources carry no type-system bypasses.
+//
+// No single file owns this property — it is measured over all of foliplus/js
+// — so unlike the rest of the suite this test is not named after a script it
+// tests. `type-safety` is the property and `guard` is its kind. The repo-wide
+// convention is test/js/<name>.test.ts testing foliplus/js/<name>.ts, which this
+// file deliberately breaks.
 //
 // These are not lint duplicates — eslint's ban-ts-comment only flags the
 // // @ts-*** lines (and only ones it can classify), and no rule checks for
