@@ -889,6 +889,23 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
     expect(clearSpy).not.toHaveBeenCalled();
   });
 
+  it("destroy unsubscribes from EVENTS.MODE_CHANGE (no reaction after destroy)", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MODE.DISTANCE;
+
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    manager.destroy();
+    clearSpy.mockClear();
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.MODE_CHANGE, {
+      component: "ExportControl",
+      mode: "crop",
+    });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
   it("works with namespaced layer ID (opts.id)", () => {
     const { manager, map } = makeManager({ id: "map2" });
     expect(manager.layerId).toBe("foliplus_measure_map2");

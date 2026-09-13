@@ -108,6 +108,8 @@ class MeasureManager {
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
+  private offModeChange!: () => void;
   private onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
   private onUnload!: () => void;
@@ -151,7 +153,7 @@ class MeasureManager {
     this.events = ensureEvents(this.map);
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
+    this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         map.foliplus?.showHint?.(CONF.name, T("export_paused"), HINT_DURATION.SHORT);
@@ -627,6 +629,7 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
+    if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
     this.clearAll();
