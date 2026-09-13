@@ -2,7 +2,7 @@ import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { bindPanelToggle } from "#common/panel.js";
+import { bindOutsideCollapse, bindPanelToggle } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
 import { panelHTML } from "./template.js";
@@ -41,6 +41,14 @@ class LayerControl extends BaseControl {
       container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
       toggleBtn: ".foliplus-toggle-btn",
       header: ".foliplus-panel-header",
+    });
+
+    // Same panel-dismiss contract as the heatmap panel: a click anywhere
+    // outside the control collapses it. disableClickPropagation on the
+    // container keeps in-panel clicks (including inside selects) from
+    // reaching this document-level listener.
+    bindOutsideCollapse({
+      container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
     });
 
     this.m.attachUI(container.querySelector(".foliplus-panel-content") as HTMLElement);
