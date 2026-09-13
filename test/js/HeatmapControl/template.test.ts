@@ -27,7 +27,6 @@ describe("panelContentHTML", () => {
       border: "Border",
       label: "Label",
       clear: "Clear",
-      confirm: "OK",
     };
     return map[key] ?? key;
   };
@@ -65,7 +64,6 @@ describe("panelContentHTML", () => {
       "data-hm-border-weight",
       "data-hm-label-chk",
       "data-hm-btn-clear",
-      "data-hm-btn-confirm",
     ];
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
@@ -92,7 +90,8 @@ describe("panelContentHTML", () => {
   it("includes translated action button text", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Clear");
-    expect(html).toContain("OK");
+    // Live-updating controls mean there is no confirm/OK action to translate.
+    expect(html).not.toContain("OK");
   });
 
   it("includes aggregation method options", () => {
@@ -167,11 +166,12 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-section-divider");
   });
 
-  it("includes action button row", () => {
+  it("includes action button row (clear only — the panel is live-updating)", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
-    expect(html).toContain("foliplus-heatmap-btn-confirm");
+    expect(html).not.toContain("foliplus-heatmap-btn-confirm");
+    expect(html).not.toContain("data-hm-btn-confirm");
   });
 
   it("extra body uses shared foliplus-hidden class by default", () => {
