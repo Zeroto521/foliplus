@@ -37,6 +37,21 @@ interface TileDesc {
   dh?: number;
 }
 
+/** Per-layer tile load statistics, for the post-export CORS warning. */
+interface TileLoadStats {
+  /** Tiles the draw pass attempted to fetch. */
+  total: number;
+  /** Tiles whose fetch failed (CORS rejection, timeout, 404). */
+  failed: number;
+}
+
+/** True when a layer's tiles predominantly failed to load — the profile of a
+ *  tile source that rejects CORS requests: the map renders fine (tiles load
+ *  as opaque images), but the export's independent CORS fetch cannot get
+ *  them.  Sporadic misses (ocean 404s, blips) stay below the threshold. */
+const isCorsBlocked = (stats: TileLoadStats): boolean =>
+  stats.total > 0 && stats.failed > 0 && stats.failed / stats.total > 0.5;
+
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.
 // render() orchestrates the passes in painter's-algorithm order:
@@ -71,6 +86,10 @@ const pooledEach = async <T, R>(
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
+  /** Per-layer tile load stats, reset at the start of each render() and
+   *  appended to by the tile passes.  The manager reads this after render()
+   *  resolves to warn about CORS-blocked tile sources. */
+  tileFailures: TileLoadStats[] = [];
 
   constructor(map: L.Map) {
     this.map = map;
@@ -177,6 +196,9 @@ class ExportRenderer {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
     if (sw < 1 || sh < 1) throw new Error(log.msg(T("err_crop_too_small")));
+    // Stats are per-render: a repeated render (e.g. the enlarged path calling
+    // doRender again) must not carry the previous attempt's failures forward.
+    this.tileFailures = [];
 
     // Progress must be reportable from the moment the canvas is created, so it
     // lives here rather than on the render context: the background fill below
@@ -428,6 +450,14 @@ class ExportRenderer {
       // the batch position would credit tiles whose download failed.
       if (onProgress) onProgress(drawn);
     }
+
+    // Record what this layer's fetch actually achieved.  `drawn` counts tiles
+    // whose bitmap painted, so failures are the remaining ones — including
+    // drawImage errors, which leave the same hole as a failed fetch.
+    this.tileFailures.push({
+      total: visibleTiles.length,
+      failed: visibleTiles.length - drawn,
+    });
   }
 
   /** Render SVG content from a single pane. */
@@ -923,4 +953,5 @@ class ExportRenderer {
   }
 }
 
-export { pooledEach, ExportRenderer };
+export type { TileLoadStats };
+export { isCorsBlocked, pooledEach, ExportRenderer };

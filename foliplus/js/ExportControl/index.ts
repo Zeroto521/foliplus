@@ -10,34 +10,6 @@ createControlEnv(CONF, SVGs.CAMERA);
 const T = createScopedTranslator(CONF);
 requireLayerAPI(CONF.name, T, map);
 
-// ==================== CORS Pre-setup ====================
-// Set crossOrigin on ALL existing TileLayers so tiles load with CORS
-// from the start. This is THE KEY to avoiding canvas taint — if tiles
-// are loaded without CORS, drawImage will taint the canvas and
-// toBlob() will return null (blank image).
-//
-// We also intercept future layer additions to set crossOrigin.
-map.eachLayer((layer: L.Layer) => {
-  if (layer instanceof L.GridLayer) {
-    const opts = layer.options as L.TileLayerOptions;
-    if (!opts.crossOrigin) {
-      opts.crossOrigin = "anonymous";
-      if (map.hasLayer(layer)) {
-        map.removeLayer(layer);
-        map.addLayer(layer);
-      }
-    }
-  }
-});
-
-map.on("layeradd", (event: L.LeafletEvent) => {
-  const layer = (event as L.LayerEvent).layer;
-  if (layer instanceof L.GridLayer) {
-    const opts = layer.options as L.TileLayerOptions;
-    if (!opts.crossOrigin) opts.crossOrigin = "anonymous";
-  }
-});
-
 // ==================== Leaflet Control ====================
 const exportManager = new ExportManager(map);
 

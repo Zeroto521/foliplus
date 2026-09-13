@@ -66,6 +66,7 @@ _JS_USED_KEYS = {
     "ExportControl.err_render_fail",
     "ExportControl.err_geotiff_geo",
     "ExportControl.err_geotiff_canvas",
+    "ExportControl.err_cors_tiles",
     "ExportControl.label_size_prefix",
     "ExportControl.label_size_suffix",
     "ExportControl.no_layercontrol",

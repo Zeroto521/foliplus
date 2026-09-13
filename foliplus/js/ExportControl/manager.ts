@@ -12,7 +12,7 @@ import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
-import { ExportRenderer } from "./renderer.js";
+import { ExportRenderer, type TileLoadStats, isCorsBlocked } from "./renderer.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -125,6 +125,10 @@ class ExportManager {
   pixelOverLimit: boolean;
   lastScreenRect: Rect | null;
   savedBounds: SavedBounds | null;
+  /** Per-layer tile load stats from the most recent render, read by
+   *  finishExport to warn about CORS-blocked tile sources over the success
+   *  label.  Reset at the start of each export. */
+  lastTileFailures: TileLoadStats[] | null;
   dragState: DragState;
   nudgeLoop?: RafLoop;
   private nudgeMapRect?: DOMRect;
@@ -170,6 +174,7 @@ class ExportManager {
     this.pixelOverLimit = false;
     this.lastScreenRect = null;
     this.savedBounds = null;
+    this.lastTileFailures = null;
     this.loadSavedBounds();
 
     this.dragState = {
@@ -563,6 +568,7 @@ class ExportManager {
       return;
     }
     this.isExporting = true;
+    this.lastTileFailures = null;
     ensureModes(this.map).setMode(CONF.name, "exporting");
     ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
     const r = Object.assign({}, this.cropState.rect);
@@ -665,9 +671,11 @@ class ExportManager {
       r.height = Math.abs(se.y - nw.y);
     }
 
-    return new ExportRenderer(this.map)
+    const renderer = new ExportRenderer(this.map);
+    return renderer
       .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
       .then(canvas => {
+        this.lastTileFailures = renderer.tileFailures;
         this.onRenderSuccess(canvas, hideEls);
       })
       .catch(err => {
@@ -766,7 +774,15 @@ class ExportManager {
       // container file; every other format is the encoded blob itself.
       if (format.geotiff) await this.downloadGeoTiff(canvas, name);
       else this.claimDownload(blob, `${name}.${format.ext}`);
-      this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
+      // A layer whose tiles predominantly failed (e.g. a tile source that
+      // rejects CORS requests) leaves a hole in the image — say so instead of
+      // a bare success, then clear the stats so the next export starts clean.
+      const blocked = (this.lastTileFailures ?? []).some(isCorsBlocked);
+      this.lastTileFailures = null;
+      this.showGlobalHint(
+        blocked ? T("err_cors_tiles") : T("status_success"),
+        HINT_DURATION.LONG,
+      );
     } catch (err) {
       // Any step can throw (createObjectURL, encoding, download anchor). A
       // leaked rejection would otherwise skip endExport below and leave the
