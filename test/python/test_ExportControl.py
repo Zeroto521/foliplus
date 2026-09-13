@@ -298,9 +298,10 @@ class TestExportControlBrowser:
         registers a permanent layeradd listener — the removed CORS pre-setup
         blanked non-CORS base maps, flashed the viewport on init, and leaked
         the listener.  Re-adding the control must not change either."""
-        with use_page(
-            self._make_page, browser, tmp_path, folium.TileLayer()
-        ) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, folium.TileLayer()) as (
+            page,
+            errors,
+        ):
             state = page.evaluate(_js("ExportControl/read_tile_state"))
             # Leaflet's default options.crossOrigin is `false`; anything
             # truthy would mean ExportControl rewrote the layer again.
@@ -309,9 +310,9 @@ class TestExportControlBrowser:
             # The removed pre-setup's layeradd handler referenced crossOrigin;
             # Leaflet's own attribution and foliplus's components never do.
             # Re-adding the control must not change the listener set at all.
-            for src in state["before"]["layeraddHandlers"] + state["after"][
-                "layeraddHandlers"
-            ]:
+            for src in (
+                state["before"]["layeraddHandlers"] + state["after"]["layeraddHandlers"]
+            ):
                 assert "crossOrigin" not in src
             assert len(state["before"]["layeraddHandlers"]) == len(
                 state["after"]["layeraddHandlers"]
