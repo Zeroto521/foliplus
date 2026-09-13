@@ -47,10 +47,17 @@ map.on("layeradd", (event: L.LeafletEvent) => {
 
 // ==================== Leaflet Control ====================
 // Manager creation is lazy so destroy() + re-add re-creates a fresh manager.
-// Browser tests inject a synchronous scheduler on window before instantiation
-// to make rafLoop deterministic (see TestExportControlBrowser._make_page).
+// Browser tests inject a synchronous rafLoop scheduler on window before
+// instantiation to make rafLoop deterministic (see
+// TestExportControlBrowser._make_page) — typed locally, not as a runtime
+// global, because this hook is test-only.
+type ExportScheduler = (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 const createExportManager = (): ExportManager =>
-  new ExportManager(map, window.__foliplusExportScheduler ?? setTimeout);
+  new ExportManager(
+    map,
+    (window as unknown as { __foliplusExportScheduler?: ExportScheduler })
+      .__foliplusExportScheduler ?? setTimeout,
+  );
 
 class ExportControl extends BaseControl {
   manager: ExportManager | null = null;

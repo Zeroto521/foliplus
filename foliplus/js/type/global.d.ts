@@ -358,11 +358,5 @@ declare global {
     CONFIG?: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
-    /** Test hook: ExportControl's rafLoop scheduler. Browser tests inject a
-     *  synchronous one before instantiation; production leaves it undefined. */
-    __foliplusExportScheduler?: (
-      fn: () => void,
-      ms: number,
-    ) => ReturnType<typeof setTimeout>;
   }
 }
