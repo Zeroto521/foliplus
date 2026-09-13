@@ -60,9 +60,7 @@
 - `LayerControl`: split `LayerUI` into `ui/*` modules (`list`/`state`/`keyboard`/`focus`/…) with a single `ui/index.js` export; public API unchanged ([#291](https://github.com/Zeroto521/foliplus/pull/291), [#296](https://github.com/Zeroto521/foliplus/pull/296), [#297](https://github.com/Zeroto521/foliplus/pull/297))
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
-
-- `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are now created lazily on first use and rebuilt after `map.removeControl()` + `map.addControl()` on the same control object, so `destroy()` no longer leaves the control unusable; Heatmap's initial layer scan restarts from `buildDOM`. Also fixes a `MODE_CHANGE` listener leak in `MeasureControl` (unsubscribe was never stored or released) and makes `ensureLayerAPI` able to downgrade back to the lightweight stub on destroy
-
+- `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are created lazily and rebuilt after `removeControl` + `addControl` on the same control object, so `destroy()` no longer leaves the control unusable; Heatmap's layer scan restarts from `buildDOM`, MeasureControl's `MODE_CHANGE` listener is released on destroy, and `ensureLayerAPI` can downgrade back to the lightweight stub ([#307](https://github.com/Zeroto521/foliplus/pull/307))
 ### Removed
 
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
