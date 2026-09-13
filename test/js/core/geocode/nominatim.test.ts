@@ -152,6 +152,7 @@ describe("Nominatim provider — URL building", () => {
   it("accept-language falls back to en when code is empty", () => {
     expect(provider.search("Paris", "")).toContain("accept-language=en");
     expect(provider.reverse(119.3, 26.08, "")).toContain("accept-language=en");
+    expect(provider.suggest("Paris", 5, [1, 2], "")).toContain("accept-language=en");
   });
 });
 

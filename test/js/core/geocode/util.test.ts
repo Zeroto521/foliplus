@@ -65,6 +65,10 @@ describe("safeEval", () => {
   it("throws on syntactically invalid arrow source", () => {
     expect(() => safeEval("x =>")).toThrow(/invalid normalizer/);
   });
+
+  it("throws when the evaluated expression is not a function", () => {
+    expect(() => safeEval("x => x, 1")).toThrow(/invalid normalizer/);
+  });
 });
 
 describe("toItems", () => {
@@ -81,6 +85,15 @@ describe("toItems", () => {
   it("returns [] for non-arrays", () => {
     expect(toItems({ lng: "1", lat: "2", display_name: "x" })).toEqual([]);
   });
+
+  it("drops entries with non-numeric coordinate strings", () => {
+    expect(
+      toItems([
+        { lng: "abc", lat: "2", display_name: "bad" },
+        { lng: "1", lat: "2", display_name: "ok" },
+      ]),
+    ).toEqual([{ lng: "1", lat: "2", display_name: "ok" }]);
+  });
 });
 
 describe("featuresToItems", () => {
@@ -96,5 +109,13 @@ describe("featuresToItems", () => {
     );
     expect(items).toHaveLength(1);
     expect(items[0]).toEqual({ lng: "1", lat: "2", name: "A", display_name: "A" });
+  });
+
+  it("handles features without properties", () => {
+    const items = featuresToItems(
+      { features: [{ geometry: { coordinates: [1, 2] } }] },
+      p => String(p.name ?? ""),
+    );
+    expect(items).toEqual([{ lng: "1", lat: "2", name: undefined, display_name: "" }]);
   });
 });

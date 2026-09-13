@@ -156,4 +156,36 @@ describe("providerFromConfig", () => {
     expect(provider.search("q", "en")).toBe("");
     expect(provider.reverse(1, 2, "en")).toBe("");
   });
+
+  it("omits bias placeholders when suggest is called without a center", () => {
+    const provider = providerFromConfig(custom);
+    expect(provider.suggest("Berlin", 5, null, "en")).toBe(
+      "https://geo.example.com/suggest?q=Berlin&limit=5&lon={lon}&lat={lat}",
+    );
+  });
+
+  it("coerces an array search-normalizer result to its first item", () => {
+    const provider = providerFromConfig({
+      id: "arr-search",
+      baseUrl: "https://x.example.com",
+      search: { url: "/search?q={q}" },
+      normalize: {
+        search:
+          "d => d.hits.map(h => ({ lng: String(h.lon), lat: String(h.lat), display_name: h.label }))",
+      },
+    });
+    expect(
+      provider.normalizeSearch({ hits: [{ lon: 1, lat: 2, label: "A" }] }),
+    ).toEqual({ lng: "1", lat: "2", name: undefined, display_name: "A" });
+  });
+
+  it("returns an empty string when the reverse normalizer yields a non-string", () => {
+    const provider = providerFromConfig({
+      id: "num-rev",
+      baseUrl: "https://x.example.com",
+      reverse: { url: "/reverse?lon={lon}" },
+      normalize: { reverse: "d => d.code" },
+    });
+    expect(provider.normalizeReverse({ code: 42 })).toBe("");
+  });
 });

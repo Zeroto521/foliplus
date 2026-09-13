@@ -587,6 +587,55 @@ describe("fetchSuggestions", () => {
       undefined,
     );
   });
+
+  it("falls back to Nominatim when the configured provider id is unknown", () => {
+    const original = window.CONF.provider;
+    try {
+      window.CONF = { ...window.CONF, provider: "bogus" };
+      const url = buildSearchUrl({} as any, "Paris", 5);
+      expect(url).toContain("nominatim.openstreetmap.org/search");
+    } finally {
+      window.CONF = { ...window.CONF, provider: original };
+    }
+  });
+
+  it("discards a suggestion response when the query changed meanwhile", async () => {
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise(resolve =>
+          setTimeout(
+            () =>
+              resolve({
+                json: () =>
+                  Promise.resolve([
+                    { lat: "30.0", lon: "120.0", display_name: "Paris, France" },
+                  ]),
+              }),
+            10,
+          ),
+        ),
+    ) as unknown as typeof fetch;
+    const cache = new Cache<string, object>(50);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: cache,
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "Paris" },
+    };
+    fetchSuggestions(ctrl, "Paris");
+    ctrl.inp.value = "Rome"; // query changed before the response lands
+    await new Promise(r => setTimeout(r, 30));
+    expect(cache.get("Paris")).toBeUndefined(); // never cached
+    expect(ctrl.panelWrap).toBeNull(); // never rendered
+  });
 });
 
 describe("attachSearchDelIcon", () => {

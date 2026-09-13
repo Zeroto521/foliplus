@@ -48,7 +48,9 @@ const safeEval = (source: string): ((data: unknown) => unknown) => {
   return fn as (data: unknown) => unknown;
 };
 
-/** Coerce an arbitrary value into a `SuggestItem[]` (drops non-array results). */
+/** Coerce an arbitrary value into a `SuggestItem[]` (drops non-array results
+ *  and entries whose coordinate strings are not numeric — a malformed custom
+ *  normalizer must not poison downstream CRS conversion with NaN). */
 const toItems = (value: unknown): SuggestItem[] => {
   if (!Array.isArray(value)) return [];
   return value.filter(
@@ -57,7 +59,9 @@ const toItems = (value: unknown): SuggestItem[] => {
       typeof v === "object" &&
       "lng" in v &&
       "lat" in v &&
-      "display_name" in v,
+      "display_name" in v &&
+      !Number.isNaN(parseFloat(v.lng as string)) &&
+      !Number.isNaN(parseFloat(v.lat as string)),
   );
 };
 
