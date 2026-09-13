@@ -47,7 +47,8 @@ class BaseControl extends L.Control {
     // Ready signal: other controls (LayerControl's init pass) can run on
     // attach completion instead of a fixed delay.
     try {
-      ensureEvents(this._map).emit(EVENTS.CONTROL_ATTACHED, {
+      const events = ensureEvents(this._map);
+      events.emit(EVENTS.CONTROL_ATTACHED, {
         component: this.constructor.name,
       });
     } catch {
