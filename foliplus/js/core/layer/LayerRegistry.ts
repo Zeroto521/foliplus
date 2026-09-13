@@ -77,7 +77,6 @@ class LayerRegistry {
       visible: opts.visible ?? existingLi?.visible ?? true,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
-      labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
       subPanes: opts.subPanes ?? existingLi?.subPanes ?? [],
       // The only externally supplied HTML in the layer model: callers of
       // LayerAPI.registerLayer / createLayers may pass arbitrary markup, and
