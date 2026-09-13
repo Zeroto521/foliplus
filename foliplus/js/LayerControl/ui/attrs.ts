@@ -11,6 +11,7 @@ import type { LayerUI } from "./index.js";
 import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
+import { closeStylePanel } from "./style.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata

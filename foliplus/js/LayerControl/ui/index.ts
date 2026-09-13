@@ -93,7 +93,7 @@ import {
   syncHiddenId,
 } from "./state.js";
 import {
-  applyAnnotationState,
+  applyStyleLabelState,
   closeStylePanel,
   invalidateFields,
   layerHasLabelFields,
@@ -187,7 +187,7 @@ class LayerUI {
   /** Per-layer label-field cache (collectFields walks every feature). */
   fieldCache: Map<string, string[]>;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
-  annotationConfigs: Record<string, unknown>;
+  labelConfigs: Record<string, unknown>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -230,7 +230,7 @@ class LayerUI {
     this.styleOutsideHandler = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
-    this.annotationConfigs = {};
+    this.labelConfigs = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -308,7 +308,7 @@ class LayerUI {
       this.initTypesAndVisibility();
       // Re-apply is idempotent: a late-registered layer may just now have
       // a resolvable feature set (and thus labelable fields).
-      this.applyAnnotationState();
+      this.applyStyleLabelState();
     });
   }
 
@@ -710,8 +710,8 @@ class LayerUI {
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
   }
-  applyAnnotationState() {
-    return applyAnnotationState(this);
+  applyStyleLabelState() {
+    return applyStyleLabelState(this);
   }
   renameLayer(layerId: string) {
     return renameLayer(this, layerId);

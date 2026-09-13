@@ -1,4 +1,4 @@
-// LayerControl UI —Overflow (鈰? menu.
+// LayerControl UI — Overflow (⋮) menu.
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
@@ -50,9 +50,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     ),
   );
 
-  // "Style" (annotation) is only meaningful for data layers with labelable
-  // fields. Base maps, the color basemap, and data layers with no
-  // feature.properties are disabled — same disabled recipe as focus-layer.
+  // The Style menu entry is the surface for the per-layer style panel — the
+  // current implementation only ships the "labels" dimension, but the same
+  // entry will host future style dimensions (color, opacity, …). Disable it
+  // exactly like focus-layer when there is nothing to configure.
   const styleDisabled = focusDisabled || !layerHasLabelFields(ui, layerId);
 
   menu.appendChild(
@@ -62,7 +63,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: styleDisabled ? ui.T("label_no_data") : ui.T("style_layer_tooltip"),
+        title: styleDisabled
+          ? ui.T("style_label_no_data")
+          : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.LABEL },
@@ -106,15 +109,5 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   ui.activeMenu = null;
   if (setFocus) item.focus();
 };
-
-/**
- * Open the attributes panel for a given layer row: display-only metadata
- * (name, provenance, feature count, last update, visibility) plus any
- * third-party `meta` entries passed to registerLayer.
- *
- * Rows are omitted when they carry no value —a panel is not padded with
- * "—. The color basemap is included (it carries no provider data, but the
- * fixed rows still read).
- */
 
 export { openMoreMenu, closeMoreMenu };

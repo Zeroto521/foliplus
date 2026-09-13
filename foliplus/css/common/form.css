@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════
   Shared Form Controls
   Reusable form primitives shared across component panels (HeatmapControl
-  and LayerControl's annotation style panel). HeatmapControl keeps its own
+  and LayerControl's style panel). HeatmapControl keeps its own
   .foliplus-heatmap-form-* classes for now; new panels use these directly.
   ══════════════════════════════════════════════════════════════════════ */
 
@@ -109,4 +109,31 @@
 .foliplus-toggle-switch input:disabled + .foliplus-toggle-slider {
   opacity: var(--alpha-50);
   cursor: default;
+}
+
+/* ── Style panel additions (LayerControl) ──
+   The Style panel sits inside a layer row and shares the foliplus-panel
+   width via inheritance, so no explicit width rule is needed. The two
+   rules below cover the differences from the standard panel vocabulary:
+     - the body collapses when the "Labels" toggle is off;
+     - the format row hides when the chosen field is not numeric;
+     - the toggle gets a focus-visible ring tied to the panel's
+       design token (without it, a tab stop on a switch looks identical
+       to "not focused", which the bug report called out).
+   Each rule keys only on a layer-style-* class, so nothing leaks back
+   into the heatmap or attrs panels. */
+.foliplus-style-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.foliplus-style-body.foliplus-hidden,
+.foliplus-style-format-row.foliplus-hidden {
+  display: none;
+}
+.foliplus-style-toggle-input:focus-visible + .foliplus-toggle-slider {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.foliplus-style-format-row {
+  align-items: center;
 }

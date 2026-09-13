@@ -253,10 +253,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
-  // No confirm button: every control above re-renders on change, so the
-  // heatmap is always live. Collapsing the panel is the header's (or an
-  // outside click's) job — see createPanelControl's shared dismiss wiring.
-
   updateSchemeBar(ctrl);
 };
 
