@@ -1,10 +1,10 @@
 """Tests for foliplus.LayerControl."""
 
 from __future__ import annotations
-from pathlib import Path
 
 import json
 import re
+from pathlib import Path
 
 import folium
 from conftest import (
@@ -229,6 +229,9 @@ class TestLayerControlRendering:
         """Default (en) locale keys rendered."""
         html = render_control(LayerControl())
         assert "LayerControl.toggle_title" in html
+        assert "LayerControl.panel_title" in html
+        assert "LayerControl.base_map_label" in html
+
     def test_annotation_locale_keys(self):
         """Annotation / style-panel locale keys exist in both en and zh."""
         root = Path(__file__).resolve().parent.parent.parent
@@ -257,9 +260,6 @@ class TestLayerControlRendering:
             assert not missing, (
                 f"LayerControl.{lang} missing annotation keys: {missing}"
             )
-
-        assert "LayerControl.panel_title" in html
-        assert "LayerControl.base_map_label" in html
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""
@@ -950,6 +950,9 @@ class TestLayerControlBrowser:
     def _make_page(browser, tmp_path, *layers, slug="lc"):
         """Create a map with LayerControl, render, and return (page, errors)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        for layer in layers:
+            layer.add_to(m)
         html = m.get_root().render()
         # Expose the control instance for re-entry tests (dev build keeps names).
         html, n = re.subn(
@@ -960,9 +963,6 @@ class TestLayerControlBrowser:
         )
         assert n == 1, "LayerControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
-        for layer in layers:
-            layer.add_to(m)
-        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
         return page, errors
 
@@ -1005,6 +1005,9 @@ class TestLayerControlBrowser:
             )
             hint_text = page.evaluate(
                 'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
+            )
+            assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+
     def test_remove_readd_restores_layer_api(self, browser, tmp_path):
         """Re-add after removeControl upgrades LayerAPI back to full and re-attaches panel."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -1016,9 +1019,6 @@ class TestLayerControlBrowser:
             assert state["panelAttached"] is True
             panel_ready(page)  # rebuilt panel completes its init pass again
             assert not errors, f"JS errors: {errors}"
-
-            )
-            assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
 
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
@@ -3508,6 +3508,9 @@ class TestLayerControlBrowser:
                     f"after an unrelated checkbox click"
                 )
                 assert info["countText"] == "1", (
+                    f"{info['name']!r}: count column changed to {info['countText']!r} "
+                    f"after an unrelated checkbox click"
+                )
 
     def test_click_outside_collapses_panel(self, browser, tmp_path):
         """Clicking the map outside the panel collapses it.
@@ -3536,6 +3539,3 @@ class TestLayerControlBrowser:
             assert page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
             ), "panel stayed expanded after clicking outside"
-                    f"{info['name']!r}: count column changed to {info['countText']!r} "
-                    f"after an unrelated checkbox click"
-                )

@@ -19,10 +19,10 @@ import {
   forEachLeaf,
   getGeometryType,
 } from "#core/layer/index.js";
-import { AnnotationManager } from "./annotation.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { AnnotationManager } from "./annotation.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
@@ -62,12 +62,12 @@ class LayerManager implements LayerAPI {
    * sets this to false.  For the actual LayerControl check, prefer
    * isRealLayerControl — a capability assertion that cannot be bypassed
    * by flag tampering — but this flag is convenient for ad-hoc logging.
-  /** Per-map event bus — bound once in the constructor (ensure-style getters
-   *  return the cached instance, so hold it like the logger does). */
-  events: EventBus;
    */
   isLayerControl = true;
   map: L.Map;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
   layerRegistry: LayerRegistry;
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
@@ -76,16 +76,16 @@ class LayerManager implements LayerAPI {
   panes: PaneManager;
   factory: LayerFactory;
   lastAttribution: string | null;
-  annotation: AnnotationManager;
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
+  annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
-    this.events = ensureEvents(this.map);
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    this.events = ensureEvents(this.map);
     this.layerRegistry = new LayerRegistry(data, this.map);
     this.pendingRegistrations = [];
     this.uiContainer = null;
@@ -137,17 +137,17 @@ class LayerManager implements LayerAPI {
 
       if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
     };
-    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -286,10 +286,10 @@ class LayerManager implements LayerAPI {
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.isBase) return;
     // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
     this.invalidateType(id);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
@@ -398,10 +398,10 @@ class LayerManager implements LayerAPI {
       this.ui.initLayerItem(layerInfo);
       this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
       // Defer z-order enforcement so batch registration coalesces into one pass.
-    this.events.emit(EVENTS.LAYER_CHANGE);
+      this.debouncedEnforce();
     }
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -417,10 +417,10 @@ class LayerManager implements LayerAPI {
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
     if (item?.isBase) return;
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -471,24 +471,24 @@ class LayerManager implements LayerAPI {
     // they belong to a component registering later (HeatmapControl and
     // MeasureControl register in their own constructor, after this UI has
     // already attached), and pruning there would revert the rename on the
+    // first attach — every reload.
+    this.ui?.hiddenIds?.delete(id);
+    this.ui?.saveHiddenIds();
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
     this.ui?.invalidateFields(id);
+    if (this.ui?.renamedNames?.[id] != null) {
+      delete this.ui.renamedNames[id];
+      this.ui.saveNamesState();
+    }
     // The two writes above are on separate debounce timers. Flush so the
     // removal lands immediately rather than riding out the 100ms window —
     // unregister is rare, so the flush cost is not worth amortising.
     this.persistence.flushAll();
-    // first attach — every reload.
-    this.ui?.hiddenIds?.delete(id);
-    this.ui?.saveHiddenIds();
-    if (this.ui?.renamedNames?.[id] != null) {
     this.events.emit(EVENTS.LAYER_CHANGE);
-    this.events.emit(EVENTS.LAYER_REMOVED, { id });
-    }
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
-    ensureEvents(this.map).emit(EVENTS.LAYER_REMOVED, { id });
+    this.events.emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
 
@@ -686,10 +686,10 @@ class LayerManager implements LayerAPI {
     if (idx <= 0) return false;
     if (!this.canReorderBetween(idx, idx - 1)) return false;
 
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -708,10 +708,10 @@ class LayerManager implements LayerAPI {
     if (idx < 0 || idx >= this.layers.length - 1) return false;
     if (!this.canReorderBetween(idx, idx + 1)) return false;
 
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -721,10 +721,10 @@ class LayerManager implements LayerAPI {
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     // Flush before destroy: the writes are debounced at 100ms, wide enough for
-    this.annotation.destroy();
     // the control to be removed before the timer fires. unbindEvents also
     // flushes, but it only runs when a panel is attached.
     this.persistence.flushAll();
+    this.annotation.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
@@ -737,12 +737,12 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
     this.panes.destroy();
+    // Revert to the lightweight LayerAPI (no registry, no panel).
+    // ensureLayerAPI guarantees a valid object, so consumers can always
+    // call `map.foliplus.LayerAPI.xxx` without null checks.
     // `force` is required: without it the existing (destroyed) manager would
     // short-circuit the stub replacement and stay live on the map.
     ensureLayerAPI(this.map, true);
-    // ensureLayerAPI guarantees a valid object, so consumers can always
-    // call `map.foliplus.LayerAPI.xxx` without null checks.
-    ensureLayerAPI(this.map);
   }
 }
 

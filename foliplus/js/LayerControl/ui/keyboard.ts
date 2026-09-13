@@ -1,8 +1,8 @@
 // LayerControl UI —Roving keyboard cursor + key handling.
 import { HINT_DURATION } from "#core/hint.js";
+import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attrs.js";
-import { T } from "./context.js";
 import { owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
@@ -182,20 +182,20 @@ const clearActiveItem = (ui: LayerUI): void => {
  */
 
 const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
+  const target = event.target as HTMLElement | null;
+  if (!target || typeof target.closest !== "function") {
+    ui.closeAttrsPanel(false);
     ui.closeStylePanel(false);
+    clearActiveItem(ui);
+    return;
+  }
   // The attributes panel and the style panel are floating surfaces anchored
   // to their row: a press anywhere outside them dismisses them, panel and
   // map alike. One surface per press —the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
-  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
-    return;
-  }
-  // The attributes panel is a floating surface anchored to its row: a press
-  // anywhere outside it dismisses it, panel and map alike. One surface per
-  // press —the overflow menu keeps its own click-delegated close in
-  // interaction.ts, and Escape pops the menu before the panel.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
+  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
   if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
 };
 
@@ -259,17 +259,17 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     } else if (ui.activeMenu) {
       // closeMoreMenu returns focus to the row, so the cursor must be
       // dropped after it rather than before.
+      ui.closeMoreMenu(true);
+    } else if (ui.activeAttrsPanel) {
+      // The attributes panel and the overflow menu both float from the same
       // ⋮ button, so Escape dismisses whichever is on top.
+      ui.closeAttrsPanel(true);
     } else if (ui.stylePanelLayerId) {
       // The style panel floats from the same ⋮ button; Escape dismisses it
       // and returns focus to its row (the panel's own controls consume the
       // key first, so this is the fallback for Escape from the row, the map,
       // or a control that does not handle it).
       ui.closeStylePanel(true);
-    } else if (ui.activeAttrsPanel) {
-      // The attributes panel and the overflow menu both float from the same
-      // 鈰?button, so Escape dismisses whichever is on top.
-      ui.closeAttrsPanel(true);
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }
@@ -291,24 +291,24 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   if (event.ctrlKey || event.metaKey) {
     const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const moved = ui.m.moveLayerUp(id);
+      if (!moved) {
         ui.m.map.foliplus!.showHint(
           ui.conf.name,
           ui.T("reorder_top"),
           HINT_DURATION.SHORT,
         );
-        ui.m.map.foliplus!.showHint(
-          ui.conf.name,
-          ui.T("reorder_bottom"),
-          HINT_DURATION.SHORT,
-        );
-      if (!moved) {
-        map.foliplus!.showHint(CONF.name, T("reorder_top"), HINT_DURATION.SHORT);
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       const moved = ui.m.moveLayerDown(id);
       if (!moved) {
-        map.foliplus!.showHint(CONF.name, T("reorder_bottom"), HINT_DURATION.SHORT);
+        ui.m.map.foliplus!.showHint(
+          ui.conf.name,
+          ui.T("reorder_bottom"),
+          HINT_DURATION.SHORT,
+        );
       }
     }
     const newItems = getNavigableItems(ui);
@@ -382,11 +382,11 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       if (menuLi && ui.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
+        const action = menuLi.getAttribute("data-action") ?? "";
+        if (menuLi.getAttribute("disabled")) {
+          ui.m.map.foliplus!.showHint(
             ui.conf.name,
             ui.T("focus_layer_hidden"),
-          ui.m.map.foliplus!.showHint(
-            CONF.name,
-            T("focus_layer_hidden"),
             HINT_DURATION.SHORT,
           );
           break;

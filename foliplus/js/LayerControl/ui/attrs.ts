@@ -1,12 +1,12 @@
 // LayerControl UI —Layer attributes panel.
-import { createPanelHeader } from "#common/panel.js";
+import { getGeometryType } from "#core/layer/index.js";
+import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import * as Icons from "#common/icon.js";
+import { createPanelHeader } from "#common/panel.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
@@ -22,13 +22,13 @@ import { finishRename } from "./rename.js";
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
+  finishRename(ui);
+  closeMoreMenu(ui, true);
+  closeAttrsPanel(ui, false);
   // The style panel floats from the same ⋮ menu; never show both. The
   // delegate call (not a direct import) keeps the style ↔ attrs module pair
   // cycle-free.
   ui.closeStylePanel(false);
-  finishRename(ui);
-  closeMoreMenu(ui, true);
-  closeAttrsPanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
@@ -62,31 +62,31 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
+  // a geometry type it never had.
+  const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
+  const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
-      ui.T("attr_feature_count"),
-        ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.conf.locale_code, 0),
-    ui.T("attr_source"),
-    addRow(ui.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
-    addRow(ui.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
+  if (!isColor) {
+    const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
+    // The panel is the detail view, so the count is grouped (1,234) rather
     // than compacted —and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
-      T("attr_feature_count"),
+      ui.T("attr_feature_count"),
       count == null
-        ? T("attr_empty")
-        : formatNumber(count, "comma", CONF.locale_code, 0),
+        ? ui.T("attr_empty")
+        : formatNumber(count, "comma", ui.conf.locale_code, 0),
     );
   }
   addRow(
-    T("attr_source"),
+    ui.T("attr_source"),
     layerInfo?.source ?? "",
     isLong(layerInfo?.source ?? "") ? "wide" : "",
   );
   if (!isColor) {
     // First-registration time, recorded by the registry itself.
-    addRow(T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
-    addRow(T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
+    addRow(ui.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
+    addRow(ui.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
   }
 
   const renderList = (listRows: AttrRow[]): HTMLElement =>
@@ -121,15 +121,15 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     ([, v]) => v != null && v !== "",
   );
   const metaRows: AttrRow[] = metaEntries.map(([key, value]) => [
+    key,
+    typeof value === "number"
+      ? // Integers group without a trailing ".0"; decimals keep one digit.
         formatNumber(
           value,
           "comma",
           ui.conf.locale_code,
           Number.isInteger(value) ? 0 : 1,
         )
-    typeof value === "number"
-      ? // Integers group without a trailing ".0"; decimals keep one digit.
-        formatNumber(value, "comma", CONF.locale_code, Number.isInteger(value) ? 0 : 1)
       : String(value),
     "",
   ]);
@@ -138,15 +138,19 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
-    { html: Icons.CLOSE },
-  );
+    layerInfo?.iconSvg ??
+    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
 
   const panel = dom.el(
     "div",
     {
       // `foliplus-panel` pulls in the shared panel vocabulary, so the
       // attributes surface is styled by the same rules as every other panel
+      // (header bar, content scroll) instead of a lookalike.
+      class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
+      role: "dialog",
       "aria-label": ui.T("attributes_layer"),
+    },
     // Header bar — built by the same factory the fold panels use, so the type
     // logo, title, and × line up with every other foliplus panel and cannot
     // drift into a lookalike. Hover title is close_title (收起 / Collapse),
@@ -157,10 +161,6 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       closeTitle: ui.T("close_title"),
       iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
     }),
-        displayName,
-      ),
-      closeBtn,
-    ),
     // One flat list: third-party meta rows continue the same rhythm instead
     // of opening a second group, so the panel reads as one column of facts.
     dom.el(

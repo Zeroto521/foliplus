@@ -4,10 +4,10 @@ import {
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
-  createPanelHeader,
   bindPanelToggle,
   createFoldControl,
   createPanelControl,
+  createPanelHeader,
 } from "#common/panel.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -174,6 +174,9 @@ describe("bindOutsideCollapse", () => {
     const container = document.createElement("div");
     container.className = "foliplus-panel expanded";
     document.body.appendChild(container);
+    return container;
+  }
+
   // bindOutsideCollapse watches document.body for removal; stub the observer
   // so a callback never leaks past jsdom unloading globals.
   function withObserverStub<T>(fn: () => T): T {
@@ -190,9 +193,6 @@ describe("bindOutsideCollapse", () => {
     } finally {
       (globalThis as any).MutationObserver = real;
     }
-  }
-
-    return container;
   }
 
   afterEach(() => {
@@ -213,6 +213,9 @@ describe("bindOutsideCollapse", () => {
     const container = makePanel();
     bindOutsideCollapse({ container });
     container.click();
+    expect(container.classList.contains("expanded")).toBe(true);
+  });
+
   it("does not collapse when the click detaches its own target (fold rebuild)", () => {
     // LayerControl's fold click rebuilds the list and detaches the clicked
     // row before the event reaches document. The capture-phase check runs
@@ -224,9 +227,6 @@ describe("bindOutsideCollapse", () => {
     container.appendChild(inside);
     inside.addEventListener("click", () => inside.remove());
     inside.click();
-    expect(container.classList.contains("expanded")).toBe(true);
-  });
-
     expect(container.classList.contains("expanded")).toBe(true);
   });
 
@@ -256,6 +256,9 @@ describe("bindOutsideCollapse", () => {
     cleanup();
     const outside = document.createElement("div");
     document.body.appendChild(outside);
+    outside.click();
+    expect(container.classList.contains("expanded")).toBe(true);
+  });
 
   it("cleanup detaches the capture listener as well as the bubble one", () => {
     // A stale capture listener would leave insidePress true and swallow the
@@ -412,9 +415,6 @@ describe("bindOutsideCollapse", () => {
       expect(container.classList.contains("collapsed")).toBe(true);
     });
   });
-    outside.click();
-    expect(container.classList.contains("expanded")).toBe(true);
-  });
 });
 
 describe("createFoldControl", () => {
@@ -442,6 +442,9 @@ describe("createFoldControl", () => {
       isLeft: false,
     });
     expect(result.ctrl.className).toContain("foliplus-align-right");
+  });
+});
+
 describe("createPanelHeader", () => {
   const build = (extra: Record<string, string> = {}) =>
     createPanelHeader({
@@ -488,9 +491,6 @@ describe("createPanelHeader", () => {
   });
 });
 
-  });
-});
-
 describe("createPanelControl", () => {
   it("creates panel with toggle, header, content", () => {
     const result = createPanelControl({
@@ -504,6 +504,9 @@ describe("createPanelControl", () => {
     expect(result.ctrl.className).toContain("heatmap-ctrl");
     expect(result.toggleBtn).not.toBeNull();
     expect(result.panelContent).not.toBeNull();
+    expect(domEvent.disableClickPropagation).toHaveBeenCalled();
+  });
+
   it("marks the header as a labelled dialog for screen readers", () => {
     const result = createPanelControl({
       cssClass: "heatmap-ctrl",
@@ -577,9 +580,6 @@ describe("createPanelControl", () => {
     document.body.appendChild(outside);
     outside.click();
     expect(result.ctrl.classList.contains("expanded")).toBe(true);
-  });
-
-    expect(domEvent.disableClickPropagation).toHaveBeenCalled();
   });
 
   it("toggle button expands the panel", () => {

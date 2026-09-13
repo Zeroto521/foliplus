@@ -1,12 +1,12 @@
 // LayerControl UI —Overflow (鈰? menu.
 import { dom } from "#common/dom.js";
+import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import { T } from "./context.js";
-import { layerHasLabelFields } from "./style.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
+import { layerHasLabelFields } from "./style.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -25,14 +25,14 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   const focusDisabled = isFocusLayerDisabled(ui, item);
 
   const itemAttrs = {
-    title: focusDisabled ? ui.T("focus_layer_hidden") : ui.T("focus_layer_tooltip"),
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
+    "data-action": "focus-layer",
+    role: "menuitem",
     tabindex: "0",
-    title: focusDisabled ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+    title: focusDisabled ? ui.T("focus_layer_hidden") : ui.T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
+  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -40,13 +40,16 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     dom.el(
       "li",
       {
-        title: ui.T("rename_layer_tooltip"),
-      ui.T("rename_layer"),
+        "data-action": CONST.ACTION.RENAME_LAYER,
+        role: "menuitem",
         tabindex: "0",
-        title: T("rename_layer_tooltip"),
+        title: ui.T("rename_layer_tooltip"),
       },
       { html: Icons.EDIT },
-      T("rename_layer"),
+      ui.T("rename_layer"),
+    ),
+  );
+
   // "Style" (annotation) is only meaningful for data layers with labelable
   // fields. Base maps, the color basemap, and data layers with no
   // feature.properties are disabled — same disabled recipe as focus-layer.
@@ -59,17 +62,14 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: styleDisabled ? T("label_no_data") : T("style_layer_tooltip"),
+        title: styleDisabled ? ui.T("label_no_data") : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.LABEL },
-      T("style_layer"),
+      ui.T("style_layer"),
     ),
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
-
-    ),
-  );
 
   // Attributes is display-only, so it is never disabled —a hidden layer
   // still has name / source / visibility to show.
@@ -77,13 +77,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     dom.el(
       "li",
       {
-        title: ui.T("attributes_layer_tooltip"),
-      ui.T("attributes_layer"),
+        "data-action": CONST.ACTION.ATTRS_LAYER,
+        role: "menuitem",
         tabindex: "0",
-        title: T("attributes_layer_tooltip"),
+        title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.INFO },
-      T("attributes_layer"),
+      ui.T("attributes_layer"),
     ),
   );
 

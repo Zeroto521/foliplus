@@ -8,11 +8,11 @@
 
 /* ── Shell ── */
 :is(
-  .foliplus-layer-attrs-panel,
-  .foliplus-layer-style-panel
+  .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
   .foliplus-layer-more-menu,
-  .foliplus-layer-attrs-panel
+  .foliplus-layer-attrs-panel,
+  .foliplus-layer-style-panel
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -40,11 +40,11 @@
 /* Respect reduced motion: drop the entrance animation. */
 @media (prefers-reduced-motion: reduce) {
   :is(
-    .foliplus-layer-attrs-panel,
-    .foliplus-layer-style-panel
+    .foliplus-search-result-panel,
     .foliplus-heatmap-scheme-dropdown,
     .foliplus-layer-more-menu,
-    .foliplus-layer-attrs-panel
+    .foliplus-layer-attrs-panel,
+    .foliplus-layer-style-panel
   ) {
     animation: none;
   }
@@ -107,11 +107,16 @@
   top: calc(50% - var(--ctrl-size) / 2);
   width: var(--ctrl-size);
   height: var(--ctrl-size);
+  border-radius: var(--radius-sm);
+}
+
 /* ── Panel header actions ──
    The close button sits on the panel header, which is itself the collapse
    target. It must therefore answer on hover with the same language as the
    header (a light wash + stronger glyph) instead of staying flat, and keep a
    visible ring for keyboard users. */
+.foliplus-close-btn {
+  color: var(--text-muted);
   transition:
     background-color var(--transition-fast),
     color var(--transition-fast);
@@ -132,11 +137,6 @@
     background: var(--accent-light);
     color: var(--accent-primary);
   }
-  border-radius: var(--radius-sm);
-}
-
-.foliplus-close-btn {
-  color: var(--text-muted);
 }
 
 .foliplus-pin {

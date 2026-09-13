@@ -124,8 +124,8 @@ path.foliplus-focus-mask {
 
   /* ── Panel Content Overrides ── */
   .foliplus-panel-content {
-  &.expanded .foliplus-layer-panel {
-    display: flex;
+    padding: var(--space-sm) 0;
+    max-height: var(--panel-max-height);
   }
   /* ── LAYERS icon: stacked diamond opacity ── */
   .foliplus-toggle-btn svg polygon:nth-child(2),
@@ -868,6 +868,9 @@ path.foliplus-focus-mask {
   outline: none;
   padding: 0 var(--space-md);
   height: 100%;
+  color: inherit;
+  width: 100%;
+}
 
 /* ══════════════════════════════════════════════════════════════════════
   Annotation style panel
@@ -976,7 +979,4 @@ path.foliplus-focus-mask {
       0 0 8px var(--neutral-0),
       0 0 12px var(--neutral-0);
   }
-}
-  color: inherit;
-  width: 100%;
 }

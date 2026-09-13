@@ -92,7 +92,6 @@ import {
   saveNamesState,
   syncHiddenId,
 } from "./state.js";
-
 import {
   applyAnnotationState,
   closeStylePanel,

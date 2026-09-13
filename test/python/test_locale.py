@@ -95,9 +95,9 @@ _JS_USED_KEYS = {
     "HeatmapControl.equal",
     "HeatmapControl.heads",
     "HeatmapControl.scheme",
+    "HeatmapControl.border",
     "HeatmapControl.label",
     "HeatmapControl.clear",
-    "HeatmapControl.confirm",
     "HeatmapControl.no_layer",
     "HeatmapControl.no_layercontrol",
     # LayerControl
@@ -140,6 +140,9 @@ _JS_USED_KEYS = {
     "LayerControl.rename_hint",
     "LayerControl.rename_empty",
     "LayerControl.readonly_error",
+    "LayerControl.readonly_del_error",
+    "LayerControl.readonly_method_error",
+    "LayerControl.blocked",
     # Style panel (interpolated format keys are built in
     # renderStylePanel via `T(\`label_format_${f}\`)`).
     "LayerControl.style_layer",
@@ -155,9 +158,6 @@ _JS_USED_KEYS = {
     "LayerControl.label_format_percent",
     "LayerControl.style_reset",
     "LayerControl.label_no_data",
-    "LayerControl.readonly_del_error",
-    "LayerControl.readonly_method_error",
-    "LayerControl.blocked",
     "LayerControl.attributes_layer",
     "LayerControl.attributes_layer_tooltip",
     "LayerControl.attr_source",

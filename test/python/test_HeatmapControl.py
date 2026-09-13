@@ -267,14 +267,14 @@ class TestHeatmapControlRendering:
 
     def test_label_toggle_renders(self):
         """Label toggle switch is rendered."""
+        html = render_control(HeatmapControl())
+        assert "toggle-switch" in html
+
     def test_confirm_button_removed(self):
         """Confirm button is gone: every control re-renders live (no Apply)."""
+        html = render_control(HeatmapControl())
         assert "btn-confirm" not in html
         assert "HeatmapControl.confirm" not in html
-        """Confirm (Apply) button is rendered."""
-        html = render_control(HeatmapControl())
-        assert "btn-confirm" in html
-        assert "HeatmapControl.confirm" in html
 
     def test_clear_button_renders(self):
         """Clear button is rendered."""
@@ -453,6 +453,9 @@ class TestHeatmapControlBrowser:
         page, errors = make_browser_page(browser, tmp_path, html, "heatmap")
         page.wait_for_selector(
             ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+        )
+        return page, errors
+
     def test_remove_readd_restarts_scan(self, browser, tmp_path):
         """destroy() + addControl restarts the initial scan and re-renders."""
         with use_page(
@@ -464,9 +467,6 @@ class TestHeatmapControlBrowser:
             assert state["hasManager"] is True
             heatmap_ready(page)  # re-scan settles: [data-ready] re-appears
             assert not errors, f"JS errors: {errors}"
-
-        )
-        return page, errors
 
     def test_auto_select_single_layer(self, browser, tmp_path):
         """Single point layer is auto-selected on panel expand."""
@@ -580,10 +580,10 @@ class TestHeatmapControlBrowser:
             )
             heatmap_ready(page)
 
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-switch input').click()"
+            before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             # Uncheck label
             page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch input').click()"
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-switch input').click()"
             )
             after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
             assert before is True, f"expected True, got {before}"
@@ -1142,19 +1142,19 @@ class TestHeatmapAutoFieldBrowser:
             assert len(real_options) >= 1, f"No layer options found: {options}"
             page.evaluate(_js("HeatmapControl/select_layer"), real_options[0])
             page.wait_for_timeout(500)
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
+
             # Switch aggregation to 'sum' so the field selector appears.
             # The agg select is the first <select> inside .foliplus-extra-body.
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control select"
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'sum'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
             )
             page.wait_for_timeout(500)
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
+
             # Verify field selector is visible and AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
@@ -1207,19 +1207,19 @@ class TestHeatmapAutoFieldBrowser:
             assert len(real_options) >= 1
             page.evaluate(_js("HeatmapControl/select_layer"), real_options[0])
             page.wait_for_timeout(500)
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
+
             # Switch to 'avg' so field selector appears.
             # The agg select is the first <select> inside .foliplus-extra-body.
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control select"
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'avg'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
             )
             page.wait_for_timeout(500)
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
+
             # Verify AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
