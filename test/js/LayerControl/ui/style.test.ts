@@ -242,9 +242,7 @@ describe("LayerUI style panel", () => {
     format.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(setConfig).toHaveBeenCalled();
-    expect(manager.annotation.getConfig("overlay1").format).toBe(
-      CONST.FORMAT.COMMA,
-    );
+    expect(manager.annotation.getConfig("overlay1").format).toBe(CONST.FORMAT.COMMA);
   });
 
   it("reset restores the default config and closes the panel", () => {
@@ -261,13 +259,9 @@ describe("LayerUI style panel", () => {
     const btn = panelOf(item).querySelector(
       ".foliplus-style-reset-btn",
     ) as HTMLButtonElement;
-    btn.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true }),
-    );
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    expect(manager.annotation.getConfig("overlay1")).toEqual(
-      CONST.DEFAULT_ANNOTATION,
-    );
+    expect(manager.annotation.getConfig("overlay1")).toEqual(CONST.DEFAULT_ANNOTATION);
     expect(panelOf(item)).toBeUndefined();
     expect(focusSpy).toHaveBeenCalled();
   });
@@ -388,6 +382,19 @@ describe("LayerUI style panel", () => {
 
     ui.invalidateFields("overlay1");
     expect(ui.fieldCache.has("overlay1")).toBe(false);
+  });
+
+  it("keeps the field cache across close/reopen (count changes invalidate)", () => {
+    // Closing the panel must not defeat the cache: re-collection on every
+    // reopen walks every feature for nothing. The cache is dropped by
+    // onLayerItemCountChange instead, when features actually change.
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+    ui.closeStylePanel(true);
+
+    expect(panelOf(item)).toBeUndefined();
+    expect(ui.fieldCache.get("overlay1")).toEqual(["count"]);
   });
 
   // ─────────────────── persisted state ───────────────────

@@ -81,4 +81,17 @@ describe("AnnotationManager config round-trip", () => {
     });
     expect(mgr.configEntries()).toHaveLength(1);
   });
+
+  it("destroyLayer forgets the layer's config entry", () => {
+    const mgr = new AnnotationManager(map, () => null);
+    mgr.setConfig("gone", { show: true, field: "name", format: "auto" });
+    expect(mgr.configEntries()).toHaveLength(1);
+
+    mgr.destroyLayer("gone");
+
+    // A removed layer's id must not be written back to storage by the next
+    // annotations save.
+    expect(mgr.configEntries()).toHaveLength(0);
+    expect(mgr.getConfig("gone").show).toBe(false);
+  });
 });

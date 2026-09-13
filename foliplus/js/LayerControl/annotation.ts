@@ -186,9 +186,12 @@ class AnnotationManager {
     }
   }
 
-  /** Tear down labels for a layer (e.g. on unregister). */
+  /** Tear down labels for a layer and forget its config (e.g. on
+   *  unregister). Deleting the entry keeps a removed layer's id from being
+   *  written back to localStorage by the next annotations save. */
   destroyLayer(id: string): void {
     this.clearLabels(id);
+    this.config.delete(id);
   }
 
   destroy(): void {

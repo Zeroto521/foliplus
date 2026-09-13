@@ -115,7 +115,11 @@ class LayerPersistence {
       annotationsData && typeof annotationsData === "object"
         ? Object.fromEntries(
             Object.entries(annotationsData).filter(
-              ([id, v]) => layerSet.has(id) && typeof v === "object" && v !== null,
+              ([id, v]) =>
+                layerSet.has(id) &&
+                typeof v === "object" &&
+                v !== null &&
+                !Array.isArray(v),
             ),
           )
         : {};

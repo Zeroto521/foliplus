@@ -306,9 +306,9 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     return;
   }
   const item = panel.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
-  // A reopen re-collects the field list: a runtime createLayers may have
-  // added features while the panel was open.
-  if (ui.stylePanelLayerId) invalidateFields(ui, ui.stylePanelLayerId);
+  // The field cache survives close/reopen: it is invalidated by
+  // onLayerItemCountChange when a layer's features actually change, not on
+  // every close (re-collecting on each open would defeat the cache).
   ui.stylePanelLayerId = null;
   panel.remove();
   if (setFocus) item?.focus();

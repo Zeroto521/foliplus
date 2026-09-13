@@ -119,16 +119,19 @@ describe("LayerPersistence", () => {
       expect(p.load().names).toEqual({ ghost: "Ghost", a: "A2" });
     });
 
-    it("drops annotation entries that are not registered or not objects", () => {
+    it("drops annotation entries that are not registered or not plain objects", () => {
       // Unlike names and hidden ids, annotations are filtered here: labels are
       // a pure decoration, so nothing loses work if a stale id is dropped at
-      // load time and the sweep never reaches it.
+      // load time and the sweep never reaches it. Arrays pass the typeof
+      // object check, so they are excluded explicitly — a corrupted record
+      // must not leak into the config as a valid object.
       seedStorage({
         [CONST.STORAGE.ANNOTATION_KEY]: {
           a: { show: true, field: "name", format: "auto" },
           ghost: { show: true, field: "x", format: "int" },
           b: null,
           c: "not-object",
+          d: ["array"],
         },
       });
       const p = makePersistence(["a", "b", "c"]);
