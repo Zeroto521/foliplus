@@ -17,6 +17,6 @@ export {
 } from "./nominatim.js";
 export { DEFAULT_BASE_URL as DEFAULT_PHOTON_BASE_URL, createPhoton } from "./photon.js";
 export { DEFAULT_BASE_URL as DEFAULT_PELIAS_BASE_URL, createPelias } from "./pelias.js";
-export { createThrottleQueue } from "./rateLimit.js";
+export { createThrottleQueue, lastRequestAt, markRequest } from "./rateLimit.js";
 export { cacheSuggestion, geocode, reverseGeocode } from "./geocoder.js";
 export type { GeocodeResult } from "./geocoder.js";

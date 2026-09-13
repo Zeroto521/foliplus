@@ -79,6 +79,12 @@ class SearchControl(BaseControl):
         Overrides for a built-in ``provider``: ``baseUrl``, ``throttleMs``,
         ``headers``. Only valid when ``provider`` is a string.
 
+        Rate limiting is shared per provider id, page-globally: all callers
+        of the same id (this control, the runtime geocoder, suggestions) go
+        through one throttle queue, and the strictest ``throttleMs`` declared
+        for the id wins. Give each distinct API instance (different
+        ``baseUrl`` or throttle) its own ``id`` / provider string.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.

@@ -21,7 +21,9 @@ interface SuggestItem {
  */
 interface GeocodeProvider {
   id: string;
-  /** Client-side minimum ms between requests to this provider. */
+  /** Minimum ms between requests to this provider — enforced **globally**
+   *  (same id across maps and across the geocoder / suggestion paths share
+   *  one clock and queue). The strictest declaration for an id wins. */
   throttleMs: number;
   /** Extra request headers sent with every call (e.g. Photon's X-User-Agent). */
   headers: Record<string, string>;
