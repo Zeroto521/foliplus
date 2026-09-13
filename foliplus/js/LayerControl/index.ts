@@ -1,63 +1,62 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { bindOutsideCollapse, bindPanelToggle } from "#common/panel.js";
+import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
-import { panelHTML } from "./template.js";
 import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
 const T = createScopedTranslator(CONF);
 
-// ==================== Initialize Manager with Data ====================
-const layerManager = new LayerManager(map, CONF.data as LayerInfo[]);
-layerManager.ui = new LayerUI(layerManager);
+// ==================== Manager Factory ====================
+// The manager is created lazily on first use and re-created after destroy(),
+// so `map.removeControl()` + `map.addControl()` on the same control object
+// is re-entrant. Each rendered IIFE gets its own factory (see BaseControl.py).
+const createLayerManager = (): LayerManager => {
+  const manager = new LayerManager(map, CONF.data as LayerInfo[]);
+  manager.ui = new LayerUI(manager);
+  return manager;
+};
 
 // ==================== Leaflet Control Definition ====================
 class LayerControl extends BaseControl {
-  declare manager: LayerManager;
+  manager: LayerManager | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.manager = layerManager;
   }
 
-  /** Shorthand for manager */
-  get m() {
-    return this.manager;
+  /** Shorthand for manager (creates it on first access). */
+  get m(): LayerManager {
+    return (this.manager ??= createLayerManager());
   }
 
   buildDOM() {
     patchBringToFront();
-    const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
-    container.innerHTML = panelHTML(T);
-
-    L.DomEvent.disableClickPropagation(container);
-    L.DomEvent.disableScrollPropagation(container);
-
-    bindPanelToggle({
-      container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
-      toggleBtn: ".foliplus-toggle-btn",
-      header: ".foliplus-panel-header",
+    const { container, panelContent, destroy } = createPanelControl({
+      cssClass: "foliplus-layer-ctrl",
+      ctrlId: `${CONF.name}_ctrl`,
+      toggleTitle: T("toggle_title"),
+      toggleSvg: SVGs.LAYERS,
+      panelTitle: T("panel_title"),
+      closeTitle: T("close_title"),
     });
 
-    // Same panel-dismiss contract as the heatmap panel: a click anywhere
-    // outside the control collapses it. disableClickPropagation on the
-    // container keeps in-panel clicks (including inside selects) from
-    // reaching this document-level listener.
-    bindOutsideCollapse({
-      container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
-    });
+    // The factory's document listeners outlive the MutationObserver when the
+    // control is detached but kept around, so hand its unbind to the base
+    // class for teardown on remove.
+    this.trackCleanup(destroy);
 
-    this.m.attachUI(container.querySelector(".foliplus-panel-content") as HTMLElement);
+    this.m.attachUI(panelContent);
 
     return container;
   }
 
+  /** Never touch `this.m` here: destroy() must not re-create the manager. */
   destroy() {
-    this.m.destroy();
+    this.manager?.destroy();
+    this.manager = null;
     unpatchBringToFront();
   }
 }

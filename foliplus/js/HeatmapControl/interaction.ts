@@ -8,7 +8,8 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
     if (ctrl.schemeSelectHidden) ctrl.schemeSelectHidden.value = name;
     ctrl.updateScheme();
   };
-  return ensureInteraction(map).register(CONF.name, [
+  const interaction = ensureInteraction(map);
+  return interaction.register(CONF.name, [
     {
       key: "ArrowUp",
       element: ctrl.schemeBar,
@@ -51,7 +52,8 @@ const registerDropdownEvents = (
   ctrl: any,
   items: HTMLElement[],
 ): (() => void) => {
-  return ensureInteraction(map).register(`${CONF.name}-dropdown`, [
+  const interaction = ensureInteraction(map);
+  return interaction.register(`${CONF.name}-dropdown`, [
     {
       key: "ArrowDown",
       element: ctrl.schemeDropdown,

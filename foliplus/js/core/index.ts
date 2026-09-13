@@ -5,16 +5,33 @@ export { COORD_BOUNDS, fromWgs84, getMapCrsType, toWgs84 } from "./geo/index.js"
 export { area, bearing, centroid, distance, midpoint } from "./geo/index.js";
 export type { LatLngPoint } from "./geo/index.js";
 export {
+  BUILTIN_FACTORIES,
+  BUILTIN_PROVIDERS,
   NOMINATIM,
-  NominatimProvider,
   cacheSuggestion,
+  createNominatim,
+  createPelias,
+  createPhoton,
   createThrottleQueue,
   formatAddress,
   geocode,
+  interpolate,
+  joinUrl,
   nominatimUrl,
+  providerFromConfig,
+  resolveProvider,
   reverseGeocode,
+  safeEval,
+  toItems,
+  withParams,
 } from "./geocode/index.js";
-export type { GeocodeItem, GeocodeProvider, GeocodeResult } from "./geocode/index.js";
+export type {
+  GeocodeProvider,
+  GeocodeResult,
+  ProviderConfig,
+  ProviderOpConfig,
+  SuggestItem,
+} from "./geocode/index.js";
 export * from "./layer/index.js";
 export { createControlEnv } from "./controlEnv.js";
 export { registerHintIcon } from "./hint.js";

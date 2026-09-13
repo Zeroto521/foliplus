@@ -229,6 +229,11 @@
     &:active {
       color: var(--neutral-0);
     }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
   }
   .foliplus-heatmap-btn-clear {
     background: var(--text-muted);

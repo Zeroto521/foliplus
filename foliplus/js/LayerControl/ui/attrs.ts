@@ -1,6 +1,5 @@
 // LayerControl UI —Layer attributes panel.
-import { getGeometryType } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
+import { createPanelHeader } from "#common/panel.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
@@ -23,13 +22,13 @@ import { finishRename } from "./rename.js";
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
-  finishRename(ui);
-  closeMoreMenu(ui, true);
-  closeAttrsPanel(ui, false);
   // The style panel floats from the same ⋮ menu; never show both. The
   // delegate call (not a direct import) keeps the style ↔ attrs module pair
   // cycle-free.
   ui.closeStylePanel(false);
+  finishRename(ui);
+  closeMoreMenu(ui, true);
+  closeAttrsPanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
@@ -63,13 +62,13 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
-  // a geometry type it never had.
-  const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
-  const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
-  addRow(T("attr_type"), T(typeKey));
-  if (!isColor) {
-    const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
-    // The panel is the detail view, so the count is grouped (1,234) rather
+  addRow(ui.T("attr_type"), ui.T(typeKey));
+      ui.T("attr_feature_count"),
+        ? ui.T("attr_empty")
+        : formatNumber(count, "comma", ui.conf.locale_code, 0),
+    ui.T("attr_source"),
+    addRow(ui.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
+    addRow(ui.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
     // than compacted —and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
@@ -122,7 +121,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     ([, v]) => v != null && v !== "",
   );
   const metaRows: AttrRow[] = metaEntries.map(([key, value]) => [
-    key,
+        formatNumber(
+          value,
+          "comma",
+          ui.conf.locale_code,
+          Number.isInteger(value) ? 0 : 1,
+        )
     typeof value === "number"
       ? // Integers group without a trailing ".0"; decimals keep one digit.
         formatNumber(value, "comma", CONF.locale_code, Number.isInteger(value) ? 0 : 1)
@@ -134,20 +138,6 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
-    layerInfo?.iconSvg ??
-    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
-
-  const closeBtn = dom.el(
-    "button",
-    {
-      // The shared header close affordance —same classes as the layer
-      // panel's own 脳, so position, size and hover are identical.
-      class: "foliplus-ctrl-btn foliplus-close-btn",
-      type: "button",
-      title: T("close_title"),
-      "aria-label": T("close_title"),
-    },
-    // The same CLOSE glyph the layer panel's header uses (not a text "脳").
     { html: Icons.CLOSE },
   );
 
@@ -156,29 +146,17 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     {
       // `foliplus-panel` pulls in the shared panel vocabulary, so the
       // attributes surface is styled by the same rules as every other panel
-      // (header bar, content scroll) instead of a lookalike.
-      class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
-      role: "dialog",
-      "aria-label": T("attributes_layer"),
-    },
-    // Header bar —literally the shared panel header: the type logo sits
-    // inside the title (as in the layer panel) and the 脳 is the shared
-    // close button, so both line up with every other foliplus panel.
-    // Hover title is close_title (鏀惰捣 / Collapse), same as the main panel.
-    dom.el(
-      "div",
-      { class: "foliplus-panel-header", title: T("close_title") },
-      dom.el(
-        "span",
-        { class: "foliplus-header-title" },
-        dom.el(
-          "span",
-          {
-            class: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
-            "aria-hidden": "true",
-          },
-          { html: typeSvg },
-        ),
+      "aria-label": ui.T("attributes_layer"),
+    // Header bar — built by the same factory the fold panels use, so the type
+    // logo, title, and × line up with every other foliplus panel and cannot
+    // drift into a lookalike. Hover title is close_title (收起 / Collapse),
+    // same as the main panel.
+    createPanelHeader({
+      title: displayName,
+      iconSvg: typeSvg,
+      closeTitle: ui.T("close_title"),
+      iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+    }),
         displayName,
       ),
       closeBtn,

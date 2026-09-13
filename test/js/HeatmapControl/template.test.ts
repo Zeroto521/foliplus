@@ -24,7 +24,6 @@ describe("panelContentHTML", () => {
       equal: "Equal",
       heads: "Heads",
       scheme: "Color",
-      border: "Border",
       label: "Label",
       clear: "Clear",
       confirm: "OK",
@@ -40,14 +39,14 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-config-body");
     expect(html).toContain("foliplus-heatmap-extra-body");
 
-    // Section headings
-    expect(html).toContain("foliplus-heatmap-section-heading");
-
     // Form rows — shared common/form.css primitives
     expect(html).toContain("foliplus-form-row");
     expect(html).toContain("foliplus-form-label");
     expect(html).toContain("foliplus-form-control");
     expect(html).toContain("foliplus-form-select");
+    expect(html).toContain("foliplus-heatmap-form-row");
+    expect(html).toContain("foliplus-heatmap-form-label");
+    expect(html).toContain("foliplus-heatmap-form-control");
   });
 
   it("includes all data-hm-* query targets", () => {
@@ -63,9 +62,9 @@ describe("panelContentHTML", () => {
       "data-hm-scheme-ctrl",
       "data-hm-scheme-hidden",
       "data-hm-border-color",
-      "data-hm-border-weight",
       "data-hm-label-chk",
       "data-hm-btn-clear",
+      "data-hm-btn-confirm",
     ];
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
@@ -89,11 +88,11 @@ describe("panelContentHTML", () => {
     expect(html).toContain("Label");
   });
 
-  it("includes translated action button text", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("Clear");
     // Live-updating controls mean there is no confirm/OK action to translate.
     expect(html).not.toContain("OK");
+    const html = panelContentHTML(T);
+    expect(html).toContain("Clear");
+    expect(html).toContain("OK");
   });
 
   it("includes aggregation method options", () => {
@@ -142,13 +141,13 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-scheme-bar");
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('role="combobox"');
-    expect(html).toContain("foliplus-heatmap-scheme-bar-inner");
-  });
-
   it("includes label toggle switch structure (shared form primitives)", () => {
-    const html = panelContentHTML(T);
     expect(html).toContain("foliplus-toggle-switch");
     expect(html).toContain("foliplus-toggle-slider");
+  it("includes label toggle switch structure", () => {
+    const html = panelContentHTML(T);
+    expect(html).toContain("foliplus-heatmap-toggle-switch");
+    expect(html).toContain("foliplus-heatmap-toggle-slider");
     expect(html).toContain('type="checkbox"');
   });
 
@@ -165,15 +164,15 @@ describe("panelContentHTML", () => {
 
   it("includes section divider", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-section-divider");
-  });
-
   it("includes action button row (clear only — the panel is live-updating)", () => {
+    expect(html).not.toContain("foliplus-heatmap-btn-confirm");
+    expect(html).not.toContain("data-hm-btn-confirm");
+
+  it("includes action button row", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
-    expect(html).not.toContain("foliplus-heatmap-btn-confirm");
-    expect(html).not.toContain("data-hm-btn-confirm");
+    expect(html).toContain("foliplus-heatmap-btn-confirm");
   });
 
   it("extra body uses shared foliplus-hidden class by default", () => {

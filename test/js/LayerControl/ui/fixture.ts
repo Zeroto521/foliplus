@@ -13,9 +13,17 @@ class GridLayer {
 }
 
 const makePane = () => {
-  const el = document.createElement("div");
-  el.style.zIndex = "0";
-  return el;
+  // Debounced manager callbacks can outlive a test that never destroyed its
+  // manager; when the file tears jsdom down, a late timer hits a missing
+  // document/HTMLElement. Return a style-only stub instead of throwing so the
+  // leaked callback becomes a no-op rather than an unhandled error.
+  try {
+    const el = document.createElement("div");
+    el.style.zIndex = "0";
+    return el;
+  } catch {
+    return { style: { zIndex: "0" } } as HTMLElement;
+  }
 };
 
 /** Populate window.L with the stubs LayerManager / PaneManager expect. */

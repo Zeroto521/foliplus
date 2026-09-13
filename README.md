@@ -45,7 +45,7 @@ Data processing happens upstream. foliplus handles the map, not the data.
 | 🎯 **LocateControl**     | Fly to the user's current position.                                                    |
 | 📏 **MeasureControl**    | Measure distances, areas, and circles; place geocoded markers; then edit by dragging nodes. |
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
-| 🔍 **SearchControl**     | Coordinate and address search via Nominatim reverse geocoding.                         |
+| 🔍 **SearchControl**     | Coordinate and address search via pluggable geocode providers.                        |
 
 ## Beyond Plugins
 

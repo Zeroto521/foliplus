@@ -1,9 +1,10 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and wiring.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import {
@@ -15,7 +16,7 @@ import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attrs.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { T, isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -91,6 +92,7 @@ import {
   saveNamesState,
   syncHiddenId,
 } from "./state.js";
+
 import {
   applyAnnotationState,
   closeStylePanel,
@@ -110,6 +112,14 @@ import {
 /** UI Controller for LayerControl. */
 class LayerUI {
   manager: LayerManager;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
+  /** Component config — carried on the instance so the ui/* modules read it
+   *  from `ui.conf` instead of a module-level free variable. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once in the constructor. */
+  T: (key: string) => string;
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
@@ -195,6 +205,9 @@ class LayerUI {
 
   constructor(manager: LayerManager) {
     this.manager = manager;
+    this.events = ensureEvents(this.m.map);
+    this.conf = CONF;
+    this.T = createScopedTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
     this.hiddenHasState = false;
@@ -291,16 +304,13 @@ class LayerUI {
    *  it lands after the synchronous attach sequence, so folium layers are
    *  already linked into the registry. */
   private subscribeControlAttached(): void {
-    this.unsubscribeControlAttached = ensureEvents(this.m.map).on(
-      EVENTS.CONTROL_ATTACHED,
-      () => {
-        if (!this.uiContainer?.isConnected) return;
-        this.initTypesAndVisibility();
-        // Re-apply is idempotent: a late-registered layer may just now have
-        // a resolvable feature set (and thus labelable fields).
-        this.applyAnnotationState();
-      },
-    );
+    this.unsubscribeControlAttached = this.events.on(EVENTS.CONTROL_ATTACHED, () => {
+      if (!this.uiContainer?.isConnected) return;
+      this.initTypesAndVisibility();
+      // Re-apply is idempotent: a late-registered layer may just now have
+      // a resolvable feature set (and thus labelable fields).
+      this.applyAnnotationState();
+    });
   }
 
   /** Load every persisted dimension in one call. */
@@ -450,8 +460,6 @@ class LayerUI {
     if (!item) return;
     const layerInfo = this.m.layerRegistry.get(id);
     if (!layerInfo || layerInfo.isBase) return;
-    // Features may have changed through createLayers — the label-field list
-    // must not serve a stale cache when the style panel re-renders.
     this.invalidateFields(id);
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
@@ -466,18 +474,18 @@ class LayerUI {
       const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
       layerInfo.type = gtype;
       typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
-      typeLabel = T(`type_${gtype}`);
+      typeLabel = this.T(`type_${gtype}`);
     }
 
     if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+      countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
     } else if (countCol) {
       countCol.textContent = "";
     }
     item.setAttribute(CONST.DATA.TITLE, typeLabel);
     item.title =
       count !== null
-        ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+        ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
         : typeLabel;
   }
 
@@ -493,7 +501,7 @@ class LayerUI {
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol && count !== null && count !== undefined) {
-        countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+        countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
       } else if (countCol) countCol.textContent = "";
     });
   }

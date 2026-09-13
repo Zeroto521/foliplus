@@ -4,6 +4,7 @@ import {
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
+  createPanelHeader,
   bindPanelToggle,
   createFoldControl,
   createPanelControl,
@@ -173,6 +174,24 @@ describe("bindOutsideCollapse", () => {
     const container = document.createElement("div");
     container.className = "foliplus-panel expanded";
     document.body.appendChild(container);
+  // bindOutsideCollapse watches document.body for removal; stub the observer
+  // so a callback never leaks past jsdom unloading globals.
+  function withObserverStub<T>(fn: () => T): T {
+    const real = globalThis.MutationObserver;
+    (globalThis as any).MutationObserver = class {
+      observe() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    };
+    try {
+      return fn();
+    } finally {
+      (globalThis as any).MutationObserver = real;
+    }
+  }
+
     return container;
   }
 
@@ -194,9 +213,6 @@ describe("bindOutsideCollapse", () => {
     const container = makePanel();
     bindOutsideCollapse({ container });
     container.click();
-    expect(container.classList.contains("expanded")).toBe(true);
-  });
-
   it("does not collapse when the click detaches its own target (fold rebuild)", () => {
     // LayerControl's fold click rebuilds the list and detaches the clicked
     // row before the event reaches document. The capture-phase check runs
@@ -208,6 +224,9 @@ describe("bindOutsideCollapse", () => {
     container.appendChild(inside);
     inside.addEventListener("click", () => inside.remove());
     inside.click();
+    expect(container.classList.contains("expanded")).toBe(true);
+  });
+
     expect(container.classList.contains("expanded")).toBe(true);
   });
 
@@ -237,6 +256,162 @@ describe("bindOutsideCollapse", () => {
     cleanup();
     const outside = document.createElement("div");
     document.body.appendChild(outside);
+
+  it("cleanup detaches the capture listener as well as the bubble one", () => {
+    // A stale capture listener would leave insidePress true and swallow the
+    // real outside press, so the panel would wrongly stay open.
+    const container = makePanel();
+    const inside = document.createElement("div");
+    container.appendChild(inside);
+    const cleanup = bindOutsideCollapse({ container });
+    cleanup();
+
+    inside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(container.classList.contains("expanded")).toBe(true);
+    outside.remove();
+  });
+
+  it("keeps the panel open when the pressed node is detached before bubble", () => {
+    withObserverStub(() => {
+      // Minimal fixture, not createPanelControl: this case must fail on the old
+      // bubble-phase handler, which would also keep the panel open via a factory.
+      const ctrl = document.createElement("div");
+      ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      document.body.appendChild(ctrl);
+      const content = document.createElement("div");
+      ctrl.appendChild(content);
+      const btn = document.createElement("button");
+      content.appendChild(btn);
+      const cleanup = bindOutsideCollapse({ container: ctrl });
+
+      // LayerControl's fold click replaces the list, so the pressed button is
+      // gone by the time the document-level handler runs.
+      btn.addEventListener("click", () => {
+        content.innerHTML = "";
+      });
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(ctrl.classList.contains("expanded")).toBe(true);
+      expect(ctrl.classList.contains("collapsed")).toBe(false);
+
+      cleanup();
+      ctrl.remove();
+    });
+  });
+
+  it("still collapses on an outside click", () => {
+    withObserverStub(() => {
+      const ctrl = document.createElement("div");
+      ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      document.body.appendChild(ctrl);
+      const cleanup = bindOutsideCollapse({ container: ctrl });
+
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(ctrl.classList.contains("collapsed")).toBe(true);
+      expect(ctrl.classList.contains("expanded")).toBe(false);
+
+      cleanup();
+      ctrl.remove();
+      outside.remove();
+    });
+  });
+
+  it("several panels share one document without leaking state", () => {
+    // Two open panels coexist on one map (LayerControl + HeatmapControl); an
+    // outside press must close both, not just the binding that happens to run
+    // second. The verdict is recorded on a module-level WeakSet, so every
+    // binding reads the same answer keyed by the event.
+    withObserverStub(() => {
+      const a = document.createElement("div");
+      a.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      const b = document.createElement("div");
+      b.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      document.body.appendChild(a);
+      document.body.appendChild(b);
+      const cleanupA = bindOutsideCollapse({ container: a });
+      const cleanupB = bindOutsideCollapse({ container: b });
+
+      // Both stay open: no press has happened yet.
+      expect(a.classList.contains("expanded")).toBe(true);
+      expect(b.classList.contains("expanded")).toBe(true);
+
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(a.classList.contains("collapsed")).toBe(true);
+      expect(b.classList.contains("collapsed")).toBe(true);
+
+      cleanupA();
+      cleanupB();
+      a.remove();
+      b.remove();
+      outside.remove();
+    });
+  });
+
+  it("several panels: an inside press must not collapse the other one", () => {
+    // The capture listeners on document all run before any bubble handler, so a
+    // per-binding snapshot would let panel B read "outside" for a press that
+    // panel A already claimed and collapse B on the way past. Sharing the
+    // verdict per event is what keeps a press inside *any* panel inside all of
+    // them.
+    withObserverStub(() => {
+      const a = document.createElement("div");
+      a.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      const b = document.createElement("div");
+      b.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      const insideA = document.createElement("div");
+      a.appendChild(insideA);
+      document.body.appendChild(a);
+      document.body.appendChild(b);
+      const cleanupA = bindOutsideCollapse({ container: a });
+      const cleanupB = bindOutsideCollapse({ container: b });
+
+      insideA.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(a.classList.contains("expanded")).toBe(true);
+      expect(b.classList.contains("expanded")).toBe(true);
+
+      // A later, genuinely outside press still closes both: the verdict is
+      // per event, so the previous inside press must not bleed into it.
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(a.classList.contains("collapsed")).toBe(true);
+      expect(b.classList.contains("collapsed")).toBe(true);
+
+      cleanupA();
+      cleanupB();
+      a.remove();
+      b.remove();
+      outside.remove();
+    });
+  });
+
+  it("skips the capture snapshot too when skipCheck returns true", () => {
+    // skipCheck is per press, so answering it only in the bubble handler would
+    // record a press the caller asked to ignore; the next real outside click
+    // would then find itself already marked inside and be swallowed.
+    withObserverStub(() => {
+      let skip = true;
+      const container = makePanel();
+      bindOutsideCollapse({ container, skipCheck: () => skip });
+
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(container.classList.contains("expanded")).toBe(true);
+
+      skip = false;
+      outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(container.classList.contains("collapsed")).toBe(true);
+    });
+  });
     outside.click();
     expect(container.classList.contains("expanded")).toBe(true);
   });
@@ -267,6 +442,52 @@ describe("createFoldControl", () => {
       isLeft: false,
     });
     expect(result.ctrl.className).toContain("foliplus-align-right");
+describe("createPanelHeader", () => {
+  const build = (extra: Record<string, string> = {}) =>
+    createPanelHeader({
+      title: "Layer A",
+      iconSvg: "<svg/>",
+      closeTitle: "Collapse",
+      ...extra,
+    });
+
+  it("builds title + logo + close in the shared order", () => {
+    const header = build();
+    expect(header.className).toBe("foliplus-panel-header");
+    expect(header.getAttribute("title")).toBe("Collapse");
+
+    const title = header.querySelector(".foliplus-header-title");
+    expect(title).not.toBeNull();
+    const icon = header.querySelector(".foliplus-header-icon");
+    expect(icon).not.toBeNull();
+    expect(icon.getAttribute("aria-hidden")).toBe("true");
+    expect(title.textContent).toBe("Layer A");
+
+    // Logo precedes the label, close button closes the bar.
+    const children = Array.from(header.children);
+    expect(children[0].className).toBe("foliplus-header-title");
+    expect(children[1].className).toBe("foliplus-ctrl-btn foliplus-close-btn");
+  });
+
+  it("names the close button for pointer and screen reader users", () => {
+    const close = build().querySelector(".foliplus-close-btn") as HTMLElement;
+    expect(close.getAttribute("title")).toBe("Collapse");
+    expect(close.getAttribute("aria-label")).toBe("Collapse");
+    // A bare `button` element defaults to `submit` inside a form.
+    expect(close.getAttribute("type")).toBe("button");
+  });
+
+  it("accepts component class overrides for title and icon", () => {
+    // The layer attributes panel adds its own hook class without giving up the
+    // shared ones, so it is styled by the same rules plus its own.
+    const header = build({
+      iconClass: "foliplus-layer-attrs-icon foliplus-header-icon",
+    });
+    const icon = header.querySelector(".foliplus-header-icon") as HTMLElement;
+    expect(icon.classList.contains("foliplus-layer-attrs-icon")).toBe(true);
+  });
+});
+
   });
 });
 
@@ -283,6 +504,81 @@ describe("createPanelControl", () => {
     expect(result.ctrl.className).toContain("heatmap-ctrl");
     expect(result.toggleBtn).not.toBeNull();
     expect(result.panelContent).not.toBeNull();
+  it("marks the header as a labelled dialog for screen readers", () => {
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    const header = result.ctrl.querySelector(".foliplus-panel-header");
+    expect(header).not.toBeNull();
+    expect(header.getAttribute("role")).toBe("dialog");
+    expect(header.getAttribute("aria-label")).toBe("Panel");
+    // The toggle button is the only reachable control in the collapsed state,
+    // so its accessible name must not depend on inner SVG text.
+    expect(result.toggleBtn.getAttribute("aria-label")).toBe("Toggle");
+  });
+
+  it("applies ctrlId when given, otherwise derives one from cssClass", () => {
+    const withId = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+      ctrlId: "LayerControl_ctrl",
+    });
+    expect(withId.ctrl.id).toBe("LayerControl_ctrl");
+
+    // Every panel carries a stable id so tests and the fold-state store can
+    // key on it without the caller having to spell one out.
+    const without = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    expect(without.ctrl.id).toBe("heatmap-ctrl_ctrl");
+  });
+
+  it("labels the close button for both tooltip and screen readers", () => {
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    const close = result.ctrl.querySelector(".foliplus-close-btn") as HTMLElement;
+    expect(close).not.toBeNull();
+    expect(close.getAttribute("title")).toBe("Close");
+    // The glyph is the button's only content, so it needs its own name.
+    expect(close.getAttribute("aria-label")).toBe("Close");
+  });
+
+  it("destroy unbinds the outside-collapse listeners", () => {
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    document.body.appendChild(result.container);
+    result.toggleBtn.click();
+    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+
+    result.destroy();
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.click();
+    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+  });
+
     expect(domEvent.disableClickPropagation).toHaveBeenCalled();
   });
 

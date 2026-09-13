@@ -1,4 +1,3 @@
-// LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { T } from "./context.js";
@@ -9,12 +8,12 @@ import type { LayerUI } from "./index.js";
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
   ui.foldedGroups = state.foldedGroups;
-  ui.hiddenIds = state.hiddenIds;
-  ui.renamedNames = state.names;
-  ui.hiddenHasState = state.hiddenHasState;
   // Annotation configs are stored on the UI shell and applied by
   // ui/style.ts once the layers resolve (deferred init passes).
   ui.annotationConfigs = state.annotations;
+  ui.hiddenIds = state.hiddenIds;
+  ui.renamedNames = state.names;
+  ui.hiddenHasState = state.hiddenHasState;
 };
 
 /** Save fold state to localStorage. */
@@ -148,7 +147,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
   ) as HTMLInputElement | null;
 
   applyHiddenStateOne(ui, layerInfo);
-
+    checkbox.title = ui.T("select_tooltip");
   if (checkbox) {
     checkbox.checked = false;
     checkbox.title = T("select_tooltip");
