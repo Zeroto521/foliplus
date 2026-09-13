@@ -185,6 +185,7 @@ declare global {
       duration: number,
       append?: boolean,
       subkey?: string,
+      withLoadingIcon?: boolean,
     ) => void;
     hideHint: (name: string, subkey?: string) => void;
     reverseGeocode: (
@@ -307,6 +308,7 @@ declare global {
       duration: number,
       append?: boolean,
       subkey?: string,
+      withLoadingIcon?: boolean,
     ) => void;
     hideHint: (key: string, subkey?: string) => void;
     registerHintIcon: (key: string, iconSvg: string) => void;

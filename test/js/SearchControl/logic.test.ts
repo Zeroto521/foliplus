@@ -417,12 +417,15 @@ describe("searchAddress", () => {
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
     // Hint text is rendered as a TextNode, so an inline SVG would appear as
-    // source code instead of an icon; the loading state shows the shared
-    // spinner registered under the `<name>-loading` hint key instead.
+    // source code instead of an icon; withLoadingIcon renders the built-in
+    // spinner in the hint's icon slot instead.
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
-      "SearchControl-loading",
+      "SearchControl",
       "SearchControl.popup_loading",
       0,
+      undefined,
+      undefined,
+      true,
     );
   });
 });

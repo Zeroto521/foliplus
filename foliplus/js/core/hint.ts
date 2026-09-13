@@ -4,6 +4,7 @@
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { LOADING } from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
 
@@ -110,6 +111,7 @@ class HintManager {
     duration: number,
     append?: boolean,
     subkey?: string,
+    withLoadingIcon = false,
   ) {
     if (subkey) this.hideHint(key, subkey);
     else if (!append) this.hideHint(key);
@@ -123,11 +125,16 @@ class HintManager {
         ? `${CLASS} ${CLASS}-${key}-${Date.now()}`
         : `${CLASS} ${CLASS}-${key}`;
 
-    const icon = (this.hintIcons && this.hintIcons[key]) || "";
-    // The icon is the only HTML in a hint (`registerHintIcon` sanitises it at
-    // entry); the text is locale JSON and must stay a TextNode, so a rogue
-    // locale value cannot turn a hint into markup. `{ html }` must be a
-    // CHILD, not an attr — `dom.el` sets an attr for any unrecognised key.
+    // The spinner is a hint shape, not a registered icon: withLoadingIcon
+    // swaps in the built-in loader (a trusted repo constant) in place of the
+    // control's registered icon. The icon — whichever it is — is the only HTML
+    // in a hint (`registerHintIcon` sanitises at entry); the text stays a
+    // TextNode, so a rogue locale value cannot turn a hint into markup.
+    // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
+    // unrecognised key.
+    const icon = withLoadingIcon
+      ? LOADING
+      : (this.hintIcons && this.hintIcons[key]) || "";
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },

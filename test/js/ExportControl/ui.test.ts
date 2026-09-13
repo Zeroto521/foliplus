@@ -135,21 +135,27 @@ describe("ExportControl ui — showGlobalHint", () => {
     window.CONF = { ...window.CONF, name: "ExportControl" };
   });
 
-  it("withLoadingIcon routes the hint to the <name>-loading spinner key", () => {
+  it("withLoadingIcon renders the built-in spinner for loading states", () => {
     showGlobalHint("Exporting map... (42%)", 0, true);
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
-      "ExportControl-loading",
+      "ExportControl",
       "Exporting map... (42%)",
       0,
+      undefined,
+      undefined,
+      true,
     );
   });
 
-  it("defaults to the control hint key for status messages", () => {
+  it("defaults to the registered control icon for status messages", () => {
     showGlobalHint("Export successful", 4000);
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "ExportControl",
       "Export successful",
       4000,
+      undefined,
+      undefined,
+      false,
     );
   });
 });

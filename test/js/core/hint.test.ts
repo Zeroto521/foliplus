@@ -80,14 +80,38 @@ describe("HintManager", () => {
     expect(document.querySelector(".foliplus-hint")).toBeNull();
   });
 
-  it("hideHint(key) clears a hint shown under <key>-<suffix> (loading-key convention)", () => {
+  it("hideHint(key) clears a hint shown in append mode (<key>-<ts> store key)", () => {
     const mgr = new HintManager();
-    mgr.showHint("SearchControl-loading", "locating", 0);
+    mgr.showHint("key", "one", 0, true); // append
     expect(document.querySelector(".foliplus-hint")).not.toBeNull();
-    // Loading hints live under `<name>-loading`; callers still hide them by
-    // the control name alone via the key-prefix match.
-    mgr.hideHint("SearchControl");
+    mgr.hideHint("key");
     expect(document.querySelector(".foliplus-hint")).toBeNull();
+  });
+
+  it("withLoadingIcon renders the built-in spinner instead of the registered icon", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("key", "text", 0, undefined, undefined, true);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    const svg = icon!.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg!.classList.contains("foliplus-spin")).toBe(true);
+  });
+
+  it("renders the registered icon by default, not the spinner", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("key", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    expect(icon!.querySelector("svg")!.classList.contains("foliplus-spin")).toBe(false);
   });
 
   it("auto-dismisses after the duration elapses", () => {
