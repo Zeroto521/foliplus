@@ -16,10 +16,11 @@
  * instead of being inlined into every component.
  *
  * Geocoding helpers (NOMINATIM, nominatimUrl, formatAddress) live in
- * common/geocode.js and are statically imported by components.
- * The stateful geocode singleton lives in runtime/geocoder.js.
+ * core/geocode/nominatim.ts and are statically imported by components.
+ * The stateful geocode singleton lives in core/geocode/geocoder.ts.
  */
 import { COMPONENTS, assertComponentName, generateId } from "#core/component.js";
+import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
 import {
   HINT_DURATION,
   HintManager,
@@ -35,8 +36,8 @@ import { BaseControl } from "#foliplus/BaseControl.js";
    stub for the real generated registry; the ignore must stay. */
 // @ts-ignore
 import "./_shared-registry.js";
+
 /* eslint-enable @typescript-eslint/ban-ts-comment */
-import { cacheSuggestion, geocode, reverseGeocode } from "./geocoder.js";
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
