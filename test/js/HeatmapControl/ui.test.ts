@@ -7,139 +7,12 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import {
-  type HeatmapControlUI,
   bindControls,
   initScan,
   rebuildLayerDropdown,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
-import { createScopedTranslator } from "#common/locale.js";
-
-const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
-  name: "HeatmapControl",
-  locale_code: "en",
-  schemes: ["Reds", "Blues", "Greens"],
-  n_classes: 6,
-  method: "jenks",
-  color_scheme: "Reds",
-  label_show: true,
-  border_weight: 1.5,
-  border_color: "#333333",
-  field: null,
-  // Locale tables normally arrive inside CONF from the Python bridge; provide
-  // the keys the hint assertions rely on so the scoped translator resolves.
-  locale_tables: {
-    en: {
-      "HeatmapControl.no_layer": "No point layers found",
-      "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl",
-    },
-  },
-  ...overrides,
-});
-
-/** Build a real HeatmapManager with all external deps stubbed (mirrors manager.test). */
-function makeManager() {
-  window.CONF = {
-    ...window.CONF,
-    name: "HeatmapControl",
-    color_scheme: "Reds",
-    method: "jenks",
-    n_classes: 6,
-    agg: "count",
-    field: null,
-    fill_opacity: 0.7,
-    border_color: "#333333",
-    border_weight: 1.5,
-    border_opacity: 0.9,
-    label_show: true,
-    label_format: "auto",
-  };
-
-  globalThis.h3 = {
-    latLngToCell: vi.fn(() => "abc123"),
-    cellToLatLng: vi.fn(() => [26.08, 119.3]),
-    cellToBoundary: vi.fn(() => [
-      [26.08, 119.3],
-      [26.09, 119.3],
-      [26.09, 119.31],
-      [26.08, 119.31],
-      [26.08, 119.3],
-    ]),
-  };
-  globalThis.chroma = {
-    scale: vi.fn(() => ({
-      mode: vi.fn(() => ({
-        colors: vi.fn(() => ["#ff0000", "#00ff00", "#0000ff"]),
-      })),
-    })),
-  };
-  globalThis.ss = {
-    ckmeans: vi.fn(data => data.map(v => [v])),
-    quantileSorted: vi.fn((sorted, q) => sorted[Math.floor(q * (sorted.length - 1))]),
-  };
-
-  window.map.foliplus = {
-    LayerAPI: {
-      getLayersByType: vi.fn(() => []),
-      extractPoints: vi.fn(() => []),
-      createCanvas: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        setVisible: vi.fn(),
-        hooks: { before: [], after: [] },
-        canvas: null,
-        ctx: null,
-      })),
-    },
-  };
-
-  const map = {
-    getContainer: vi.fn(),
-    getBounds: vi.fn(),
-    getZoom: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-  };
-  const manager = new HeatmapManager(map);
-  manager.overlay = {
-    canvas: null,
-    ctx: null,
-    register: vi.fn(),
-    unregister: vi.fn(),
-    setVisible: vi.fn(),
-    hooks: { before: [], after: [] },
-  };
-  return manager;
-}
-
-/** HeatmapControlUI-shaped fixture carrying its own CONF + translator. */
-function makeCtrl(m: HeatmapManager, conf: ComponentConfig): HeatmapControlUI {
-  return {
-    m,
-    conf,
-    T: createScopedTranslator(conf),
-    ctrl: document.createElement("div"),
-    schemeDropdown: null,
-    expandHookDone: false,
-    observer: null,
-    layerSelect: document.createElement("select"),
-    extraBody: document.createElement("div"),
-    fieldWrap: document.createElement("div"),
-    fieldSelect: document.createElement("select"),
-    aggSelect: document.createElement("select"),
-    methodSelect: document.createElement("select"),
-    classSelect: document.createElement("select"),
-    schemeControlWrap: document.createElement("div"),
-    schemeBar: document.createElement("div"),
-    schemeBarInner: document.createElement("div"),
-    schemeSelectHidden: document.createElement("select"),
-    borderColorInput: document.createElement("input"),
-    borderWeightInput: document.createElement("input"),
-    labelChk: document.createElement("input"),
-    closeSchemeDropdown: () => undefined,
-    toggleSchemeDropdown: () => undefined,
-  };
-}
+import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
 function setup(conf: ComponentConfig = makeConf()) {
@@ -510,6 +383,14 @@ describe("bindControls — scheme dropdown", () => {
     expect(ctrl.schemeDropdown).not.toBeNull();
     const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
     expect(items.length).toBe(3);
+  });
+
+  it("tolerates a CONF without schemes (optional in the Python API)", () => {
+    const { ctrl } = setup(makeConf({ schemes: undefined }));
+    expect(ctrl.schemeSelectHidden.options.length).toBe(0);
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(ctrl.schemeDropdown).not.toBeNull();
+    expect(ctrl.schemeDropdown!.children.length).toBe(0);
   });
 });
 
