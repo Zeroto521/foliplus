@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
+import testTsconfig from "#script/../test/js/tsconfig.json?raw";
 
 // Production sources carry no type-system bypasses. Measured here at build time,
 // not in tsc, because these are text properties: no checker reports the number
@@ -11,9 +12,7 @@ import { describe, expect, it } from "vitest";
 // lines it can classify, and no rule checks for `as any`. Without this the audit
 // finding "24 bypasses" could come back silently.
 //
-// The test program's existence is what keeps this honest: a future author can
-// relax strictness in tsconfig.test.json, but this file still forces strict to
-// be on. The suite's own error count is tracked in the program file itself.
+// The suite's own error count is tracked in the program file itself.
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const SRC = resolve(ROOT, "foliplus/js");
@@ -69,16 +68,12 @@ describe("production type-system bypasses", () => {
   }
 
   it("test/js/tsconfig.json extends the production program", () => {
-    const cfg = JSON.parse(
-      stripJsonComments(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8")),
-    );
+    const cfg = JSON.parse(stripJsonComments(testTsconfig));
     expect(cfg.extends).toBe("../../tsconfig.json");
   });
 
   it("test/js/tsconfig.json does not relax strictness", () => {
-    const cfg = JSON.parse(
-      stripJsonComments(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8")),
-    );
+    const cfg = JSON.parse(stripJsonComments(testTsconfig));
     expect(cfg.compilerOptions.strict).not.toBe(false);
   });
 });

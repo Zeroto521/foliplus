@@ -1,8 +1,6 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 import { ensureMapFoliplus } from "#core/mapApi.js";
+import mapApiSource from "#core/mapApi?raw";
 
 // MapFoliplus is seeded by exactly one place in the codebase (mapApi.ts) and
 // shared by five factories. These tests pin the two properties that make the
@@ -17,18 +15,13 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 // member they did not set without a TS2722. If the type ever gains optional
 // members this pin stops being true — in which case the cast is also wrong and
 // the 42 call sites would start failing on their own.
-const SELF = resolve(
-  fileURLToPath(import.meta.url),
-  "../../../../foliplus/js/core/mapApi.ts",
-);
 
 type StubMap = { foliplus?: Record<string, unknown> };
 
 describe("source pins", () => {
   it("mapApi.ts: one `as unknown as`, in the seed literal", () => {
-    const src = readFileSync(SELF, "utf-8");
-    expect(src.match(/as unknown as/g)).toHaveLength(1);
-    expect(src.includes("{ LayerAPI: null! } as unknown as MapFoliplus")).toBe(true);
+    expect(mapApiSource.match(/as unknown as/g)).toHaveLength(1);
+    expect(mapApiSource).toContain("{ LayerAPI: null! } as unknown as MapFoliplus");
   });
 });
 

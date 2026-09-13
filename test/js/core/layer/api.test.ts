@@ -1,7 +1,5 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import apiSource from "#core/layer/api?raw";
 import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
 // Pinned deliberately: this `as unknown as` is the only one in the file and it
@@ -9,20 +7,13 @@ import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 // cannot be assigned to LayerInfo[] directly (readonly arrays are not
 // assignable to mutable ones), so one double-step through unknown is the
 // cheapest true claim. If a cheaper route appears, take it and delete the pin.
-const SELF = resolve(
-  fileURLToPath(import.meta.url),
-  "../../../../../foliplus/js/core/layer/api.ts",
-);
 
 const mockShowHint = vi.fn();
 
 describe("source pins", () => {
   it("layer/api.ts: one `as unknown as`, in the layers field", () => {
-    const src = readFileSync(SELF, "utf-8");
-    expect(src.match(/as unknown as/g)).toHaveLength(1);
-    expect(src.includes("layers: Object.freeze([]) as unknown as LayerInfo[]")).toBe(
-      true,
-    );
+    expect(apiSource.match(/as unknown as/g)).toHaveLength(1);
+    expect(apiSource).toContain("layers: Object.freeze([]) as unknown as LayerInfo[]");
   });
 });
 
