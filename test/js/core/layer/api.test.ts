@@ -73,7 +73,7 @@ describe("ensureLayerAPI", () => {
     expect(api).toBe(existing);
   });
 
-  it("is idempotent �?repeated calls return the same instance", () => {
+  it("is idempotent —repeated calls return the same instance", () => {
     const api1 = ensureLayerAPI(map);
     const api2 = ensureLayerAPI(map);
     expect(api2).toBe(api1);
@@ -95,7 +95,7 @@ describe("ensureLayerAPI", () => {
     expect(typeof canvas.destroy).toBe("function");
   });
 
-  it("lightweight registerLayer is a no-op �?never touches the map", () => {
+  it("lightweight registerLayer is a no-op —never touches the map", () => {
     const addLayer = vi.fn();
     const fresh = {
       foliplus: null as any,
@@ -109,7 +109,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    // The lightweight stub does not register into the map �?no-op by design.
+    // The lightweight stub does not register into the map —no-op by design.
     expect(api.registerLayer({ id: "x", layer: { options: {} } } as any)).toBeNull();
     expect(addLayer).not.toHaveBeenCalled();
     expect(fresh.hasLayer).not.toHaveBeenCalled();

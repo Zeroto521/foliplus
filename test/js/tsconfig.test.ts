@@ -13,8 +13,10 @@ import { describe, expect, it } from "vitest";
 //
 // The suite's own error count is tracked in the program file itself.
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
-const SRC = resolve(ROOT, "foliplus/js");
+// Repo root, the one path this test must compute: it walks the production tree
+// and reads the program file it guards. Same shape as build.test.ts.
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
+const SRC = resolve(REPO_ROOT, "foliplus/js");
 
 const walk = (dir: string): string[] => {
   const out: string[] = [];
@@ -31,12 +33,12 @@ const walk = (dir: string): string[] => {
 
 const files = walk(SRC);
 const read = (p: string) => readFileSync(p, "utf-8");
-const rel = (p: string) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
+const rel = (p: string) => p.slice(REPO_ROOT.length + 1).replace(/\\/g, "/");
 
 // No alias reaches test/js (package.json imports, the build aliases and
 // vitest.config.mjs all stop at foliplus/js and script/), so read the program
 // file through the one const this test needs anyway.
-const testTsconfig = read(resolve(ROOT, "test/js/tsconfig.json"));
+const testTsconfig = read(resolve(REPO_ROOT, "test/js/tsconfig.json"));
 
 // tsconfig.json is JSON with comments (tsconfig's own dialect), which JSON.parse
 // rejects. Strip line comments before parsing — the file carries no // inside

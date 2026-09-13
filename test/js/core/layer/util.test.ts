@@ -104,11 +104,15 @@ describe("core/layer util", () => {
     });
 
     it("recurses into nested _layers (fallback branch)", () => {
-      const inner = { _layers: { leaf: {} } };
-      const outer = { _layers: { inner } };
+      // The fallback is distinguished only by which node ends up leaf: the
+      // _layers branch recurses without calling fn, so a container that
+      // carries _layers is never itself visited. Tag the real leaf and assert
+      // on the tag — an empty {} is indistinguishable from a non-recursion.
+      const leaf = { leaf: true };
+      const outer = { _layers: { inner: { _layers: { leaf } } } };
       const visited: L.Layer[] = [];
       forEachLeaf(outer as never, l => visited.push(l));
-      expect(visited).toEqual([{}]);
+      expect(visited).toEqual([leaf]);
     });
 
     it("respects the recursion depth limit", () => {
@@ -123,8 +127,10 @@ describe("core/layer util", () => {
       }
       const visited: L.Layer[] = [];
       forEachLayer(tail as never, l => visited.push(l));
-      // Nodes beyond the depth limit must not be visited.
-      expect(visited.length).toBeLessThan(depth + 1);
+      // traverse() stops once depth exceeds LAYER_DEPTH, so a correct limit
+      // visits exactly LAYER_DEPTH + 1 nodes (depths 0..LAYER_DEPTH). An
+      // absent limit visits depth + 1; one level early visits LAYER_DEPTH.
+      expect(visited.length).toBe(CONST.RECURSION.LAYER_DEPTH + 1);
     });
 
     it("skips a null layer", () => {

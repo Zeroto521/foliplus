@@ -7,7 +7,10 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 // through that handle, not through their own local reference.
 
 type StubMap = {
-  foliplus?: Record<string, unknown>;
+  foliplus?: { events?: { emit: (e: string, p: unknown) => void } } & Record<
+    string,
+    unknown
+  >;
   on: (t: string, f: unknown) => void;
 };
 
@@ -46,14 +49,13 @@ describe("ensureEvents", () => {
 
   it("emits through the namespace handle components actually read", () => {
     const map = makeMap();
-    ensureEvents(map);
-    const bus = map.foliplus?.events as {
-      on: (e: string, h: unknown) => void;
-      emit: (e: string, p: unknown) => void;
-    };
+    // Subscribe on the locally held bus, emit through the namespace. The
+    // assertion only means something if the two are the same object — which is
+    // what the callers actually rely on.
+    const bus = ensureEvents(map);
     const seen: unknown[] = [];
-    bus.on(EVENTS.MODE_CHANGE, p => seen.push(p));
-    bus.emit(EVENTS.MODE_CHANGE, { mode: "distance" });
+    bus.on(EVENTS.MODE_CHANGE, (p: unknown) => seen.push(p));
+    map.foliplus!.events!.emit(EVENTS.MODE_CHANGE, { mode: "distance" });
     expect(seen).toEqual([{ mode: "distance" }]);
   });
 });
