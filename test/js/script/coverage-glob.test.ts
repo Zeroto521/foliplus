@@ -16,16 +16,17 @@
  * A coverage target nobody imported is NOT a defect (zero-hit files are
  * legitimate), so those are not reported here.
  */
-
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
 import { globSync } from "tinyglobby";
+import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const configText = readFileSync(resolve(ROOT, "vitest.config.mjs"), "utf8")
-  .replace(/\r\n/g, "\n");
+const configText = readFileSync(resolve(ROOT, "vitest.config.mjs"), "utf8").replace(
+  /\r\n/g,
+  "\n",
+);
 
 // The two include lists are the first and second occurrence of `include: [`.
 const INCLUDES = pullList(configText, 0);
@@ -45,9 +46,10 @@ function pullList(text: string, occurrence: number, key = "include"): string[] {
   for (let i = 0; i < text.length - marker.length; i++) {
     if (text.slice(i, i + marker.length) === marker) indices.push(i);
   }
-  expect(indices.length, `${key}: occurrence ${occurrence + 1} not found`).toBeGreaterThan(
-    occurrence,
-  );
+  expect(
+    indices.length,
+    `${key}: occurrence ${occurrence + 1} not found`,
+  ).toBeGreaterThan(occurrence);
   const start = indices[occurrence];
   let depth = 0;
   let end = -1;
@@ -62,13 +64,17 @@ function pullList(text: string, occurrence: number, key = "include"): string[] {
     }
   }
   expect(end, `${key}: unbalanced bracket`).toBeGreaterThanOrEqual(0);
-  return [...text.slice(start + marker.length, end).matchAll(/"([^"]+)"/g)].map(m => m[1]);
+  return [...text.slice(start + marker.length, end).matchAll(/"([^"]+)"/g)].map(
+    m => m[1],
+  );
 }
 
 describe("vitest.config.mjs coverage globs", () => {
   it("test.include glob matches at least one test file", () => {
     const dead = INCLUDES.filter(glob => matchAll(glob).length === 0);
-    expect(dead, "test.include glob matching no file — drop it or add tests").toEqual([]);
+    expect(dead, "test.include glob matching no file — drop it or add tests").toEqual(
+      [],
+    );
   });
 
   it("coverage.include glob matches at least one source file", () => {
