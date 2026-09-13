@@ -270,11 +270,11 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "toggle-switch" in html
 
-    def test_confirm_button_renders(self):
-        """Confirm (Apply) button is rendered."""
+    def test_confirm_button_removed(self):
+        """Confirm button is gone: every control re-renders live (no Apply)."""
         html = render_control(HeatmapControl())
-        assert "btn-confirm" in html
-        assert "HeatmapControl.confirm" in html
+        assert "btn-confirm" not in html
+        assert "HeatmapControl.confirm" not in html
 
     def test_clear_button_renders(self):
         """Clear button is rendered."""

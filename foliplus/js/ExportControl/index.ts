@@ -1,3 +1,4 @@
+import type { LayerEvent } from "leaflet";
 import { createControlEnv } from "#core/controlEnv.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
@@ -34,7 +35,10 @@ map.eachLayer((layer: L.Layer) => {
 });
 
 map.on("layeradd", (event: L.LeafletEvent) => {
-  const layer = (event as L.LayerEvent).layer;
+  // `LayerEvent` is an exported interface, not a member of the `L` namespace
+  // (`export as namespace L` only re-exports namespaces and classes), so it must
+  // be imported as a type — `L.LayerEvent` resolves to `any` and defeats the cast.
+  const layer = (event as LayerEvent).layer;
   if (layer instanceof L.GridLayer) {
     const opts = layer.options as L.TileLayerOptions;
     if (!opts.crossOrigin) opts.crossOrigin = "anonymous";

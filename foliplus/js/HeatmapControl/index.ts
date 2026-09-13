@@ -15,6 +15,8 @@ ensureLayerAPI(map);
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends BaseControl {
   manager: HeatmapManager | null = null;
+  declare conf: ComponentConfig;
+  declare T: (key: string) => string;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -39,6 +41,8 @@ class HeatmapControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
+    this.conf = CONF;
+    this.T = T;
     this.schemeDropdown = null;
     this.expandHookDone = false;
   }

@@ -3,84 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
-
-/** Build a minimal HeatmapManager with all external deps stubbed out. */
-function makeManager() {
-  window.CONF = {
-    ...window.CONF,
-    name: "HeatmapControl",
-    color_scheme: "Reds",
-    method: "jenks",
-    n_classes: 6,
-    agg: "count",
-    field: null,
-    fill_opacity: 0.7,
-    border_color: "#333333",
-    border_weight: 1.5,
-    border_opacity: 0.9,
-    label_show: true,
-    label_format: "auto",
-  };
-
-  // Mock h3 and chroma globals
-  globalThis.h3 = {
-    latLngToCell: vi.fn(() => "abc123"),
-    cellToLatLng: vi.fn(() => [26.08, 119.3]),
-    cellToBoundary: vi.fn(() => [
-      [26.08, 119.3],
-      [26.09, 119.3],
-      [26.09, 119.31],
-      [26.08, 119.31],
-      [26.08, 119.3],
-    ]),
-  };
-  globalThis.chroma = {
-    scale: vi.fn(() => ({
-      mode: vi.fn(() => ({
-        colors: vi.fn(() => ["#ff0000", "#00ff00", "#0000ff"]),
-      })),
-    })),
-  };
-  globalThis.ss = {
-    ckmeans: vi.fn(data => data.map(v => [v])),
-    quantileSorted: vi.fn((sorted, q) => sorted[Math.floor(q * (sorted.length - 1))]),
-  };
-
-  // Mock LayerAPI (per-map: map.foliplus.LayerAPI)
-  window.map.foliplus = {
-    LayerAPI: {
-      getLayersByType: vi.fn(() => []),
-      extractPoints: vi.fn(() => []),
-      createCanvas: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        setVisible: vi.fn(),
-        hooks: { before: [], after: [] },
-        canvas: null,
-        ctx: null,
-      })),
-    },
-  };
-
-  const map = {
-    getContainer: vi.fn(),
-    getBounds: vi.fn(),
-    getZoom: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-  };
-  const manager = new HeatmapManager(map);
-  // Re-stub overlay after constructor (constructor replaces it with createCanvas result)
-  manager.overlay = {
-    canvas: null,
-    ctx: null,
-    register: vi.fn(),
-    unregister: vi.fn(),
-    setVisible: vi.fn(),
-    hooks: { before: [], after: [] },
-  };
-  return manager;
-}
+import { makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -971,38 +894,6 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
     vi.restoreAllMocks();
   });
 
-  /** Build a HeatmapControlUI-shaped stub with all required fields present.
-   * These tests exercise buildLayerListItems/initScan, which only touch
-   * m/layerSelect/extraBody; the remaining fields exist so the stub satisfies
-   * the exported interface and stays resilient to future type-checking. */
-  const makeCtrl = (m: HeatmapManager) => {
-    const sel = document.createElement("select");
-    const emptyInput = document.createElement("input");
-    return {
-      m,
-      ctrl: document.createElement("div"),
-      schemeDropdown: null,
-      expandHookDone: false,
-      observer: null,
-      layerSelect: sel,
-      extraBody: document.createElement("div"),
-      fieldSelect: document.createElement("select"),
-      fieldWrap: document.createElement("div"),
-      aggSelect: document.createElement("select"),
-      methodSelect: document.createElement("select"),
-      classSelect: document.createElement("select"),
-      schemeControlWrap: document.createElement("div"),
-      schemeBar: document.createElement("div"),
-      schemeBarInner: document.createElement("div"),
-      schemeSelectHidden: document.createElement("select"),
-      borderColorInput: emptyInput,
-      borderWeightInput: emptyInput,
-      labelChk: emptyInput,
-      closeSchemeDropdown: () => undefined,
-      toggleSchemeDropdown: () => undefined,
-    };
-  };
-
   it("auto-selects the only point layer on the first scan", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "lonely", name: "Lonely", layer: {}, count: 1 }];
@@ -1094,34 +985,6 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     };
   });
 
-  const makeCtrl = (m: HeatmapManager) => {
-    const sel = document.createElement("select");
-    const emptyInput = document.createElement("input");
-    return {
-      m,
-      ctrl: document.createElement("div"),
-      schemeDropdown: null,
-      expandHookDone: false,
-      observer: null,
-      layerSelect: sel,
-      extraBody: document.createElement("div"),
-      fieldSelect: document.createElement("select"),
-      fieldWrap: document.createElement("div"),
-      aggSelect: document.createElement("select"),
-      methodSelect: document.createElement("select"),
-      classSelect: document.createElement("select"),
-      schemeControlWrap: document.createElement("div"),
-      schemeBar: document.createElement("div"),
-      schemeBarInner: document.createElement("div"),
-      schemeSelectHidden: document.createElement("select"),
-      borderColorInput: emptyInput,
-      borderWeightInput: emptyInput,
-      labelChk: emptyInput,
-      closeSchemeDropdown: () => undefined,
-      toggleSchemeDropdown: () => undefined,
-    };
-  };
-
   it("auto-selects and renders a single layer on first initScan", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();
@@ -1162,7 +1025,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(m.hasScanned).toBe(false);
 
     // LayerControl (or any control) finishing attach re-triggers the scan.
-    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
 
@@ -1207,7 +1070,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     cleanup();
     cleanup(); // second call is a no-op
 
-    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
     // Unsubscribed — no further scan ran, and no late settle.
@@ -1217,5 +1080,32 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     await vi.runOnlyPendingTimersAsync();
     expect(calls).toBe(1); // settled pass also skipped (done)
     vi.useRealTimers();
+  });
+
+  it("restores a previously saved layer selection on reload", async () => {
+    // Reload path: the manager restored a saved layerId from localStorage,
+    // so initScan must redraw that layer without re-auto-selecting.
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "p1", name: "P1", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+    ]);
+    m.selectedLayerId = "p1";
+    // A non-count agg exercises the full field-selector refresh path.
+    m.currentAgg = CONST.AGG.SUM;
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+    const fieldSpy = vi.spyOn(m, "collectFields");
+
+    initScan(ctrl);
+
+    expect(m.hasScanned).toBe(true);
+    expect(m.selectedLayerId).toBe("p1");
+    expect(fieldSpy).toHaveBeenCalled(); // field selector refreshed for the layer
+    expect(renderSpy).toHaveBeenCalled(); // saved layer drawn without interaction
+    expect(ctrl.ctrl.getAttribute("data-ready")).toBe("true");
   });
 });
