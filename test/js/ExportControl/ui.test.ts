@@ -238,4 +238,16 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
     expect(titles).toContain("EXPORT");
     expect(titles).toContain("CANCEL");
   });
+
+  it("lockCropBox(true) skips the size hint", () => {
+    const manager = inject(makeManager());
+    showCropBox(manager);
+    manager.lockCropBox(true);
+    const texts = manager.map.foliplus.showHint.mock.calls.map((c: unknown[]) =>
+      String(c[1]),
+    );
+    // onMapChange may refresh the size hint, but the locked-instruction hint
+    // is what skipHint suppresses.
+    expect(texts.some(t => t.includes("hint_locked"))).toBe(false);
+  });
 });

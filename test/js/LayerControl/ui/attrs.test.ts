@@ -172,6 +172,35 @@ describe("LayerUI attrs", () => {
       expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
     });
 
+    it("formats integer meta without a fraction digit", () => {
+      manager.registerLayer({
+        id: "attr-int",
+        name: "Stats",
+        meta: { features: 3 },
+      });
+
+      const item = findItem(ui, "attr-int");
+      ui.openAttrsPanel(item);
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "3"]);
+    });
+
+    it("opens on an unregistered row without provenance rows", () => {
+      const ghost = document.createElement("div");
+      ghost.className = CONST.CLASSES.LAYER_ITEM;
+      ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
+      ui.uiContainer.appendChild(ghost);
+
+      ui.openAttrsPanel(ghost);
+
+      const panel = ghost.querySelector(".foliplus-layer-attrs-panel")!;
+      // No registry entry → no source / created / updated rows; the panel
+      // still renders (with the empty fallback branches).
+      expect(panel).not.toBeNull();
+      expect(rows(panel).map(([k]) => k)).not.toContain("LayerControl.attr_source");
+    });
+
     it("continues meta rows in the same list, after the built-in rows", () => {
       manager.registerLayer({ id: "attr-meta1", meta: { area_km2: 12.5 } });
 

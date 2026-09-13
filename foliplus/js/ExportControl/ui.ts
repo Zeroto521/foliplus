@@ -258,7 +258,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
       if (mgr.cropState?.locked) mgr.onMapChange();
     },
   });
-  mgr.onMapChange();
+  mgr.onMapChange(skipHint);
   // Locked (geo-anchored) → re-enable Leaflet's keyboard for the +/- zoom hint.
   syncCropKeyboard(mgr);
   if (!skipHint) showHintWithInfo(mgr, r, mgr.T("hint_locked"));

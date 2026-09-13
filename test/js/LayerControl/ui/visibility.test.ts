@@ -7,6 +7,7 @@ import {
   syncVisibility,
 } from "#foliplus/LayerControl/ui/visibility.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import { initFixture } from "./fixture.js";
 
 const makeUi = (): LayerUI => {
   const uiContainer = document.createElement("div");
@@ -49,5 +50,22 @@ describe("ui/visibility", () => {
       'input[type="checkbox"]',
     ) as HTMLInputElement;
     expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
+  });
+
+  it("toggleAll sets the row tooltips for both states", () => {
+    const { ui } = initFixture();
+    const boxes = () =>
+      Array.from(
+        ui.uiContainer.querySelectorAll<HTMLInputElement>(
+          `.${CONST.CLASSES.LAYER_ITEM} input[type="checkbox"]`,
+        ),
+      );
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, true);
+    expect(boxes().length).toBeGreaterThan(0);
+    boxes().forEach(b => expect(b.title).toContain("deselect_tooltip"));
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+    boxes().forEach(b => expect(b.title).toContain("select_tooltip"));
   });
 });

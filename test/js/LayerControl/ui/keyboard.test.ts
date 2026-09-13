@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -794,6 +795,47 @@ describe("LayerUI keyboard", () => {
       ui.uiContainer.appendChild(bareRow);
 
       expect(ui.getNavigableItems()).toContain(bareRow);
+    });
+  });
+
+  describe("Ctrl+Arrow reorder boundary hints", () => {
+    const ctrlArrow = (el: HTMLElement, key: "ArrowUp" | "ArrowDown") =>
+      el.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key,
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+    it("hints when the top overlay layer cannot move up", () => {
+      // ensureEvents() wipes map.foliplus.showHint; re-attach a spy.
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      const overlay = findItem(ui, "overlay1");
+      pressKey(overlay, "ArrowDown"); // establish the keyboard cursor
+      ctrlArrow(overlay, "ArrowUp");
+
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        expect.stringContaining("reorder_top"),
+        HINT_DURATION.SHORT,
+      );
+    });
+
+    it("hints when the last overlay layer cannot move down", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      const overlay = findItem(ui, "overlay2");
+      pressKey(overlay, "ArrowDown");
+      ctrlArrow(overlay, "ArrowDown");
+
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        expect.stringContaining("reorder_bottom"),
+        HINT_DURATION.SHORT,
+      );
     });
   });
 
