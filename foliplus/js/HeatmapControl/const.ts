@@ -94,7 +94,6 @@ const CLASSES = {
   BTN: "foliplus-heatmap-btn",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BTN_CONFIRM: "foliplus-heatmap-btn-confirm",
   TOGGLE_SWITCH: "foliplus-heatmap-toggle-switch",
   TOGGLE_SLIDER: "foliplus-heatmap-toggle-slider",
   BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",
@@ -132,7 +131,6 @@ const DATA_ATTR = {
   BORDER_WEIGHT: "data-hm-border-weight",
   LABEL_CHK: "data-hm-label-chk",
   BTN_CLEAR: "data-hm-btn-clear",
-  BTN_CONFIRM: "data-hm-btn-confirm",
 };
 
 export {

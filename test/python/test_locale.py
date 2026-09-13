@@ -98,7 +98,6 @@ _JS_USED_KEYS = {
     "HeatmapControl.border",
     "HeatmapControl.label",
     "HeatmapControl.clear",
-    "HeatmapControl.confirm",
     "HeatmapControl.no_layer",
     "HeatmapControl.no_layercontrol",
     # LayerControl

@@ -101,7 +101,6 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 
     <div class="foliplus-heatmap-btn-row">
       <button class="foliplus-heatmap-btn foliplus-heatmap-btn-clear" ${CONST.DATA_ATTR.BTN_CLEAR}>${T("clear")}</button>
-      <button class="foliplus-heatmap-btn foliplus-heatmap-btn-confirm" ${CONST.DATA_ATTR.BTN_CONFIRM}>${T("confirm")}</button>
     </div>
 
   </div>
