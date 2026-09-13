@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 // Three `as unknown as` sites are intentionally allowed and pinned by name so
 // the number stays meaningful rather than trending toward zero.
 
-const ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
+const ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const SRC = resolve(ROOT, "foliplus/js");
 
 const walk = (dir: string): string[] => {
