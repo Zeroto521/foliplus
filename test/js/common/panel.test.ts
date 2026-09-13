@@ -321,6 +321,71 @@ describe("createPanelControl", () => {
     result.toggleBtn.click();
     expect(result.ctrl.classList.contains("expanded")).toBe(true);
   });
+
+  it("keeps the panel open when the pressed node is detached before bubble", () => {
+    // bindOutsideCollapse watches document.body for removal; stub the observer
+    // so a later cleanup never leaks a callback after jsdom unloads globals.
+    const real = globalThis.MutationObserver;
+    (globalThis as any).MutationObserver = class {
+      observe() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    };
+
+    const ctrl = document.createElement("div");
+    ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+    document.body.appendChild(ctrl);
+    const content = document.createElement("div");
+    ctrl.appendChild(content);
+    const btn = document.createElement("button");
+    content.appendChild(btn);
+
+    const cleanup = bindOutsideCollapse({ container: ctrl });
+    (globalThis as any).MutationObserver = real;
+
+    // LayerControl's fold click replaces the list, so the pressed button is
+    // gone by the time the document-level handler runs.
+    btn.addEventListener("click", () => {
+      content.innerHTML = "";
+    });
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(ctrl.classList.contains("expanded")).toBe(true);
+    expect(ctrl.classList.contains("collapsed")).toBe(false);
+
+    cleanup();
+    ctrl.remove();
+  });
+
+  it("still collapses on an outside click", () => {
+    const real = globalThis.MutationObserver;
+    (globalThis as any).MutationObserver = class {
+      observe() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    };
+
+    const ctrl = document.createElement("div");
+    ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+    document.body.appendChild(ctrl);
+    const cleanup = bindOutsideCollapse({ container: ctrl });
+    (globalThis as any).MutationObserver = real;
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(ctrl.classList.contains("collapsed")).toBe(true);
+    expect(ctrl.classList.contains("expanded")).toBe(false);
+
+    cleanup();
+    ctrl.remove();
+    outside.remove();
+  });
 });
 
 describe("bindMapSync", () => {

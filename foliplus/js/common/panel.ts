@@ -105,21 +105,33 @@ const bindOutsideCollapse = (opts: {
   skipCheck?: () => boolean;
 }): (() => void) => {
   const skipCheck = opts.skipCheck || (() => false);
-  const handler = (event: MouseEvent) => {
+  // Sample the press in the capture phase: at that point the pressed node is
+  // still live, so `contains` sees it. LayerControl's fold click rebuilds the
+  // list, detaching the button before the bubble phase, which makes a bubble-
+  // time `contains(event.target)` read false and collapse a panel the user was
+  // clicking inside. Outside presses never land on a node inside the container,
+  // so the capture snapshot is always the real one.
+  let insidePress = false;
+  const capture = (event: MouseEvent): void => {
+    insidePress = opts.container.contains(event.target as Node);
+  };
+  const handler = (event: MouseEvent): void => {
+    void event;
     if (skipCheck()) return;
-    if (
-      !opts.container.contains(event.target as Node) &&
-      opts.container.classList.contains(CLASSES.EXPANDED)
-    ) {
+    if (!insidePress && opts.container.classList.contains(CLASSES.EXPANDED)) {
       opts.container.classList.remove(CLASSES.EXPANDED);
       opts.container.classList.add(CLASSES.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
     }
   };
+  document.addEventListener("click", capture, true);
   document.addEventListener("click", handler);
 
   // Auto-cleanup: remove listener when container is removed from DOM
-  const cleanup = () => document.removeEventListener("click", handler);
+  const cleanup = (): void => {
+    document.removeEventListener("click", capture, true);
+    document.removeEventListener("click", handler);
+  };
   const obs = new MutationObserver(() => {
     if (!document.body.contains(opts.container)) {
       cleanup();
