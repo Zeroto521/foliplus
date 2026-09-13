@@ -71,7 +71,7 @@ Features
       :padding: 2
       :link: api/foliplus.SearchControl.html
 
-      Coordinate and address search via Nominatim reverse geocoding.
+      Coordinate and address search via pluggable geocode providers.
 
 .. toctree::
    :maxdepth: 1
