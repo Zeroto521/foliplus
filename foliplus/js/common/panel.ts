@@ -105,6 +105,11 @@ const bindOutsideCollapse = (opts: {
   skipCheck?: () => boolean;
 }): (() => void) => {
   const skipCheck = opts.skipCheck || (() => false);
+  // Capture phase: LayerControl's fold click rebuilds its list and detaches
+  // the clicked row before the event bubbles to document, where
+  // contains(event.target) would misread the detached node as an outside
+  // click and collapse the panel mid-interaction. Capturing at dispatch
+  // start sees the tree before any handler can rebuild it.
   const handler = (event: MouseEvent) => {
     if (skipCheck()) return;
     if (
@@ -116,10 +121,10 @@ const bindOutsideCollapse = (opts: {
       adjustPanelZIndex({ container: opts.container, expanded: false });
     }
   };
-  document.addEventListener("click", handler);
+  document.addEventListener("click", handler, true);
 
   // Auto-cleanup: remove listener when container is removed from DOM
-  const cleanup = () => document.removeEventListener("click", handler);
+  const cleanup = () => document.removeEventListener("click", handler, true);
   const obs = new MutationObserver(() => {
     if (!document.body.contains(opts.container)) {
       cleanup();

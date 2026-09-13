@@ -197,6 +197,20 @@ describe("bindOutsideCollapse", () => {
     expect(container.classList.contains("expanded")).toBe(true);
   });
 
+  it("does not collapse when the click detaches its own target (fold rebuild)", () => {
+    // LayerControl's fold click rebuilds the list and detaches the clicked
+    // row before the event reaches document. The capture-phase check runs
+    // before any handler can rebuild the tree, so the node is still attached
+    // and this must NOT count as an outside click.
+    const container = makePanel();
+    bindOutsideCollapse({ container });
+    const inside = document.createElement("button");
+    container.appendChild(inside);
+    inside.addEventListener("click", () => inside.remove());
+    inside.click();
+    expect(container.classList.contains("expanded")).toBe(true);
+  });
+
   it("skips collapse when skipCheck returns true", () => {
     const container = makePanel();
     bindOutsideCollapse({ container, skipCheck: () => true });
