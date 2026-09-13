@@ -12,7 +12,8 @@ const ensureEvents = (map: L.Map): EventBus => {
   if (existing) return existing;
   const bus = new EventBus();
   instances.set(map, bus);
-  ensureMapFoliplus(map).events = bus;
+  const api = ensureMapFoliplus(map);
+  api.events = bus;
   return bus;
 };
 

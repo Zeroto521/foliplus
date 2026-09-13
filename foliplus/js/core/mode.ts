@@ -161,7 +161,8 @@ const ensureModes = (map: L.Map): ModeManager => {
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map), map);
   instances.set(map, manager);
-  ensureMapFoliplus(map).modes = manager;
+  const api = ensureMapFoliplus(map);
+  api.modes = manager;
   // On map unload, clear modes and release the interaction lock so manager
   // state and the disabled-layers closure do not outlive the map (mirrors the
   // per-map cleanup pattern used by core/interaction).

@@ -1,4 +1,4 @@
-// core/mapApi — the single owner of the per-map `map.foliplus` namespace seed.
+// core/mapApi.ts — the single owner of the per-map `map.foliplus` namespace seed.
 //
 // Five factories build that namespace piecemeal (ensureHint / ensureEvents /
 // ensureModes / ensureLayerAPI / ensureInteraction), each adding only its own

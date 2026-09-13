@@ -70,7 +70,8 @@ const ensureInteraction = (map: L.Map): InteractionManager => {
   if (existing) return existing;
   const km = new InteractionManager(map);
   instances.set(map, km);
-  ensureMapFoliplus(map).interaction = km;
+  const api = ensureMapFoliplus(map);
+  api.interaction = km;
   return km;
 };
 
