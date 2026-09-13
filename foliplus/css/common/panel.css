@@ -61,6 +61,19 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* ── Close affordance ──
+       The × sits in the header but stays invisible until the header is
+       hovered: the header click itself is the primary dismiss, so a
+       permanent × is visual noise on every expanded panel. One rule here
+       covers all panels (heatmap, layer list, attrs, style). */
+    .foliplus-close-btn {
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    &:hover .foliplus-close-btn {
+      opacity: 1;
+    }
   }
 
   /* ── Panel Content ── */
