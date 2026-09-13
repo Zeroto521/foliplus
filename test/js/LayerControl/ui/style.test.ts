@@ -429,4 +429,116 @@ describe("LayerUI style panel", () => {
 
     expect(renderLabels).not.toHaveBeenCalled();
   });
+
+  it("applyAnnotationState skips stale ids whose layers are gone", () => {
+    ui.annotationConfigs = {
+      ghost: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.applyAnnotationState();
+
+    // A stale id must not be written back into the live config map, or the
+    // next annotations save would resurrect a removed layer.
+    expect(setConfig).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
+  // ─────────────────── dismiss / drag edge cases ───────────────────
+
+  it("a document-level mousedown (target = document) dismisses the panel", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    expect(panelOf(item)).not.toBeNull();
+
+    // jsdom dispatching on `document` itself yields target === document,
+    // which has no closest() — the handler must still dismiss the panel.
+    document.dispatchEvent(new MouseEvent("mousedown"));
+
+    expect(panelOf(item)).toBeUndefined();
+    expect(ui.stylePanelLayerId).toBeNull();
+  });
+
+  it("dragstart inside the panel is prevented (rows are draggable)", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const event = new MouseEvent("dragstart", {
+      bubbles: true,
+      cancelable: true,
+    });
+    panel.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("a change from an unrelated target is ignored and not stopped", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const content = panel.querySelector(".foliplus-panel-content") as HTMLElement;
+
+    const event = new Event("change", { bubbles: true });
+    Object.defineProperty(event, "stopPropagation", { value: vi.fn() });
+    content.dispatchEvent(event);
+
+    // No control matched → config untouched, event left to bubble.
+    expect(manager.annotation.getConfig("overlay1").show).toBe(false);
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  it("opening the panel reflects an existing show:true config on the toggle", () => {
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: CONST.FORMAT.AUTO,
+    });
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("the debounced annotation save invokes the config getter", () => {
+    vi.useFakeTimers();
+    try {
+      const saveAnnotations = vi.spyOn(manager.persistence, "saveAnnotations");
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = panelOf(item)!;
+      const toggle = panel.querySelector(
+        ".foliplus-style-toggle-input",
+      ) as HTMLInputElement;
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event("change", { bubbles: true }));
+      // Show alone leaves field empty; a label needs a field too — pick one
+      // the way a user would, through the field select's own change branch.
+      const field = panel.querySelector(
+        ".foliplus-style-field-select",
+      ) as HTMLSelectElement;
+      field.value = "count";
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+
+      // The persistence write is debounced (~100ms); only on flush does the
+      // config getter (Object.fromEntries over configEntries) execute.
+      vi.advanceTimersByTime(200);
+
+      expect(saveAnnotations).toHaveBeenCalled();
+      const getter = saveAnnotations.mock.calls.at(-1)![0] as () => Record<
+        string,
+        unknown
+      >;
+      expect(getter()).toEqual({
+        overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
