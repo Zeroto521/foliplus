@@ -1,13 +1,12 @@
 // LayerControl UI —Solid-color basemap visibility.
 import * as CONST from "../const.js";
-import { mapContainer } from "./context.js";
 import type { LayerUI } from "./index.js";
 
 const showColorLayer = (ui: LayerUI, color: string) => {
   ui.isColorActive = true;
   ui.currentColor = color;
-  mapContainer.style.setProperty("--color-layer-bg", color);
-  mapContainer.classList.add(CONST.CLASSES.ACTIVE);
+  ui.m.map.getContainer().style.setProperty("--color-layer-bg", color);
+  ui.m.map.getContainer().classList.add(CONST.CLASSES.ACTIVE);
 
   for (let i = 0; i < ui.m.layers.length; i++) {
     if (ui.m.layers[i].isBase) {
@@ -41,8 +40,8 @@ const showColorLayer = (ui: LayerUI, color: string) => {
 
 const hideColorLayer = (ui: LayerUI) => {
   ui.isColorActive = false;
-  mapContainer.classList.remove(CONST.CLASSES.ACTIVE);
-  mapContainer.style.removeProperty("--color-layer-bg");
+  ui.m.map.getContainer().classList.remove(CONST.CLASSES.ACTIVE);
+  ui.m.map.getContainer().style.removeProperty("--color-layer-bg");
   const tilePane = ui.m.map.getPane("tilePane");
   if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
   ui.uiContainer

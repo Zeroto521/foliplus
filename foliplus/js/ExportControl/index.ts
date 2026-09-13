@@ -11,19 +11,29 @@ const T = createScopedTranslator(CONF);
 requireLayerAPI(CONF.name, T, map);
 
 // ==================== Leaflet Control ====================
-const exportManager = new ExportManager(map);
+// Manager creation is lazy so destroy() + re-add re-creates a fresh manager.
+// Browser tests inject a synchronous rafLoop scheduler on window before
+// instantiation to make rafLoop deterministic (see
+// TestExportControlBrowser._make_page) — typed locally, not as a runtime
+// global, because this hook is test-only.
+type ExportScheduler = (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
+const createExportManager = (): ExportManager =>
+  new ExportManager(
+    map,
+    (window as unknown as { __foliplusExportScheduler?: ExportScheduler })
+      .__foliplusExportScheduler ?? setTimeout,
+  );
 
 class ExportControl extends BaseControl {
-  declare manager: ExportManager;
+  manager: ExportManager | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.manager = exportManager;
   }
 
-  /** Shorthand for manager */
-  get m() {
-    return this.manager;
+  /** Shorthand for manager (creates it on first access). */
+  get m(): ExportManager {
+    return (this.manager ??= createExportManager());
   }
 
   buildDOM() {
@@ -42,9 +52,11 @@ class ExportControl extends BaseControl {
     return container;
   }
 
+  /** Never touch `this.m` here: destroy() must not re-create the manager. */
   destroy() {
-    if (this.m.cropState) this.m.removeCropBox();
-    this.m.unregisterShortcuts();
+    if (this.manager?.cropState) this.manager.removeCropBox();
+    this.manager?.unregisterShortcuts();
+    this.manager = null;
   }
 }
 

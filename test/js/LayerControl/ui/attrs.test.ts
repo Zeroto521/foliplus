@@ -3,6 +3,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { createScopedTranslator } from "#common/locale.js";
 import {
   allFolded,
   attachWithGroup,
@@ -68,6 +69,30 @@ describe("LayerUI attrs", () => {
             r.querySelector(".foliplus-form-control")!.textContent!,
           ] as [string, string],
       );
+
+    it("panel title and row labels come from the injected conf, not window.CONF", () => {
+      // The LayerUI was built under window.CONF (name "LayerControl"); swap in
+      // a per-test conf with its own locale table — every UI read must key off
+      // it: the panel aria-label from T("attributes_layer") and the row label
+      // from T("attr_type").
+      ui.T = createScopedTranslator({
+        name: "LayerControl",
+        locale_code: "en",
+        locale_tables: {
+          en: {
+            "LayerControl.attributes_layer": "ATTRIBUTES PANEL",
+            "LayerControl.attr_type": "KIND",
+          },
+        },
+      } as ComponentConfig);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel.getAttribute("aria-label")).toBe("ATTRIBUTES PANEL");
+      expect(panel.textContent).toContain("KIND");
+    });
 
     it("renders the built-in rows only (nothing registered → no — padding)", () => {
       const item = findItem(ui, "overlay1");
@@ -145,6 +170,35 @@ describe("LayerUI attrs", () => {
       // One block only: a single heading and a single list.
       expect(item.querySelectorAll(".foliplus-header-title").length).toBe(1);
       expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
+    });
+
+    it("formats integer meta without a fraction digit", () => {
+      manager.registerLayer({
+        id: "attr-int",
+        name: "Stats",
+        meta: { features: 3 },
+      });
+
+      const item = findItem(ui, "attr-int");
+      ui.openAttrsPanel(item);
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "3"]);
+    });
+
+    it("opens on an unregistered row without provenance rows", () => {
+      const ghost = document.createElement("div");
+      ghost.className = CONST.CLASSES.LAYER_ITEM;
+      ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
+      ui.uiContainer.appendChild(ghost);
+
+      ui.openAttrsPanel(ghost);
+
+      const panel = ghost.querySelector(".foliplus-layer-attrs-panel")!;
+      // No registry entry → no source / created / updated rows; the panel
+      // still renders (with the empty fallback branches).
+      expect(panel).not.toBeNull();
+      expect(rows(panel).map(([k]) => k)).not.toContain("LayerControl.attr_source");
     });
 
     it("continues meta rows in the same list, after the built-in rows", () => {
@@ -291,18 +345,22 @@ describe("LayerUI attrs", () => {
     });
 
     it("prefers the layer's own iconSvg for the header logo", () => {
-      manager.registerLayer({
-        id: "attr-logo1",
-        name: "Logo Layer",
-        iconSvg: '<svg data-logo="1"></svg>',
-      });
+      // A non-empty logo: the registry rejects an icon with no content (the
+      // allowlist gate treats a bare <svg> as "no icon") and falls through to
+      // the geometry glyph, which is what this test must beat. The mark rides
+      // on class - the gate keeps presentation attributes, never data-*.
+      const logo =
+        '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
+      manager.registerLayer({ id: "attr-logo1", name: "Logo Layer", iconSvg: logo });
 
       const item = findItem(ui, "attr-logo1");
       ui.openAttrsPanel(item);
 
-      expect(item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML).toContain(
-        'data-logo="1"',
-      );
+      const icon = item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML;
+      // Both marks are this layer's logo; the UNKNOWN/geometry glyphs do not
+      // carry either.
+      expect(icon).toContain('r="10"');
+      expect(icon).toContain('class="logo"');
     });
 
     it("closeAttrsPanel(setFocus=true) returns focus to the layer row", () => {

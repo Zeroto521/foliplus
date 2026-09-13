@@ -11,7 +11,9 @@ import {
   fmtKB,
   fmtPct,
   parseArgs,
+  rangeLine,
   rowCells,
+  shortSha,
   stripLeadingBlockComment,
   summarize,
   toolVersion,
@@ -420,6 +422,72 @@ describe("check", () => {
       else process.env.GITHUB_STEP_SUMMARY = prev;
     }
     expect(readFileSync(summary, "utf-8")).toContain("Bundle Size Check");
+  });
+
+  it("names the base and head commits in the report", () => {
+    // The report is read out of the base branch's build, so the commit pair is
+    // what tells the reader which two trees are being compared.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+      "--base=239e0a2b1c2d3e4f",
+      "--head=3374c53a1b2c3d4e",
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).toContain("Comparing base (239e0a2) to head (3374c53).");
+  });
+
+  it("shortens SHAs longer than seven characters", () => {
+    // CI passes full 40-char SHAs; a reader only needs a unique prefix.
+    expect(
+      rangeLine(
+        "98cc41ee67ab7a9ad03d01687db3cf14a54e858f",
+        "19f86a90f24f72f4c9b81e4a77ac274087d2e2d5",
+      ),
+    ).toEqual(["Comparing base (98cc41e) to head (19f86a9)."]);
+    expect(shortSha("98cc41e")).toBe("98cc41e");
+    expect(shortSha("abcd1234")).toBe("abcd123");
+    expect(shortSha("a")).toBe("a");
+  });
+
+  it("drops the comparison line when neither commit is given", () => {
+    // A bare local run has no base/head pair.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
+    expect(readFileSync(report, "utf-8")).not.toContain("Comparing base");
+  });
+
+  it("drops the comparison line when only one commit is given", () => {
+    // One side empty means a substitution did not resolve — an unresolved ref,
+    // or a step that lost its `run:` context. A partial range like
+    // "base (?) to head (3374c53)" reads worse than no range, so the line is
+    // suppressed rather than padded.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+      "--base=",
+      "--head=3374c53a1b2c3d4e",
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).not.toContain("Comparing base");
+    expect(md).not.toContain("?");
   });
 
   it("compares against a custom baseline via --baseline", () => {

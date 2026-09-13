@@ -14,6 +14,7 @@ beforeEach(() => {
 describe("createControlEnv", () => {
   it("registers the hint icon when provided", () => {
     createControlEnv({ name: "MeasureControl" }, "<svg/>");
+    expect(registerHintIcon).toHaveBeenCalledTimes(1);
     expect(registerHintIcon).toHaveBeenCalledWith("MeasureControl", "<svg/>");
   });
 

@@ -1,7 +1,6 @@
 // LayerControl UI —HTML5 drag reorder + group fold.
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "../const.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { initTypesAndVisibility, reindexItems, renderInitialList } from "./list.js";
 import { saveFoldState } from "./state.js";
@@ -31,7 +30,11 @@ const showReorderBlockedHint = (ui: LayerUI) => {
   const now = Date.now();
   if (now - ui.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.lastDragHintAt = now;
-  map.foliplus!.showHint(CONF.name, T("reorder_group_only"), HINT_DURATION.SHORT);
+  ui.m.map.foliplus!.showHint(
+    ui.conf.name,
+    ui.T("reorder_group_only"),
+    HINT_DURATION.SHORT,
+  );
 };
 
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {

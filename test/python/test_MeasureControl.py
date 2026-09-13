@@ -227,16 +227,16 @@ class TestMeasureControlBrowser:
         MeasureControl(show_bearing=show_bearing).add_to(m)
 
         html = m.get_root().render()
-        # Inject test hooks right after the manager is created. The dev build
-        # (esbuild) may emit `const` or `var`, and flattens `import * as CONST`
-        # so the storage key is accessible as `STORAGE.KEY` (not CONST.STORAGE.KEY).
+        # Inject test hooks at the control-entry line. The manager is created
+        # lazily by the control's getter during addTo, so expose the control
+        # first and read back its manager via `m` (dev build keeps these names).
         html, n = re.subn(
-            r"(const|var) measureManager = new MeasureManager\(map\);",
-            r"\1 measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
+            r"(new MeasureControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
             html,
             count=1,
         )
-        assert n == 1, "measureManager instantiation not found in rendered HTML"
+        assert n == 1, "MeasureControl instantiation not found in rendered HTML"
         # Remove blocking CDN <script> tags (gcoord and turf added by default_js)
         html = html.replace(
             '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
@@ -278,6 +278,15 @@ class TestMeasureControlBrowser:
                 "document.querySelector('.foliplus-tool-btn:not([data-mode])')?.click()"
             )
             page.wait_for_timeout(500)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_remove_readd_rebuilds_manager(self, browser, tmp_path):
+        """removeControl + addControl re-creates the manager and re-binds tools."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/destroy_readd"))
+            assert state["removed"] is True
+            assert state["hasManager"] is True
+            assert state["btnCount"] >= 6
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_labels_show_bearing(self, browser, tmp_path):

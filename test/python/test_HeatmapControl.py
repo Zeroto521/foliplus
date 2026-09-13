@@ -270,11 +270,11 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "toggle-switch" in html
 
-    def test_confirm_button_renders(self):
-        """Confirm (Apply) button is rendered."""
+    def test_confirm_button_removed(self):
+        """Confirm button is gone: every control re-renders live (no Apply)."""
         html = render_control(HeatmapControl())
-        assert "btn-confirm" in html
-        assert "HeatmapControl.confirm" in html
+        assert "btn-confirm" not in html
+        assert "HeatmapControl.confirm" not in html
 
     def test_clear_button_renders(self):
         """Clear button is rendered."""
@@ -455,6 +455,18 @@ class TestHeatmapControlBrowser:
             ".foliplus-heatmap-ctrl", state="attached", timeout=10000
         )
         return page, errors
+
+    def test_remove_readd_restarts_scan(self, browser, tmp_path):
+        """destroy() + addControl restarts the initial scan and re-renders."""
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+            state = page.evaluate(_js("HeatmapControl/destroy_readd"))
+            assert state["removed"] is True
+            assert state["hasManager"] is True
+            heatmap_ready(page)  # re-scan settles: [data-ready] re-appears
+            assert not errors, f"JS errors: {errors}"
 
     def test_auto_select_single_layer(self, browser, tmp_path):
         """Single point layer is auto-selected on panel expand."""
