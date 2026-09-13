@@ -144,6 +144,18 @@ describe("formatNumber", () => {
     expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
     expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
   });
+
+  it("percent multiplies by 100 and trims trailing digits (default max 1)", () => {
+    expect(formatNumber(0.35, "percent", "en")).toBe("35%");
+    expect(formatNumber(0.3333, "percent", "en")).toBe("33.3%");
+  });
+
+  it("percent caps decimals via fractionDigits (0 gives whole percents)", () => {
+    expect(formatNumber(0.3333, "percent", "en", 0)).toBe("33%");
+    expect(formatNumber(0.3333, "percent", "en", 2)).toBe("33.33%");
+    // The annotation panel passes 0 for comma/int; percent now honours it too.
+    expect(formatNumber(0.35, "percent", "en", 0)).toBe("35%");
+  });
 });
 
 describe("formatCoord / formatLatLng", () => {

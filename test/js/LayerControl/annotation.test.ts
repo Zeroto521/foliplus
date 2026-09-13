@@ -18,9 +18,12 @@ describe("AnnotationManager.formatValue", () => {
   it("comma adds thousands separator", () => {
     expect(mgr.formatValue("6000", "comma", "en")).toBe("6,000");
   });
-  it("percent multiplies by 100 and appends %", () => {
+  it("percent multiplies by 100; fractionDigits=0 gives whole percents", () => {
     expect(mgr.formatValue("0.35", "percent", "en")).toBe("35%");
-    expect(mgr.formatValue("0.123", "percent", "en")).toBe("12.3%");
+    // formatValue pins fractionDigits to 0 for the fixed styles, and percent
+    // now honours it as a decimal cap — whole-percent labels keep the chips
+    // compact (12%, not 12.3%).
+    expect(mgr.formatValue("0.123", "percent", "en")).toBe("12%");
   });
   it("falls back to raw string for non-numeric values", () => {
     expect(mgr.formatValue("abc", "percent", "en")).toBe("abc");

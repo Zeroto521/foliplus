@@ -16,7 +16,8 @@ type NumberStyle = "auto" | "comma" | "int" | "percent";
  * @param fractionDigits Fixed fraction digits, 'comma' only (default 1). Min
  *               and max are pinned together, so decimals stay fixed rather
  *               than trailing-digit-trimmed (1.0, not 1; 2.50, not 2.5). Pass
- *               0 for whole numbers to drop the ".0".
+ *               0 for whole numbers to drop the ".0". For 'percent' it caps
+ *               the decimals instead (max-only, trailing digits trim).
  */
 const formatNumber = (
   val: number,
@@ -52,11 +53,12 @@ const formatNumber = (
 
   // percent: fraction × 100 with % suffix (0.35 → 35%) — meant for 0..1
   // fractional values such as a share/ratio column. Locale-grouped like any
-  // other standard-notation format, one trailing digit to spare.
+  // other standard-notation format. `fractionDigits` caps the decimals
+  // (max-only: trailing zeros trim, 0.3333 → 33.3% at 1, → 33% at 0).
   if (style === "percent") {
     return new Intl.NumberFormat(locale, {
       style: "percent",
-      maximumFractionDigits: 1,
+      maximumFractionDigits: fractionDigits,
     }).format(val);
   }
 
