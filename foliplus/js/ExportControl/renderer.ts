@@ -47,10 +47,11 @@ interface TileLoadStats {
   failed: number;
 }
 
-/** True when a layer's tiles predominantly failed to load — the profile of a
- *  tile source that rejects CORS requests: the map renders fine (tiles load
- *  as opaque images), but the export's independent CORS fetch cannot get
- *  them.  Sporadic misses (ocean 404s, blips) stay below the threshold. */
+/** True when a layer's tiles predominantly failed to load — most often a tile
+ *  source that rejects CORS requests (the map renders fine as opaque images,
+ *  but the export's independent CORS fetch cannot get them); missing-tile
+ *  404s or rate limits can pile up the same way.  Sporadic misses (ocean
+ *  404s, blips) stay below the threshold. */
 const isCorsBlocked = (stats: TileLoadStats): boolean =>
   stats.total > 0 && stats.failed > 0 && stats.failed / stats.total > 0.5;
 
@@ -141,7 +142,10 @@ class ExportRenderer {
           .replace("{z}", zoom.toString())
           // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
           .replace("{r}", scaleVal > 1 ? "@2x" : "");
-        const fallback = scaleVal > 1 ? url.replace("@2x", "") : undefined;
+        const fallback =
+          scaleVal > 1 && urlTemplate.includes("{r}")
+            ? url.replace("@2x", "")
+            : undefined;
         tiles.push({
           x: tx,
           y: ty,
