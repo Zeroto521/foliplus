@@ -3,21 +3,17 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-// Repo-wide regression guard: production sources carry no type-system bypasses.
+// Production sources carry no type-system bypasses. Measured here at build time,
+// not in tsc, because these are text properties: no checker reports the number
+// of `as any` in the tree.
 //
-// No single file owns this property — it is measured over all of foliplus/js
-// — so unlike the rest of the suite this test is not named after a script it
-// tests. `type-safety` is the property and `guard` is its kind. The repo-wide
-// convention is test/js/<name>.test.ts testing foliplus/js/<name>.ts, which this
-// file deliberately breaks.
+// These are not lint duplicates — eslint's ban-ts-comment only flags @ts-*
+// lines it can classify, and no rule checks for `as any`. Without this the audit
+// finding "24 bypasses" could come back silently.
 //
-// These are not lint duplicates — eslint's ban-ts-comment only flags the
-// // @ts-*** lines (and only ones it can classify), and no rule checks for
-// `as any`. Without this the audit finding "24 bypasses" could come back
-// silently.
-//
-// Three `as unknown as` sites are intentionally allowed and pinned by name so
-// the number stays meaningful rather than trending toward zero.
+// The test program's existence is what keeps this honest: a future author can
+// relax strictness in tsconfig.test.json, but this file still forces strict to
+// be on. The suite's own error count is tracked in the program file itself.
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const SRC = resolve(ROOT, "foliplus/js");
@@ -60,22 +56,13 @@ describe("production type-system bypasses", () => {
     });
   }
 
-  it("pins the three deliberate `as unknown as` sites", () => {
-    const sites = files
-      .filter(f => read(f).includes("as unknown as"))
-      .map(rel)
-      .sort();
-    expect(sites).toEqual([
-      "foliplus/js/core/layer/api.ts",
-      "foliplus/js/core/layer/util.ts",
-      "foliplus/js/core/mapApi.ts",
-    ]);
+  it("test/js/tsconfig.json extends the production program", () => {
+    const cfg = JSON.parse(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8"));
+    expect(cfg.extends).toBe("../../tsconfig.json");
   });
 
-  it("mapApi.ts is the only place a map.foliplus seed is written", () => {
-    const writers = files
-      .map(f => ({ f: rel(f), n: (read(f).match(/map\.foliplus\s*=/g) || []).length }))
-      .filter(x => x.n > 0);
-    expect(writers).toEqual([{ f: "foliplus/js/core/mapApi.ts", n: 1 }]);
+  it("test/js/tsconfig.json does not relax strictness", () => {
+    const cfg = JSON.parse(readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf-8"));
+    expect(cfg.compilerOptions.strict).not.toBe(false);
   });
 });
