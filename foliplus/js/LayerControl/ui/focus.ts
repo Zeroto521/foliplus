@@ -3,13 +3,16 @@ import { HINT_DURATION } from "#core/hint.js";
 import { forEachLeaf } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
 
 /** Basemaps / color pickers cannot be focused —hint instead of silence. */
 const showBaseFocusHint = (ui: LayerUI): void => {
-  ui.m.map.foliplus!.showHint(CONF.name, T("focus_layer_base"), HINT_DURATION.SHORT);
+  ui.m.map.foliplus!.showHint(
+    ui.conf.name,
+    ui.T("focus_layer_base"),
+    HINT_DURATION.SHORT,
+  );
 };
 
 /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
@@ -61,7 +64,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
   // (double-click, 鈰?menu, Alt+Enter, Enter) so none of them leak.
-  if (guardBlocked(ui.m.map, CONF.name, T("blocked"))) return;
+  if (guardBlocked(ui.m.map, ui.conf.name, ui.T("blocked"))) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;
@@ -76,8 +79,8 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
     ui.m.map.foliplus!.showHint(
-      CONF.name,
-      T("focus_layer_hidden"),
+      ui.conf.name,
+      ui.T("focus_layer_hidden"),
       HINT_DURATION.SHORT,
     );
     return;
@@ -112,7 +115,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
   // the manual cancel, and a subsequent focus (dismissFocus runs at the top
   // of focusLayer).
-  ensureModes(ui.m.map).setMode(CONF.name, "focusing");
+  ensureModes(ui.m.map).setMode(ui.conf.name, "focusing");
 
   // Single-point / tiny bounds →flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -168,7 +171,11 @@ const isFocusing = (ui: LayerUI): boolean => {
 /** Cancel an in-flight focus: remove rect + mask + row highlight. */
 const cancelFocus = (ui: LayerUI): void => {
   dismissFocus(ui);
-  ui.m.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
+  ui.m.map.foliplus!.showHint(
+    ui.conf.name,
+    ui.T("focus_cancelled"),
+    HINT_DURATION.SHORT,
+  );
 };
 
 /** Internal: tear down focus visuals + state (no hint). */
@@ -177,7 +184,7 @@ const dismissFocus = (ui: LayerUI): void => {
   // (export, measure) are unblocked. Idempotent: safe to call even when
   // no focus was active; setMode(null) writes a null entry that the
   // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
-  ensureModes(ui.m.map).setMode(CONF.name, null);
+  ensureModes(ui.m.map).setMode(ui.conf.name, null);
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);

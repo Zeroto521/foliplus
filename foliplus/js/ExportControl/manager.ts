@@ -112,6 +112,11 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  /** Component config — carried on the instance so the UI modules read it
+   *  from `mgr.conf` instead of a module-level free variable. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once in the constructor. */
+  T: (key: string) => string;
   dragCleanup?: () => void;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
@@ -161,6 +166,8 @@ class ExportManager {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
     this.scheduler = scheduler;
+    this.conf = CONF;
+    this.T = T;
 
     this.cropState = null;
     this.exportCtrl = null;
@@ -193,7 +200,7 @@ class ExportManager {
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
-      showGlobalHint(text, duration, withLoadingIcon);
+      showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {

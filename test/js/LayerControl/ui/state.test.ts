@@ -37,7 +37,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         hasLayer: vi.fn(l => l === testPolyLayer),
         addLayer: vi.fn(),
         removeLayer,
-        getContainer: vi.fn(() => ({ id: "map" })),
+        getContainer: vi.fn(() => {
+          const el = document.createElement("div");
+          el.id = "map";
+          return el;
+        }),
         getPane: vi.fn(() => ({ style: {} })),
         createPane: vi.fn(() => ({
           style: {},
@@ -592,7 +596,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
             hasLayer: vi.fn(() => true),
             addLayer: vi.fn(),
             removeLayer: rl,
-            getContainer: vi.fn(() => ({}) as HTMLElement),
+            getContainer: vi.fn(() => document.createElement("div")),
             getPane: vi.fn(() => ({ style: {} })),
             createPane: vi.fn(() => ({
               style: {},
@@ -635,6 +639,7 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     `;
     return {
       uiContainer,
+      T: vi.fn((k: string) => k),
       m: {
         findLayer: vi.fn(() => layer),
         map: {

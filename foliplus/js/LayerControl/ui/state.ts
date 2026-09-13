@@ -1,7 +1,6 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import { T } from "./context.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 
@@ -148,7 +147,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
 
   if (checkbox) {
     checkbox.checked = false;
-    checkbox.title = T("select_tooltip");
+    checkbox.title = ui.T("select_tooltip");
   }
   item?.classList.remove(CONST.CLASSES.ACTIVE);
 };

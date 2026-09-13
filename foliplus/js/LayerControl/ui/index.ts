@@ -4,6 +4,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import {
@@ -15,7 +16,7 @@ import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attrs.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { T, isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -103,6 +104,11 @@ import {
 /** UI Controller for LayerControl. */
 class LayerUI {
   manager: LayerManager;
+  /** Component config — carried on the instance so the ui/* modules read it
+   *  from `ui.conf` instead of a module-level free variable. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once in the constructor. */
+  T: (key: string) => string;
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
@@ -180,6 +186,8 @@ class LayerUI {
 
   constructor(manager: LayerManager) {
     this.manager = manager;
+    this.conf = CONF;
+    this.T = createScopedTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
     this.hiddenHasState = false;
@@ -441,18 +449,18 @@ class LayerUI {
       const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
       layerInfo.type = gtype;
       typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
-      typeLabel = T(`type_${gtype}`);
+      typeLabel = this.T(`type_${gtype}`);
     }
 
     if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+      countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
     } else if (countCol) {
       countCol.textContent = "";
     }
     item.setAttribute(CONST.DATA.TITLE, typeLabel);
     item.title =
       count !== null
-        ? `${formatNumber(count, "auto", CONF.locale_code)} ${typeLabel}`
+        ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
         : typeLabel;
   }
 
@@ -468,7 +476,7 @@ class LayerUI {
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol && count !== null && count !== undefined) {
-        countCol.textContent = formatNumber(count, "auto", CONF.locale_code);
+        countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
       } else if (countCol) countCol.textContent = "";
     });
   }

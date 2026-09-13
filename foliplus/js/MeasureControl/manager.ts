@@ -60,6 +60,11 @@ const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
+  /** Component config — carried on the manager instead of a module-level
+   *  free variable, so the UI functions are unit-testable with their own CONF. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once by the manager. */
+  T: (key: string) => string;
   private interactionCleanup?: () => void;
   private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
@@ -115,6 +120,8 @@ class MeasureManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.conf = CONF;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.store = new MeasureStore(this.map, this.layerId);
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({

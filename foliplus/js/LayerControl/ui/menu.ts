@@ -3,7 +3,6 @@ import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import { T } from "./context.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
@@ -28,11 +27,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     "data-action": "focus-layer",
     role: "menuitem",
     tabindex: "0",
-    title: focusDisabled ? T("focus_layer_hidden") : T("focus_layer_tooltip"),
+    title: focusDisabled ? ui.T("focus_layer_hidden") : ui.T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
+  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -43,10 +42,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: T("rename_layer_tooltip"),
+        title: ui.T("rename_layer_tooltip"),
       },
       { html: Icons.EDIT },
-      T("rename_layer"),
+      ui.T("rename_layer"),
     ),
   );
 
@@ -59,10 +58,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.ATTRS_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: T("attributes_layer_tooltip"),
+        title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.INFO },
-      T("attributes_layer"),
+      ui.T("attributes_layer"),
     ),
   );
 
