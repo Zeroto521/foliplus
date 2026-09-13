@@ -1,6 +1,6 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
@@ -91,6 +91,9 @@ interface SavedConfig {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
@@ -170,11 +173,11 @@ class HeatmapManager {
     // recompute, then clip again afterwards.  Named methods rather than
     // arrow literals so the two unsubs stay bound to stable identities and
     // removeExportListener below can release both as one pair.
-    const bus = ensureEvents(this.map);
+    this.events = ensureEvents(this.map);
     this.removeExportListener = (() => {
       const unsubs = [
-        bus.on(EVENTS.BEFORE_EXPORT, () => this.onBeforeExport()),
-        bus.on(EVENTS.AFTER_EXPORT, () => this.onAfterExport()),
+        this.events.on(EVENTS.BEFORE_EXPORT, () => this.onBeforeExport()),
+        this.events.on(EVENTS.AFTER_EXPORT, () => this.onAfterExport()),
       ];
       return () => unsubs.forEach(unsub => unsub());
     })();
@@ -228,9 +231,8 @@ class HeatmapManager {
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
     // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = ensureEvents(this.map).on(
-      EVENTS.LAYER_CHANGE,
-      () => this.onLayerChange(),
+    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
+      this.onLayerChange(),
     );
   }
 
@@ -644,7 +646,7 @@ class HeatmapManager {
     this.overlay.register();
     this.redrawHeatmap();
     // Notify LayerControl to refresh the count column for this layer.
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   clearHeatmapCanvas() {
@@ -654,7 +656,7 @@ class HeatmapManager {
     (this.ui as any)?.schemeBarCleanup?.();
     (this.ui as any)?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Load saved configuration from localStorage into this manager's state. */

@@ -131,7 +131,8 @@ const showCropBox = (mgr: ExportManager) => {
   }
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
-  ensureModes(mgr.map).setMode(mgr.conf.name, "selecting");
+  const modes = ensureModes(mgr.map);
+  modes.setMode(mgr.conf.name, "selecting");
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
 
@@ -312,7 +313,8 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.cropState = null;
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).
   syncCropKeyboard(mgr);
-  ensureModes(mgr.map).setMode(mgr.conf.name, null);
+  const modes = ensureModes(mgr.map);
+  modes.setMode(mgr.conf.name, null);
   mgr.map.foliplus!.hideHint(mgr.conf.name);
 };
 

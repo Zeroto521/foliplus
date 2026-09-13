@@ -3,6 +3,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { createScopedTranslator } from "#common/locale.js";
 import {
   allFolded,
   attachWithGroup,
@@ -68,6 +69,30 @@ describe("LayerUI attrs", () => {
             r.querySelector(".foliplus-form-control")!.textContent!,
           ] as [string, string],
       );
+
+    it("panel title and row labels come from the injected conf, not window.CONF", () => {
+      // The LayerUI was built under window.CONF (name "LayerControl"); swap in
+      // a per-test conf with its own locale table — every UI read must key off
+      // it: the panel aria-label from T("attributes_layer") and the row label
+      // from T("attr_type").
+      ui.T = createScopedTranslator({
+        name: "LayerControl",
+        locale_code: "en",
+        locale_tables: {
+          en: {
+            "LayerControl.attributes_layer": "ATTRIBUTES PANEL",
+            "LayerControl.attr_type": "KIND",
+          },
+        },
+      } as ComponentConfig);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel.getAttribute("aria-label")).toBe("ATTRIBUTES PANEL");
+      expect(panel.textContent).toContain("KIND");
+    });
 
     it("renders the built-in rows only (nothing registered → no — padding)", () => {
       const item = findItem(ui, "overlay1");

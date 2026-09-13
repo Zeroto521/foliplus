@@ -536,9 +536,8 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
     }
   };
 
-  const cleanup = ensureEvents(ctrl.m.map).on(EVENTS.CONTROL_ATTACHED, () =>
-    scan(false),
-  );
+  const events = ensureEvents(ctrl.m.map);
+  const cleanup = events.on(EVENTS.CONTROL_ATTACHED, () => scan(false));
 
   // Settle after the synchronous attach sequence: a control that attached
   // before this subscription (e.g. LayerControl added before Heatmap) is

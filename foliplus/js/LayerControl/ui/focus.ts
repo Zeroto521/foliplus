@@ -115,7 +115,8 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
   // the manual cancel, and a subsequent focus (dismissFocus runs at the top
   // of focusLayer).
-  ensureModes(ui.m.map).setMode(ui.conf.name, "focusing");
+  const modes = ensureModes(ui.m.map);
+  modes.setMode(ui.conf.name, "focusing");
 
   // Single-point / tiny bounds →flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -184,7 +185,8 @@ const dismissFocus = (ui: LayerUI): void => {
   // (export, measure) are unblocked. Idempotent: safe to call even when
   // no focus was active; setMode(null) writes a null entry that the
   // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
-  ensureModes(ui.m.map).setMode(ui.conf.name, null);
+  const modes = ensureModes(ui.m.map);
+  modes.setMode(ui.conf.name, null);
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);

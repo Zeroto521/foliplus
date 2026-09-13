@@ -3,7 +3,8 @@ import { ensureInteraction } from "#core/interaction.js";
 import type { MeasureManager } from "./manager.js";
 
 const registerInteractions = (mgr: MeasureManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(CONF.name, [
+  const interaction = ensureInteraction(mgr.map);
+  return interaction.register(CONF.name, [
     { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
   ]);
 };
@@ -15,7 +16,8 @@ const registerInteractions = (mgr: MeasureManager): (() => void) => {
  * Returns a cleanup function to unregister when the mode ends.
  */
 const registerActiveEscape = (mgr: MeasureManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-escape-active`, [
+  const interaction = ensureInteraction(mgr.map);
+  return interaction.register(`${CONF.name}-escape-active`, [
     {
       key: "Escape",
       priority: 1,
@@ -29,7 +31,8 @@ const registerExportClick = (
   mgr: MeasureManager,
   element: HTMLElement,
 ): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-export`, [
+  const interaction = ensureInteraction(mgr.map);
+  return interaction.register(`${CONF.name}-export`, [
     { event: "click", element, handler: e => mgr.onExportClick(e) },
   ]);
 };
