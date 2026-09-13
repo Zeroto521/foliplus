@@ -7,7 +7,6 @@ import {
   updateItemLabel,
 } from "#common/dom.js";
 import * as CONST from "../const.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { displayName } from "./list.js";
 import { applyUserState, saveNamesState } from "./state.js";
@@ -47,7 +46,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     label,
     initialValue: currentName,
     className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
-    ariaLabel: T("rename_hint"),
+    ariaLabel: ui.T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input →that removal fires a blur that must not re-commit.
@@ -69,7 +68,11 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // Only an empty-name commit is a user mistake worth flagging;
       // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
-        map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        ui.m.map.foliplus!.showHint(
+          ui.conf.name,
+          ui.T("rename_empty"),
+          HINT_DURATION.SHORT,
+        );
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's

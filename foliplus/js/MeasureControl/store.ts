@@ -99,7 +99,8 @@ class MeasureStore {
   /** Emit LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes the count column
    *  without a write (e.g. after restore). */
   emitCount(): void {
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+    const events = ensureEvents(this.map);
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
       id: this.layerId,
     });
   }

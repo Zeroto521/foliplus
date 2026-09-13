@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { handleDrop, toggleFold } from "#foliplus/LayerControl/ui/drag.js";
+import {
+  handleDrop,
+  showReorderBlockedHint,
+  toggleFold,
+} from "#foliplus/LayerControl/ui/drag.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { initFixture } from "./fixture.js";
@@ -98,5 +103,31 @@ describe("LayerUI.deselectAllBaseMaps", () => {
     // The excluded base keeps its checkbox; the other base is cleared.
     const checked = boxes.filter(b => b.checked).length;
     expect(checked).toBe(1);
+  });
+});
+
+describe("showReorderBlockedHint", () => {
+  it("hints once per cooldown window", () => {
+    const showHint = vi.fn();
+    const ui = {
+      lastDragHintAt: 0,
+      conf: { name: "LayerControl" },
+      T: (k: string) => k,
+      m: {
+        map: { foliplus: { showHint } },
+      },
+    } as unknown as LayerUI;
+
+    showReorderBlockedHint(ui);
+    expect(showHint).toHaveBeenCalledTimes(1);
+    expect(showHint).toHaveBeenCalledWith(
+      "LayerControl",
+      "reorder_group_only",
+      HINT_DURATION.SHORT,
+    );
+
+    // A second attempt inside the cooldown window stays silent.
+    showReorderBlockedHint(ui);
+    expect(showHint).toHaveBeenCalledTimes(1);
   });
 });

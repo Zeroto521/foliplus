@@ -2,7 +2,6 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { T } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { saveHiddenIds, syncHiddenId } from "./state.js";
 
@@ -25,7 +24,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     const layer = ui.m.findLayer(layerInfo);
 
     checkbox.checked = newState;
-    checkbox.title = T(newState ? "deselect_tooltip" : "select_tooltip");
+    checkbox.title = ui.T(newState ? "deselect_tooltip" : "select_tooltip");
     if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
     else item.classList.remove(CONST.CLASSES.ACTIVE);
 
@@ -70,7 +69,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   const noneChecked = checkedCount === 0;
   allCb.checked = allChecked;
   allCb.indeterminate = !allChecked && !noneChecked;
-  allCb.title = T(
+  allCb.title = ui.T(
     allChecked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
@@ -115,7 +114,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
       : item.classList.remove(CONST.CLASSES.ACTIVE);
   }
 
-  target.title = T(target.checked ? "deselect_tooltip" : "select_tooltip");
+  target.title = ui.T(target.checked ? "deselect_tooltip" : "select_tooltip");
 
   if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
   syncVisibility(ui, layerInfo, layer, target.checked);
