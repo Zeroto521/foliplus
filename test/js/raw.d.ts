@@ -12,8 +12,3 @@ declare module "#core/*?raw" {
   const src: string;
   export default src;
 }
-
-declare module "#script/*?raw" {
-  const src: string;
-  export default src;
-}

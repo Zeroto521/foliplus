@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
-import testTsconfig from "#script/../test/js/tsconfig.json?raw";
 
 // Production sources carry no type-system bypasses. Measured here at build time,
 // not in tsc, because these are text properties: no checker reports the number
@@ -33,6 +32,11 @@ const walk = (dir: string): string[] => {
 const files = walk(SRC);
 const read = (p: string) => readFileSync(p, "utf-8");
 const rel = (p: string) => p.slice(ROOT.length + 1).replace(/\\/g, "/");
+
+// No alias reaches test/js (package.json imports, the build aliases and
+// vitest.config.mjs all stop at foliplus/js and script/), so read the program
+// file through the one const this test needs anyway.
+const testTsconfig = read(resolve(ROOT, "test/js/tsconfig.json"));
 
 // tsconfig.json is JSON with comments (tsconfig's own dialect), which JSON.parse
 // rejects. Strip line comments before parsing — the file carries no // inside
