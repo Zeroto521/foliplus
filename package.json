@@ -23,9 +23,11 @@
     "build:check": "node script/build.mjs --check",
     "build:verify": "node script/build.mjs --verify",
     "build:sonda": "node script/build.mjs --sonda",
+    "new-control": "node script/new-control.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && eslint -c eslint.config.js -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
+    "typecheck:tests": "tsc --noEmit -p test/js/tsconfig.json && vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
     "lint": "eslint \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
     "bundle-size:check": "node script/bundle-size-check.mjs"
