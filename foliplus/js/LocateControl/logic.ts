@@ -9,7 +9,6 @@ import {
   makeDelIcon,
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);
@@ -82,11 +81,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     return;
   }
   setLocating(ctrl, true);
-  map.foliplus!.showHint(
-    CONF.name,
-    `${Icons.LOADING} ${T("locating")}`,
-    HINT_DURATION.PERSIST,
-  );
+  map.foliplus!.showHint(CONF.name, T("locating"), HINT_DURATION.PERSIST);
   geo.getCurrentPosition(
     pos => {
       setLocating(ctrl, false);

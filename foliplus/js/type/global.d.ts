@@ -180,8 +180,8 @@ declare global {
       name: string,
       msg: string,
       duration: number,
-      withLoadingIcon?: boolean | string | null,
-      id?: string,
+      append?: boolean,
+      subkey?: string,
     ) => void;
     hideHint: (name: string, id?: string) => void;
     reverseGeocode: (

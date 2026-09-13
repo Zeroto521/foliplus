@@ -78,13 +78,8 @@ const syncCropKeyboard = (mgr: ExportManager) => {
 };
 
 /** Show a global hint (e.g. exporting status). */
-const showGlobalHint = (
-  text: string,
-  duration = HINT_DURATION.PERSIST,
-  withLoadingIcon = false,
-) => {
-  const loading = withLoadingIcon ? Icons.LOADING + " " : "";
-  map.foliplus!.showHint(CONF.name, loading + text, duration || HINT_DURATION.PERSIST);
+const showGlobalHint = (text: string, duration = HINT_DURATION.PERSIST) => {
+  map.foliplus!.showHint(CONF.name, text, duration || HINT_DURATION.PERSIST);
 };
 
 /** Show a hint with crop box size info. */

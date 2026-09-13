@@ -311,11 +311,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
 const searchAddress = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
-  map.foliplus!.showHint(
-    CONF.name,
-    `${Icons.LOADING} ${T("popup_loading")}`,
-    HINT_DURATION.PERSIST,
-  );
+  map.foliplus!.showHint(CONF.name, T("popup_loading"), HINT_DURATION.PERSIST);
 
   window.foliplus
     .geocode(map, query, CONF.locale_code)
