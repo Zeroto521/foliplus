@@ -46,4 +46,15 @@ describe("createThrottleQueue", () => {
     await second;
     expect(order).toEqual(["start-slow", "end-slow", "start-second"]);
   });
+
+  it("recovers after a task rejects — the queue stays usable", async () => {
+    const queue = createThrottleQueue(10);
+    const boom = queue(() => Promise.reject(new Error("boom")));
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(boom).rejects.toThrow("boom");
+
+    const next = queue(() => Promise.resolve("ok"));
+    await vi.advanceTimersByTimeAsync(20);
+    await expect(next).resolves.toBe("ok");
+  });
 });

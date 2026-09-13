@@ -1,5 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { formatAddress, nominatimUrl } from "#core/geocode/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NominatimProvider, formatAddress, nominatimUrl } from "#core/geocode/index.js";
+
+const jsonResponse = (data: unknown) =>
+  ({ json: () => Promise.resolve(data) }) as Response;
 
 describe("nominatimUrl", () => {
   it("builds a search URL with default params", () => {
@@ -31,6 +34,13 @@ describe("nominatimUrl", () => {
   it("does not override accept-language if already set", () => {
     const url = nominatimUrl("/search", { q: "test", "accept-language": "fr" });
     expect(url).toContain("accept-language=fr");
+  });
+
+  it("builds a URL when the endpoint is empty (plain search)", () => {
+    const url = nominatimUrl("", { q: "Paris" });
+    expect(url).toContain("nominatim.openstreetmap.org/?");
+    expect(url).toContain("format=jsonv2");
+    expect(url).toContain("q=Paris");
   });
 });
 
@@ -95,5 +105,57 @@ describe("formatAddress", () => {
     expect(result).toContain("Baker Street");
     expect(result).toContain("London");
     expect(result).toContain("UK");
+  });
+
+  it("filters empty tokens between commas", () => {
+    const result = formatAddress("Paris,, France", undefined, "en");
+    expect(result).toBe("Paris,France");
+  });
+});
+
+describe("NominatimProvider", () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn();
+  });
+
+  it("parses search results into GeocodeItems", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
+    );
+    const items = await new NominatimProvider().search("Fuzhou", "en");
+    expect(items).toEqual([{ lat: 26.08, lng: 119.3, display_name: "Fuzhou" }]);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string;
+    expect(url).toContain("nominatim.openstreetmap.org/search");
+    expect(url).toContain("q=Fuzhou");
+  });
+
+  it("returns an empty list when the response is not an array", async () => {
+    (globalThis.fetch as any).mockResolvedValue(jsonResponse({ error: "oops" }));
+    const items = await new NominatimProvider().search("Fuzhou", "en");
+    expect(items).toEqual([]);
+  });
+
+  it("propagates fetch failures (the error boundary lives in the geocoder)", async () => {
+    (globalThis.fetch as any).mockRejectedValue(new Error("network down"));
+    await expect(new NominatimProvider().search("Fuzhou", "en")).rejects.toThrow(
+      "network down",
+    );
+  });
+
+  it("parses reverse responses into a single item", async () => {
+    (globalThis.fetch as any).mockResolvedValue(
+      jsonResponse({ lat: "30.1", lon: "110.1", display_name: "Fuzhou,China" }),
+    );
+    const item = await new NominatimProvider().reverse(110.1, 30.1, "en");
+    expect(item).toEqual({ lat: 30.1, lng: 110.1, display_name: "Fuzhou,China" });
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string;
+    expect(url).toContain("nominatim.openstreetmap.org/reverse");
+  });
+
+  it("returns null for reverse responses without a display_name", async () => {
+    (globalThis.fetch as any).mockResolvedValue(jsonResponse({}));
+    const item = await new NominatimProvider().reverse(110.1, 30.1, "en");
+    expect(item).toBeNull();
   });
 });
