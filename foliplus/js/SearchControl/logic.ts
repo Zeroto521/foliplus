@@ -1,6 +1,11 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#core/geo/index.js";
-import { formatAddress, resolveProvider } from "#core/geocode/index.js";
+import {
+  formatAddress,
+  lastRequestAt,
+  markRequest,
+  resolveProvider,
+} from "#core/geocode/index.js";
 import type {
   GeocodeProvider,
   ProviderConfig,
@@ -646,15 +651,19 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
 
   const provider = getProvider();
   const now = Date.now();
-  if (now - ctrl.lastSuggestFetch < provider.throttleMs) {
+  // The window shares the provider-wide last-request time (also updated by the
+  // runtime geocoder's queue), so suggestions never race past the rate limit.
+  const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
+  if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
-      provider.throttleMs - (now - ctrl.lastSuggestFetch),
+      provider.throttleMs - (now - since),
     );
     return;
   }
   ctrl.lastSuggestFetch = Date.now();
+  markRequest(provider.id); // share with the runtime geocoder's queue
   if (ctrl.suggestAbortController) ctrl.suggestAbortController.abort();
   ctrl.suggestAbortController = new AbortController();
   ctrl.suggestSeq += 1;
