@@ -108,7 +108,13 @@ class HeatmapManager {
   currentLabelShow: boolean;
   valueFallbackWarned: boolean;
   overlay: CreateCanvasAPI;
-  ui: { ctrl: HTMLElement } | null;
+  /**
+   * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
+   * manager and read/write sibling fields through that shape, so it is typed
+   * here as the partial it actually holds (only `ctrl` at construction) rather
+   * than cast to `HeatmapControlUI` at every use site.
+   */
+  ui: HeatmapControlUI | null;
   cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   cachedFeatures: HexFeature[] | null;
   cachedAgg: { key: string; data: AggregatedData } | null;
@@ -224,7 +230,7 @@ class HeatmapManager {
       this.cachedAgg = null;
       if (this.ui) {
         this.scanMapLayers();
-        rebuildLayerDropdown(this.ui as HeatmapControlUI);
+        rebuildLayerDropdown(this.ui);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
@@ -653,8 +659,8 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
-    (this.ui as any)?.schemeBarCleanup?.();
-    (this.ui as any)?.dropdownCleanup?.();
+    this.ui?.schemeBarCleanup?.();
+    this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
