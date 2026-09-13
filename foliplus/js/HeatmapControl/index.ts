@@ -17,6 +17,8 @@ const heatmapManager = new HeatmapManager(map);
 // ==================== View & Control: HeatmapControl ====================
 class HeatmapControl extends BaseControl {
   declare manager: HeatmapManager;
+  declare conf: ComponentConfig;
+  declare T: (key: string) => string;
   declare schemeDropdown: HTMLElement | null;
   declare expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -42,6 +44,8 @@ class HeatmapControl extends BaseControl {
   constructor(options?: L.ControlOptions) {
     super(options);
     this.manager = heatmapManager;
+    this.conf = CONF;
+    this.T = T;
     this.schemeDropdown = null;
     this.expandHookDone = false;
   }

@@ -3,18 +3,20 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
-const T = createScopedTranslator(CONF);
-
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
   m: HeatmapManager;
+  /** Component config — carried on the state object instead of a module-level
+   *  free variable, so every UI function is unit-testable with its own CONF. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once by the control / test fixture. */
+  T: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
@@ -50,7 +52,7 @@ const persist = (ctrl: HeatmapControlUI) => {
 };
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
-  panelContent.innerHTML = panelContentHTML(T);
+  panelContent.innerHTML = panelContentHTML(ctrl.T);
 
   // Restore saved configuration before setting initial values.
   const saved = ctrl.m.loadSavedConfig();
@@ -111,7 +113,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.value = ctrl.m.currentAgg;
 
   // Populate scheme options and set current value
-  (CONF.schemes ?? []).forEach(name => {
+  (ctrl.conf.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
@@ -155,10 +157,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBarCleanup = registerSchemeBarEvents(map, ctrl);
+  ctrl.schemeBarCleanup = registerSchemeBarEvents(ctrl.m.map, ctrl);
   ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
   ctrl.selectScheme = (idx: number) => {
-    const name = (CONF.schemes ?? [])[idx];
+    const name = (ctrl.conf.schemes ?? [])[idx];
     if (name) selectScheme(ctrl, name);
   };
 
@@ -234,15 +236,15 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(
       ctrl,
       ctrl.classSelect,
-      String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+      String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
     );
-    syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? CONST.METHOD.JENKS);
-    ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
-    ctrl.labelChk.checked = CONF.label_show ?? false;
+    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
+    ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
+    ctrl.labelChk.checked = ctrl.conf.label_show ?? false;
     ctrl.borderWeightInput.value = String(
-      CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
+      ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );
-    ctrl.borderColorInput.value = CONF.border_color ?? CONST.GRAY;
+    ctrl.borderColorInput.value = ctrl.conf.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
@@ -283,7 +285,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
       parent: sel,
       selected: !ctrl.m.selectedLayerId ? "" : undefined,
     },
-    T("layer_placeholder"),
+    ctrl.T("layer_placeholder"),
   );
 
   ctrl.m.pointLayers.forEach(info => {
@@ -354,7 +356,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
       class: CONST.CLASSES.PLACEHOLDER_OPTION,
       parent: ctrl.fieldSelect,
     },
-    T("field_auto"),
+    ctrl.T("field_auto"),
   );
 
   fields.forEach(f => {
@@ -421,7 +423,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
   });
 
   let focusIdx = -1;
-  (CONF.schemes ?? []).forEach((name: string, idx: number) => {
+  (ctrl.conf.schemes ?? []).forEach((name: string, idx: number) => {
     const item = dom.el("div", {
       class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
       role: "option",
@@ -455,7 +457,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, Array.from(items));
+  ctrl.dropdownCleanup = registerDropdownEvents(ctrl.m.map, ctrl, Array.from(items));
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
@@ -515,10 +517,10 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
       // hint points the user at the right fix: isLayerControl===false means
       // only the lightweight LayerAPI stub is installed (no LayerControl
       // added), whereas true means LayerControl is present but has no data.
-      const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
-      map.foliplus!.showHint(
-        CONF.name,
-        T(missingLayerControl ? "no_layercontrol" : "no_layer"),
+      const missingLayerControl = !ctrl.m.map.foliplus?.LayerAPI?.isLayerControl;
+      ctrl.m.map.foliplus!.showHint(
+        ctrl.conf.name,
+        ctrl.T(missingLayerControl ? "no_layercontrol" : "no_layer"),
         HINT_DURATION.LONG,
       );
       ctrl.m.hasScanned = true;
@@ -528,7 +530,9 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
     }
   };
 
-  const cleanup = ensureEvents(map).on(EVENTS.CONTROL_ATTACHED, () => scan(false));
+  const cleanup = ensureEvents(ctrl.m.map).on(EVENTS.CONTROL_ATTACHED, () =>
+    scan(false),
+  );
 
   // Settle after the synchronous attach sequence: a control that attached
   // before this subscription (e.g. LayerControl added before Heatmap) is
@@ -550,13 +554,13 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.autoFieldKey = null;
   ctrl.m.fieldAuto = true;
   ctrl.m.currentAgg = CONST.AGG.COUNT;
-  ctrl.m.currentField = CONF.field ?? "";
-  ctrl.m.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-  ctrl.m.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
-  ctrl.m.currentScheme = CONF.color_scheme ?? "Reds";
-  ctrl.m.currentLabelShow = CONF.label_show ?? false;
-  ctrl.m.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
-  ctrl.m.borderColor = CONF.border_color ?? CONST.GRAY;
+  ctrl.m.currentField = ctrl.conf.field ?? "";
+  ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+  ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
+  ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
+  ctrl.m.currentLabelShow = ctrl.conf.label_show ?? false;
+  ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+  ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();
 };
 
