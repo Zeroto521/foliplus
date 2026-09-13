@@ -61,6 +61,7 @@
 - `LayerControl`/`HeatmapControl`: one shared panel shell from `common/panel.ts` (fold button, header, content area, outside-click collapse) replaces `LayerControl`'s hand-rolled markup, and a press inside a panel no longer collapses the other ([#303](https://github.com/Zeroto521/foliplus/pull/303))
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
+- `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are created lazily and rebuilt after `removeControl` + `addControl` on the same control ([#307](https://github.com/Zeroto521/foliplus/pull/307))
 
 ### Removed
 

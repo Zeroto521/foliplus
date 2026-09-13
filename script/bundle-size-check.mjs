@@ -101,6 +101,11 @@ const SPEC = {
     desc: "Max growth before failing, in %",
   },
   root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
+  base: {
+    type: "string",
+    desc: "Base commit — the reference the sizes are diffed against",
+  },
+  head: { type: "string", desc: "Head commit — the build being measured" },
 };
 
 const parseArgs = argv => parseArgsCore(argv, SPEC);
@@ -233,7 +238,22 @@ const totalCells = t => ({
   pct: t.pct == null ? "—" : fmtPct(t.curr, t.prev),
 });
 
-const renderTable = (rows, threshold) => {
+/** The `base … head` commit line for the report, both SHAs shortened to 7
+ *  characters — enough to be unique in this repo while staying on one line.
+ *  A full SHA makes the pair twice as wide for no gain. Rendered only when
+ *  both are given: one side empty is a setup mistake (an unresolved ref, or a
+ *  substitution the runner did not make), and a partial range with a `?`
+ *  reads worse than no range at all. */
+const shortSha = sha => (sha && sha.length > 7 ? sha.slice(0, 7) : sha);
+
+const rangeLine = (base, head) => {
+  const b = shortSha(base);
+  const h = shortSha(head);
+  if (!b || !h) return [];
+  return [`Comparing base (${b}) to head (${h}).`];
+};
+
+const renderTable = (rows, threshold, base, head) => {
   const { curr, prev, delta, pct } = totalCells(summarize(rows));
   const changed = rows.filter(r => r.status !== "same").length;
   const over = rows.filter(r => r.over).length;
@@ -241,7 +261,7 @@ const renderTable = (rows, threshold) => {
     "",
     `## Bundle Size Check (threshold: ${threshold}%)`,
     "",
-    `Sizes exclude the build banner.`,
+    ...rangeLine(base, head),
     "",
     `**Total:** ${curr} · **Δ** ${delta} (${pct}) · ${changed} of ${rows.length} bundles changed`,
     "",
@@ -348,7 +368,7 @@ const check = (args, root = ROOT) => {
   // point at the capture step so the base can be re-sampled.
   const drift = toolMismatch(current, baseline);
 
-  const table = renderTable(rows, threshold);
+  const table = renderTable(rows, threshold, args.base, args.head);
   console.log(renderConsole(rows));
   appendSummary(table);
   if (args.report) {
@@ -409,7 +429,9 @@ export {
   fmtKB,
   fmtPct,
   parseArgs,
+  rangeLine,
   rowCells,
+  shortSha,
   stripLeadingBlockComment,
   summarize,
   toolMismatch,

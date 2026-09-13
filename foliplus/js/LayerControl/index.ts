@@ -9,22 +9,27 @@ import { LayerUI } from "./ui/index.js";
 createControlEnv(CONF, SVGs.LAYERS);
 const T = createScopedTranslator(CONF);
 
-// ==================== Initialize Manager with Data ====================
-const layerManager = new LayerManager(map, CONF.data as LayerInfo[]);
-layerManager.ui = new LayerUI(layerManager);
+// ==================== Manager Factory ====================
+// The manager is created lazily on first use and re-created after destroy(),
+// so `map.removeControl()` + `map.addControl()` on the same control object
+// is re-entrant. Each rendered IIFE gets its own factory (see BaseControl.py).
+const createLayerManager = (): LayerManager => {
+  const manager = new LayerManager(map, CONF.data as LayerInfo[]);
+  manager.ui = new LayerUI(manager);
+  return manager;
+};
 
 // ==================== Leaflet Control Definition ====================
 class LayerControl extends BaseControl {
-  declare manager: LayerManager;
+  manager: LayerManager | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.manager = layerManager;
   }
 
-  /** Shorthand for manager */
-  get m() {
-    return this.manager;
+  /** Shorthand for manager (creates it on first access). */
+  get m(): LayerManager {
+    return (this.manager ??= createLayerManager());
   }
 
   buildDOM() {
@@ -48,8 +53,10 @@ class LayerControl extends BaseControl {
     return container;
   }
 
+  /** Never touch `this.m` here: destroy() must not re-create the manager. */
   destroy() {
-    this.m.destroy();
+    this.manager?.destroy();
+    this.manager = null;
     unpatchBringToFront();
   }
 }

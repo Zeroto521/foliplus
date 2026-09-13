@@ -22,10 +22,14 @@ import type { LayerAPI, LayerInfo } from "./type.js";
  * @param map - Leaflet map instance.
  * @returns The LayerAPI instance (always a valid object).
  */
-const ensureLayerAPI = (map: L.Map): LayerAPI => {
+const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
   ensureHint(map);
-  if (map.foliplus!.LayerAPI) return map.foliplus!.LayerAPI;
+  const current = map.foliplus!.LayerAPI;
+  if (!force && current) return current;
+  // force (LayerManager.destroy) downgrades a live full LayerAPI to the stub;
+  // an existing stub is already the target state, so keep it — idempotent.
+  if (force && current && current.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
