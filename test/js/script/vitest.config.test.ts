@@ -69,7 +69,7 @@ function pullList(text: string, occurrence: number, key = "include"): string[] {
   );
 }
 
-describe("vitest.config.mjs coverage globs", () => {
+describe("vitest.config.mjs", () => {
   it("test.include glob matches at least one test file", () => {
     const dead = INCLUDES.filter(glob => matchAll(glob).length === 0);
     expect(dead, "test.include glob matching no file — drop it or add tests").toEqual(
