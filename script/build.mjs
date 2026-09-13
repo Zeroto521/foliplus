@@ -301,7 +301,9 @@ const buildEntries = (components, withSonda) => {
   if (css) {
     const tmpCss = resolve(buildCss, "common.css");
     writeFileSync(tmpCss, css, "utf-8");
-    artifacts.push(enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")));
+    artifacts.push(
+      enable(artifact([tmpCss], out("foliplus-common.min.css"), "common")),
+    );
   }
   return artifacts;
 };
