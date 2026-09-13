@@ -11,7 +11,6 @@
  * Usage:
  *   node script/build.mjs              # build all (minified)
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
- *   node script/build.mjs --check      # build and verify all artifacts exist
  *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
  *   node script/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
@@ -58,7 +57,6 @@ const SHARED_ENTRY = "runtime";
 const BUILD_SPEC = {
   root: { type: "string", default: ".", desc: "Project root directory" },
   dev: { type: "bool", desc: "Unminified, keepNames" },
-  check: { type: "bool", desc: "Verify all artifacts exist" },
   verify: { type: "bool", desc: "Don't build; assert the existing dist/ is complete" },
   sonda: { type: "bool", desc: "Generate sonda bundle report (HTML treemap)" },
 };
@@ -180,7 +178,7 @@ const artifact = (entryPoints, outfile, name) => {
 };
 
 /** Return the first path that exists, else null. */
-const resolveEntry = candidates => candidates.find(existsSync) ?? null;
+const resolveEntry = candidates => candidates.find(existsSync);
 
 /** Discover component entries (dirs with a matching `{Name}.{ts|js}`) under .build/. */
 const findComponents = () => {
@@ -300,6 +298,28 @@ const buildEntries = (components, withSonda) => {
   return artifacts;
 };
 
+/** Record every component name that got artifacts emitted to dist/.
+
+Values are bare names (`LayerControl`, `common`) — every artifact filename
+is `foliplus-<name>.min.<ext>`, so a reader builds both halves without
+knowing which entry is the shared runtime.
+
+Tested from both stacks: `test/python/test_assets.py` asserts wheel
+membership, `test/js/script/build.test.ts` asserts artifact presence.
+Deriving each from `findComponents` in prose gave three drifting copies;
+this is the one they read. Written only on a real build — `--verify` runs
+on a checkout that may not have `dist/` at all, and it must not touch it.
+*/
+const writeArtifactManifest = filenames => {
+  const names = filenames.map(name =>
+    name === SHARED_ENTRY ? "common" : name,
+  );
+  writeFileSync(
+    resolve(distDir, "artifacts.json"),
+    `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
+  );
+};
+
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
  *  across builds (each build emits one artifact), so a shallow merge suffices. */
 const mergeMetafiles = metafiles => {
@@ -346,20 +366,20 @@ const main = async () => {
   if (sonda) {
     console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
   }
-  const entries = buildEntries(components, CFG.sonda);
+  const artifacts = buildEntries(components, CFG.sonda);
   console.log(
-    `Building ${entries.length} artifacts for ${components.length} components...`,
+    `Building ${artifacts.length} artifacts for ${components.length} components...`,
   );
 
   // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(entries.map(opts => build(opts)));
+  const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
   const failed = results.filter(r => r.status === "rejected").length;
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     if (r.status === "fulfilled") {
-      console.log(`  ${OK} ${basename(entries[i].outfile)}`);
+      console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
     } else {
-      console.error(`  ${FAIL} ${basename(entries[i].outfile)}: ${r.reason.message}`);
+      console.error(`  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`);
     }
   }
 
@@ -385,22 +405,13 @@ const main = async () => {
     await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
   }
 
-  // ── Step 5: Verification (--check) ────────────────────────────
-  if (CFG.check) {
-    const missing = entries
-      .map(e => basename(e.outfile))
-      .filter(f => !existsSync(resolve(distDir, f)));
-    if (missing.length) {
-      console.error(`Missing artifacts: ${missing.join(", ")}`);
-      process.exit(1);
-    }
-    console.log(`All ${entries.length} artifacts present.`);
-  }
+  writeArtifactManifest(components.map(c => c.name));
+
   if (failed) process.exit(1);
   console.timeEnd("build");
 };
 
-// CLI entry point: `node script/build.mjs [--dev|--check|--verify|--sonda]`.
+// CLI entry point: `node script/build.mjs [--dev|--verify|--sonda]`.
 // Guarded so importing this module has no side effects.
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch(e => {

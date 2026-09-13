@@ -29,29 +29,16 @@ from foliplus.BaseControl import (
     _build_shared_header,
     _load_asset,
     dist_dir,
+    expected_artifacts,
 )
 from foliplus.ExportControl import ExportControl
 from foliplus.SearchControl import SearchControl
 
-# Every control class this change set ships a widget for.
-COMPONENTS = (
-    "ExportControl",
-    "FullscreenControl",
-    "HeatmapControl",
-    "LayerControl",
-    "LocateControl",
-    "MeasureControl",
-    "ScaleControl",
-    "SearchControl",
-)
-
-SHARED = ("foliplus-common.min.js", "foliplus-common.min.css")
-
-# Member names relative to the package root, as the archive spells them.
-EXPECTED = [
-    *SHARED,
-    *(f"foliplus-{c}.{ext}" for c in COMPONENTS for ext in ("min.js", "min.css")),
-]
+# Single source for the artifact list: `script/build.mjs` writes
+# `dist/artifacts.json` on every real build, and both this file and
+# `test/js/script/build.test.ts` read it. A new control is therefore
+# asserted in both stacks without either suite re-deriving the names.
+EXPECTED = expected_artifacts()
 
 
 def _clear() -> None:
@@ -190,9 +177,15 @@ def _dist_artifacts(path: str) -> set[str]:
 
 
 def test_dist_directory_is_complete():
-    """The source tree holds every artifact `findComponents` would emit."""
+    """The source tree holds every artifact the build recorded emitting."""
     missing = [n for n in EXPECTED if not (dist_dir / n).is_file()]
     assert not missing, f"dist/ is incomplete: {missing}"
+
+
+def test_manifest_has_both_halves():
+    """Every component name yields a JS and a CSS artifact, including common."""
+    assert len(EXPECTED) == 2 * len(set(n.rsplit(".min.", 1)[0] for n in EXPECTED))
+    assert any(n.startswith("foliplus-common.min.") for n in EXPECTED)
 
 
 def test_wheel_contains_all_artifacts():

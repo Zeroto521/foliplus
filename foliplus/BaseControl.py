@@ -17,6 +17,7 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 from __future__ import annotations
 
+import json
 from functools import cache
 from pathlib import Path
 from textwrap import dedent
@@ -33,6 +34,12 @@ from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
+
+# `script/build.mjs` writes this on every real build, listing what actually
+# landed in `dist/`. Both test suites read it instead of re-deriving the
+# artifact names from prose, so a new component can't be forgotten on one
+# side and pass on the other.
+ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
 
 
 class MissingAssetsError(RuntimeError):
@@ -144,6 +151,18 @@ def control_assets(name: str) -> tuple[Path, Path]:
         dist_dir / f"foliplus-{name}.min.js",
         dist_dir / f"foliplus-{name}.min.css",
     )
+
+
+def expected_artifacts() -> list[str]:
+    """Every ``dist/`` filename a complete build emits, as bare names.
+
+    Read from the manifest the build writes, not re-derived: ``test_assets.py``
+    asserts wheel membership against this list and ``build.test.ts`` asserts
+    artifact presence, so a component added on one side fails both stacks.
+    """
+
+    names = json.loads(ARTIFACTS_MANIFEST.read_text(encoding="utf-8"))["artifacts"]
+    return [f"foliplus-{name}.min.{ext}" for name in names for ext in ("js", "css")]
 
 
 @cache
