@@ -7,6 +7,7 @@ import {
   applyVisibleStateOne,
   saveFoldState,
 } from "#foliplus/LayerControl/ui/state.js";
+import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -37,7 +38,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         hasLayer: vi.fn(l => l === testPolyLayer),
         addLayer: vi.fn(),
         removeLayer,
-        getContainer: vi.fn(() => ({ id: "map" })),
+        getContainer: vi.fn(() => {
+          const el = document.createElement("div");
+          el.id = "map";
+          return el;
+        }),
         getPane: vi.fn(() => ({ style: {} })),
         createPane: vi.fn(() => ({
           style: {},
@@ -592,7 +597,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
             hasLayer: vi.fn(() => true),
             addLayer: vi.fn(),
             removeLayer: rl,
-            getContainer: vi.fn(() => ({}) as HTMLElement),
+            getContainer: vi.fn(() => document.createElement("div")),
             getPane: vi.fn(() => ({ style: {} })),
             createPane: vi.fn(() => ({
               style: {},
@@ -635,6 +640,7 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     `;
     return {
       uiContainer,
+      T: vi.fn((k: string) => k),
       m: {
         findLayer: vi.fn(() => layer),
         map: {
@@ -695,5 +701,48 @@ describe("ui/state saveFoldState", () => {
     } as unknown as LayerUI;
     saveFoldState(ui);
     expect(save).toHaveBeenCalledWith(ui.foldedGroups);
+  });
+});
+
+describe("event-driven row refresh", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    if (!manager.layerRegistry.get("overlay2")) {
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Circles",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+      });
+    }
+    window.localStorage.clear();
+  });
+
+  it("onLayerItemCountChange re-renders the type label and count column", () => {
+    const events = ensureEvents(ui.m.map);
+    const info = manager.layerRegistry.get("overlay1")!;
+    // A numeric feature-count provider makes the count column render (the
+    // fixture's default layers have none).
+    info.featureCountProvider = () => 42;
+
+    const item = findItem(ui, "overlay1");
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    expect(item.title).toContain("42");
+    expect(item.querySelector(CONST.SEL.COUNT_COL)?.textContent).toContain("42");
+    // The type icon column re-detects geometry for an iconSvg-less layer.
+    expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)).not.toBeNull();
+  });
+
+  it("subscribeControlAttached reruns init when another control attaches", () => {
+    const events = ensureEvents(ui.m.map);
+    events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
+    // The callback keeps the rendered rows intact (init re-syncs, no error).
+    expect(
+      ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
+    ).toBeGreaterThan(0);
   });
 });
