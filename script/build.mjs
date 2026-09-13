@@ -17,7 +17,14 @@
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { basename, dirname, resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
