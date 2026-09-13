@@ -19,8 +19,9 @@ const joinUrl = (baseUrl: string | undefined, url: string): string => {
 const withParams = (url: string, params?: Record<string, string | number>): string => {
   if (!params || url === "") return url;
   const parsed = new URL(url);
-  for (const [k, v] of Object.entries(params))
+  for (const [k, v] of Object.entries(params)) {
     if (v != null) parsed.searchParams.set(k, String(v));
+  }
   return parsed.toString();
 };
 
@@ -36,6 +37,9 @@ const safeEval = (source: string): ((data: unknown) => unknown) => {
   if (!/^\s*\(?\s*[A-Za-z_$][\w$]*\s*\)?\s*=>/.test(source)) throw invalid();
   let fn: unknown;
   try {
+    // Normalizer sources are authored by the map creator (not end users) and
+    // pass a structural guard above; the eval is the documented contract.
+    // eslint-disable-next-line no-eval -- guarded arrow-function config
     fn = (0, eval)(source);
   } catch {
     throw invalid();

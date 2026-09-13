@@ -121,12 +121,13 @@ const geocode = (
   const cached = geoCache.get(key);
   if (cached) {
     const [lat, lng, ...name] = cached.split(SEP);
-    if (name.length)
+    if (name.length) {
       return Promise.resolve({
-        lat: +lat,
-        lng: +lng,
+        lat: Number(lat),
+        lng: Number(lng),
         display_name: name.join(SEP),
       });
+    }
   }
 
   const url = resolved.search(address, code);
