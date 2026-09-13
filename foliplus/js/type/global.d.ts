@@ -278,7 +278,16 @@ declare global {
   /** Return type of `LayerAPI.createLayers`. */
   type CreateLayersAPI = CoreCreateLayersAPI;
 
-  /** Per-map foliplus API namespace, attached as `map.foliplus`. */
+  /** Per-map foliplus API namespace, attached as `map.foliplus`.
+   *
+   * All members are required, but each is seeded by exactly one factory
+   * (ensureHint / ensureLayerAPI / ensureEvents / ensureModes /
+   * ensureInteraction) which runs on first use — code must therefore only
+   * reach a member through the factory, never assume the namespace is
+   * complete. {@link ensureMapFoliplus} owns the `LayerAPI: null` seed; it is
+   * the single place that lies about the interface, and it is load-bearing:
+   * `MapFoliplus` must stay a complete object or every `map.foliplus!.x()`
+   * call site across the component bundles becomes a TS2722. */
   interface MapFoliplus {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
