@@ -12,8 +12,8 @@
  *   - foliplus.hint - module-level hint icon registry (per-map hint lives on map.foliplus)
  *
  * Component bundles externalize #core/* and #common/* imports to these globals
- * (see script/shared-external.mjs), so shared code is included exactly once
- * instead of being inlined into every component.
+ * (see script/global-namespace-plugin.mjs), so shared code is included exactly
+ * once instead of being inlined into every component.
  *
  * Geocoding helpers (NOMINATIM, nominatimUrl, formatAddress) live in
  * core/geocode/nominatim.ts and are statically imported by components.

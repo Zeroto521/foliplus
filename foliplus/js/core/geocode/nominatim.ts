@@ -82,7 +82,7 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
 /** Geolocation provider backed by the public Nominatim API (WGS84 in/out). */
 class NominatimProvider implements GeocodeProvider {
   search(q: string, code: string): Promise<GeocodeItem[]> {
-    const url = nominatimUrl("/search", { q, limit: 1, format: "jsonv2" }, code);
+    const url = nominatimUrl("/search", { q, limit: 1 }, code);
     return fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
       .then(r => r.json())
       .then((data: Array<{ lat: string; lon: string; display_name: string }>) =>
