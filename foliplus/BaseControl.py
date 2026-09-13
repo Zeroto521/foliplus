@@ -34,6 +34,26 @@ from .locale import LocaleConfig, _load_tables, resolve_locale
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
 
+
+class MissingAssetsError(RuntimeError):
+    """Raised when a bundled asset is absent from ``dist/``.
+
+    A control's JS/CSS and the shared runtime bundle ship as compiled artifacts
+    in ``foliplus/dist/`` (see :data:`dist_dir`), which is not under version
+    control. A package without them is unusable, so rendering fails fast with
+    the build step named instead of emitting an empty ``<script>`` tag that dies
+    with no clue in the browser console.
+    """
+
+    def __init__(self, missing: list[Path]) -> None:
+        names = ", ".join(str(p.relative_to(src_dir.parent)) for p in missing)
+        super().__init__(
+            f"foliplus bundled assets missing: {names}. "
+            "Run `make build-js` in the source checkout, then rebuild the "
+            "package with `uv build` (`make dist` does both)."
+        )
+
+
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,
 # so this pass matches what folium already guarantees for the same payload.
@@ -75,6 +95,16 @@ def _build_shared_header() -> str:
     all components).
     Built once and cached at module level.
     """
+    missing = [
+        a
+        for a in (
+            dist_dir / "foliplus-common.min.css",
+            dist_dir / "foliplus-common.min.js",
+        )
+        if not a.is_file()
+    ]
+    if missing:
+        raise MissingAssetsError(missing)
     css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
     js = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
 
@@ -91,20 +121,29 @@ def _build_shared_header() -> str:
 
 
 def _load_asset(artifact: Path) -> str:
-    """Read an asset, preferring the minified artifact.
+    """Read one component artifact from ``dist/``.
 
-    Resolution order:
-    1. Prefer the minified artifact from ``dist/`` if it exists.
-    2. Fall back to the source file.
-
-    Components that use ES module ``import`` (migrated ones) **must** be read from the
-    bundled artifact, which is always present after a ``make build-js`` run.
-
-    Returns ``""`` when neither the source nor the artifact exists (a component simply
-    may not ship a given CSS/JS asset).
+    Raises :class:`MissingAssetsError` when the artifact is absent, so a package
+    built without the JS build fails loudly instead of rendering an empty
+    component.
     """
 
-    return artifact.read_text(encoding="utf-8") if artifact.is_file() else ""
+    if not artifact.is_file():
+        raise MissingAssetsError([artifact])
+    return artifact.read_text(encoding="utf-8")
+
+
+def control_assets(name: str) -> tuple[Path, Path]:
+    """Return the ``dist/`` pair for one control: ``(js, css)``.
+
+    The single place that knows how a control name maps to artifacts, so a
+    control cannot ship one half without the other.
+    """
+
+    return (
+        dist_dir / f"foliplus-{name}.min.js",
+        dist_dir / f"foliplus-{name}.min.css",
+    )
 
 
 @cache
@@ -115,8 +154,9 @@ def _build_component_template(name: str) -> Template:
     render-time CONF / map name differ, both resolved at render time), so it
     is built a single time per component name instead of on every render.
     """
-    js = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.js"))
-    css = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.css"))
+    js_artifact, css_artifact = control_assets(name)
+    js = _load_asset(js_artifact)
+    css = _load_asset(css_artifact)
 
     return Template(
         dedent(f"""\

@@ -15,6 +15,8 @@ help:
 	@echo "'build-js'     - minify JS/CSS with esbuild to foliplus/dist/"
 	@echo "'build-js-dev' - build JS/CSS without minification (for tests)"
 	@echo "'build-python' - build sdist + wheel only"
+	@echo "               NOTE: use 'make dist' for releases — never a bare"
+	@echo "               'python -m build', which skips the JS build gate"
 	@echo "'test'         - run all tests with coverage"
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
@@ -64,6 +66,10 @@ bundle-size-check: build-js
 	npm run bundle-size:check
 
 build-python:
+	# `foliplus/dist` is not under version control, so without this gate
+	# `uv build` happily ships a wheel with zero bundled JS/CSS — it installs,
+	# imports, and renders maps with no controls. Fail here instead.
+	npm run build:verify
 	uv build
 	uvx twine check --strict dist/*
 	ls -l dist
