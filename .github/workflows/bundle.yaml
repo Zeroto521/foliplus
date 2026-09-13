@@ -55,9 +55,11 @@ jobs:
 
       - name: Compare with base
         run: |
-          node script/bundle-size-check.mjs --baseline=base-sizes.json \
-            --base="${{ github.base_sha }}" --head="${{ github.sha }}" \
-            --report=bundle-report.md || true
+          node script/bundle-size-check.mjs \
+            --baseline=base-sizes.json \
+            --base="${{ github.base_sha }}" \
+            --head="${{ github.sha }}" \
+            --report=bundle-report.md
 
       - uses: actions/upload-artifact@v7
         id: upload

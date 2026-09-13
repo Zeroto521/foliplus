@@ -240,10 +240,12 @@ const totalCells = t => ({
 
 /** The `base … head` commit line for the report. CI passes the two SHAs from
  *  the `github` context, so they need no shortening and no shell round-trip.
- *  Omitted entirely when neither is given — a bare local run has no range. */
+ *  Rendered only when both are given — one side empty is a setup mistake (a
+ *  non-PR trigger, or a `${{ }}` the runner did not substitute), and a partial
+ *  range reads worse than no range. */
 const rangeLine = (base, head) => {
-  if (!base && !head) return [];
-  return [`_Comparing base (${base || "?"}) to head (${head || "?"})._`];
+  if (!base || !head) return [];
+  return [`_Comparing base (${base}) to head (${head})._`];
 };
 
 const renderTable = (rows, threshold, base, head) => {

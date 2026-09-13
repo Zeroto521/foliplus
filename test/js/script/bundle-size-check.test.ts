@@ -442,8 +442,8 @@ describe("check", () => {
     );
   });
 
-  it("drops the comparison line when no commits are given", () => {
-    // A bare local run has no base/head pair, so the line would render "(?)".
+  it("drops the comparison line when neither commit is given", () => {
+    // A bare local run has no base/head pair.
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
     mkDist(root, { "a.min.js": content });
@@ -454,6 +454,27 @@ describe("check", () => {
     ]);
     expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).not.toContain("Comparing base");
+  });
+
+  it("drops the comparison line when only one commit is given", () => {
+    // One side empty means the CI context was not fully substituted — a non-PR
+    // trigger, or a step that lost its `run:` context. A partial range like
+    // "base (?) to head (3374c53)" reads worse than no range, so the line is
+    // suppressed rather than padded.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    mkDist(root, { "a.min.js": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
+      "--report=" + report,
+      "--base=",
+      "--head=3374c53a1b2c3d4e",
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).not.toContain("Comparing base");
+    expect(md).not.toContain("?");
   });
 
   it("compares against a custom baseline via --baseline", () => {
