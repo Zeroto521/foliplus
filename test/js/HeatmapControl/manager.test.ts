@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
+import { createScopedTranslator } from "#common/locale.js";
 
 /** Build a minimal HeatmapManager with all external deps stubbed out. */
 function makeManager() {
@@ -980,6 +981,8 @@ describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
     const emptyInput = document.createElement("input");
     return {
       m,
+      conf: window.CONF as ComponentConfig,
+      T: createScopedTranslator(window.CONF),
       ctrl: document.createElement("div"),
       schemeDropdown: null,
       expandHookDone: false,
@@ -1097,8 +1100,14 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   const makeCtrl = (m: HeatmapManager) => {
     const sel = document.createElement("select");
     const emptyInput = document.createElement("input");
+    // initScan reaches the map via ctrl.m.map — mirror the window.map
+    // foliplus stub (LayerAPI + showHint) onto the manager's map so the
+    // API and hint paths resolve to the same mocks the tests stub below.
+    (m.map as any).foliplus = window.map.foliplus;
     return {
       m,
+      conf: window.CONF as ComponentConfig,
+      T: createScopedTranslator(window.CONF),
       ctrl: document.createElement("div"),
       schemeDropdown: null,
       expandHookDone: false,
@@ -1162,7 +1171,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(m.hasScanned).toBe(false);
 
     // LayerControl (or any control) finishing attach re-triggers the scan.
-    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
 
@@ -1207,7 +1216,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     cleanup();
     cleanup(); // second call is a no-op
 
-    ensureEvents(window.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
     // Unsubscribed — no further scan ran, and no late settle.

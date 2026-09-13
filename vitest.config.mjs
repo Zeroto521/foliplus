@@ -34,7 +34,6 @@ export default defineConfig({
         "foliplus/js/MeasureControl/mode/index.ts",
         // UI modules — pure DOM builders, covered by browser tests
         "foliplus/js/ExportControl/ui.ts",
-        "foliplus/js/HeatmapControl/ui.ts",
         "foliplus/js/LayerControl/ui.ts",
         "foliplus/js/MeasureControl/ui.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle
