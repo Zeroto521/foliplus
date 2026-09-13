@@ -725,7 +725,9 @@ class LayerManager implements LayerAPI {
     // Revert to the lightweight LayerAPI (no registry, no panel).
     // ensureLayerAPI guarantees a valid object, so consumers can always
     // call `map.foliplus.LayerAPI.xxx` without null checks.
-    ensureLayerAPI(this.map);
+    // `force` is required: without it the existing (destroyed) manager would
+    // short-circuit the stub replacement and stay live on the map.
+    ensureLayerAPI(this.map, true);
   }
 }
 

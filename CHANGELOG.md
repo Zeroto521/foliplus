@@ -57,6 +57,8 @@
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
 - `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
 
+- `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are now created lazily on first use and rebuilt after `map.removeControl()` + `map.addControl()` on the same control object, so `destroy()` no longer leaves the control unusable; Heatmap's initial layer scan restarts from `buildDOM`. Also fixes a `MODE_CHANGE` listener leak in `MeasureControl` (unsubscribe was never stored or released) and makes `ensureLayerAPI` able to downgrade back to the lightweight stub on destroy
+
 ### Removed
 
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
