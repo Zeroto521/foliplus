@@ -11,4 +11,4 @@
     ".foliplus-measure-ctrl .foliplus-tool-btn",
   ).length;
   return { removed, hasManager: !!mgr, btnCount };
-}
+};

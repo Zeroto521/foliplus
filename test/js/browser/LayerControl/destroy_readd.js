@@ -12,4 +12,4 @@
     afterAddFull: window.map.foliplus.LayerAPI.isLayerControl === true,
     panelAttached: !!document.querySelector(".foliplus-panel-content"),
   };
-}
+};

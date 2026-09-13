@@ -12,4 +12,4 @@
     hasManager: !!mgr,
     attached: !!(mgr && mgr.exportCtrl && mgr.exportToolBar),
   };
-}
+};

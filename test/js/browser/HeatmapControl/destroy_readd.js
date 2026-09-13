@@ -8,4 +8,4 @@
   const removed = document.querySelector(".foliplus-heatmap-ctrl") === null;
   window.map.addControl(ctrl);
   return { removed, hasManager: !!ctrl.m };
-}
+};
