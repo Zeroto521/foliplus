@@ -1,8 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NominatimProvider, formatAddress, nominatimUrl } from "#core/geocode/index.js";
+import { describe, expect, it } from "vitest";
+import { createNominatim, formatAddress, nominatimUrl } from "#core/geocode/index.js";
 
-const jsonResponse = (data: unknown) =>
-  ({ json: () => Promise.resolve(data) }) as Response;
+const provider = createNominatim();
 
 describe("nominatimUrl", () => {
   it("builds a search URL with default params", () => {
@@ -113,49 +112,92 @@ describe("formatAddress", () => {
   });
 });
 
-describe("NominatimProvider", () => {
-  beforeEach(() => {
-    globalThis.fetch = vi.fn();
-  });
-
-  it("parses search results into GeocodeItems", async () => {
-    (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
-    );
-    const items = await new NominatimProvider().search("Fuzhou", "en");
-    expect(items).toEqual([{ lat: 26.08, lng: 119.3, display_name: "Fuzhou" }]);
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    const url = (globalThis.fetch as any).mock.calls[0][0] as string;
+describe("Nominatim provider — URL building", () => {
+  it("builds a suggest URL with query, limit, bias and accept-language", () => {
+    const url = provider.suggest("test query", 5, [119.3, 26.08], "zh");
     expect(url).toContain("nominatim.openstreetmap.org/search");
-    expect(url).toContain("q=Fuzhou");
+    expect(url).toContain("format=jsonv2");
+    expect(url).toContain("q=test+query");
+    expect(url).toContain("limit=5");
+    expect(url).toContain("lon=119.3");
+    expect(url).toContain("lat=26.08");
+    expect(url).toContain("accept-language=zh");
   });
 
-  it("returns an empty list when the response is not an array", async () => {
-    (globalThis.fetch as any).mockResolvedValue(jsonResponse({ error: "oops" }));
-    const items = await new NominatimProvider().search("Fuzhou", "en");
-    expect(items).toEqual([]);
+  it("omits the bias params when center is null", () => {
+    const url = provider.suggest("Paris", 5, null, "en");
+    expect(url).not.toContain("lon=");
+    expect(url).not.toContain("lat=");
   });
 
-  it("propagates fetch failures (the error boundary lives in the geocoder)", async () => {
-    (globalThis.fetch as any).mockRejectedValue(new Error("network down"));
-    await expect(new NominatimProvider().search("Fuzhou", "en")).rejects.toThrow(
-      "network down",
-    );
+  it("builds a search URL with limit 1", () => {
+    const url = provider.search("Paris", "en");
+    expect(url).toContain("q=Paris");
+    expect(url).toContain("limit=1");
   });
 
-  it("parses reverse responses into a single item", async () => {
-    (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({ lat: "30.1", lon: "110.1", display_name: "Fuzhou,China" }),
-    );
-    const item = await new NominatimProvider().reverse(110.1, 30.1, "en");
-    expect(item).toEqual({ lat: 30.1, lng: 110.1, display_name: "Fuzhou,China" });
-    const url = (globalThis.fetch as any).mock.calls[0][0] as string;
+  it("builds a reverse URL with zoom", () => {
+    const url = provider.reverse(119.3, 26.08, "en");
     expect(url).toContain("nominatim.openstreetmap.org/reverse");
+    expect(url).toContain("lon=119.3");
+    expect(url).toContain("lat=26.08");
+    expect(url).toContain("zoom=18");
   });
 
-  it("returns null for reverse responses without a display_name", async () => {
-    (globalThis.fetch as any).mockResolvedValue(jsonResponse({}));
-    const item = await new NominatimProvider().reverse(110.1, 30.1, "en");
-    expect(item).toBeNull();
+  it("respects a custom baseUrl", () => {
+    const custom = createNominatim("https://nominatim.example.com");
+    expect(custom.search("Paris", "en")).toContain("nominatim.example.com/search");
+  });
+
+  it("accept-language falls back to en when code is empty", () => {
+    expect(provider.search("Paris", "")).toContain("accept-language=en");
+    expect(provider.reverse(119.3, 26.08, "")).toContain("accept-language=en");
+  });
+});
+
+describe("Nominatim provider — normalizers", () => {
+  it("maps raw lon→lng and drops invalid entries", () => {
+    const raw = [
+      { lon: "120.0", lat: "30.0", name: "A", display_name: "A, Place" },
+      { lng: "121.0", lat: "31.0", display_name: "B" },
+      { lat: "32.0" }, // missing lon/lng → dropped
+    ];
+    const items = provider.normalizeSuggest(raw);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      lng: "120.0",
+      lat: "30.0",
+      name: "A",
+      display_name: "A, Place",
+    });
+    expect(items[1].lng).toBe("121.0");
+  });
+
+  it("normalizeSearch returns the first valid item or null", () => {
+    expect(
+      provider.normalizeSearch([{ lon: "1", lat: "2", display_name: "X" }]),
+    ).toEqual({ lng: "1", lat: "2", name: undefined, display_name: "X" });
+    expect(provider.normalizeSearch([])).toBeNull();
+    expect(provider.normalizeSearch("not-an-array")).toBeNull();
+  });
+
+  it("normalizeReverse extracts display_name (empty when absent)", () => {
+    expect(provider.normalizeReverse({ display_name: "Fuzhou,China" })).toBe(
+      "Fuzhou,China",
+    );
+    expect(provider.normalizeReverse({})).toBe("");
+  });
+
+  it("normalizeSuggest returns [] for non-array input", () => {
+    expect(provider.normalizeSuggest({})).toEqual([]);
+    expect(provider.normalizeSuggest(null)).toEqual([]);
+  });
+
+  it("normalizes non-string name/display_name to undefined/''", () => {
+    const items = provider.normalizeSuggest([
+      { lon: "1", lat: "2", name: 123, display_name: 456 },
+    ]);
+    expect(items[0].name).toBeUndefined();
+    expect(items[0].display_name).toBe("");
   });
 });
