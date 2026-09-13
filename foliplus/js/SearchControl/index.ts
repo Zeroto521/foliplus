@@ -1,4 +1,5 @@
 import { createControlEnv } from "#core/controlEnv.js";
+import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
@@ -11,12 +12,7 @@ import { CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
-import type {
-  AddressResult,
-  NominatimItem,
-  ResultItem,
-  SearchHistoryEntry,
-} from "./type.js";
+import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
 const T = createScopedTranslator(CONF);
@@ -32,7 +28,7 @@ class SearchControl extends BaseControl {
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
-  declare cachedSuggestions: Cache<string, NominatimItem[]>;
+  declare cachedSuggestions: Cache<string, SuggestItem[]>;
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -116,13 +112,18 @@ class SearchControl extends BaseControl {
   initState() {
     this.marker = null;
     this.delIcon = null;
+    // Register this control's provider as the map default so indirect
+    // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
+    // follows the same provider — cache keys and rate limits stay consistent.
+    if (!map.foliplus) map.foliplus = {} as MapFoliplus;
+    map.foliplus.geocodeProvider = CONF.provider ?? "nominatim";
     this.mode =
       CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
-    this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
+    this.cachedSuggestions = new Cache<string, SuggestItem[]>(50);
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;

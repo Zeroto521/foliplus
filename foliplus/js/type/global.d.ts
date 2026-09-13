@@ -18,6 +18,7 @@ import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
 import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
+import type { ProviderConfig } from "#core/geocode/type.js";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
@@ -142,6 +143,8 @@ declare global {
     position?: Leaflet.ControlPosition;
     mode?: string;
     zoom?: number;
+    provider?: string | ProviderConfig;
+    provider_config?: Record<string, unknown> | null;
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
     collide_labels?: boolean;
@@ -175,32 +178,39 @@ declare global {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
-    registerHintIcon: (name: string, icon: string) => void;
+    registerHintIcon: (key: string, iconSvg: string) => void;
     showHint: (
       name: string,
       msg: string,
       duration: number,
-      withLoadingIcon?: boolean | string | null,
-      id?: string,
+      append?: boolean,
+      subkey?: string,
+      withLoadingIcon?: boolean,
     ) => void;
-    hideHint: (name: string, id?: string) => void;
+    hideHint: (name: string, subkey?: string) => void;
     reverseGeocode: (
       map: Leaflet.Map,
       lng: number | string,
       lat: number | string,
       code?: string,
+      provider?: string | CoreProviderConfig,
+      providerConfig?: Record<string, unknown> | null,
     ) => Promise<string>;
     geocode: (
       map: Leaflet.Map,
       address: string,
       code?: string,
-    ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
+      provider?: string | CoreProviderConfig,
+      providerConfig?: Record<string, unknown> | null,
+    ) => Promise<{ lng: number; lat: number; display_name: string } | null>;
     cacheSuggestion: (
       map: Leaflet.Map,
       address: string,
-      lat: number,
       lng: number,
+      lat: number,
       displayName: string,
+      provider?: string | CoreProviderConfig,
+      providerConfig?: Record<string, unknown> | null,
     ) => void;
     _TABLES: Record<string, Record<string, string>>;
     /** Shared core modules (layer, event, mode). Set by _shared-registry + runtime. */
@@ -278,7 +288,16 @@ declare global {
   /** Return type of `LayerAPI.createLayers`. */
   type CreateLayersAPI = CoreCreateLayersAPI;
 
-  /** Per-map foliplus API namespace, attached as `map.foliplus`. */
+  /** Per-map foliplus API namespace, attached as `map.foliplus`.
+   *
+   * All members are required, but each is seeded by exactly one factory
+   * (ensureHint / ensureLayerAPI / ensureEvents / ensureModes /
+   * ensureInteraction) which runs on first use — code must therefore only
+   * reach a member through the factory, never assume the namespace is
+   * complete. {@link ensureMapFoliplus} owns the `LayerAPI: null` seed; it is
+   * the single place that lies about the interface, and it is load-bearing:
+   * `MapFoliplus` must stay a complete object or every `map.foliplus!.x()`
+   * call site across the component bundles becomes a TS2722. */
   interface MapFoliplus {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
@@ -289,6 +308,7 @@ declare global {
       duration: number,
       append?: boolean,
       subkey?: string,
+      withLoadingIcon?: boolean,
     ) => void;
     hideHint: (key: string, subkey?: string) => void;
     registerHintIcon: (key: string, iconSvg: string) => void;
@@ -298,6 +318,9 @@ declare global {
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */
     interaction: InteractionManager;
+    /** Default geocode provider spec for this map, registered by provider-aware
+     *  controls (e.g. SearchControl) so indirect geocoding follows it. */
+    geocodeProvider?: string | ProviderConfig;
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.

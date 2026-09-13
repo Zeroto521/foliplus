@@ -6,7 +6,8 @@ import type { LayerUI } from "./ui/index.js";
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
-  return ensureInteraction(ui.m.map).register(CONF.name, [
+  const interaction = ensureInteraction(ui.m.map);
+  return interaction.register(CONF.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowDown", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowLeft", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

@@ -1,9 +1,9 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { COMPONENTS } from "#core/component.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { COORD_BOUNDS } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
-import { COORD_BOUNDS } from "#common/coord.js";
+import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { dom } from "#common/dom.js";
 import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -112,6 +112,15 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  /** Component config — carried on the instance so the UI modules read it
+   *  from `mgr.conf` instead of a module-level free variable. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once in the constructor. */
+  T: (key: string) => string;
+  /** Per-map mode manager / event bus — bound once in the constructor
+   *  (ensure-style getters return the cached instance). */
+  modes: ModeManager;
+  events: EventBus;
   dragCleanup?: () => void;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
@@ -161,6 +170,10 @@ class ExportManager {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
     this.scheduler = scheduler;
+    this.conf = CONF;
+    this.T = T;
+    this.modes = ensureModes(this.map);
+    this.events = ensureEvents(this.map);
 
     this.cropState = null;
     this.exportCtrl = null;
@@ -193,7 +206,7 @@ class ExportManager {
     this.showHintWithInfo = (r: Rect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
-      showGlobalHint(text, duration, withLoadingIcon);
+      showGlobalHint(this, text, duration, withLoadingIcon);
   }
 
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
@@ -563,8 +576,8 @@ class ExportManager {
       return;
     }
     this.isExporting = true;
-    ensureModes(this.map).setMode(CONF.name, "exporting");
-    ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
+    this.modes.setMode(CONF.name, "exporting");
+    this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
     const r = Object.assign({}, this.cropState.rect);
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
@@ -813,8 +826,8 @@ class ExportManager {
    *  disabled and the overlay still on screen. */
   endExport() {
     this.isExporting = false;
-    ensureModes(this.map).setMode(CONF.name, null);
-    ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.modes.setMode(CONF.name, null);
+    this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
   }
 
@@ -896,8 +909,8 @@ class ExportManager {
   /** Handle render failure. */
   onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
-    ensureModes(this.map).setMode(CONF.name, null);
-    ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.modes.setMode(CONF.name, null);
+    this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
     log.error(`${T("err_render")}:`, err);

@@ -1,12 +1,9 @@
-// Shared free helpers for LayerControl UI modules.
-// CONF / map are IIFE free variables from the template wrapper.
-import { type LayerInfo, forEachLeaf, getGeometryType } from "#core/layer/index.js";
+// Shared pure helpers for LayerControl UI modules.
+// CONF / map are no longer read here — each module reads them off the
+// `LayerUI` state it receives (ui.conf / ui.T / ui.m.map).
+import { type LayerInfo } from "#core/layer/index.js";
 import { updateItemLabel } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
-
-const T = createScopedTranslator(CONF);
-const mapContainer = map.getContainer();
 
 /** Does the browser consider this focus keyboard-visible?
  *
@@ -47,14 +44,4 @@ const applyNameProjection = (
  *  10px type and is rendered below its label on the full panel width. */
 const ATTRS_ROW_WRAP_CHARS = 32;
 
-export {
-  ATTRS_ROW_WRAP_CHARS,
-  applyNameProjection,
-  isKeyboardVisibleFocus,
-  mapContainer,
-  owningRow,
-  T,
-};
-
-// re-export for modules that only need geometry helpers via shared
-export { forEachLeaf, getGeometryType };
+export { ATTRS_ROW_WRAP_CHARS, applyNameProjection, isKeyboardVisibleFocus, owningRow };
