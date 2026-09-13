@@ -30,7 +30,6 @@
 
 ### Changed
 
-- `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LayerControl`: rework internal architecture into `LayerRegistry` (ordered layer list, read-only `api.layers`) + `PaneManager` (pane lifecycle: creation, discovery cache, fallback mapping, DOM migration) + `LayerUI` (fold/drag/color state), orchestrated by a slim `LayerManager` ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119), [#120](https://github.com/Zeroto521/foliplus/pull/120), [#121](https://github.com/Zeroto521/foliplus/pull/121), [#214](https://github.com/Zeroto521/foliplus/pull/214))
 - `LayerControl`: split `LayerUI` into `ui/*` modules (`list`/`state`/`keyboard`/`focus`/…) with a single `ui/index.js` export; public API unchanged ([#291](https://github.com/Zeroto521/foliplus/pull/291), [#296](https://github.com/Zeroto521/foliplus/pull/296), [#297](https://github.com/Zeroto521/foliplus/pull/297))
@@ -53,11 +52,12 @@
 - `MeasureControl`: extract measurement data lifecycle into a `MeasureStore` class (`store.add/remove/update/all`), mirroring `LayerControl`'s single-store convention; ids stabilized on restore ([#234](https://github.com/Zeroto521/foliplus/pull/234))
 - `ExportControl`/`MeasureControl`: move the file-download anchor to `common/download.ts` so both callers import it from `#common/download.js` instead of across components ([#248](https://github.com/Zeroto521/foliplus/pull/248))
 - `LayerControl`/`MeasureControl`: `createLayers` now takes an ordered `panes: {name, isLabel?}[]` list instead of a single label-pane name; MeasureControl routes geometry, nodes, and labels to three panes whose z-index (graph < node < label) guarantees paint order, fixing preview labels covered by nodes ([#252](https://github.com/Zeroto521/foliplus/issues/252), [#271](https://github.com/Zeroto521/foliplus/pull/271), [#280](https://github.com/Zeroto521/foliplus/pull/280))
+- `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
 - `MeasureControl`/`SearchControl`: location coordinates are now pinned to six decimals by one shared formatter (`formatCoord` / `formatLatLng` in `common/format.ts`) — a search result or a popup rendered from a history entry saved as `121.47` used to read `121.47` where the cursor readout reads `121.470000` ([#260](https://github.com/Zeroto521/foliplus/pull/260))
 - `CSS build`: split the single 710-line `common.css` into nine semantic modules under `css/common/` ([#266](https://github.com/Zeroto521/foliplus/pull/266))
 - `LayerControl`/`HeatmapControl`: attach-time init is signal-driven (`CONTROL_ATTACHED` + `data-ready`), replacing fixed timers/retries; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283), [#285](https://github.com/Zeroto521/foliplus/pull/285))
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
-- `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
+- `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 
 ### Removed
 
