@@ -55,10 +55,14 @@ jobs:
 
       - name: Compare with base
         run: |
+          # `github.base_sha` arrives empty on this runner, so the commit line
+          # cannot come from the context. Resolve both sides with git instead —
+          # `origin/<base_ref>` is the exact tree whose sizes were captured above,
+          # which is what the diff measures.
           node script/bundle-size-check.mjs \
             --baseline=base-sizes.json \
-            --base="${{ github.base_sha }}" \
-            --head="${{ github.sha }}" \
+            --base="$(git rev-parse "origin/${{ github.base_ref }}")" \
+            --head="$(git rev-parse HEAD)" \
             --report=bundle-report.md
 
       - uses: actions/upload-artifact@v7

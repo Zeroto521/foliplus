@@ -238,11 +238,11 @@ const totalCells = t => ({
   pct: t.pct == null ? "—" : fmtPct(t.curr, t.prev),
 });
 
-/** The `base … head` commit line for the report. CI passes the two SHAs from
- *  the `github` context, so they need no shortening and no shell round-trip.
- *  Rendered only when both are given — one side empty is a setup mistake (a
- *  non-PR trigger, or a `${{ }}` the runner did not substitute), and a partial
- *  range reads worse than no range. */
+/** The `base … head` commit line for the report. CI resolves the two SHAs with
+ *  git, so they need no shortening here. Rendered only when both are given —
+ *  one side empty is a setup mistake (an unresolved ref, or a substitution the
+ *  runner did not make), and a partial range with a `?` reads worse than no
+ *  range at all. */
 const rangeLine = (base, head) => {
   if (!base || !head) return [];
   return [`_Comparing base (${base}) to head (${head})._`];
