@@ -26,6 +26,10 @@
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--accent-primary);
   box-shadow: var(--focus-ring);
+  /* The focus ring above replaces the UA outline. Without this the browser
+     paints its default black outline *on top of* the red glow, so a focused
+     control showed a black rim around the red one. */
+  outline: none;
 }
 
 .foliplus-popup-content {

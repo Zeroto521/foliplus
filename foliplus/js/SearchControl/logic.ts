@@ -1,6 +1,11 @@
 // SearchControl search/suggestion logic — standalone functions called with `this` as ctrl.
 import { COORD_BOUNDS, fromWgs84, toWgs84 } from "#core/geo/index.js";
-import { NOMINATIM, formatAddress, nominatimUrl } from "#core/geocode/index.js";
+import { formatAddress, resolveProvider } from "#core/geocode/index.js";
+import type {
+  GeocodeProvider,
+  ProviderConfig,
+  SuggestItem,
+} from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
@@ -27,23 +32,37 @@ import {
   type SearchType,
   ZOOM,
 } from "./const.js";
-import type {
-  AddressResult,
-  NominatimItem,
-  ResultItem,
-  SearchHistoryEntry,
-} from "./type.js";
+import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
+
+/** Resolve the configured geocode provider (falls back to Nominatim). */
+const getProvider = (): GeocodeProvider => {
+  try {
+    return resolveProvider(
+      CONF.provider as string | ProviderConfig | undefined,
+      CONF.provider_config,
+    );
+  } catch {
+    return resolveProvider();
+  }
+};
+
+/** Raw provider spec from CONF, forwarded to the shared runtime geocoder so
+ *  custom providers resolve identically there (cache keys stay consistent). */
+const providerArgs = (): [
+  string | ProviderConfig | undefined,
+  Record<string, unknown> | null | undefined,
+] => [CONF.provider, CONF.provider_config];
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
 interface SearchControlState {
   inp: HTMLInputElement;
   mode: SearchType;
   modeBtn: HTMLElement;
-  cachedSuggestions: Cache<string, NominatimItem[]>;
+  cachedSuggestions: Cache<string, SuggestItem[]>;
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
   selectedIdx: number;
@@ -288,7 +307,7 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
-    .reverseGeocode(map, lng, lat, CONF.locale_code)
+    .reverseGeocode(map, lng, lat, CONF.locale_code, ...providerArgs())
     .then(addr => {
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === key);
@@ -318,7 +337,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   );
 
   window.foliplus
-    .geocode(map, query, CONF.locale_code)
+    .geocode(map, query, CONF.locale_code, ...providerArgs())
     .then(result => {
       map.foliplus!.hideHint(CONF.name);
       if (!result) {
@@ -500,7 +519,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
 
 const renderSuggestions = (
   ctrl: SearchControlState,
-  results: NominatimItem[],
+  results: SuggestItem[],
   query: string,
 ) => {
   if (!results || results.length === 0) {
@@ -510,7 +529,7 @@ const renderSuggestions = (
 
   ctrl.cachedSuggestions.set(query, results);
 
-  const items: ResultItem[] = results.map((item: NominatimItem) => {
+  const items: ResultItem[] = results.map((item: SuggestItem) => {
     const displayName =
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
@@ -622,12 +641,13 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
 
+  const provider = getProvider();
   const now = Date.now();
-  if (now - ctrl.lastSuggestFetch < NOMINATIM.THROTTLE_MS) {
+  if (now - ctrl.lastSuggestFetch < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = setTimeout(
       () => fetchSuggestions(ctrl, query),
-      NOMINATIM.THROTTLE_MS - (now - ctrl.lastSuggestFetch),
+      provider.throttleMs - (now - ctrl.lastSuggestFetch),
     );
     return;
   }
@@ -639,29 +659,31 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
 
   fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
     signal: ctrl.suggestAbortController.signal,
+    headers: provider.headers,
   })
     .then(r => r.json())
-    .then((raw: any[]) => {
-      // Map API field names: Nominatim returns `lon`, we use `lng`
-      const results: NominatimItem[] = raw.map((r: any) => ({
-        lng: r.lon ?? r.lng,
-        lat: r.lat,
-        name: r.name,
-        display_name: r.display_name,
-      }));
+    .then((raw: unknown) => {
+      // Provider normalizes raw API JSON into the shared SuggestItem shape
+      // (WGS84). Convert to the map CRS so the panel coordinates, the placed
+      // marker and the cache-warmed forward entry all agree with the map.
+      const results: SuggestItem[] = provider.normalizeSuggest(raw).map(item => {
+        const [lng, lat] = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
+        return { ...item, lng: String(lng), lat: String(lat) };
+      });
       if (reqSeq !== ctrl.suggestSeq) return;
       if (query !== ctrl.inp.value.trim()) return;
       // Cache first result so searchAddress can serve it from geoCache.
-      // results is always an array (it comes from raw.map), so index 0 is
-      // either an item or undefined.
+      // results is always an array (normalizeSuggest), so index 0 is either
+      // an item or undefined.
       const first = results[0];
       if (first) {
         window.foliplus.cacheSuggestion(
           map,
           query,
-          parseFloat(first.lat),
           parseFloat(first.lng),
+          parseFloat(first.lat),
           formatAddress(first.display_name, map, CONF.locale_code) || query,
+          ...providerArgs(),
         );
       }
       renderSuggestions(ctrl, results, query);
@@ -681,11 +703,9 @@ const initDebouncedFetch = (ctrl: SearchControlState) => {
 
 const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
   const center = map.getCenter();
-  return nominatimUrl(
-    "/search",
-    { q, limit, lon: center.lng, lat: center.lat },
-    CONF.locale_code,
-  );
+  // Providers expect WGS84 bias coordinates — convert from the map CRS.
+  const wgs = toWgs84(map, center.lng, center.lat);
+  return getProvider().suggest(q, limit, [wgs[0], wgs[1]], CONF.locale_code ?? "en");
 };
 
 export {

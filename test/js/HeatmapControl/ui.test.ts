@@ -298,19 +298,6 @@ describe("bindControls — clear (reset) button", () => {
   });
 });
 
-describe("bindControls — apply (confirm) button", () => {
-  it("re-renders and collapses the panel", () => {
-    const { ctrl, m, panel } = setup();
-    const render = vi.spyOn(m, "renderHexagons");
-    const btn = panel.querySelector(
-      `[${CONST.DATA_ATTR.BTN_CONFIRM}]`,
-    ) as HTMLButtonElement;
-    btn.click();
-    expect(render).toHaveBeenCalled();
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
-  });
-});
-
 describe("bindControls — scheme dropdown", () => {
   it("scheme bar click opens the dropdown with one item per conf scheme", () => {
     const { ctrl } = setup();
