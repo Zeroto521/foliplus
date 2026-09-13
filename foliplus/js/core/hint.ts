@@ -5,6 +5,7 @@ import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 const log = createLogger("Hint");
 
@@ -222,11 +223,10 @@ const ensureHint = (map: L.Map): HintManager => {
   if (existing) return existing;
   const mgr = new HintManager();
   instances.set(map, mgr);
-  // Ensure map.foliplus exists so components can call map.foliplus!.showHint
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
-  map.foliplus!.showHint = mgr.showHint.bind(mgr);
-  map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
-  map.foliplus!.registerHintIcon = (key: string, svg: string) => {
+  const api = ensureMapFoliplus(map);
+  api.showHint = mgr.showHint.bind(mgr);
+  api.hideHint = mgr.hideHint.bind(mgr);
+  api.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };
   // On map unload, tear down hints and unbind the document-level

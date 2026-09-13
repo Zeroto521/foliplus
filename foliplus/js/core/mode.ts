@@ -5,6 +5,7 @@
 import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { suspendMapInteractions } from "#core/layer/util.js";
 
 interface ModeChangePayload {
@@ -160,12 +161,11 @@ const ensureModes = (map: L.Map): ModeManager => {
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map), map);
   instances.set(map, manager);
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
-  map.foliplus!.modes = manager;
+  ensureMapFoliplus(map).modes = manager;
   // On map unload, clear modes and release the interaction lock so manager
   // state and the disabled-layers closure do not outlive the map (mirrors the
   // per-map cleanup pattern used by core/interaction).
-  map.on("unload" as any, () => manager.clear());
+  map.on("unload", () => manager.clear());
   return manager;
 };
 

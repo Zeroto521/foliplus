@@ -58,6 +58,7 @@
 - `LayerControl`/`HeatmapControl`: attach-time init is signal-driven (`CONTROL_ATTACHED` + `data-ready`), replacing fixed timers/retries; tests share one `panel_ready` helper ([#283](https://github.com/Zeroto521/foliplus/pull/283), [#285](https://github.com/Zeroto521/foliplus/pull/285))
 - `Python`: validate constructor arguments from their type annotations, so an unknown `position` or an out-of-range numeric bound raises `ValueError` instead of reaching JS ([#284](https://github.com/Zeroto521/foliplus/pull/284))
 - `Frontend tooling`: add eslint 9 flat config split into a non-type-aware pass and a type-aware Promise-discipline pass run after `tsc --noEmit`, moving ESLint out of pre-commit.ci into separate `format` / `lint` / `typecheck` CI jobs ([#259](https://github.com/Zeroto521/foliplus/pull/259))
+- `Frontend tooling`: `test/js` now has its own strict tsconfig program (`npm run typecheck:tests`) instead of being declared exempt from `strict` — 1495 measured errors, so it still does not gate CI, but the number is now visible instead of assumed ([#302](https://github.com/Zeroto521/foliplus/pull/302))
 
 ### Removed
 
@@ -80,6 +81,8 @@
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener, and severing the bound `showHint`/`hideHint`/`registerHintIcon` closures so a post-unload call can no longer write into the shared icon registry that other live maps read ([#295](https://github.com/Zeroto521/foliplus/pull/295))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
+- `TypeScript`: remove every `as any` and `@ts-ignore` from production sources, replacing the `map.foliplus` namespace casts with a single owning seed in `core/mapApi.ts` and typing the shortcut bookkeeping fields the manager writes ([#302](https://github.com/Zeroto521/foliplus/pull/302))
+- `ExportControl`: `L.LayerEvent` resolved to `any` because `export as namespace L` only re-exports namespaces and classes, so the `layeradd` cast was a no-op — import the type instead ([#302](https://github.com/Zeroto521/foliplus/pull/302))
 
 ## [v0.3.0] (2026-08-02)
 
