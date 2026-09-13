@@ -108,8 +108,33 @@
   border-radius: var(--radius-sm);
 }
 
+/* ── Panel header actions ──
+   The close button sits on the panel header, which is itself the collapse
+   target. It must therefore answer on hover with the same language as the
+   header (a light wash + stronger glyph) instead of staying flat, and keep a
+   visible ring for keyboard users. */
 .foliplus-close-btn {
   color: var(--text-muted);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+
+  &:hover {
+    background: var(--accent-light);
+    color: var(--accent-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: var(--accent-light);
+    color: var(--accent-primary);
+    box-shadow: var(--focus-ring);
+  }
+
+  &:active {
+    background: var(--accent-light);
+    color: var(--accent-primary);
+  }
 }
 
 .foliplus-pin {

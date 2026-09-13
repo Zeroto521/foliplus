@@ -169,4 +169,41 @@ describe("BaseControl", () => {
     ctrl.listenDOM(el, "click", fn);
     expect(window.L.DomEvent.on).toHaveBeenCalledTimes(1);
   });
+
+  it("trackCleanup runs teardown callbacks on remove", () => {
+    // Panel factories return their own unbind function rather than an
+    // element/event pair, so they cannot go through listenDOM.
+    const cleanup = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.trackCleanup(cleanup);
+    expect(cleanup).not.toHaveBeenCalled();
+
+    ctrl.onRemove();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(ctrl.cleanups).toEqual([]);
+  });
+
+  it("trackCleanup does not register the same callback twice", () => {
+    const cleanup = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.trackCleanup(cleanup);
+    ctrl.trackCleanup(cleanup);
+
+    ctrl.onRemove();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
 });
