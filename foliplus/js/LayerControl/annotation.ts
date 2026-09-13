@@ -9,7 +9,7 @@
 // the layer's count, type icon, or point extraction, and they toggle together
 // with the parent layer (added as children of the source layer via addLayer).
 import { type LabelAwareLayer, forEachLeaf } from "#core/layer/index.js";
-import { escapeHTML } from "#common/dom.js";
+import { dom } from "#common/dom.js";
 import { type NumberStyle, formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
@@ -155,7 +155,9 @@ class AnnotationManager {
       const labelMarker = L.marker(anchor, {
         icon: L.divIcon({
           className: `foliplus-annotation-label ${CONST.CLASSES.ANNOTATION_LABEL}`,
-          html: `<span class="foliplus-annotation-label-text">${escapeHTML(text)}</span>`,
+          // Element, not an HTML string: divIcon accepts a Node and appends
+          // it as-is, so the label text can never reach an innerHTML sink.
+          html: dom.el("span", { class: "foliplus-annotation-label-text" }, text),
           iconAnchor: [0, -LABEL_OFFSET_DY], // anchor at label top → text sits below
         }),
         interactive: false,
