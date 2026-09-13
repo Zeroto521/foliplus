@@ -7,6 +7,8 @@
 // Listener helpers (tracked, auto-unbound on remove):
 //   - this.listenDOM(el, event, fn)  — L.DomEvent.on + tracked
 //   - this.listenMap(event, fn)      — this._map.on + tracked
+//   - this.trackCleanup(fn)          — anything a helper returns (e.g. the
+//     unbind function from common/panel's factory), run on remove
 //
 // Notes:
 //   - `map` is NOT a free variable here (common modules are imported, not
@@ -23,6 +25,7 @@ const alreadyBound = (list: readonly unknown[][], item: readonly unknown[]): boo
 class BaseControl extends L.Control {
   events: Array<[HTMLElement, string, (event: Event) => void]>;
   mapListeners: Array<[string, L.LeafletEventHandlerFn]>;
+  cleanups: Array<() => void>;
   _map!: L.Map;
   init?(): void;
   buildDOM?(): HTMLElement;
@@ -32,6 +35,7 @@ class BaseControl extends L.Control {
     super(options);
     this.events = [];
     this.mapListeners = [];
+    this.cleanups = [];
     this.init?.();
   }
 
@@ -61,10 +65,25 @@ class BaseControl extends L.Control {
     this.events = [];
     this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
     this.mapListeners = [];
+    // Tracked cleanups run last so a destructor can still reach live listeners.
+    this.cleanups.forEach(fn => fn());
+    this.cleanups = [];
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
   destroy(): void {}
+
+  /**
+   * Track a teardown callback for auto-cleanup on removal.
+   *
+   * For helpers that return their own unbind function (no element/event pair
+   * to hand to `listenDOM`), so a control removed while still in the DOM does
+   * not leak document-level listeners. Registration is idempotent.
+   */
+  trackCleanup(fn: () => void): void {
+    if (this.cleanups.indexOf(fn) >= 0) return;
+    this.cleanups.push(fn);
+  }
 
   /** Track a L.DomEvent listener for auto-cleanup. */
   listenDOM(el: HTMLElement, event: string, fn: (event: Event) => void): void {

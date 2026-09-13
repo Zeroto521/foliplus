@@ -1,11 +1,9 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { bindPanelToggle } from "#common/panel.js";
+import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
-import { panelHTML } from "./template.js";
 import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
@@ -36,19 +34,21 @@ class LayerControl extends BaseControl {
 
   buildDOM() {
     patchBringToFront();
-    const container = dom.el("div", { class: "leaflet-bar leaflet-control" });
-    container.innerHTML = panelHTML(T);
-
-    L.DomEvent.disableClickPropagation(container);
-    L.DomEvent.disableScrollPropagation(container);
-
-    bindPanelToggle({
-      container: container.querySelector(".foliplus-layer-ctrl") as HTMLElement,
-      toggleBtn: ".foliplus-toggle-btn",
-      header: ".foliplus-panel-header",
+    const { container, panelContent, destroy } = createPanelControl({
+      cssClass: "foliplus-layer-ctrl",
+      ctrlId: `${CONF.name}_ctrl`,
+      toggleTitle: T("toggle_title"),
+      toggleSvg: SVGs.LAYERS,
+      panelTitle: T("panel_title"),
+      closeTitle: T("close_title"),
     });
 
-    this.m.attachUI(container.querySelector(".foliplus-panel-content") as HTMLElement);
+    // The factory's document listeners outlive the MutationObserver when the
+    // control is detached but kept around, so hand its unbind to the base
+    // class for teardown on remove.
+    this.trackCleanup(destroy);
+
+    this.m.attachUI(panelContent);
 
     return container;
   }
