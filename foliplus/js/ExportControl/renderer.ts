@@ -28,6 +28,8 @@ interface TileDesc {
   y: number;
   z: number;
   url: string;
+  /** 1x URL to fall back to when a retina-only source 404s every {r} tile. */
+  fallback?: string;
   left: number;
   top: number;
   size: number;
@@ -139,11 +141,15 @@ class ExportRenderer {
           .replace("{z}", zoom.toString())
           // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
           .replace("{r}", scaleVal > 1 ? "@2x" : "");
+        const fallback = scaleVal > 1 ? url.replace("@2x", "") : undefined;
         tiles.push({
           x: tx,
           y: ty,
           z: zoom,
           url,
+          // Sources without retina tiles 404 every {r} tile; keep the 1x URL
+          // so the draw pass can fall back instead of blanking the layer.
+          ...(fallback !== undefined && fallback !== url ? { fallback } : {}),
           // Tile pixel position within the container viewport at this zoom
           left: tx * tileSize,
           top: ty * tileSize,
@@ -423,7 +429,15 @@ class ExportRenderer {
     for (let i = 0; i < visibleTiles.length; i += concurrency) {
       const batch = visibleTiles.slice(i, i + concurrency);
       const bitmaps = await Promise.all(
-        batch.map(t => loadImageBitmap(t.url).catch(() => null)),
+        batch.map(async t => {
+          let bitmap = await loadImageBitmap(t.url).catch(() => null);
+          // Retina-less source: fall back to the 1x tile so the layer still
+          // paints (at nominal resolution) instead of disappearing.
+          if (!bitmap && t.fallback) {
+            bitmap = await loadImageBitmap(t.fallback).catch(() => null);
+          }
+          return bitmap;
+        }),
       );
 
       for (let j = 0; j < batch.length; j++) {

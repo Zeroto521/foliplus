@@ -24,7 +24,7 @@
   "ExportControl.err_render": "Export render failed",
   "ExportControl.err_geotiff_geo": "GeoTIFF export requires geographic bounds — please select the export area again",
   "ExportControl.err_geotiff_canvas": "Cross-origin map tiles prevent GeoTIFF export — try switching to a different tile source",
-  "ExportControl.err_cors_tiles": "Export successful, but some tile layers could not be loaded (CORS or network restrictions) — those areas are blank in the image",
+  "ExportControl.err_cors_tiles": "Export successful, but some tile layers are blank in the image — tiles that could not be fetched (no CORS, missing tiles, rate limits) are skipped; the live map is unaffected",
   "ExportControl.label_size_prefix": "Map size: ",
   "ExportControl.label_size_suffix": "px",
   "ExportControl.no_layercontrol": "ExportControl requires LayerControl — please add LayerControl to the map first",

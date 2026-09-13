@@ -104,10 +104,12 @@ class ExportControl(BaseControl):
     WebP use the ``quality`` parameter for compression; PNG and GeoTIFF are lossless.
 
     **Tile CORS.**  Export fetches tile images with a CORS request, so the exported
-    image is never canvas-tainted.  Tile sources that answer no CORS headers
-    (``Access-Control-Allow-Origin``) are left untouched on the live map, but their
-    tiles are missing from the exported image — the export reports this instead of
-    failing silently.  The map display itself is unaffected in every case.
+    image is never canvas-tainted and the live map is never modified.  A tile source
+    must answer ``Access-Control-Allow-Origin`` to appear in the exported image;
+    otherwise its area is blank and the export reports it (``err_cors_tiles``).  On
+    the first export the visible tiles may be re-downloaded once (e.g. caches keyed
+    with ``Vary: Origin``); later exports reuse the cache.  If your own code needs
+    the live tiles loaded with CORS, set ``crossOrigin`` on your own ``TileLayer``.
 
     Examples
     --------
