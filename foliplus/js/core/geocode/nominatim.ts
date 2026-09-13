@@ -1,8 +1,10 @@
-// Nominatim URL building & address formatting for foliplus components.
-// Pure functions (no module-level state) — imported statically by components.
-// The stateful reverse-geocoder (geocode.js) also imports these, which
-// is fine: esbuild inlines a copy into runtime.min.js as well.
-import { getMapCrsType } from "./coord.js";
+// Nominatim URL building, address formatting, and the Nominatim geocode
+// provider for foliplus. The pure helpers (NOMINATIM, nominatimUrl,
+// formatAddress) are imported statically by components; NominatimProvider
+// performs the fetch and is consumed by the geocoder singleton.
+import { getMapCrsType } from "#core/geo/coord.js";
+import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import type { GeocodeItem, GeocodeProvider } from "./provider.js";
 
 // ── Geocode constants ───────────────────────────────────────────
 const NOMINATIM = {
@@ -77,4 +79,37 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
   return parts.join(",");
 };
 
-export { NOMINATIM, formatAddress, nominatimUrl };
+/** Geolocation provider backed by the public Nominatim API (WGS84 in/out). */
+class NominatimProvider implements GeocodeProvider {
+  search(q: string, code: string): Promise<GeocodeItem[]> {
+    const url = nominatimUrl("/search", { q, limit: 1 }, code);
+    return fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
+      .then(r => r.json())
+      .then((data: Array<{ lat: string; lon: string; display_name: string }>) =>
+        Array.isArray(data)
+          ? data.map(item => ({
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+              display_name: item.display_name,
+            }))
+          : [],
+      );
+  }
+
+  reverse(lng: number, lat: number, code: string): Promise<GeocodeItem | null> {
+    const url = nominatimUrl("/reverse", { lon: lng, lat, zoom: NOMINATIM.ZOOM }, code);
+    return fetchWithTimeout(url, { timeoutMs: GEODECODE_TIMEOUT_MS })
+      .then(r => r.json())
+      .then((data: { lat?: string; lon?: string; display_name?: string } | null) =>
+        data && data.display_name
+          ? {
+              lat: parseFloat(data.lat ?? String(lat)),
+              lng: parseFloat(data.lon ?? String(lng)),
+              display_name: data.display_name,
+            }
+          : null,
+      );
+  }
+}
+
+export { NOMINATIM, NominatimProvider, formatAddress, nominatimUrl };

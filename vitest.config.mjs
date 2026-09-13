@@ -13,7 +13,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["test/js/**/*.test.{js,ts}"],
+    include: ["test/js/**/*.test.ts"],
     setupFiles: ["test/js/setup.ts"],
     // JUnit XML output for Codecov Test Analytics.
     reporters: [
@@ -22,7 +22,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      include: ["foliplus/js/**/*.js", "foliplus/js/**/*.ts", "script/**/*.mjs"],
+      include: ["foliplus/js/**/*.ts", "script/**/*.mjs"],
       exclude: [
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
@@ -31,14 +31,14 @@ export default defineConfig({
         // Entry modules — require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.
         "foliplus/js/*/index.ts",
-        "foliplus/js/MeasureControl/mode/index.ts",
-        // UI modules — kept out of unit coverage; re-enabled per module as
-        // their unit tests land (HeatmapControl/ui.ts already re-enabled).
-        "foliplus/js/ExportControl/ui.ts",
-        "foliplus/js/LayerControl/ui.ts",
-        "foliplus/js/MeasureControl/ui.ts",
-        // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle
-        "foliplus/js/MeasureControl/mode/index.ts",
+        // UI builders — pure DOM construction, covered by browser tests instead.
+        // HeatmapControl/ui.ts has a dedicated ui.test.ts (100% line coverage),
+        // so it is deliberately left out of this glob.
+        "foliplus/js/ExportControl*/ui.ts",
+        "foliplus/js/MeasureControl*/ui.ts",
+        // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
+        // Glob so a newly added mode is excluded without editing this list.
+        "foliplus/js/MeasureControl/mode/*.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
