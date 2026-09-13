@@ -201,12 +201,12 @@ declare global {
       code?: string,
       provider?: string | CoreProviderConfig,
       providerConfig?: Record<string, unknown> | null,
-    ) => Promise<{ lat: number; lng: number; display_name: string } | null>;
+    ) => Promise<{ lng: number; lat: number; display_name: string } | null>;
     cacheSuggestion: (
       map: Leaflet.Map,
       address: string,
-      lat: number,
       lng: number,
+      lat: number,
       displayName: string,
       provider?: string | CoreProviderConfig,
       providerConfig?: Record<string, unknown> | null,

@@ -680,8 +680,8 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
         window.foliplus.cacheSuggestion(
           map,
           query,
-          parseFloat(first.lat),
           parseFloat(first.lng),
+          parseFloat(first.lat),
           formatAddress(first.display_name, map, CONF.locale_code) || query,
           ...providerArgs(),
         );

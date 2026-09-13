@@ -51,7 +51,7 @@ describe("geocode (forward)", () => {
       jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
     );
     const r1 = await geocode(mockMap, "UniqueCity A1", "en");
-    expect(r1).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    expect(r1).toEqual({ lng: 119.3, lat: 26.08, display_name: "Fuzhou" });
     const r2 = await geocode(mockMap, "UniqueCity A1", "en");
     expect(r2).toEqual(r1);
     expect(globalThis.fetch).toHaveBeenCalledTimes(1); // cached
@@ -112,21 +112,21 @@ describe("geocode (forward)", () => {
 
 describe("cacheSuggestion", () => {
   it("pre-populates geoCache for both forward and reverse lookups", async () => {
-    cacheSuggestion(mockMap, "CachTest", 22.5, 114.1, "Shenzhen,China");
+    cacheSuggestion(mockMap, "CachTest", 114.1, 22.5, "Shenzhen,China");
     const r = await geocode(mockMap, "CachTest", "en");
-    expect(r).toEqual({ lat: 22.5, lng: 114.1, display_name: "Shenzhen,China" });
+    expect(r).toEqual({ lng: 114.1, lat: 22.5, display_name: "Shenzhen,China" });
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("geocode after cacheSuggestion hits cache (no fetch)", async () => {
-    cacheSuggestion(mockMap, "SugHit", 22.5, 114.1, "Shenzhen,China");
+    cacheSuggestion(mockMap, "SugHit", 114.1, 22.5, "Shenzhen,China");
     const r = await geocode(mockMap, "SugHit", "en");
-    expect(r).toEqual({ lat: 22.5, lng: 114.1, display_name: "Shenzhen,China" });
+    expect(r).toEqual({ lng: 114.1, lat: 22.5, display_name: "Shenzhen,China" });
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit — no API call
   });
 
   it("reverseGeocode after cacheSuggestion hits cache (no fetch)", async () => {
-    cacheSuggestion(mockMap, "SugRev", 22.5, 114.1, "Shenzhen,China");
+    cacheSuggestion(mockMap, "SugRev", 114.1, 22.5, "Shenzhen,China");
     const addr = await reverseGeocode(mockMap, 114.1, 22.5, "en");
     expect(addr).toBe("Shenzhen,China");
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit
@@ -146,7 +146,7 @@ describe("provider selection", () => {
       }),
     );
     const r = await geocode(mockMap, "Berlin Provider", "en", "photon");
-    expect(r).toEqual({ lat: 52.52, lng: 13.405, display_name: "Berlin, Germany" });
+    expect(r).toEqual({ lng: 13.405, lat: 52.52, display_name: "Berlin, Germany" });
     const [url, init] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("photon.komoot.io");
     expect(init.headers["X-User-Agent"]).toBe("foliplus");
@@ -195,7 +195,7 @@ describe("provider selection", () => {
       jsonResponse([{ lon: "119.3", lat: "26.08", display_name: "Fuzhou" }]),
     );
     const r = await geocode(mockMap, "Unknown Provider", "en", "bogus");
-    expect(r).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    expect(r).toEqual({ lng: 119.3, lat: 26.08, display_name: "Fuzhou" });
     const [url] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("nominatim.openstreetmap.org");
   });
@@ -219,7 +219,7 @@ describe("custom provider (declarative dict)", () => {
       jsonResponse({ results: [{ lon: 12.3, lat: 45.6, label: "Custom Place" }] }),
     );
     const r = await geocode(mockMap, "Custom Place", "en", custom);
-    expect(r).toEqual({ lat: 45.6, lng: 12.3, display_name: "Custom Place" });
+    expect(r).toEqual({ lng: 12.3, lat: 45.6, display_name: "Custom Place" });
     const [url] = (globalThis.fetch as any).mock.calls[0];
     // Custom-provider templates encode via encodeURIComponent (space → %20).
     expect(url).toBe("https://geo.example.com/search?q=Custom%20Place");
@@ -237,9 +237,9 @@ describe("custom provider (declarative dict)", () => {
   });
 
   it("cacheSuggestion with a custom provider pre-fills its own cache key", async () => {
-    cacheSuggestion(mockMap, "Cached Custom", 10.1, 20.2, "Custom, Place", custom);
+    cacheSuggestion(mockMap, "Cached Custom", 20.2, 10.1, "Custom, Place", custom);
     const r = await geocode(mockMap, "Cached Custom", "en", custom);
-    expect(r).toEqual({ lat: 10.1, lng: 20.2, display_name: "Custom, Place" });
+    expect(r).toEqual({ lng: 20.2, lat: 10.1, display_name: "Custom, Place" });
     expect(globalThis.fetch).not.toHaveBeenCalled(); // cache hit, no API call
   });
 });
@@ -262,7 +262,7 @@ describe("map-default provider", () => {
       }),
     );
     const r = await geocode(photonMap, "Berlin MapDefault", "en");
-    expect(r).toEqual({ lat: 52.52, lng: 13.405, display_name: "Berlin, Germany" });
+    expect(r).toEqual({ lng: 13.405, lat: 52.52, display_name: "Berlin, Germany" });
     const [url, init] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("photon.komoot.io");
     expect(init.headers["X-User-Agent"]).toBe("foliplus");
@@ -290,7 +290,7 @@ describe("map-default provider", () => {
       jsonResponse([{ lon: "119.3", lat: "26.08", display_name: "Fuzhou" }]),
     );
     const r = await geocode(photonMap, "Fuzhou Override", "en", "nominatim");
-    expect(r).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    expect(r).toEqual({ lng: 119.3, lat: 26.08, display_name: "Fuzhou" });
     const [url] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("nominatim.openstreetmap.org");
   });
@@ -318,7 +318,7 @@ describe("error boundary", () => {
     const first = await geocode(mockMap, "Recover Address", "en");
     expect(first).toBeNull();
     const second = await geocode(mockMap, "Recover Address", "en");
-    expect(second).toEqual({ lat: 26.08, lng: 119.3, display_name: "Fuzhou" });
+    expect(second).toEqual({ lng: 119.3, lat: 26.08, display_name: "Fuzhou" });
   });
 
   it("uses the default fail text when the runtime locale tables are missing", async () => {

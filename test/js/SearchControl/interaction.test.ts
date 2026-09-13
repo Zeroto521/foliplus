@@ -211,7 +211,7 @@ describe("bindEvents", () => {
 
   it("Enter in addr mode triggers an address search", () => {
     window.foliplus.geocode = vi.fn(() =>
-      Promise.resolve({ lat: 48.8, lng: 2.3, displayName: "Paris" }),
+      Promise.resolve({ lng: 2.3, lat: 48.8, displayName: "Paris" }),
     ) as unknown as typeof window.foliplus.geocode;
     const ctrl = makeCtrl();
     ctrl.mode = "addr";

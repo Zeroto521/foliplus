@@ -580,8 +580,8 @@ describe("fetchSuggestions", () => {
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
       "abc",
-      30.0,
       120.0,
+      30.0,
       expect.any(String),
       undefined,
       undefined,
@@ -1316,8 +1316,8 @@ describe("fetchSuggestions: render behavior", () => {
     expect(window.foliplus.cacheSuggestion).toHaveBeenCalledWith(
       map,
       "paris",
-      48.8,
       2.3,
+      48.8,
       expect.any(String),
       undefined,
       undefined,
@@ -1356,8 +1356,8 @@ describe("fetchSuggestions: render behavior", () => {
     expect(cacheSuggestionSpy).toHaveBeenCalledWith(
       map,
       "abc",
-      30,
       120,
+      30,
       "abc", // formatAddress("12345") returns "" → falls back to the query
       undefined,
       undefined,

@@ -108,8 +108,8 @@ const reverseGeocode = (
 
 /** A resolved forward-geocode result (already in the map's CRS). */
 interface GeocodeResult {
-  lat: number;
   lng: number;
+  lat: number;
   display_name: string;
 }
 
@@ -128,11 +128,11 @@ const geocode = (
   const key = `forward:${resolved.id}:${address}:${crs}`;
   const cached = geoCache.get(key);
   if (cached) {
-    const [lat, lng, ...name] = cached.split(SEP);
+    const [lng, lat, ...name] = cached.split(SEP);
     if (name.length) {
       return Promise.resolve({
-        lat: Number(lat),
         lng: Number(lng),
+        lat: Number(lat),
         display_name: name.join(SEP),
       });
     }
@@ -147,13 +147,13 @@ const geocode = (
         const item = resolved.normalizeSearch(data);
         if (!item) return null;
         const result: GeocodeResult = {
-          lat: parseFloat(item.lat),
           lng: parseFloat(item.lng),
+          lat: parseFloat(item.lat),
           display_name: item.display_name,
         };
         geoCache.set(
           key,
-          `${result.lat}${SEP}${result.lng}${SEP}${result.display_name}`,
+          `${result.lng}${SEP}${result.lat}${SEP}${result.display_name}`,
         );
         // Safe: (lng, lat) is unique per provider - no collision risk
         geoCache.set(
@@ -170,8 +170,8 @@ const geocode = (
 const cacheSuggestion = (
   map: L.Map,
   address: string,
-  lat: number,
   lng: number,
+  lat: number,
   displayName: string,
   provider?: string | ProviderConfig,
   providerConfig?: Record<string, unknown> | null,
@@ -179,7 +179,7 @@ const cacheSuggestion = (
   const resolved = safeResolve(map, provider, providerConfig);
   const crs = getMapCrsType(map);
   const key = `forward:${resolved.id}:${address}:${crs}`;
-  geoCache.set(key, `${lat}${SEP}${lng}${SEP}${displayName}`);
+  geoCache.set(key, `${lng}${SEP}${lat}${SEP}${displayName}`);
   // Also populate the reverse entry for the same safety
   geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, displayName);
 };
