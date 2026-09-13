@@ -28,3 +28,8 @@
 # be pinned as binary: they are hashed (source maps, bundles) and line-ending
 # churn there is pure diff noise.
 foliplus/dist/** binary
+
+# Re-entrancy branch: this file mixes hand-edited (Windows CRLF) content into
+# an otherwise LF tree; pin it so every checkout is LF regardless of the local
+# core.autocrlf setting, keeping the prettier format check platform-stable.
+foliplus/js/MeasureControl/manager.ts text eol=lf
