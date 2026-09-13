@@ -204,6 +204,35 @@ describe("LayerManager", () => {
     expect(manager.extractPoints("nonexistent")).toEqual([]);
   });
 
+  describe("touchLayer", () => {
+    it("delegates to the registry and reports whether the id was known", () => {
+      expect(manager.touchLayer("overlay1")).toBe(true);
+      expect(manager.touchLayer("nope")).toBe(false);
+    });
+
+    it("overwrites a published timestamp when the content changes at runtime", () => {
+      // `createLayerInfo` deliberately keeps a re-registration's previous
+      // provenance (the provider does not always resend it), so without the
+      // touch call the panel would show the original publish time forever,
+      // long after the runtime content changed. The epoch-ms stamp is the
+      // contract: `touch` is the escape hatch, not `registerLayer`.
+      const clock = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+      manager.registerLayer({ id: "pub1", name: "Published", updatedAt: 1 });
+      expect(manager.layerRegistry.get("pub1")?.updatedAt).toBe(1);
+
+      manager.touchLayer("pub1");
+      expect(manager.layerRegistry.get("pub1")?.updatedAt).toBe(1_000_000);
+      clock.mockRestore();
+    });
+
+    it("leaves a layer untouched when its id is unknown", () => {
+      // The lightweight stub and destroyed managers both report false rather
+      // than throwing, so callers can use the boolean to decide whether to
+      // show a hint.
+      expect(manager.touchLayer("ghost")).toBe(false);
+    });
+  });
+
   it("destroy clears registry and unbinds events", () => {
     manager.destroy();
     expect(manager.layerRegistry.size).toBe(0);
@@ -313,7 +342,11 @@ describe("LayerManager", () => {
   });
 
   it("getLayerType returns custom for iconSvg layers", () => {
-    manager.registerLayer({ id: "icon", name: "Icon", iconSvg: "<svg/>" });
+    manager.registerLayer({
+      id: "icon",
+      name: "Icon",
+      iconSvg: '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>',
+    });
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 
