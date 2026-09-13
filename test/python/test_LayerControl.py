@@ -233,19 +233,23 @@ class TestLayerControlRendering:
         assert "LayerControl.base_map_label" in html
 
     def test_annotation_locale_keys(self):
-        """Annotation / style-panel locale keys exist in both en and zh."""
+        """Style-panel locale keys exist in both en and zh.
+
+        The style panel is the container (``style_*``); the label (annotation)
+        dimension is its first child (``style_label_*``).
+        """
         root = Path(__file__).resolve().parent.parent.parent
         required = {
             "style_layer",
-            "label",
-            "label_field",
-            "label_field_placeholder",
-            "label_format",
-            "label_format_auto",
-            "label_format_int",
-            "label_format_comma",
-            "label_format_percent",
-            "label_no_data",
+            "style_label",
+            "style_label_field",
+            "style_label_field_placeholder",
+            "style_label_format",
+            "style_label_format_auto",
+            "style_label_format_int",
+            "style_label_format_comma",
+            "style_label_format_percent",
+            "style_label_no_data",
         }
         for lang in ("en", "zh"):
             data = json.loads(
@@ -258,7 +262,7 @@ class TestLayerControlRendering:
             }
             missing = required - keys
             assert not missing, (
-                f"LayerControl.{lang} missing annotation keys: {missing}"
+                f"LayerControl.{lang} missing style-panel keys: {missing}"
             )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):

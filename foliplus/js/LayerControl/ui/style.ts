@@ -99,6 +99,27 @@ const fieldIsNumeric = (ui: LayerUI, layerId: string, field: string): boolean =>
   return t === "number" || t === "bigint";
 };
 
+/** First field to auto-select when the toggle goes on with nothing picked:/n *  the first numeric field (labels render something meaningful), else the
+ *  first field — mirrors the heatmap's pickAutoField contract. */
+const autoPickField = (ui: LayerUI, layerId: string, fields: string[]): string =>
+  fields.find(f => fieldIsNumeric(ui, layerId, f)) ?? fields[0] ?? "";
+
+/** Show / hide the format row for the currently selected field — numeric
+ *  fields are the only ones where the format dropdown changes anything. */
+const syncFormatRow = (
+  ui: LayerUI,
+  layerId: string,
+  panel: HTMLElement,
+  field: string,
+): void => {
+  const fmtRow = panel.querySelector(
+    ".foliplus-style-format-row",
+  ) as HTMLElement | null;
+  if (fmtRow) {
+    fmtRow.classList.toggle("foliplus-hidden", !fieldIsNumeric(ui, layerId, field));
+  }
+};
+
 /** Build the style panel DOM for a layer. Returns null when there are no
  *  labelable fields (defensive: the menu item should have been disabled). */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
@@ -121,8 +142,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // to fields[0] when nothing is numeric, mirroring the heatmap's
   // collectFields → pickAutoField contract.
   if (showChecked && !selectedField) {
-    const firstNumeric = fields.find(f => fieldIsNumeric(ui, layerId, f));
-    selectedField = firstNumeric ?? fields[0];
+    selectedField = autoPickField(ui, layerId, fields);
     cfg.field = selectedField;
     ui.m.annotation.setConfig(layerId, cfg);
   }
@@ -135,9 +155,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     "select",
     {
       class: "foliplus-form-select foliplus-style-field-select",
-      "aria-label": ui.T("label_field"),
+      "aria-label": ui.T("style_label_field"),
     },
-    dom.el("option", { value: "" }, ui.T("label_field_placeholder")),
+    dom.el("option", { value: "" }, ui.T("style_label_field_placeholder")),
   );
   fields.forEach(f =>
     fieldSelect.appendChild(
@@ -170,7 +190,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     "select",
     {
       class: "foliplus-form-select foliplus-style-format-select",
-      "aria-label": ui.T("label_format"),
+      "aria-label": ui.T("style_label_format"),
     },
     ...formatOpts,
   );
@@ -181,16 +201,10 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const formatRow = dom.el(
     "div",
     { class: "foliplus-form-row foliplus-style-format-row" },
-    dom.el("label", { class: "foliplus-form-label" }, ui.T("label_format")),
+    dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_format")),
     dom.el("div", { class: "foliplus-form-control" }, formatSelect),
   );
-  const syncFormatVisibility = (): void => {
-    formatRow.classList.toggle(
-      "foliplus-hidden",
-      !fieldIsNumeric(ui, layerId, (fieldSelect as HTMLSelectElement).value),
-    );
-  };
-  syncFormatVisibility();
+  syncFormatRow(ui, layerId, formatRow, (fieldSelect as HTMLSelectElement).value);
 
   // Body wrapper: hidden by default when cfg.show is false, shown on toggle
   // on. Listens to the toggle so flipping it reveals the field/format rows
@@ -202,7 +216,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("label_field")),
+      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_field")),
       dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
     ),
     formatRow,
@@ -238,7 +252,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el(
         "div",
         { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, ui.T("label")),
+        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
         dom.el(
           "div",
           { class: "foliplus-form-control" },
@@ -262,7 +276,6 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
           ui.T("style_reset"),
         ),
       ),
-      { html: "" },
     ),
   );
 };
@@ -316,45 +329,19 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLSelectElement | null;
       const cfg = ui.m.annotation.getConfig(layerId);
       if (show && fieldSel && !cfg.field) {
-        const fields = layerFields(ui, layerId);
-        const firstNumeric = fields.find(f => fieldIsNumeric(ui, layerId, f));
-        const picked = firstNumeric ?? fields[0];
+        const picked = autoPickField(ui, layerId, layerFields(ui, layerId));
         if (picked) {
           cfg.field = picked;
           fieldSel.value = picked;
         }
       }
-      // formatRow visibility tracks the current field — recompute on every
-      // show flip because the picked field may have changed while the body
-      // was collapsed.
-      const fmtRow = panel.querySelector(
-        ".foliplus-style-format-row",
-      ) as HTMLElement | null;
-      if (fmtRow && fieldSel) {
-        fmtRow.classList.toggle(
-          "foliplus-hidden",
-          !fieldIsNumeric(ui, layerId, fieldSel.value),
-        );
-      }
-      applyPatch(ui, layerId, {
-        show,
-        field: fieldSel?.value ?? cfg.field,
-      });
+      syncFormatRow(ui, layerId, panel, fieldSel?.value ?? cfg.field);
+      applyPatch(ui, layerId, { show, field: fieldSel?.value ?? cfg.field });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains("foliplus-style-field-select")
     ) {
-      // Pick a field → re-evaluate numeric-ness for the format dropdown so
-      // it appears or hides without a separate click.
-      const fmtRow = panel.querySelector(
-        ".foliplus-style-format-row",
-      ) as HTMLElement | null;
-      if (fmtRow) {
-        fmtRow.classList.toggle(
-          "foliplus-hidden",
-          !fieldIsNumeric(ui, layerId, t.value),
-        );
-      }
+      syncFormatRow(ui, layerId, panel, t.value);
       const fmtSel = panel.querySelector(
         ".foliplus-style-format-select",
       ) as HTMLSelectElement | null;
