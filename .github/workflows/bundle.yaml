@@ -53,16 +53,18 @@ jobs:
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
-      - name: Compare with base
+      - name: Compare with main
         run: |
-          # `github.base_sha` arrives empty on this runner, so the commit line
-          # cannot come from the context. Resolve both sides with git instead —
-          # `origin/<base_ref>` is the exact tree whose sizes were captured above,
-          # which is what the diff measures.
+          # Neither `github.base_sha` nor `HEAD` is the SHA to show. The checkout
+          # is detached at the merge commit `merge(main, PR)`, so `HEAD` is a SHA
+          # the author never pushed, and `github.base_sha` arrives empty here.
+          # Both sides resolve to their remote branch refs, which `checkout`
+          # fetched with `+refs/heads/*:refs/remotes/origin/*`: `origin/<base_ref>`
+          # is the tree sampled above, `origin/<head_ref>` is the PR branch tip.
           node script/bundle-size-check.mjs \
             --baseline=base-sizes.json \
             --base="$(git rev-parse "origin/${{ github.base_ref }}")" \
-            --head="$(git rev-parse HEAD)" \
+            --head="$(git rev-parse "origin/${{ github.head_ref }}")" \
             --report=bundle-report.md
 
       - uses: actions/upload-artifact@v7
