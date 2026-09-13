@@ -73,18 +73,21 @@ const syncCropKeyboard = (mgr: ExportManager) => {
   else mgr.map.keyboard.disable();
 };
 
-/** Show a global hint (e.g. exporting status). */
+/** Show a global hint (e.g. exporting status). Loading states pass
+ *  `withLoadingIcon` so the hint renders the built-in spinner. */
 const showGlobalHint = (
   mgr: ExportManager,
   text: string,
   duration = HINT_DURATION.PERSIST,
   withLoadingIcon = false,
 ) => {
-  const loading = withLoadingIcon ? Icons.LOADING + " " : "";
   mgr.map.foliplus!.showHint(
     mgr.conf.name,
-    loading + text,
+    text,
     duration || HINT_DURATION.PERSIST,
+    undefined,
+    undefined,
+    withLoadingIcon,
   );
 };
 

@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import { removeCropBox, showCropBox } from "#foliplus/ExportControl/ui.js";
+import {
+  removeCropBox,
+  showCropBox,
+  showGlobalHint,
+} from "#foliplus/ExportControl/ui.js";
 import { createScopedTranslator } from "#common/locale.js";
 
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
@@ -63,14 +67,6 @@ afterEach(() => {
 });
 
 describe("ExportControl ui — extra hint and toolbar paths", () => {
-  it("showGlobalHint prepends the loading icon when asked", () => {
-    const manager = makeManager();
-    manager.showGlobalHint("exporting", HINT_DURATION.LONG, true);
-    const call = manager.map.foliplus.showHint.mock.calls[0];
-    expect(call![0]).toBe("ExportControl");
-    expect(String(call![1])).toMatch(/<svg/);
-  });
-
   it("unlock toolbar buttons re-arm, and removeCropBox collapses the control", () => {
     const manager = makeManager();
     const ctrl = document.createElement("div");
@@ -197,6 +193,9 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
       "ExportControl",
       "working",
       HINT_DURATION.PERSIST,
+      undefined,
+      undefined,
+      false,
     );
   });
 
@@ -249,5 +248,31 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
     // onMapChange may refresh the size hint, but the locked-instruction hint
     // is what skipHint suppresses.
     expect(texts.some(t => t.includes("hint_locked"))).toBe(false);
+  });
+
+  it("showGlobalHint with loading passes the spinner flag through", () => {
+    const manager = makeManager();
+    showGlobalHint(manager, "Exporting map... (42%)", 0, true);
+    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "Exporting map... (42%)",
+      0,
+      undefined,
+      undefined,
+      true,
+    );
+  });
+
+  it("showGlobalHint defaults to the control icon for status messages", () => {
+    const manager = makeManager();
+    showGlobalHint(manager, "Export successful", 4000);
+    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "Export successful",
+      4000,
+      undefined,
+      undefined,
+      false,
+    );
   });
 });

@@ -33,7 +33,7 @@ const queues = new Map<string, ReturnType<typeof createThrottleQueue>>();
 const queueOf = (provider: GeocodeProvider) => {
   let queue = queues.get(provider.id);
   if (!queue) {
-    queue = createThrottleQueue(provider.throttleMs);
+    queue = createThrottleQueue(provider.id, provider.throttleMs);
     queues.set(provider.id, queue);
   }
   return queue;

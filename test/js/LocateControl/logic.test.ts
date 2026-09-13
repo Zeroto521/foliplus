@@ -91,6 +91,23 @@ describe("locateMe", () => {
     expect(ctrl.marker).not.toBeNull();
   });
 
+  it("locating hint is plain text, not an inline SVG string", () => {
+    const getCurrentPosition = geoStub();
+    const ctrl = makeCtrl();
+    locateMe(ctrl);
+    // Hint text is rendered as a TextNode, so an inline SVG would appear as
+    // source code instead of an icon; withLoadingIcon renders the built-in
+    // spinner in the hint's icon slot instead.
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "LocateControl",
+      "locating",
+      0, // HINT_DURATION.PERSIST
+      undefined,
+      undefined,
+      true,
+    );
+  });
+
   it("shows an error hint when geolocation fails and clears loading", () => {
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();

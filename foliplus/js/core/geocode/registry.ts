@@ -119,6 +119,13 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
  * - string → a built-in provider id; unknown ids throw.
  * - object → a declarative custom provider via `providerFromConfig`.
  * - `config` overrides `baseUrl`/`throttleMs`/`headers` on a string provider.
+ *
+ * Rate limiting is shared **per provider id, page-globally**: all callers of
+ * the same id (across maps and across the geocoder / suggestion paths) go
+ * through one throttle queue and one request-timestamp clock. The queue
+ * honours the largest `throttleMs` ever declared for the id, so configuring
+ * the same id with different values is safe but should not be relied on —
+ * give each distinct API instance (different `baseUrl`/throttle) its own id.
  */
 const resolveProvider = (
   provider?: string | ProviderConfig,

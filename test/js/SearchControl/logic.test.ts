@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markRequest } from "#core/geocode/index.js";
 import { AUTOCOMPLETE, HISTORY, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
@@ -27,6 +28,9 @@ import { ensureModes } from "#foliplus/core/mode.js";
 // Use vi.spyOn to track calls on those already-setup mocks.
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reset the provider-wide request clock (shared module state) so a prior
+  // test's suggestion/geocoder request never throttles this one.
+  markRequest("nominatim", 0);
 });
 
 describe("removePanel", () => {
@@ -405,6 +409,29 @@ describe("searchAddress", () => {
     expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
     expect(ctrl.marker).not.toBeNull();
   });
+
+  it("loading hint is plain text, not an inline SVG string", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "nowhere" },
+    };
+    searchAddress(ctrl, "nowhere");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    // Hint text is rendered as a TextNode, so an inline SVG would appear as
+    // source code instead of an icon; withLoadingIcon renders the built-in
+    // spinner in the hint's icon slot instead.
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.popup_loading",
+      0,
+      undefined,
+      undefined,
+      true,
+    );
+  });
 });
 
 describe("positionPanel", () => {
@@ -635,6 +662,26 @@ describe("fetchSuggestions", () => {
     await new Promise(r => setTimeout(r, 30));
     expect(cache.get("Paris")).toBeUndefined(); // never cached
     expect(ctrl.panelWrap).toBeNull(); // never rendered
+  });
+
+  it("defers a suggestion when the provider-wide window is still cooling down", () => {
+    globalThis.fetch = vi.fn();
+    markRequest("nominatim", Date.now()); // a geocoder request just landed
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    expect(globalThis.fetch).not.toHaveBeenCalled(); // deferred, not issued
+    expect(ctrl.throttleTimer).not.toBeNull();
   });
 });
 
@@ -1128,7 +1175,10 @@ describe("fetchSuggestions: throttle and abort", () => {
     fetchSuggestions(ctrl, "abc");
     const prev = ctrl.suggestAbortController;
     expect(prev).toBeInstanceOf(AbortController);
+    // Move both clocks back so the second call passes the throttle window
+    // (the first call also marked the provider-wide clock).
     ctrl.lastSuggestFetch = Date.now() - 2000;
+    markRequest("nominatim", Date.now() - 2000);
     fetchSuggestions(ctrl, "def");
     expect(prev.signal.aborted).toBe(true);
   });
