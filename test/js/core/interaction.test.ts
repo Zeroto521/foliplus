@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Mock map object
 function makeMap(): any {
@@ -22,6 +22,8 @@ function makeBareMap(): any {
 }
 
 describe("InteractionManager", () => {
+  afterEach(() => document.body.innerHTML = "");
+
   it("register returns a cleanup function", async () => {
     const { ensureInteraction } = await import("#core/interaction.js");
     const map = makeMap();
@@ -455,6 +457,89 @@ describe("InteractionManager", () => {
     ensureInteraction(map);
     expect(map.foliplus).toBeDefined();
     expect(map.foliplus.interaction).toBeDefined();
+  });
+
+  // --- InteractionEntry bookkeeping: the elementHandler/elementType/order
+  // fields the manager writes internally. These were `(def as any).x` before the
+  // InteractionDef/InteractionEntry split, so removing the cast removed the only
+  // thing noticing if the fields stopped being set.
+
+  it("stamps each stored entry with its own sequential order", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    im.register("A", [{ key: "a", handler: vi.fn() }]);
+    im.register("B", [{ key: "b", handler: vi.fn() }, { key: "c", handler: vi.fn() }]);
+    const orders = (im["shortcuts"] as any[]).map(s => s.order);
+    expect(orders).toEqual([0, 1, 2]);
+  });
+
+  it("records the resolved event type the element listener is bound under", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    const el = document.createElement("input");
+    im.register("El", [
+      { key: "Enter", element: el, handler: vi.fn() },
+      { key: "x", element: el, event: "mousedown", handler: vi.fn() },
+    ]);
+    const [keyed, typed] = im["shortcuts"] as any[];
+    expect(keyed.elementType).toBe("keydown");
+    expect(typed.elementType).toBe("mousedown");
+  });
+
+  it("removes via the exact closure stored on the entry", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    const el = document.createElement("input");
+    const spy = vi.spyOn(HTMLElement.prototype, "removeEventListener");
+    im.register("El", [{ key: "Enter", element: el, handler: vi.fn() }]);
+    const handler = im["shortcuts"][0].elementHandler;
+    expect(typeof handler).toBe("function");
+    im.unregister("El");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toBe("keydown");
+    expect(spy.mock.calls[0][1]).toBe(handler);
+    spy.mockRestore();
+  });
+
+  it("leaves elementHandler/elementType unset for document-level shortcuts", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    im.register("Doc", [{ key: "Escape", handler: vi.fn() }]);
+    const entry = im["shortcuts"][0] as any;
+    expect(entry.elementHandler).toBeUndefined();
+    expect(entry.elementType).toBeUndefined();
+    expect(entry.order).toBe(0);
+  });
+
+  it("unregister removes the entry's own listener using the stored fields", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    const el = document.createElement("input");
+    const handler = vi.fn();
+    im.register("El", [
+      { key: "Enter", element: el, event: "mousedown", handler },
+    ]);
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    im.unregister("El");
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("unregister leaves other components' element listeners intact", async () => {
+    const { ensureInteraction } = await import("#core/interaction.js");
+    const im = ensureInteraction(makeMap());
+    const elA = document.createElement("input");
+    const elB = document.createElement("input");
+    const a = vi.fn();
+    const b = vi.fn();
+    im.register("A", [{ key: "Enter", element: elA, handler: a }]);
+    im.register("B", [{ key: "Enter", element: elB, handler: b }]);
+    im.unregister("A");
+    elB.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(b).toHaveBeenCalledTimes(1);
+    elA.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(a).not.toHaveBeenCalled();
   });
 
   it("non-container shortcut fires when focus is outside any container (tied priority)", async () => {
