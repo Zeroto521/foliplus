@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
@@ -9,7 +9,10 @@ from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 MODE = Literal["coord", "addr"]
-PROVIDER_IDS = ("nominatim", "photon", "pelias")
+# Single source of truth: the Literal drives both the annotation (static
+# checks) and the runtime allowlist below.
+ProviderId = Literal["nominatim", "photon", "pelias"]
+PROVIDER_IDS = get_args(ProviderId)
 
 
 class SearchControl(BaseControl):
@@ -106,7 +109,7 @@ class SearchControl(BaseControl):
         position: Position = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
-        provider: str | dict = "nominatim",
+        provider: ProviderId | dict = "nominatim",
         provider_config: dict | None = None,
         locale: str | LocaleConfig | None = None,
     ):

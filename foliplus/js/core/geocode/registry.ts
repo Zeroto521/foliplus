@@ -72,6 +72,9 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
     id: config.id,
     throttleMs: config.throttleMs ?? 1000,
     headers: config.headers ?? {},
+    // Template placeholders use the API-conventional `lon`/`lat` names (the
+    // config author mirrors the geocoding API's docs); foliplus' own internal
+    // signatures use `lng` consistently — the two are kept distinct on purpose.
     suggest(q, limit, center, code) {
       return buildUrl(config.suggest, {
         q,

@@ -46,7 +46,9 @@ interface GeocodeProvider {
 
 /** Declarative operation config for a custom provider. */
 interface ProviderOpConfig {
-  /** URL template; supports the {q} {limit} {lon} {lat} placeholders. */
+  /** URL template; supports the {q} {limit} {lon} {lat} placeholders. The
+   *  placeholders use the API-conventional `lon` name (as the underlying
+   *  geocoding API documents it); foliplus' own signatures use `lng`. */
   url: string;
   /** Static extra query params merged into the template URL. */
   params?: Record<string, string | number>;
