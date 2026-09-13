@@ -96,9 +96,10 @@ describe("locateMe", () => {
     const ctrl = makeCtrl();
     locateMe(ctrl);
     // Hint text is rendered as a TextNode, so an inline SVG would appear as
-    // source code instead of an icon.
+    // source code instead of an icon; the loading state shows the shared
+    // spinner registered under the `<name>-loading` hint key instead.
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
-      "LocateControl",
+      "LocateControl-loading",
       "locating",
       0, // HINT_DURATION.PERSIST
     );

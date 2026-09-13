@@ -80,6 +80,16 @@ describe("HintManager", () => {
     expect(document.querySelector(".foliplus-hint")).toBeNull();
   });
 
+  it("hideHint(key) clears a hint shown under <key>-<suffix> (loading-key convention)", () => {
+    const mgr = new HintManager();
+    mgr.showHint("SearchControl-loading", "locating", 0);
+    expect(document.querySelector(".foliplus-hint")).not.toBeNull();
+    // Loading hints live under `<name>-loading`; callers still hide them by
+    // the control name alone via the key-prefix match.
+    mgr.hideHint("SearchControl");
+    expect(document.querySelector(".foliplus-hint")).toBeNull();
+  });
+
   it("auto-dismisses after the duration elapses", () => {
     vi.useFakeTimers();
     const mgr = new HintManager();

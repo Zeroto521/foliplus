@@ -1480,6 +1480,7 @@ describe("ExportManager — export progress", () => {
     expect(manager.showGlobalHint).toHaveBeenCalledWith(
       expect.stringContaining("42%"),
       0, // HINT_DURATION.PERSIST
+      "ExportControl-loading",
     );
   });
 
@@ -1501,6 +1502,7 @@ describe("ExportManager — export progress", () => {
     expect(manager.showGlobalHint).toHaveBeenCalledWith(
       expect.stringContaining("77%"),
       0,
+      "ExportControl-loading",
     );
   });
 

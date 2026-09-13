@@ -178,7 +178,7 @@ declare global {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
-    registerHintIcon: (name: string, icon: string) => void;
+    registerHintIcon: (key: string, iconSvg: string) => void;
     showHint: (
       name: string,
       msg: string,
@@ -186,7 +186,7 @@ declare global {
       append?: boolean,
       subkey?: string,
     ) => void;
-    hideHint: (name: string, id?: string) => void;
+    hideHint: (name: string, subkey?: string) => void;
     reverseGeocode: (
       map: Leaflet.Map,
       lng: number | string,

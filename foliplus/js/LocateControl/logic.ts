@@ -81,7 +81,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     return;
   }
   setLocating(ctrl, true);
-  map.foliplus!.showHint(CONF.name, T("locating"), HINT_DURATION.PERSIST);
+  map.foliplus!.showHint(`${CONF.name}-loading`, T("locating"), HINT_DURATION.PERSIST);
   geo.getCurrentPosition(
     pos => {
       setLocating(ctrl, false);
