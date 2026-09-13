@@ -121,7 +121,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     }
   });
 
-  ensureInteraction(map).register(CONF.name, [
+  const interaction = ensureInteraction(map);
+  interaction.register(CONF.name, [
     {
       key: "Escape",
       element: ctrl.inp,
@@ -199,7 +200,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
 
   return () => {
     collapseObserver.disconnect();
-    ensureInteraction(map).unregister(CONF.name);
+    const interaction = ensureInteraction(map);
+    interaction.unregister(CONF.name);
   };
 };
 

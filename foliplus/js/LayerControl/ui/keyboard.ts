@@ -3,7 +3,6 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attrs.js";
-import { T } from "./context.js";
 import { owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
@@ -286,13 +285,21 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       event.preventDefault();
       const moved = ui.m.moveLayerUp(id);
       if (!moved) {
-        map.foliplus!.showHint(CONF.name, T("reorder_top"), HINT_DURATION.SHORT);
+        ui.m.map.foliplus!.showHint(
+          ui.conf.name,
+          ui.T("reorder_top"),
+          HINT_DURATION.SHORT,
+        );
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       const moved = ui.m.moveLayerDown(id);
       if (!moved) {
-        map.foliplus!.showHint(CONF.name, T("reorder_bottom"), HINT_DURATION.SHORT);
+        ui.m.map.foliplus!.showHint(
+          ui.conf.name,
+          ui.T("reorder_bottom"),
+          HINT_DURATION.SHORT,
+        );
       }
     }
     const newItems = getNavigableItems(ui);
@@ -369,8 +376,8 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const action = menuLi.getAttribute("data-action") ?? "";
         if (menuLi.getAttribute("disabled")) {
           ui.m.map.foliplus!.showHint(
-            CONF.name,
-            T("focus_layer_hidden"),
+            ui.conf.name,
+            ui.T("focus_layer_hidden"),
             HINT_DURATION.SHORT,
           );
           break;

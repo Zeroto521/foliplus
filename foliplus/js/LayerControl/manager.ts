@@ -1,4 +1,4 @@
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -64,6 +64,9 @@ class LayerManager implements LayerAPI {
    */
   isLayerControl = true;
   map: L.Map;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
   layerRegistry: LayerRegistry;
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
@@ -80,6 +83,7 @@ class LayerManager implements LayerAPI {
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    this.events = ensureEvents(this.map);
     this.layerRegistry = new LayerRegistry(data, this.map);
     this.pendingRegistrations = [];
     this.uiContainer = null;
@@ -140,7 +144,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -282,7 +286,7 @@ class LayerManager implements LayerAPI {
     // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
     this.invalidateType(id);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
@@ -394,7 +398,7 @@ class LayerManager implements LayerAPI {
       this.debouncedEnforce();
     }
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -413,7 +417,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -471,10 +475,10 @@ class LayerManager implements LayerAPI {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
-    ensureEvents(this.map).emit(EVENTS.LAYER_REMOVED, { id });
+    this.events.emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
 
@@ -675,7 +679,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -697,7 +701,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }

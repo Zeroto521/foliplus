@@ -1,9 +1,14 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS, generateId } from "#core/component.js";
-import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
+import {
+  EVENTS,
+  type EventBus,
+  type EventHandler,
+  ensureEvents,
+} from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
+import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
@@ -60,6 +65,16 @@ const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
+  /** Per-map mode manager / event bus — bound once in the constructor
+   *  (ensure-style getters return the cached instance, so hold them like the
+   *  logger instead of re-ensuring at each call site). */
+  modes: ModeManager;
+  events: EventBus;
+  /** Component config — carried on the manager instead of a module-level
+   *  free variable, so the UI functions are unit-testable with their own CONF. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once by the manager. */
+  T: (key: string) => string;
   private interactionCleanup?: () => void;
   private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
@@ -117,6 +132,8 @@ class MeasureManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.conf = CONF;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.store = new MeasureStore(this.map, this.layerId);
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
@@ -132,9 +149,11 @@ class MeasureManager {
     });
     this.currentMode = null;
     this.modeInstance = null;
+    this.modes = ensureModes(this.map);
+    this.events = ensureEvents(this.map);
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    this.offModeChange = ensureEvents(this.map).on(
+this.offModeChange = this.events.on(
       EVENTS.MODE_CHANGE,
       ({ component, mode }) => {
         if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
@@ -287,7 +306,7 @@ class MeasureManager {
     // Registering a mode in the ModeManager also suspends map-layer interaction
     // while measuring (see core/mode syncInteractionLock), so clicks fall
     // through to the map for node placement instead of firing layer handlers.
-    ensureModes(this.map).setMode(CONF.name, mode);
+    this.modes.setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -535,7 +554,7 @@ class MeasureManager {
     // Edit mode owns the map like a drawing mode, but it edits the measurement
     // layers themselves — register it with a skip predicate so data layers are
     // suspended while the measure panes stay interactive.
-    ensureModes(this.map).setMode(
+    this.modes.setMode(
       CONF.name,
       on ? CONST.MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
@@ -570,7 +589,7 @@ class MeasureManager {
     if (this.isEditMode) this.setEditMode(false);
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
-    ensureModes(this.map).setMode(CONF.name, null);
+    this.modes.setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
@@ -634,7 +653,7 @@ class MeasureManager {
    * "measuring" CSS class would remain stuck in an inconsistent state.
    */
   bindLayerRemoved() {
-    this.offLayerRemoved = ensureEvents(this.map).on(EVENTS.LAYER_REMOVED, ((payload: {
+    this.offLayerRemoved = this.events.on(EVENTS.LAYER_REMOVED, ((payload: {
       id?: string;
     }) => {
       if (payload?.id === this.layerId) {

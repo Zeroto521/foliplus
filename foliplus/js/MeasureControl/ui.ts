@@ -1,14 +1,10 @@
 // MeasureControl UI — standalone functions invoked with a MeasureManager context.
 import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "./edit.js";
 import type { MeasureManager } from "./manager.js";
 import * as Util from "./util.js";
-
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
 
 /**
  * Re-order layers so they render in the correct z-order.
@@ -163,7 +159,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
-        title: isFirst || isLastWhenTwo ? T("del_all") : T("del_node"),
+        title: isFirst || isLastWhenTwo ? mgr.T("del_all") : mgr.T("del_node"),
       }),
       CONST.PANES.NODE,
     ) as L.Marker;
@@ -202,7 +198,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
             attachDelClick(lastDelMarker, deleteMeasurement);
             bindOpenOverlay(lastDelMarker, openOverlay);
             const iconEl = lastDelMarker.getElement();
-            if (iconEl) iconEl.title = T("del_all");
+            if (iconEl) iconEl.title = mgr.T("del_all");
           }
         }
 
@@ -516,7 +512,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       CONST.LABEL_PRIORITY.CENTROID,
     );
     centroidDelMarker = layers.addLayer(
-      makeDelIcon(centroid, { title: T("del_all") }),
+      makeDelIcon(centroid, { title: mgr.T("del_all") }),
       CONST.PANES.NODE,
     ) as L.Marker;
     attachDelClick(centroidDelMarker, deleteMeasurement);
@@ -552,7 +548,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     const is3pt = points.length === 3;
     const delMarker = layers.addLayer(
       makeDelIcon(node.getLatLng(), {
-        title: is3pt ? T("del_all") : T("del_node"),
+        title: is3pt ? mgr.T("del_all") : mgr.T("del_node"),
       }),
       CONST.PANES.NODE,
     ) as L.Marker;
@@ -586,7 +582,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
               } else openOverlay(event);
             });
             const iconEl = d.getElement();
-            if (iconEl) iconEl.title = T("del_all");
+            if (iconEl) iconEl.title = mgr.T("del_all");
           });
         }
 

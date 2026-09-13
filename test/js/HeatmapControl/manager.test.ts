@@ -1109,3 +1109,19 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(ctrl.ctrl.getAttribute("data-ready")).toBe("true");
   });
 });
+
+describe("event-bus bindings", () => {
+  it("LAYER_CHANGE on the bound bus clears the render caches", async () => {
+    const m = makeManager();
+    m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
+    m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
+
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.cachedAgg).toBeNull();
+    expect(m.cachedPoints).toBeNull();
+  });
+});
