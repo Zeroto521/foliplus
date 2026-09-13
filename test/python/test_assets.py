@@ -370,8 +370,9 @@ def test_verify_gate_fails_when_a_control_has_no_stylesheet():
     for artifact in (src_css, dist_css):
         assert artifact.is_file(), f"{artifact.name} not found"
 
-    src_body, dist_body = src_css.read_text(encoding="utf-8"), dist_css.read_text(
-        encoding="utf-8"
+    src_body, dist_body = (
+        src_css.read_text(encoding="utf-8"),
+        dist_css.read_text(encoding="utf-8"),
     )
     try:
         src_css.unlink()

@@ -75,10 +75,14 @@ def _build_shared_header() -> str:
     all components).
     Built once and cached at module level.
     """
-    missing = [a for a in (
-        dist_dir / "foliplus-common.min.css",
-        dist_dir / "foliplus-common.min.js",
-    ) if not a.is_file()]
+    missing = [
+        a
+        for a in (
+            dist_dir / "foliplus-common.min.css",
+            dist_dir / "foliplus-common.min.js",
+        )
+        if not a.is_file()
+    ]
     if missing:
         raise MissingAssetsError(missing)
     css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
