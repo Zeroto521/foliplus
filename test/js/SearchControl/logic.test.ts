@@ -405,6 +405,29 @@ describe("searchAddress", () => {
     expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
     expect(ctrl.marker).not.toBeNull();
   });
+
+  it("loading hint is plain text, not an inline SVG string", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "nowhere" },
+    };
+    searchAddress(ctrl, "nowhere");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    // Hint text is rendered as a TextNode, so an inline SVG would appear as
+    // source code instead of an icon; withLoadingIcon renders the built-in
+    // spinner in the hint's icon slot instead.
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "SearchControl",
+      "SearchControl.popup_loading",
+      0,
+      undefined,
+      undefined,
+      true,
+    );
+  });
 });
 
 describe("positionPanel", () => {

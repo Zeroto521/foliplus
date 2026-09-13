@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import { removeCropBox, showCropBox } from "#foliplus/ExportControl/ui.js";
+import {
+  removeCropBox,
+  showCropBox,
+  showGlobalHint,
+} from "#foliplus/ExportControl/ui.js";
 
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
 function makeMapMock() {
@@ -122,5 +126,36 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
     expect(leaf.options.interactive).toBe(true);
     expect(el.classList.contains("leaflet-interactive")).toBe(true);
     expect(leaf.addInteractiveTarget).toHaveBeenCalledWith(el);
+  });
+});
+
+describe("ExportControl ui — showGlobalHint", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.CONF = { ...window.CONF, name: "ExportControl" };
+  });
+
+  it("withLoadingIcon renders the built-in spinner for loading states", () => {
+    showGlobalHint("Exporting map... (42%)", 0, true);
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "Exporting map... (42%)",
+      0,
+      undefined,
+      undefined,
+      true,
+    );
+  });
+
+  it("defaults to the registered control icon for status messages", () => {
+    showGlobalHint("Export successful", 4000);
+    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+      "ExportControl",
+      "Export successful",
+      4000,
+      undefined,
+      undefined,
+      false,
+    );
   });
 });
