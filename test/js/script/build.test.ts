@@ -75,11 +75,14 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-110KB)", () => {
+  it("common JS has reasonable size (20-115KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    // Unminified dev build (CI path); ListCursor pushed past 100KB.
-    expect(size).toBeLessThan(110000);
+    // Unminified dev build (CI path). The common bundle is tree-shaken from the
+    // component imports scanned into _shared-registry.ts, so this is a real
+    // budget: ListCursor pushed it past 100KB, and the createLayers panes
+    // generalisation (#280) added the per-pane routing to the same bundle.
+    expect(size).toBeLessThan(115000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

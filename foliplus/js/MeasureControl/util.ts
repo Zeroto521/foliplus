@@ -1,6 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { toggleDelIcon } from "#common/delicon.js";
-import { buildPopupHtml } from "#common/dom.js";
+import { buildPopupEl } from "#common/dom.js";
 import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
 import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -61,9 +61,14 @@ const setLabelText = (marker: L.Layer, text: string) => {
   if (labelEl) labelEl.textContent = text;
 };
 
-/** Build popup HTML for a marker location. */
-const buildPopup = (lng: number, lat: number, addr: string | null = null): string => {
-  return buildPopupHtml(
+/** Build the popup body for a marker location. Returns an element, so a
+ *  reverse-geocoded address can only ever reach the DOM as a TextNode. */
+const buildPopup = (
+  lng: number,
+  lat: number,
+  addr: string | null = null,
+): HTMLElement => {
+  return buildPopupEl(
     lng,
     lat,
     addr,

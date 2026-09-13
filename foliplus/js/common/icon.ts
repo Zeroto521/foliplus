@@ -4,9 +4,16 @@
 // icons live in each component's own `{Name}.icon.js` file instead.
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Paint is set on the icon itself rather than inherited from the host button.
+// LOADING is shared by four consumers; the ones in Leaflet popups (LocateControl,
+// SearchControl) sit outside any `svg { fill: none }` rule, so with no local paint
+// the arc — a closed path — fell back to fill: black and rendered as a solid pie
+// slice with a notch instead of an open ring. Inline presentation attributes have
+// the lowest CSS priority, so a component can still recolour it from CSS.
 const LOADING = `
   <svg class="foliplus-spin" viewBox="0 0 24 24">
-    <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+    <path fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" d="M21 12a9 9 0 1 1-6.2-8.6"/>
   </svg>`;
 
 const CLOSE = `
