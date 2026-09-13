@@ -6,13 +6,16 @@
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / bumpLabelPanes / migrateLayers / reset / destroy
+//     ensurePane / ensureVector / bumpPanes / migrateLayers / reset / destroy
 //     releaseFallbackPane
 import * as CONST from "./const.js";
 import { forEachLayer } from "./util.js";
 
 /** Marker with protected Leaflet internals (shadow element). */
 type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
+
+/** A Leaflet Path layer with the mutable option surface we set on. */
+type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
 
 /** Renderer storage on L.Map (keyed by CONST.RENDERER_KEY + pane name). */
 interface PaneRendererMap {
@@ -22,7 +25,17 @@ interface PaneRendererMap {
 class PaneManager {
   map: L.Map;
   defaultPanes: Set<string>;
-  labelPanes: Set<string>;
+  /**
+   * Sub-panes registered by `createLayers({ panes: [...] })` — the child
+   * `layerGroup`s that carry one sub-pane's worth of content. Used to decide
+   * whether a discovered child pane is ours (bumpPanes, sweep) or a foreign
+   * pane belonging to some other component (leave alone).
+   *
+   * Replaces the earlier `labelPanes` set: the concept was specific to one
+   * consumer (MeasureControl's label pane). Generalizing to any child pane
+   * keeps `bumpPanes` and `registerSubPanes` component-agnostic.
+   */
+  childPanes: Set<string>;
   paneCache: Map<number, string[]>;
   fallbackPaneMap: Map<number, string>;
 
@@ -35,7 +48,7 @@ class PaneManager {
       "shadowPane",
       "mapPane",
     ]);
-    this.labelPanes = new Set();
+    this.childPanes = new Set();
     this.paneCache = new Map();
     this.fallbackPaneMap = new Map();
   }
@@ -53,7 +66,13 @@ class PaneManager {
     if (!pane) {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
-      pane.style.zIndex = String(CONST.Z_INDEX.BASE);
+      // Provisional z-index so sub-panes have the right relative order
+      // before bumpPanes runs (it may never run if LayerControl is absent).
+      // bumpPanes later overwrites with the layer's position-based base.
+      const k = Array.from(this.childPanes).indexOf(paneName);
+      if (k >= 0) {
+        pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
+      }
     }
     let renderer: L.SVG | null = null;
     if (needRenderer) {
@@ -104,17 +123,34 @@ class PaneManager {
   destroy() {
     this.paneCache.clear();
     this.fallbackPaneMap.clear();
-    this.labelPanes.clear();
+    this.childPanes.clear();
   }
 
-  /** Bump label panes for a layer so labels render above paths. */
-  bumpLabelPanes(layer: L.Layer, z: number): void {
-    const childPanes = this.discoverChildPanes(layer);
-    childPanes.forEach(cp => {
-      if (this.labelPanes.has(cp)) {
-        const lp = this.ensurePane(cp, false);
-        if (lp.pane) lp.pane.style.zIndex = String(z + 1);
-      }
+  /**
+   * Bump every child pane of a layer so it paints above the base pane. Each
+   * child pane gets `base + k * CHILD_PANE_STEP`, where `k` is the position
+   * of the pane name in the registry entry's `subPanes` array.
+   *
+   * Generalizes the earlier `bumpLabelPanes`: that method only knew about
+   * label panes (hard-coded `+1` offset) because MeasureControl was the only
+   * consumer. With N registered sub-panes per layer, we bump each by its
+   * index into the same ordered list `registerSubPanes` was called with,
+   * so the number of sub-panes is unbounded.
+   *
+   * @param layer - The container layer whose subtree's child panes to bump.
+   * @param z - Base z-index for the layer's root pane.
+   * @param subPanes - The ordered pane names registered for this layer's
+   *   `createLayers` call. Only names in this list that also appear as child
+   *   panes of `layer` get bumped, and in this list's order.
+   */
+  bumpPanes(layer: L.Layer, z: number, subPanes: string[]): void {
+    const found = this.discoverChildPanes(layer);
+    found.forEach(cp => {
+      if (!this.childPanes.has(cp)) return;
+      const k = subPanes.indexOf(cp);
+      if (k < 0) return;
+      const lp = this.ensurePane(cp, false);
+      if (lp.pane) lp.pane.style.zIndex = String(z + k * CONST.CHILD_PANE_STEP);
     });
   }
 
@@ -202,18 +238,65 @@ class PaneManager {
     this.paneCache.clear();
   }
 
-  /** Drop label-pane entries no longer referenced by any registered layer.
+  /** Drop child-pane entries no longer referenced by any registered layer.
    *  Only the bookkeeping is dropped — the pane div is left in place. Unlike a
    *  fallback pane it is not keyed to a single layer: its name is user-defined
    *  and can be reused, and its renderer is still live, its SVG container being
    *  a child of the pane div. Removing the div would orphan that container, and
-   *  re-creating the pane would not re-parent it. */
-  sweepLabelPanes(layers: ReadonlyArray<{ labelPane?: string | null }>) {
+   *  re-creating the pane would not re-parent it.
+   *
+   * `subPanes` is the ordered list from `registerSubPanes`; `bumpPanes` uses
+   * the same index to pick the offset, so passing the entry's `subPanes`
+   * array here keeps the two APIs in lockstep. */
+  sweepChildPanes(layers: ReadonlyArray<{ subPanes?: string[] }>) {
     const used = new Set<string>();
-    for (const li of layers) if (li.labelPane) used.add(li.labelPane);
-    for (const pane of this.labelPanes) {
-      if (!used.has(pane)) this.labelPanes.delete(pane);
+    for (const li of layers) {
+      for (const pane of li.subPanes ?? []) {
+        used.add(pane);
+      }
     }
+    for (const pane of this.childPanes) {
+      if (!used.has(pane)) {
+        this.childPanes.delete(pane);
+      }
+    }
+  }
+
+  /**
+   * Register the sub-panes `createLayers({ panes: [...] })` declared for this
+   * map. Every subsequent `bumpPanes` / `sweepChildPanes` knows these are
+   * ours and won't touch any foreign pane a third-party component may have
+   * put on the map under its own name.
+   */
+  registerSubPanes(names: string[]): void {
+    for (const n of names) this.childPanes.add(n);
+  }
+
+  /**
+   * Pin a layer to a pane's renderer. Both `options.renderer` and
+   * `options.pane` are set on the layer, so a later `setPane()` call cannot
+   * move it back to the default renderer.
+   *
+   * Why both: Leaflet's `Path._update` re-creates the `<path>` element from
+   * the layer's options and appends it to the renderer's root group. If the
+   * renderer's parent pane doesn't match `options.pane`, the element lands in
+   * the wrong pane even though the SVG group is correct. Setting both keeps
+   * the DOM and the options consistent through repeated attach / re-attach
+   * cycles (which `LayerFactory.addLayer` triggers through
+   * `mainLayer.addLayer`).
+   *
+   * @param layer - The Path to pin.
+   * @param paneName - The pane this layer's renderer should live in.
+   * @returns The renderer that was pinned.
+   */
+  ensureVector(layer: PathWithPane, paneName: string): L.Renderer {
+    const key = CONST.RENDERER_KEY + paneName;
+    const cached = ((this.map as L.Map & PaneRendererMap)[key] ??
+      null) as L.Renderer | null;
+    const target = cached || this.ensurePane(paneName, true).renderer!;
+    layer.options.renderer = target;
+    layer.options.pane = paneName;
+    return target;
   }
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────

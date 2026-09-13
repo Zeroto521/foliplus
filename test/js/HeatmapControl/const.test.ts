@@ -43,7 +43,8 @@ describe("AGG", () => {
 describe("CLASSES", () => {
   it("has expected CSS class constants", () => {
     expect(CONST.CLASSES.FORM_ROW).toBe("foliplus-heatmap-form-row");
-    expect(CONST.CLASSES.BTN_CONFIRM).toBe("foliplus-heatmap-btn-confirm");
+    // The confirm button is gone: every control re-renders live.
+    expect((CONST.CLASSES as Record<string, unknown>).BTN_CONFIRM).toBeUndefined();
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
   });
 
@@ -114,12 +115,11 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
     expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
-    expect(CONST.DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
   });
 
-  it("has 14 data-hm attribute keys", () => {
+  it("has 13 data-hm attribute keys (no confirm button)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(14);
+    expect(keys.length).toBe(13);
   });
 });
 

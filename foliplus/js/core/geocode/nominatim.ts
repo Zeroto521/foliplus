@@ -1,8 +1,9 @@
-// Nominatim URL building & address formatting for foliplus components.
-// Pure functions (no module-level state) — imported statically by components.
-// The stateful reverse-geocoder (geocode.js) also imports these, which
-// is fine: esbuild inlines a copy into runtime.min.js as well.
-import { getMapCrsType } from "./coord.js";
+// Nominatim URL building, address formatting, and the built-in Nominatim
+// geocode provider. NOMINATIM / nominatimUrl / formatAddress are pure helpers
+// imported statically by components; createNominatim builds the provider
+// (URL builder + response normalizer) consumed by the registry.
+import { getMapCrsType } from "#core/geo/coord.js";
+import type { GeocodeProvider, SuggestItem } from "./type.js";
 
 // ── Geocode constants ───────────────────────────────────────────
 const NOMINATIM = {
@@ -12,19 +13,23 @@ const NOMINATIM = {
   ZOOM: 18,
 };
 
+const DEFAULT_BASE_URL = NOMINATIM.URL;
+
 /**
  * Build a Nominatim API URL with shared parameters.
  * @param endpoint - Path like "/search", "/reverse", or "" for search
  * @param params - Additional query parameters
  * @param code - Locale code for accept-language (e.g. "en"/"zh")
+ * @param base - API base URL (overridable for self-hosted instances)
  * @returns Full URL
  */
 const nominatimUrl = (
   endpoint: string,
   params: Record<string, string | number | boolean> = {},
   code = "en",
+  base = NOMINATIM.URL,
 ): string => {
-  const url = new URL(endpoint || "", NOMINATIM.URL);
+  const url = new URL(endpoint || "", base);
   url.searchParams.set("format", NOMINATIM.FORMAT);
   for (const [k, v] of Object.entries(params)) {
     if (v != null) url.searchParams.set(k, String(v));
@@ -77,4 +82,53 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
   return parts.join(",");
 };
 
-export { NOMINATIM, formatAddress, nominatimUrl };
+/** Map a raw Nominatim element to a normalized item (returns null if invalid). */
+const toItem = (r: Record<string, unknown> | null | undefined): SuggestItem | null => {
+  if (!r || (r.lon ?? r.lng) == null || r.lat == null) return null;
+  return {
+    lng: String(r.lon ?? r.lng),
+    lat: String(r.lat),
+    name: typeof r.name === "string" ? r.name : undefined,
+    display_name: typeof r.display_name === "string" ? r.display_name : "",
+  };
+};
+
+/** Build the built-in Nominatim provider (URL builder + normalizer). */
+const createNominatim = (baseUrl: string = DEFAULT_BASE_URL): GeocodeProvider => ({
+  id: "nominatim",
+  throttleMs: NOMINATIM.THROTTLE_MS,
+  headers: {},
+  suggest(q, limit, center, code) {
+    const params: Record<string, string | number> = { q, limit };
+    if (center) {
+      params.lon = center[0];
+      params.lat = center[1];
+    }
+    return nominatimUrl("/search", params, code || "en", baseUrl);
+  },
+  search(q, code) {
+    return nominatimUrl("/search", { q, limit: 1 }, code || "en", baseUrl);
+  },
+  reverse(lng, lat, code) {
+    return nominatimUrl(
+      "/reverse",
+      { lon: lng, lat, zoom: NOMINATIM.ZOOM },
+      code || "en",
+      baseUrl,
+    );
+  },
+  normalizeSuggest(data) {
+    if (!Array.isArray(data)) return [];
+    return data.map(toItem).filter((x): x is SuggestItem => x != null);
+  },
+  normalizeSearch(data) {
+    const first = Array.isArray(data) ? data[0] : null;
+    return toItem(first);
+  },
+  normalizeReverse(data) {
+    const d = data as { display_name?: unknown } | null;
+    return typeof d?.display_name === "string" ? d.display_name : "";
+  },
+});
+
+export { DEFAULT_BASE_URL, NOMINATIM, createNominatim, formatAddress, nominatimUrl };
