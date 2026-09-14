@@ -195,7 +195,6 @@ def _build_component_template(name: str) -> Template:
     )
 
 
-
 class BaseControl(JSCSSMixin, MacroElement):
     """Base class for all foliplus controls.
 
