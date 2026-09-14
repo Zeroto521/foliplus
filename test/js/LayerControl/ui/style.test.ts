@@ -170,13 +170,26 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     expect(panelOf(item)).not.toBeNull();
 
-    // Capture phase: the layer control's disableClickPropagation never lets
-    // a bubble-phase press reach document.
-    document.dispatchEvent(
+    // The dismiss handler has to be registered in the *capture* phase, because
+    // the layer control stops mousedown from bubbling (Leaflet's
+    // disableClickPropagation). Dispatching on `document` cannot prove that —
+    // target === currentTarget, so a bubble-phase listener would run too. A
+    // wrapper that swallows the bubble, plus a press dispatched on its child,
+    // does: capture runs on the way down (document is reached), bubble never
+    // gets there. This test fails if the handler is ever moved to bubble.
+    const wrapper = document.createElement("div");
+    wrapper.addEventListener("mousedown", e => e.stopPropagation());
+    const outside = document.createElement("button");
+    wrapper.appendChild(outside);
+    document.body.appendChild(wrapper);
+
+    outside.dispatchEvent(
       new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
     );
+
     expect(panelOf(item)).toBeUndefined();
     expect(ui.stylePanelLayerId).toBeNull();
+    wrapper.remove();
   });
 
   it("mousedown inside the panel does not dismiss it", () => {
