@@ -923,7 +923,16 @@ class TestLayerControlBrowser:
         LayerControl().add_to(m)
         for layer in layers:
             layer.add_to(m)
-        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        html = m.get_root().render()
+        # Expose the control instance for re-entry tests (dev build keeps names).
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found in rendered HTML"
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
         return page, errors
 
@@ -969,6 +978,18 @@ class TestLayerControlBrowser:
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
 
+    def test_remove_readd_restores_layer_api(self, browser, tmp_path):
+        """Re-add after removeControl upgrades LayerAPI back to full and re-attaches panel."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/destroy_readd"))
+            assert state["afterRemoveStub"] is True
+            assert state["afterAddFull"] is True
+            assert state["panelAttached"] is True
+            panel_ready(page)  # rebuilt panel completes its init pass again
+            assert not errors, f"JS errors: {errors}"
+
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -997,6 +1018,47 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
+
+    def test_icon_svg_payload_never_reaches_dom(self, browser, tmp_path):
+        """A hostile iconSvg survives the innerHTML sink as inert markup only.
+
+        ``iconSvg`` is the one piece of third-party-supplied HTML in the layer
+        model — callers of ``LayerAPI.registerLayer`` / ``createLayers`` hand it
+        in unchecked and it lands in an ``innerHTML`` sink on the type-icon
+        column.  The payload carries three independent vectors: an ``onload``
+        handler on the svg root, a nested ``<script>``, and an ``<img>``
+        smuggled in as a second root (which must not even survive as an
+        element).
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="xss_icon") as (
+            page,
+            _,
+        ):
+            result = page.evaluate(_js("LayerControl/icon_svg_sanitized"))
+            assert result is not None, "LayerAPI not found"
+            assert result["ctrlPresent"], "layer control not mounted"
+
+            assert not any(result["leaked"]), (
+                f"executable payload ran: {result['leaked']}"
+            )
+            assert result["probe"] is not None, "probe row never rendered"
+            assert result["probe"]["scripts"] == 0, result["probe"]
+            assert result["probe"]["imgs"] == 0, result["probe"]
+            assert "onload=" not in result["probe"]["html"], result["probe"]
+            assert "<script" not in result["probe"]["html"], result["probe"]
+            # The rect is presentation and must survive; the payload must not.
+            assert result["probe"]["svgs"] == 1, result["probe"]
+            assert "<rect" in result["probe"]["html"], result["probe"]
+
+            # A namespace declaration is structural, not content: it has to
+            # survive, otherwise Chromium redeclares the SVG namespace on every
+            # element when serialising and a `class` attribute stops matching its
+            # CSS rule. This is a real-browser serialisation property — jsdom
+            # writes both shapes identically — so the assertion only exists here.
+            assert result["spin"] is not None, "spinner row never rendered"
+            assert result["spin"]["xmlnsCount"] == 1, result["spin"]
+            assert result["spin"]["class"] == "foliplus-spin", result["spin"]
+            assert result["spin"]["matches"] is True, result["spin"]
 
     def test_rename_input_fills_row_height(self, browser, tmp_path):
         """The inline rename input spans the full row height (not a 19.6px line).
@@ -2054,6 +2116,9 @@ class TestLayerControlBrowser:
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
+            # The icon the fixture registers. Degenerate markup is rejected
+            # by the sanitizer, so it must be real SVG.
+            svg = '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>'
             result = page.evaluate(_js("LayerControl/re_register_preserves_fields"))
             assert result is not None and "error" not in result, result
             for phase in ("before", "after"):
@@ -2065,7 +2130,9 @@ class TestLayerControlBrowser:
                 assert r["isBase"] is True, f"{phase}: isBase lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"
-                assert r["iconSvg"] == "<svg></svg>", f"{phase}: iconSvg lost"
+                # The value must be the registered icon, unchanged by the
+                # partial re-register.
+                assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
                 assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
 
@@ -3414,3 +3481,31 @@ class TestLayerControlBrowser:
                     f"{info['name']!r}: count column changed to {info['countText']!r} "
                     f"after an unrelated checkbox click"
                 )
+
+    def test_click_outside_collapses_panel(self, browser, tmp_path):
+        """Clicking the map outside the panel collapses it.
+
+        Behavioural parity guard: LayerControl used to wire only
+        bindPanelToggle, so it stayed open when you clicked the map, while
+        HeatmapControl (createPanelControl) collapsed. Both panels now build
+        their shell from createPanelControl, which adds bindOutsideCollapse.
+        """
+        layer = folium.FeatureGroup(name="Outside click")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="outside_click"
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            page.evaluate("document.querySelector('.leaflet-container').click()")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
+            ), "panel stayed expanded after clicking outside"

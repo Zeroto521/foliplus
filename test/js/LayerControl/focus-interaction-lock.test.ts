@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
-import { LayerUI } from "#foliplus/LayerControl/ui.js";
+import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
 // ── Hoistable mock state ──────────────────────────────────────────────
 // vi.hoisted() declares state that exists BEFORE the module body runs, so

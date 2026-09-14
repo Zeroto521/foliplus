@@ -1,21 +1,43 @@
 {
+  // Typecheck program for the test suite. Same strictness as the production
+  // program (inherited from ../../tsconfig.json) — tests are NOT exempt.
+  //
+  // Run `npm run typecheck:tests`. As of 2026-09-13 this reports 1495 errors
+  // and is therefore NOT part of `npm run typecheck` / CI. The suite is typed
+  // against a mock-heavy surface (vi.fn() without type args, `{}` stub objects,
+  // partial fake events) that has no `any` annotations, so 1175 of the errors
+  // are implicit-any cascades (TS7005/7034/7006/7031/18046) over 320 real
+  // mismatches (TS2339/2740/2322/2493/2352/2348/2790/...). Lifting the gate
+  // means typing those, not relaxing anything here.
+  //
+  // The differences from the production program are all about what the tests
+  // need to compile at all: `node` types for the script/ fixtures that touch
+  // fs/path, `#script/*` for the build-script tests, and an allowJs include
+  // scope so the ambient CONF/map declarations are picked up.
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
+    "types": [
+      "vitest/globals",
+      "node"
     ],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "noEmit": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "strict": false,
-    "types": ["vitest/globals"]
+    "paths": {
+      "#common/*": [
+        "../../foliplus/js/common/*"
+      ],
+      "#core/*": [
+        "../../foliplus/js/core/*"
+      ],
+      "#foliplus/*": [
+        "../../foliplus/js/*"
+      ],
+      "#script/*": [
+        "../../script/*"
+      ]
+    }
   },
   "include": [
-    "./**/*.ts"
+    "./**/*.ts",
+    "../../foliplus/js/**/*.ts",
+    "../../foliplus/js/**/*.d.ts"
   ]
 }

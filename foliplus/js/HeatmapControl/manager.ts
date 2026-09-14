@@ -1,6 +1,6 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatNumber } from "#common/format.js";
@@ -91,6 +91,9 @@ interface SavedConfig {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
@@ -105,7 +108,13 @@ class HeatmapManager {
   currentLabelShow: boolean;
   valueFallbackWarned: boolean;
   overlay: CreateCanvasAPI;
-  ui: { ctrl: HTMLElement } | null;
+  /**
+   * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
+   * manager and read/write sibling fields through that shape, so it is typed
+   * here as the partial it actually holds (only `ctrl` at construction) rather
+   * than cast to `HeatmapControlUI` at every use site.
+   */
+  ui: HeatmapControlUI | null;
   cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   cachedFeatures: HexFeature[] | null;
   cachedAgg: { key: string; data: AggregatedData } | null;
@@ -122,9 +131,10 @@ class HeatmapManager {
    */
   hasScanned: boolean;
   declare mapCleanup: () => void;
+  declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
-  declare onZoomEnd: Debounced;
+  declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
@@ -164,15 +174,19 @@ class HeatmapManager {
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
     });
-    // Subscribe to export events for full-content capture (ExportControl).
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => {
-      this.renderAll = true;
-      this.redrawHeatmap();
-    });
-    ensureEvents(this.map).on(EVENTS.AFTER_EXPORT, () => {
-      this.renderAll = false;
-      this.redrawHeatmap();
-    });
+    // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
+    // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
+    // recompute, then clip again afterwards.  Named methods rather than
+    // arrow literals so the two unsubs stay bound to stable identities and
+    // removeExportListener below can release both as one pair.
+    this.events = ensureEvents(this.map);
+    this.removeExportListener = (() => {
+      const unsubs = [
+        this.events.on(EVENTS.BEFORE_EXPORT, () => this.onBeforeExport()),
+        this.events.on(EVENTS.AFTER_EXPORT, () => this.onAfterExport()),
+      ];
+      return () => unsubs.forEach(unsub => unsub());
+    })();
     this.ui = null;
     this.cachedPoints = null;
     this.cachedFeatures = null;
@@ -216,17 +230,28 @@ class HeatmapManager {
       this.cachedAgg = null;
       if (this.ui) {
         this.scanMapLayers();
-        rebuildLayerDropdown(this.ui as HeatmapControlUI);
+        rebuildLayerDropdown(this.ui);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder, so unrelated map activity is filtered out
     // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = ensureEvents(this.map).on(
-      EVENTS.LAYER_CHANGE,
-      () => this.onLayerChange(),
+    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
+      this.onLayerChange(),
     );
+  }
+
+  /** Drop out of export clip mode: redraw with the full feature set. */
+  onBeforeExport() {
+    this.renderAll = true;
+    this.redrawHeatmap();
+  }
+
+  /** Restore normal clip mode after export capture. */
+  onAfterExport() {
+    this.renderAll = false;
+    this.redrawHeatmap();
   }
 
   /** Redraw the heatmap canvas from cached features. */
@@ -627,17 +652,17 @@ class HeatmapManager {
     this.overlay.register();
     this.redrawHeatmap();
     // Notify LayerControl to refresh the count column for this layer.
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   clearHeatmapCanvas() {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
-    (this.ui as any)?.schemeBarCleanup?.();
-    (this.ui as any)?.dropdownCleanup?.();
+    this.ui?.schemeBarCleanup?.();
+    this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Load saved configuration from localStorage into this manager's state. */

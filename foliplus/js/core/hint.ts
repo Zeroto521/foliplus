@@ -1,8 +1,14 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { LOADING } from "#common/icon.js";
+import { createLogger } from "#common/log.js";
+import { parseSVG } from "#common/sanitize.js";
+
+const log = createLogger("Hint");
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
@@ -46,9 +52,14 @@ const hintIconRegistry: Record<string, string> = {};
 
 /** Register an SVG icon for a hint type and sync it into every active manager.
  *  Icons may be registered AFTER a manager was created (a later control's
- *  createControlEnv), so all live managers must be re-seeded. */
+ *  createControlEnv), so all live managers must be re-seeded.
+ *
+ *  This is a public runtime API — a plugin author can reach it through
+ *  `map.foliplus.registerHintIcon()`, and the value lands in an innerHTML
+ *  sink on every hint that carries this key. Clean it on the way in so no
+ *  caller can bypass the allowlist. */
 const registerHintIcon = (key: string, iconSvg: string) => {
-  hintIconRegistry[key] = iconSvg;
+  hintIconRegistry[key] = parseSVG(iconSvg);
   for (const mgr of activeManagers) mgr.syncIcons();
 };
 
@@ -100,6 +111,7 @@ class HintManager {
     duration: number,
     append?: boolean,
     subkey?: string,
+    withLoadingIcon = false,
   ) {
     if (subkey) this.hideHint(key, subkey);
     else if (!append) this.hideHint(key);
@@ -113,12 +125,24 @@ class HintManager {
         ? `${CLASS} ${CLASS}-${key}-${Date.now()}`
         : `${CLASS} ${CLASS}-${key}`;
 
-    const icon = (this.hintIcons && this.hintIcons[key]) || "";
-    const el = dom.el("div", {
-      class: `${cls} ${CLASS}`,
-      parent: hintTarget,
-      innerHTML: icon ? `<span class="foliplus-hint-icon">${icon}</span>${text}` : text,
-    });
+    // The spinner is a hint shape, not a registered icon: withLoadingIcon
+    // swaps in the built-in loader (a trusted repo constant) in place of the
+    // control's registered icon. The icon — whichever it is — is the only HTML
+    // in a hint (`registerHintIcon` sanitises at entry); the text stays a
+    // TextNode, so a rogue locale value cannot turn a hint into markup.
+    // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
+    // unrecognised key.
+    const icon = withLoadingIcon
+      ? LOADING
+      : (this.hintIcons && this.hintIcons[key]) || "";
+    const el = dom.el(
+      "div",
+      { class: `${cls} ${CLASS}`, parent: hintTarget },
+      ...(icon
+        ? [dom.el("span", { class: "foliplus-hint-icon" }, { html: icon })]
+        : []),
+      text,
+    );
     anchorRelative(hintTarget);
     const storeKey = subkey
       ? `${key}|${subkey}`
@@ -185,20 +209,40 @@ class HintManager {
   }
 }
 
+/** Per-map teardown hook, called from the `unload` handler in `ensureHint`.
+ *  Clears the `instances` WeakMap entry so `ensureHint` for the same map object
+ *  rebuilds a fresh manager, and detaches the bound `showHint`/`hideHint`
+ *  closures on `map.foliplus` — `destroy()` alone would leave them wired to a
+ *  manager whose nodes and timers are already gone, so a call after unload would
+ *  append nodes to `document.body` forever. Every call site reaches hints through
+ *  `map.foliplus`, so replacing the closures here covers all of them. */
+const destroyManager = (map: L.Map, mgr: HintManager): void => {
+  mgr.destroy();
+  instances.delete(map);
+  map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
+  map.foliplus!.hideHint = () => {};
+  map.foliplus!.registerHintIcon = () => {};
+};
+
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
 const ensureHint = (map: L.Map): HintManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const mgr = new HintManager();
   instances.set(map, mgr);
-  // Ensure map.foliplus exists so components can call map.foliplus!.showHint
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
-  map.foliplus!.showHint = mgr.showHint.bind(mgr);
-  map.foliplus!.hideHint = mgr.hideHint.bind(mgr);
-  map.foliplus!.registerHintIcon = (key: string, svg: string) => {
+  const api = ensureMapFoliplus(map);
+  api.showHint = mgr.showHint.bind(mgr);
+  api.hideHint = mgr.hideHint.bind(mgr);
+  api.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };
+  // On map unload, tear down hints and unbind the document-level
+  // fullscreenchange listener. Without this the manager outlives its map: the
+  // WeakMap entry frees the instance, but document.body hints, the open
+  // setTimeout timers, and the document listener all leak. Mirrors the per-map
+  // cleanup pattern used by core/mode and core/interaction.
+  map.on("unload", () => destroyManager(map, mgr));
   return mgr;
 };
 
-export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };
+export { destroyManager, ensureHint, HINT_DURATION, HintManager, registerHintIcon };

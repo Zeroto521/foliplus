@@ -38,7 +38,8 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
 };
 
 const registerDrag = (mgr: ExportManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-drag`, [
+  const interaction = ensureInteraction(mgr.map);
+  return interaction.register(`${CONF.name}-drag`, [
     { event: "mousemove", handler: (e: Event) => mgr.onMouseMove(e as MouseEvent) },
     {
       event: "mouseup",
@@ -53,7 +54,8 @@ const registerCropMouseDown = (
   mgr: ExportManager,
   element: HTMLElement,
 ): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-crop`, [
+  const interaction = ensureInteraction(mgr.map);
+  return interaction.register(`${CONF.name}-crop`, [
     {
       event: "mousedown",
       element,

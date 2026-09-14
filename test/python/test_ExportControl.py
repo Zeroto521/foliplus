@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import folium
@@ -9,6 +10,7 @@ import pytest
 from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
 
 from foliplus import ExportControl
+from foliplus.locale import _load_tables
 
 
 class TestExportControlPython:
@@ -135,12 +137,24 @@ class TestExportControlPython:
     def test_max_pixels_custom(self):
         assert ExportControl(max_pixels=1000000).max_pixels == 1000000
 
-    def test_locale_config(self):
+    def test_locale_config_bare_has_no_custom_strings(self):
+        """A bare LocaleConfig records the code but ships no custom table.
+
+        The code is sent to JS, which ships the built-in tables and lets the
+        browser pick the language — so this asserts the *absence* of a custom
+        table rather than that translation took effect.
+        """
         from foliplus.locale import LocaleConfig
 
         cfg = LocaleConfig(language="zh")
         ctrl = ExportControl(locale=cfg)
         assert ctrl._locale_code == "zh"
+        conf = json.loads(ctrl._config_block)
+        assert conf["locale_code"] == "zh"
+        table = conf["locale_tables"]["zh"]
+        # Built-in table is present, unmodified — no custom override layered on.
+        builtin = _load_tables("ExportControl.*.json")["zh"]
+        assert table == builtin
 
 
 class TestExportControlRendering:
@@ -256,17 +270,28 @@ class TestExportControlBrowser:
         for layer in layers:
             layer.add_to(m)
         html = TestExportControlBrowser._stub_html(m.get_root().render())
-        # Inject test hooks right after the manager is created (dev bundle).
+        # Inject test hooks at the control-entry line: a synchronous rafLoop
+        # scheduler (read by the lazily-created manager), then the control and
+        # its manager read back via `m` (dev build keeps these names).
         html, n = re.subn(
-            r"var exportManager = new ExportManager\(map\);",
-            r"var exportManager = new ExportManager(map, function(fn){return 0;}); window.__map = map; window.__exportManager = exportManager;",
+            r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
             html,
             count=1,
         )
-        assert n == 1, "exportManager instantiation not found in rendered HTML"
+        assert n == 1, "ExportControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
+
+    def test_remove_readd_rebuilds_manager(self, browser, tmp_path):
+        """removeControl + addControl re-attaches export UI on a fresh manager."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("ExportControl/destroy_readd"))
+            assert state["removed"] is True
+            assert state["hasManager"] is True
+            assert state["attached"] is True
+            assert not errors, f"JS errors: {errors}"
 
     def test_toggle_button_present(self, browser, tmp_path):
         """Export toggle button is rendered and clickable."""

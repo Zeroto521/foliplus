@@ -1,4 +1,4 @@
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -24,7 +24,7 @@ import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { LayerUI } from "./ui.js";
+import { LayerUI } from "./ui/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -64,6 +64,9 @@ class LayerManager implements LayerAPI {
    */
   isLayerControl = true;
   map: L.Map;
+  /** Per-map event bus — bound once in the constructor (ensure-style getters
+   *  return the cached instance, so hold it like the logger does). */
+  events: EventBus;
   layerRegistry: LayerRegistry;
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
@@ -80,6 +83,7 @@ class LayerManager implements LayerAPI {
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    this.events = ensureEvents(this.map);
     this.layerRegistry = new LayerRegistry(data, this.map);
     this.pendingRegistrations = [];
     this.uiContainer = null;
@@ -140,7 +144,7 @@ class LayerManager implements LayerAPI {
 
     // Before any export, flush pending debounced enforceOrder so the
     // exported image matches the panel's layer order.
-    ensureEvents(this.map).on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
@@ -282,7 +286,7 @@ class LayerManager implements LayerAPI {
     // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
     this.invalidateType(id);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
@@ -349,7 +353,7 @@ class LayerManager implements LayerAPI {
     if (opts.paneName) this.panes.ensurePane(opts.paneName);
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer)) {
-        this.panes.ensurePane(cp, !this.panes.labelPanes.has(cp));
+        this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
       }
       // options.pane is updated below — invalidate only this layer's cache.
       this.panes.reset(L.stamp(opts.layer));
@@ -394,7 +398,7 @@ class LayerManager implements LayerAPI {
       this.debouncedEnforce();
     }
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -413,7 +417,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -445,8 +449,8 @@ class LayerManager implements LayerAPI {
     // The layer is off the map first (above), so the pane teardown never
     // touches a live layer's renderer or path nodes.
     this.panes.releaseFallbackPane(layerStamp);
-    // Drop label-pane bookkeeping for layers that no longer use it.
-    this.panes.sweepLabelPanes(this.layers);
+    // Drop child-pane bookkeeping for layers that no longer use them.
+    this.panes.sweepChildPanes(this.layers);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -471,10 +475,10 @@ class LayerManager implements LayerAPI {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
-    ensureEvents(this.map).emit(EVENTS.LAYER_REMOVED, { id });
+    this.events.emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
 
@@ -575,7 +579,7 @@ class LayerManager implements LayerAPI {
       if (layer.options.pane !== paneName || !layer.options.paneSet) {
         layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
       }
-      this.panes.bumpLabelPanes(layer, z);
+      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
       return;
     }
 
@@ -594,11 +598,11 @@ class LayerManager implements LayerAPI {
     const childPanes = this.panes.discoverChildPanes(layer);
     if (childPanes.length > 0) {
       childPanes.forEach((cp: string) => {
-        const needRenderer = !isTile && !this.panes.labelPanes.has(cp);
+        const needRenderer = !isTile && !this.panes.childPanes.has(cp);
         const paneEntry = this.panes.ensurePane(cp, needRenderer);
         paneEntry.pane.style.zIndex = String(z);
       });
-      this.panes.bumpLabelPanes(layer, z);
+      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
       layer.options.paneSet = true;
       return;
     }
@@ -675,7 +679,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -697,7 +701,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    ensureEvents(this.map).emit(EVENTS.LAYER_CHANGE);
+    this.events.emit(EVENTS.LAYER_CHANGE);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -725,7 +729,9 @@ class LayerManager implements LayerAPI {
     // Revert to the lightweight LayerAPI (no registry, no panel).
     // ensureLayerAPI guarantees a valid object, so consumers can always
     // call `map.foliplus.LayerAPI.xxx` without null checks.
-    ensureLayerAPI(this.map);
+    // `force` is required: without it the existing (destroyed) manager would
+    // short-circuit the stub replacement and stay live on the map.
+    ensureLayerAPI(this.map, true);
   }
 }
 

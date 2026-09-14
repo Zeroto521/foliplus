@@ -26,9 +26,16 @@ describe("sharedGlobalNamespace", () => {
     );
   });
 
+  it("maps core subdomain barrels to foliplus.core.<sub>", () => {
+    expect(sharedGlobalNamespace("#core/geo/index.js")).toBe("foliplus.core.geo");
+    expect(sharedGlobalNamespace("#core/geocode/index.js")).toBe(
+      "foliplus.core.geocode",
+    );
+  });
+
   it("maps #common/<mod>.js to foliplus.common.<mod>", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
-    expect(sharedGlobalNamespace("#common/coord.js")).toBe("foliplus.common.coord");
+    expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
   });
 });
 

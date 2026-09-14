@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { area, bearing, centroid, distance, midpoint } from "#common/geo.js";
+import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 
 beforeEach(() => {
   globalThis.turf = {

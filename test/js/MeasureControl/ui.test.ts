@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui.js";
+import { createScopedTranslator } from "#common/locale.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
@@ -122,15 +123,39 @@ describe("resortLayers", () => {
   });
 });
 
-const makeMgr = () => ({
-  map: { on: vi.fn(), off: vi.fn() },
-  isEditMode: true,
-  registerEditOverlayCloser: vi.fn(() => () => {}),
-  registerEditDragToggle: vi.fn(() => () => {}),
-  registerFinalized: vi.fn(() => () => {}),
-  registerLabel: vi.fn(() => () => {}),
-  closeOtherEditOverlays: vi.fn(),
+/** A CONF for the measure UI with the delete-icon locale the UI renders
+ *  (ComponentName-prefixed keys, like the Python bridge emits). */
+const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
+  name: "MeasureControl",
+  locale_code: "en",
+  locale_tables: {
+    en: {
+      "MeasureControl.del_all": "Delete measurement",
+      "MeasureControl.del_node": "Delete point",
+    },
+  },
+  ...overrides,
 });
+
+/** MeasureManager-shaped fake carrying its own `conf` and a translator bound
+ *  to it — mirroring the real manager (which binds `this.T = T` in its
+ *  constructor) so the UI reads delete-icon titles through the per-instance
+ *  translator, never an ambient module-level one. */
+const makeMgr = (conf: ComponentConfig = makeConf()) => {
+  const translator = createScopedTranslator(conf);
+  const T = vi.fn((key: string) => translator(key));
+  return {
+    map: { on: vi.fn(), off: vi.fn() },
+    isEditMode: true,
+    conf,
+    T,
+    registerEditOverlayCloser: vi.fn(() => () => {}),
+    registerEditDragToggle: vi.fn(() => () => {}),
+    registerFinalized: vi.fn(() => () => {}),
+    registerLabel: vi.fn(() => () => {}),
+    closeOtherEditOverlays: vi.fn(),
+  };
+};
 
 describe("attachCircleUI — delete flow", () => {
   const makeLayer = (name: string) => ({
@@ -283,6 +308,84 @@ describe("attachDistanceUI", () => {
     expect(makeDelIcon).toHaveBeenCalled();
   });
 
+  it("reads the delete-icon titles through the manager-bound translator (injected conf), not window.CONF", () => {
+    // The ambient CONF disagrees with the injected conf — the title must key on
+    // the per-instance manager T (bound to its own conf in the constructor),
+    // never a module-level translator captured from window.CONF at import time.
+    const savedConf = window.CONF;
+    window.CONF = {
+      ...savedConf,
+      name: "MeasureControl",
+      locale_tables: { en: { "MeasureControl.del_all": "AMBIENT del_all" } },
+    };
+    try {
+      const conf = makeConf({
+        locale_tables: { en: { "MeasureControl.del_all": "INJECTED del_all" } },
+      });
+      const mgr = makeMgr(conf);
+      UI.attachDistanceUI(mgr as any, makeOpts() as any);
+
+      // 2 endpoints → both ✕ are del_all; the rendered text must come from
+      // the injected conf's table via mgr.T, never the ambient window.CONF.
+      const titles = (makeDelIcon as any).mock.calls.map(c => c[1]?.title);
+      expect(titles).toEqual(["INJECTED del_all", "INJECTED del_all"]);
+      expect(mgr.T).toHaveBeenCalledWith("del_all");
+      expect(mgr.T).not.toHaveBeenCalledWith("del_node");
+    } finally {
+      window.CONF = savedConf;
+    }
+  });
+
+  it("re-titles the last endpoint's ✕ to del_all when a 3-point distance collapses to 2 (regression)", () => {
+    const points = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ];
+    const mgr = makeMgr();
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const segLabels = [0, 1].map(() => ({
+      on: vi.fn(),
+      setLatLng: vi.fn(),
+      setIcon: vi.fn(),
+    }));
+
+    UI.attachDistanceUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+        nodeMarkers: points.map(pt => ({
+          on: vi.fn(),
+          off: vi.fn(),
+          getLatLng: vi.fn(() => pt),
+          setLatLng: vi.fn(),
+        })),
+        segLabels,
+        points,
+        onDelete: vi.fn(),
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    // Give the last endpoint's ✕ a real element so the rebind can re-title it.
+    const lastDel = (makeDelIcon as any).mock.results[2].value as any;
+    const iconEl = { title: "" };
+    (lastDel.getElement as any).mockReturnValue(iconEl);
+
+    const middleDel = (makeDelIcon as any).mock.results[1].value as any;
+    (middleDel as any)._delClick(); // 3 → 2 points
+
+    // After collapsing, the endpoint's ✕ switches to "delete the whole
+    // distance" and its title follows the injected conf's del_all.
+    expect(iconEl.title).toBe("Delete measurement");
+    expect(mgr.T).toHaveBeenCalledWith("del_all");
+  });
+
   it("registers a drag toggle so edit mode enables node drag directly", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
@@ -381,15 +484,7 @@ describe("attachDistanceUI", () => {
     // collapses it to a single segment, so bindSegLabels() must unregister the
     // two old registrations and register exactly one.
     const registerLabel = vi.fn(() => () => {});
-    const mgr = {
-      map: { on: vi.fn(), off: vi.fn() },
-      isEditMode: true,
-      registerEditOverlayCloser: vi.fn(() => () => {}),
-      registerEditDragToggle: vi.fn(() => () => {}),
-      registerFinalized: vi.fn(() => () => {}),
-      registerLabel,
-      closeOtherEditOverlays: vi.fn(),
-    };
+    const mgr = { ...makeMgr(), registerLabel };
     const layers = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(l => l),
@@ -577,33 +672,32 @@ describe("attachPolygonUI", () => {
     expect(centroidCalls.length).toBe(1);
   });
 
-  it("routes the centroid dot to the graph pane and the label to the label pane", () => {
+  it("routes the centroid dot to the node pane and the label to the label pane", () => {
     const mgr = makeMgr();
     const opts = makeOpts();
-    const addLayerCalls: Array<{ layer: any; isLabel: boolean }> = [];
-    opts.layers.addLayer = vi.fn((layer: any, isLabel?: boolean) => {
-      addLayerCalls.push({ layer, isLabel: Boolean(isLabel) });
+    const addLayerCalls: Array<{ layer: any; pane: string | undefined }> = [];
+    opts.layers.addLayer = vi.fn((layer: any, pane?: string) => {
+      addLayerCalls.push({ layer, pane });
       return layer;
     });
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
-    // no isLabel → graph pane), [1]=centroidLabel (isLabel → label pane),
-    // [2]=centroidDelMarker (no isLabel → graph pane). The dot is an SVG
-    // path (CircleMarker), so it shares the SVG renderer with the fill and
-    // needs no zIndexOffset — DOM order within the SVG guarantees it paints
-    // above the fill.
+    // node pane), [1]=centroidLabel (pane=measure_label),
+    // [2]=centroidDelMarker (node pane). The dot is an SVG path (CircleMarker),
+    // so it lives above the fill by pane z-order (node > graph).
     // The label's offset (CENTROID_Z_OFFSET) keeps it above segment labels
     // after sortLayers re-sorts by Y on zoom.
-    // [0] = centroidDot (CircleMarker): isLabel=false → graph pane
-    expect(addLayerCalls[0].isLabel).toBe(false);
-    // [1] = centroidLabel: isLabel=true → label pane, has offset
-    expect(addLayerCalls[1].isLabel).toBe(true);
+    // [0] = centroidDot (CircleMarker): node pane
+    expect(addLayerCalls[0].pane).toBe(CONST.PANES.NODE);
+    // [1] = centroidLabel: pane = LABEL → label, has offset
+    expect(addLayerCalls[1].pane).toBe(CONST.PANES.LABEL);
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
-    // Del icon: no isLabel flag → graph pane.
+    // Del icon: node pane.
     expect(makeDelIcon).toHaveBeenCalled();
+    expect(addLayerCalls[2].pane).toBe(CONST.PANES.NODE);
   });
 
   it("registers a drag toggle (nodes + centroid drag) with the manager", () => {
@@ -676,5 +770,74 @@ describe("attachPolygonUI", () => {
     expect(centroidEl.style.cursor).toBe("");
     // And the centroid ✕ still deletes the whole measurement.
     expect(() => centroidDel._delClick()).not.toThrow();
+  });
+
+  it("rebinds every remaining node ✕ to delete-all and re-titles after a 4-point polygon collapses to 3", () => {
+    const mgr = makeMgr();
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const mkNode = (lat: number) => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat, lng: 0 })),
+      getElement: vi.fn(() => null),
+      setLatLng: vi.fn(),
+    });
+    const nodeMarkers = [0, 1, 2, 3].map(mkNode);
+    const segLabels = [0, 1, 2].map(() => ({ on: vi.fn() }));
+    const finalPoly = { on: vi.fn(), setLatLngs: vi.fn() };
+    const points = [0, 1, 2, 3].map(lat => ({ lat, lng: 0 }));
+    const onDelete = vi.fn();
+
+    UI.attachPolygonUI(
+      mgr as any,
+      {
+        layers,
+        finalPoly,
+        nodeMarkers,
+        segLabels,
+        points,
+        area: 5000,
+        id: "test-id",
+        onDelete,
+        onUpdate: vi.fn(),
+      } as any,
+    );
+
+    // makeDelIcon call order: [0]=centroid, [1..4]=one per node.
+    const nodeDel = (makeDelIcon as any).mock.results;
+    const deletedNode = nodeDel[2].value as any; // node index 1
+
+    // Give a remaining node's ✕ an element so the rebind's re-title lands.
+    const survivor = nodeDel[3].value as any;
+    const iconEl = { title: "" };
+    (survivor.getElement as any).mockReturnValue(iconEl);
+
+    deletedNode._delClick(); // 4 → 3 points
+
+    // The node delete itself must not delete the whole measurement.
+    expect(onDelete).not.toHaveBeenCalled();
+    // Every remaining ✕ re-titles to del_all from the injected conf.
+    expect(iconEl.title).toBe("Delete measurement");
+    expect(mgr.T).toHaveBeenCalledWith("del_all");
+
+    // Clicking a remaining node's ✕ (del-icon target) now deletes the whole
+    // measurement instead of just that node. The rebind registers the del-all
+    // click handler LAST (after the initial bindOpenOverlay one).
+    const clickCalls = (survivor.on as any).mock.calls.filter(
+      (c: any[]) => c[0] === "click",
+    );
+    const rebindHandler = clickCalls.at(-1)?.[1];
+    expect(rebindHandler).toBeDefined();
+    const delTarget = {
+      closest: (sel: string) => (sel === CONST.SEL.DEL_ICON ? {} : null),
+    };
+    expect(() =>
+      rebindHandler({ originalEvent: { target: delTarget } } as any),
+    ).not.toThrow();
+    expect(onDelete).toHaveBeenCalled();
   });
 });
