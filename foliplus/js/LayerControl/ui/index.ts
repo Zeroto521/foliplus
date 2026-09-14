@@ -93,6 +93,7 @@ import {
   syncHiddenId,
 } from "./state.js";
 import {
+  applyVisibility,
   getLayerItems,
   handleChange,
   handleInput,
@@ -624,6 +625,9 @@ class LayerUI {
   }
   syncVisibility(layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean) {
     return syncVisibility(this, layerInfo, layer, fallback);
+  }
+  applyVisibility(id: string, visible: boolean) {
+    return applyVisibility(this, id, visible);
   }
   handleChange(event: Event) {
     return handleChange(this, event);

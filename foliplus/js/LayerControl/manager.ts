@@ -93,6 +93,7 @@ class LayerManager implements LayerAPI {
     this.unregisterLayer = this.unregisterLayer.bind(this);
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
     this.touchLayer = this.touchLayer.bind(this);
+    this.setVisible = this.setVisible.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -428,6 +429,36 @@ class LayerManager implements LayerAPI {
    *  re-register (heatmap field change, measure add/edit/remove). */
   touchLayer(id: string): boolean {
     return this.layerRegistry.touch(id);
+  }
+
+  /**
+   * Set a layer's visibility from outside the panel — the same transition the
+   * checkbox performs, including the persisted hidden set, so the choice
+   * survives a reload the way a user toggle does.
+   *
+   * Base layers are unaffected in the map itself (folium paints them through
+   * its own layer groups), but the row and the persisted set still follow, so
+   * a hidden base layer comes back hidden after a reload rather than being
+   * resurrected by the sweep that restores author defaults.
+   *
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @param {boolean} visible - Show the layer, or hide it.
+   * @returns {boolean} true if the layer was found and its visibility was set.
+   */
+  setVisible(id: string, visible: boolean): boolean {
+    // Resolve the id up front so an unknown layer is reported the same whether
+    // or not a panel is attached — a caller must not be told a hide succeeded
+    // for an id that never existed.
+    if (!this.layerRegistry.has(id)) return false;
+    if (!this.ui) {
+      // No panel means no row to sync and no hidden-set funnel to write, so
+      // the only honest answer is "not applicable" rather than a no-op that
+      // looks like success. The map-level half still works while the panel is
+      // gone: a later attach replays the persisted hidden set.
+      log.warn("setVisible called before the panel is attached; no-op");
+      return false;
+    }
+    return this.ui.applyVisibility(id, visible);
   }
 
   /**
