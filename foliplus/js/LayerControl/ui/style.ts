@@ -36,12 +36,19 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
-/** Drop a layer's cached field list. Called when a layer's features can
- *  change (runtime createLayers) or when the layer is removed. The annotation
- *  side caches the resolved auto pick off the same walk, so it drops with it. */
+/** Drop a layer's cached field list and re-render if it is currently labelling.
+ *  Called when a layer's features can change (runtime createLayers) or when the
+ *  layer is removed.
+ *
+ *  The re-render matters: the drawn labels carry text baked from the *old*
+ *  fields, and the picker would now resolve a different auto field, so without
+ *  it the map and the panel disagree until the user touches a control. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {
   ui.fieldCache.delete(layerId);
   ui.m.annotation.invalidateAutoField(layerId);
+  if (ui.m.annotation.getConfig(layerId).show) {
+    ui.m.annotation.renderLabels(layerId);
+  }
 };
 
 /** Persist the current per-layer annotation config map. */
@@ -66,20 +73,26 @@ const applyPatch = (
   persistStyleLabel(ui);
 };
 
-/** Load persisted per-layer style (label) config and re-render labels. Called
- *  from the deferred init passes in attachUI, so the layers are resolvable
- *  and labels can be drawn at their anchors. Idempotent. */
+/** Load persisted per-layer style (label) config and apply it.
+ *
+ *  `ui.labelConfigs` is the *load-time snapshot*, so this is a seed, not a
+ *  restore: a layer already carrying a config has the live one (the user may
+ *  have switched it on since the page loaded), and re-applying the snapshot over
+ *  it would silently revert that. Idempotent. */
 const applyStyleLabelState = (ui: LayerUI): void => {
   for (const [id, raw] of Object.entries(ui.labelConfigs)) {
-    const cfg = raw as Partial<AnnotationConfig>;
     if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
+    if (ui.m.annotation.hasConfig(id)) continue; // live state wins
+    const cfg = raw as Partial<AnnotationConfig>;
     ui.m.annotation.setConfig(id, {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
       format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
     });
-    // `field` may be the auto sentinel; renderLabels resolves it.
+    // A stored `show: false` still has to act: labels left over from an earlier
+    // pass would otherwise stay on the map with the toggle reading off.
     if (cfg.show) ui.m.annotation.renderLabels(id);
+    else ui.m.annotation.clearLabels(id);
   }
 };
 

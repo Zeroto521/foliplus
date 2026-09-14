@@ -77,6 +77,14 @@ class AnnotationManager {
     this.config.set(id, cfg);
   }
 
+  /** Whether a layer already carries a config. Distinguishes "never configured"
+   *  from "configured to the default", which `getConfig` cannot — it merges the
+   *  defaults in. The persisted-state seed needs that difference so it does not
+   *  overwrite live state. */
+  hasConfig(id: string): boolean {
+    return this.config.has(id);
+  }
+
   /** All configured layers' id → config entries (for persistence). */
   configEntries(): [string, AnnotationConfig][] {
     return [...this.config.entries()];
@@ -179,6 +187,11 @@ class AnnotationManager {
 
     const layer = this.layerFind(id);
     if (!layer) return [];
+    // Labels are parented to the layer, so a layer that cannot hold children
+    // (a bare `L.Marker`/`L.CircleMarker` registered on its own, which the API
+    // allows and whose `feature.properties` `collectFields` finds) has nowhere
+    // to put them — and calling `addLayer` on it would throw.
+    if (typeof (layer as L.LayerGroup).addLayer !== "function") return [];
     const locale = CONF.locale_code ?? "en";
     const labels: LabelMarker[] = [];
 

@@ -585,12 +585,7 @@ describe("LayerUI style panel", () => {
 
   // ─────────────────── persisted state ───────────────────
 
-  it("applyStyleLabelState re-renders labels for show+field configs only", () => {
-    manager.annotation.setConfig("overlay1", {
-      show: true,
-      field: "count",
-      format: CONST.FORMAT.AUTO,
-    });
+  it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
     ui.labelConfigs = {
       overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
     };
@@ -607,6 +602,29 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
   });
 
+  it("applyStyleLabelState leaves an already-configured layer alone", () => {
+    // The persisted table is a seed, not a restore. Re-entering (a runtime
+    // addControl re-fires CONTROL_ATTACHED) used to re-apply the load-time
+    // snapshot over the live config, silently reverting whatever the user had
+    // changed since the page loaded.
+    manager.annotation.setConfig("overlay1", {
+      show: false,
+      field: "",
+      format: CONST.FORMAT.AUTO,
+    });
+    ui.labelConfigs = {
+      overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+    expect(manager.annotation.getConfig("overlay1").show).toBe(false);
+  });
+
   it("applyStyleLabelState renders a shown config whose field is still auto", () => {
     // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
     // must still render (renderLabels resolves the auto pick).
@@ -621,10 +639,14 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState skips configs that are switched off", () => {
     ui.labelConfigs = { overlay1: { show: false, field: "count" } };
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+    const clearLabels = vi.spyOn(manager.annotation, "clearLabels");
 
     ui.applyStyleLabelState();
 
     expect(renderLabels).not.toHaveBeenCalled();
+    // …and it clears instead: a stored `show: false` applied over labels left
+    // on the map would leave the toggle reading off above visible labels.
+    expect(clearLabels).toHaveBeenCalledWith("overlay1");
   });
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
