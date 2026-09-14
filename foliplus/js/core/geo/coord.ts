@@ -25,8 +25,8 @@ const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
       const url = layers[id]?._url;
       if (url && patterns.some(p => url.includes(p))) return true;
     }
-  } catch (_) {
-    // Ignore errors from layer traversal.
+  } catch (err) {
+    log.warn("tile layer URL traversal failed (CRS fallback to WGS84):", err);
   }
   return false;
 };
@@ -38,7 +38,8 @@ const hasCrsCode = (map: L.Map | null, codePattern: string): boolean => {
     if (!crs) return false;
     const code = crs.code || "";
     return code.toLowerCase().includes(codePattern.toLowerCase());
-  } catch (_) {
+  } catch (err) {
+    log.warn("map CRS code unreadable (CRS fallback to WGS84):", err);
     return false;
   }
 };
@@ -51,8 +52,8 @@ const isBaiduCRS = (map: L.Map | null): boolean => {
   try {
     const LCRS = L.CRS as { Baidu?: L.CRS };
     if (LCRS && LCRS.Baidu && map?.options.crs === LCRS.Baidu) return true;
-  } catch (_) {
-    // L.CRS plugin may be unavailable (jsdom).
+  } catch (err) {
+    log.warn("L.CRS unavailable (Baidu CRS check skipped):", err);
   }
   if (hasCrsCode(map, "baidu")) return true;
   return hasTileUrlMatching(map, ["bdimg.com"]);
