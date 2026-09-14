@@ -124,6 +124,15 @@
   flex-direction: column;
   gap: var(--space-xs);
 }
-.foliplus-style-toggle-input:focus-visible + .foliplus-toggle-slider {
+.foliplus-toggle-switch input:focus-visible + .foliplus-toggle-slider {
+  box-shadow: var(--focus-ring);
+}
+
+/* The shared select had `outline: none` with nothing to replace it, so a
+   keyboard user saw no focus at all on any panel select. Same ring as every
+   other foliplus control. */
+.foliplus-form-select:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
   box-shadow: var(--focus-ring);
 }

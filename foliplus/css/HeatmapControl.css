@@ -105,9 +105,12 @@
     border-top: var(--size-6) solid var(--text-muted);
     pointer-events: none;
   }
-  /* Scheme row: form-control needs relative positioning for the dropdown */
-  .foliplus-heatmap-form-row:has(.foliplus-heatmap-scheme-bar)
-    .foliplus-heatmap-form-control {
+  /* Scheme row: the control cell needs relative positioning so the dropdown
+     hangs off it. Both classes are the shared form primitives — the component
+     prefixed names here stopped matching when the template moved to
+     `foliplus-form-row` / `foliplus-form-control`, which silently returned the
+     dropdown to the page flow. */
+  .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
   /* Scheme hidden select: visually collapsed but stays in layout (Bootstrap

@@ -121,6 +121,13 @@
     &:hover .foliplus-close-btn {
       opacity: 1;
     }
+    /* …and stays visible while it holds focus. `opacity: 0` hides the element
+       *and* its focus ring, so a keyboard user who tabs onto it would land on a
+       control they cannot see; `:focus-within` on the header is how a parent
+       reacts to a child's focus without `:has()`. */
+    &:focus-within .foliplus-close-btn {
+      opacity: 1;
+    }
   }
 
   /* ── Panel Content ── */
