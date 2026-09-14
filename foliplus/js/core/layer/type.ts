@@ -216,7 +216,7 @@ interface LayerAPI {
    *
    * @returns true if the layer was found and its visibility was set.
    */
-  setVisible?: (id: string, visible: boolean) => boolean;
+  setVisible: (id: string, visible: boolean) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (

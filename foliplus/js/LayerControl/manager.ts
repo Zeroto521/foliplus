@@ -436,10 +436,11 @@ class LayerManager implements LayerAPI {
    * checkbox performs, including the persisted hidden set, so the choice
    * survives a reload the way a user toggle does.
    *
-   * Base layers are unaffected in the map itself (folium paints them through
-   * its own layer groups), but the row and the persisted set still follow, so
-   * a hidden base layer comes back hidden after a reload rather than being
-   * resurrected by the sweep that restores author defaults.
+   * Base layers behave like overlays here: folium paints them as direct map
+   * children (`Layer.render` emits `addTo(map)`, with no per-base group
+   * wrapper), so hiding one removes it from the map. Neither this path nor the
+   * checkbox applies the "only one base at a time" rule — that is decided by
+   * the map's base-layer control, not by LayerControl.
    *
    * @param {string} id - Layer ID previously passed to registerLayer().
    * @param {boolean} visible - Show the layer, or hide it.
@@ -451,10 +452,11 @@ class LayerManager implements LayerAPI {
     // for an id that never existed.
     if (!this.layerRegistry.has(id)) return false;
     if (!this.ui) {
-      // No panel means no row to sync and no hidden-set funnel to write, so
-      // the only honest answer is "not applicable" rather than a no-op that
-      // looks like success. The map-level half still works while the panel is
-      // gone: a later attach replays the persisted hidden set.
+      // No panel means no row to sync and no hidden-set funnel to write. The
+      // hidden set lives on LayerUI, so a success here would be a state change
+      // the panel can never show — and `destroy()` clears the registry too, so
+      // there is no later attach to replay it. Refuse instead of no-op-ing, or
+      // the caller cannot tell a no-panel call from a real hide.
       log.warn("setVisible called before the panel is attached; no-op");
       return false;
     }

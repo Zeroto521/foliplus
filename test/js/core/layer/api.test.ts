@@ -158,6 +158,9 @@ describe("ensureLayerAPI", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
+    // false, not undefined: the stub is a real method, so callers can tell a
+    // no-LayerControl call apart from an unknown id on a live one.
+    expect(api.setVisible("x", false)).toBe(false);
     expect(api.extractPoints("x")).toEqual([]);
     expect(api.getLayerPanes({} as any)).toEqual([]);
     expect(api.getLayersByType("point")).toEqual([]);
