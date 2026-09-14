@@ -25,27 +25,7 @@ from __future__ import annotations
 import importlib.metadata
 import json
 from pathlib import Path
-
-
-def _import_foliplus():
-    """`foliplus` the script should render against.
-
-    A seam rather than a module-level import: the test suite loads this file
-    to exercise the manifest logic without pulling in branca, numpy and
-    pandas, and installs a stub through here. The suite cannot stub
-    `sys.modules` instead — pytest imports every test module at collection
-    time, so a stub leaks into every other test in the session.
-    """
-    import foliplus
-
-    return foliplus
-
-
-def _import_folium():
-    """`folium` for the blank map, through the same seam."""
-    import folium
-
-    return folium
+from types import ModuleType
 
 
 class SmokeFailure(AssertionError):
@@ -56,15 +36,14 @@ class SmokeFailure(AssertionError):
     """
 
 
-def locate_controls() -> list[type]:
+def locate_controls(foliplus: ModuleType) -> list[type]:
     """The exported `*Control` classes, excluding the `BaseControl` abstract."""
-    package = _import_foliplus()
     return [
-        getattr(package, n)
-        for n in sorted(dir(package))
+        getattr(foliplus, n)
+        for n in sorted(dir(foliplus))
         if n.endswith("Control")
         and n != "BaseControl"
-        and isinstance(getattr(package, n), type)
+        and isinstance(getattr(foliplus, n), type)
     ]
 
 
@@ -94,10 +73,10 @@ def check_manifest(dist_path: Path) -> list[str]:
     return listed
 
 
-def render_control(cls: type) -> None:
+def render_control(folium: ModuleType, cls: type) -> None:
     """Render one control onto a blank map, asserting both bundles emitted."""
     name = cls.__name__
-    m = _import_folium().Map(location=[40.4, -3.7])
+    m = folium.Map(location=[40.4, -3.7])
     cls().add_to(m)
     # `add_to` can swap the map's root for a Figure, so render the root.
     html = m.get_root().render()
@@ -112,6 +91,15 @@ def render_control(cls: type) -> None:
 
 
 def main() -> None:
+    # Imported here rather than at module level: `test_smoke_wheel.py` loads
+    # this file to exercise the manifest logic without pulling in branca,
+    # numpy and pandas. The suite can't stub `sys.modules` instead — pytest
+    # imports every test module at collection time, so a stub leaks into
+    # every other test in the session.
+    import folium
+
+    import foliplus
+
     version = importlib.metadata.version("foliplus")
     package_dir = importlib.metadata.distribution("foliplus").locate_file("foliplus")
     print(f"foliplus {version} at {package_dir}")
@@ -122,11 +110,11 @@ def main() -> None:
     listed = check_manifest(package_dir / "dist")
     print(f"dist/: {len(listed)} components, all artifacts present")
 
-    classes = locate_controls()
+    classes = locate_controls(foliplus)
     assert classes, "no control classes exported from foliplus"
 
     for cls in classes:
-        render_control(cls)
+        render_control(folium, cls)
 
     print(
         f"rendered {len(classes)} controls: "

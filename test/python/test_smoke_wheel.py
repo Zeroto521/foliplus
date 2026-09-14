@@ -4,17 +4,15 @@ The script only runs against an installed wheel in the `release` job, but its
 manifest check is pure enough to exercise here — and it is the one assertion
 CI runs before publishing, so it has to be right.
 
-Loading the script would import `foliplus` and `folium`, pulling in branca,
-numpy, pandas and the rest of the stack. None of that is needed for the
-manifest logic, so `smoke-wheel.py` resolves both via a
-`_import_foliplus()` / `_import_folium()` seam instead of at module level,
-and the test installs stubs through that seam rather than into
-`sys.modules`. Touching `sys.modules` from a test module was tried and
-abandoned: pytest imports every test module at collection time, so a stub
-installed here shadows the real package for every other test in the
-session — dozens of failures with `"foliplus" is not a package` — and no
-teardown timing can undo it, because the other modules have already been
-imported.
+`check_manifest()` and `locate_controls()` are pure: they take the `foliplus`
+module as a parameter, so the test passes a stub and never imports branca,
+numpy, pandas or the rest of the stack the script pulls in at run time.
+That parameter matters, not just the stub — loading the script through
+`sys.modules` instead was tried and abandoned: pytest imports every test
+module at collection time, so a stub installed there shadows the real
+package for every other test in the session, which reads as dozens of
+failures with `"foliplus" is not a package`, and no teardown timing undoes
+it because the other modules have already been imported.
 """
 
 from __future__ import annotations
@@ -45,23 +43,18 @@ def _make_stub() -> types.ModuleType:
 
 @pytest.fixture
 def smoke():
-    """`script/smoke-wheel.py`, loaded with `foliplus` and `folium` stubbed.
-
-    Per-test rather than session-scoped: each test gets a fresh stub so a
-    test that adds an attribute to the stub cannot leak it into the next.
-    """
-    stub = _make_stub()
-
-    def _loader():
-        return stub
-
+    """`script/smoke-wheel.py`, loaded without importing folium or foliplus."""
     spec = importlib.util.spec_from_file_location("smoke_wheel", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    module._import_foliplus = _loader
-    module._import_folium = lambda: types.ModuleType("folium")
     return module
+
+
+@pytest.fixture
+def package() -> types.ModuleType:
+    """A fresh stub per test, so a test that adds an attribute cannot leak."""
+    return _make_stub()
 
 
 def _write_dist(tmp_path: Path, artifacts: list[str], files: list[str]) -> Path:
@@ -160,23 +153,23 @@ def test_check_manifest_missing_manifest_is_not_a_smoke_failure(tmp_path, smoke)
 # ── locate_controls ─────────────────────────────────────────────────
 
 
-def test_locate_controls_finds_all_stubbed_controls(smoke):
+def test_locate_controls_finds_all_stubbed_controls(smoke, package):
     """Every exported *Control class is discovered, by inspection."""
-    assert [c.__name__ for c in smoke.locate_controls()] == list(_CONTROL_NAMES)
+    assert [c.__name__ for c in smoke.locate_controls(package)] == list(_CONTROL_NAMES)
 
 
-def test_locate_controls_excludes_basecontrol(smoke):
+def test_locate_controls_excludes_basecontrol(smoke, package):
     """`BaseControl` is abstract and must never be counted as rendered."""
-    assert "BaseControl" not in [c.__name__ for c in smoke.locate_controls()]
+    assert "BaseControl" not in [c.__name__ for c in smoke.locate_controls(package)]
 
 
-def test_locate_controls_only_types(smoke):
+def test_locate_controls_only_types(smoke, package):
     """A non-class export is not rendered, even if it ends in Control."""
-    smoke._import_foliplus().StaleControl = "not a class"
-    assert all(isinstance(c, type) for c in smoke.locate_controls())
+    package.StaleControl = "not a class"
+    assert all(isinstance(c, type) for c in smoke.locate_controls(package))
 
 
-def test_locate_controls_is_sorted(smoke):
+def test_locate_controls_is_sorted(smoke, package):
     """Discovery order is deterministic, so CI output is diffable."""
-    names = [c.__name__ for c in smoke.locate_controls()]
+    names = [c.__name__ for c in smoke.locate_controls(package)]
     assert names == sorted(names)
