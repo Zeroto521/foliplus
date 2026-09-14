@@ -56,6 +56,15 @@ jobs:
         run: make dist
 
       - run: pip install dist/*.whl
+
+      - name: Smoke-test the built wheel
+        # Render every control against the distribution under test. Install
+        # into an isolated target and point PYTHONPATH there so the import
+        # cannot resolve to the source checkout instead.
+        run: |
+          pip install --target ./.wheelcheck dist/*.whl
+          PYTHONPATH=./.wheelcheck python script/smoke-wheel.py
+
       - run: make info
 
       - uses: actions/upload-artifact@v7
