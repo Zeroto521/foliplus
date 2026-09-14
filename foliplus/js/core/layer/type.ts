@@ -216,6 +216,14 @@ interface LayerAPI {
   getFeatureCount?: (id: string) => number | null;
   /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
   touchLayer?: (id: string) => boolean;
+  /** Move a layer one position toward index 0, respecting group boundaries.
+   *  False if already at the top, at a group boundary, or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerUp?: (id: string) => boolean;
+  /** Move a layer one position away from index 0, respecting group boundaries.
+   *  False if already at the bottom of its group or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerDown?: (id: string) => boolean;
 }
 
 export type {
