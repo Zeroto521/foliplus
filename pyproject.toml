@@ -25,6 +25,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Visualization",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
+  "Typing :: Typed",
 ]
 dependencies = ["folium>=0.14.0"]
 
@@ -60,7 +61,7 @@ include-package-data = false
 include = ["foliplus*"]
 
 [tool.setuptools.package-data]
-foliplus = ["cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
+foliplus = ["py.typed", "cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["test/python"]
@@ -107,3 +108,10 @@ omit = ["*/test/*", "*/site-packages/*"]
 
 [tool.codespell]
 ignore-words-list = "afterAll"
+
+[tool.mypy]
+# Mirrors the pre-commit hook — the package ships py.typed, so the check holds
+# the same bar downstream consumers get from it. Running `mypy foliplus` with
+# no flags (editors, CI) picks this up.
+strict = true
+ignore_missing_imports = true

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
 from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
@@ -115,8 +115,8 @@ class SearchControl(BaseControl):
         position: Position = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
-        provider: ProviderId | dict = "nominatim",
-        provider_config: dict | None = None,
+        provider: ProviderId | dict[str, Any] = "nominatim",
+        provider_config: dict[str, Any] | None = None,
         locale: str | LocaleConfig | None = None,
     ):
         if isinstance(provider, str):

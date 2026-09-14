@@ -13,6 +13,7 @@ API Reference
    FullscreenControl
    HeatmapControl
    LayerControl
+   LocaleConfig
    LocateControl
    MeasureControl
    ScaleControl

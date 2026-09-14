@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
-from folium.elements import Element
+from branca.element import Element
 from folium.map import Layer
 
 from ._typing import Position
@@ -85,7 +85,7 @@ class LayerControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self._template = self._get_template()
 
-    def _extra_config(self) -> dict:
+    def _extra_config(self) -> dict[str, Any]:
         """Collect layers from the parent map at render time.
 
         This is the canonical example of a control that needs render-time data the

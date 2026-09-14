@@ -15,6 +15,10 @@ export default defineConfig({
     globals: true,
     include: ["test/js/**/*.test.ts"],
     setupFiles: ["test/js/setup.ts"],
+    // Windows: the default `forks` pool makes jsdom pathologically slow (a
+    // single environment takes minutes, so tests hit the 5s timeout). The
+    // `threads` pool is the documented Windows-sandbox requirement.
+    pool: "threads",
     // JUnit XML output for Codecov Test Analytics.
     reporters: [
       "default",

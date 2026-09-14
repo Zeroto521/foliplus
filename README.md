@@ -34,6 +34,16 @@ Layer data passed to foliplus is read-only: no editing, upload, or deletion.
 
 Data processing happens upstream. foliplus handles the map, not the data.
 
+## Type Hints
+
+foliplus ships a `py.typed` marker (PEP 561), so mypy, pyright and other type
+checkers analyze the package instead of skipping it. Constructor arguments are
+fully annotated — `Literal` bounds and `Position`/`Bound` constraints are
+enforced at type-check time, e.g. `HeatmapControl(method="bogus")` is a
+type error. `LocaleConfig` and the type aliases (`Position`, `Zoom`,
+`PositiveInt`, `Fraction`) are importable from the top level, and
+`mypy --strict foliplus` runs in pre-commit.
+
 ## Features
 
 | Control                 | Description                                                                            |
