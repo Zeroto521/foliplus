@@ -3,7 +3,6 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { formatNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
@@ -454,14 +453,14 @@ class LayerUI {
     }
 
     if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
+      countCol.textContent = Util.formatCount(count, this.conf.locale_code);
     } else if (countCol) {
       countCol.textContent = "";
     }
     item.setAttribute(CONST.DATA.TITLE, typeLabel);
     item.title =
       count !== null
-        ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
+        ? `${Util.formatCount(count, this.conf.locale_code)} ${typeLabel}`
         : typeLabel;
   }
 
@@ -477,7 +476,7 @@ class LayerUI {
       const count = this.mgmt.getFeatureCount(id);
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol && count !== null && count !== undefined) {
-        countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
+        countCol.textContent = Util.formatCount(count, this.conf.locale_code);
       } else if (countCol) countCol.textContent = "";
     });
   }
