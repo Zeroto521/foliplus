@@ -32,6 +32,24 @@ class TestFullscreenControlPython:
     def test_custom_hide_self(self):
         assert FullscreenControl(hide_self=False).hide_self is False
 
+    def test_default_hide_selector(self):
+        assert FullscreenControl().hide_selector == []
+
+    def test_custom_hide_selector(self):
+        assert FullscreenControl(hide_selector=[".navbar"]).hide_selector == [
+            ".navbar"
+        ]
+
+    def test_hide_selector_rejects_none(self):
+        assert FullscreenControl(hide_selector=None).hide_selector == []
+
+    def test_hide_selector_copies_input(self):
+        """The list is copied so mutating the caller's list cannot change CONF."""
+        selectors = [".navbar"]
+        control = FullscreenControl(hide_selector=selectors)
+        selectors.append("#footer")
+        assert control.hide_selector == [".navbar"]
+
     def test_default_locale(self):
         assert FullscreenControl()._locale_code == ""
 
@@ -98,6 +116,16 @@ class TestFullscreeControlRendering:
         """hide_others=false is passed via CONFIG."""
         html = render_control(FullscreenControl(hide_others=False))
         assert_config_value(html, "hide_others", False)
+
+    def test_hide_selector_default_in_config(self):
+        """hide_selector=[] is passed via CONFIG, so JS sees an empty list."""
+        html = render_control(FullscreenControl())
+        assert '"hide_selector": []' in html
+
+    def test_hide_selector_in_config(self):
+        """hide_selector is passed through to the JS CONF verbatim."""
+        html = render_control(FullscreenControl(hide_selector=[".navbar", "#app"]))
+        assert '"hide_selector": [".navbar", "#app"]' in html
 
     def test_hide_self_independent_of_hide_others(self):
         """hide_self still works when hide_others=false."""

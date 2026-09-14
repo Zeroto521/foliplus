@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
   bindFullscreenEvents,
@@ -47,6 +47,20 @@ const makeNativeMapMock = container => {
   const map = makeMapMock(container);
   map.getContainer().requestFullscreen = vi.fn(() => Promise.resolve());
   return map;
+};
+
+// CONF is a compile-time literal in vitest (see vitest.config.mjs `define`), so
+// `CONF.hide_selector = [...]` would hit a read-only binding. `hide_selector`
+// never exists on it, so adding it here is safe. The getter reads CONF at
+// updateUI *call* time — the IIFE wrapper re-scopes `const CONF` inside each
+// call, so it always reads the live global — which is what makes switching
+// selectors between tests possible.
+const withHideSelector = selectors => {
+  Object.defineProperty(globalThis, "CONF", {
+    value: { ...globalThis.CONF, hide_selector: selectors },
+    configurable: true,
+    writable: true,
+  });
 };
 
 describe("updateUI", () => {
@@ -171,6 +185,167 @@ describe("bindFullscreenEvents — pseudo path", () => {
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+  });
+});
+
+describe("hide_selector", () => {
+  let fsBtn;
+  let container;
+  let mapMock;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isEnabled = true;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeNativeMapMock(container);
+    // Rebind to an empty list: the previous suite's rebind would otherwise
+    // leak into these tests.
+    withHideSelector([]);
+  });
+
+  afterEach(() => {
+    document
+      .querySelectorAll("[data-foliplus-fs-display]")
+      .forEach(el => el.removeAttribute("data-foliplus-fs-display"));
+    withHideSelector([]);
+  });
+
+  it("hides hide_selector elements and restores them on exit", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `
+      <div id="navbar" class="site-nav"></div>
+      <span class="site-nav">nested</span>
+      <div id="static" style="display:none"></div>
+      <div id="other"></div>
+    `;
+    document.body.appendChild(page);
+    const navbar = page.querySelector("#navbar");
+    const nested = page.querySelector("span.site-nav");
+    const hidden = page.querySelector("#static");
+    const other = page.querySelector("#other");
+
+    withHideSelector([".site-nav", "#never-matches", "  ", ""]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(navbar.style.display).toBe("none");
+    expect(nested.style.display).toBe("none");
+    expect(hidden.style.display).toBe("none"); // already hidden, untouched
+    expect(other.style.display).toBe(""); // outside the selector list
+
+    withHideSelector([]);
+    mocks.getFullscreenEl.mockReturnValue(null);
+    updateUI(mapMock, fsBtn, container);
+    expect(navbar.style.display).toBe("");
+    expect(nested.style.display).toBe("");
+    expect(hidden.style.display).toBe("none");
+    expect(other.style.display).toBe("");
+
+    page.remove();
+  });
+
+  it("keeps hiding hide_selector elements across repeated updates", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="bar2"></div>`;
+    document.body.appendChild(page);
+    const bar = page.querySelector("#bar2");
+
+    withHideSelector(["#bar2"]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    updateUI(mapMock, fsBtn, container);
+    expect(bar.style.display).toBe("none");
+
+    withHideSelector([]);
+    mocks.getFullscreenEl.mockReturnValue(null);
+    updateUI(mapMock, fsBtn, container);
+    expect(bar.style.display).toBe("");
+
+    page.remove();
+  });
+
+  it("does not touch page elements when hide_selector is empty", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="nav-empty"></div>`;
+    document.body.appendChild(page);
+    const nav = page.querySelector("#nav-empty");
+
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(nav.style.display).toBe("");
+    expect(nav.dataset.foliplusFsDisplay).toBeUndefined();
+
+    page.remove();
+  });
+
+  it("does not abort updateUI on an invalid selector", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="nav-bad"></div>`;
+    document.body.appendChild(page);
+    const nav = page.querySelector("#nav-bad");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    withHideSelector(["[[", "()", "#nav-bad"]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(nav.style.display).toBe("none");
+    // The hint still fires after the invalid selector was skipped.
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+
+    page.remove();
+    warn.mockRestore();
+  });
+});
+
+describe("selector input is sanitised", () => {
+  let fsBtn;
+  let container;
+  let mapMock;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isEnabled = true;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeNativeMapMock(container);
+    withHideSelector([]);
+  });
+
+  afterEach(() => {
+    document
+      .querySelectorAll("[data-foliplus-fs-display]")
+      .forEach(el => el.removeAttribute("data-foliplus-fs-display"));
+    withHideSelector([]);
+  });
+
+  it("trims valid selectors and silently drops blank entries", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="target"></div>`;
+    document.body.appendChild(page);
+    const target = page.querySelector("#target");
+
+    withHideSelector(["  #target  ", "   ", ""]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(target.style.display).toBe("none");
+
+    page.remove();
+  });
+
+  it("drops non-string entries", () => {
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="target2"></div>`;
+    document.body.appendChild(page);
+    const target = page.querySelector("#target2");
+
+    withHideSelector(["#target2", undefined, null]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(target.style.display).toBe("none");
+
+    page.remove();
   });
 });
 
