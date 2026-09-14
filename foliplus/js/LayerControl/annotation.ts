@@ -2,9 +2,10 @@
 //
 // Annotations are an overlay drawn by LayerControl on top of data layers:
 // an isLabel L.marker per feature, positioned at the feature's anchor point
-// (point below the marker, polygon/line at the centroid). The label value is
-// read live from feature.properties[field], so the label always reflects the
-// current data. Because isLabel leaves are filtered out of countFeatureGeometry
+// (point below the marker, polygon/line centred on the centroid). The value is
+// read from feature.properties[field] and baked into the marker's icon at render
+// time, so a field or format change re-renders rather than updating in place.
+// Because isLabel leaves are filtered out of countFeatureGeometry
 // / getGeometryType / extractPoints in core/layer/util.ts, they never affect
 // the layer's count, type icon, or point extraction, and they toggle together
 // with the parent layer (added as children of the source layer via addLayer).
@@ -92,8 +93,13 @@ class AnnotationManager {
    *  Both string and numeric fields are returned (annotations are not limited
    *  to numeric columns); the type only drives the number-format row. The
    *  returned names are the bare property names (no "properties." prefix) so
-   *  callers store and compare them uniformly. The walk itself is shared with
-   *  the heatmap's field contract — see core/labelField. */
+   *  callers store and compare them uniformly.
+   *
+   *  The *walk* runs through core/labelField's collector; what stays local is
+   *  the leaf traversal, and the heatmap deliberately keeps its own collection
+   *  too — its field contract is a different one (numeric only, `properties.`
+   *  prefixed, fed from extractPoints) while the shared rules it does use are
+   *  the auto pick and the numeric test. */
   collectFields(id: string): LabelField[] {
     const layer = this.layerFind(id);
     if (!layer) return [];

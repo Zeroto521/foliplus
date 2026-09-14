@@ -359,9 +359,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
-      ui.m.annotation.setConfig(layerId, { ...CONST.DEFAULT_ANNOTATION });
-      ui.m.annotation.renderLabels(layerId);
-      persistStyleLabel(ui);
+      // Through applyPatch, so the reset writes config, re-renders and persists
+      // in the same order as every other control on this panel.
+      applyPatch(ui, layerId, { ...CONST.DEFAULT_ANNOTATION });
       closeStylePanel(ui, true);
       return;
     }
