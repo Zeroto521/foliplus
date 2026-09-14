@@ -1,12 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-// Four levels up from test/js/script/ is the repo root. Resolving from the
-// module's own path keeps this independent of where the test is launched.
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const distDir = resolve(repoRoot, "foliplus/dist");
+// Vitest runs with the repo root as cwd, same convention bundle-size-check
+// relies on — so dist/ resolves without a parent-directory walk.
+const distDir = resolve(process.cwd(), "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
 // writes on every real build — the same list `test/python/test_assets.py`
