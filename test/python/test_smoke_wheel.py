@@ -117,9 +117,7 @@ def test_check_manifest_reports_component_absent_from_disk(tmp_path, controls, s
 
 def test_check_manifest_rejects_unexpected_file(tmp_path, controls, smoke):
     """A stray file in dist/ is not a valid artifact set."""
-    dist = _write_dist(
-        tmp_path, controls, _pairs(controls) + ["foliplus-Stale.min.js"]
-    )
+    dist = _write_dist(tmp_path, controls, _pairs(controls) + ["foliplus-Stale.min.js"])
     with pytest.raises(smoke.SmokeFailure, match="unexpected files"):
         smoke.check_manifest(dist)
 
