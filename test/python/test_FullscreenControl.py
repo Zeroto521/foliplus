@@ -438,9 +438,7 @@ class TestFullscreenControlBrowser:
         )
         page.on(
             "requestfailed",
-            lambda req: errors.append(
-                f"requestfailed {req.failure} {req.url}"
-            ),
+            lambda req: errors.append(f"requestfailed {req.failure} {req.url}"),
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
         return page, errors
@@ -490,7 +488,10 @@ class TestFullscreenControlBrowser:
             # Fullscreen API requires; a synthesized .click() would not.
             page.click(".foliplus-fullscreen-toggle")
             page.wait_for_function("() => document.fullscreenElement !== null")
-            page.wait_for_function("() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')", timeout=10000)
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')",
+                timeout=10000,
+            )
             assert self._rotate_hint_visible(page), "rotate hint not shown"
             enter_hint = page.evaluate(
                 "!!document.querySelector('.foliplus-hint-FullscreenControl')"
@@ -507,11 +508,16 @@ class TestFullscreenControlBrowser:
             self._set_orientation(page, "portrait-primary")
             page.click(".foliplus-fullscreen-toggle")
             page.wait_for_function("() => document.fullscreenElement !== null")
-            page.wait_for_function("() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')", timeout=10000)
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')",
+                timeout=10000,
+            )
             assert self._rotate_hint_visible(page)
             # The toggle is hidden in fullscreen (hide_self=true), so a
             # synthesized click reaches it — exit needs no user activation.
-            page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
+            page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle').click()"
+            )
             page.wait_for_function("() => document.fullscreenElement === null")
             assert not self._rotate_hint_visible(page), "rotate hint persisted"
             assert not errors, f"JS errors: {errors}"
@@ -525,7 +531,10 @@ class TestFullscreenControlBrowser:
             self._set_orientation(page, "landscape-primary")
             page.click(".foliplus-fullscreen-toggle")
             page.wait_for_function("() => document.fullscreenElement !== null")
-            page.wait_for_function("() => !!document.querySelector('.foliplus-hint-FullscreenControl')", timeout=10000)
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl')",
+                timeout=10000,
+            )
             assert not self._rotate_hint_visible(page), "hint shown in landscape"
             assert not errors, f"JS errors: {errors}"
 
