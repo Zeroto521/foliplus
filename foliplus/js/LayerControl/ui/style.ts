@@ -4,7 +4,12 @@
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
 // scroll, close affordance), exactly like the attributes panel — so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
-import { type LabelField, autoLabelField, isNumericField } from "#core/labelField.js";
+import {
+  AUTO_FIELD,
+  type LabelField,
+  isNumericField,
+  resolveSelectedField,
+} from "#core/labelField.js";
 import { dom } from "#common/dom.js";
 import { type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
@@ -32,9 +37,11 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
 /** Drop a layer's cached field list. Called when a layer's features can
- *  change (runtime createLayers) or when the layer is removed. */
+ *  change (runtime createLayers) or when the layer is removed. The annotation
+ *  side caches the resolved auto pick off the same walk, so it drops with it. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {
   ui.fieldCache.delete(layerId);
+  ui.m.annotation.invalidateAutoField(layerId);
 };
 
 /** Persist the current per-layer annotation config map. */
@@ -71,7 +78,8 @@ const applyStyleLabelState = (ui: LayerUI): void => {
       field: typeof cfg.field === "string" ? cfg.field : "",
       format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
     });
-    if (cfg.show && cfg.field) ui.m.annotation.renderLabels(id);
+    // `field` may be the auto sentinel; renderLabels resolves it.
+    if (cfg.show) ui.m.annotation.renderLabels(id);
   }
 };
 
@@ -103,29 +111,24 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // collapses under the toggle on first paint and on every reopen where
   // show === false, mirroring the heatmap's "switch off → hide body" rule.
   const showChecked = !!cfg.show;
-  let selectedField = cfg.field || "";
-  // Auto-pick: when the toggle goes on with no field yet, select the first
-  // numeric field (so labels actually render something — a string field
-  // still works but a value column is what users reach for first). Falls back
-  // to fields[0] when nothing is numeric, mirroring the heatmap's
-  // collectFields → autoLabelField contract.
-  if (showChecked && !selectedField) {
-    selectedField = autoLabelField(fields);
-    cfg.field = selectedField;
-    ui.m.annotation.setConfig(layerId, cfg);
-  }
+  // The picker's "Auto" entry means "let foliplus choose", and the config
+  // records it as the shared sentinel rather than a resolved name — so the layer
+  // keeps labelling itself when its columns change. `resolveSelectedField`
+  // (core/labelField) is what turns the select's value back into a field.
+  const selectedField = cfg.field;
 
-  // Field options; the placeholder doubles as the "no field" choice. The
-  // per-field <option>s are appended to the select itself — appending them
-  // into the placeholder would nest <option> inside <option>, and the
-  // browser's select.options list skips nested options.
+  // Field options: the auto entry first, then one per field. The auto entry is
+  // the select's own empty value, so it is what a fresh panel shows. The
+  // per-field <option>s are appended to the select itself — appending them into
+  // the first option would nest <option> inside <option>, and the browser skips
+  // nested options when it builds the options list.
   const fieldSelect = dom.el(
     "select",
     {
       class: "foliplus-form-select foliplus-style-field-select",
       "aria-label": ui.T("style_label_field"),
     },
-    dom.el("option", { value: "" }, ui.T("style_label_field_placeholder")),
+    dom.el("option", { value: AUTO_FIELD }, ui.T("style_label_field_auto")),
   );
   fields.forEach(f =>
     fieldSelect.appendChild(
@@ -136,7 +139,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
   );
-  (fieldSelect as HTMLSelectElement).value = selectedField;
+  (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
   const formatOpts = [
     CONST.FORMAT.AUTO,
@@ -172,7 +175,11 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_format")),
     dom.el("div", { class: "foliplus-form-control" }, formatSelect),
   );
-  syncFormatRow(fields, formatRow, (fieldSelect as HTMLSelectElement).value);
+  syncFormatRow(
+    fields,
+    formatRow,
+    resolveSelectedField((fieldSelect as HTMLSelectElement).value, fields),
+  );
 
   // Body wrapper: hidden by default when cfg.show is false, shown on toggle
   // on. Listens to the toggle so flipping it reveals the field/format rows
@@ -274,10 +281,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       t.classList.contains("foliplus-style-toggle-input")
     ) {
       const show = t.checked;
-      // Reveal / collapse the body under the toggle, and on the first "on"
-      // pick a default field so the panel is not just a switch with an empty
-      // select below it (mirrors the heatmap's "auto-pick on first select"
-      // pattern). Subsequent toggles keep the field the user has chosen.
+      // Reveal / collapse the body under the toggle. No field is written here:
+      // leaving it at the auto sentinel is what makes the picker read "Auto" and
+      // what lets the layer keep labelling itself if its columns change.
       const body = panel.querySelector(".foliplus-style-body") as HTMLElement | null;
       if (body) body.classList.toggle("foliplus-hidden", !show);
       const fieldSel = panel.querySelector(
@@ -285,18 +291,14 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLSelectElement | null;
       const cfg = ui.m.annotation.getConfig(layerId);
       const fields = layerFields(ui, layerId);
-      if (show && fieldSel && !cfg.field) {
-        const picked = autoLabelField(fields);
-        if (picked) {
-          cfg.field = picked;
-          fieldSel.value = picked;
-        }
-      }
+      const chosen = fieldSel?.value ?? cfg.field;
       const fmtRow = panel.querySelector(
         ".foliplus-style-format-row",
       ) as HTMLElement | null;
-      if (fmtRow) syncFormatRow(fields, fmtRow, fieldSel?.value ?? cfg.field);
-      applyPatch(ui, layerId, { show, field: fieldSel?.value ?? cfg.field });
+      if (fmtRow) {
+        syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
+      }
+      applyPatch(ui, layerId, { show, field: chosen });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains("foliplus-style-field-select")
@@ -304,7 +306,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const fmtRow = panel.querySelector(
         ".foliplus-style-format-row",
       ) as HTMLElement | null;
-      if (fmtRow) syncFormatRow(layerFields(ui, layerId), fmtRow, t.value);
+      if (fmtRow) {
+        syncFormatRow(
+          layerFields(ui, layerId),
+          fmtRow,
+          resolveSelectedField(t.value, layerFields(ui, layerId)),
+        );
+      }
       const fmtSel = panel.querySelector(
         ".foliplus-style-format-select",
       ) as HTMLSelectElement | null;

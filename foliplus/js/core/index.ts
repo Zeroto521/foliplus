@@ -33,7 +33,13 @@ export type {
   SuggestItem,
 } from "./geocode/index.js";
 export * from "./layer/index.js";
-export { collectLabelFields, isNumericField, autoLabelField } from "./labelField.js";
+export {
+  AUTO_FIELD,
+  autoLabelField,
+  collectLabelFields,
+  isNumericField,
+  resolveSelectedField,
+} from "./labelField.js";
 export type { LabelField } from "./labelField.js";
 export { createControlEnv } from "./controlEnv.js";
 export { registerHintIcon } from "./hint.js";

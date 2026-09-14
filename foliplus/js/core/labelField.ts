@@ -21,6 +21,33 @@ const leafProperties = (leaf: L.Layer): Record<string, unknown> | null =>
     ?.properties ?? null;
 
 /**
+ * Whether a property value can be a label.
+ *
+ * Only a primitive can: a label renders one string, so an object would come out
+ * as "[object Object]". This is also what keeps folium's own bookkeeping out of
+ * the field list — a `GeoJson` given a `style_function` writes the resolved
+ * style *object* into every feature's `properties.style` (folium/features.py,
+ * `style_data`), and the layer reads it back with `setStyle`. It looks like a
+ * column and is not one.
+ */
+const isLabelableValue = (value: unknown): boolean =>
+  value == null || (typeof value !== "object" && typeof value !== "function");
+
+/**
+ * Property keys reserved for rendering rather than data.
+ *
+ * `__folium_color` is how folium's documented recipes colour a feature through
+ * its properties. folium itself only passes it through, so it arrives as
+ * ordinary data and a label over it would print a hex colour — worth naming
+ * because, unlike a nested object, it is a primitive and the value rule alone
+ * would not catch it.
+ */
+const RESERVED_PROPERTY_KEYS = new Set(["__folium_color"]);
+
+/** Whether a property key names data a label could show. */
+const isLabelableKey = (key: string): boolean => !RESERVED_PROPERTY_KEYS.has(key);
+
+/**
  * Collect distinct property keys across `leaves`, in first-seen order, sampling
  * each key's type once.
  *
@@ -38,6 +65,7 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
     const props = leafProperties(leaf);
     if (!props) continue;
     for (const [name, value] of Object.entries(props)) {
+      if (!isLabelableKey(name) || !isLabelableValue(value)) continue;
       const at = index.get(name);
       if (at === undefined) {
         index.set(name, fields.length);
@@ -65,4 +93,32 @@ const isNumericField = (fields: LabelField[], name: string): boolean =>
 const autoLabelField = (fields: LabelField[]): string =>
   (fields.find(f => f.numeric) ?? fields[0])?.name ?? "";
 
-export { collectLabelFields, isNumericField, autoLabelField, type LabelField };
+/**
+ * The value a label-field `<select>` uses to mean "let foliplus choose".
+ *
+ * The empty string: an explicit field is always a non-empty name, so the
+ * sentinel can never collide with a real option, and a `<select>`'s own empty
+ * value already reads as "nothing picked yet". Both components that offer a
+ * field picker — the heatmap's aggregation field and the annotation panel's
+ * label field — use it, so "auto" means one thing across the product.
+ */
+const AUTO_FIELD = "";
+
+/**
+ * What a label-field `<select>`'s current value means: the explicit field it
+ * names, or — for the {@link AUTO_FIELD} sentinel — the shared auto pick over
+ * the fields that select offered. Takes the offered `fields` rather than
+ * re-deriving them, so a caller that already collected (and cached) them pays
+ * nothing to resolve.
+ */
+const resolveSelectedField = (value: string, fields: LabelField[]): string =>
+  value || autoLabelField(fields);
+
+export {
+  AUTO_FIELD,
+  autoLabelField,
+  collectLabelFields,
+  isNumericField,
+  resolveSelectedField,
+  type LabelField,
+};

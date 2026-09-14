@@ -3,6 +3,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { layerHasLabelFields } from "#foliplus/LayerControl/ui/style.js";
+import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { findItem, initFixture } from "./fixture.js";
 
@@ -255,10 +256,11 @@ describe("LayerUI style panel", () => {
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(true);
   });
 
-  it("reveals the body and auto-picks the first numeric field when switched on", () => {
-    // Label values are what users reach for first, so the auto pick prefers a
-    // number over an earlier string column — the same rule the heatmap's
-    // field selector applies.
+  it("reveals the body when switched on, leaving the picker on Auto", () => {
+    // The picker's Auto entry is not a placeholder: switching the toggle on
+    // leaves the field unresolved on purpose, so the layer keeps labelling
+    // itself if its columns change. The auto rule itself (first numeric, else
+    // first) is asserted in core/labelField.test.ts and below for the format row.
     ui.fieldCache.set("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -271,8 +273,36 @@ describe("LayerUI style panel", () => {
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(false);
-    expect(fieldSelectOf(item).value).toBe("count");
-    expect(manager.annotation.getConfig("overlay1").field).toBe("count");
+    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
+    expect(manager.annotation.getConfig("overlay1").field).toBe(AUTO_FIELD);
+  });
+
+  it("shows the number-format row for the field Auto resolves to", () => {
+    ui.fieldCache.set("overlay1", [
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+    ]);
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    // Auto resolves to the numeric `count`, so the row is live even though the
+    // select's own value is the empty sentinel.
+    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
+    expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
+  });
+
+  it("offers the auto entry first, then one option per field", () => {
+    ui.fieldCache.set("overlay1", [
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+    ]);
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    const options = Array.from(fieldSelectOf(item).options);
+    expect(options.map(o => o.value)).toEqual([AUTO_FIELD, "name", "count"]);
+    expect(options[0].textContent).toBe("LayerControl.style_label_field_auto");
   });
 
   it("collapses the body again when the toggle goes back off", () => {
@@ -537,8 +567,19 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
   });
 
-  it("applyStyleLabelState skips configs without show+field", () => {
+  it("applyStyleLabelState renders a shown config whose field is still auto", () => {
+    // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
+    // must still render (renderLabels resolves the auto pick).
     ui.labelConfigs = { overlay1: { show: true, field: "" } };
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.applyStyleLabelState();
+
+    expect(renderLabels).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("applyStyleLabelState skips configs that are switched off", () => {
+    ui.labelConfigs = { overlay1: { show: false, field: "count" } };
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.applyStyleLabelState();

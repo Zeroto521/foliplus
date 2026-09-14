@@ -8,7 +8,11 @@
 // / getGeometryType / extractPoints in core/layer/util.ts, they never affect
 // the layer's count, type icon, or point extraction, and they toggle together
 // with the parent layer (added as children of the source layer via addLayer).
-import { type LabelField, collectLabelFields } from "#core/labelField.js";
+import {
+  type LabelField,
+  autoLabelField,
+  collectLabelFields,
+} from "#core/labelField.js";
 import { type LabelAwareLayer, forEachLeaf } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
@@ -46,11 +50,14 @@ class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
   private readonly config: Map<string, AnnotationConfig>;
+  /** Resolved auto field per layer, dropped when its features can change. */
+  private readonly autoFieldCache: Map<string, string>;
 
   constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
     this.layerFind = layerFind;
     this.config = new Map();
+    this.autoFieldCache = new Map();
   }
 
   /** Read the config for a layer, or the default (labels off) when unset. */
@@ -109,6 +116,29 @@ class AnnotationManager {
     return null;
   }
 
+  /** The field a layer's labels read: the one the config names, or — when the
+   *  config leaves it open (`field: ""`, what the picker's "Auto" entry means) —
+   *  the shared auto pick over the layer's fields.
+   *
+   *  Resolved at render time rather than written into the config, so a layer
+   *  whose columns change keeps labelling itself instead of being pinned to a
+   *  field name that no longer exists. */
+  resolveField(id: string): string {
+    const explicit = this.getConfig(id).field;
+    if (explicit) return explicit;
+    const cached = this.autoFieldCache.get(id);
+    if (cached !== undefined) return cached;
+    const picked = autoLabelField(this.collectFields(id));
+    this.autoFieldCache.set(id, picked);
+    return picked;
+  }
+
+  /** Drop a layer's cached auto pick. Called when its features can change, so
+   *  the next render re-samples the columns. */
+  invalidateAutoField(id: string): void {
+    this.autoFieldCache.delete(id);
+  }
+
   /** Format a value for display according to the configured style.
    *  String values pass through unchanged; numeric values go through the shared
    *  label formatter, so an annotation label and a heatmap hex label render the
@@ -125,8 +155,9 @@ class AnnotationManager {
    *  Returns the list of LabelMarker it created (for external tracking). */
   renderLabels(id: string): LabelMarker[] {
     this.clearLabels(id);
-    const cfg = this.getConfig(id);
-    if (!cfg.show || !cfg.field) return [];
+    if (!this.getConfig(id).show) return [];
+    const field = this.resolveField(id);
+    if (!field) return [];
 
     const layer = this.layerFind(id);
     if (!layer) return [];
@@ -134,11 +165,11 @@ class AnnotationManager {
     const labels: LabelMarker[] = [];
 
     forEachLeaf(layer, (leaf: L.Layer) => {
-      const raw = this.readFieldValue(leaf, cfg.field);
+      const raw = this.readFieldValue(leaf, field);
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
 
-      const text = this.formatValue(raw, cfg.format, locale);
+      const text = this.formatValue(raw, this.getConfig(id).format, locale);
       if (!text) return;
 
       const labelMarker = L.marker(anchor, {
@@ -183,6 +214,7 @@ class AnnotationManager {
   destroyLayer(id: string): void {
     this.clearLabels(id);
     this.config.delete(id);
+    this.autoFieldCache.delete(id);
   }
 
   destroy(): void {
