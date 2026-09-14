@@ -1593,6 +1593,70 @@ describe("ExportManager — export progress", () => {
     }
   });
 
+  it("replaces the success label with a CORS warning when a layer's tiles predominantly failed", async () => {
+    // A source that rejects CORS requests draws none of its tiles: the export
+    // still succeeds (the file goes out), but the hint must say the layer is
+    // missing instead of a bare success.  The locale mock falls back to the
+    // key itself, so the assertion is the key name.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+    manager.lastTileFailures = [{ total: 4, failed: 4 }];
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      expect(hints[hints.length - 1]).toBe("err_cors_tiles");
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
+  });
+
+  it("shows the plain success label when no tile layer was predominantly failing", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+    // Sporadic misses (ocean 404s, blips) are below the threshold.
+    manager.lastTileFailures = [{ total: 10, failed: 4 }];
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      // The locale mock maps status_success to its display text; the plain
+      // success label must appear unchanged when nothing was blocked.
+      expect(hints[hints.length - 1]).toBe("Export successful");
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
+  });
+
+  it("clears lastTileFailures after the warning decision", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+    manager.lastTileFailures = [{ total: 1, failed: 1 }];
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+      // The stats are per-export state: read-and-clear so a second export
+      // cannot inherit the first one's warning.
+      expect(manager.lastTileFailures).toBeNull();
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
+  });
+
   it("doRender re-computes the rect from geoBounds before rendering", () => {
     // The rect the user dragged is superseded by the projected geo bounds:
     // render() receives the projected one, so the export matches the saved
@@ -1616,5 +1680,31 @@ describe("ExportManager — export progress", () => {
     expect(renderSpy.mock.calls[0][0].height).toBeCloseTo(0.1);
     expect(renderSpy).toHaveBeenCalledTimes(1);
     return p;
+  });
+
+  it("doRender captures the renderer's per-layer tile failures", async () => {
+    // The renderer records what each tile layer's fetch achieved; doRender
+    // threads that into the manager so finishExport can warn.  The mock
+    // implementation stands in for a CORS-blocked layer: nothing drew.
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockImplementation(async function (this: ExportRenderer, ..._args: unknown[]) {
+        this.tileFailures = [{ total: 4, failed: 4 }];
+        return document.createElement("canvas");
+      });
+    manager.onRenderSuccess = vi.fn();
+    manager.lastTileFailures = null;
+
+    try {
+      await manager.doRender(
+        { left: 0, top: 0, width: 50, height: 50 },
+        1,
+        undefined,
+        undefined,
+      );
+      expect(manager.lastTileFailures).toEqual([{ total: 4, failed: 4 }]);
+    } finally {
+      renderSpy.mockRestore();
+    }
   });
 });

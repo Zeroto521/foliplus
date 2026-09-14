@@ -24,6 +24,7 @@
   "ExportControl.err_render": "导出渲染失败",
   "ExportControl.err_geotiff_geo": "GeoTIFF 导出需要地理范围，请重新选择导出区域",
   "ExportControl.err_geotiff_canvas": "跨域瓦片导致无法导出 GeoTIFF，请更换无跨域限制的底图",
+  "ExportControl.err_cors_tiles": "导出成功，但部分瓦片图层在导出图中为空白（无法获取的瓦片被跳过：不支持 CORS、瓦片缺失或限流）；屏幕底图不受影响",
   "ExportControl.label_size_prefix": "地图尺寸：",
   "ExportControl.label_size_suffix": "px",
   "ExportControl.no_layercontrol": "ExportControl 依赖 LayerControl，请先添加 LayerControl 组件",

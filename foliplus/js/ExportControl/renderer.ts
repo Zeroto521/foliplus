@@ -28,6 +28,8 @@ interface TileDesc {
   y: number;
   z: number;
   url: string;
+  /** 1x URL to fall back to when a retina-only source 404s every {r} tile. */
+  fallback?: string;
   left: number;
   top: number;
   size: number;
@@ -36,6 +38,22 @@ interface TileDesc {
   dw?: number;
   dh?: number;
 }
+
+/** Per-layer tile load statistics, for the post-export CORS warning. */
+interface TileLoadStats {
+  /** Tiles the draw pass attempted to fetch. */
+  total: number;
+  /** Tiles whose fetch failed (CORS rejection, timeout, 404). */
+  failed: number;
+}
+
+/** True when a layer's tiles predominantly failed to load — most often a tile
+ *  source that rejects CORS requests (the map renders fine as opaque images,
+ *  but the export's independent CORS fetch cannot get them); missing-tile
+ *  404s or rate limits can pile up the same way.  Sporadic misses (ocean
+ *  404s, blips) stay below the threshold. */
+const isCorsBlocked = (stats: TileLoadStats): boolean =>
+  stats.total > 0 && stats.failed > 0 && stats.failed / stats.total > 0.5;
 
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.
@@ -71,6 +89,10 @@ const pooledEach = async <T, R>(
 class ExportRenderer {
   map: L.Map;
   container: HTMLElement;
+  /** Per-layer tile load stats, reset at the start of each render() and
+   *  appended to by the tile passes.  The manager reads this after render()
+   *  resolves to warn about CORS-blocked tile sources. */
+  tileFailures: TileLoadStats[] = [];
 
   constructor(map: L.Map) {
     this.map = map;
@@ -120,11 +142,18 @@ class ExportRenderer {
           .replace("{z}", zoom.toString())
           // Use export scale for {r} (retina @2x) — screen DPR is irrelevant
           .replace("{r}", scaleVal > 1 ? "@2x" : "");
+        const fallback =
+          scaleVal > 1 && urlTemplate.includes("{r}")
+            ? url.replace("@2x", "")
+            : undefined;
         tiles.push({
           x: tx,
           y: ty,
           z: zoom,
           url,
+          // Sources without retina tiles 404 every {r} tile; keep the 1x URL
+          // so the draw pass can fall back instead of blanking the layer.
+          ...(fallback !== undefined && fallback !== url ? { fallback } : {}),
           // Tile pixel position within the container viewport at this zoom
           left: tx * tileSize,
           top: ty * tileSize,
@@ -177,6 +206,9 @@ class ExportRenderer {
     const sw = Math.round(rect.width * scale);
     const sh = Math.round(rect.height * scale);
     if (sw < 1 || sh < 1) throw new Error(log.msg(T("err_crop_too_small")));
+    // Stats are per-render: a repeated render (e.g. the enlarged path calling
+    // doRender again) must not carry the previous attempt's failures forward.
+    this.tileFailures = [];
 
     // Progress must be reportable from the moment the canvas is created, so it
     // lives here rather than on the render context: the background fill below
@@ -401,7 +433,15 @@ class ExportRenderer {
     for (let i = 0; i < visibleTiles.length; i += concurrency) {
       const batch = visibleTiles.slice(i, i + concurrency);
       const bitmaps = await Promise.all(
-        batch.map(t => loadImageBitmap(t.url).catch(() => null)),
+        batch.map(async t => {
+          let bitmap = await loadImageBitmap(t.url).catch(() => null);
+          // Retina-less source: fall back to the 1x tile so the layer still
+          // paints (at nominal resolution) instead of disappearing.
+          if (!bitmap && t.fallback) {
+            bitmap = await loadImageBitmap(t.fallback).catch(() => null);
+          }
+          return bitmap;
+        }),
       );
 
       for (let j = 0; j < batch.length; j++) {
@@ -428,6 +468,14 @@ class ExportRenderer {
       // the batch position would credit tiles whose download failed.
       if (onProgress) onProgress(drawn);
     }
+
+    // Record what this layer's fetch actually achieved.  `drawn` counts tiles
+    // whose bitmap painted, so failures are the remaining ones — including
+    // drawImage errors, which leave the same hole as a failed fetch.
+    this.tileFailures.push({
+      total: visibleTiles.length,
+      failed: visibleTiles.length - drawn,
+    });
   }
 
   /** Render SVG content from a single pane. */
@@ -923,4 +971,5 @@ class ExportRenderer {
   }
 }
 
-export { pooledEach, ExportRenderer };
+export type { TileLoadStats };
+export { isCorsBlocked, pooledEach, ExportRenderer };

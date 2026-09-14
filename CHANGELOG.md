@@ -85,6 +85,7 @@
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener, and severing the bound `showHint`/`hideHint`/`registerHintIcon` closures so a post-unload call can no longer write into the shared icon registry that other live maps read ([#295](https://github.com/Zeroto521/foliplus/pull/295))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
+- `ExportControl`: stop forcing `crossOrigin` onto tile layers at init — the export renderer fetches tiles with its own CORS request, so the pre-setup only ever blanked base maps whose tile source answers no CORS headers, flashed the viewport on re-add, and leaked a `layeradd` listener; tile layers that fail to load during export are now reported in the success hint instead of exporting silently as holes ([#306](https://github.com/Zeroto521/foliplus/pull/306))
 
 ## [v0.3.0] (2026-08-02)
 

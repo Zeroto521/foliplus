@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportRenderer, pooledEach } from "#foliplus/ExportControl/renderer.js";
+import {
+  ExportRenderer,
+  isCorsBlocked,
+  pooledEach,
+} from "#foliplus/ExportControl/renderer.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // renderer.ts binds its logger to CONF.name at module-import time, so the
@@ -466,6 +470,45 @@ describe("calcTiles", () => {
     expect(tiles[0].url).not.toContain("@2x");
   });
 
+  it("records a 1x fallback for {r} templates at scale > 1", () => {
+    const renderer = makeRenderer();
+    const tiles = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      2,
+    );
+    expect(tiles[0].url).toContain("@2x");
+    expect(tiles[0].fallback).toBe("https://tile.example.com/0/0/0.png");
+  });
+
+  it("omits the fallback at scale 1 or without {r}", () => {
+    const renderer = makeRenderer();
+    const retina = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      1,
+    );
+    expect(retina[0].fallback).toBeUndefined();
+    const plain = renderer.calcTiles(
+      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}.png" }),
+      {
+        nw: { lat: 85.051129, lng: -180 },
+        se: { lat: -85.051129, lng: 180 },
+      },
+      0,
+      2,
+    );
+    expect(plain[0].fallback).toBeUndefined();
+  });
+
   it("sets left and top to tile pixel positions", () => {
     const renderer = makeRenderer();
     const tiles = renderer.calcTiles(
@@ -717,6 +760,94 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // earns no progress: counting it would say the map is more done than it is.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([0]);
   });
+
+  it("falls back to the 1x tile when the retina fetch fails", async () => {
+    // A source without retina tiles 404s every {r} URL; the draw pass must
+    // retry the recorded 1x fallback instead of blanking the whole layer —
+    // otherwise a scale>1 export loses the layer and misreports it as CORS
+    // blocking.
+    (UTIL.loadImageBitmap as any).mockClear();
+    (UTIL.loadImageBitmap as any)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ width: 64, height: 64, close: () => {} });
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    const tiles = withPixels([
+      {
+        x: 1,
+        y: 1,
+        z: 2,
+        url: "tile@2x",
+        fallback: "tile",
+        left: 256,
+        top: 512,
+        size: 256,
+      },
+    ]);
+
+    await renderer.renderTileLayer(rc, tiles);
+
+    expect(UTIL.loadImageBitmap).toHaveBeenNthCalledWith(1, "tile@2x");
+    expect(UTIL.loadImageBitmap).toHaveBeenNthCalledWith(2, "tile");
+    expect(renderer.tileFailures).toEqual([{ total: 1, failed: 0 }]);
+  });
+});
+
+//===========================================================================
+//  tileFailures / isCorsBlocked — per-layer failure stats behind the
+//  post-export CORS warning.  renderTileLayer records what each tile layer's
+//  fetch achieved; the manager turns a predominantly-failed layer into a
+//  warning instead of a bare success.
+//===========================================================================
+
+describe("isCorsBlocked", () => {
+  it("never flags a layer that drew every tile", () => {
+    expect(isCorsBlocked({ total: 4, failed: 0 })).toBe(false);
+  });
+
+  it("never flags empty or un-attempted layers", () => {
+    expect(isCorsBlocked({ total: 0, failed: 0 })).toBe(false);
+    expect(isCorsBlocked({ total: 0, failed: 3 })).toBe(false);
+  });
+
+  it("ignores sporadic misses at or below the majority", () => {
+    expect(isCorsBlocked({ total: 10, failed: 5 })).toBe(false);
+    expect(isCorsBlocked({ total: 10, failed: 4 })).toBe(false);
+  });
+
+  it("flags a layer whose majority failed to load", () => {
+    expect(isCorsBlocked({ total: 10, failed: 6 })).toBe(true);
+    expect(isCorsBlocked({ total: 1, failed: 1 })).toBe(true);
+  });
+});
+
+describe("ExportRenderer.tileFailures", () => {
+  it("records one entry per rendered layer, split into drawn and failed", async () => {
+    stubBitmaps();
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(rc, rcTiles(rc, CONST.TILE_CONCURRENCY));
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: 0 },
+    ]);
+  });
+
+  it("counts failed loads as failed tiles — the CORS-blocked profile", async () => {
+    (UTIL.loadImageBitmap as any).mockResolvedValue(null);
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(rc, rcTiles(rc, CONST.TILE_CONCURRENCY));
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures.some(isCorsBlocked)).toBe(true);
+  });
+
+  it("does not record a layer with no tiles to draw", async () => {
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(makeRC(100, 100), []);
+    expect(renderer.tileFailures).toEqual([]);
+  });
 });
 
 describe("ExportRenderer.render — onProgress across tile layers", () => {
@@ -960,6 +1091,38 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     expect(calcTiles).not.toHaveBeenCalled();
     expect(renderTileLayer).not.toHaveBeenCalled();
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+
+  it("records failing tiles end-to-end and resets stats between renders", async () => {
+    bigCenter();
+    // Every tile of the single visible layer fails: the CORS-blocked profile
+    // through the real render() → renderTileLayer pipeline.
+    (UTIL.loadImageBitmap as any).mockResolvedValue(null);
+    stubCanvas();
+    const layer = makeTileLayer();
+    vi.spyOn(renderer, "calcTiles").mockReturnValue(
+      tilesNearCenter(CONST.TILE_CONCURRENCY),
+    );
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ visible: true, layer }],
+        getLayerPanes: () => [],
+      },
+    };
+
+    await runRender(() => {});
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures.some(isCorsBlocked)).toBe(true);
+
+    // A second render starts from a clean slate — the previous export's
+    // failures must not be carried into the next one.
+    await runRender(() => {});
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures).toHaveLength(1);
   });
 });
 
