@@ -8,6 +8,7 @@ import {
   createFoldControl,
   createPanelControl,
   createPanelHeader,
+  createRowPanel,
 } from "#common/panel.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -654,5 +655,50 @@ describe("bindMapSync", () => {
     expect(opts.onHide).toBeUndefined();
     expect(map.on).not.toHaveBeenCalled();
     cleanup();
+  });
+});
+
+describe("createRowPanel", () => {
+  const opts = {
+    cssClass: "foliplus-layer-style-panel",
+    title: "Style",
+    iconSvg: "<svg></svg>",
+    closeTitle: "Collapse",
+    iconClass: "foliplus-layer-style-icon foliplus-header-icon",
+  };
+
+  it("builds the shared row-panel shell with a dialog role", () => {
+    const { panel, header, content } = createRowPanel(opts);
+
+    expect(panel.classList.contains("foliplus-panel")).toBe(true);
+    expect(panel.classList.contains("foliplus-row-panel")).toBe(true);
+    expect(panel.classList.contains(opts.cssClass)).toBe(true);
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(panel.contains(header)).toBe(true);
+    expect(panel.contains(content)).toBe(true);
+    expect(content.classList.contains("foliplus-panel-content")).toBe(true);
+  });
+
+  it("names the dialog after the header title by default", () => {
+    // Most row panels are named by the same string they show; the attributes
+    // panel overrides it because its header shows the layer, not the surface.
+    expect(createRowPanel(opts).panel.getAttribute("aria-label")).toBe("Style");
+  });
+
+  it("takes an explicit accessible name when the two differ", () => {
+    const { panel } = createRowPanel({ ...opts, ariaLabel: "Layer attributes" });
+
+    expect(panel.getAttribute("aria-label")).toBe("Layer attributes");
+    expect(panel.querySelector(".foliplus-header-title")?.textContent).toContain(
+      "Style",
+    );
+  });
+
+  it("sizes the icon through the caller's class", () => {
+    const { header } = createRowPanel(opts);
+
+    const icon = header.querySelector(".foliplus-header-icon");
+    expect(icon?.className).toContain("foliplus-layer-style-icon");
+    expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
   });
 });

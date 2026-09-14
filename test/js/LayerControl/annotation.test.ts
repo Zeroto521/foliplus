@@ -241,6 +241,48 @@ describe("AnnotationManager.renderLabels", () => {
     expect(shapeIcon.className).toContain("foliplus-annotation-label-shape");
   });
 
+  it("resolves an open field through the shared auto pick", () => {
+    // ield: "" is the Auto sentinel, not "no field": the label renders the
+    // auto pick over the layer's own columns (first numeric, else first). The
+    // panel's test for this only spies renderLabels, so it passes either way —
+    // this is the one that reads the rendered text.
+    const group = mkGroup([
+      mkLeaf({ props: { name: "a", count: 5 }, latlng: { lat: 40, lng: -74 } }),
+    ]);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "", format: "auto" });
+    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
+    divIconMock.mockClear();
+
+    mgr.renderLabels("l1");
+
+    const icon = divIconMock.mock.calls[0]![0] as { html: HTMLElement };
+    expect(icon.html.textContent).toBe("5");
+  });
+
+  it("re-samples the auto pick once its cache is dropped", () => {
+    // The auto answer is cached per layer; when the layer's columns change the
+    // cache has to go, or the labels keep reading a field that no longer exists
+    // while the picker resolves a new one.
+    const props: Record<string, unknown> = { count: 5 };
+    const group = mkGroup([mkLeaf({ props, latlng: { lat: 40, lng: -74 } })]);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "", format: "auto" });
+    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
+
+    divIconMock.mockClear();
+    mgr.renderLabels("l1");
+    expect((divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent).toBe("5");
+
+    delete props.count;
+    props.other = 7;
+    mgr.invalidateAutoField("l1");
+    divIconMock.mockClear();
+    mgr.renderLabels("l1");
+
+    expect((divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent).toBe("7");
+  });
+
   it("skips leaves without the field or without usable geometry", () => {
     const group = mkGroup([
       mkLeaf({ props: { other: "x" }, latlng: { lat: 1, lng: 2 } }), // no field
