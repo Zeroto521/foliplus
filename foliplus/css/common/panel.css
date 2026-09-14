@@ -43,6 +43,14 @@
   .foliplus-form-row {
     padding: 0 var(--space-lg);
   }
+
+  /* The hairline above a panel's footer action. Insets it on both axes so it
+     reads as a separator between sections rather than a border of the panel,
+     and gives it the gap the form rows above do not carry. LayerControl's list
+     divider keeps its own margins — that file loads after this one. */
+  .foliplus-section-divider {
+    margin: var(--space-md) var(--space-lg) var(--space-sm);
+  }
 }
 
 /* ── Container ── */

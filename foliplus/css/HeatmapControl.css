@@ -213,9 +213,10 @@
      group), so the heatmap's footer and the per-layer style panel's footer
      cannot drift apart. Nothing component-specific is left to state here. */
 
-  .foliplus-section-divider {
-    margin: var(--space-md) var(--space-lg) var(--space-sm);
-  }
+  /* The divider above the footer action comes from the shared panel recipe
+     (common/panel.css), so the heatmap's footer and the per-layer style
+     panel's footer are inset and spaced identically. Nothing to add here. */
+
   /* ── Section Headings ── */
   .foliplus-heatmap-section-heading {
     font-size: var(--font-size-xs);

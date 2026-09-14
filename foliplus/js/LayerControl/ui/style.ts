@@ -234,6 +234,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
+    // The same shared divider the heatmap puts above its footer action, so the
+    // two panels' footers read identically (common/panel.css sets its inset).
+    dom.el("hr", { class: "foliplus-section-divider" }),
     dom.el(
       "div",
       { class: "foliplus-btn-row" },
