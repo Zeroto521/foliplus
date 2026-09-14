@@ -3,6 +3,7 @@
   "locale.code": "zh",
   "FullscreenControl.enter": "已进入全屏，按 Esc 退出",
   "FullscreenControl.exit": "已退出全屏",
+  "FullscreenControl.rotate_landscape": "请横屏查看地图",
   "FullscreenControl.title": "全屏",
   "FullscreenControl.title_cancel": "退出全屏",
   "FullscreenControl.zoom_in": "放大",

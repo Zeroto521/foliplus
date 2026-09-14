@@ -3,17 +3,16 @@ import { ensureHint } from "#core/hint.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
 
-createControlEnv(CONF, SVGs.MAXIMIZE);
+createControlEnv(CONF, SVGs.ROTATE);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 class FullscreenControl extends BaseControl {
-  declare fsHandler: () => void;
+  declare fsHandler: { type: string; handler: () => void };
 
   buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
@@ -75,8 +74,8 @@ class FullscreenControl extends BaseControl {
   }
 
   destroy() {
-    if (this.fsHandler && isEnabled) {
-      document.removeEventListener(FULLSCREEN_CHANGE, this.fsHandler);
+    if (this.fsHandler) {
+      document.removeEventListener(this.fsHandler.type, this.fsHandler.handler);
     }
   }
 }

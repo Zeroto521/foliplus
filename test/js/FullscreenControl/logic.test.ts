@@ -150,15 +150,19 @@ describe("bindFullscreenEvents — pseudo path", () => {
     mapMock = makeMapMock(container);
   });
 
-  it("returns a handler function", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
-    expect(typeof handler).toBe("function");
+  it("returns the bound event type and handler", () => {
+    const bound = bindFullscreenEvents(mapMock, fsBtn, container);
+    expect(typeof bound.handler).toBe("function");
+    // Pseudo mode never dispatches fullscreenchange, so the listener binds to
+    // orientationchange instead.
+    expect(bound.type).toBe("orientationchange");
   });
 
-  it("does not register fullscreenchange when native API is disabled", () => {
+  it("registers orientationchange (not fullscreenchange) when native API is disabled", () => {
     const addSpy = vi.spyOn(document, "addEventListener");
     bindFullscreenEvents(mapMock, fsBtn, container);
-    expect(addSpy).not.toHaveBeenCalled();
+    expect(addSpy).toHaveBeenCalledWith("orientationchange", expect.any(Function));
+    expect(addSpy).not.toHaveBeenCalledWith("fullscreenchange", expect.any(Function));
   });
 
   it("wires unload event listener", () => {
@@ -167,7 +171,7 @@ describe("bindFullscreenEvents — pseudo path", () => {
   });
 
   it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    const handler = bindFullscreenEvents(mapMock, fsBtn, container).handler;
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
@@ -292,10 +296,82 @@ describe("bindFullscreenEvents — native API path", () => {
   });
 
   it("returns handleFSChange that syncs state", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    const handler = bindFullscreenEvents(mapMock, fsBtn, container).handler;
     mocks.getFullscreenEl.mockReturnValue({});
     handler();
     expect(mapMock.isFullscreen).toBe(true);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+  });
+});
+
+describe("rotate hint — portrait while fullscreen", () => {
+  let fsBtn;
+  let container;
+  let mapMock;
+
+  const setOrientation = (type: string) => {
+    Object.defineProperty(window.screen, "orientation", {
+      value: { type },
+      configurable: true,
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isEnabled = true;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeNativeMapMock(container);
+    setOrientation("portrait-primary");
+  });
+
+  it("shows the rotate hint with a subkey, alongside the enter toast", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container);
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      CONF.name,
+      expect.any(String),
+      0, // HINT_DURATION.PERSIST — a standing condition, not a blip
+      false,
+      "rotate",
+    );
+    // Enter toast still fires: two calls, one per key.
+    expect(mapMock.foliplus.showHint.mock.calls.length).toBe(2);
+  });
+
+  it("suppresses the hint in landscape", () => {
+    setOrientation("landscape-primary");
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container);
+    expect(mapMock.foliplus.showHint.mock.calls.length).toBe(1);
+  });
+
+  it("suppresses the hint when screen.orientation is missing", () => {
+    Object.defineProperty(window.screen, "orientation", {
+      value: null,
+      configurable: true,
+    });
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container);
+    expect(mapMock.foliplus.showHint.mock.calls.length).toBe(1);
+  });
+
+  it("clears the hint on exit fullscreen", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container);
+    vi.clearAllMocks();
+    mapMock.isFullscreen = false;
+    updateUI(mapMock, fsBtn, container);
+    expect(mapMock.foliplus.hideHint).toHaveBeenCalledWith(CONF.name, "rotate");
+  });
+
+  it("clears the hint when rotation lands in landscape", () => {
+    mapMock.isFullscreen = true;
+    const bound = bindFullscreenEvents(mapMock, fsBtn, container);
+    vi.clearAllMocks();
+    setOrientation("landscape-primary");
+    bound.handler();
+    expect(mapMock.foliplus.hideHint).toHaveBeenCalledWith(CONF.name, "rotate");
   });
 });
