@@ -130,6 +130,14 @@ describe("build artifacts", () => {
     }
   });
 
+  it("merged common CSS carries no @import statements", () => {
+    // mergeCommonCss resolves the css/common/ import graph at build time and
+    // strips the statements; a leftover @import would make the bundle fetch
+    // modules at runtime (or fail to resolve) instead of shipping flat.
+    const css = readFileSync(resolve(distDir, "foliplus-common.min.css"), "utf-8");
+    expect(css).not.toMatch(/@import/);
+  });
+
   it("has correct number of JS artifacts", () => {
     const jsFiles = readdirSync(distDir).filter(f => f.endsWith(".min.js"));
     expect(jsFiles.length).toBeGreaterThanOrEqual(JS_ARTIFACTS.length);
