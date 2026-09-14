@@ -260,18 +260,25 @@ const controlArtifacts = name => [
 
 /** Assert the dist/ tree holds every artifact a complete build would emit.
  *
- * Same source of truth as the build itself (`findComponents`) plus the shared
- * entry and the merged stylesheet — a package that ships fewer files than this
- * is unusable, so the check runs in CI without re-running esbuild.
+ * The expected list comes from the manifest the build wrote, not from
+ * `findComponents()`: re-deriving it here would mean the gate can disagree with
+ * the build it is checking, and a component the build forgot to write would
+ * silently satisfy both. `test/python/test_assets.py` and `build.test.ts`
+ * read the same file, so all three consumers share one source of truth.
+ *
+ * The manifest only exists after a real build, so its absence is reported as
+ * "not built" rather than an unreadable manifest — this runs on a checkout that
+ * may have no `dist/` at all.
  */
 const verifyDist = () => {
-  const expected = ["foliplus-common.min.js", "foliplus-common.min.css"];
-  for (const { name } of findComponents()) {
-    // The shared entry is written out as "common", so skip its source name
-    // (runtime/) — it has no runtime-prefixed artifact.
-    if (name === SHARED_ENTRY) continue;
-    expected.push(...controlArtifacts(name));
+  let names;
+  try {
+    names = readArtifactManifest();
+  } catch {
+    console.error("No dist/artifacts.json — run `npm run build` first");
+    process.exit(1);
   }
+  const expected = names.flatMap(controlArtifacts);
   const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
   if (missing.length) {
     console.error(
@@ -337,6 +344,11 @@ const writeArtifactManifest = filenames => {
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
   );
 };
+
+/** Component names from the manifest the build wrote, as artifact names.
+ *  Throws when the manifest is absent or unreadable. */
+const readArtifactManifest = () =>
+  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")).artifacts;
 
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
  *  across builds (each build emits one artifact), so a shallow merge suffices. */

@@ -59,8 +59,16 @@ include-package-data = false
 [tool.setuptools.packages.find]
 include = ["foliplus*"]
 
+# artifacts.json is the manifest script/build.mjs writes; `script/smoke-wheel.py`
+# and the Python/JS test suites all read it, so the wheel has to ship it.
 [tool.setuptools.package-data]
-foliplus = ["cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
+foliplus = [
+  "cdn.json",
+  "locale/*.json",
+  "dist/*.min.js",
+  "dist/*.min.css",
+  "dist/artifacts.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["test/python"]

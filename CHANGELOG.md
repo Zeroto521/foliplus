@@ -84,7 +84,7 @@
 - `LocaleConfig`: custom strings from `from_json()` now reach the JS `CONF`, which previously shipped only the built-in tables and silently dropped every custom translation ([#292](https://github.com/Zeroto521/foliplus/pull/292))
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener, and severing the bound `showHint`/`hideHint`/`registerHintIcon` closures so a post-unload call can no longer write into the shared icon registry that other live maps read ([#295](https://github.com/Zeroto521/foliplus/pull/295))
-- `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, and CI renders every control against the installed wheel ([#300](https://github.com/Zeroto521/foliplus/pull/300))
+- `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, which reads the same `dist/artifacts.json` the build wrote, and CI renders every control against an isolated copy of the built wheel ([#300](https://github.com/Zeroto521/foliplus/pull/300))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 
 ## [v0.3.0] (2026-08-02)

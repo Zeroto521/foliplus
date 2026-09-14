@@ -41,26 +41,6 @@ dist_dir = src_dir / "dist"
 # side and pass on the other.
 ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
 
-
-class MissingAssetsError(RuntimeError):
-    """Raised when a bundled asset is absent from ``dist/``.
-
-    A control's JS/CSS and the shared runtime bundle ship as compiled artifacts
-    in ``foliplus/dist/`` (see :data:`dist_dir`), which is not under version
-    control. A package without them is unusable, so rendering fails fast with
-    the build step named instead of emitting an empty ``<script>`` tag that dies
-    with no clue in the browser console.
-    """
-
-    def __init__(self, missing: list[Path]) -> None:
-        names = ", ".join(str(p.relative_to(src_dir.parent)) for p in missing)
-        super().__init__(
-            f"foliplus bundled assets missing: {names}. "
-            "Run `make build-js` in the source checkout, then rebuild the "
-            "package with `uv build` (`make dist` does both)."
-        )
-
-
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,
 # so this pass matches what folium already guarantees for the same payload.
@@ -193,6 +173,25 @@ def _build_component_template(name: str) -> Template:
         }})();
         {{% endmacro %}}""")
     )
+
+
+class MissingAssetsError(RuntimeError):
+    """Raised when a bundled asset is absent from ``dist/``.
+
+    A control's JS/CSS and the shared runtime bundle ship as compiled artifacts
+    in ``foliplus/dist/`` (see :data:`dist_dir`), which is not under version
+    control. A package without them is unusable, so rendering fails fast with
+    the build step named instead of emitting an empty ``<script>`` tag that dies
+    with no clue in the browser console.
+    """
+
+    def __init__(self, missing: list[Path]) -> None:
+        names = ", ".join(str(p.relative_to(src_dir.parent)) for p in missing)
+        super().__init__(
+            f"foliplus bundled assets missing: {names}. "
+            "Run `make build-js` in the source checkout, then rebuild the "
+            "package with `uv build` (`make dist` does both)."
+        )
 
 
 class BaseControl(JSCSSMixin, MacroElement):
