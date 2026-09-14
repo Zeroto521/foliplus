@@ -57,7 +57,7 @@
   "LayerControl.style_label": "标注",
   "LayerControl.style_label_tooltip": "在要素上显示文本标注",
   "LayerControl.style_label_field": "标注字段",
-  "LayerControl.style_label_field_placeholder": "选择字段",
+  "LayerControl.style_label_field_auto": "自动识别",
   "LayerControl.style_label_format": "数字格式",
   "LayerControl.style_label_format_auto": "自动",
   "LayerControl.style_label_format_int": "整数",

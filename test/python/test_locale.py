@@ -150,7 +150,7 @@ _JS_USED_KEYS = {
     "LayerControl.style_label",
     "LayerControl.style_label_tooltip",
     "LayerControl.style_label_field",
-    "LayerControl.style_label_field_placeholder",
+    "LayerControl.style_label_field_auto",
     "LayerControl.style_label_format",
     "LayerControl.style_label_format_auto",
     "LayerControl.style_label_format_int",

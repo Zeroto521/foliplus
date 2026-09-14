@@ -243,7 +243,7 @@ class TestLayerControlRendering:
             "style_layer",
             "style_label",
             "style_label_field",
-            "style_label_field_placeholder",
+            "style_label_field_auto",
             "style_label_format",
             "style_label_format_auto",
             "style_label_format_int",
