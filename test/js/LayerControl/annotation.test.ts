@@ -130,14 +130,29 @@ const mkGroup = (leaves: L.Layer[]): L.Layer => {
 };
 
 describe("AnnotationManager.collectFields", () => {
-  it("collects distinct property keys in encounter order", () => {
+  it("collects distinct property keys in encounter order, with sampled types", () => {
     const group = mkGroup([
       mkLeaf({ props: { name: "a", count: 1 } }),
       mkLeaf({ props: { count: 2, share: "x" } }),
       mkLeaf({}), // no feature.properties — skipped
     ]);
     const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
-    expect(mgr.collectFields("l1")).toEqual(["name", "count", "share"]);
+    expect(mgr.collectFields("l1")).toEqual([
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+      { name: "share", numeric: false },
+    ]);
+  });
+
+  it("upgrades a field's type when a later leaf carries the number", () => {
+    // A mostly-empty first feature must not freeze the field as a string and
+    // hide the number-format row for a layer whose values are numeric.
+    const group = mkGroup([
+      mkLeaf({ props: { value: "n/a" } }),
+      mkLeaf({ props: { value: 12.5 } }),
+    ]);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    expect(mgr.collectFields("l1")).toEqual([{ name: "value", numeric: true }]);
   });
 
   it("returns [] for an unknown layer id", () => {

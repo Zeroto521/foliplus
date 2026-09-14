@@ -4,6 +4,7 @@ import { debounce } from "#common/debounce.js";
 import {
   LAT_LNG_PRECISION,
   formatCoord,
+  formatLabelNumber,
   formatLatLng,
   formatNumber,
   formatTimestamp,
@@ -227,6 +228,32 @@ describe("debounce", () => {
 
     expect(fn).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("formatLabelNumber", () => {
+  it("keeps a whole number whole under an explicit style", () => {
+    // A map label states a count or an id; the comma style's one-decimal
+    // default would put "6,000.0" on the map.
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(6000, "int")).toBe("6000");
+  });
+
+  it("leaves auto to trim its own decimals", () => {
+    expect(formatLabelNumber(6000, "auto")).toBe(formatNumber(6000, "auto"));
+    expect(formatLabelNumber(12.5, "auto")).toBe(formatNumber(12.5, "auto"));
+  });
+
+  it("defaults to auto, so a missing config still renders", () => {
+    expect(formatLabelNumber(42)).toBe(formatNumber(42, "auto"));
+  });
+
+  it("is the label contract, not the table contract", () => {
+    // The difference from formatNumber is the whole point: a table cell may
+    // carry 6,000.0, a label over the map may not.
+    expect(formatNumber(6000, "comma")).toBe("6,000.0");
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(0.35, "percent")).toBe("35%");
   });
 });
 

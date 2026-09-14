@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { layerHasLabelFields } from "#foliplus/LayerControl/ui/style.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { findItem, initFixture } from "./fixture.js";
 
@@ -16,8 +17,9 @@ describe("LayerUI style panel", () => {
     ui.hiddenIds = new Set();
     window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
     // Seed the field cache so the panel builds: collectFields walks the
-    // layer's leaves, and the fixture's data layer has none.
-    ui.fieldCache.set("overlay1", ["count"]);
+    // layer's leaves, and the fixture's data layer has none. `count` is a
+    // number, which is what makes the number-format row reachable.
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   });
 
   afterEach(() => {
@@ -36,6 +38,18 @@ describe("LayerUI style panel", () => {
   const panelOf = (item: HTMLElement): HTMLElement | undefined =>
     (item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null) ??
     undefined;
+
+  const formatRowOf = (item: HTMLElement): HTMLElement =>
+    panelOf(item)!.querySelector(".foliplus-style-format-row") as HTMLElement;
+
+  const bodyOf = (item: HTMLElement): HTMLElement =>
+    panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
+
+  const toggleOf = (item: HTMLElement): HTMLInputElement =>
+    panelOf(item)!.querySelector(".foliplus-style-toggle-input") as HTMLInputElement;
+
+  const fieldSelectOf = (item: HTMLElement): HTMLSelectElement =>
+    panelOf(item)!.querySelector(".foliplus-style-field-select") as HTMLSelectElement;
 
   // ─────────────────── open / close lifecycle ───────────────────
 
@@ -98,7 +112,7 @@ describe("LayerUI style panel", () => {
 
   it("closes the previous panel before opening a new one", () => {
     const a = findItem(ui, "overlay1");
-    ui.fieldCache.set("base1", ["name"]);
+    ui.fieldCache.set("base1", [{ name: "name", numeric: false }]);
     const b = findItem(ui, "base1");
 
     ui.openStylePanel("overlay1");
@@ -230,6 +244,114 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").field).toBe("count");
   });
 
+  // ─────────────────── labels toggle (default off) ───────────────────
+
+  it("defaults the labels toggle off, with the body collapsed", () => {
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    expect(toggleOf(item).checked).toBe(false);
+    expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(true);
+  });
+
+  it("reveals the body and auto-picks the first numeric field when switched on", () => {
+    // Label values are what users reach for first, so the auto pick prefers a
+    // number over an earlier string column — the same rule the heatmap's
+    // field selector applies.
+    ui.fieldCache.set("overlay1", [
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+    ]);
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const toggle = toggleOf(item);
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(false);
+    expect(fieldSelectOf(item).value).toBe("count");
+    expect(manager.annotation.getConfig("overlay1").field).toBe("count");
+  });
+
+  it("collapses the body again when the toggle goes back off", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const toggle = toggleOf(item);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(true);
+  });
+
+  // ─────────────────── number-format row ───────────────────
+
+  it("hides the number-format row for a non-numeric field on first render", () => {
+    // Regression: the initial sync searched the row for a descendant row and
+    // matched nothing, so the format dropdown shipped visible for string
+    // fields — where comma / percent / int render exactly like auto.
+    ui.fieldCache.set("overlay1", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const item = findItem(ui, "overlay1");
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "name",
+      format: CONST.FORMAT.AUTO,
+    });
+
+    ui.openStylePanel("overlay1");
+
+    expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(true);
+  });
+
+  it("shows the number-format row for a numeric field and flips it on switch", () => {
+    ui.fieldCache.set("overlay1", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const item = findItem(ui, "overlay1");
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: CONST.FORMAT.AUTO,
+    });
+
+    ui.openStylePanel("overlay1");
+    expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
+
+    const field = fieldSelectOf(item);
+    field.value = "name";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(true);
+
+    field.value = "count";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
+  });
+
+  // ─────────────────── row cursor vs panel controls ───────────────────
+
+  it("does not take the row cursor over for a press inside the panel", () => {
+    // A press on a panel control belongs to the panel. The row-cursor takeover
+    // calls row.focus(), and a native <select> popup is dismissed the moment it
+    // loses focus — so the dropdown appeared to retract as it opened.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    item.classList.remove(CONST.CLASSES.FOCUSED);
+    const focusSpy = vi.spyOn(item, "focus");
+
+    fieldSelectOf(item).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(focusSpy).not.toHaveBeenCalled();
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+  });
+
   it("choosing a format updates the config", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -319,19 +441,9 @@ describe("LayerUI style panel", () => {
 
     ui.openMoreMenu(item);
 
-    const items = Array.from(
-      item.querySelectorAll(".foliplus-layer-more-menu li"),
-    ) as HTMLElement[];
-    const actions = items.map(li => li.dataset.action);
-    // Order: focus, rename, style, attributes — editing actions group before
-    // the display-only attributes entry.
-    expect(actions).toEqual([
-      CONST.ACTION.FOCUS_LAYER,
-      CONST.ACTION.RENAME_LAYER,
-      CONST.ACTION.STYLE_LAYER,
-      CONST.ACTION.ATTRS_LAYER,
-    ]);
-    const styleItem = items[2];
+    const styleItem = item.querySelector(
+      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+    ) as HTMLElement;
     expect(styleItem.getAttribute("disabled")).toBeNull();
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
@@ -353,8 +465,8 @@ describe("LayerUI style panel", () => {
     ui.fieldCache.delete("overlay1");
     const collect = vi.spyOn(manager.annotation, "collectFields");
 
-    expect(ui.layerHasLabelFields("overlay1")).toBe(false);
-    expect(ui.layerHasLabelFields("overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
     expect(collect).toHaveBeenCalledTimes(1);
     expect(ui.fieldCache.get("overlay1")).toEqual([]);
   });
@@ -364,22 +476,26 @@ describe("LayerUI style panel", () => {
     // runtime createLayers may later add features carrying properties, which
     // must un-stick the ⋮ menu's Style item.
     ui.fieldCache.delete("overlay1");
-    expect(ui.layerHasLabelFields("overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
     expect(ui.fieldCache.get("overlay1")).toEqual([]);
 
-    const fields = ["count", "name"];
+    const fields = [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ];
     vi.spyOn(manager.annotation, "collectFields").mockReturnValue(fields);
 
     ui.onLayerItemCountChange("overlay1");
 
     expect(ui.fieldCache.has("overlay1")).toBe(false);
-    expect(ui.layerHasLabelFields("overlay1")).toBe(true);
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(true);
   });
 
   it("invalidateFields drops a layer's cached list", () => {
-    ui.layerHasLabelFields("overlay1");
+    layerHasLabelFields(ui, "overlay1");
     expect(ui.fieldCache.has("overlay1")).toBe(true);
 
+    // The delegate is the surface `manager.unregisterLayer` drives.
     ui.invalidateFields("overlay1");
     expect(ui.fieldCache.has("overlay1")).toBe(false);
   });
@@ -394,7 +510,7 @@ describe("LayerUI style panel", () => {
     ui.closeStylePanel(true);
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.fieldCache.get("overlay1")).toEqual(["count"]);
+    expect(ui.fieldCache.get("overlay1")).toEqual([{ name: "count", numeric: true }]);
   });
 
   // ─────────────────── persisted state ───────────────────

@@ -8,9 +8,10 @@
 // / getGeometryType / extractPoints in core/layer/util.ts, they never affect
 // the layer's count, type icon, or point extraction, and they toggle together
 // with the parent layer (added as children of the source layer via addLayer).
+import { type LabelField, collectLabelFields } from "#core/labelField.js";
 import { type LabelAwareLayer, forEachLeaf } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { type NumberStyle, formatNumber } from "#common/format.js";
+import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
@@ -66,28 +67,18 @@ class AnnotationManager {
     return [...this.config.entries()];
   }
 
-  /** Collect distinct property keys present across the layer's feature data.
+  /** Collect the layer's labelable fields, with each key's sampled type.
    *  Both string and numeric fields are returned (annotations are not limited
-   *  to numeric columns). The returned keys are the bare property names
-   *  (no "properties." prefix) so callers store them uniformly. */
-  collectFields(id: string): string[] {
+   *  to numeric columns); the type only drives the number-format row. The
+   *  returned names are the bare property names (no "properties." prefix) so
+   *  callers store and compare them uniformly. The walk itself is shared with
+   *  the heatmap's field contract — see core/labelField. */
+  collectFields(id: string): LabelField[] {
     const layer = this.layerFind(id);
     if (!layer) return [];
-    const fields: string[] = [];
-    const seen = new Set<string>();
-    forEachLeaf(layer, (leaf: L.Layer) => {
-      const props = (
-        leaf as L.Layer & { feature?: { properties?: Record<string, unknown> } }
-      ).feature?.properties;
-      if (!props) return;
-      for (const k of Object.keys(props)) {
-        if (!seen.has(k)) {
-          seen.add(k);
-          fields.push(k);
-        }
-      }
-    });
-    return fields;
+    const leaves: L.Layer[] = [];
+    forEachLeaf(layer, (leaf: L.Layer) => leaves.push(leaf));
+    return collectLabelFields(leaves);
   }
 
   /** Read a leaf's field value as a string for display.
@@ -119,15 +110,13 @@ class AnnotationManager {
   }
 
   /** Format a value for display according to the configured style.
-   *  String values pass through unchanged; numeric values use formatNumber. */
+   *  String values pass through unchanged; numeric values go through the shared
+   *  label formatter, so an annotation label and a heatmap hex label render the
+   *  same value the same way. */
   formatValue(value: string, format: NumberStyle, locale = "en"): string {
     const n = parseNum(value);
     if (n === null) return value;
-    if (format === CONST.FORMAT.AUTO) return formatNumber(n, format, locale);
-    // Whole-number label: annotation values are counts and ids, so pin
-    // fractionDigits to 0 rather than inheriting the 1-decimal default that
-    // would turn 6,000 into "6,000.0".
-    return formatNumber(n, format, locale, 0);
+    return formatLabelNumber(n, format, locale);
   }
 
   /** Render labels for a layer according to its current config.
@@ -154,7 +143,7 @@ class AnnotationManager {
 
       const labelMarker = L.marker(anchor, {
         icon: L.divIcon({
-          className: `foliplus-annotation-label ${CONST.CLASSES.ANNOTATION_LABEL}`,
+          className: CONST.CLASSES.ANNOTATION_LABEL,
           // Element, not an HTML string: divIcon accepts a Node and appends
           // it as-is, so the label text can never reach an innerHTML sink.
           html: dom.el("span", { class: "foliplus-annotation-label-text" }, text),

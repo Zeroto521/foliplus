@@ -4,9 +4,10 @@
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
 // scroll, close affordance), exactly like the attributes panel — so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
+import { type LabelField, autoLabelField, isNumericField } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
 import { type NumberStyle } from "#common/format.js";
-import { createPanelHeader } from "#common/panel.js";
+import { createRowPanel } from "#common/panel.js";
 import type { AnnotationConfig } from "../annotation.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
@@ -16,7 +17,7 @@ import { finishRename } from "./rename.js";
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
  *  layer's entry whenever its features can change at runtime. */
-const layerFields = (ui: LayerUI, layerId: string): string[] => {
+const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
   const cached = ui.fieldCache.get(layerId);
   if (cached) return cached;
   const fields = ui.m.annotation.collectFields(layerId);
@@ -74,50 +75,17 @@ const applyStyleLabelState = (ui: LayerUI): void => {
   }
 };
 
-/** Inspect one field's sampled type to decide whether the format dropdown is
- *  meaningful. Numeric types are the only ones where comma / percent / int
- *  rerender something different from "auto"; everything else always round-
- *  trips through auto, so the dropdown is hidden to match the heatmap's
- *  "only show controls that change the picture" rule. */
-const fieldIsNumeric = (ui: LayerUI, layerId: string, field: string): boolean => {
-  if (!field) return false;
-  const layer = ui.m.layers.find(li => li.id === layerId);
-  const l = layer ? ui.m.findLayer(layer) : null;
-  // findLayer may be null between calls (canvas layers, missing tiles); in
-  // that case treat as non-numeric and hide the format dropdown.
-  if (!l) return false;
-  // L.GeoJSON is a Leaflet value (class), not a type in this setup, so read
-  // the GeoJSON feature structurally — a `.feature` with `.properties`.
-  const feature = (l as unknown as { feature?: unknown }).feature;
-  const props = (
-    feature as GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>> | null
-  )?.properties;
-  if (!props) return false;
-  const raw = props[field];
-  if (raw == null) return false;
-  const t = typeof raw;
-  return t === "number" || t === "bigint";
-};
-
-/** First field to auto-select when the toggle goes on with nothing picked:/n *  the first numeric field (labels render something meaningful), else the
- *  first field — mirrors the heatmap's pickAutoField contract. */
-const autoPickField = (ui: LayerUI, layerId: string, fields: string[]): string =>
-  fields.find(f => fieldIsNumeric(ui, layerId, f)) ?? fields[0] ?? "";
-
-/** Show / hide the format row for the currently selected field — numeric
- *  fields are the only ones where the format dropdown changes anything. */
-const syncFormatRow = (
-  ui: LayerUI,
-  layerId: string,
-  panel: HTMLElement,
-  field: string,
-): void => {
-  const fmtRow = panel.querySelector(
-    ".foliplus-style-format-row",
-  ) as HTMLElement | null;
-  if (fmtRow) {
-    fmtRow.classList.toggle("foliplus-hidden", !fieldIsNumeric(ui, layerId, field));
-  }
+/** Show / hide the number-format row for the field the select currently holds.
+ *  Only numbers render differently under comma / percent / int, so every other
+ *  field hides the row — the heatmap's "only show controls that change the
+ *  picture" rule.
+ *
+ *  Takes the row itself rather than a container to search: the caller always
+ *  holds the row, and searching a container for a descendant that IS the row
+ *  silently matched nothing, which is how the row once shipped visible for
+ *  string fields. */
+const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): void => {
+  row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
 /** Build the style panel DOM for a layer. Returns null when there are no
@@ -140,9 +108,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // numeric field (so labels actually render something — a string field
   // still works but a value column is what users reach for first). Falls back
   // to fields[0] when nothing is numeric, mirroring the heatmap's
-  // collectFields → pickAutoField contract.
+  // collectFields → autoLabelField contract.
   if (showChecked && !selectedField) {
-    selectedField = autoPickField(ui, layerId, fields);
+    selectedField = autoLabelField(fields);
     cfg.field = selectedField;
     ui.m.annotation.setConfig(layerId, cfg);
   }
@@ -163,8 +131,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     fieldSelect.appendChild(
       dom.el(
         "option",
-        { value: f, selected: f === selectedField ? "" : null },
-        f.startsWith("properties.") ? f.substring(11) : f,
+        { value: f.name, selected: f.name === selectedField ? "" : null },
+        f.name,
       ),
     ),
   );
@@ -204,7 +172,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_format")),
     dom.el("div", { class: "foliplus-form-control" }, formatSelect),
   );
-  syncFormatRow(ui, layerId, formatRow, (fieldSelect as HTMLSelectElement).value);
+  syncFormatRow(fields, formatRow, (fieldSelect as HTMLSelectElement).value);
 
   // Body wrapper: hidden by default when cfg.show is false, shown on toggle
   // on. Listens to the toggle so flipping it reveals the field/format rows
@@ -223,61 +191,49 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   body.classList.toggle("foliplus-hidden", !showChecked);
 
-  // Shared header (panel.ts) — same affordances as every other foliplus
-  // panel, including the dialog `role` / `aria-label` baked into
-  // `createPanelHeader` callers from createPanelControl. The width matches
-  // the row exactly because the panel fills its parent's content box; the
-  // header then matches the attributes panel by construction.
-  const header = createPanelHeader({
+  // Shell (surface, header, content scroll) comes from the shared row-panel
+  // factory — the attributes panel's twin, built by the same code, so the
+  // width, header and card chrome cannot drift from it.
+  const { panel, content } = createRowPanel({
+    cssClass: CONST.CLASSES.STYLE_PANEL,
     title: ui.T("style_layer"),
     iconSvg: SVGs.STYLE,
     closeTitle: ui.T("close_title"),
-    titleClass: "foliplus-header-title",
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  // The panel content (toggle + body + reset) lives in the same scroll
-  // container pattern as attrs.ts, so a tall field list never bleeds into
-  // the header.
-  return dom.el(
-    "div",
-    {
-      class: `${CONST.CLASSES.STYLE_PANEL} foliplus-panel`,
-      role: "dialog",
-      "aria-label": ui.T("style_layer"),
-    },
-    header,
+  content.append(
     dom.el(
       "div",
-      { class: "foliplus-panel-content" },
+      { class: "foliplus-form-row" },
+      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
       dom.el(
         "div",
-        { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
+        { class: "foliplus-form-control" },
+        // Resolving the toggle: clicking the input, the slider span, or the
+        // label should all flip the checkbox — the switch is one <label>.
         dom.el(
-          "div",
-          { class: "foliplus-form-control" },
-          // Resolving the toggle: clicking the input, the slider span, or the
-          // label should all flip the checkbox — the switch is one <label>.
-          dom.el(
-            "label",
-            { class: "foliplus-toggle-switch" },
-            showToggle,
-            dom.el("span", { class: "foliplus-toggle-slider" }),
-          ),
-        ),
-      ),
-      body,
-      dom.el(
-        "div",
-        { class: "foliplus-btn-row" },
-        dom.el(
-          "button",
-          { type: "button", class: "foliplus-style-reset-btn" },
-          ui.T("style_reset"),
+          "label",
+          { class: "foliplus-toggle-switch" },
+          showToggle,
+          dom.el("span", { class: "foliplus-toggle-slider" }),
         ),
       ),
     ),
+    body,
+    dom.el(
+      "div",
+      { class: "foliplus-btn-row" },
+      dom.el(
+        "button",
+        {
+          type: "button",
+          class: "foliplus-panel-btn foliplus-style-reset-btn",
+        },
+        ui.T("style_reset"),
+      ),
+    ),
   );
+  return panel;
 };
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
@@ -328,20 +284,27 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         ".foliplus-style-field-select",
       ) as HTMLSelectElement | null;
       const cfg = ui.m.annotation.getConfig(layerId);
+      const fields = layerFields(ui, layerId);
       if (show && fieldSel && !cfg.field) {
-        const picked = autoPickField(ui, layerId, layerFields(ui, layerId));
+        const picked = autoLabelField(fields);
         if (picked) {
           cfg.field = picked;
           fieldSel.value = picked;
         }
       }
-      syncFormatRow(ui, layerId, panel, fieldSel?.value ?? cfg.field);
+      const fmtRow = panel.querySelector(
+        ".foliplus-style-format-row",
+      ) as HTMLElement | null;
+      if (fmtRow) syncFormatRow(fields, fmtRow, fieldSel?.value ?? cfg.field);
       applyPatch(ui, layerId, { show, field: fieldSel?.value ?? cfg.field });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains("foliplus-style-field-select")
     ) {
-      syncFormatRow(ui, layerId, panel, t.value);
+      const fmtRow = panel.querySelector(
+        ".foliplus-style-format-row",
+      ) as HTMLElement | null;
+      if (fmtRow) syncFormatRow(layerFields(ui, layerId), fmtRow, t.value);
       const fmtSel = panel.querySelector(
         ".foliplus-style-format-select",
       ) as HTMLSelectElement | null;
@@ -421,7 +384,6 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
 export {
   applyStyleLabelState,
   closeStylePanel,
-  fieldIsNumeric,
   invalidateFields,
   layerHasLabelFields,
   openStylePanel,

@@ -1,6 +1,7 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and wiring.
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import type { LabelField } from "#core/labelField.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
@@ -96,7 +97,6 @@ import {
   applyStyleLabelState,
   closeStylePanel,
   invalidateFields,
-  layerHasLabelFields,
   openStylePanel,
 } from "./style.js";
 import {
@@ -185,7 +185,7 @@ class LayerUI {
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
-  fieldCache: Map<string, string[]>;
+  fieldCache: Map<string, LabelField[]>;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
   labelConfigs: Record<string, unknown>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
@@ -343,6 +343,17 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
+      // A press inside a row's floating panel (attributes / style) is the
+      // panel's business, not the row's. Taking the cursor over here would
+      // steal DOM focus back to the row, and a native <select> popup closes
+      // the instant it loses focus — so the dropdown looked like it retracted
+      // the moment it opened. The panels carry their own click handling.
+      if (
+        el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
+        el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
+      ) {
+        return;
+      }
       // One ledger: pointer re-homes the index, Tab stop, and paints the
       // cursor visual. It stays until Escape, another row, or an outside
       // press takes over — same contract as the keyboard cursor.
@@ -704,12 +715,16 @@ class LayerUI {
   closeStylePanel(setFocus: boolean) {
     return closeStylePanel(this, setFocus);
   }
-  layerHasLabelFields(layerId: string) {
-    return layerHasLabelFields(this, layerId);
-  }
+  /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
+   *  cached field list). Peer ui/ modules call the module function directly
+   *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
   }
+  /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
+   *  ran, and `vi.spyOn` needs a method on the instance (an imported function
+   *  is captured at load time). Kept for the same reason #296 kept the menu
+   *  and rename hubs. */
   applyStyleLabelState() {
     return applyStyleLabelState(this);
   }

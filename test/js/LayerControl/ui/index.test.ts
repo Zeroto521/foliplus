@@ -44,7 +44,7 @@ describe("LayerUI shell — event subscriptions", () => {
   });
 
   it("LAYER_ITEM_COUNT_CHANGE updates the row count and drops the field cache", () => {
-    ui.fieldCache.set("overlay1", ["stale"]);
+    ui.fieldCache.set("overlay1", [{ name: "stale", numeric: false }]);
     const getFeatureCount = vi.spyOn(manager, "getFeatureCount").mockReturnValue(5);
     const item = findItem(ui, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;

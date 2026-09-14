@@ -81,6 +81,24 @@ const formatNumber = (
  *  makes the same point display differently in two places. */
 const LAT_LNG_PRECISION = 6;
 
+/** A number as it reads inside a map label.
+ *
+ *  A label states a count or an id, so an explicit style pins the fraction
+ *  digits to 0 — 'comma' otherwise inherits the one-decimal default and turns
+ *  6000 into "6,000.0" on the map. `auto` already trims its own decimals.
+ *
+ *  Shared by the canvas hex labels (HeatmapControl) and the DOM annotation
+ *  labels (LayerControl): the same feature must not read two ways depending on
+ *  which control drew it. */
+const formatLabelNumber = (
+  val: number,
+  style: NumberStyle = "auto",
+  locale: string = "en",
+): string =>
+  style === "auto"
+    ? formatNumber(val, style, locale)
+    : formatNumber(val, style, locale, 0);
+
 /** One coordinate for a location readout: fixed decimals, en grouping,
  *  language-agnostic — the operator reads the number itself, not the locale. */
 const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
@@ -116,5 +134,6 @@ export {
   formatTimestamp,
   LAT_LNG_PRECISION,
   formatCoord,
+  formatLabelNumber,
   formatLatLng,
 };
