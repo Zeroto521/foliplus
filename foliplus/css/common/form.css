@@ -115,12 +115,15 @@
    Everything else shares the panel/form vocabulary above. Two additions:
    the collapsible body under the labels toggle (`.foliplus-hidden` itself
    is the global reset.css rule), and a focus-visible ring for the switch —
-   without it, a tab stop on a toggle looks identical to "not focused". */
+   without it, a tab stop on a toggle looks identical to "not focused".
+   The ring is `var(--focus-ring)` verbatim: it is already a two-layer
+   box-shadow value, so wrapping it in `0 0 0 2px …` builds an invalid
+   declaration the browser drops, leaving no ring at all. */
 .foliplus-style-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 .foliplus-style-toggle-input:focus-visible + .foliplus-toggle-slider {
-  box-shadow: 0 0 0 2px var(--focus-ring);
+  box-shadow: var(--focus-ring);
 }
