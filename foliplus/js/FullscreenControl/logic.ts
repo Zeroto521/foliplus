@@ -40,6 +40,45 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
     isFull ? T("enter") : T("exit"),
     HINT_DURATION.MEDIUM,
   );
+
+  updateRotateHint(map);
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// rotate hint  —  portrait-while-fullscreen "rotate to landscape" toast
+//
+// Screen orientation alone decides (no touch/UA sniffing): a portrait laptop in
+// fullscreen is just as cramped, and a sniff stays testable in jsdom. The hint
+// is PERSIST with a subkey, so it coexists with the enter/exit toast instead of
+// evicting it, and it dismisses on rotation or on fullscreen exit.
+// ══════════════════════════════════════════════════════════════════════════════
+const ORIENTATION_CHANGE = "orientationchange";
+
+const isPortrait = (): boolean => {
+  const orientation = window.screen?.orientation;
+  return Boolean(orientation) && orientation.type.startsWith("portrait");
+};
+
+const showRotateHint = (map: L.Map) => {
+  if (!isPortrait()) return;
+  map.foliplus!.showHint(
+    CONF.name,
+    T("rotate_landscape"),
+    HINT_DURATION.PERSIST,
+    false,
+    "rotate",
+  );
+};
+
+const hideRotateHint = (map: L.Map) => {
+  map.foliplus!.hideHint(CONF.name, "rotate");
+};
+
+// Runs on every fullscreenchange, portrait or not — hiding when landscape means
+// the same listener covers "rotated while fullscreen" with no extra check.
+const updateRotateHint = (map: L.Map) => {
+  if (getFullscreenEl() || map.isFullscreen) showRotateHint(map);
+  else hideRotateHint(map);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -48,6 +87,8 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled) {
+      // Only the reject path calls updateUI. Success is driven by
+      // fullscreenchange; a second updateUI here would double-fire the toasts.
       document
         .exitFullscreen()
         .then(() => {
@@ -65,6 +106,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
     map.isFullscreen = false;
   } else {
     if (isEnabled) {
+      // Same rule as the exit branch: only reject calls updateUI.
       map
         .getContainer()
         .requestFullscreen()
@@ -98,12 +140,20 @@ const bindFullscreenEvents = (
     updateUI(map, fsBtn, container);
   };
 
-  if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
+  // Native mode: a rotation re-dispatches fullscreenchange, so fullscreenchange
+  // alone keeps the hint in sync. Pseudo mode never dispatches it, so it gets
+  // its own orientationchange listener to clear the hint on rotate.
+  const type = isEnabled ? FULLSCREEN_CHANGE : ORIENTATION_CHANGE;
+
+  document.addEventListener(type, handleFSChange);
+
   map.on("unload", () => {
-    if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
+    document.removeEventListener(type, handleFSChange);
   });
 
-  return handleFSChange;
+  // Returned for destroy(): the caller must remove whichever event is bound,
+  // since it differs between native and pseudo mode.
+  return { type, handler: handleFSChange };
 };
 
 export { bindFullscreenEvents, toggleFullscreen, updateUI };

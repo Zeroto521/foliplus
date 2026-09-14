@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import folium
 from conftest import (
+    _inject_window_map,
+    _install_cdn_route,
     assert_config_value,
     assert_locale,
     make_browser_page,
@@ -57,6 +59,11 @@ class TestFullscreeControlRendering:
     def test_locale_zh(self):
         html = render_control(FullscreenControl(locale="zh"))
         assert_locale(html, "已进入全屏", "FullscreenControl.enter")
+
+    def test_locale_rotate_hint_zh(self):
+        """Portrait-while-fullscreen rotate hint ships a zh translation."""
+        html = render_control(FullscreenControl(locale="zh"))
+        assert_locale(html, "请横屏查看地图", "FullscreenControl.rotate_landscape")
 
     def test_css_fullscreen_variables(self):
         """Fullscreen CSS includes fullscreen container styles."""
@@ -387,6 +394,149 @@ class TestFullscreenControlBrowser:
         )
         page.goto(f"file://{html_path}", wait_until="domcontentloaded")
         return page, errors
+
+    def _make_oriented_page(self, browser, tmp_path):
+        """Build a portrait/landscape mobile page with native fullscreen.
+
+        The rotate hint is orientation-driven, and headless Chromium only
+        reports a non-landscape `screen.orientation.type` when it is
+        emulating mobile (`is_mobile: true`).
+
+        The native Fullscreen API is used as-is, with no stub: the enter/exit
+        helpers below drive the control through a real Playwright click, which
+        carries the user-activation gesture `requestFullscreen` needs. An
+        inline stub does not survive anyway — a script injected at `<body>`
+        runs before Leaflet builds `.leaflet-container`, so `_container` is
+        null and the assignment throws.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        FullscreenControl(hide_self=True, hide_others=False).add_to(m)
+        html = m.get_root().render()
+        html_path = tmp_path / "fullscreen_oriented.html"
+        html_path.write_text(_inject_window_map(html), encoding="utf-8")
+
+        context = browser.new_context(
+            viewport={"width": 390, "height": 844},
+            is_mobile=True,
+            has_touch=True,
+            device_scale_factor=3,
+        )
+        page = context.new_page()
+        # new_context().new_page() skips _CdnBrowserProxy.new_page(), so the
+        # route never gets installed: Leaflet would come from the live network
+        # and the click would time out waiting for a controller that never boots.
+        _install_cdn_route(page)
+        errors = []
+        page.on(
+            "console",
+            lambda msg: (
+                errors.append(msg.text)
+                if msg.type == "error"
+                and not msg.text.startswith("Failed to load resource")
+                else None
+            ),
+        )
+        page.on(
+            "requestfailed",
+            lambda req: errors.append(f"requestfailed {req.failure} {req.url}"),
+        )
+        page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+        return page, errors
+
+    def _set_orientation(self, page, typ):
+        """Pin `screen.orientation.type` after load.
+
+        Playwright's mobile emulation restores the property, so a pre-load
+        override is clobbered — set it once the page is loaded. Must run
+        before entering fullscreen: `showHint` reads `document.fullscreenElement`
+        to pick the hint's parent, and native fullscreen moves the whole tree,
+        so a hint added to `document.body` beforehand lands behind the
+        fullscreen element.
+        """
+        page.evaluate(
+            """(t) => Object.defineProperty(window.screen, 'orientation', {
+                value: { type: t },
+                configurable: true,
+            })""",
+            typ,
+        )
+
+    def _rotate_hint_visible(self, page):
+        """True when the rotate hint element is in the DOM and visible."""
+        return page.evaluate(
+            """() => {
+                const el = document.querySelector(
+                    '.foliplus-hint-FullscreenControl-rotate'
+                );
+                return el !== null
+                    && getComputedStyle(el).display !== 'none';
+            }"""
+        )
+
+    def test_rotate_hint_shown_in_portrait_fullscreen(self, browser, tmp_path):
+        """Entering fullscreen in portrait shows a standing rotate hint.
+
+        The hint uses a subkey, so it stacks below the enter toast instead of
+        replacing it.
+        """
+        with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._set_orientation(page, "portrait-primary")
+            # page.click carries the user-activation gesture the native
+            # Fullscreen API requires; a synthesized .click() would not.
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function("() => document.fullscreenElement !== null")
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')",
+                timeout=10000,
+            )
+            assert self._rotate_hint_visible(page), "rotate hint not shown"
+            enter_hint = page.evaluate(
+                "!!document.querySelector('.foliplus-hint-FullscreenControl')"
+            )
+            assert enter_hint, "enter toast was evicted by the rotate hint"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_rotate_hint_cleared_on_exit(self, browser, tmp_path):
+        """Exiting fullscreen removes the rotate hint."""
+        with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._set_orientation(page, "portrait-primary")
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function("() => document.fullscreenElement !== null")
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')",
+                timeout=10000,
+            )
+            assert self._rotate_hint_visible(page)
+            # The toggle is hidden in fullscreen (hide_self=true), so a
+            # synthesized click reaches it — exit needs no user activation.
+            page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle').click()"
+            )
+            page.wait_for_function("() => document.fullscreenElement === null")
+            assert not self._rotate_hint_visible(page), "rotate hint persisted"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_rotate_hint_absent_in_landscape(self, browser, tmp_path):
+        """No rotate hint when the screen is landscape."""
+        with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._set_orientation(page, "landscape-primary")
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function("() => document.fullscreenElement !== null")
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl')",
+                timeout=10000,
+            )
+            assert not self._rotate_hint_visible(page), "hint shown in landscape"
+            assert not errors, f"JS errors: {errors}"
 
     def test_pseudo_fullscreen_enter_exit(self, browser, tmp_path):
         """Pseudo-fullscreen (no native API) can be entered and exited.
