@@ -266,10 +266,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none` (attrs recipe).
+  // The mousedown is stopped here; whether the press landed inside the panel is
+  // recorded by the outside handler below, because `dragstart` is dispatched on
+  // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
-  panel.addEventListener("dragstart", e => {
-    if (e.target instanceof Node && panel.contains(e.target)) e.preventDefault();
-  });
 
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
@@ -359,7 +359,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       closeStylePanel(ui, false);
       return;
     }
-    if (t.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) return;
+    if (t.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) {
+      ui.pressInPanel = true;
+      return;
+    }
+    ui.pressInPanel = false;
     closeStylePanel(ui, false);
   };
   document.addEventListener("mousedown", ui.styleOutsideHandler, true);
@@ -373,6 +377,8 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     document.removeEventListener("mousedown", ui.styleOutsideHandler, true);
     ui.styleOutsideHandler = null;
   }
+  // No panel, no panel press: a stale verdict would block the next real drag.
+  ui.pressInPanel = false;
   const panel = ui.uiContainer.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;

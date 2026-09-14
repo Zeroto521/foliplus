@@ -163,19 +163,20 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   header.addEventListener("click", () => closeAttrsPanel(ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
-  // neither start a row drag nor inherit `user-select: none`. Capture-phase
-  // stop keeps HTML5 drag from treating the press as a drag candidate.
+  // neither start a row drag nor inherit `user-select: none`. The mousedown is
+  // stopped here (the row's own handlers live on the container), and which side
+  // of the panel the press landed on is recorded by the outside handler below —
+  // `dragstart` is dispatched on the draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
-  panel.addEventListener("dragstart", e => {
-    if (e.target instanceof Node && panel.contains(e.target)) e.preventDefault();
-  });
 
   item.style.position = "relative";
   item.appendChild(panel);
 
-  // Document capture dismiss: disableClickPropagation on the layer control
-  // stops bubble-phase mousedown from reaching document, so a press on the
-  // map or another foliplus control would never close the panel otherwise.
+  // Document capture dismiss (attrs recipe): disableClickPropagation on the
+  // layer control stops bubble-phase mousedown from reaching document, so a
+  // press on the map or another foliplus control would never close the
+  // panel otherwise. Capture also gives this handler the first look at every
+  // press, which is what makes it the right place to record the drag verdict.
   ui.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
     // Document-level dispatch can name `document` itself —no closest().
@@ -183,7 +184,11 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       closeAttrsPanel(ui, false);
       return;
     }
-    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) return;
+    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
+      ui.pressInPanel = true;
+      return;
+    }
+    ui.pressInPanel = false;
     closeAttrsPanel(ui, false);
   };
   document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
@@ -198,6 +203,8 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
     document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
     ui.attrsOutsideHandler = null;
   }
+  // No panel, no panel press: a stale verdict would block the next real drag.
+  ui.pressInPanel = false;
   if (!ui.activeAttrsPanel) return;
   const item = ui.activeAttrsPanel.item;
   ui.activeAttrsPanel.panel.remove();

@@ -186,6 +186,11 @@ class LayerUI {
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
   fieldCache: Map<string, LabelField[]>;
+  /** Whether the current press began inside a floating row panel. Written on
+   *  the press (the panel's document-level capture handler) and read by
+   *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
+   *  event itself cannot say where the press began. */
+  pressInPanel: boolean;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
   labelConfigs: Record<string, unknown>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
@@ -230,6 +235,7 @@ class LayerUI {
     this.styleOutsideHandler = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
+    this.pressInPanel = false;
     this.labelConfigs = {};
     this.focusRect = null;
     this.focusingLayerId = null;

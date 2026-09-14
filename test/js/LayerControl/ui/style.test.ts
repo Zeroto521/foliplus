@@ -365,6 +365,41 @@ describe("LayerUI style panel", () => {
     expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
   });
 
+  // ─────────────────── row drag vs panel controls ───────────────────
+
+  it("a press inside the panel does not start a row reorder drag", () => {
+    // The row is the drag source for any press in the row, the floating panel
+    // included, and `dragstart` is dispatched on the row — a listener on the
+    // panel can never see it (the panel is a descendant, never on the event's
+    // path). So the verdict is recorded from the press and read here.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    panelOf(item)!.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    const dragstart = new Event("dragstart", { bubbles: true, cancelable: true });
+    item.dispatchEvent(dragstart);
+
+    expect(dragstart.defaultPrevented).toBe(true);
+    expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+    expect(ui.dragIdx).toBeNull();
+  });
+
+  it("a press outside the panel still starts the drag", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    document.body.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    const dragstart = new Event("dragstart", { bubbles: true, cancelable: true });
+    item.dispatchEvent(dragstart);
+
+    expect(dragstart.defaultPrevented).toBe(false);
+    expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+  });
+
   // ─────────────────── row cursor vs panel controls ───────────────────
 
   it("does not take the row cursor over for a press inside the panel", () => {
@@ -617,18 +652,26 @@ describe("LayerUI style panel", () => {
     expect(ui.stylePanelLayerId).toBeNull();
   });
 
-  it("dragstart inside the panel is prevented (rows are draggable)", () => {
+  it("does not observe dragstart at all (the browser targets the row)", () => {
+    // Replaces an earlier assertion that dispatched `dragstart` *on the panel*
+    // and checked it was prevented. The browser never does that: the row is the
+    // drag source, so `dragstart` is dispatched on the row and its path runs to
+    // the row's ancestors — the panel, a descendant, is never on it. That test
+    // passed while the real bug (a press on the panel dragged the row) shipped.
+    // The guard now lives on the press; see the two drag tests above.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-
-    const event = new MouseEvent("dragstart", {
-      bubbles: true,
-      cancelable: true,
+    let seen = false;
+    panel.addEventListener("dragstart", () => {
+      seen = true;
     });
-    panel.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(true);
+    item.dispatchEvent(
+      new MouseEvent("dragstart", { bubbles: true, cancelable: true }),
+    );
+
+    expect(seen).toBe(false);
   });
 
   it("a change from an unrelated target is ignored and not stopped", () => {
