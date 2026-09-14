@@ -303,6 +303,11 @@ describe("LayerUI style panel", () => {
     const options = Array.from(fieldSelectOf(item).options);
     expect(options.map(o => o.value)).toEqual([AUTO_FIELD, "name", "count"]);
     expect(options[0].textContent).toBe("LayerControl.style_label_field_auto");
+    // A disabled placeholder, exactly like the heatmap's field_auto: it shows
+    // the current state rather than offering itself as a choice. Reset is how
+    // the field goes back to auto.
+    expect(options[0].disabled).toBe(true);
+    expect(options[1].disabled).toBe(false);
   });
 
   it("collapses the body again when the toggle goes back off", () => {

@@ -118,17 +118,24 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const selectedField = cfg.field;
 
   // Field options: the auto entry first, then one per field. The auto entry is
-  // the select's own empty value, so it is what a fresh panel shows. The
-  // per-field <option>s are appended to the select itself — appending them into
-  // the first option would nest <option> inside <option>, and the browser skips
-  // nested options when it builds the options list.
+  // the select's own empty value, so it is what a fresh panel shows, and it is
+  // a disabled placeholder exactly like the heatmap's `field_auto`. Disabled
+  // rather than merely first, so it reads as the current state instead of an
+  // option to pick: the way back to auto is Reset, which restores the default
+  // config. The per-field <option>s are appended to the select itself —
+  // appending them into the first option would nest <option> inside <option>,
+  // and the browser skips nested options when it builds the options list.
   const fieldSelect = dom.el(
     "select",
     {
       class: "foliplus-form-select foliplus-style-field-select",
       "aria-label": ui.T("style_label_field"),
     },
-    dom.el("option", { value: AUTO_FIELD }, ui.T("style_label_field_auto")),
+    dom.el(
+      "option",
+      { value: AUTO_FIELD, disabled: true },
+      ui.T("style_label_field_auto"),
+    ),
   );
   fields.forEach(f =>
     fieldSelect.appendChild(
