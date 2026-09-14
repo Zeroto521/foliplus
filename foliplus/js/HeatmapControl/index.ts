@@ -40,6 +40,8 @@ class HeatmapControl extends BaseControl {
   initScanCleanup: (() => void) | null = null;
   schemeBarCleanup: (() => void) | null = null;
   dropdownCleanup: (() => void) | null = null;
+  toggleDropdown: (() => void) | null = null;
+  selectScheme: ((idx: number) => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -49,6 +51,8 @@ class HeatmapControl extends BaseControl {
     this.expandHookDone = false;
     this.schemeBarCleanup = null;
     this.dropdownCleanup = null;
+    this.toggleDropdown = null;
+    this.selectScheme = null;
   }
 
   /** Alias for convenience (creates the manager on first access). */
@@ -76,7 +80,9 @@ class HeatmapControl extends BaseControl {
   }
 
   /** (Re)start the initial layer scan. Runs on every add, so the control
-   *  recovers after removeControl + addControl (destroy cancels the old scan). */
+   *  recovers after removeControl + addControl (destroy cancels the old scan).
+   *  The scheme-bar handler is only ever (re)bound by bindControls, which
+   *  itself guards the double-registration case. */
   startScan() {
     this.initScanCleanup?.();
     this.initScanCleanup = initScan(this);
@@ -87,6 +93,13 @@ class HeatmapControl extends BaseControl {
     // Clean up map event listeners
     this.initScanCleanup?.();
     this.initScanCleanup = null;
+    this.schemeBarCleanup?.();
+    this.schemeBarCleanup = null;
+    // dropdownCleanup is optional: only the dropdown open/close cycle writes
+    // it, and clearHeatmapCanvas already runs it. Null it here so a handler
+    // can't survive the control — it re-registers on the next dropdown open.
+    this.dropdownCleanup?.();
+    this.dropdownCleanup = null;
 
     const mgr = this.manager;
     this.manager = null;

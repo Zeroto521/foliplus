@@ -22,8 +22,8 @@ interface HeatmapControlUI {
   expandHookDone: boolean;
   schemeBarCleanup: (() => void) | null;
   dropdownCleanup: (() => void) | null;
-  toggleDropdown?: () => void;
-  selectScheme?: (idx: number) => void;
+  toggleDropdown: (() => void) | null;
+  selectScheme: ((idx: number) => void) | null;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
