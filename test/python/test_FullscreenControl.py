@@ -36,9 +36,7 @@ class TestFullscreenControlPython:
         assert FullscreenControl().hide_selector == []
 
     def test_custom_hide_selector(self):
-        assert FullscreenControl(hide_selector=[".navbar"]).hide_selector == [
-            ".navbar"
-        ]
+        assert FullscreenControl(hide_selector=[".navbar"]).hide_selector == [".navbar"]
 
     def test_hide_selector_rejects_none(self):
         assert FullscreenControl(hide_selector=None).hide_selector == []
