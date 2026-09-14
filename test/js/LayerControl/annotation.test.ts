@@ -206,6 +206,41 @@ describe("AnnotationManager.renderLabels", () => {
     expect(added.every(m => (m as { isLabel?: boolean }).isLabel)).toBe(true);
   });
 
+  it("anchors a point label below its marker and a path label on its centroid", () => {
+    // The two anchor kinds want different relationships to their anchor, and a
+    // divIcon cannot place itself: the chip's width is unknown until layout, so
+    // the horizontal placement is a CSS transform on the inner span (see the
+    // label rules in LayerControl.css) and the offset comes from iconAnchor.
+    // Leaflet's divIcon default iconSize of 12x12 is what used to push a fixed
+    // box up against the anchor and let the text spill out to its right.
+    const group = mkGroup([
+      mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
+      mkLeaf({
+        props: { v: "2" },
+        bounds: {
+          isValid: () => true,
+          getCenter: () => ({ lat: 40.5, lng: -73.5 }),
+        },
+      }),
+    ]);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
+    divIconMock.mockClear();
+
+    mgr.renderLabels("l1");
+
+    const [pointIcon, shapeIcon] = divIconMock.mock.calls.map(
+      c => c[0] as { className: string; iconAnchor: number[]; iconSize: number[] },
+    );
+    expect(pointIcon.iconSize).toEqual([0, 0]);
+    expect(pointIcon.iconAnchor).toEqual([0, -10]);
+    expect(pointIcon.className).toContain("foliplus-annotation-label-point");
+    expect(shapeIcon.iconSize).toEqual([0, 0]);
+    expect(shapeIcon.iconAnchor).toEqual([0, 0]);
+    expect(shapeIcon.className).toContain("foliplus-annotation-label-shape");
+  });
+
   it("skips leaves without the field or without usable geometry", () => {
     const group = mkGroup([
       mkLeaf({ props: { other: "x" }, latlng: { lat: 1, lng: 2 } }), // no field

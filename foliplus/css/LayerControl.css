@@ -886,7 +886,14 @@ path.foliplus-focus-mask {
   padding: 0;
   line-height: 1;
 
+  /* The marker box is 0x0 (divIcon `iconSize: [0, 0]`), so the chip has to
+     place itself. `transform` here rather than on the marker: Leaflet writes
+     its own inline transform on the marker element to position it, which would
+     win over any stylesheet transform. Positioned against the marker box, so
+     the iconAnchor decides the vertical relationship and the modifier class
+     below decides the horizontal one. */
   .foliplus-annotation-label-text {
+    position: absolute;
     display: inline-block;
     font-family: var(--label-font-family);
     font-size: var(--label-font-size);
@@ -897,5 +904,16 @@ path.foliplus-focus-mask {
       0 0 var(--label-halo-width) var(--label-halo-color),
       0 0 calc(var(--label-halo-width) * 2) var(--label-halo-color),
       0 0 calc(var(--label-halo-width) * 4) var(--label-halo-color);
+  }
+
+  /* A point feature: centred on the marker, the chip's top edge just below it
+     — the relationship MeasureControl's area label has to its centroid dot. */
+  &.foliplus-annotation-label-point .foliplus-annotation-label-text {
+    transform: translateX(-50%);
+  }
+
+  /* A path feature: the centroid IS the anchor, so the chip is centred on it. */
+  &.foliplus-annotation-label-shape .foliplus-annotation-label-text {
+    transform: translate(-50%, -50%);
   }
 }

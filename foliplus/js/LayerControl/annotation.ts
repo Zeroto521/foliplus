@@ -22,11 +22,19 @@ import * as CONST from "./const.js";
 // CONF is a free variable from the IIFE template wrapper.
 const T = createScopedTranslator(CONF);
 
-// Label marker offset (px) from the anchor. Positive dy = below anchor (the
-// convention used in MeasureControl labels). For point layers the anchor is
-// the marker latlng, so the label sits just below the point; for polygon/line
-// the anchor is the centroid, so the label sits slightly below center.
-const LABEL_OFFSET_DY = 14;
+// Label anchoring. A `divIcon` cannot place itself: the chip's width is only
+// known after layout, so the horizontal position has to come from CSS (see the
+// label rules in LayerControl.css) and `iconSize` must be [0, 0] — Leaflet's
+// divIcon default of 12x12 otherwise puts a box at the anchor and lets the text
+// spill out to the right of it.
+//
+//   point leaves → the chip's top edge sits just below the marker, centred on
+//                  it, which is the relationship MeasureControl's area label has
+//                  to its centroid dot ([0, -10] over a centred chip).
+//   path leaves  → the centroid IS the anchor and the chip is centred on it.
+const LABEL_SIZE: [number, number] = [0, 0];
+const LABEL_POINT_OFFSET_Y = 10;
+const LABEL_SHAPE_OFFSET_Y = 0;
 
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
@@ -96,6 +104,16 @@ class AnnotationManager {
     ).feature?.properties;
     if (!props || !(field in props)) return null;
     return String(props[field]);
+  }
+
+  /** Whether a leaf's anchor is its own point (a marker) rather than the centre
+   *  of its extents (a path). Same duck-typing `resolveAnchor` walks, exposed so
+   *  the anchor kind and the anchor point are decided from one reading. */
+  isPointAnchor(leaf: L.Layer): boolean {
+    return (
+      typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng ===
+      "function"
+    );
   }
 
   /** Resolve the anchor latlng for a feature leaf.
@@ -168,17 +186,29 @@ class AnnotationManager {
       const raw = this.readFieldValue(leaf, field);
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
+      // Decide the anchor kind once — it drives both the offset and the class
+      // that tells CSS which way to centre the chip.
+      const atPoint = this.isPointAnchor(leaf);
 
       const text = this.formatValue(raw, this.getConfig(id).format, locale);
       if (!text) return;
 
       const labelMarker = L.marker(anchor, {
         icon: L.divIcon({
-          className: CONST.CLASSES.ANNOTATION_LABEL,
+          className: `${CONST.CLASSES.ANNOTATION_LABEL} ${
+            atPoint
+              ? CONST.CLASSES.ANNOTATION_LABEL_POINT
+              : CONST.CLASSES.ANNOTATION_LABEL_SHAPE
+          }`,
           // Element, not an HTML string: divIcon accepts a Node and appends
           // it as-is, so the label text can never reach an innerHTML sink.
           html: dom.el("span", { class: "foliplus-annotation-label-text" }, text),
-          iconAnchor: [0, -LABEL_OFFSET_DY], // anchor at label top → text sits below
+          iconSize: LABEL_SIZE,
+          // Written as two literals rather than one negated constant: negating a
+          // zero offset yields -0, which is a different value to a marker icon.
+          iconAnchor: atPoint
+            ? [0, -LABEL_POINT_OFFSET_Y]
+            : [0, LABEL_SHAPE_OFFSET_Y],
         }),
         interactive: false,
         pane: "markerPane",

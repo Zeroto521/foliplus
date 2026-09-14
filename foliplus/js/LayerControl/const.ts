@@ -99,6 +99,11 @@ const CLASSES = {
   STYLE_PANEL: "foliplus-layer-style-panel",
   /** Marker wrapper element used to render an annotation label. */
   ANNOTATION_LABEL: "foliplus-annotation-label",
+  /** Anchor kind of an annotation label: a feature's own point, or the centre
+   *  of its extents. Decides both the vertical offset and whether the chip is
+   *  centred on the anchor or hangs below it. */
+  ANNOTATION_LABEL_POINT: "foliplus-annotation-label-point",
+  ANNOTATION_LABEL_SHAPE: "foliplus-annotation-label-shape",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
