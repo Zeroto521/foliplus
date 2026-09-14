@@ -11,6 +11,28 @@ import { layerHasLabelFields } from "./style.js";
 /**
  * Open the "more" overflow dropdown for a given layer row.
  * Every layer (data + base) has this button; it exposes focus + rename.
+ *
+ * Order is deliberate, not append order:
+ *
+ *   1. Focus      — a view action on the map: nothing written, highest use, and
+ *                   it has its own Escape-cancel path.
+ *   2. Style      — opens the layer's style panel.
+ *   3. Rename     — writes to the layer itself; the only entry that hands focus
+ *                   to a long-lived inline editor.
+ *   4. Attributes — opens the read-only detail panel. Display-only, never
+ *                   disabled, so it closes the list as the quiet tail.
+ *
+ * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
+ * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
+ * vertically centred in the row, so when the menu appears the pointer is *above
+ * its top edge* — nearest entry #1. The second click of an impatient
+ * double-click lands there, so it holds the reversible view action.
+ *
+ * Known cost: the menu lives inside the panel's scrolling content, so it
+ * overflows that box by a few px on a low row. The trailing entry is the first
+ * to need a scroll — measured, not assumed; see the ⋮-menu clip probe.
+ *
+ * A new dimensions entry belongs with Style, not at the tail.
  */
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Close any previously open menu first, and commit/cancel a rename so
@@ -36,20 +58,6 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
-  menu.appendChild(
-    dom.el(
-      "li",
-      {
-        "data-action": CONST.ACTION.RENAME_LAYER,
-        role: "menuitem",
-        tabindex: "0",
-        title: ui.T("rename_layer_tooltip"),
-      },
-      { html: Icons.EDIT },
-      ui.T("rename_layer"),
-    ),
-  );
-
   // The Style menu entry is the surface for the per-layer style panel — the
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …). Disable it
@@ -74,8 +82,24 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
+  // Rename writes to the layer itself, so it sits above the display-only
+  // entry rather than at the tail of the working actions.
+  menu.appendChild(
+    dom.el(
+      "li",
+      {
+        "data-action": CONST.ACTION.RENAME_LAYER,
+        role: "menuitem",
+        tabindex: "0",
+        title: ui.T("rename_layer_tooltip"),
+      },
+      { html: Icons.EDIT },
+      ui.T("rename_layer"),
+    ),
+  );
+
   // Attributes is display-only, so it is never disabled —a hidden layer
-  // still has name / source / visibility to show.
+  // still has name / source / visibility to show. It closes the list.
   menu.appendChild(
     dom.el(
       "li",
