@@ -16,11 +16,9 @@ import {
 import { type LabelAwareLayer, forEachLeaf } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-const T = createScopedTranslator(CONF);
 
 // Label anchoring. A `divIcon` cannot place itself: the chip's width is only
 // known after layout, so the horizontal position has to come from CSS (see the
@@ -119,8 +117,7 @@ class AnnotationManager {
    *  the anchor kind and the anchor point are decided from one reading. */
   isPointAnchor(leaf: L.Layer): boolean {
     return (
-      typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng ===
-      "function"
+      typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng === "function"
     );
   }
 
@@ -219,9 +216,7 @@ class AnnotationManager {
           iconSize: LABEL_SIZE,
           // Written as two literals rather than one negated constant: negating a
           // zero offset yields -0, which is a different value to a marker icon.
-          iconAnchor: atPoint
-            ? [0, -LABEL_POINT_OFFSET_Y]
-            : [0, LABEL_SHAPE_OFFSET_Y],
+          iconAnchor: atPoint ? [0, -LABEL_POINT_OFFSET_Y] : [0, LABEL_SHAPE_OFFSET_Y],
         }),
         interactive: false,
         pane: "markerPane",

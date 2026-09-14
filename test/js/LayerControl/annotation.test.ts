@@ -242,7 +242,7 @@ describe("AnnotationManager.renderLabels", () => {
   });
 
   it("resolves an open field through the shared auto pick", () => {
-    // ield: "" is the Auto sentinel, not "no field": the label renders the
+    // `field: ""` is the Auto sentinel, not "no field": the label renders the
     // auto pick over the layer's own columns (first numeric, else first). The
     // panel's test for this only spies renderLabels, so it passes either way —
     // this is the one that reads the rendered text.
@@ -272,7 +272,9 @@ describe("AnnotationManager.renderLabels", () => {
 
     divIconMock.mockClear();
     mgr.renderLabels("l1");
-    expect((divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent).toBe("5");
+    expect(
+      (divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent,
+    ).toBe("5");
 
     delete props.count;
     props.other = 7;
@@ -280,7 +282,9 @@ describe("AnnotationManager.renderLabels", () => {
     divIconMock.mockClear();
     mgr.renderLabels("l1");
 
-    expect((divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent).toBe("7");
+    expect(
+      (divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent,
+    ).toBe("7");
   });
 
   it("skips leaves without the field or without usable geometry", () => {
