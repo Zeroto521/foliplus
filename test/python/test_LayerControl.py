@@ -923,7 +923,16 @@ class TestLayerControlBrowser:
         LayerControl().add_to(m)
         for layer in layers:
             layer.add_to(m)
-        page, errors = make_browser_page(browser, tmp_path, m.get_root().render(), slug)
+        html = m.get_root().render()
+        # Expose the control instance for re-entry tests (dev build keeps names).
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found in rendered HTML"
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
         return page, errors
 
@@ -968,6 +977,18 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
             )
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+
+    def test_remove_readd_restores_layer_api(self, browser, tmp_path):
+        """Re-add after removeControl upgrades LayerAPI back to full and re-attaches panel."""
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/destroy_readd"))
+            assert state["afterRemoveStub"] is True
+            assert state["afterAddFull"] is True
+            assert state["panelAttached"] is True
+            panel_ready(page)  # rebuilt panel completes its init pass again
+            assert not errors, f"JS errors: {errors}"
 
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
@@ -3460,3 +3481,31 @@ class TestLayerControlBrowser:
                     f"{info['name']!r}: count column changed to {info['countText']!r} "
                     f"after an unrelated checkbox click"
                 )
+
+    def test_click_outside_collapses_panel(self, browser, tmp_path):
+        """Clicking the map outside the panel collapses it.
+
+        Behavioural parity guard: LayerControl used to wire only
+        bindPanelToggle, so it stayed open when you clicked the map, while
+        HeatmapControl (createPanelControl) collapsed. Both panels now build
+        their shell from createPanelControl, which adds bindOutsideCollapse.
+        """
+        layer = folium.FeatureGroup(name="Outside click")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="outside_click"
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            page.evaluate("document.querySelector('.leaflet-container').click()")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
+            ), "panel stayed expanded after clicking outside"

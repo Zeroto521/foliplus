@@ -73,6 +73,23 @@ describe("ensureLayerAPI", () => {
     expect(api).toBe(existing);
   });
 
+  it("force=true replaces an existing LayerAPI with a fresh lightweight stub", () => {
+    const existing = { layers: [{ id: "a" }] } as any;
+    map.foliplus = { LayerAPI: existing };
+    const api = ensureLayerAPI(map, true);
+    expect(api).not.toBe(existing);
+    expect(api.isLayerControl).toBe(false);
+  });
+
+  it("force=true repeated calls stay idempotent after the first replacement", () => {
+    const existing = { layers: [{ id: "a" }] } as any;
+    map.foliplus = { LayerAPI: existing };
+    const first = ensureLayerAPI(map, true);
+    const second = ensureLayerAPI(map, true);
+    expect(second).toBe(first);
+    expect(map.foliplus.LayerAPI).toBe(first);
+  });
+
   it("is idempotent —repeated calls return the same instance", () => {
     const api1 = ensureLayerAPI(map);
     const api2 = ensureLayerAPI(map);
