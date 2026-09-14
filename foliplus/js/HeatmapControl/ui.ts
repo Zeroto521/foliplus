@@ -20,8 +20,8 @@ interface HeatmapControlUI {
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
-  schemeBarCleanup?: () => void;
-  dropdownCleanup?: () => void;
+  schemeBarCleanup: (() => void) | null;
+  dropdownCleanup: (() => void) | null;
   toggleDropdown?: () => void;
   selectScheme?: (idx: number) => void;
   observer: MutationObserver | null;

@@ -41,11 +41,6 @@ const formatArea = (sqMeters: number): string => {
   return `${formatNumber(sqMeters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
 };
 
-// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
-// flag) live in edit.ts. They are re-exported below for backward compatibility
-// so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
-// through the Util namespace without a follow-up rename.
-
 /** Resolve the label chip inside a marker's icon element, or null when the
  *  marker has no rendered element. Callers that read the chip must go through
  *  this rather than caching a reference — a setIcon during a drag replaces

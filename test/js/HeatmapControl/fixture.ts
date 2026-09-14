@@ -121,6 +121,8 @@ function makeCtrl(
     ctrl: document.createElement("div"),
     schemeDropdown: null,
     expandHookDone: false,
+    schemeBarCleanup: null,
+    dropdownCleanup: null,
     observer: null,
     layerSelect: document.createElement("select"),
     extraBody: document.createElement("div"),

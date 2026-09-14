@@ -38,6 +38,8 @@ class HeatmapControl extends BaseControl {
   declare closeSchemeDropdown: (event: MouseEvent) => void;
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
+  schemeBarCleanup: (() => void) | null = null;
+  dropdownCleanup: (() => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -45,6 +47,8 @@ class HeatmapControl extends BaseControl {
     this.T = T;
     this.schemeDropdown = null;
     this.expandHookDone = false;
+    this.schemeBarCleanup = null;
+    this.dropdownCleanup = null;
   }
 
   /** Alias for convenience (creates the manager on first access). */
