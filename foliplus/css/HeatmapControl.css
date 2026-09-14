@@ -26,13 +26,16 @@
   --heatmap-inline-width: 52px;
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
-  /* Label Canvas – CSS-driven parameters for Canvas text rendering */
-  --heatmap-label-font-family: sans-serif;
-  --heatmap-label-font-weight: bold;
-  --heatmap-label-font-size: var(--font-size-sm);
-  --heatmap-label-color: var(--neutral-0);
-  --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
-  --heatmap-label-stroke-width: 3px;
+  /* Label Canvas — the canvas renderer reads these through getComputedStyle,
+     so they stay named for this component; the values come from the shared
+     map-label tokens so the hex labels and LayerControl's annotation labels
+     render as one language. */
+  --heatmap-label-font-family: var(--label-font-family);
+  --heatmap-label-font-weight: var(--label-font-weight);
+  --heatmap-label-font-size: var(--label-font-size);
+  --heatmap-label-color: var(--label-color);
+  --heatmap-label-stroke-color: var(--label-halo-color);
+  --heatmap-label-stroke-width: var(--label-halo-width);
 
   /* ── Sections: Data / Style / Labels ── */
   .foliplus-heatmap-section-block {
@@ -204,50 +207,11 @@
     }
   }
 
-  /* ── Bottom Buttons ── */
-  .foliplus-heatmap-btn-row {
-    display: flex;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
-    border-top: var(--border-thin) solid var(--divider-color);
-  }
-  .foliplus-heatmap-btn {
-    flex: 1;
-    height: var(--ctrl-size);
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    color: var(--neutral-0);
-    transition:
-      background var(--transition-fast),
-      box-shadow var(--transition-fast),
-      transform var(--transition-fast);
-
-    &:hover,
-    &:active {
-      color: var(--neutral-0);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--focus-ring);
-    }
-  }
-  .foliplus-heatmap-btn-clear {
-    background: var(--text-muted);
-    border: none;
-
-    &:hover {
-      background: var(--text-primary);
-      transform: scale(var(--scale-hover));
-    }
-    &:active {
-      background: var(--text-primary);
-      transform: scale(var(--scale-press));
-    }
-  }
+  /* ── Bottom Buttons ──
+     The Clear action and its row come from the shared panel-button recipe
+     (common/button.css `.foliplus-panel-btn` / the `.foliplus-*-btn-row`
+     group), so the heatmap's footer and the per-layer style panel's footer
+     cannot drift apart. Nothing component-specific is left to state here. */
 
   .foliplus-section-divider {
     margin: var(--space-md) var(--space-lg) var(--space-sm);

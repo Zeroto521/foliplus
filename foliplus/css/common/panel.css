@@ -6,6 +6,45 @@
   ctrl-fold.css and could sit anywhere after token.css.
   ══════════════════════════════════════════════════════════════════════ */
 
+/* ── Row panel (a row's own floating surface) ──
+   What a layer row opens from its ⋮ menu: the attributes panel and the
+   per-layer style panel. It IS a `.foliplus-panel` — same header/content
+   vocabulary as the fold panels — but anchored under its row rather than
+   folded into the control, so the caller mounts it on the row.
+
+   `.foliplus-panel` is a *horizontal* fold container (`align-items:
+   flex-start`), which for a column panel leaves the header and the content at
+   their own text width inside a full-width card. `stretch` is what makes the
+   surface read as one card, and was the reason the style panel's header came
+   out narrow while the attributes panel's filled the row.
+
+   Width, height cap, radius and shadow all read the shared tokens, so a row
+   panel cannot drift into a lookalike; a component adds only its own hooks. */
+.foliplus-panel.foliplus-row-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: var(--panel-width);
+  max-height: var(--panel-max-height);
+  padding: 0;
+  overflow-x: hidden;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: default;
+
+  /* Detail rows carry the shared label/control geometry; the panel only adds
+     its own horizontal inset. */
+  .foliplus-form-row {
+    padding: 0 var(--space-lg);
+  }
+}
+
 /* ── Container ── */
 .foliplus-panel {
   display: flex;

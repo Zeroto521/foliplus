@@ -1,9 +1,12 @@
 /* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
   Floating menus in SearchControl (result panel), HeatmapControl (scheme
-  picker) and LayerControl (layer overflow menu, layer attributes panel)
-  share one visual recipe. Position, width, max-height and item layout stay
-  per-component; this block owns the shell + hover/active states.
+  picker) and LayerControl (layer overflow menu, and the row panels a layer
+  row opens) share one visual recipe. Position, width, max-height and item
+  layout stay per-component; this block owns the shell + hover/active states.
+
+  Row panels join by their shared `foliplus-row-panel` class rather than by
+  name, so a new one inherits the shell without editing the lists below.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Shell ── */
@@ -11,8 +14,7 @@
   .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
   .foliplus-layer-more-menu,
-  .foliplus-layer-attrs-panel,
-  .foliplus-layer-style-panel
+  .foliplus-row-panel
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -43,8 +45,7 @@
     .foliplus-search-result-panel,
     .foliplus-heatmap-scheme-dropdown,
     .foliplus-layer-more-menu,
-    .foliplus-layer-attrs-panel,
-    .foliplus-layer-style-panel
+    .foliplus-row-panel
   ) {
     animation: none;
   }

@@ -2,7 +2,7 @@
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import { createPanelHeader } from "#common/panel.js";
+import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -140,40 +140,27 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     layerInfo?.iconSvg ??
     (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
 
-  const panel = dom.el(
-    "div",
-    {
-      // `foliplus-panel` pulls in the shared panel vocabulary, so the
-      // attributes surface is styled by the same rules as every other panel
-      // (header bar, content scroll) instead of a lookalike.
-      class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
-      role: "dialog",
-      "aria-label": ui.T("attributes_layer"),
-    },
-    // Header bar — built by the same factory the fold panels use, so the type
-    // logo, title, and × line up with every other foliplus panel and cannot
-    // drift into a lookalike. Hover title is close_title (收起 / Collapse),
-    // same as the main panel.
-    createPanelHeader({
-      title: displayName,
-      iconSvg: typeSvg,
-      closeTitle: ui.T("close_title"),
-      iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
-    }),
-    // One flat list: third-party meta rows continue the same rhythm instead
-    // of opening a second group, so the panel reads as one column of facts.
-    dom.el(
-      "div",
-      { class: "foliplus-panel-content" },
-      renderList([...rows, ...metaRows]),
-    ),
-  );
+  // Shell (surface, header, content scroll) comes from the shared row-panel
+  // factory, so this surface is built by the same code as the per-layer style
+  // panel and neither can drift into a lookalike. Hover title is close_title
+  // (收起 / Collapse), same as the main panel.
+  const { panel, header, content } = createRowPanel({
+    cssClass: CONST.CLASSES.ATTRS_PANEL,
+    title: displayName,
+    // The header names the layer; the dialog itself is named by what the
+    // surface is, so a screen reader announces the panel, not the layer twice.
+    ariaLabel: ui.T("attributes_layer"),
+    iconSvg: typeSvg,
+    closeTitle: ui.T("close_title"),
+    iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+  });
+  // One flat list: third-party meta rows continue the same rhythm instead
+  // of opening a second group, so the panel reads as one column of facts.
+  content.appendChild(renderList([...rows, ...metaRows]));
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
-  // The 脳 sits inside the header, so one listener covers both.
-  panel
-    .querySelector(".foliplus-panel-header")
-    ?.addEventListener("click", () => closeAttrsPanel(ui, true));
+  // The × sits inside the header, so one listener covers both.
+  header.addEventListener("click", () => closeAttrsPanel(ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. Capture-phase
