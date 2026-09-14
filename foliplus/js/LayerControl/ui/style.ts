@@ -141,7 +141,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const fieldSelect = dom.el(
     "select",
     {
-      class: "foliplus-form-select foliplus-style-field-select",
+      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
       "aria-label": ui.T("style_label_field"),
     },
     dom.el(
@@ -173,14 +173,14 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // identical to "not focused", which is the heatmap-style bug we hit.
   const showToggle = dom.el("input", {
     type: "checkbox",
-    class: "foliplus-style-toggle-input",
+    class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
     checked: showChecked ? "" : null,
     "aria-label": ui.T("style_label_tooltip"),
   });
   const formatSelect = dom.el(
     "select",
     {
-      class: "foliplus-form-select foliplus-style-format-select",
+      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
       "aria-label": ui.T("style_label_format"),
     },
     ...formatOpts,
@@ -301,7 +301,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     const t = event.target as HTMLElement;
     if (
       t instanceof HTMLInputElement &&
-      t.classList.contains("foliplus-style-toggle-input")
+      t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT)
     ) {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
@@ -316,7 +316,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const fields = layerFields(ui, layerId);
       const chosen = fieldSel?.value ?? cfg.field;
       const fmtRow = panel.querySelector(
-        ".foliplus-style-format-row",
+        `.${CONST.CLASSES.STYLE_FORMAT_ROW}`,
       ) as HTMLElement | null;
       if (fmtRow) {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
@@ -324,10 +324,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       applyPatch(ui, layerId, { show, field: chosen });
     } else if (
       t instanceof HTMLSelectElement &&
-      t.classList.contains("foliplus-style-field-select")
+      t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT)
     ) {
       const fmtRow = panel.querySelector(
-        ".foliplus-style-format-row",
+        `.${CONST.CLASSES.STYLE_FORMAT_ROW}`,
       ) as HTMLElement | null;
       if (fmtRow) {
         syncFormatRow(
@@ -345,7 +345,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       });
     } else if (
       t instanceof HTMLSelectElement &&
-      t.classList.contains("foliplus-style-format-select")
+      t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT)
     ) {
       applyPatch(ui, layerId, { format: t.value as NumberStyle });
     } else {

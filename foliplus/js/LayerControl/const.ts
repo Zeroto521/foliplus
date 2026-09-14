@@ -104,6 +104,13 @@ const CLASSES = {
    *  centred on the anchor or hangs below it. */
   ANNOTATION_LABEL_POINT: "foliplus-annotation-label-point",
   ANNOTATION_LABEL_SHAPE: "foliplus-annotation-label-shape",
+  /** The style panel's controls. Each is named by the builder *and* looked up
+   *  again by the change handlers that read the panel back, so the names live
+   *  here instead of being typed twice and drifting. */
+  STYLE_FIELD_SELECT: "foliplus-style-field-select",
+  STYLE_FORMAT_ROW: "foliplus-style-format-row",
+  STYLE_FORMAT_SELECT: "foliplus-style-format-select",
+  STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
@@ -134,7 +141,6 @@ const SEL = {
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
-  STYLE_PANEL: ".foliplus-layer-style-panel",
 };
 
 /** Group names. */
