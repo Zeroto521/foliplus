@@ -63,7 +63,6 @@
      at all. Every panel gets this, so the footers stay identical. */
   .foliplus-section-divider {
     margin: var(--space-md) var(--space-lg) var(--space-sm);
-    background: var(--divider-color);
   }
 
   /* ── Panel Wrapper (visible when expanded) ── */

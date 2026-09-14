@@ -7,10 +7,21 @@
   menu.css for the panel header close action — the single owner of each.
   ════════════════════════════════════════════════════════════ */
 
-/* ── Section Divider ── */
+/* ── Section Divider ──
+   One hairline recipe for every divider foliplus draws between sections: the
+   panel footers (heatmap, layer, attributes, style) and the layer-group
+   separators in the layer list. Solid through the middle, fading at the ends —
+   a hard line reads as a border, while a fade across the whole width reads as
+   nothing at all at 1px. Callers own their margins. */
 .foliplus-section-divider {
   height: var(--border-thin);
-  background: linear-gradient(to right, transparent, var(--divider-color), transparent);
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--divider-color) 12%,
+    var(--divider-color) 88%,
+    transparent
+  );
   border: none;
 }
 
