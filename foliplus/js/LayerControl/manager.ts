@@ -392,7 +392,14 @@ class LayerManager implements LayerAPI {
 
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
-      else this.ui.updateLayerItem(layerInfo, existingIdx);
+      else {
+        this.ui.updateLayerItem(layerInfo, existingIdx);
+        // Re-registration is how the API says "this layer's content changed", so
+        // the cached field list and the resolved auto field are both stale now.
+        // Invalidating re-renders as well, keeping the labels on the map in step
+        // with what the picker offers.
+        this.ui.invalidateFields(opts.id);
+      }
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
