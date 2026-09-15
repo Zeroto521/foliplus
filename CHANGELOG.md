@@ -21,6 +21,7 @@
 - `MeasureControl`: label collision detection — heavily-overlapping chips are hidden instead of nudged so labels stay on their anchor; priority-ordered hiding keeps the centroid, radius, and the distance total visible first ([#221](https://github.com/Zeroto521/foliplus/pull/221))
 - `LayerControl`: persist layer configuration to localStorage across page reloads — four dimensions — order, fold, visibility, names — with per-map-container scoping, centralized in a `LayerPersistence` class; stale ids from removed layers are pruned on load ([#223](https://github.com/Zeroto521/foliplus/pull/223), [#225](https://github.com/Zeroto521/foliplus/pull/225))
 - `LayerControl`: rename a layer from its ⋮ menu — inline rename input inside the layer label, covers both data layers and the color basemap, custom names persisted per-map to localStorage ([#227](https://github.com/Zeroto521/foliplus/pull/227), [#254](https://github.com/Zeroto521/foliplus/pull/254))
+- `LayerControl`: per-layer style panel from a layer's ⋮ menu — labels on each feature, with a label-field picker and a number-format picker (currently the only style dimension; others land under the same menu) ([#236](https://github.com/Zeroto521/foliplus/pull/236))
 - `LayerControl`: new ⋮ → Attributes panel, showing a layer's type, feature count, source, created/updated times plus any `meta` rows passed to `registerLayer`; rows without a value are omitted ([#241](https://github.com/Zeroto521/foliplus/pull/241))
 - `MeasureControl`: `show_live_coords` parameter (default `true`) — a chip trails the cursor while a drawing mode or edit mode is armed, showing the coordinate about to be placed, and disappears once the measurement is finalized ([#246](https://github.com/Zeroto521/foliplus/pull/246))
 - `MeasureControl`: distance and polygon previews now show a hollow cursor dot at the mouse position — the same affordance the circle preview already used for its radius endpoint — so all three preview shapes behave consistently while drawing ([#256](https://github.com/Zeroto521/foliplus/pull/256))
@@ -85,6 +86,7 @@
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener, and severing the bound `showHint`/`hideHint`/`registerHintIcon` closures so a post-unload call can no longer write into the shared icon registry that other live maps read ([#295](https://github.com/Zeroto521/foliplus/pull/295))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
+- `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 
 ## [v0.3.0] (2026-08-02)
 

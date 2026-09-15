@@ -22,6 +22,7 @@ import {
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { AnnotationManager } from "./annotation.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
@@ -78,6 +79,7 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
+  annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -138,6 +140,7 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -389,7 +392,14 @@ class LayerManager implements LayerAPI {
 
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
-      else this.ui.updateLayerItem(layerInfo, existingIdx);
+      else {
+        this.ui.updateLayerItem(layerInfo, existingIdx);
+        // Re-registration is how the API says "this layer's content changed", so
+        // the cached field list and the resolved auto field are both stale now.
+        // Invalidating re-renders as well, keeping the labels on the map in step
+        // with what the picker offers.
+        this.ui.invalidateFields(opts.id);
+      }
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
@@ -471,10 +481,17 @@ class LayerManager implements LayerAPI {
     // first attach — every reload.
     this.ui?.hiddenIds?.delete(id);
     this.ui?.saveHiddenIds();
+    // Tear down any annotation labels attached to this layer.
+    this.annotation.destroyLayer(id);
+    this.ui?.invalidateFields(id);
     if (this.ui?.renamedNames?.[id] != null) {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
+    // The two writes above are on separate debounce timers. Flush so the
+    // removal lands immediately rather than riding out the 100ms window —
+    // unregister is rare, so the flush cost is not worth amortising.
+    this.persistence.flushAll();
     this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
@@ -714,6 +731,7 @@ class LayerManager implements LayerAPI {
     // the control to be removed before the timer fires. unbindEvents also
     // flushes, but it only runs when a panel is attached.
     this.persistence.flushAll();
+    this.annotation.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;
