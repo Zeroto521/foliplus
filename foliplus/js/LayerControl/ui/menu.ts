@@ -117,20 +117,30 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   item.style.position = "relative";
   item.appendChild(menu);
 
-  // Tab moving focus out of the menu dismisses it — an open menu owns the
-  // keyboard cursor (ARIA menu pattern). Focus wandering within the menu,
-  // or onto the anchor row itself (jsdom falls a disabled-item click back
-  // to the row, and a real Tab can land on the row's own controls), keeps
-  // the menu open. The listener lives on the menu element, so it dies with
-  // the menu on close. Click-outside and Escape close through their own
-  // paths, and this re-closing is a no-op then (activeMenu is already gone).
-  menu.addEventListener("focusout", event => {
-    const next = (event as FocusEvent).relatedTarget as Node | null;
-    if (next && (next === item || item.contains(next))) return;
+  // Focus leaving the menu dismisses it — an open menu owns the keyboard
+  // cursor (ARIA menu pattern). Focus wandering within the menu, or onto the
+  // anchor row's own controls, keeps it open. Two caveats pin the shape:
+  //
+  // The listener is removed *before* the menu is, so it can never re-close a
+  // menu that is being torn down. `menu.remove()` dispatches focusout
+  // synchronously while closeMoreMenu() is still in flight — if the listener
+  // is still attached it re-enters the close, and the nested remove() runs on
+  // a node that is no longer a child, which throws. Detaching first makes the
+  // removal's focusout a no-op.
+  //
+  // The guard is `item.contains()`, not `next === item`: focus can land on a
+  // control nested inside the row, so "focus stayed in the row" is the
+  // dismissal test. Escape and click-outside close through their own paths,
+  // so `ui.activeMenu` is stale or cleared by the time their own removal
+  // triggers this listener — the identity gate keeps those a no-op.
+  const onFocusOut = (event: FocusEvent) => {
+    if (ui.activeMenu?.menu !== menu) return;
+    const next = event.relatedTarget as Node | null;
+    if (next && item.contains(next)) return;
     if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
-  });
-
-  ui.activeMenu = { item, menu, layerId };
+  };
+  menu.addEventListener("focusout", onFocusOut);
+  ui.activeMenu = { item, menu, layerId, onFocusOut };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
@@ -142,6 +152,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (!ui.activeMenu) return;
   const item = ui.activeMenu.item;
+  // Detach the listener first: `remove()` fires focusout, which runs its own
+  // closeMoreMenu() and would otherwise re-enter this body on a half-torn-down
+  // state. See the caveat on the listener above.
+  ui.activeMenu.menu.removeEventListener("focusout", ui.activeMenu.onFocusOut);
   ui.activeMenu.menu.remove();
   ui.activeMenu = null;
   if (setFocus) item.focus();

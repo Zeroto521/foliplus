@@ -165,11 +165,14 @@ class LayerUI {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   private unsubscribeControlAttached: (() => void) | null;
-  /** Currently visible overflow menu (or null). */
+  /** Currently visible overflow menu (or null). `onFocusOut` is the listener
+   *  `closeMoreMenu()` must detach before removing the menu — its own removal
+   *  fires focusout and would otherwise re-enter the close. */
   declare activeMenu: {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
+    onFocusOut: (event: FocusEvent) => void;
   } | null;
   /** Currently visible attributes panel (or null). */
   declare activeAttrsPanel: {
