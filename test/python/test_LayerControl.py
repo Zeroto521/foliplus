@@ -3002,6 +3002,17 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
+            label = page.locator(
+                ".foliplus-layer-ctrl.expanded "
+                ".foliplus-layer-item:not(.foliplus-color-layer-item) "
+                ".foliplus-layer-label"
+            )
+            label.nth(1).click()
+            page.wait_for_timeout(150)
+            # A real pointer press, not a script-level `label.click()`: a
+            # script click skips the label's activation steps entirely, so
+            # it moves no focus and toggles nothing — the snippet's own
+            # click would only measure the row the arrow keys anchored.
             result = page.evaluate(
                 _js("LayerControl/keydown_after_label_press_targets_clicked_row")
             )
@@ -3011,9 +3022,11 @@ class TestLayerControlBrowser:
             assert result["toggled"] is True, (
                 f"Enter after pressing a row label should toggle that row, got {result}"
             )
-            # After keyboard nav the browser may still treat the next mouse
-            # focus as :focus-visible, so focusin can light the row — allowed.
-            # The hard contract is Enter targets the pressed row (`toggled`).
+            # The snippet anchors the cursor on row 0 first (ArrowDown then
+            # ArrowUp) so the keyboard route is already active — Chromium can
+            # then still treat the next mouse focus as :focus-visible, and
+            # focusin may light the row. Allowed: the hard contract is that
+            # Enter targets the pressed row, not that the cursor stays dark.
 
     def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
         """Folding a group must not kill keyboard navigation.

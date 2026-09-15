@@ -267,11 +267,8 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
       { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
       { html: SVGs.DRAG_HANDLE },
     ),
-    // The label wraps the checkbox, not just its text. An implicit label gives
-    // a name click real DOM focus on the checkbox, so the row the pointer
-    // arrived on owns focus when the next Enter resolves. A bare sibling label
-    // only activates the control, and focus landing elsewhere would make
-    // resolveActiveIdx() re-home the cursor away from the clicked row.
+    // The label wraps the checkbox, not just its text. A name click therefore
+    // acts on the toggle, so the row and its toggle share one hit target.
     dom.el(
       "label",
       { class: CONST.CLASSES.LAYER_LABEL },

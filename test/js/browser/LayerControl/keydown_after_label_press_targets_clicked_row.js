@@ -6,7 +6,9 @@
   );
   if (items.length < 2) return null;
 
-  // Anchor the keyboard cursor on the first row.
+  // Anchor the keyboard cursor on the first row. The browser has already
+  // seen the real pointer press on row 1's label (the test does that before
+  // this snippet runs); only the keyboard route is exercised here.
   items[0].focus();
   items[0].dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
@@ -15,19 +17,12 @@
     new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
   );
 
-  // Pointer-click the second row's name. The label wraps its own checkbox, so
-  // the click both toggles `checked` and gives the checkbox real DOM focus.
-  // The click handler resolves visibility from the layer list, not `checked`,
-  // so the click itself does not toggle. The press must NOT paint the cursor
-  // visual — only re-home the keyboard index, and leave DOM focus on this row
-  // so Enter resolves from it rather than being re-homed by resolveActiveIdx.
+  // Enter must now target the row the pointer just selected, not the row the
+  // arrow keys anchored. resolveActiveIdx() prefers document.activeElement
+  // over ui.activeIdx, so a pointer that only re-homes ui.activeIdx would
+  // make Enter resolve from the wrong row.
   const box = items[1].querySelector('input[type="checkbox"]');
   const beforeState = box.checked;
-  const label = items[1].querySelector(".foliplus-layer-label");
-  if (!label) return null;
-  label.click();
-
-  // Enter must now target the row the pointer just selected, not the first row.
   items[1].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   const afterState = box.checked;
 
@@ -35,8 +30,8 @@
     beforeState,
     afterState,
     toggled: beforeState !== afterState,
-    // May be set: after keyboard nav Chromium can still report
-    // :focus-visible on the next mouse focus, and focusin lights the row.
+    // May be set: the arrow-key anchor keeps the keyboard route active, so
+    // Chromium can still report :focus-visible for a focus the test moved.
     focusedRow:
       panel.querySelector(".foliplus-layer-focused")?.getAttribute("data-layer-id") ??
       null,
