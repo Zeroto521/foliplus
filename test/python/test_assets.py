@@ -368,9 +368,11 @@ class TestLayerControlCssSplit:
         for line in entry:
             m = re.match(r'^\s*@import\s+"\./([^"]+\.css)";', line)
             if m:
-                expected_parts += (LAYER_CSS_DIR / m.group(1)).read_text(
-                    encoding="utf-8"
-                ).splitlines()
+                expected_parts += (
+                    (LAYER_CSS_DIR / m.group(1))
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
             else:
                 expected_parts.append(line)
         assert merged == "\n".join(expected_parts), (
