@@ -6,7 +6,8 @@
   "imports": {
     "#common/*": "./foliplus/js/common/*",
     "#core/*": "./foliplus/js/core/*",
-    "#foliplus/*": "./foliplus/js/*"
+    "#foliplus/*": "./foliplus/js/*",
+    "#script/*": "./script/*"
   },
   "engines": {
     "node": "24.x"

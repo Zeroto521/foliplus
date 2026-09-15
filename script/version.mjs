@@ -10,7 +10,7 @@ import { spawnSync } from "child_process";
 
 let versionCache = null;
 
-export const resolveVersion = () => {
+const resolveVersion = () => {
   if (versionCache) return versionCache;
   const git = spawnSync("git", ["describe", "--tags", "--always"], {
     encoding: "utf-8",
@@ -22,3 +22,5 @@ export const resolveVersion = () => {
   versionCache = "unknown";
   return versionCache;
 };
+
+export { resolveVersion };

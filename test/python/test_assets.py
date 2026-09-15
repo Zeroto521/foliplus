@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import glob
 import importlib.util
+import re
 import subprocess
 import sys
 import tarfile
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import folium
 import pytest
-from conftest import render, render_control
+from conftest import read_css, render, render_control
 
 from foliplus.BaseControl import (
     MissingAssetsError,
@@ -261,3 +262,138 @@ def test_sdist_contains_all_artifacts():
     have = _dist_artifacts(sdists[0])
     missing = sorted(set(EXPECTED) - have)
     assert not missing, f"{sdists[0]} is missing: {missing}"
+
+
+# ── Split stylesheet structure ──────────────────────────────────────
+# LayerControl.css is split into css/LayerControl/{index,focus,rows,menu,
+# attrs,controls,map-state,rename,style,annotation}.css by responsibility.
+# These tests guard the split: modules exist, the entry imports them in
+# order, and each module owns the rules its name claims — a token moving to
+# the wrong module now fails precisely instead of silently surviving the
+# merged entry.
+
+LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
+
+# Module name → a token only it owns (proves both existence and ownership).
+# Tokens are chosen to appear in exactly one module across the whole split.
+LAYER_MODULE_TOKENS = {
+    "focus.css": ".foliplus-focus-rect",
+    "rows.css": ".foliplus-layer-dragging",
+    "menu.css": ".foliplus-layer-more-menu li",
+    "attrs.css": ".foliplus-layer-attrs-panel",
+    "controls.css": 'input[type="checkbox"]',
+    "map-state.css": "@keyframes foliplus-drag-pulse",
+    "rename.css": ".foliplus-layer-rename-input",
+    "style.css": ".foliplus-layer-style-panel",
+    "annotation.css": ".foliplus-annotation-label-text",
+}
+
+# Exact import order expected in index.css — mirrors the single-file cascade
+# order (a flattened rule sequence that must not be reordered).
+LAYER_IMPORT_ORDER = [
+    "focus.css",
+    "rows.css",
+    "menu.css",
+    "attrs.css",
+    "controls.css",
+    "map-state.css",
+    "rename.css",
+    "style.css",
+    "annotation.css",
+]
+
+
+class TestLayerControlCssSplit:
+    """The split stylesheet: modules exist, are imported in order, and own
+    their claimed rules."""
+
+    def test_index_imports_all_modules_in_order(self):
+        # Read the entry verbatim (read_css would expand the imports away).
+        index = (LAYER_CSS_DIR / "index.css").read_text(encoding="utf-8")
+        imports = re.findall(r'@import\s+"\./([^"]+\.css)";', index)
+        assert imports == LAYER_IMPORT_ORDER
+
+    def test_every_module_exists_and_is_nonempty(self):
+        for name in LAYER_IMPORT_ORDER:
+            path = LAYER_CSS_DIR / name
+            assert path.is_file(), f"split module missing: {name}"
+            content = path.read_text(encoding="utf-8")
+            assert content.strip(), f"split module is empty: {name}"
+
+    def test_each_module_owns_its_token(self):
+        for name, token in LAYER_MODULE_TOKENS.items():
+            content = read_css(str(LAYER_CSS_DIR / name))
+            assert token in content, f"{name} should own {token!r}"
+
+    def test_merged_entry_exposes_every_module_token(self):
+        # Python bridge tests read the entry via read_css() and assert design
+        # tokens against the *merged* stylesheet (mirroring the bundle).
+        # Verify the @import expansion surfaces every module's rules.
+        merged = read_css(str(LAYER_CSS_DIR / "index.css"))
+        for token in LAYER_MODULE_TOKENS.values():
+            assert token in merged, f"merged entry lost module token {token!r}"
+
+    def test_merged_entry_has_no_duplicate_module_tokens(self):
+        # A token must live in exactly one module: the module that owns it.
+        # If it shows up elsewhere too, the rule was mis-split rather than
+        # shared — a duplicate means the two modules fight over the rule.
+        for owner, token in LAYER_MODULE_TOKENS.items():
+            for other in LAYER_IMPORT_ORDER:
+                if other == owner:
+                    continue
+                other_css = read_css(str(LAYER_CSS_DIR / other))
+                assert token not in other_css, (
+                    f"{token!r} owned by {owner} also appears in {other}"
+                )
+
+    def test_only_the_entry_imports(self):
+        # Component modules are leaves: only index.css may carry @import.
+        # This keeps read_css (which resolves an import chain) and the build's
+        # expandEntry (which strips a module's own imports) in agreement — if a
+        # module ever imports another, the two would disagree on the bundle.
+        for name in LAYER_IMPORT_ORDER:
+            content = (LAYER_CSS_DIR / name).read_text(encoding="utf-8")
+            imports = [
+                line
+                for line in content.splitlines()
+                if line.strip().startswith("@import")
+            ]
+            assert not imports, f"{name} must be a leaf, but imports: {imports}"
+
+    def test_read_css_expands_imports_recursively(self):
+        # read_css() must behave like the esbuild bundle: an import statement
+        # is replaced by the imported module's content, so the merged entry
+        # carries every module's rules inline, in import order.
+        merged = read_css(str(LAYER_CSS_DIR / "index.css"))
+        # No `@import` *statement* may survive the expansion (the entry's own
+        # banner comment may still mention the word).
+        import_statements = [
+            line for line in merged.splitlines() if line.strip().startswith("@import")
+        ]
+        assert not import_statements, (
+            "read_css left @import statements unexpanded: "
+            + "; ".join(import_statements)
+        )
+        # Expectation: entry lines with imports replaced by the module lines
+        # (read_css normalises every file to its splitlines(), so the tail
+        # newline of each module file is consumed too).
+        entry = (LAYER_CSS_DIR / "index.css").read_text(encoding="utf-8").splitlines()
+        expected_parts = []
+        for line in entry:
+            m = re.match(r'^\s*@import\s+"\./([^"]+\.css)";', line)
+            if m:
+                expected_parts += (
+                    (LAYER_CSS_DIR / m.group(1))
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
+            else:
+                expected_parts.append(line)
+        assert merged == "\n".join(expected_parts), (
+            "read_css expansion != entry with imports inlined in order"
+        )
+        # A module's own @import (common css style) is also expanded.
+        common_input = str(REPO_ROOT / "foliplus" / "css" / "common" / "input.css")
+        if Path(common_input).is_file():
+            expanded = read_css(common_input)
+            assert "@import" not in expanded
