@@ -278,10 +278,10 @@ LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
 # Tokens are chosen to appear in exactly one module across the whole split.
 LAYER_MODULE_TOKENS = {
     "focus.css": ".foliplus-focus-rect",
-    "rows.css": ".foliplus-layer-dragging",
+    "row.css": ".foliplus-layer-dragging",
     "menu.css": ".foliplus-layer-more-menu li",
-    "attrs.css": ".foliplus-layer-attrs-panel",
-    "controls.css": 'input[type="checkbox"]',
+    "attr.css": ".foliplus-layer-attrs-panel",
+    "control.css": 'input[type="checkbox"]',
     "map-state.css": "@keyframes foliplus-drag-pulse",
     "rename.css": ".foliplus-layer-rename-input",
     "style.css": ".foliplus-layer-style-panel",
@@ -292,10 +292,10 @@ LAYER_MODULE_TOKENS = {
 # order (a flattened rule sequence that must not be reordered).
 LAYER_IMPORT_ORDER = [
     "focus.css",
-    "rows.css",
+    "row.css",
     "menu.css",
-    "attrs.css",
-    "controls.css",
+    "attr.css",
+    "control.css",
     "map-state.css",
     "rename.css",
     "style.css",
