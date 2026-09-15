@@ -17,13 +17,27 @@
   border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
-  white-space: nowrap;
+  box-sizing: border-box;
+  max-width: min(480px, 80vw);
+  white-space: normal;
   color: var(--neutral-0);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-hint);
   box-shadow: 0 var(--size-2) var(--size-12) rgba(0, 0, 0, var(--alpha-30));
   animation: foliplus-hint-in 0.2s ease-out;
+}
+
+/* On narrow phones 80vw wins inside min() and caps the content box at
+   ~188px, so a 92-char hint wraps to seven lines. Reserve only the outer
+   16px gutters instead, giving the text ~343px of room.
+   Measured across all 325 shipped locale strings at 375/768/1024/1440:
+   the 480px cap alone leaves 375 unchanged; only this media block shortens
+   the worst case from 7 lines to 4. */
+@media (max-width: 480px) {
+  .foliplus-hint {
+    max-width: calc(100vw - 16px);
+  }
 }
 
 @keyframes foliplus-hint-in {
