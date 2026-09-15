@@ -14,6 +14,13 @@ from conftest import (
 from foliplus import FullscreenControl
 
 
+def _fullscreen_html(hide_self: bool = True, hide_others: bool = False) -> str:
+    """Render a minimal map + FullscreenControl page for browser tests."""
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    FullscreenControl(hide_self=hide_self, hide_others=hide_others).add_to(m)
+    return m.get_root().render()
+
+
 class TestFullscreenControlPython:
     """Python-side property tests."""
 
@@ -431,3 +438,122 @@ class TestFullscreenControlBrowser:
             )
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
+
+    def test_pseudo_fullscreen_after_late_downgrade(self, browser, tmp_path):
+        """Downgrading AFTER the bundle loads still routes to pseudo-fullscreen.
+
+        `document.fullscreenEnabled` is document-level state that can flip at
+        runtime (iframe policy, embedder restrictions). `isEnabled` must be
+        re-read per call — a module-load-time snapshot would pin the native
+        branch for every later toggle.
+
+        This is deliberately distinct from `_make_pseudo_page`: that fixture
+        defines the flag *before* the control script runs, so a snapshot read
+        and a lazy read both see `false` and the test cannot tell them apart.
+        Here the page loads with a fully working native API and the flag flips
+        only after, so only the lazy implementation reaches the pseudo path.
+        """
+        page, errors = make_browser_page(
+            browser,
+            tmp_path,
+            _fullscreen_html(hide_self=True, hide_others=False),
+            "fullscreen_late_downgrade",
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Native API is intact at load time — this is the precondition
+            # that makes a snapshot read take the native branch.
+            assert page.evaluate("() => document.fullscreenEnabled") is True
+            assert (
+                page.evaluate("() => typeof document.exitFullscreen") == "function"
+            )
+
+            # Flip the flag only now, after every module has been evaluated.
+            page.evaluate(
+                """() => {
+                    Object.defineProperty(document, 'fullscreenEnabled', {
+                        value: false,
+                        configurable: true,
+                    });
+                }"""
+            )
+            assert page.evaluate("() => document.fullscreenEnabled") is False
+
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # A snapshot read would have called requestFullscreen() instead —
+            # no native fullscreen session, and the container carries the
+            # pseudo class.
+            assert page.evaluate("() => document.fullscreenElement") is None
+            hidden = page.evaluate(
+                """() => document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-hidden')"""
+            )
+            assert hidden, "zoom not hidden after a late downgrade to pseudo mode"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_native_reject_reports_unsupported_hint(self, browser, tmp_path):
+        """A rejected requestFullscreen reports the unsupported hint.
+
+        The native API is present but every request fails — the realistic
+        shape of a browser policy denial. Reject must not run `updateUI`, which
+        would announce "Entered fullscreen" for a click that just failed.
+        """
+        page, errors = make_browser_page(
+            browser,
+            tmp_path,
+            _fullscreen_html(hide_self=True, hide_others=False),
+            "fullscreen_reject",
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Policy denial: the API is available but the container refuses.
+            page.evaluate(
+                """() => {
+                    document
+                        .querySelector('.leaflet-container')
+                        .requestFullscreen = function () {
+                            return Promise.reject(
+                                new Error('simulated browser policy')
+                            );
+                        };
+                }"""
+            )
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_timeout(400)
+
+            # Nothing entered fullscreen.
+            assert page.evaluate("() => document.fullscreenElement") is None
+            assert not page.evaluate(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # The toggle was not re-drawn into the "entered" state either.
+            icon = page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle path')"
+                ".getAttribute('d')"
+            )
+            assert "M8 3H5" in icon, (
+                f"toggle re-drew into the entered state: {icon[:12]}"
+            )
+            # And the user is told the truth instead of "entered fullscreen".
+            hint = page.evaluate(
+                "() => document.querySelector('.foliplus-hint')?.innerText || ''"
+            )
+            assert "unsupported" in hint.lower() or "not available" in hint.lower(), (
+                f"unexpected reject hint: {hint!r}"
+            )
+        finally:
+            page.close()
