@@ -6,10 +6,16 @@
   );
   if (items.length < 2) return null;
 
-  // Anchor the keyboard cursor on the first row. The browser has already
-  // seen the real pointer press on row 1's label (the test does that before
-  // this snippet runs); only the keyboard route is exercised here.
-  items[0].focus();
+  // Activate the keyboard route from row 0 and leave ui.activeIdx there.
+  // Arrow keys re-home the index without moving DOM focus, so the pointer
+  // press's focus on row 1 survives; dispatching from items[0] makes the
+  // event target row 0, so neither call can re-anchor focus.
+  //
+  // Load-bearing: resolveActiveIdx() prefers document.activeElement over
+  // ui.activeIdx, so an items[0].focus() here would make Enter resolve from
+  // row 0 and toggled read False. Keyboard navigation in foliplus is
+  // Enter/arrow-driven, not focus-driven, so there is no reason to move
+  // focus at all.
   items[0].dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );

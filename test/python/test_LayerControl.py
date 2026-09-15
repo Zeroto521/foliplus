@@ -3022,11 +3022,11 @@ class TestLayerControlBrowser:
             assert result["toggled"] is True, (
                 f"Enter after pressing a row label should toggle that row, got {result}"
             )
-            # The snippet anchors the cursor on row 0 first (ArrowDown then
-            # ArrowUp) so the keyboard route is already active — Chromium can
-            # then still treat the next mouse focus as :focus-visible, and
-            # focusin may light the row. Allowed: the hard contract is that
-            # Enter targets the pressed row, not that the cursor stays dark.
+            # The snippet also activates the keyboard route (ArrowDown then
+            # ArrowUp on row 0), so Chromium can still report :focus-visible
+            # for the press's focus and focusin may light the row. Allowed:
+            # the hard contract is that Enter targets the pressed row, not
+            # that the cursor stays dark.
 
     def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
         """Folding a group must not kill keyboard navigation.
