@@ -161,4 +161,4 @@ const expandEntry = (sources, entry, label) => {
   return result;
 };
 
-export { expandEntry, mergeCss, normalizeImport, orderCss, parseImports, stripImports };
+export { expandEntry, mergeCss, orderCss, parseImports, stripImports };

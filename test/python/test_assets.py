@@ -346,6 +346,20 @@ class TestLayerControlCssSplit:
                     f"{token!r} owned by {owner} also appears in {other}"
                 )
 
+    def test_only_the_entry_imports(self):
+        # Component modules are leaves: only index.css may carry @import.
+        # This keeps read_css (which resolves an import chain) and the build's
+        # expandEntry (which strips a module's own imports) in agreement — if a
+        # module ever imports another, the two would disagree on the bundle.
+        for name in LAYER_IMPORT_ORDER:
+            content = (LAYER_CSS_DIR / name).read_text(encoding="utf-8")
+            imports = [
+                line
+                for line in content.splitlines()
+                if line.strip().startswith("@import")
+            ]
+            assert not imports, f"{name} must be a leaf, but imports: {imports}"
+
     def test_read_css_expands_imports_recursively(self):
         # read_css() must behave like the esbuild bundle: an import statement
         # is replaced by the imported module's content, so the merged entry
