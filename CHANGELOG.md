@@ -86,6 +86,7 @@
 - `BaseControl`: escape inline config JSON and locale tables so a `</script>` in a model string (layer name, filename, ...) can no longer execute as script ([#294](https://github.com/Zeroto521/foliplus/pull/294))
 - `hint`: `ensureHint` now destroys the per-map `HintManager` on map `unload`, removing its toasts, pending timers, and the document-level `fullscreenchange` listener, and severing the bound `showHint`/`hideHint`/`registerHintIcon` closures so a post-unload call can no longer write into the shared icon registry that other live maps read ([#295](https://github.com/Zeroto521/foliplus/pull/295))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
+- `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 
 ## [v0.3.0] (2026-08-02)
 
