@@ -95,6 +95,7 @@ class LayerManager implements LayerAPI {
     this.unregisterLayer = this.unregisterLayer.bind(this);
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
     this.touchLayer = this.touchLayer.bind(this);
+    this.setVisible = this.setVisible.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -438,6 +439,38 @@ class LayerManager implements LayerAPI {
    *  re-register (heatmap field change, measure add/edit/remove). */
   touchLayer(id: string): boolean {
     return this.layerRegistry.touch(id);
+  }
+
+  /**
+   * Set a layer's visibility from outside the panel — the same transition the
+   * checkbox performs, including the persisted hidden set, so the choice
+   * survives a reload the way a user toggle does.
+   *
+   * Base layers behave like overlays here: folium paints them as direct map
+   * children (`Layer.render` emits `addTo(map)`, with no per-base group
+   * wrapper), so hiding one removes it from the map. Neither this path nor the
+   * checkbox applies the "only one base at a time" rule — that is decided by
+   * the map's base-layer control, not by LayerControl.
+   *
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @param {boolean} visible - Show the layer, or hide it.
+   * @returns {boolean} true if the layer was found and its visibility was set.
+   */
+  setVisible(id: string, visible: boolean): boolean {
+    // Resolve the id up front so an unknown layer is reported the same whether
+    // or not a panel is attached — a caller must not be told a hide succeeded
+    // for an id that never existed.
+    if (!this.layerRegistry.has(id)) return false;
+    if (!this.ui) {
+      // No panel means no row to sync and no hidden-set funnel to write. The
+      // hidden set lives on LayerUI, so a success here would be a state change
+      // the panel can never show — and `destroy()` clears the registry too, so
+      // there is no later attach to replay it. Refuse instead of no-op-ing, or
+      // the caller cannot tell a no-panel call from a real hide.
+      log.warn("setVisible called before the panel is attached; no-op");
+      return false;
+    }
+    return this.ui.applyVisibility(id, visible);
   }
 
   /**

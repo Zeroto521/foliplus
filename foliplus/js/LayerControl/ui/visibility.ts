@@ -86,6 +86,49 @@ const syncVisibility = (
   return layerInfo.visible;
 };
 
+/**
+ * Apply one layer's visibility, source-agnostic.
+ *
+ * The panel checkbox has always driven this transition, and that was the only
+ * path — there was no way to hide a layer by id from outside the DOM. This
+ * takes the same transition on either source (a change event or
+ * {@link LayerUI.setVisible}): map membership, the canvas-only callback, the
+ * `visible` flag, the row's checkbox + tooltip + active class, the persisted
+ * hidden set, the group toggle-all, and the debounced z-order enforcement.
+ *
+ * @returns true if the layer id resolved to a registry entry.
+ */
+const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
+  const layerInfo = ui.m.layerRegistry.get(id);
+  if (!layerInfo) return false;
+  const layer = ui.m.findLayer(layerInfo);
+  const item = ui.uiContainer?.querySelector(
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+  ) as HTMLElement | null;
+  const checkbox = item?.querySelector(
+    'input[type="checkbox"]',
+  ) as HTMLInputElement | null;
+
+  if (layerInfo.isBase) hideColorLayer(ui);
+  if (layer) {
+    visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
+  }
+  if (visible && layer) layer.options.paneSet = false;
+  if (checkbox) {
+    checkbox.checked = visible;
+    checkbox.title = ui.T(visible ? "deselect_tooltip" : "select_tooltip");
+  }
+  item?.classList.toggle(CONST.CLASSES.ACTIVE, visible);
+
+  if (layerInfo.onToggle) layerInfo.onToggle(visible);
+  syncVisibility(ui, layerInfo, layer, visible);
+  syncHiddenId(ui, layerInfo.id, !visible);
+
+  syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+  ui.m.debouncedEnforce();
+  return true;
+};
+
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
@@ -99,29 +142,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
 
   const idx = parseInt(target.dataset.index ?? "", 10);
   if (isNaN(idx) || idx < 0 || idx >= ui.m.layers.length) return;
-  const layerInfo = ui.m.layers[idx];
-  const layer = ui.m.findLayer(layerInfo);
-  const item = target.closest(CONST.SEL.LAYER_ITEM);
-
-  if (layerInfo.isBase) hideColorLayer(ui);
-  if (layer) {
-    target.checked ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
-  }
-  if (target.checked && layer) layer.options.paneSet = false;
-  if (item) {
-    target.checked
-      ? item.classList.add(CONST.CLASSES.ACTIVE)
-      : item.classList.remove(CONST.CLASSES.ACTIVE);
-  }
-
-  target.title = ui.T(target.checked ? "deselect_tooltip" : "select_tooltip");
-
-  if (layerInfo.onToggle) layerInfo.onToggle(target.checked);
-  syncVisibility(ui, layerInfo, layer, target.checked);
-  syncHiddenId(ui, layerInfo.id, !target.checked);
-
-  syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
-  ui.m.debouncedEnforce();
+  applyVisibility(ui, ui.m.layers[idx].id, target.checked);
 };
 
 const handleInput = (ui: LayerUI, event: Event) => {
@@ -142,6 +163,7 @@ export {
   toggleAll,
   syncToggleAll,
   syncVisibility,
+  applyVisibility,
   handleChange,
   handleInput,
 };

@@ -32,6 +32,7 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { orderCommonCss, stripImports } from "./common-css.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
@@ -199,45 +200,28 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
-/** Shared stylesheet modules, in merge order - never alphabetical.
+/** The shared stylesheet modules, concatenated in @import-declared
+ *  dependency order.
 
-`token.css` defines the custom properties the rest read, so it must come
-first. Sorting would put `button.css` first and silently break every
-`var(--...)`: no build error, no console error, just a map with all its
-shared colors and sizes gone. Bare names; every module lives in `css/common/`.
+Every module in `css/common/` is picked up automatically — no maintained
+manifest. Order and drift guards live in `script/common-css.mjs` (pure,
+unit-tested): a module that reads tokens declares `@import "token.css";`
+first, the build resolves the graph topologically, and an import that
+cannot resolve (or a cycle) fails the build loudly.
 */
-const COMMON_CSS_ORDER = [
-  "token.css",
-  "reset.css",
-  "button.css",
-  "menu.css",
-  "input.css",
-  "form.css",
-  "hint.css",
-  "icon.css",
-  "ctrl-fold.css",
-  "panel.css",
-];
-/** Concatenate the shared stylesheet modules, asserting the manifest matches
- *  the folder. Both drift directions would be silent otherwise: an unlisted
- *  file is dropped from the bundle, an entry with no file is simply omitted. */
 const mergeCommonCss = () => {
   const dir = resolve(cssDir, "common");
   if (!existsSync(dir)) return null;
 
-  const present = readdirSync(dir).filter(f => f.endsWith(".css"));
-  const inManifest = new Set(COMMON_CSS_ORDER);
-  const inFolder = new Set(present);
-  const unlisted = present.filter(f => !inManifest.has(f));
-  const missing = COMMON_CSS_ORDER.filter(f => !inFolder.has(f));
-  if (unlisted.length || missing.length) {
-    throw new Error(
-      `build: css/common/ has ${present.length} files, manifest lists ` +
-        `${COMMON_CSS_ORDER.length} - unlisted: ${unlisted.join(", ") || "-"}; ` +
-        `missing: ${missing.join(", ") || "-"}`,
-    );
-  }
-  return COMMON_CSS_ORDER.map(f => readFileSync(resolve(dir, f), "utf-8")).join("\n");
+  const sources = new Map(
+    readdirSync(dir)
+      .filter(f => f.endsWith(".css"))
+      .sort()
+      .map(f => [f, readFileSync(resolve(dir, f), "utf-8")]),
+  );
+  return orderCommonCss(sources)
+    .map(f => stripImports(sources.get(f)))
+    .join("\n");
 };
 
 /** Every artifact `BaseControl._build_component_template` reads for a control.
