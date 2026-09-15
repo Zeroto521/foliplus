@@ -116,6 +116,7 @@ class AnnotationCanvas {
       fontFamily: cssVar(root, "--label-font-family", "sans-serif"),
       fontSize: parseFloat(cssVar(root, "--label-font-size", "12")) || 12,
       fontWeight: cssVar(root, "--label-font-weight", "bold"),
+      haloWidth: parseFloat(cssVar(root, "--label-halo-width", "3")) || 3,
       pointOffsetY: 10,
       shapeOffsetY: 0,
     };

@@ -8,6 +8,7 @@ const SPEC = {
   fontFamily: "sans-serif",
   fontSize: 12,
   fontWeight: "bold",
+  haloWidth: 3,
   pointOffsetY: 10,
   shapeOffsetY: 0,
 };
@@ -21,23 +22,24 @@ const label = (
 ) => ({ id, text, anchor, atPoint, priority });
 
 describe("layoutLabel", () => {
-  it("places a point label below its marker, horizontally centred", () => {
-    // 3 chars at 12px × 0.6 → 22px wide; top edge at anchor.y + 10.
+  it("places a point label below its marker, horizontally centred, halo included", () => {
+    // 3 chars at 12px × 0.6 → 22px wide + 2×3 halo; the box is centred on the
+    // text, so its top edge sits (10 − halo) below the marker.
     const { box } = layoutLabel(label("a", "abc", { x: 100, y: 200 }, true), SPEC);
 
-    expect(box.x).toBeCloseTo(100 - 21.6 / 2, 5);
-    expect(box.y).toBe(210);
-    expect(box.w).toBeCloseTo(21.6, 5);
-    expect(box.h).toBe(12);
+    expect(box.x).toBeCloseTo(100 - 27.6 / 2, 5);
+    expect(box.y).toBe(207);
+    expect(box.w).toBeCloseTo(27.6, 5);
+    expect(box.h).toBe(18);
   });
 
   it("centres a shape label on its anchor in both axes", () => {
     const { box } = layoutLabel(label("b", "abc", { x: 100, y: 200 }, false), SPEC);
 
-    expect(box.x).toBeCloseTo(100 - 21.6 / 2, 5);
-    expect(box.y).toBe(200 - 6);
-    expect(box.w).toBeCloseTo(21.6, 5);
-    expect(box.h).toBe(12);
+    expect(box.x).toBeCloseTo(100 - 27.6 / 2, 5);
+    expect(box.y).toBe(200 - 9);
+    expect(box.w).toBeCloseTo(27.6, 5);
+    expect(box.h).toBe(18);
   });
 });
 
@@ -94,5 +96,20 @@ describe("planLabelLayout", () => {
     expect(planLabelLayout(labels, SPEC, viewport, 0.2).map(l => l.id)).toEqual([
       "high",
     ]);
+  });
+
+  it("treats the halo as part of the footprint, so dense short labels hide", () => {
+    // Two one-character labels 6px apart: their glyphs nearly touch, and once
+    // the 3px halo is inside each box the horizontal overlap covers over half
+    // the narrower label — the case zooming out produces, where the pre-halo
+    // boxes let neighbours survive into a black smudge.
+    const labels = [
+      label("a", "1", { x: 100, y: 100 }, true),
+      label("b", "1", { x: 106, y: 100 }, true),
+    ];
+
+    const planned = planLabelLayout(labels, SPEC, viewport);
+
+    expect(planned.map(l => l.id)).toEqual(["a"]);
   });
 });

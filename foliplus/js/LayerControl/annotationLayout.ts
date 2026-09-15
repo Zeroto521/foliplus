@@ -19,6 +19,10 @@ interface LabelSpec {
   fontFamily: string;
   fontSize: number;
   fontWeight: string;
+  /** Halo stroke width (the shared --label-halo-width). The box must grow by
+   *  it, or two labels whose text is clear of each other still have their black
+   *  halos overlap into a smudge when the map is zoomed out. */
+  haloWidth: number;
   /** Point leaves: the box's top edge sits this far below the marker. */
   pointOffsetY: number;
   /** Shape leaves: the box is centred on the anchor (offset 0). */
@@ -48,17 +52,28 @@ interface PlacedLabel extends LabelCandidate {
 const estimateTextWidth = (text: string, fontSize: number): number =>
   text.length * fontSize * 0.6;
 
-/** The box a label will occupy in container pixels.
+/** The box a label will occupy in container pixels, including its halo. The
+ *  halo is the black stroke the canvas draws around the text, so it is part of
+ *  the label's visual footprint — a box that stops at the glyphs would let two
+ *  halos overlap into a dark smudge while both labels survive.
  *
  *  point leaves: horizontally centred on the marker, its top edge `pointOffsetY`
  *  below it — the [0, -10] relationship the DOM labels use.
  *  shape leaves: centred on the anchor in both axes.
  *  Both are centred horizontally: text extends from the anchor left and right. */
 const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlacedLabel => {
-  const w = estimateTextWidth(label.text, spec.fontSize);
-  const h = spec.fontSize;
+  const w = estimateTextWidth(label.text, spec.fontSize) + 2 * spec.haloWidth;
+  const h = spec.fontSize + 2 * spec.haloWidth;
+  // The halo grows the box symmetrically around the *text centre*, so the
+  // renderer can keep using the box centre as the text centre: the point
+  // label's box top moves up by the halo it now extends below the text.
   const box: Box = label.atPoint
-    ? { x: label.anchor.x - w / 2, y: label.anchor.y + spec.pointOffsetY, w, h }
+    ? {
+        x: label.anchor.x - w / 2,
+        y: label.anchor.y + spec.pointOffsetY - spec.haloWidth,
+        w,
+        h,
+      }
     : { x: label.anchor.x - w / 2, y: label.anchor.y - h / 2, w, h };
   return { ...label, box };
 };
@@ -69,6 +84,11 @@ const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlacedLabel => {
  * survivors and is responsible for supplying the *right* viewport: the live one
  * normally, never during an export (see core/labelCollision's withinRect).
  *
+ * The default `overlap` is 0.5, not labelCollision's 0.75: the boxes already
+ * include the halo, so "half the visual footprint covered" is already a heavy
+ * collision — and it is the density that zooming out creates, where the old
+ * bar was letting neighbouring labels keep their smudged overlap.
+ *
  * Results are returned in input order, so the caller can pair each surviving
  * label with its feature without bookkeeping.
  */
@@ -76,7 +96,7 @@ const planLabelLayout = (
   labels: readonly LabelCandidate[],
   spec: LabelSpec,
   viewport: Box,
-  overlap?: number,
+  overlap: number = 0.5,
 ): PlacedLabel[] => {
   const placed = labels.map(label => layoutLabel(label, spec));
   const survivors = planVisible(withinRect(placed, viewport), overlap);
