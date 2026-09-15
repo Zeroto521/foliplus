@@ -5,7 +5,7 @@
 // constructible geometry classes. The canvas is stubbed — it is the browser
 // tests' job to verify actual drawing.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "../../../../foliplus/js/LayerControl/annotation/index.js";
+import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
