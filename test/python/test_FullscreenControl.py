@@ -52,7 +52,9 @@ class TestFullscreenControlPython:
         assert control.hide_selector == [".navbar"]
 
     def test_hide_selector_accepts_tuple(self):
-        assert FullscreenControl(hide_selector=(".navbar",)).hide_selector == [".navbar"]
+        assert FullscreenControl(hide_selector=(".navbar",)).hide_selector == [
+            ".navbar"
+        ]
 
     def test_hide_selector_rejects_scalar(self):
         """A single selector passed bare is a TypeError at render time — caught here."""
@@ -165,12 +167,14 @@ class TestFullscreeControlRendering:
 class TestFullscreenControlBrowser:
     """Browser-based smoke tests for FullscreenControl."""
 
-    def _make_page(self, browser, tmp_path, hide_self=True, hide_others=False,
-                   hide_selector=None):
+    def _make_page(
+        self, browser, tmp_path, hide_self=True, hide_others=False, hide_selector=None
+    ):
         """Build a page with FullscreenControl and return (page, errors)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        FullscreenControl(hide_self=hide_self, hide_others=hide_others,
-                          hide_selector=hide_selector).add_to(m)
+        FullscreenControl(
+            hide_self=hide_self, hide_others=hide_others, hide_selector=hide_selector
+        ).add_to(m)
         html = m.get_root().render()
         # Inject a test hook at the control-entry line so browser tests can
         # reach the control instance (dev build keeps the constructor name).
@@ -188,8 +192,14 @@ class TestFullscreenControlBrowser:
     def test_hide_selector_round_trip(self, browser, tmp_path):
         """A page element matched by hide_selector hides in fullscreen and
         comes back with its original display after exit."""
-        with use_page(self._make_page, browser, tmp_path, hide_self=False,
-                      hide_others=False, hide_selector=[".page-navbar"]) as (
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            hide_self=False,
+            hide_others=False,
+            hide_selector=[".page-navbar"],
+        ) as (
             page,
             errors,
         ):
@@ -228,8 +238,14 @@ class TestFullscreenControlBrowser:
         the test drives the real trigger (`map.fire`) rather than an internal
         closure.
         """
-        with use_page(self._make_page, browser, tmp_path, hide_self=False,
-                      hide_others=False, hide_selector=[".page-navbar"]) as (
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            hide_self=False,
+            hide_others=False,
+            hide_selector=[".page-navbar"],
+        ) as (
             page,
             errors,
         ):
@@ -254,9 +270,12 @@ class TestFullscreenControlBrowser:
                 == "none"
             )
             # The control is still mounted, so the marker is still present.
-            assert page.evaluate(
-                "document.querySelectorAll('[data-foliplus-fs-display]').length"
-            ) == 1
+            assert (
+                page.evaluate(
+                    "document.querySelectorAll('[data-foliplus-fs-display]').length"
+                )
+                == 1
+            )
 
             page.evaluate("() => window.__map.fire('unload')")
 
@@ -264,9 +283,12 @@ class TestFullscreenControlBrowser:
                 "getComputedStyle(document.querySelector('.page-navbar')).display"
             )
             assert restored == "block", restored
-            assert page.evaluate(
-                "document.querySelectorAll('[data-foliplus-fs-display]').length"
-            ) == 0
+            assert (
+                page.evaluate(
+                    "document.querySelectorAll('[data-foliplus-fs-display]').length"
+                )
+                == 0
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_button_exists(self, browser, tmp_path):
