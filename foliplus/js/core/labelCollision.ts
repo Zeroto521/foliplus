@@ -39,6 +39,17 @@ interface PlacedLabel {
  */
 const HIDE_OVERLAP = 0.75;
 
+/**
+ * Collision grid cell size, in container pixels — a little larger than a
+ * typical label, so a label usually touches one to four cells.
+ *
+ * Fixed, rather than derived from the widest box: one very long label would
+ * otherwise blow the cell up and pack every other label into a handful of
+ * buckets, which is exactly the quadratic behaviour the grid exists to avoid.
+ * A box larger than a cell simply spans several of them, at its own cost only.
+ */
+const GRID_CELL = 64;
+
 /** Horizontal overlap width of two boxes, or 0 when they do not overlap on the
  *  x-axis. */
 const hOverlap = (a: Box, b: Box): number =>
@@ -72,11 +83,10 @@ const hides = (a: Box, b: Box, overlap: number = HIDE_OVERLAP): boolean =>
  * Returns the survivors; the caller hides everything else. `collide: false` is
  * the caller's business too: with nothing hidden there is nothing to plan.
  *
- * A spatial grid keeps this near-linear instead of O(n²) — the cell is sized to
- * the widest box, so a box touches at most 2×2 cells and a lookup only tests
- * that handful of candidates. A colliding pair always shares a cell (overlap
- * implies cell intersection), so the survivors are exactly what the pairwise
- * sweep would return: the same rule, evaluated faster.
+ * A spatial grid keeps this near-linear instead of O(n²): a lookup only tests
+ * the buckets the box touches (see GRID_CELL). A colliding pair always shares a
+ * cell — overlap implies cell intersection — so the survivors are exactly what
+ * the pairwise sweep would return: the same rule, evaluated faster.
  */
 const planVisible = <T extends PlacedLabel>(
   labels: readonly T[],
@@ -93,20 +103,15 @@ const planVisible = <T extends PlacedLabel>(
     })
     .map(entry => entry.label);
 
-  let cell = 1;
-  for (const label of ranked) {
-    cell = Math.max(cell, label.box.w, label.box.h);
-  }
-
   const buckets = new Map<string, Box[]>();
   const survivors = new Set<T>();
 
   for (const label of ranked) {
     const box = label.box;
-    const x0 = Math.floor(box.x / cell);
-    const y0 = Math.floor(box.y / cell);
-    const x1 = Math.floor((box.x + box.w) / cell);
-    const y1 = Math.floor((box.y + box.h) / cell);
+    const x0 = Math.floor(box.x / GRID_CELL);
+    const y0 = Math.floor(box.y / GRID_CELL);
+    const x1 = Math.floor((box.x + box.w) / GRID_CELL);
+    const y1 = Math.floor((box.y + box.h) / GRID_CELL);
 
     let collides = false;
     for (let cx = x0; cx <= x1 && !collides; cx++) {

@@ -213,4 +213,21 @@ describe("planVisible — grid index", () => {
 
     expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
   });
+
+  it("stays equivalent with one far larger box in the set", () => {
+    // A single very long label must not change the outcome — and, because the
+    // cell size is fixed, must not pack everyone else into a few buckets.
+    const rand = makeRng(99);
+    const labels = Array.from({ length: 300 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: { x: rand() * 800, y: rand() * 600, w: 20 + rand() * 60, h: 12 },
+    }));
+    labels.push({ index: 999, priority: 50, box: { x: 0, y: 0, w: 4000, h: 16 } });
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
 });
