@@ -29,6 +29,7 @@
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
+
 ### Changed
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
