@@ -10,9 +10,7 @@
 // shared canvas overlay (annotationCanvas) that owns drawing, culling and
 // collision. The manager keeps the decision side — which features get a label
 // and what it says — plus the visibility signal the canvas needs to drop a
-// hidden layer's labels, and a per-layer budget so a huge feature set degrades
-// to "labels capped" instead of a slow frame.
-import { HINT_DURATION } from "#core/hint.js";
+// hidden layer's labels.
 import {
   type LabelField,
   autoLabelField,
@@ -20,12 +18,10 @@ import {
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { AnnotationCanvas, type LayerLabel } from "./annotationCanvas.js";
 import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-const T = createScopedTranslator(CONF);
 
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
@@ -42,23 +38,15 @@ interface AnnotationConfig {
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
-  private readonly maxLabels: number;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
   /** The shared label canvas, created on first use (tests stub the class). */
   private canvas: AnnotationCanvas | null = null;
-  /** Cooldown guard so a capped layer does not re-announce on every render. */
-  private lastTruncateHintAt = 0;
 
-  constructor(
-    mapInstance: L.Map,
-    layerFind: (id: string) => L.Layer | null,
-    opts?: { maxLabels?: number },
-  ) {
+  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
     this.layerFind = layerFind;
-    this.maxLabels = opts?.maxLabels ?? CONST.ANNOTATION.MAX_LABELS;
     this.config = new Map();
     this.autoFieldCache = new Map();
   }
@@ -208,13 +196,6 @@ class AnnotationManager {
       });
     });
 
-    // Cap the draw so a layer with tens of thousands of features stays
-    // interactive; the canvas's culling/collision plan then runs on hundreds.
-    if (labels.length > this.maxLabels) {
-      labels.length = this.maxLabels;
-      this.notifyTruncated();
-    }
-
     if (labels.length > 0) {
       this.ensureCanvas().setLayerLabels(id, labels);
     }
@@ -253,16 +234,6 @@ class AnnotationManager {
       });
     }
     return this.canvas;
-  }
-
-  /** One announcement per cooldown, so a re-render does not spam the hint. */
-  private notifyTruncated(): void {
-    const now = Date.now();
-    if (now - this.lastTruncateHintAt < CONST.ANNOTATION.HINT_COOLDOWN_MS) {
-      return;
-    }
-    this.lastTruncateHintAt = now;
-    this.map.foliplus?.showHint?.(CONF.name, T("label_truncated"), HINT_DURATION.LONG);
   }
 }
 

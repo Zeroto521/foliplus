@@ -312,31 +312,19 @@ describe("AnnotationManager.renderLabels", () => {
     expect(mocks.instances).toHaveLength(0);
   });
 
-  it("caps the labels at the per-layer budget and announces once", () => {
-    const leaves = Array.from({ length: 5 }, (_, i) =>
+  it("hands every label to the canvas, with no cap", () => {
+    const leaves = Array.from({ length: 250 }, (_, i) =>
       mkLeaf({ props: { v: `${i}` }, latlng: { lat: i, lng: 0 } }),
     );
     const group = mkGroup(leaves);
-    const showHint = vi.fn();
-    const m = { foliplus: { showHint } } as unknown as typeof map;
-    const mgr = new AnnotationManager(m, id => (id === "l1" ? group : null), {
-      maxLabels: 2,
-    });
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
     mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
 
     const labels = mgr.renderLabels("l1");
-    mgr.renderLabels("l1");
 
-    expect(labels).toHaveLength(2);
-    expect(
-      (canvas().setLayerLabels.mock.calls[0]![1] as Array<{ id: string }>).map(
-        l => l.id,
-      ),
-    ).toEqual(["l1:0", "l1:1"]);
-    // The cooldown swallows the second render's announcement.
-    expect(showHint).toHaveBeenCalledTimes(1);
-    const [, msg] = showHint.mock.calls[0] as [unknown, string];
-    expect(msg).toContain("label_truncated");
+    // No per-layer budget: showing every label the layer has is the point.
+    expect(labels).toHaveLength(250);
+    expect((canvas().setLayerLabels.mock.calls[0]![1] as unknown[]).length).toBe(250);
   });
 });
 

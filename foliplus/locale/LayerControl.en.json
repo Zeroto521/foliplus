@@ -63,6 +63,5 @@
   "LayerControl.style_label_format_int": "Integer",
   "LayerControl.style_label_format_comma": "Thousands Separator",
   "LayerControl.style_label_format_percent": "Percent",
-  "LayerControl.label_truncated": "Too many features — showing the first labels only",
   "LayerControl.style_reset": "Reset"
 }

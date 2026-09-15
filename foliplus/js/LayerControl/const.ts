@@ -7,13 +7,6 @@ const SAVE_ORDER_DEBOUNCE_MS = 100;
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
-/** Annotation label budget: how many labels one layer may render at once, and
- *  how often a truncation may re-announce itself. */
-const ANNOTATION = {
-  MAX_LABELS: 200,
-  HINT_COOLDOWN_MS: 2000,
-};
-
 /** Persistent storage keys. */
 const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
@@ -166,7 +159,6 @@ const DEFAULT_ANNOTATION = {
 
 export {
   ACTION,
-  ANNOTATION,
   CLASSES,
   COLOR,
   DATA,
