@@ -21,6 +21,12 @@ describe("RECURSION", () => {
   });
 });
 
+describe("COUNT", () => {
+  it("budgets the row count column to the 38px track", () => {
+    expect(CONST.COUNT.MAX_DIGITS).toBe(3);
+  });
+});
+
 describe("STORAGE", () => {
   it("derives keys from map container id", () => {
     expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");

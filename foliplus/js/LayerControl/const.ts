@@ -7,6 +7,13 @@ const SAVE_ORDER_DEBOUNCE_MS = 100;
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
+/** Feature-count display. MAX_DIGITS is the digit budget for the row's
+ *  count column, which the 38px --count-track-width in LayerControl.css
+ *  holds to about 3 digits. At the boundary and above, formatCount compacts
+ *  (en 12K, zh 1.2万) rather than rendering a number the track would clip;
+ *  the attribute panel keeps the exact value. */
+const COUNT = { MAX_DIGITS: 3 };
+
 /** Persistent storage keys. */
 const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
@@ -168,6 +175,7 @@ export {
   ACTION,
   CLASSES,
   COLOR,
+  COUNT,
   DATA,
   DEFAULT_ANNOTATION,
   DRAG,

@@ -3,7 +3,6 @@ import { GEOM_TYPE } from "#core/layer/index.js";
 import { getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
@@ -430,7 +429,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
       if (countCol) {
         if (count !== null && count !== undefined) {
-          countCol.textContent = formatNumber(count, "auto", ui.conf.locale_code);
+          countCol.textContent = Util.formatCount(count, ui.conf.locale_code);
         } else countCol.textContent = "";
       }
       // Hover tooltip shows count + type label together.
@@ -440,7 +439,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
       item.setAttribute(CONST.DATA.TITLE, typeLabel);
       item.title =
         count !== null && count !== undefined
-          ? `${formatNumber(count, "auto", ui.conf.locale_code)} ${typeLabel}`
+          ? `${Util.formatCount(count, ui.conf.locale_code)} ${typeLabel}`
           : typeLabel;
     }
   }
