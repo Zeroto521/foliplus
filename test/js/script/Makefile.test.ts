@@ -1,19 +1,19 @@
 import { readFileSync } from "fs";
-import { dirname, resolve as resolvePath } from "path";
+import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const __dirname = resolvePath(dirname(fileURLToPath(import.meta.url)), "../../..");
-const MAKEFILE = readFileSync(resolvePath(__dirname, "Makefile"), "utf-8").split("\n");
+const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
+const MAKEFILE = readFileSync(resolve(__dirname, "Makefile"), "utf-8").split("\n");
 
 /** Index of a target's header line, or -1. Skips ``.PHONY``/``.DEFAULT`` entries. */
-function at(target: string): number {
+const at = (target: string): number => {
   const re = new RegExp(`^${target}:`);
   return MAKEFILE.findIndex(l => re.test(l) && !l.startsWith("."));
-}
+};
 
 /** Pre-requisite names of a target, e.g. ``test-js:`` -> ``["build-js-dev"]``. */
-function prereqs(target: string): string[] {
+const prereqs = (target: string): string[] => {
   const idx = at(target);
   expect(idx, `${target}:`).toBeGreaterThan(-1);
   return MAKEFILE[idx]
@@ -23,10 +23,10 @@ function prereqs(target: string): string[] {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-}
+};
 
 /** Recipe lines of a target. */
-function recipe(target: string): string[] {
+const recipe = (target: string): string[] => {
   const start = at(target) + 1;
   expect(start, `${target}:`).toBeGreaterThan(1);
   const out: string[] = [];
@@ -39,10 +39,10 @@ function recipe(target: string): string[] {
     if (line.trim()) break;
   }
   return out;
-}
+};
 
 /** Every target name and its recipe lines. */
-function allTargets(): Map<string, string[]> {
+const allTargets = (): Map<string, string[]> => {
   const out = new Map<string, string[]>();
   for (let i = 0; i < MAKEFILE.length; i += 1) {
     const line = MAKEFILE[i];
@@ -60,16 +60,14 @@ function allTargets(): Map<string, string[]> {
     out.set(name, lines);
   }
   return out;
-}
+};
 
 // ``foliplus/dist/`` is gitignored, so a fresh checkout has no build output and
 // the artifact tests in build.test.ts cannot pass until it is built. The test
 // targets therefore must not be runnable standalone without building first.
 describe("test targets build before asserting on dist/", () => {
   it("dist is not tracked, so build output is never checked in", () => {
-    const ignore = readFileSync(resolvePath(__dirname, ".gitignore"), "utf-8").split(
-      "\n",
-    );
+    const ignore = readFileSync(resolve(__dirname, ".gitignore"), "utf-8").split("\n");
     expect(ignore.some(l => l.replace(/\s/g, "") === "foliplus/dist/")).toBe(true);
   });
 
