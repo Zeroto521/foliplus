@@ -151,3 +151,66 @@ describe("withinRect", () => {
     expect(withinRect([onEdge], { x: 0, y: 0, w: 400, h: 300 })).toEqual([onEdge]);
   });
 });
+
+// ───────────────────────── grid-index equivalence ─────────────────────────
+// The spatial grid is an evaluation strategy, not a rule change. This pins its
+// survivors to what the original pairwise sweep returns, on a set dense enough
+// that cell sharing actually decides the outcome.
+
+interface RefLabel {
+  box: { x: number; y: number; w: number; h: number };
+  priority: number;
+}
+
+/** The pairwise sweep this module used before the grid — the reference. */
+const pairwise = <T extends RefLabel>(
+  labels: readonly T[],
+  overlap: number = HIDE_OVERLAP,
+): Set<T> => {
+  const ranked = [...labels]
+    .map((label, index) => ({ label, index }))
+    .sort((a, b) => {
+      if (b.label.priority !== a.label.priority) {
+        return b.label.priority - a.label.priority;
+      }
+      if (b.label.box.w !== a.label.box.w) return b.label.box.w - a.label.box.w;
+      return a.index - b.index;
+    })
+    .map(entry => entry.label);
+
+  const survivors = new Set<T>();
+  const claimed: RefLabel["box"][] = [];
+  for (const label of ranked) {
+    if (claimed.some(box => hides(label.box, box, overlap))) continue;
+    survivors.add(label);
+    claimed.push(label.box);
+  }
+  return survivors;
+};
+
+describe("planVisible — grid index", () => {
+  /** Deterministic PRNG, so a mismatch reproduces. */
+  const makeRng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+
+  it("returns exactly the pairwise survivors on a dense set", () => {
+    const rand = makeRng(20240915);
+    const labels = Array.from({ length: 800 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: {
+        x: rand() * 1200,
+        y: rand() * 800,
+        w: 20 + rand() * 90,
+        h: 12 + rand() * 8,
+      },
+    }));
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
+});

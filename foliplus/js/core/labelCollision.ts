@@ -72,8 +72,11 @@ const hides = (a: Box, b: Box, overlap: number = HIDE_OVERLAP): boolean =>
  * Returns the survivors; the caller hides everything else. `collide: false` is
  * the caller's business too: with nothing hidden there is nothing to plan.
  *
- * O(n²) — a `shown.some` per label. Fine for the few hundred labels a map shows
- * at once; a caller that expects thousands should cull by viewport first.
+ * A spatial grid keeps this near-linear instead of O(n²) — the cell is sized to
+ * the widest box, so a box touches at most 2×2 cells and a lookup only tests
+ * that handful of candidates. A colliding pair always shares a cell (overlap
+ * implies cell intersection), so the survivors are exactly what the pairwise
+ * sweep would return: the same rule, evaluated faster.
  */
 const planVisible = <T extends PlacedLabel>(
   labels: readonly T[],
@@ -90,12 +93,39 @@ const planVisible = <T extends PlacedLabel>(
     })
     .map(entry => entry.label);
 
-  const survivors = new Set<T>();
-  const claimed: Box[] = [];
+  let cell = 1;
   for (const label of ranked) {
-    if (claimed.some(box => hides(label.box, box, overlap))) continue;
+    cell = Math.max(cell, label.box.w, label.box.h);
+  }
+
+  const buckets = new Map<string, Box[]>();
+  const survivors = new Set<T>();
+
+  for (const label of ranked) {
+    const box = label.box;
+    const x0 = Math.floor(box.x / cell);
+    const y0 = Math.floor(box.y / cell);
+    const x1 = Math.floor((box.x + box.w) / cell);
+    const y1 = Math.floor((box.y + box.h) / cell);
+
+    let collides = false;
+    for (let cx = x0; cx <= x1 && !collides; cx++) {
+      for (let cy = y0; cy <= y1 && !collides; cy++) {
+        const bucket = buckets.get(`${cx},${cy}`);
+        if (bucket?.some(claimed => hides(box, claimed, overlap))) collides = true;
+      }
+    }
+    if (collides) continue;
+
     survivors.add(label);
-    claimed.push(label.box);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = `${cx},${cy}`;
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(box);
+        else buckets.set(key, [box]);
+      }
+    }
   }
   return survivors;
 };
