@@ -114,7 +114,12 @@ const sourceTransformPlugin = {
   name: "source-transform",
   setup(build) {
     build.onLoad({ filter: /\.(ts|js)$/ }, async args => {
-      if (!args.path.startsWith(srcDir + "/")) return null;
+      // esbuild hands out forward-slash paths even on Windows, while
+      // path.resolve produces backslashes. Normalize both sides or this
+      // guard silently skips EVERY file on Windows and the SVG/HTML
+      // transforms never run, making local dist diverge from CI artifacts.
+      const norm = p => p.replaceAll("\\", "/");
+      if (!norm(args.path).startsWith(norm(srcDir) + "/")) return null;
       if (args.path.endsWith(".d.ts")) return null;
       const source = readFileSync(args.path, "utf-8");
       return { contents: transformSource(source), loader: "ts" };

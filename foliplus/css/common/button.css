@@ -110,6 +110,67 @@
   transform: scale(var(--scale-press));
 }
 
+/* ── Panel action button ──
+   The footer action a panel owns: the heatmap's Clear, the per-layer style
+   panel's Reset. Outlined/secondary on purpose — a panel's content (color
+   ramps, field lists) is what should carry the emphasis, and the filled
+   variant this replaces pressed the muted *text* token into service as a
+   background, making it the darkest surface in its own panel.
+
+   Both components keep their own class as the hook; the recipe lives here so
+   the two cannot drift, and so both inherit the shared focus ring (the style
+   panel's reset had none, leaving keyboard users with no visible focus). */
+.foliplus-panel-btn {
+  flex: 1;
+  height: var(--ctrl-size);
+  box-sizing: border-box;
+  border: var(--border-thin) solid var(--btn-secondary-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+
+  &:hover {
+    background: var(--ctrl-hover-bg);
+    border-color: var(--input-focus-border);
+    transform: scale(var(--scale-hover));
+  }
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  &:disabled {
+    opacity: var(--alpha-30);
+    pointer-events: none;
+    transform: none;
+  }
+}
+
+/* ── Panel action row ──
+   The single strip that holds a panel's footer action. Both panels keep their
+   own class name (the heatmap's row is asserted by name in tests) so one
+   `:is()` covers them instead of two rules drifting apart.
+
+   The rule above the strip is a `.foliplus-section-divider` element, not a
+   `border-top` here: the shared divider is an inset hairline with its own
+   breathing room, so the footer reads the same as the heatmap's and cannot
+   regress into a full-width edge-to-edge line. */
+:is(.foliplus-btn-row, .foliplus-heatmap-btn-row) {
+  display: flex;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg) var(--space-md);
+}
+
 /* ── Toggle Button / Tool Button Base ──
   Shared sizing for all control buttons.
   Toggle-btns have rounded corners; tool-btns have square corners (0). */

@@ -60,6 +60,26 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("orders the entries focus, style, rename, attributes", () => {
+      // Deliberate ordering, not append order: the view action leads (the
+      // trigger-adjacent slot is the mis-click zone), then the style panel,
+      // then the one entry that writes to the layer, with the display-only
+      // attributes entry closing the list.
+      const item = findItem(ui, "overlay1");
+
+      ui.openMoreMenu(item);
+
+      const actions = Array.from(
+        item.querySelectorAll(".foliplus-layer-more-menu li"),
+      ).map(li => (li as HTMLElement).dataset.action);
+      expect(actions).toEqual([
+        CONST.ACTION.FOCUS_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
+      ]);
+    });
+
     it("creates a menu with the focus-layer action", () => {
       const item = findItem(ui, "overlay1");
 
