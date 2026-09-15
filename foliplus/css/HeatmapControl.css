@@ -22,79 +22,34 @@
 .foliplus-heatmap-ctrl {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  --toggle-off-bg: var(--neutral-300);
-  --heatmap-label-width: 85px;
-  --heatmap-select-pad-right: var(--space-xxl);
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
-  --heatmap-toggle-width: 40px;
-  --heatmap-toggle-height: var(--size-20);
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
-  --heatmap-select-arrow-width: var(--size-8);
-  --heatmap-select-arrow-height: var(--size-6);
-  /* Label Canvas – CSS-driven parameters for Canvas text rendering */
-  --heatmap-label-font-family: sans-serif;
-  --heatmap-label-font-weight: bold;
-  --heatmap-label-font-size: var(--font-size-sm);
-  --heatmap-label-color: var(--neutral-0);
-  --heatmap-label-stroke-color: rgba(0, 0, 0, 0.75);
-  --heatmap-label-stroke-width: 3px;
+  /* Label Canvas — the canvas renderer reads these through getComputedStyle,
+     so they stay named for this component; the values come from the shared
+     map-label tokens so the hex labels and LayerControl's annotation labels
+     render as one language. */
+  --heatmap-label-font-family: var(--label-font-family);
+  --heatmap-label-font-weight: var(--label-font-weight);
+  --heatmap-label-font-size: var(--label-font-size);
+  --heatmap-label-color: var(--label-color);
+  --heatmap-label-stroke-color: var(--label-halo-color);
+  --heatmap-label-stroke-width: var(--label-halo-width);
 
   /* ── Sections: Data / Style / Labels ── */
   .foliplus-heatmap-section-block {
     padding: 0;
   }
 
-  /* ── Form Row ── */
-  .foliplus-heatmap-form-row {
-    display: flex;
-    align-items: center;
-    height: var(--toggle-size);
-    gap: var(--space-md);
-    box-sizing: border-box;
-  }
-  .foliplus-heatmap-form-label {
-    flex-shrink: 0;
-    width: var(--heatmap-label-width);
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    text-align: right;
-    white-space: nowrap;
-    padding-right: var(--space-xs);
-  }
-  .foliplus-heatmap-form-control {
-    flex: 1;
-    min-width: 0;
-  }
+  /* Inline control group (two selects, or color + weight inputs) sharing
+     one form-control cell — a layout variant, not covered by form.css. */
   .foliplus-heatmap-form-inline {
     display: flex;
     gap: var(--space-sm);
   }
 
-  /* Shared select/input styles */
-  .foliplus-heatmap-form-select,
-  .foliplus-heatmap-ctrl select {
-    width: 100%;
-    height: var(--ctrl-size);
-    font-size: var(--font-size-md);
-    padding: 0 var(--heatmap-select-pad-right) 0 var(--space-md);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg)
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
-      no-repeat right var(--space-md) center;
-    background-size: var(--heatmap-select-arrow-width)
-      var(--heatmap-select-arrow-height);
-    color: var(--text-primary);
-    cursor: pointer;
-    outline: none;
-    box-sizing: border-box;
-    appearance: none;
-    transition: var(--transition-input);
-  }
-
-  /* Class count small select */
+  /* Class count small select — width override on the shared form-select. */
   .foliplus-heatmap-class-select {
     width: var(--heatmap-inline-width);
     flex-shrink: 0;
@@ -150,9 +105,12 @@
     border-top: var(--size-6) solid var(--text-muted);
     pointer-events: none;
   }
-  /* Scheme row: form-control needs relative positioning for the dropdown */
-  .foliplus-heatmap-form-row:has(.foliplus-heatmap-scheme-bar)
-    .foliplus-heatmap-form-control {
+  /* Scheme row: the control cell needs relative positioning so the dropdown
+     hangs off it. Both classes are the shared form primitives — the component
+     prefixed names here stopped matching when the template moved to
+     `foliplus-form-row` / `foliplus-form-control`, which silently returned the
+     dropdown to the page flow. */
+  .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
   /* Scheme hidden select: visually collapsed but stays in layout (Bootstrap
@@ -252,115 +210,16 @@
     }
   }
 
-  /* ── Label Toggle ── */
-  .foliplus-heatmap-toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: var(--heatmap-toggle-width);
-    height: var(--heatmap-toggle-height);
-    flex-shrink: 0;
-    cursor: pointer;
+  /* ── Bottom Buttons ──
+     The Clear action and its row come from the shared panel-button recipe
+     (common/button.css `.foliplus-panel-btn` / the `.foliplus-*-btn-row`
+     group), so the heatmap's footer and the per-layer style panel's footer
+     cannot drift apart. Nothing component-specific is left to state here. */
 
-    input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-  }
-  .foliplus-heatmap-toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    background-color: var(--toggle-off-bg);
-    border-radius: 10px;
-    transition: background-color var(--transition-fast);
+  /* The divider above the footer action comes from the shared panel recipe
+     (common/panel.css), so the heatmap's footer and the per-layer style
+     panel's footer are inset and spaced identically. Nothing to add here. */
 
-    &::before {
-      content: "";
-      position: absolute;
-      height: var(--size-16);
-      width: var(--size-16);
-      left: var(--size-2);
-      bottom: var(--size-2);
-      background-color: var(--neutral-0);
-      border-radius: var(--radius-round);
-      transition:
-        transform var(--transition-fast),
-        box-shadow var(--transition-fast);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
-    }
-  }
-  /* hover + checked states: flat selectors (avoid nested & on combinator RHS,
-     which postcss-nesting edition 2021 compiles to an incorrect :is() form) */
-  .foliplus-heatmap-toggle-switch:hover .foliplus-heatmap-toggle-slider {
-    background-color: var(--neutral-500);
-
-    &::before {
-      box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
-    }
-  }
-  .foliplus-heatmap-toggle-switch input:checked + .foliplus-heatmap-toggle-slider {
-    background-color: var(--accent-primary);
-
-    &::before {
-      transform: translateX(var(--size-20)) scale(1.15);
-    }
-  }
-  .foliplus-heatmap-toggle-switch:hover
-    input:checked
-    + .foliplus-heatmap-toggle-slider {
-    background-color: var(--btn-primary-hover);
-  }
-
-  /* ── Bottom Buttons ── */
-  .foliplus-heatmap-btn-row {
-    display: flex;
-    gap: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
-    border-top: var(--border-thin) solid var(--divider-color);
-  }
-  .foliplus-heatmap-btn {
-    flex: 1;
-    height: var(--ctrl-size);
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    color: var(--neutral-0);
-    transition:
-      background var(--transition-fast),
-      box-shadow var(--transition-fast),
-      transform var(--transition-fast);
-
-    &:hover,
-    &:active {
-      color: var(--neutral-0);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--focus-ring);
-    }
-  }
-  .foliplus-heatmap-btn-clear {
-    background: var(--text-muted);
-    border: none;
-
-    &:hover {
-      background: var(--text-primary);
-      transform: scale(var(--scale-hover));
-    }
-    &:active {
-      background: var(--text-primary);
-      transform: scale(var(--scale-press));
-    }
-  }
-
-  .foliplus-section-divider {
-    margin: var(--space-md) var(--space-lg) var(--space-sm);
-  }
   /* ── Section Headings ── */
   .foliplus-heatmap-section-heading {
     font-size: var(--font-size-xs);

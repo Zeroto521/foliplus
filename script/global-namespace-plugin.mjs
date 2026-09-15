@@ -59,14 +59,23 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 
 const sharedGlobalNamespace = spec => {
   if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
+  // Every core-root single file needs its own entry: the #common fallback below
+  // would build "foliplus.common.#core/<name>", whose shim declaration is not
+  // valid JS. A missing entry therefore breaks whichever component imports the
+  // file, and build.mjs still prints a tick for it — the artifact just stays
+  // stale. test/js/script/global-namespace-plugin.test.ts walks the directory
+  // and fails on any entry that does not parse.
   if (spec === "#core/hint.js") return "foliplus.hint";
   if (spec === "#core/component.js") return "foliplus.core.component";
+  if (spec === "#core/index.js") return "foliplus.core.index";
+  if (spec === "#core/interaction.js") return "foliplus.core.interaction";
+  if (spec === "#core/labelField.js") return "foliplus.core.labelField";
+  if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
+  if (spec === "#core/mapApi.js") return "foliplus.core.mapApi";
   if (spec === "#core/mode.js") return "foliplus.core.mode";
   if (spec === "#core/controlEnv.js") return "foliplus.core.controlEnv";
-  if (spec === "#core/interaction.js") return "foliplus.core.interaction";
-  if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
   // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
-  // future events/modes). Core-root single files (hint) are handled above.
+  // future events/modes). Core-root single files are handled above.
   const coreSub = spec.match(/^#core\/([^/]+)\//);
   if (coreSub) return "foliplus.core." + coreSub[1];
   const mod = spec.replace(/^#common\//, "").replace(/\.js$/, "");
