@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { HIDE_OVERLAP, hides, planVisible } from "#foliplus/core/labelCollision.js";
+import {
+  HIDE_OVERLAP,
+  hides,
+  planVisible,
+  withinRect,
+} from "#foliplus/core/labelCollision.js";
 
 /** A label at (x, y) that is `w` wide and one line tall. */
 const at = (x: number, y: number, priority: number, w = 40) => ({
@@ -125,5 +130,24 @@ describe("planVisible", () => {
 
     expect(planVisible([low, high]).has(low)).toBe(true); // default 0.75: both stay
     expect(planVisible([low, high], 0.5).has(low)).toBe(false);
+  });
+});
+
+describe("withinRect", () => {
+  it("keeps only the labels whose box falls inside the rect", () => {
+    const inside = at(0, 0, 50);
+    const outside = at(2000, 2000, 50);
+
+    const kept = withinRect([inside, outside], { x: 0, y: 0, w: 400, h: 300 });
+
+    expect(kept).toEqual([inside]);
+  });
+
+  it("keeps a label sitting exactly on the boundary", () => {
+    // Culling drops nothing that could still be (partly) on screen: a label on
+    // the edge draws once, and dropping it would read as a missing label.
+    const onEdge = at(400, 300, 50);
+
+    expect(withinRect([onEdge], { x: 0, y: 0, w: 400, h: 300 })).toEqual([onEdge]);
   });
 });
