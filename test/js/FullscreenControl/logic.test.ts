@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
   bindFullscreenEvents,
+  isPortrait,
   toggleFullscreen,
   updateUI,
 } from "#foliplus/FullscreenControl/logic.js";
@@ -373,5 +374,48 @@ describe("rotate hint — portrait while fullscreen", () => {
     setOrientation("landscape-primary");
     bound.handler();
     expect(mapMock.foliplus.hideHint).toHaveBeenCalledWith(CONF.name, "rotate");
+  });
+});
+
+describe("isPortrait", () => {
+  const setOrientation = (value: unknown) => {
+    Object.defineProperty(window.screen, "orientation", {
+      value: typeof value === "string" ? { type: value } : value,
+      configurable: true,
+    });
+  };
+
+  afterEach(() => setOrientation("portrait-primary"));
+
+  it.each(["portrait-primary", "portrait-secondary"])("matches %s", type => {
+    setOrientation(type);
+    expect(isPortrait()).toBe(true);
+  });
+
+  it.each(["landscape-primary", "landscape-secondary"])("rejects %s", type => {
+    setOrientation(type);
+    expect(isPortrait()).toBe(false);
+  });
+
+  // A malformed `type` must hide the hint, not throw on `.startsWith()`.
+  it.each([null, undefined, "", 7, false])(
+    "treats a malformed orientation type as not-portrait",
+    value => {
+      setOrientation(value);
+      expect(isPortrait()).toBe(false);
+    },
+  );
+
+  it("returns false when window.screen itself is absent", () => {
+    const saved = window.screen;
+    Object.defineProperty(window, "screen", {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      expect(isPortrait()).toBe(false);
+    } finally {
+      Object.defineProperty(window, "screen", { value: saved, configurable: true });
+    }
   });
 });

@@ -473,11 +473,48 @@ class TestFullscreenControlBrowser:
             }"""
         )
 
+    def _stacked_hints(self, page):
+        """Each hint as {selector, bottom, zIndex} — the stacking proof.
+
+        "The rotate hint coexists with the enter toast" is a positioning
+        contract, not a presence one: repositionHints() assigns
+        bottom = 20 + idx * 40 and zIndex = base + idx by insertion order, so
+        two live hints must sit at different offsets.
+        """
+        return page.evaluate(
+            """() => {
+                const pick = (sel) => {
+                    const el = document.querySelector(sel);
+                    if (!el) return null;
+                    const cs = getComputedStyle(el);
+                    return { bottom: cs.bottom, zIndex: cs.zIndex };
+                };
+                return [
+                    [
+                        '.foliplus-hint-FullscreenControl',
+                        pick('.foliplus-hint-FullscreenControl'),
+                    ],
+                    [
+                        '.foliplus-hint-FullscreenControl-rotate',
+                        pick('.foliplus-hint-FullscreenControl-rotate'),
+                    ],
+                ];
+            }"""
+        )
+
+    def _exit_fullscreen(self, page):
+        """Exit native fullscreen. The toggle is hidden while fullscreen
+        (hide_self=true), so a synthesized click reaches it."""
+        page.evaluate(
+            "document.querySelector('.foliplus-fullscreen-toggle').click()"
+        )
+        page.wait_for_function("() => document.fullscreenElement === null")
+
     def test_rotate_hint_shown_in_portrait_fullscreen(self, browser, tmp_path):
         """Entering fullscreen in portrait shows a standing rotate hint.
 
-        The hint uses a subkey, so it stacks below the enter toast instead of
-        replacing it.
+        The hint uses a subkey, so it stacks beside the enter toast instead of
+        replacing it — both live, at different offsets.
         """
         with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
@@ -493,10 +530,16 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert self._rotate_hint_visible(page), "rotate hint not shown"
-            enter_hint = page.evaluate(
-                "!!document.querySelector('.foliplus-hint-FullscreenControl')"
+<<<<<<< HEAD
+            enter, rotate = self._stacked_hints(page)
+            assert enter[1], "enter toast was evicted by the rotate hint"
+            assert rotate[1], "rotate hint missing from stack"
+            assert enter[1]["bottom"] != rotate[1]["bottom"], (
+                "both hints share a bottom offset — subkey stacking is broken"
             )
-            assert enter_hint, "enter toast was evicted by the rotate hint"
+            assert enter[1]["zIndex"] != rotate[1]["zIndex"], (
+                "both hints share a z-index — subkey stacking is broken"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_rotate_hint_cleared_on_exit(self, browser, tmp_path):
@@ -513,17 +556,20 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert self._rotate_hint_visible(page)
-            # The toggle is hidden in fullscreen (hide_self=true), so a
-            # synthesized click reaches it — exit needs no user activation.
-            page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-toggle').click()"
-            )
-            page.wait_for_function("() => document.fullscreenElement === null")
+<<<<<<< HEAD
+            self._exit_fullscreen(page)
             assert not self._rotate_hint_visible(page), "rotate hint persisted"
             assert not errors, f"JS errors: {errors}"
 
     def test_rotate_hint_absent_in_landscape(self, browser, tmp_path):
-        """No rotate hint when the screen is landscape."""
+        """No rotate hint when the screen is landscape.
+
+        Also locks the hint icon: the enter toast must keep the control's own
+        MAXIMIZE glyph. createControlEnv registers one icon per control name,
+        so `createControlEnv(CONF, SVGs.ROTATE)` would repaint the enter/exit
+        toast on every fullscreen toggle too — a MAXIMIZE marker in the enter
+        toast's SVG is the assertion that didn't catch that.
+        """
         with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
@@ -536,6 +582,48 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert not self._rotate_hint_visible(page), "hint shown in landscape"
+            enter_svg = page.evaluate(
+                """() => {
+                    const el = document.querySelector(
+                        '.foliplus-hint-FullscreenControl svg'
+                    );
+                    return el ? el.outerHTML : '';
+                }"""
+            )
+            assert "M8 3H5" in enter_svg, (
+                f"enter toast lost the MAXIMIZE glyph: {enter_svg}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_rotate_hint_cleared_on_rotation(self, browser, tmp_path):
+        """Rotating to landscape while fullscreen clears the hint.
+
+        Native fullscreen is the only mode where this is observable: an
+        orientationchange listener exists only in pseudo mode, and native
+        fullscreen reaches the handler through fullscreenchange.
+        """
+        with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            self._set_orientation(page, "portrait-primary")
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function("() => document.fullscreenElement !== null")
+            page.wait_for_function(
+                "() => !!document.querySelector('.foliplus-hint-FullscreenControl-rotate')",
+                timeout=10000,
+            )
+            assert self._rotate_hint_visible(page)
+            self._set_orientation(page, "landscape-primary")
+            page.evaluate(
+                "() => document.dispatchEvent(new Event('orientationchange'))"
+            )
+            page.wait_for_function(
+                "() => !document.querySelector('.foliplus-hint-FullscreenControl-rotate')"
+            )
+            assert not self._rotate_hint_visible(page), (
+                "rotate hint survived a rotation to landscape"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_pseudo_fullscreen_enter_exit(self, browser, tmp_path):

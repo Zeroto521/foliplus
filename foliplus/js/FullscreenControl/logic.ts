@@ -56,7 +56,11 @@ const ORIENTATION_CHANGE = "orientationchange";
 
 const isPortrait = (): boolean => {
   const orientation = window.screen?.orientation;
-  return Boolean(orientation) && orientation.type.startsWith("portrait");
+  // A truthy-but-malformed `orientation.type` is treated as not-portrait, so a
+  // bad value hides the hint instead of throwing on the `startsWith` below.
+  return (
+    typeof orientation?.type === "string" && orientation.type.startsWith("portrait")
+  );
 };
 
 const showRotateHint = (map: L.Map) => {
@@ -156,4 +160,4 @@ const bindFullscreenEvents = (
   return { type, handler: handleFSChange };
 };
 
-export { bindFullscreenEvents, toggleFullscreen, updateUI };
+export { bindFullscreenEvents, isPortrait, toggleFullscreen, updateUI };
