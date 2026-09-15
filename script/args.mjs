@@ -37,7 +37,7 @@
  * @param {object} spec — flag spec (see above)
  * @returns {{ help: boolean, errors: string[], [flagName]: any }}
  */
-export const parseArgs = (argv, spec) => {
+const parseArgs = (argv, spec) => {
   const result = {};
   for (const [name, meta] of Object.entries(spec)) {
     if (meta.type === "array") result[name] = [];
@@ -160,7 +160,7 @@ export const parseArgs = (argv, spec) => {
 /**
  * Print a usage string with descriptions.
  */
-export const help = spec => {
+const help = spec => {
   const lines = ["Usage:"];
   for (const [name, meta] of Object.entries(spec)) {
     const typeHint =
@@ -175,3 +175,5 @@ export const help = spec => {
   }
   return lines.join("\n");
 };
+
+export { help, parseArgs };
