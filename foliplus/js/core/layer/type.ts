@@ -39,7 +39,6 @@ interface RegisterLayerOpts {
   updatedAt?: string | number | null;
   /** Third-party label/value pairs appended to the attributes panel. */
   meta?: Record<string, string | number> | null;
-  [key: string]: unknown;
 }
 
 /** A layer entry in the ordered registry (read-only view). */
@@ -74,7 +73,6 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
-  [key: string]: unknown;
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
@@ -202,6 +200,21 @@ interface LayerAPI {
   unregisterLayer: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
+  /**
+   * Programmatically set a layer's visibility — the same transition the panel
+   * checkbox performs: the Leaflet layer is added to or removed from the map,
+   * callback-only (canvas) layers get `onToggle`, the panel row's checkbox and
+   * toggle-all control follow, and the persisted hidden set is updated so the
+   * choice survives a reload.
+   *
+   * This closes the write side of the visibility contract. `LayerInfo.visible`,
+   * `onToggle`, and the persisted hidden set all existed already, but only the
+   * panel's checkbox wrote them, so a host page that wanted to hide layers by
+   * id had to synthesize a DOM event against a row it does not own.
+   *
+   * @returns true if the layer was found and its visibility was set.
+   */
+  setVisible: (id: string, visible: boolean) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (
@@ -216,6 +229,14 @@ interface LayerAPI {
   getFeatureCount?: (id: string) => number | null;
   /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
   touchLayer?: (id: string) => boolean;
+  /** Move a layer one position toward index 0, respecting group boundaries.
+   *  False if already at the top, at a group boundary, or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerUp?: (id: string) => boolean;
+  /** Move a layer one position away from index 0, respecting group boundaries.
+   *  False if already at the bottom of its group or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerDown?: (id: string) => boolean;
 }
 
 export type {

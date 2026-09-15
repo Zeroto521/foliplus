@@ -3,7 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
-import { makeCtrl, makeManager } from "./fixture.js";
+import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -332,6 +332,26 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
+  it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
+    const m = makeManager();
+    const schemeBarCleanup = vi.fn();
+    const dropdownCleanup = vi.fn();
+    m.ui = {
+      ...makeCtrl(m, makeConf()),
+      schemeBarCleanup,
+      dropdownCleanup,
+    };
+    m.clearHeatmapCanvas();
+    expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
+    expect(dropdownCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {
+    const m = makeManager();
+    m.ui = null;
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
+  });
+
   it("clearHeatmapCanvas emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count to 0", () => {
     const m = makeManager();
     const bus = ensureEvents(m.map);
@@ -375,6 +395,93 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields).toContain("properties.price");
     expect(fields).not.toContain("properties.name");
     expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+  });
+});
+
+describe("HeatmapManager — layer visibility vs zoom", () => {
+  // createCanvas is called once in the constructor; recover the onToggle the
+  // manager passed in so LayerControl's hide/show callbacks can be replayed.
+  const onToggleOf = (m: HeatmapManager): ((visible: boolean) => void) =>
+    window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0].onToggle;
+
+  const zoomendHandlers = (m: HeatmapManager): Array<() => void> =>
+    m.map.on.mock.calls
+      .filter(([evt]: [string]) => evt === "zoomend")
+      .map(([, fn]: [string, () => void]) => fn);
+
+  const zoomstartHandler = (m: HeatmapManager): (() => void) =>
+    m.map.on.mock.calls.filter(([evt]: [string]) => evt === "zoomstart")[0][1];
+
+  it("onToggle(false) mirrors a LayerControl hide into manager state", () => {
+    const m = makeManager();
+    onToggleOf(m)(false);
+    expect(m.layerVisible).toBe(false);
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("onToggle(true) restores visibility after the layer is re-checked", () => {
+    const m = makeManager();
+    const onToggle = onToggleOf(m);
+    onToggle(false);
+    m.overlay.setVisible.mockClear();
+
+    onToggle(true);
+
+    expect(m.layerVisible).toBe(true);
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+  });
+
+  it("zoomstart hides the canvas even when the layer is logically visible", () => {
+    const m = makeManager();
+    m.overlay.setVisible.mockClear();
+    zoomstartHandler(m)();
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("zoomend does not re-show a layer the user hid in LayerControl", () => {
+    const m = makeManager();
+    m.layerVisible = false;
+    m.overlay.setVisible.mockClear();
+    // zoomend fires two handlers: bindMapSync.onShow (immediate) and the
+    // debounced onZoomEnd. Neither may re-show a hidden layer.
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+  });
+
+  it("zoomend re-shows a still-visible layer after the zoomstart hide", () => {
+    const m = makeManager();
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+  });
+
+  it("onZoomEnd re-renders a hidden layer but does not re-show it", () => {
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    m.layerVisible = false;
+    const renderSpy = vi.spyOn(m, "renderHexagons").mockImplementation(() => {});
+    m.overlay.setVisible.mockClear();
+
+    m.onZoomEnd();
+    m.onZoomEnd.flush();
+
+    expect(renderSpy).toHaveBeenCalled();
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+  });
+
+  it("hide → zoom → re-check → zoom obeys the latest LayerControl state", () => {
+    const m = makeManager();
+    const onToggle = onToggleOf(m);
+
+    onToggle(false);
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+
+    onToggle(true);
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
   });
 });
 
