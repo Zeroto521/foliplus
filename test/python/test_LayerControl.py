@@ -1162,6 +1162,40 @@ class TestLayerControlBrowser:
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
 
+    def test_annotation_canvas_draws(self, browser, tmp_path):
+        """Enabling labels draws text onto the shared annotation canvas."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["opaque"] > 0, "canvas has no drawn pixels"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_overlap_hides(self, browser, tmp_path):
+        """Two labels overlapping ≥75% collapse to the first (array order)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_overlap_hides"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["aOpaque"] > 0, "first (kept) label was not drawn"
+            assert result["bOpaque"] == 0, "second (hidden) label was drawn"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_click_through(self, browser, tmp_path):
+        """The canvas ignores pointer events so clicks land on the map/feature."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            result = page.evaluate(_js("LayerControl/annotation_click_through"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["pointerEvents"] == "none", result
+            assert result["hitIsCanvas"] is False, (
+                "annotation canvas intercepted the click"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
