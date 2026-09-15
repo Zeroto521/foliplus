@@ -13,57 +13,78 @@ const log = createLogger("foliplus");
 
 type CrsType = "BD09" | "GCJ02" | "WGS84";
 
+/** The two facts CRS detection reads from a live map. */
+interface Probe {
+  code: string;
+  urls: string[];
+}
+
 /** WGS84 longitude/latitude limits, shared by coordinate validation. */
 const COORD_BOUNDS = { LON: 180, LAT: 90 };
 
-/** Check if any tile layer in the map has a URL matching one of the patterns. */
-const hasTileUrlMatching = (map: L.Map | null, patterns: string[]): boolean => {
+/**
+ * Snapshot the two facts every probe needs — the map's CRS code and the list
+ * of tile layer URLs — into plain values, logging any single failure once.
+ *
+ * getMapCrsType asks three questions (BD09?, domestic?, otherwise WGS84), and
+ * each question originally re-read `map._layers` and `map.options.crs.code` on
+ * its own. A throwing property therefore produced 3 warnings per call, and
+ * `nominatim.ts` calls getMapCrsType on every suggest — the noise would have
+ * been proportional to search traffic. Reading each fact once, ahead of the
+ * cascade, keeps one failing probe to one warning.
+ *
+ * The two reads keep their own try/catch so a warning still names the fact
+ * that failed. A failed read degrades to the "not found" answer, matching the
+ * old catch behaviour: probe misses fall back to WGS84 rather than aborting.
+ */
+const probeMap = (map: L.Map | null): Probe => {
+  const urls: string[] = [];
   try {
     const layers = map?._layers as Record<string, L.TileLayer> | undefined;
-    if (!layers) return false;
-    for (const id in layers) {
-      const url = layers[id]?._url;
-      if (url && patterns.some(p => url.includes(p))) return true;
+    if (layers) {
+      for (const id in layers) urls.push(String(layers[id]?._url ?? ""));
     }
-  } catch (_) {
-    // Ignore errors from layer traversal.
+  } catch (err) {
+    log.warn("tile layer URL traversal failed (CRS fallback to WGS84):", err);
   }
-  return false;
+  let code = "";
+  try {
+    code = map?.options?.crs?.code ?? "";
+  } catch (err) {
+    log.warn("map CRS code unreadable (CRS fallback to WGS84):", err);
+  }
+  return { code, urls };
 };
 
-/** Check if the map's CRS code contains a pattern (case-insensitive). */
-const hasCrsCode = (map: L.Map | null, codePattern: string): boolean => {
-  try {
-    const crs = map?.options?.crs;
-    if (!crs) return false;
-    const code = crs.code || "";
-    return code.toLowerCase().includes(codePattern.toLowerCase());
-  } catch (_) {
-    return false;
-  }
-};
+/** Check a snapshot of tile layer URLs against URL patterns. */
+const hasTileUrlMatching = (urls: string[], patterns: string[]): boolean =>
+  urls.some(url => url && patterns.some(p => url.includes(p)));
+
+/** Check a snapshot CRS code against a pattern (case-insensitive). */
+const hasCrsCode = (code: string, codePattern: string): boolean =>
+  code.toLowerCase().includes(codePattern.toLowerCase());
 
 /**
  * Detect whether the map uses Baidu coordinate system (BD-09).
  * Checks L.CRS.Baidu, crs.code, and tile URL patterns.
  */
-const isBaiduCRS = (map: L.Map | null): boolean => {
+const isBaiduCRS = (map: L.Map | null, probe: Probe): boolean => {
   try {
     const LCRS = L.CRS as { Baidu?: L.CRS };
     if (LCRS && LCRS.Baidu && map?.options.crs === LCRS.Baidu) return true;
-  } catch (_) {
-    // L.CRS plugin may be unavailable (jsdom).
+  } catch (err) {
+    log.warn("L.CRS unavailable (Baidu CRS check skipped):", err);
   }
-  if (hasCrsCode(map, "baidu")) return true;
-  return hasTileUrlMatching(map, ["bdimg.com"]);
+  if (hasCrsCode(probe.code, "baidu")) return true;
+  return hasTileUrlMatching(probe.urls, ["bdimg.com"]);
 };
 
 /**
  * Detect whether a map uses domestic Chinese tile providers.
  * Checks Baidu, AutoNavi, Tianditu, Tencent, Google, and AMap URL patterns.
  */
-const isDomesticMap = (map: L.Map | null): boolean => {
-  if (isBaiduCRS(map)) return true;
+const isDomesticMap = (map: L.Map | null, probe: Probe): boolean => {
+  if (isBaiduCRS(map, probe)) return true;
   const domesticPatterns = [
     "autonavi",
     "tianditu",
@@ -71,8 +92,8 @@ const isDomesticMap = (map: L.Map | null): boolean => {
     "googleapis",
     "amap.com",
   ];
-  if (hasTileUrlMatching(map, domesticPatterns)) return true;
-  if (hasCrsCode(map, "gcj02")) return true;
+  if (hasTileUrlMatching(probe.urls, domesticPatterns)) return true;
+  if (hasCrsCode(probe.code, "gcj02")) return true;
   return false;
 };
 
@@ -96,8 +117,9 @@ const ensureGcoord = (): boolean => {
  * Detect the map's coordinate reference system type: 'BD09', 'GCJ02', or 'WGS84'.
  */
 const getMapCrsType = (map: L.Map | null): CrsType => {
-  if (isBaiduCRS(map)) return "BD09";
-  if (isDomesticMap(map)) return "GCJ02";
+  const probe = probeMap(map);
+  if (isBaiduCRS(map, probe)) return "BD09";
+  if (isDomesticMap(map, probe)) return "GCJ02";
   return "WGS84";
 };
 
