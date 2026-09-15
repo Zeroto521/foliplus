@@ -8,11 +8,11 @@
 // read as one language.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import {
+  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import { cssVar } from "#common/cssvar.js";
 import { throttleRaf } from "#common/throttle.js";
 import {
   type LabelCandidate,
@@ -44,11 +44,18 @@ class AnnotationCanvas {
   /** Bound map handlers, kept so destroy() can unbind them. */
   private readonly onMapChange: () => void;
   private readonly onResize: () => void;
+  private readonly onZoomStart: () => void;
+  private readonly onZoomEnd: () => void;
   /** Whether a layer's labels should draw right now. The canvas is a passive
    *  overlay — labels are not children of their source layer — so a hidden
    *  layer (removed from the map) must drop out of the draw, exactly as the
    *  DOM labels did by riding the layer's detach/attach. */
   private readonly isLayerOnMap: (layerId: string) => boolean;
+  /** Typography resolved from the --label-* tokens, cached like the heatmap's
+   *  label style: re-reading six CSS variables per throttled frame is pure
+   *  overhead, and the tokens only change with the theme. */
+  private cachedSpec: LabelSpec | null = null;
+  private cachedStyle: CanvasLabelStyle | null = null;
 
   constructor(map: L.Map, isLayerOnMap: (layerId: string) => boolean) {
     this.map = map;
@@ -71,8 +78,7 @@ class AnnotationCanvas {
     // by translating `mapPane`, and this canvas lives inside it — so the draw
     // must first cancel that translation (updatePosition), or the labels get
     // the pan twice: once from the inherited transform and once from the new
-    // container coordinates, and drift off their features. The exporter may
-    // change the view for its capture, so a locked export skips culling.
+    // container coordinates, and drift off their features.
     this.scheduleDraw = throttleRaf(() => {
       this.updatePosition();
       this.draw();
@@ -85,8 +91,21 @@ class AnnotationCanvas {
       this.resize();
       this.draw();
     };
+    // Leaflet animates a zoom by CSS-transforming every zoom-animated layer;
+    // this canvas is not one, so it would sit still through the transition and
+    // then jump to the new positions. Hide it for the duration (the heatmap
+    // does the same) and redraw on the far side.
+    this.onZoomStart = () => {
+      this.canvas.style.visibility = "hidden";
+    };
+    this.onZoomEnd = () => {
+      this.canvas.style.visibility = "";
+      this.scheduleDraw();
+    };
     this.map.on("resize", this.onResize);
-    this.map.on("move zoom moveend zoomend layeradd layerremove", this.onMapChange);
+    this.map.on("zoomstart", this.onZoomStart);
+    this.map.on("zoomend", this.onZoomEnd);
+    this.map.on("move zoom moveend layeradd layerremove", this.onMapChange);
 
     // Export safety: the exporter renders this same container, so culling by
     // the live container box cannot lose labels — the *real* risk would be
@@ -112,7 +131,9 @@ class AnnotationCanvas {
   destroy(): void {
     this.scheduleDraw.cancel();
     this.map.off("resize", this.onResize);
-    this.map.off("move zoom moveend zoomend layeradd layerremove", this.onMapChange);
+    this.map.off("zoomstart", this.onZoomStart);
+    this.map.off("zoomend", this.onZoomEnd);
+    this.map.off("move zoom moveend layeradd layerremove", this.onMapChange);
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     this.canvas.remove();
@@ -139,15 +160,23 @@ class AnnotationCanvas {
   }
 
   private spec(): LabelSpec {
-    const root = this.container;
-    return {
-      fontFamily: cssVar(root, "--label-font-family", "sans-serif"),
-      fontSize: parseFloat(cssVar(root, "--label-font-size", "12")) || 12,
-      fontWeight: cssVar(root, "--label-font-weight", "bold"),
-      haloWidth: parseFloat(cssVar(root, "--label-halo-width", "3")) || 3,
+    if (this.cachedSpec) return this.cachedSpec;
+    // Derived from the same style the draw uses, so the box that layout plans
+    // and the text that gets painted can never disagree on the font.
+    const s = this.style();
+    this.cachedSpec = {
+      fontFamily: s.fontFamily,
+      fontSize: s.fontSize,
+      fontWeight: s.fontWeight,
+      haloWidth: s.haloWidth,
       pointOffsetY: 10,
       shapeOffsetY: 0,
     };
+    return this.cachedSpec;
+  }
+
+  private style(): CanvasLabelStyle {
+    return (this.cachedStyle ??= resolveCanvasLabelStyle(this.container));
   }
 
   private draw(): void {
@@ -183,7 +212,7 @@ class AnnotationCanvas {
     // The same resolver and drawer the heatmap's hex labels use — an annotation
     // label and a hex value over the same feature are one recipe (common/
     // canvasLabel reads the shared --label-* tokens for both).
-    const style = resolveCanvasLabelStyle(this.container);
+    const style = this.style();
     prepareCanvasLabel(ctx, style);
 
     for (const label of planned) {
