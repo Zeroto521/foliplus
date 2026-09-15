@@ -11,6 +11,7 @@ import {
   fmtKB,
   fmtPct,
   parseArgs,
+  parsePerBundleThresholds,
   rangeLine,
   rowCells,
   shortSha,
@@ -141,6 +142,25 @@ describe("parseArgs", () => {
     expect(parseArgs(["--threshold=15.5"]).threshold).toBe(15.5);
   });
 
+  it("collects every --bundleThreshold into an array and leaves --threshold alone", () => {
+    // The two flags are deliberately separate: the global band is the default
+    // for bundles without their own entry, so a per-bundle flag that also
+    // overwrote it would be a surprise global change.
+    const a = parseArgs([
+      "--bundleThreshold=small.min.js:25",
+      "--bundleThreshold=tiny.min.js:40",
+      "--threshold=12",
+    ]);
+    expect(a.bundleThreshold).toEqual(["small.min.js:25", "tiny.min.js:40"]);
+    expect(a.threshold).toBe(12);
+  });
+
+  it("accepts --bundleThreshold with a separate value", () => {
+    expect(parseArgs(["--bundleThreshold", "small.min.js:25"]).bundleThreshold).toEqual(
+      ["small.min.js:25"],
+    );
+  });
+
   it("records unknown flags and arguments", () => {
     const a = parseArgs(["--bogus", "positional"]);
     expect(a.errors).toEqual(["Unknown flag: --bogus", "Unknown argument: positional"]);
@@ -158,6 +178,82 @@ describe("parseArgs", () => {
 
   it("recognizes --help", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
+  });
+});
+
+describe("parsePerBundleThresholds", () => {
+  it("maps each file to its band", () => {
+    const { bands, errors } = parsePerBundleThresholds([
+      "small.min.js:25",
+      "tiny.min.js:40",
+    ]);
+    expect(bands).toEqual({ "small.min.js": 25, "tiny.min.js": 40 });
+    expect(errors).toEqual([]);
+  });
+
+  it("returns an empty map for no entries", () => {
+    expect(parsePerBundleThresholds([])).toEqual({ bands: {}, errors: [] });
+  });
+
+  it("keeps a zero band — a bundle that may not grow at all", () => {
+    // `0` is a deliberate tightening, not an omission: a band of zero means
+    // any growth fails, which is the right gate for a bundle already at budget.
+    const { bands, errors } = parsePerBundleThresholds(["flat.min.js:0"]);
+    expect(bands).toEqual({ "flat.min.js": 0 });
+    expect(errors).toEqual([]);
+  });
+
+  it("keeps a fractional band", () => {
+    const { bands, errors } = parsePerBundleThresholds(["small.min.js:12.5"]);
+    expect(bands).toEqual({ "small.min.js": 12.5 });
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects an entry with no file", () => {
+    // A bare number is a band for everything — which is what `--threshold`
+    // already does. Treating it as a global override here would let a typo'd
+    // per-bundle flag quietly change the band for every other bundle.
+    const { bands, errors } = parsePerBundleThresholds(["25"]);
+    expect(bands).toEqual({});
+    expect(errors).toEqual(['--bundleThreshold: "25" needs a percent (file:pct)']);
+  });
+
+  it("rejects an entry with no percentage", () => {
+    const { bands, errors } = parsePerBundleThresholds(["small.min.js"]);
+    expect(bands).toEqual({});
+    expect(errors).toEqual([
+      '--bundleThreshold: "small.min.js" needs a percent (file:pct)',
+    ]);
+  });
+
+  it("rejects a non-numeric percentage", () => {
+    const { bands, errors } = parsePerBundleThresholds(["small.min.js:lots"]);
+    expect(bands).toEqual({});
+    expect(errors).toEqual([
+      '--bundleThreshold: "small.min.js:lots" has a non-numeric percent',
+    ]);
+  });
+
+  it("rejects a negative percentage", () => {
+    // Negative would mean "bundles must shrink" — a different check than a
+    // band, and the sort of mistake the reader would not spot in the report.
+    const { bands, errors } = parsePerBundleThresholds(["small.min.js:-5"]);
+    expect(bands).toEqual({});
+    expect(errors).toEqual([
+      '--bundleThreshold: "small.min.js:-5" has a negative band',
+    ]);
+  });
+
+  it("records every bad entry and keeps the good ones", () => {
+    // One typo should not silently drop the other bundles' bands, and the
+    // caller needs every bad entry to fix them in one pass.
+    const { bands, errors } = parsePerBundleThresholds([
+      "ok.min.js:30",
+      "25",
+      "bad.min.js:-1",
+    ]);
+    expect(bands).toEqual({ "ok.min.js": 30 });
+    expect(errors).toHaveLength(2);
   });
 });
 
@@ -229,6 +325,57 @@ describe("buildRows", () => {
     expect(byFile["up.min.js"].status).toBe("same");
     expect(byFile["down.min.js"].status).toBe("same");
     expect(byFile["flat.min.js"].status).toBe("same");
+  });
+
+  it("applies a per-bundle band to only that bundle", () => {
+    // The band is the whole point: the same +25% growth passes for the bundle
+    // that earned a wider one and fails for the neighbour still on the global
+    // band. Both directions must hold, or the flag is just a global override.
+    const current = { "banded.min.js": 125, "global.min.js": 125 };
+    const baseline = { files: { "banded.min.js": 100, "global.min.js": 100 } };
+    const byFile = Object.fromEntries(
+      buildRows(current, baseline, 10, { "banded.min.js": 30 }).map(r => [r.file, r]),
+    );
+    expect(byFile["banded.min.js"].over).toBe(false);
+    expect(byFile["banded.min.js"].status).toBe("up");
+    expect(byFile["global.min.js"].over).toBe(true);
+    expect(byFile["global.min.js"].status).toBe("over");
+  });
+
+  it("still fails a per-bundle band when the growth exceeds it", () => {
+    // A band is a wider gate, not an exemption: past it the bundle is over.
+    const rows = buildRows(
+      { "banded.min.js": 200 },
+      { files: { "banded.min.js": 100 } },
+      10,
+      { "banded.min.js": 30 },
+    );
+    expect(rows[0].pct).toBeCloseTo(100, 1);
+    expect(rows[0].over).toBe(true);
+    expect(rows[0].status).toBe("over");
+  });
+
+  it("judges the low-margin band off the per-bundle band too", () => {
+    // The 5% warning margin is measured from whichever band applies — a bundle
+    // on a 30% band at 27% is nearly over for it, and must say so.
+    const rows = buildRows(
+      { "banded.min.js": 127 },
+      { files: { "banded.min.js": 100 } },
+      10,
+      { "banded.min.js": 30 },
+    );
+    expect(rows[0].over).toBe(false);
+    expect(rows[0].status).toBe("low");
+  });
+
+  it("ignores a band named for a bundle that is not built", () => {
+    // A stale band entry (a bundle deleted, or renamed upstream) must not break
+    // the run — it simply has nothing to apply to.
+    const rows = buildRows({ "a.min.js": 100 }, { files: { "a.min.js": 100 } }, 10, {
+      "gone.min.js": 50,
+    });
+    expect(rows[0].status).toBe("same");
+    expect(rows[0].over).toBe(false);
   });
 
   it("reports an empty baseline as 0.00 KB, not an em-dash", () => {
@@ -405,6 +552,59 @@ describe("check", () => {
     expect(check(parseArgs([]), root)).toBe(0);
   });
 
+  it("passes a bundle that grows past the global band but within its own", () => {
+    // The reason the flag exists: a 1.15 KB bundle grows 22.8% for a feature
+    // that is 50 minified bytes. The global band still catches the neighbours.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "small.min.js": content, "other.min.js": content });
+    const baseline = Math.round(size * 0.8); // 25% growth
+    const args = parseArgs([
+      "--bundleThreshold=small.min.js:30",
+      "--baseline=" + writeBaseline(root, { files: { "small.min.js": baseline } }),
+    ]);
+    expect(check(args, root)).toBe(0);
+  });
+
+  it("still fails the neighbour that has no band of its own", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "small.min.js": content, "other.min.js": content });
+    const baseline = Math.round(size * 0.8);
+    const args = parseArgs([
+      "--bundleThreshold=small.min.js:30",
+      "--baseline=" +
+        writeBaseline(root, {
+          files: { "small.min.js": baseline, "other.min.js": baseline },
+        }),
+    ]);
+    expect(check(args, root)).toBe(1);
+  });
+
+  it("refuses to run on a malformed band entry", () => {
+    // A typo'd band name would otherwise read as a green CI with the band never
+    // applied — the whole point of the flag is defeated. Refusing beats
+    // measuring against something nobody can read back.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    const args = parseArgs([
+      "--bundleThreshold=25",
+      "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
+    ]);
+    const logs: string[] = [];
+    const origErr = console.error;
+    console.error = (...a) => logs.push(a.join(" "));
+    try {
+      expect(check(args, root)).toBe(1);
+    } finally {
+      console.error = origErr;
+    }
+    expect(logs.join(" ")).toContain("needs a percent (file:pct)");
+  });
   it("appends a Markdown summary when GITHUB_STEP_SUMMARY is set", () => {
     const root = mkTmp();
     const summary = join(root, "summary.md");

@@ -100,6 +100,10 @@ const SPEC = {
     default: DEFAULT_THRESHOLD,
     desc: "Max growth before failing, in %",
   },
+  bundleThreshold: {
+    type: "array",
+    desc: "Per-bundle band, `file:pct`",
+  },
   root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
   base: {
     type: "string",
@@ -109,6 +113,44 @@ const SPEC = {
 };
 
 const parseArgs = argv => parseArgsCore(argv, SPEC);
+
+/** Parse `--bundleThreshold=file:pct` entries into a filename -> band map.
+ *  A malformed entry is a mistake in the gate config, not in the code, so the
+ *  caller refuses to run rather than measuring against a band nobody can read
+ *  back. The global `--threshold` is untouched: it remains the default for
+ *  bundles without their own entry. */
+const parsePerBundleThresholds = entries => {
+  const bands = {};
+  const errors = [];
+  for (const entry of entries) {
+    const sep = entry.indexOf(":");
+    const name = sep === -1 ? entry : entry.slice(0, sep);
+    const pct = sep === -1 ? null : entry.slice(sep + 1);
+    if (!name) {
+      errors.push(`--bundleThreshold: missing file name in "${entry}"`);
+      continue;
+    }
+    if (pct === null) {
+      errors.push(`--bundleThreshold: "${entry}" needs a percent (file:pct)`);
+      continue;
+    }
+    const n = Number(pct);
+    if (!Number.isFinite(n)) {
+      errors.push(`--bundleThreshold: "${entry}" has a non-numeric percent`);
+      continue;
+    }
+    if (n < 0) {
+      errors.push(`--bundleThreshold: "${entry}" has a negative band`);
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(bands, name)) {
+      errors.push(`--bundleThreshold: "${name}" is given more than once`);
+      continue;
+    }
+    bands[name] = n;
+  }
+  return { bands, errors };
+};
 
 const readSizes = (root = ROOT) => {
   const dir = distDir(root);
@@ -158,7 +200,7 @@ const statusOf = (over, low, pct, delta) => {
   return "same";
 };
 
-const buildRows = (current, baseline, threshold) => {
+const buildRows = (current, baseline, threshold, bands) => {
   const allFiles = [
     ...new Set([
       ...Object.keys(current),
@@ -184,8 +226,12 @@ const buildRows = (current, baseline, threshold) => {
     if (!Number.isFinite(prev)) return absent(f, curr, null, "new");
     const delta = curr - prev;
     const pct = prev > 0 ? (delta / prev) * 100 : null;
-    const over = pct > threshold;
-    const low = !over && pct > threshold - LOW_MARGIN_PCT;
+    // A per-bundle band widens the gate for that one bundle; the global
+    // threshold still covers everything else, and the low-margin warning is
+    // measured off the band that applies so it stays meaningful.
+    const band = bands && bands[f] !== undefined ? bands[f] : threshold;
+    const over = pct > band;
+    const low = !over && pct > band - LOW_MARGIN_PCT;
     return {
       file: f,
       curr,
@@ -361,7 +407,12 @@ const check = (args, root = ROOT) => {
     return 0;
   }
   const threshold = args.threshold;
-  const rows = buildRows(current, baseline, threshold);
+  const { bands, errors: bandErrors } = parsePerBundleThresholds(args.bundleThreshold);
+  if (bandErrors.length) {
+    console.error(bandErrors.join("\n"));
+    return 1;
+  }
+  const rows = buildRows(current, baseline, threshold, bands);
   const failures = rows.filter(r => r.over);
   const lowMargin = rows.filter(r => r.status === "low");
   // Toolchain drift is not a code-size signal: flag it instead of failing, and
@@ -424,6 +475,7 @@ const check = (args, root = ROOT) => {
 export {
   buildRows,
   check,
+  parsePerBundleThresholds,
   emit,
   fmtDelta,
   fmtKB,
