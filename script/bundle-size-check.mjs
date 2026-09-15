@@ -12,6 +12,7 @@
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json      # diff vs base
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
  *   node script/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
+ *   node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
  *   node script/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
  *   node script/bundle-size-check.mjs --help                          # all flags
  *
@@ -23,6 +24,12 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
 import { help, parseArgs as parseArgsCore } from "./args.mjs";
 import { FAIL, OK, STATUS, WARN } from "./glyphs.mjs";
+
+// A threshold breach is a policy decision, not a broken check. The report —
+// the table and the tree of who exceeded — is the thing that must reach the
+// PR, so `check` never fails because a bundle grew; it returns the verdict and
+// lets the caller decide. `--enforce` re-adds the exit code for a hard gate.
+const EXIT_THRESHOLD = 2;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -99,6 +106,10 @@ const SPEC = {
     type: "number",
     default: DEFAULT_THRESHOLD,
     desc: "Max growth before failing, in %",
+  },
+  enforce: {
+    type: "bool",
+    desc: "Exit non-zero when a bundle exceeds --threshold",
   },
   root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
   base: {
@@ -397,16 +408,6 @@ const check = (args, root = ROOT) => {
     );
   }
 
-  if (failures.length > 0) {
-    console.error(`\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:`);
-    for (const f of failures) {
-      console.error(
-        `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
-      );
-    }
-    console.error("\nBundle growth exceeded the threshold — review the change.");
-    return 1;
-  }
   if (lowMargin.length > 0) {
     console.warn(
       `\n${WARN}  ${lowMargin.length} bundle(s) with <${LOW_MARGIN_PCT}% margin:`,
@@ -416,6 +417,28 @@ const check = (args, root = ROOT) => {
       const remaining = (threshold - m.pct).toFixed(1);
       console.warn(`  ${m.file}: ${g}% growth (${remaining}% margin left)`);
     }
+  }
+  if (failures.length > 0) {
+    console.error(
+      `\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:` +
+        "\n" +
+        failures
+          .map(
+            f =>
+              `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
+          )
+          .join("\n"),
+    );
+    // The table is already written and the summary already appended above, so a
+    // non-zero exit here would only hide the report from the PR comment that
+    // follows. Report the verdict; let the caller decide whether it gates.
+    console.error(
+      args.enforce
+        ? "\nBundle growth exceeded the threshold — the build fails here."
+        : "\nBundle growth exceeded the threshold — review the change. " +
+            "Use --enforce to fail the build.",
+    );
+    return args.enforce ? EXIT_THRESHOLD : 0;
   }
   console.log(`\n${OK} All bundles within threshold.`);
   return 0;

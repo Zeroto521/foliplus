@@ -42,7 +42,8 @@ describe("AGG", () => {
 
 describe("CLASSES", () => {
   it("has expected CSS class constants", () => {
-    expect(CONST.CLASSES.FORM_ROW).toBe("foliplus-heatmap-form-row");
+    // form-row/label/control/select and the toggle live in common/form.css
+    // as shared foliplus-form-* classes — not component constants.
     // The confirm button is gone: every control re-renders live.
     expect((CONST.CLASSES as Record<string, unknown>).BTN_CONFIRM).toBeUndefined();
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
@@ -58,7 +59,6 @@ describe("CLASSES", () => {
 describe("SEL", () => {
   it("has expected selectors", () => {
     expect(CONST.SEL.SCHEME_BAR).toBe(".foliplus-heatmap-scheme-bar");
-    expect(CONST.SEL.FORM_SELECT).toBe(".foliplus-heatmap-form-select");
   });
 });
 
