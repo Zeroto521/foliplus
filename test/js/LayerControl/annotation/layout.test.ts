@@ -41,6 +41,15 @@ describe("layoutLabel", () => {
     expect(box.w).toBeCloseTo(27.6, 5);
     expect(box.h).toBe(18);
   });
+
+  it("measures full-width glyphs at one em, not the Latin factor", () => {
+    const zh = layoutLabel(label("zh", "中文", { x: 100, y: 200 }, true), SPEC);
+    const latin = layoutLabel(label("la", "ab", { x: 100, y: 200 }, true), SPEC);
+
+    // Two CJK glyphs ≈ 2em + halo; two Latin ≈ 1.2em + halo.
+    expect(zh.box.w).toBeCloseTo(2 * SPEC.fontSize + 2 * SPEC.haloWidth, 5);
+    expect(zh.box.w).toBeGreaterThan(latin.box.w);
+  });
 });
 
 describe("planLabelLayout", () => {

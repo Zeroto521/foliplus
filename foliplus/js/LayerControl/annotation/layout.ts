@@ -47,10 +47,21 @@ interface PlacedLabel extends LabelCandidate {
   box: Box;
 }
 
+/** Full-width glyphs: CJK ideographs, kana, Hangul, fullwidth forms. */
+const WIDE_GLYPH =
+  /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE10-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+
 /** Approximate width of one line of text in the label font. Only a footprint
- *  for culling and collision — the renderer draws from the box's geometry. */
-const estimateTextWidth = (text: string, fontSize: number): number =>
-  text.length * fontSize * 0.6;
+ *  for culling and collision — the renderer draws from the box's geometry.
+ *
+ *  Per-character rather than a flat factor: a full-width glyph is about one em
+ *  where Latin digits and letters average ~0.6em, so a flat 0.6 under-measures
+ *  a Chinese label by nearly half and would let it collide unseen. */
+const estimateTextWidth = (text: string, fontSize: number): number => {
+  let em = 0;
+  for (const ch of text) em += WIDE_GLYPH.test(ch) ? 1 : 0.6;
+  return em * fontSize;
+};
 
 /** The box a label will occupy in container pixels, including its halo. The
  *  halo is the black stroke the canvas draws around the text, so it is part of
