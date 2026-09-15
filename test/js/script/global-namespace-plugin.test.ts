@@ -1,12 +1,14 @@
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, resolve } from "path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   collectExports,
   globalNamespacePlugin,
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
+
+const JS_DIR = resolve(__dirname, "../../../foliplus/js");
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
@@ -36,6 +38,30 @@ describe("sharedGlobalNamespace", () => {
   it("maps #common/<mod>.js to foliplus.common.<mod>", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
     expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
+  });
+
+  it("gives every core-root single file a namespace that parses", () => {
+    // A core-root single file with no explicit mapping falls through to the
+    // #common branch and comes out as "foliplus.common.#core/<name>" — the shim
+    // declaration `var foliplus_common_#core/<name>_shim = …` is not valid JS,
+    // so esbuild fails the component bundle while build.mjs still prints a tick
+    // for it. Walking the directory keeps a newly added file from shipping a
+    // stale artifact quietly.
+    const coreDir = resolve(JS_DIR, "core");
+    const singles = readdirSync(coreDir, { withFileTypes: true })
+      .filter(f => f.isFile() && f.name.endsWith(".ts"))
+      .map(f => f.name.replace(/\.ts$/, ""));
+    expect(singles.length).toBeGreaterThan(0);
+
+    for (const name of singles) {
+      const spec = `#core/${name}.js`;
+      const ns = sharedGlobalNamespace(spec);
+      const segments = ns.split(".");
+      expect(
+        segments.every(s => /^[A-Za-z_$][\w$]*$/.test(s)),
+        `${spec} → ${ns}`,
+      ).toBe(true);
+    }
   });
 });
 

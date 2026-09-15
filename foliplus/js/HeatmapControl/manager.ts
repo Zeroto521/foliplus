@@ -1,9 +1,10 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { autoLabelField } from "#core/labelField.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import { formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
@@ -107,6 +108,12 @@ class HeatmapManager {
   borderColor: string;
   currentLabelShow: boolean;
   valueFallbackWarned: boolean;
+  /**
+   * Whether LayerControl currently shows this heatmap layer. Mirrors the
+   * `onToggle` callback so the temporary zoomstart/zoomend hide/show cycle
+   * never overrides a user-initiated hide (checkbox off in LayerControl).
+   */
+  layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
    * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
@@ -163,6 +170,7 @@ class HeatmapManager {
     this.borderColor = CONF.border_color ?? CONST.GRAY;
     this.currentLabelShow = CONF.label_show ?? false;
     this.valueFallbackWarned = false;
+    this.layerVisible = true;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in `.leaflet-map-pane` with position offset to cancel
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
@@ -173,6 +181,10 @@ class HeatmapManager {
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
+      onToggle: (visible: boolean) => {
+        this.layerVisible = visible;
+        this.overlay.setVisible(visible);
+      },
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
@@ -213,14 +225,14 @@ class HeatmapManager {
         this.overlay.setVisible?.(false);
       },
       onShow: () => {
-        this.overlay.setVisible?.(true);
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        this.overlay.setVisible?.(true);
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
@@ -325,7 +337,7 @@ class HeatmapManager {
     const centroid = feat.properties.centroid;
     if (!centroid) return;
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = formatNumber(
+    const text = formatLabelNumber(
       feat.properties.value ?? 0,
       CONF.label_format,
       CONF.locale_code,
@@ -411,9 +423,14 @@ class HeatmapManager {
     return fields;
   }
 
+  /** The field to use when the user has not picked one. The rule itself is
+   *  shared with LayerControl's annotation labels (core/labelField): first
+   *  numeric, else first. This layer's field contract is numeric-only by
+   *  construction, so in practice this stays the first entry — but the
+   *  fallback no longer lives in two places. */
   pickAutoField(fields: string[] | null): string | null {
     if (!fields || fields.length === 0) return null;
-    return fields[0];
+    return autoLabelField(fields.map(name => ({ name, numeric: true })));
   }
 
   /**
