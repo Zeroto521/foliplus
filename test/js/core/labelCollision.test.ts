@@ -235,8 +235,7 @@ describe("planVisible — grid index", () => {
     // The worst case for bucketing: x/y land on (or half a pixel either side
     // of) a 64px multiple, so boxes start and end exactly on cell borders.
     const rand = makeRng(4321);
-    const snap = (v: number) =>
-      Math.round(v / 64) * 64 + (rand() < 0.5 ? -0.5 : 0.5);
+    const snap = (v: number) => Math.round(v / 64) * 64 + (rand() < 0.5 ? -0.5 : 0.5);
     const labels = Array.from({ length: 500 }, (_, index) => ({
       index,
       priority: Math.floor(rand() * 100),
