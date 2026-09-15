@@ -61,7 +61,15 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** DOM selectors used during render. */
 const SEL = {
-  CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+  /**
+   * Canvas overlays that paint map content and so belong in the exported image
+   * (the heatmap's hexes, LayerControl's annotation labels). Both live under
+   * mapPane. **A new canvas overlay must be added here** — `collectLayerMarkers`
+   * deliberately skips CANVAS elements (a dedicated pass owns them), so a
+   * canvas that is not listed vanishes from the export without any error.
+   */
+  CANVAS:
+    ".leaflet-map-pane canvas.foliplus-heatmap-canvas, .leaflet-map-pane canvas.foliplus-annotation-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**

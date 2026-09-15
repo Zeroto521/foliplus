@@ -13,7 +13,7 @@ import {
 import { dom } from "#common/dom.js";
 import { type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
-import type { AnnotationConfig } from "../annotation.js";
+import type { AnnotationConfig } from "../annotation/index.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerUI } from "./index.js";

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 const distDir = resolve(process.cwd(), "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
-// writes on every real build — the same list `test/python/test_assets.py`
+// writes on every real build — the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names = JSON.parse(
@@ -86,7 +86,9 @@ describe("build artifacts", () => {
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
     // in the same bundle because the runtime registers it on foliplus.core,
     // and the per-layer style panel (#236) shipped labelField + the shared
-    // form primitives through the same shell.
+    // form primitives through the same shell; so do the shared label
+    // contracts (field collection, collision geometry). 140KB is the agreed
+    // ceiling — #332 raised it first, the larger value wins on merge.
     expect(size).toBeLessThan(140000);
   });
 

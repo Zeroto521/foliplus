@@ -116,10 +116,14 @@ export default [
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.
       // tsconfig's noImplicitAny still catches implicit ones.
       "@typescript-eslint/no-explicit-any": "off",
-
-      // Test scripts exercise the CJS build tooling via require().
-      "@typescript-eslint/no-require-imports": "off",
     },
+  },
+
+  // Test scripts exercise the CJS build tooling via require(); the source
+  // tree and `script/` never do.
+  {
+    files: ["test/js/**/*.{js,ts}"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
   },
 
   // ── Ambient globals: `declare var` is the canonical form here ──
@@ -145,8 +149,10 @@ export default [
   },
 
   // Module surface style (source only — tests may use function declarations).
+  // script/ joins here too: its own inline exports were the reason this rule
+  // had a source-only scope that the build tooling was exempted from.
   {
-    files: ["foliplus/js/**/*.ts"],
+    files: ["foliplus/js/**/*.ts", "script/**/*.{js,cjs,mjs}"],
     rules: {
       // `const fn = () => {}` only — no `export function` / `function foo()`.
       "func-style": ["error", "expression", { allowArrowFunctions: true }],

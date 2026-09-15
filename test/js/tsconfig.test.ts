@@ -1,6 +1,5 @@
 import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 // Production sources carry no type-system bypasses. Measured here at build time,
@@ -13,9 +12,10 @@ import { describe, expect, it } from "vitest";
 //
 // The suite's own error count is tracked in the program file itself.
 
-// Repo root, the one path this test must compute: it walks the production tree
-// and reads the program file it guards. Same shape as build.test.ts.
-const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
+// Repo root via vitest's cwd — the convention build.test.ts and the bundle
+// size check use. This test walks the production tree and reads the program
+// file it guards.
+const REPO_ROOT = process.cwd();
 const SRC = resolve(REPO_ROOT, "foliplus/js");
 
 const walk = (dir: string): string[] => {

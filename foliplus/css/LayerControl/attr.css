@@ -1,0 +1,39 @@
+.foliplus-layer-ctrl {
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. The surface is the shared row panel
+     (`foliplus-row-panel`, built by createRowPanel): anchoring, width, height
+     cap, card chrome and the label/value row rhythm all come from there and
+     from common/panel.css — this block carries only what is specific to this
+     panel: the copyable-text exception, the type logo size, and the <dd>
+     control column. */
+  .foliplus-layer-attrs-panel {
+    /* Read-only metadata must stay copyable; the parent row is user-select:none
+       and the shared row-panel recipe keeps that. */
+    user-select: text;
+  }
+  /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
+     inside the shared .foliplus-header-icon box. */
+  .foliplus-layer-attrs-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* A long value (a URL source) takes its own line under the label. */
+  .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
+    flex-wrap: wrap;
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
+    flex-basis: 100%;
+  }
+  /* Label/typography stay on the shared form recipe (sm / text-primary) so
+     the attrs panel and the heatmap config read as one product. This block
+     only adjusts the <dd> control column. */
+  .foliplus-layer-attrs-panel .foliplus-form-control {
+    /* Read-only text reads like a control: left-aligned, wrapping, and with
+       tabular figures so counts and timestamps line up column-wise. `margin: 0`
+       because a <dd> carries a UA block margin the heatmap's <div> does not. */
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+}
