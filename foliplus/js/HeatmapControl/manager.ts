@@ -108,6 +108,12 @@ class HeatmapManager {
   borderColor: string;
   currentLabelShow: boolean;
   valueFallbackWarned: boolean;
+  /**
+   * Whether LayerControl currently shows this heatmap layer. Mirrors the
+   * `onToggle` callback so the temporary zoomstart/zoomend hide/show cycle
+   * never overrides a user-initiated hide (checkbox off in LayerControl).
+   */
+  layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
    * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
@@ -164,6 +170,7 @@ class HeatmapManager {
     this.borderColor = CONF.border_color ?? CONST.GRAY;
     this.currentLabelShow = CONF.label_show ?? false;
     this.valueFallbackWarned = false;
+    this.layerVisible = true;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in `.leaflet-map-pane` with position offset to cancel
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
@@ -174,6 +181,10 @@ class HeatmapManager {
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
+      onToggle: (visible: boolean) => {
+        this.layerVisible = visible;
+        this.overlay.setVisible(visible);
+      },
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
@@ -214,14 +225,14 @@ class HeatmapManager {
         this.overlay.setVisible?.(false);
       },
       onShow: () => {
-        this.overlay.setVisible?.(true);
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        this.overlay.setVisible?.(true);
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
