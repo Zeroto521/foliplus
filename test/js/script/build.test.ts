@@ -76,16 +76,18 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-130KB)", () => {
+  it("common JS has reasonable size (20-140KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path). The common bundle is tree-shaken from the
     // component imports scanned into _shared-registry.ts, so this is a real
     // budget: ListCursor pushed it past 100KB, the createLayers panes
-    // generalisation (#280) added the per-pane routing, and the pluggable
+    // generalisation (#280) added the per-pane routing, the pluggable
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
-    // in the same bundle because the runtime registers it on foliplus.core.
-    expect(size).toBeLessThan(130000);
+    // in the same bundle because the runtime registers it on foliplus.core,
+    // and the per-layer style panel (#236) shipped labelField + the shared
+    // form primitives through the same shell.
+    expect(size).toBeLessThan(140000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

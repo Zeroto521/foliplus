@@ -159,6 +159,35 @@ describe("LayerUI menu", () => {
       expect(li?.getAttribute("role")).toBe("menuitem");
       expect(li?.getAttribute("tabindex")).toBe("0");
     });
+
+    it("closes when Tab moves focus out of the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      item.querySelector(".foliplus-layer-more-menu")!.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: document.body,
+        }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+      expect(ui.activeMenu).toBeNull();
+    });
+
+    it("stays open while focus moves within the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+      const second = menu.querySelectorAll("li")[1]! as HTMLElement;
+
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: second }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(ui.activeMenu).not.toBeNull();
+    });
   });
 
   // ─────────────────── attributes panel ───────────────────
