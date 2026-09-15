@@ -84,10 +84,13 @@ describe("build artifacts", () => {
     // budget: ListCursor pushed it past 100KB, the createLayers panes
     // generalisation (#280) added the per-pane routing, the pluggable
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
-    // in the same bundle because the runtime registers it on foliplus.core, and
-    // so do the shared label contracts (field collection, collision geometry).
-    // 140KB (not the current 130.8KB) is the agreed ceiling: the sibling
-    // branch's #332 raised it first, and the larger value wins on merge.
+    // generalisation (#280) added the per-pane routing, the pluggable
+    // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
+    // in the same bundle because the runtime registers it on foliplus.core,
+    // and the per-layer style panel (#236) shipped labelField + the shared
+    // form primitives through the same shell; so do the shared label
+    // contracts (field collection, collision geometry). 140KB is the agreed
+    // ceiling — #332 raised it first, the larger value wins on merge.
     expect(size).toBeLessThan(140000);
   });
 
