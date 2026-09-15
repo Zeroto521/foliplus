@@ -708,7 +708,7 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
       clientX: 50,
       clientY: 50,
     });
@@ -724,7 +724,7 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
       clientX: 50,
       clientY: 50,
     });
@@ -744,7 +744,7 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
       clientX: 50,
       clientY: 50,
     });
@@ -758,7 +758,7 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
       clientX: 50,
       clientY: 50,
     });
@@ -774,11 +774,56 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
       clientX: 50,
       clientY: 50,
     });
     expect(manager.dragState.dragType).toBe("br");
+  });
+
+  it("onPointerDown cancels the press so mousedown cannot also fire", () => {
+    // The press is claimed as a pointer event, but a real browser also
+    // dispatches a mousedown for it. That mousedown would hit LayerControl's
+    // document-level listener (drop-the-cursor-on-outside-press) and clear the
+    // row cursor mid-drag. preventDefault is what suppresses it: mouse
+    // compatibility events are only dispatched when the pointerdown was not
+    // prevented. stopImmediatePropagation additionally cuts any second
+    // listener on the same box element — stopPropagation alone would not,
+    // since core/interaction.ts already swallowed the event before this
+    // handler ran.
+    const preventDefault = vi.fn();
+    const stopImmediatePropagation = vi.fn();
+    const target = makeBox();
+    manager.onPointerDown({
+      target,
+      pointerId: 0,
+      preventDefault,
+      stopImmediatePropagation,
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(stopImmediatePropagation).toHaveBeenCalledTimes(1);
+  });
+
+  it("onPointerDown does not claim a press outside the box", () => {
+    // A press that is not part of the crop box must stay native — preventDefault
+    // here would swallow map drags, tile clicks and layer-panel focus moves
+    // that happen to start on the map while the crop box is open. The handler
+    // is attached to the box element, so in a real browser it only ever sees
+    // presses on the box; the mock exercises the guard anyway.
+    const preventDefault = vi.fn();
+    const target = document.createElement("div");
+    manager.onPointerDown({
+      target,
+      pointerId: 0,
+      preventDefault,
+      stopImmediatePropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragging).toBe(false);
+    expect(preventDefault).not.toHaveBeenCalled();
   });
 
   it("onPointerMove moves the box when dragging move", () => {
@@ -857,7 +902,7 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
     });
     expect(manager.dragState.dragging).toBe(false);
     expect(manager.dragState.dragType).toBeNull();
@@ -882,10 +927,37 @@ describe("ExportManager — pointer drag", () => {
       target,
       pointerId: 0,
       preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
     });
     expect(manager.dragState.dragging).toBe(false);
     expect(target.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+  });
+
+  it("onPointerUp ignores a non-element target", () => {
+    // A pointerup can land on document or any non-element (synthetic events,
+    // and a pinch cancelled after the box is removed). only Elements carry
+    // hasPointerCapture, so a blind call would throw mid-teardown and skip
+    // the .dragging reset below it.
+    const target = document.createElement("div");
+    target.classList.add(CONST.CLASSES.DRAGGING);
+    manager.cropState.box = target;
+    manager.dragState = {
+      dragging: true,
+      dragType: "move",
+      lastX: 50,
+      lastY: 50,
+    };
+    expect(() =>
+      manager.onPointerUp({
+        target: document,
+        pointerId: 0,
+        preventDefault: vi.fn(),
+        stopImmediatePropagation: vi.fn(),
+      }),
+    ).not.toThrow();
+    // The guard must be what let the state reset and the class cleanup run.
+    expect(manager.dragState.dragging).toBe(false);
+    expect(target.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
   });
 
   it("onPointerCancel releases the drag like pointerup", () => {

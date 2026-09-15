@@ -263,8 +263,6 @@ class ExportManager {
   onPointerDown(event: PointerEvent) {
     const st = this.cropState;
     if (!st || st.locked) return;
-    event.preventDefault();
-    event.stopPropagation();
     const target = event.target as HTMLElement;
     let type: string | null = null;
     if (target.classList.contains(CONST.CLASSES.HANDLE)) {
@@ -275,6 +273,23 @@ class ExportManager {
     ) {
       type = "move";
     } else return;
+
+    // Claim the press. This must come after the target check: the handler also
+    // runs for presses on the map outside the box, and preventing those would
+    // swallow native behaviour (map drag, tile click, focus move) for every
+    // pointerdown on the page while a crop box is open.
+    //
+    // stopImmediatePropagation, not stopPropagation: the pointerdown wrapper in
+    // core/interaction.ts has already preventDefault+stopPropagation'd the event
+    // *before* calling this handler, so stopPropagation here is a no-op and a
+    // second listener on the same box element would still run. The mouse
+    // compatibility event the browser queues for this pointerdown is a separate
+    // event entirely — what actually keeps LayerControl's document-level
+    // mousedown (drop-the-cursor-on-outside-press) from firing mid-drag is
+    // preventDefault above: mouse* compatibility events are only dispatched
+    // when the pointerdown was not prevented.
+    event.preventDefault();
+    event.stopImmediatePropagation();
 
     // Claim the pointer: every later pointermove/pointerup for this pointer
     // arrives at `target` and bubbles to the document drag listener even when
@@ -366,8 +381,12 @@ class ExportManager {
     // synthetic pointerup with no matching down must not strip the .dragging
     // class off a box that is mid-drag by another pointer.
     if (wasDragging && event.pointerId !== null) {
-      const target = event.target as HTMLElement | null;
-      if (target?.hasPointerCapture?.(event.pointerId)) {
+      // event.target can be document or any non-element (jsdom, synthetic
+      // events) — only Elements have hasPointerCapture. Browsers also
+      // release capture automatically on pointerup, so this is belt and
+      // braces for pointercancel, which has no such guarantee.
+      const target = event.target;
+      if (target instanceof Element && target.hasPointerCapture?.(event.pointerId)) {
         try {
           target.releasePointerCapture(event.pointerId);
         } catch {
