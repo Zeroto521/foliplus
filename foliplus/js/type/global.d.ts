@@ -161,6 +161,7 @@ declare global {
     label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
+    hide_selector?: string[];
     max_pixels?: number;
     quality?: number;
     scale?: string | number;

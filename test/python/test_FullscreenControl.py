@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
+import pytest
 from conftest import (
     assert_config_value,
     assert_locale,
@@ -31,6 +34,36 @@ class TestFullscreenControlPython:
 
     def test_custom_hide_self(self):
         assert FullscreenControl(hide_self=False).hide_self is False
+
+    def test_default_hide_selector(self):
+        assert FullscreenControl().hide_selector == []
+
+    def test_custom_hide_selector(self):
+        assert FullscreenControl(hide_selector=[".navbar"]).hide_selector == [".navbar"]
+
+    def test_hide_selector_rejects_none(self):
+        assert FullscreenControl(hide_selector=None).hide_selector == []
+
+    def test_hide_selector_copies_input(self):
+        """The list is copied so mutating the caller's list cannot change CONF."""
+        selectors = [".navbar"]
+        control = FullscreenControl(hide_selector=selectors)
+        selectors.append("#footer")
+        assert control.hide_selector == [".navbar"]
+
+    def test_hide_selector_accepts_tuple(self):
+        assert FullscreenControl(hide_selector=(".navbar",)).hide_selector == [
+            ".navbar"
+        ]
+
+    def test_hide_selector_rejects_scalar(self):
+        """A single selector passed bare is a TypeError at render time — caught here."""
+        with pytest.raises(ValueError, match="hide_selector must be a list"):
+            FullscreenControl(hide_selector=".navbar")
+
+    def test_hide_selector_rejects_dict(self):
+        with pytest.raises(ValueError, match="hide_selector must be a list"):
+            FullscreenControl(hide_selector={"nav": 1})
 
     def test_default_locale(self):
         assert FullscreenControl()._locale_code == ""
@@ -99,6 +132,16 @@ class TestFullscreeControlRendering:
         html = render_control(FullscreenControl(hide_others=False))
         assert_config_value(html, "hide_others", False)
 
+    def test_hide_selector_default_in_config(self):
+        """hide_selector=[] is passed via CONFIG, so JS sees an empty list."""
+        html = render_control(FullscreenControl())
+        assert '"hide_selector": []' in html
+
+    def test_hide_selector_in_config(self):
+        """hide_selector is passed through to the JS CONF verbatim."""
+        html = render_control(FullscreenControl(hide_selector=[".navbar", "#app"]))
+        assert '"hide_selector": [".navbar", "#app"]' in html
+
     def test_hide_self_independent_of_hide_others(self):
         """hide_self still works when hide_others=false."""
         html = render_control(FullscreenControl(hide_self=True, hide_others=False))
@@ -124,13 +167,129 @@ class TestFullscreeControlRendering:
 class TestFullscreenControlBrowser:
     """Browser-based smoke tests for FullscreenControl."""
 
-    def _make_page(self, browser, tmp_path, hide_self=True, hide_others=False):
+    def _make_page(
+        self, browser, tmp_path, hide_self=True, hide_others=False, hide_selector=None
+    ):
         """Build a page with FullscreenControl and return (page, errors)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        FullscreenControl(hide_self=hide_self, hide_others=hide_others).add_to(m)
+        FullscreenControl(
+            hide_self=hide_self, hide_others=hide_others, hide_selector=hide_selector
+        ).add_to(m)
         html = m.get_root().render()
+        # Inject a test hook at the control-entry line so browser tests can
+        # reach the control instance (dev build keeps the constructor name).
+        html, n = re.subn(
+            r"(new FullscreenControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__fullscreenCtrl = \1 window.__map = map;"
+            r"window.__fsHandler = window.__fullscreenCtrl.fsHandler;",
+            html,
+            count=1,
+        )
+        assert n == 1, "FullscreenControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, "fullscreen")
         return page, errors
+
+    def test_hide_selector_round_trip(self, browser, tmp_path):
+        """A page element matched by hide_selector hides in fullscreen and
+        comes back with its original display after exit."""
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            hide_self=False,
+            hide_others=False,
+            hide_selector=[".page-navbar"],
+        ) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            page.evaluate(
+                """() => {
+                    const nav = document.createElement('div');
+                    nav.className = 'page-navbar';
+                    nav.style.display = 'block';
+                    nav.textContent = 'nav';
+                    document.body.appendChild(nav);
+                }"""
+            )
+            page.wait_for_selector(".page-navbar", state="attached", timeout=10000)
+            self._enter_fullscreen(page, hide_self=False)
+            hidden = page.evaluate(
+                "getComputedStyle(document.querySelector('.page-navbar')).display"
+            )
+            assert hidden == "none", hidden
+
+            self._exit_fullscreen(page)
+            restored = page.evaluate(
+                "getComputedStyle(document.querySelector('.page-navbar')).display"
+            )
+            assert restored == "block", restored
+            assert not errors, f"JS errors: {errors}"
+
+    def test_hide_selector_unload_restores_elements(self, browser, tmp_path):
+        """Removing the map mid-fullscreen restores hide_selector elements.
+
+        Restore is driven by `updateUI`, which never runs again once the map
+        is gone — the `unload` teardown must cover it. Leaflet fires "unload"
+        when the map is destroyed, not when a single control is removed, so
+        the test drives the real trigger (`map.fire`) rather than an internal
+        closure.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            hide_self=False,
+            hide_others=False,
+            hide_selector=[".page-navbar"],
+        ) as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            page.evaluate(
+                """() => {
+                    const nav = document.createElement('div');
+                    nav.className = 'page-navbar';
+                    nav.style.display = 'block';
+                    nav.textContent = 'nav';
+                    document.body.appendChild(nav);
+                }"""
+            )
+            page.wait_for_selector(".page-navbar", state="attached", timeout=10000)
+            self._enter_fullscreen(page, hide_self=False)
+            assert (
+                page.evaluate(
+                    "getComputedStyle(document.querySelector('.page-navbar')).display"
+                )
+                == "none"
+            )
+            # The control is still mounted, so the marker is still present.
+            assert (
+                page.evaluate(
+                    "document.querySelectorAll('[data-foliplus-fs-display]').length"
+                )
+                == 1
+            )
+
+            page.evaluate("() => window.__map.fire('unload')")
+
+            restored = page.evaluate(
+                "getComputedStyle(document.querySelector('.page-navbar')).display"
+            )
+            assert restored == "block", restored
+            assert (
+                page.evaluate(
+                    "document.querySelectorAll('[data-foliplus-fs-display]').length"
+                )
+                == 0
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_button_exists(self, browser, tmp_path):
         """FullscreenControl button is present in the DOM."""

@@ -13,7 +13,7 @@ const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 class FullscreenControl extends BaseControl {
-  declare fsHandler: () => void;
+  fsHandler!: () => void;
 
   buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
