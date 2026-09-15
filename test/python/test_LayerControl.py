@@ -3379,12 +3379,10 @@ class TestLayerControlBrowser:
                 f"checkbox press snippet failed: {result}"
             )
             assert result["afterClick"]["focusedClass"] is False, (
-                "a checkbox toggle must not paint the cursor class, got "
-                + str(result)
+                "a checkbox toggle must not paint the cursor class, got " + str(result)
             )
             assert result["afterClick"]["glow"] is False, (
-                "a checkbox toggle must not paint the cursor glow, got "
-                + str(result)
+                "a checkbox toggle must not paint the cursor glow, got " + str(result)
             )
             assert result["afterAgain"]["focusedClass"] is False, (
                 "repeated toggles must stay quiet, got " + str(result)
@@ -3398,12 +3396,10 @@ class TestLayerControlBrowser:
                 "contract depends on it, got " + str(result)
             )
             assert result["litByKeyboard"]["focusedClass"] is True, (
-                "keyboard-modality focus must still light the row, got "
-                + str(result)
+                "keyboard-modality focus must still light the row, got " + str(result)
             )
             assert result["otherClick"]["anyClass"] is False, (
-                "toggling a second row must not light any row, got "
-                + str(result)
+                "toggling a second row must not light any row, got " + str(result)
             )
 
     def test_base_basemap_quiet_recipe(self, browser, tmp_path):
