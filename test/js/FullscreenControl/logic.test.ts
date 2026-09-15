@@ -63,6 +63,20 @@ const withHideSelector = selectors => {
   });
 };
 
+// Mirrors logic.ts's FS_DISPLAY_ATTR. The string is not exported from
+// logic.ts, so the test asserts the marker by name rather than through an
+// import that would only exist for the test.
+const FS_DISPLAY_ATTR = "data-foliplus-fs-display";
+
+const cleanUp = () => {
+  document
+    .querySelectorAll(`[${FS_DISPLAY_ATTR}]`)
+    .forEach(el => el.removeAttribute(FS_DISPLAY_ATTR));
+  withHideSelector([]);
+  vi.clearAllMocks();
+  mocks.getFullscreenEl.mockReturnValue(null);
+};
+
 describe("updateUI", () => {
   let fsBtn;
   let container;
@@ -205,12 +219,7 @@ describe("hide_selector", () => {
     withHideSelector([]);
   });
 
-  afterEach(() => {
-    document
-      .querySelectorAll("[data-foliplus-fs-display]")
-      .forEach(el => el.removeAttribute("data-foliplus-fs-display"));
-    withHideSelector([]);
-  });
+  afterEach(() => cleanUp());
 
   it("hides hide_selector elements and restores them on exit", () => {
     const page = document.createElement("div");
@@ -265,6 +274,39 @@ describe("hide_selector", () => {
     page.remove();
   });
 
+  it("repeats the warning for a selector fixed within the same session", () => {
+    // seenSelectorErrors is rebuilt at the end of every session, so a selector
+    // that was invalid on the first entry and corrected before the second
+    // entry reports its original failure again. Without the reset, the warning
+    // would fire once per selector for the page's lifetime.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="ok"></div>`;
+    document.body.appendChild(page);
+
+    withHideSelector(["[[", "#ok"]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("[[");
+
+    // First session ends: restore clears the dedup set.
+    withHideSelector([]);
+    mocks.getFullscreenEl.mockReturnValue(null);
+    updateUI(mapMock, fsBtn, container);
+
+    // Second session, same typo: the warning comes back.
+    withHideSelector(["[["]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[1][0]).toContain("[[");
+
+    page.remove();
+    cleanUp();
+    warn.mockRestore();
+  });
+
   it("does not touch page elements when hide_selector is empty", () => {
     const page = document.createElement("div");
     page.innerHTML = `<div id="nav-empty"></div>`;
@@ -313,12 +355,7 @@ describe("selector input is sanitised", () => {
     withHideSelector([]);
   });
 
-  afterEach(() => {
-    document
-      .querySelectorAll("[data-foliplus-fs-display]")
-      .forEach(el => el.removeAttribute("data-foliplus-fs-display"));
-    withHideSelector([]);
-  });
+  afterEach(() => cleanUp());
 
   it("trims valid selectors and silently drops blank entries", () => {
     const page = document.createElement("div");
@@ -472,5 +509,34 @@ describe("bindFullscreenEvents — native API path", () => {
     handler();
     expect(mapMock.isFullscreen).toBe(true);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+  });
+
+  it("restores hide_selector elements when the map unloads mid-fullscreen", () => {
+    // restorePageElements only runs from updateUI, so a map removed while
+    // fullscreen would leave every marked element at display:none forever.
+    // Unload is the one teardown path that must cover it.
+    const page = document.createElement("div");
+    page.innerHTML = `<div id="unload-nav" style="display:block"></div>`;
+    document.body.appendChild(page);
+    const nav = page.querySelector("#unload-nav");
+
+    withHideSelector(["#unload-nav"]);
+    mocks.getFullscreenEl.mockReturnValue({});
+    updateUI(mapMock, fsBtn, container);
+    expect(nav.style.display).toBe("none");
+    expect(nav.hasAttribute(FS_DISPLAY_ATTR)).toBe(true);
+
+    // Simulate Leaflet removing the map: no fullscreenchange fires.
+    bindFullscreenEvents(mapMock, fsBtn, container);
+    const unloadHandler = mapMock.on.mock.calls[0][1];
+    unloadHandler();
+
+    expect(nav.style.display).toBe("block");
+    expect(nav.hasAttribute(FS_DISPLAY_ATTR)).toBe(false);
+    expect(document.querySelectorAll(`[${FS_DISPLAY_ATTR}]`).length).toBe(0);
+
+    page.remove();
+    withHideSelector([]);
+    mocks.getFullscreenEl.mockReturnValue(null);
   });
 });

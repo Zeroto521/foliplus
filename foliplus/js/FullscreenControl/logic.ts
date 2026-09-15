@@ -16,17 +16,19 @@ const log = createLogger(CONF.name);
 // ══════════════════════════════════════════════════════════════════════════════
 // A selector list from the user, so it is not trusted: an invalid selector must
 // not abort the rest of updateUI (which also owns the hint message). The error
-// is logged once per selector so a bad selector surfaces in the console instead
-// of silently doing nothing forever.
+// is logged once per selector per fullscreen session — the dedup set is rebuilt
+// at the end of every session so a typo that is fixed later is reported again.
 const seenSelectorErrors = new Set<string>();
 
+// `querySelector` throws on a malformed selector but never on an empty one, so
+// trim before probing: this both rejects blanks and normalises the value we
+// then hand to querySelectorAll.
 const parseSelector = (raw: string): string | null => {
   if (typeof raw !== "string") return null;
   const sel = raw.trim();
   if (!sel) return null;
   try {
     document.querySelector(sel);
-    return sel;
   } catch (error) {
     if (!seenSelectorErrors.has(sel)) {
       seenSelectorErrors.add(sel);
@@ -34,26 +36,26 @@ const parseSelector = (raw: string): string | null => {
     }
     return null;
   }
+  return sel;
 };
 
 // display is toggled rather than overridden: an element that is already hidden
 // for another reason keeps its display value when fullscreen ends.
 //
-// The previous inline display is carried on the element as `data-foliplus-fs-display`.
-// A dataset key would be useless here: the selector list is empty on the restore
-// pass (hide_selector comes from CONF, which holds only one control's config),
-// so the elements could never be re-found. Marking the element and scanning the
-// whole document on exit keeps restore independent of hide_selector.
+// The previous inline display is carried on the element as `data-foliplus-fs-display`,
+// not in a module Map keyed by selector. CONF holds only one control's config, so
+// the selector list is empty on the restore pass — the elements could never be
+// re-found by selector. Marking the element and scanning the whole document on
+// exit also keeps restore scoped to whatever this control actually hid: the
+// document scan is the only way to restore a selection, so two FullscreenControl
+// instances on one page must never undo each other.
 const FS_DISPLAY_ATTR = "data-foliplus-fs-display";
 
 const hidePageElements = (selectors: string[]) => {
   for (const sel of selectors) {
-    let elements: NodeListOf<HTMLElement>;
-    try {
-      elements = document.querySelectorAll<HTMLElement>(sel);
-    } catch {
-      continue;
-    }
+    // parseSelector already rejected any selector querySelector would throw on,
+    // so the list here is safe to query with.
+    const elements = document.querySelectorAll<HTMLElement>(sel);
     for (const el of elements) {
       // A duplicate selector would otherwise overwrite the baseline with the
       // "none" this pass just set.
@@ -70,6 +72,7 @@ const restorePageElements = () => {
     el.style.display = el.getAttribute(FS_DISPLAY_ATTR) ?? "";
     el.removeAttribute(FS_DISPLAY_ATTR);
   }
+  seenSelectorErrors.clear();
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -171,6 +174,9 @@ const bindFullscreenEvents = (
   if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
   map.on("unload", () => {
     if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
+    // If the map is removed while fullscreen, no updateUI will ever run the
+    // restore pass — the marked elements would keep `display: none` forever.
+    restorePageElements();
   });
 
   return handleFSChange;

@@ -28,7 +28,7 @@
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
-- `FullscreenControl`: `hide_selector` parameter to hide arbitrary page elements (navbar, footer, …) while in fullscreen, extending `hide_others` beyond `.leaflet-control-container`; original inline `display` values are restored on exit ([#324](https://github.com/Zeroto521/foliplus/pull/324))
+- `FullscreenControl`: `hide_selector` parameter to hide arbitrary page elements (navbar, footer, …) while in fullscreen, extending `hide_others` beyond `.leaflet-control-container`; the original inline `display` is carried on the element itself and restored on exit — including on map unload, so a map removed mid-fullscreen does not leave the page elements hidden ([#324](https://github.com/Zeroto521/foliplus/pull/324))
 
 ### Changed
 
