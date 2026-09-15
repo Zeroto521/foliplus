@@ -317,7 +317,20 @@ class ExportRenderer {
       }
     }
 
+    // Canvas overlays in a shared pane (LayerControl's annotation pane holds
+    // every layer's labels) belong to no single layer, so the walk above never
+    // reaches them.
+    await this.renderSharedCanvases(rc);
+
     return canvas;
+  }
+
+  /** Render the canvas overlays of shared (non-layer) panes. */
+  async renderSharedCanvases(rc: RenderCtx) {
+    const container = this.map.getContainer();
+    for (const ce of container.querySelectorAll(CONST.SEL.SHARED_CANVAS)) {
+      await this.renderCanvasElement(rc, ce as HTMLCanvasElement);
+    }
   }
 
   /** Render a standalone canvas element (e.g. HeatmapControl). */

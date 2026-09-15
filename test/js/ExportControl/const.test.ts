@@ -5,12 +5,12 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 // Static exported constants (value-only tests, no mocking needed).
 // ===========================================================================
 
-describe("SEL.CANVAS", () => {
-  it("selects every canvas overlay that paints map content", () => {
-    // The export's canvas pass is a whitelist: `collectLayerMarkers` skips
-    // CANVAS elements, so a canvas the selector misses vanishes silently from
-    // the exported image. This pins both the heatmap's hex canvas and
-    // LayerControl's annotation canvas into that whitelist.
+describe("export canvas whitelists", () => {
+  it("reach every canvas overlay that paints map content", () => {
+    // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
+    // so a canvas in neither list vanishes from the export without any error.
+    // CANVAS is walked per layer pane; SHARED_CANVAS covers a canvas that lives
+    // in a pane of its own (LayerControl's annotation labels).
     const mapPane = document.createElement("div");
     mapPane.className = "leaflet-map-pane";
     const heat = document.createElement("canvas");
@@ -21,8 +21,8 @@ describe("SEL.CANVAS", () => {
     mapPane.append(heat, annotation, unrelated);
     document.body.appendChild(mapPane);
 
-    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
-      heat,
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([heat]);
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.SHARED_CANVAS))).toEqual([
       annotation,
     ]);
     mapPane.remove();
