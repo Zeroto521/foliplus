@@ -15,7 +15,7 @@ import {
 } from "../interaction.js";
 import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
-import { closeAttrsPanel, openAttrsPanel } from "./attrs.js";
+import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import { isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {

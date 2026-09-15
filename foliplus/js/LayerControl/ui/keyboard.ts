@@ -2,7 +2,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import { closeAttrsPanel } from "./attrs.js";
+import { closeAttrsPanel } from "./attr.js";
 import { owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
