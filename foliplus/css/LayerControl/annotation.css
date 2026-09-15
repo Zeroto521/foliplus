@@ -1,8 +1,0 @@
-/* ══════════════════════════════════════════════════════════════════════
-  Annotation labels (drawn on a shared canvas overlay)
-  The canvas draws every label from the shared map-label tokens
-  (common/token.css): font, colour and halo all come from --label-*, the same
-  tokens HeatmapControl's canvas labels read — so a hex value and an annotation
-  label over the same feature render as one language. There is no CSS here on
-  purpose: the canvas owns the draw.
-  ══════════════════════════════════════════════════════════════════════ */
