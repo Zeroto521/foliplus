@@ -693,9 +693,9 @@ class TestLayerControlRendering:
         # the attrs AND the style panel (both `foliplus-row-panel`) get the
         # suppression without being named individually.
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
-        assert (
-            f"&:has({overlay_list})" in css
-        ), "the suppression must key on the more-menu AND the row-panel shell"
+        assert f"&:has({overlay_list})" in css, (
+            "the suppression must key on the more-menu AND the row-panel shell"
+        )
         # The owner row keeps the recipe: the same overlay list is also used in
         # the :not(:has(...)) owner-exclusion of both suppression rules.
         assert css.count(overlay_list) >= 3, (
@@ -3718,6 +3718,8 @@ class TestLayerControlBrowser:
             quiet = snap_sep()
             assert quiet == base_sep, (
                 "hovering a sibling while the attrs panel is open must not "
-                "light the Row-cursor recipe, got " + str(quiet) + " vs "
+                "light the Row-cursor recipe, got "
+                + str(quiet)
+                + " vs "
                 + str(base_sep)
             )
