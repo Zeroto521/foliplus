@@ -116,7 +116,9 @@ describe("LayerUI rename", () => {
       expect(ui.activeMenu).toBeNull();
       expect(ui.activeRenameId).toBe("overlay1");
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
+      const input = label.querySelector(
+        'input[type="text"]',
+      ) as HTMLInputElement | null;
       expect(input).not.toBeNull();
       expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
       expect(input?.value).toBe("Polygons");
@@ -263,9 +265,7 @@ describe("LayerUI rename", () => {
       const label = item.querySelector("label") as HTMLLabelElement;
       // The label wraps the checkbox, so clearing its text must not take
       // the toggle with it -- a renamed row must still be switchable.
-      expect(
-        label.querySelector('input[type="checkbox"]'),
-      ).not.toBeNull();
+      expect(label.querySelector('input[type="checkbox"]')).not.toBeNull();
       const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "Renamed";
@@ -395,7 +395,9 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
+      const input = label.querySelector(
+        'input[type="text"]',
+      ) as HTMLInputElement | null;
       expect(input).not.toBeNull();
       expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
       // Default is the locale label, NOT the color hex (regression guard).
@@ -444,7 +446,9 @@ describe("LayerUI rename", () => {
       const firstLabel = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM} label`)!;
       // The rename input lives inside the label; the first bare `input` in the
       // item is the color swatch, so scope to the label.
-      const firstInput = firstLabel.querySelector('input[type="text"]') as HTMLInputElement;
+      const firstInput = firstLabel.querySelector(
+        'input[type="text"]',
+      ) as HTMLInputElement;
       firstInput.value = "My Base";
       firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
       expect(firstLabel.textContent).toBe("My Base");

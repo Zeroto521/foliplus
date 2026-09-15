@@ -336,9 +336,7 @@ const removeInlineEditInput = (
   // `querySelector("input")` would return that first -- teardown would then
   // delete the visibility toggle instead of the edit field, and leave the
   // edit input in place.
-  const input = label.querySelector('input[type="text"]') as
-    | HTMLInputElement
-    | null;
+  const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
   if (input) label.removeChild(input);
   return input;
 };
