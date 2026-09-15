@@ -89,7 +89,7 @@
 - `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, which reads the same `dist/artifacts.json` the build wrote, and CI renders every control against an isolated copy of the built wheel ([#300](https://github.com/Zeroto521/foliplus/pull/300))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
-- `ExportControl`: drag jumping after a long crop-box drag — the crop box now uses pointer events with `setPointerCapture`, so a move event lost while the cursor crosses another element no longer leaks the incremental delta, and a touch pinch or OS gesture that cancels the pointer releases the drag instead of leaving it stuck on a stale anchor [[#341](https://github.com/Zeroto521/foliplus/pull/341))
+- `ExportControl`: drag jumping after a long crop-box drag — the crop box now uses pointer events with `setPointerCapture`, so a move event lost while the cursor crosses another element no longer leaks the incremental delta, and a touch pinch or OS gesture that cancels the pointer releases the drag instead of leaving it stuck on a stale anchor ([#341](https://github.com/Zeroto521/foliplus/pull/341))
 
 ## [v0.3.0] (2026-08-02)
 
