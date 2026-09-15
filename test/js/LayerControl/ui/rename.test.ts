@@ -116,7 +116,7 @@ describe("LayerUI rename", () => {
       expect(ui.activeMenu).toBeNull();
       expect(ui.activeRenameId).toBe("overlay1");
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement | null;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
       expect(input).not.toBeNull();
       expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
       expect(input?.value).toBe("Polygons");
@@ -128,7 +128,7 @@ describe("LayerUI rename", () => {
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(true);
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "New Name";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -144,7 +144,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "Via Blur";
       input.dispatchEvent(new Event("blur"));
@@ -161,7 +161,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "abandon";
       // Escape defers the teardown so the keydown can still bubble to the
@@ -184,7 +184,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       // Escape tears the input down (finishRename removes it → triggers blur).
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
@@ -201,7 +201,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "   ";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -215,7 +215,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "  Trimmed  ";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -229,7 +229,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "Polygons"; // unchanged
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -242,7 +242,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer("overlay1");
 
       const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "Changed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -252,16 +252,21 @@ describe("LayerUI rename", () => {
 
     it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
       const item = findItem(ui, "overlay1");
-      ui.renameLayer("overlay1");
-
-      const label = item.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       // The tooltip is the Select/Deselect affordance; a rename must not
       // occupy that slot.
       const tooltip = checkbox.title;
       expect(tooltip).not.toBe("");
       expect(tooltip).not.toBe("Renamed");
+
+      ui.renameLayer("overlay1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      // The label wraps the checkbox, so clearing its text must not take
+      // the toggle with it -- a renamed row must still be switchable.
+      expect(
+        label.querySelector('input[type="checkbox"]'),
+      ).not.toBeNull();
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       input.value = "Renamed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
@@ -390,7 +395,7 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement | null;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
       expect(input).not.toBeNull();
       expect(input?.classList.contains(CONST.CLASSES.RENAME_INPUT)).toBe(true);
       // Default is the locale label, NOT the color hex (regression guard).
@@ -403,7 +408,7 @@ describe("LayerUI rename", () => {
       ui.renameLayer(CONST.COLOR.MAP_ID);
 
       const label = colorItem.querySelector("label") as HTMLLabelElement;
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
       input.value = "My Base";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
@@ -439,7 +444,7 @@ describe("LayerUI rename", () => {
       const firstLabel = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM} label`)!;
       // The rename input lives inside the label; the first bare `input` in the
       // item is the color swatch, so scope to the label.
-      const firstInput = firstLabel.querySelector("input") as HTMLInputElement;
+      const firstInput = firstLabel.querySelector('input[type="text"]') as HTMLInputElement;
       firstInput.value = "My Base";
       firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
       expect(firstLabel.textContent).toBe("My Base");
@@ -594,7 +599,7 @@ describe("LayerUI rename", () => {
     it("saveNamesState persists a committed rename into localStorage", () => {
       const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
       ui.renameLayer("overlay1");
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
 
       vi.useFakeTimers();
       input.value = "Persisted";
@@ -624,17 +629,17 @@ describe("LayerUI rename", () => {
       const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
 
       ui.renameLayer("overlay1");
-      let input = label.querySelector("input") as HTMLInputElement;
+      let input = label.querySelector('input[type="text"]') as HTMLInputElement;
       input.value = "First";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       ui.renameLayer("overlay1");
-      input = label.querySelector("input") as HTMLInputElement;
+      input = label.querySelector('input[type="text"]') as HTMLInputElement;
       input.value = "Second";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       ui.renameLayer("overlay1");
-      input = label.querySelector("input") as HTMLInputElement;
+      input = label.querySelector('input[type="text"]') as HTMLInputElement;
       input.value = "Third";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
@@ -673,7 +678,7 @@ describe("LayerUI rename", () => {
       const label = findItem(ui, "overlay1").querySelector("label") as HTMLLabelElement;
 
       ui.renameLayer("overlay1");
-      const input = label.querySelector("input") as HTMLInputElement;
+      const input = label.querySelector('input[type="text"]') as HTMLInputElement;
       input.value = "Polygons"; // unchanged
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 

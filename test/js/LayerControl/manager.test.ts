@@ -1749,7 +1749,7 @@ describe("LayerManager user-assigned names", () => {
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;
-    const input = label.querySelector("input") as HTMLInputElement;
+    const input = label.querySelector('input[type="text"]') as HTMLInputElement;
     input.value = "My Layer";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(manager.ui.displayName("ext")).toBe("My Layer");

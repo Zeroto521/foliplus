@@ -331,7 +331,14 @@ const removeInlineEditInput = (
   label: HTMLLabelElement | null,
 ): HTMLInputElement | null => {
   if (!label) return null;
-  const input = label.querySelector("input") as HTMLInputElement | null;
+  // Anchor on the text input. The label also wraps the row's checkbox (implicit
+  // label, so a name click gives it DOM focus), and a bare
+  // `querySelector("input")` would return that first -- teardown would then
+  // delete the visibility toggle instead of the edit field, and leave the
+  // edit input in place.
+  const input = label.querySelector('input[type="text"]') as
+    | HTMLInputElement
+    | null;
   if (input) label.removeChild(input);
   return input;
 };
@@ -394,7 +401,13 @@ const createInlineEditInput = (opts: {
   });
   input.addEventListener("blur", () => commit(input.value));
 
-  opts.label.textContent = "";
+  // Replace the label's own text only. `label.textContent = ""` clears the
+  // whole subtree, which on a data row deletes the checkbox the label wraps
+  // (implicit label, so a name click gives it DOM focus). Dropping it would
+  // make every rename silently uninstall the row's visibility toggle.
+  for (const node of Array.from(opts.label.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) opts.label.removeChild(node);
+  }
   opts.label.appendChild(input);
   input.focus();
   input.select();
