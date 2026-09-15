@@ -420,3 +420,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     process.exit(1);
   });
 }
+
+// Test surface: the path guard that decides whether the source transforms
+// run is exactly where the Windows separator bug lived, so the plugin and
+// the source dir it guards against are exported for the script tests.
+export { sourceTransformPlugin, srcDir };
