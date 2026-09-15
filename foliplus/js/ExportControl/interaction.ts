@@ -1,4 +1,4 @@
-// ExportControl interaction — keyboard + mouse event registration.
+// ExportControl interaction — keyboard + pointer event registration.
 import { ensureInteraction } from "#core/interaction.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
@@ -37,14 +37,27 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
   ]);
 };
 
+// Pointer events, not mouse events: `mouse*` has no capture contract, so one
+// dropped move mid-drag leaks the incremental delta and the box lands short
+// of the cursor. Pointers also cover touch and pen, where the drop is most
+// likely — a touch pinch cancels the pointer and never delivers a mouseup,
+// which is what leaves the drag listeners registered and the box stuck.
 const registerDrag = (mgr: ExportManager): (() => void) => {
-  const interaction = ensureInteraction(mgr.map);
-  return interaction.register(`${CONF.name}-drag`, [
-    { event: "mousemove", handler: (e: Event) => mgr.onMouseMove(e as MouseEvent) },
+  return ensureInteraction(mgr.map).register(`${CONF.name}-drag`, [
     {
-      event: "mouseup",
-      handler: () => {
-        mgr.onMouseUp();
+      event: "pointermove",
+      handler: (e: Event) => mgr.onPointerMove(e as PointerEvent),
+    },
+    {
+      event: "pointerup",
+      handler: (e: Event) => {
+        mgr.onPointerUp(e as PointerEvent);
+      },
+    },
+    {
+      event: "pointercancel",
+      handler: (e: Event) => {
+        mgr.onPointerCancel(e as PointerEvent);
       },
     },
   ]);
@@ -54,12 +67,11 @@ const registerCropMouseDown = (
   mgr: ExportManager,
   element: HTMLElement,
 ): (() => void) => {
-  const interaction = ensureInteraction(mgr.map);
-  return interaction.register(`${CONF.name}-crop`, [
+  return ensureInteraction(mgr.map).register(`${CONF.name}-crop`, [
     {
-      event: "mousedown",
+      event: "pointerdown",
       element,
-      handler: (e: Event) => mgr.onMouseDown(e as MouseEvent),
+      handler: (e: Event) => mgr.onPointerDown(e as PointerEvent),
     },
   ]);
 };
