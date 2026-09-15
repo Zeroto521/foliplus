@@ -92,7 +92,9 @@ def assert_not_source_checkout(foliplus: ModuleType) -> None:
     pkg_dir = Path(foliplus.__file__).resolve().parent
     repo_root = pkg_dir.parent
     markers = [repo_root / "pyproject.toml", repo_root / "test"]
-    found = [str(m.relative_to(repo_root)) for m in markers if m.is_dir() or m.is_file()]
+    found = [
+        str(m.relative_to(repo_root)) for m in markers if m.is_dir() or m.is_file()
+    ]
     if found:
         raise SmokeFailure(
             f"imported foliplus from a source checkout at {pkg_dir} "

@@ -186,6 +186,7 @@ def test_locate_controls_is_sorted(smoke, package):
 
 def _render_stub(html: str) -> types.ModuleType:
     """A `folium` stub that renders one fixed document regardless of control."""
+
     class Map:
         def get_root(self) -> Map:
             return self
@@ -211,7 +212,9 @@ def _cls(name: str) -> type:
 
 def test_render_control_passes_on_a_real_bundle(tmp_path, smoke):
     """Banner and externalisation present in both bundle and HTML → passes."""
-    folium_stub = _render_stub("/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;")
+    folium_stub = _render_stub(
+        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;"
+    )
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
     smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
@@ -235,7 +238,9 @@ def test_render_control_rejects_a_bundle_without_the_component(tmp_path, smoke):
 def test_render_control_rejects_a_bundle_without_the_runtime(tmp_path, smoke):
     """A bundle that names the component but never externalises to the shared
     runtime cannot drive it — dead code, and the render proves it."""
-    folium_stub = _render_stub("/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;")
+    folium_stub = _render_stub(
+        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;"
+    )
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text(_bundle("ScaleControl", externalise=False), encoding="utf-8")
     with pytest.raises(AssertionError, match="bundle holds no"):
