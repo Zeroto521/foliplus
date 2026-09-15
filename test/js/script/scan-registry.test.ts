@@ -232,7 +232,7 @@ describe("generateRegistry", () => {
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
     expect(output).toContain('window.foliplus.core["geo"]');
-    expect(output).not.toContain('core/index');
+    expect(output).not.toContain("core/index");
     expect(output).not.toContain("#core/index.js");
   });
 

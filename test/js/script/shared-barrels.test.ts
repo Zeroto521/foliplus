@@ -59,8 +59,8 @@ describe("shared-library barrel imports", () => {
     // intended shape: the registry generates an import for each of them from
     // `#core/<sub>/index.js`. A *domain* barrel (`#core/index.js`,
     // `#common/index.js`) is what the deletion removed, and neither is bundled.
-    const domainBarrels = barrels.filter(
-      ([spec]) => /#(core|common)\/index\.js$/.test(spec),
+    const domainBarrels = barrels.filter(([spec]) =>
+      /#(core|common)\/index\.js$/.test(spec),
     );
     expect(domainBarrels).toEqual([]);
   });
