@@ -426,15 +426,15 @@ path.foliplus-focus-mask {
 
   /* ── Open overlay: the owner row lifts above its siblings ──
      While the ⋮ menu or a row panel (attrs / style) is open, sibling rows
-     keep their normal hover wake — that is their own state display, and the
-     overlay is the pointer's destination, not a modal. The one thing that
-     must hold is the overlay staying visible: its z-index (9990 for the
-     menu, 10 for a row panel) is confined to the owner's stacking context
-     whenever the owner is hovered (the Row-cursor recipe gives it z-index
-     1), so a LATER lit sibling at z-index 1 would paint over it. Lifting
-     the owner row itself to the floating index carries the open overlay
-     with it and settles every stacking combination — no sibling wake can
-     ever cover the menu. */
+     keep their normal hover wake — that is their own state display. The one
+     thing that must hold is the overlay staying visible. Its fixed z-index
+     (9990 menu / 10 row panel) is NOT enough on its own: opening a menu
+     focuses its first item, so the container's focusin delegate marks the
+     OWNER row `.foliplus-layer-focused` — the recipe then gives it z-index
+     1, confining the overlay inside a stacking context where a LATER lit
+     sibling (z-index 1, later in DOM) paints over it (measured, not
+     guessed). Lifting the owner row itself to the floating index carries
+     the open overlay with it and settles every combination. */
   &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
     .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
       z-index: var(--z-index-floating);

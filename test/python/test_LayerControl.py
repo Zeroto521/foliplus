@@ -677,25 +677,25 @@ class TestLayerControlRendering:
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
 
-    def test_open_overlay_lifts_owner_row_above_siblings(self):
+    def test_open_overlay_lifts_owner_row_above_sibling_wake(self):
         """While a row overlay is open the owner row is lifted to the floating
         index, so no sibling hover wake can paint over the menu or a row
-        panel: the overlay's own z-index is confined to the owner's stacking
-        context whenever the owner is hovered (the Row-cursor recipe gives it
-        z-index 1), where a later lit sibling would win — lifting the owner
-        carries the overlay with it and settles every combination. Sibling
-        rows keep their normal hover wake; that is their own state display.
-        One rule keys on the ⋮ menu plus the shared row-panel shell, so the
-        attrs AND the style panel get the guarantee without being named
-        individually."""
+        panel. A fixed overlay z-index is not enough: opening a menu focuses
+        its first item, so the focusin delegate marks the OWNER row
+        `.foliplus-layer-focused`; the recipe then gives the owner a z-index
+        1 stacking context that confines the overlay, and a later lit
+        sibling paints over it (measured in the browser). Lifting the owner
+        carries the overlay with it and settles every stacking combination.
+        Sibling rows keep their normal hover wake; that is their own state
+        display."""
         css = read_css("foliplus/css/LayerControl.css")
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
         assert f"&:has({overlay_list})" in css, (
             "the lift must key on the more-menu AND the row-panel shell"
         )
-        # The owner (the row containing the open overlay) is detected with
-        # :has() and raised — not the siblings, which keep their wake.
-        assert ".foliplus-layer-item:has(" in css
+        assert ".foliplus-layer-item:has(" in css, (
+            "the owner row (the row containing the open overlay) is raised"
+        )
         assert "z-index: var(--z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row (the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path).
