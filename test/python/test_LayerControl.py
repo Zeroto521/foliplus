@@ -689,10 +689,13 @@ class TestLayerControlRendering:
         z-index is trapped in the owner's stacking context, where a later
         sibling at z-index 1 would win."""
         css = read_css("foliplus/css/LayerControl.css")
-        overlay_list = ".foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel"
+        # The trigger keys on the ⋮ menu plus the shared row-panel shell, so
+        # the attrs AND the style panel (both `foliplus-row-panel`) get the
+        # suppression without being named individually.
+        overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
         assert (
             f"&:has({overlay_list})" in css
-        ), "the suppression must key on the more-menu AND the attrs panel"
+        ), "the suppression must key on the more-menu AND the row-panel shell"
         # The owner row keeps the recipe: the same overlay list is also used in
         # the :not(:has(...)) owner-exclusion of both suppression rules.
         assert css.count(overlay_list) >= 3, (

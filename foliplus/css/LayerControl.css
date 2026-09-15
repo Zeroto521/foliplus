@@ -425,24 +425,25 @@ path.foliplus-focus-mask {
   }
 
   /* ── Open overlay: the dropdown owns the pointer ──
-     While a row overlay is open — the more-menu or the attributes panel —
-     the cursor crosses sibling rows on its way to it; those rows must NOT
-     join the Row-cursor recipe (no white surface, glow, drag grip,
+     While a row overlay is open — the more-menu or a row panel (attributes
+     / style) — the cursor crosses sibling rows on its way to it; those rows
+     must NOT join the Row-cursor recipe (no white surface, glow, drag grip,
      ⋮-accent) or every layer under the path would light up. The row that
      owns the open overlay keeps the recipe — it is the anchor, and staying
      lit ties the overlay to its row. Suppressed rows also drop
      position/z-index entirely, so they can never paint above the overlay:
      its own z-index is confined to the owner's stacking context, so raising
      it alone could not beat a later sibling at z-index 1. One rule covers
-     both overlays — the more-menu and the attrs panel share the same
-     anchor/traversal geometry, so they share the suppression. */
-  &:has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel) {
+     every overlay — the ⋮ menu plus the shared `foliplus-row-panel` shell
+     (attrs and style panels anchor the same way, so they share the
+     suppression). */
+  &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
     /* Neutralise the transient Row-cursor recipe on siblings: no glow, no
        stacking bump, no drag grip. The colour/background legs are split by
        checked state below — an overlay must not cancel a checked row's
        persistent wash/icon/⋮ readout either. */
     .foliplus-layer-item:not(
-        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+        :has(.foliplus-layer-more-menu.open, .foliplus-row-panel)
       ):is(:hover, .foliplus-layer-focused),
     .foliplus-layer-sep.foliplus-layer-toggle-all:is(:hover, .foliplus-layer-focused) {
       position: static;
@@ -457,7 +458,7 @@ path.foliplus-focus-mask {
        exact rest state of an unchecked row, so suppressed hover is
        indistinguishable from resting. */
     .foliplus-layer-item:not(.active):not(
-        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+        :has(.foliplus-layer-more-menu.open, .foliplus-row-panel)
       ):is(:hover, .foliplus-layer-focused),
     .foliplus-layer-sep.foliplus-layer-toggle-all:not(.active):is(
         :hover,
@@ -475,7 +476,7 @@ path.foliplus-focus-mask {
     /* Checked rows keep their persistent state — wash, black type icon,
        accent ⋮ — which is exactly their rest state too. */
     .foliplus-layer-item.active:not(
-        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+        :has(.foliplus-layer-more-menu.open, .foliplus-row-panel)
       ):is(:hover, .foliplus-layer-focused),
     .foliplus-layer-sep.foliplus-layer-toggle-all.active:is(
         :hover,
