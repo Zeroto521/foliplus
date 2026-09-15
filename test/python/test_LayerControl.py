@@ -132,7 +132,7 @@ class TestLayerControlRendering:
 
         html = render_control(LayerControl())
         assert "FOLD" in html
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "rotate(180deg)" in css
 
     def test_locale_zh(self):
@@ -309,7 +309,7 @@ class TestLayerControlRendering:
 
     def test_layer_item_6_column_grid(self, base_map: folium.Map):
         """Layer item uses 6-column grid-template-areas with all six slots."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert '"drag check label count icon more"' in css
 
     def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
@@ -329,23 +329,23 @@ class TestLayerControlRendering:
 
     def test_more_button_grid_area(self):
         """More button is placed in the 'more' grid area."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-layer-more-btn" in css
         assert "grid-area: more" in css
 
     def test_drag_cell_grid_area(self):
         """Drag cell is placed in the 'drag' grid area."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "grid-area: drag" in css
 
     def test_count_column_5_char_cap(self):
         """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "38px" in css
 
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # type-icon-col width/height use the checkbox square (--space-xl = 16px),
         # not the old 14px/18px icon-size tokens.
         idx = css.find(".foliplus-type-icon-col {")
@@ -359,7 +359,7 @@ class TestLayerControlRendering:
         """More grid column and button both use --more-btn-width (7px),
         and the count column uses --count-track-width; both keep the track and
         each element's own width synchronised without magic numbers."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Named dimension vars are defined once
         assert "--count-track-width: 38px" in css
         assert "--more-btn-width: 7px" in css
@@ -408,7 +408,7 @@ class TestLayerControlRendering:
         onto the class by the focusin delegate. Only colour changes; the type
         icon must NOT scale."""
         html = render_control(LayerControl())
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
@@ -570,7 +570,7 @@ class TestLayerControlRendering:
 
     def test_folded_state_no_accent_text(self):
         """Folded label keeps neutral color; only left border and fold-btn use accent."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # left border and fold-btn turn accent when folded — both expected
         assert "foliplus-layer-folded" in css
         assert "border-left-color: var(--accent-primary)" in css
@@ -582,7 +582,7 @@ class TestLayerControlRendering:
     def test_toggle_all_grid_uses_named_slots_for_three_items(self):
         """Toggle-all row names only drag/check/label slots; divider is
         anonymous (dual-declaration trap removed)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # The toggle-all container's template-areas carries exactly the
         # three named slots (drag/check/label) plus three anonymous dots.
         lines = [l.strip() for l in css.splitlines() if "grid-template-areas" in l]
@@ -602,7 +602,7 @@ class TestLayerControlRendering:
         """Divider is placed by grid-column: 4 / -1 (explicit range), not
         grid-area or grid-column: span — so it never overflows to a new row
         when anonymous slots change count."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the .foliplus-section-divider rule nested under toggle-all.
         idx = css.find(".foliplus-section-divider {")
         assert idx != -1, "no .foliplus-section-divider { rule found"
@@ -620,7 +620,7 @@ class TestLayerControlRendering:
         start (4) = label slot + 1; end (-1) = last column. So the range
         never overflows past the last track, which would push the divider
         to a new row."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
         #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
         idx = css.find("--grid-layer-cols:")
@@ -652,7 +652,7 @@ class TestLayerControlRendering:
     def test_toggle_all_align_self_center_removed(self):
         """Divider no longer declares a redundant align-self: center — the
         row already aligns items to center via align-items: center."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         idx = css.find(".foliplus-section-divider {")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
@@ -660,7 +660,7 @@ class TestLayerControlRendering:
 
     def test_toggle_all_label_semibold_primary(self):
         """Section header label is semibold and text-primary so it reads as a real header."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
         assert "font-weight: var(--font-weight-semibold)" in css
         assert "color: var(--text-primary)" in css
@@ -669,7 +669,7 @@ class TestLayerControlRendering:
         """Toggle-all row joins the shared Row-cursor recipe: hover uses
         accent-primary (not accent-light) and the fold row cannot drift into a
         private hover style anymore."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         assert "is(:hover, .foliplus-layer-focused)" in css
         assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
@@ -688,7 +688,7 @@ class TestLayerControlRendering:
         carries the overlay with it and settles every stacking combination.
         Sibling rows keep their normal hover wake; that is their own state
         display."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
         assert f"&:has({overlay_list})" in css, (
             "the lift must key on the more-menu AND the row-panel shell"
@@ -703,7 +703,7 @@ class TestLayerControlRendering:
 
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the rule that targets fold-btn itself (not fold-btn svg)
         # by searching for the closing of the selector without "svg" on the same segment
         match = re.search(
@@ -715,13 +715,13 @@ class TestLayerControlRendering:
 
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the group is folded."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "&:hover" in css
         assert "color: var(--accent-primary)" in css
@@ -733,7 +733,7 @@ class TestLayerControlRendering:
         identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
         the focusin delegate maps it onto the same JS class.
         """
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         wake = "is(:hover, .foliplus-layer-focused)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
@@ -745,7 +745,7 @@ class TestLayerControlRendering:
 
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the base fold-btn rule (not the folded or hover variants)
         idx = css.find(".foliplus-layer-fold-btn {")
         assert idx != -1
@@ -761,7 +761,7 @@ class TestLayerControlRendering:
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "svg {" in css
         assert "fill: none" in css
@@ -769,7 +769,7 @@ class TestLayerControlRendering:
     def test_drag_handle_block_and_size(self):
         """drag-handle is a block sized to the checkbox so its dot grip centers
         with the other row glyphs; no bold stroke (dots match MORE at 3px)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".drag-handle" in css
         assert "display: block" in css
         assert "width: var(--space-xl)" in css
@@ -784,7 +784,7 @@ class TestLayerControlRendering:
 
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
@@ -793,7 +793,7 @@ class TestLayerControlRendering:
 
     def test_drag_over_css_variables(self):
         """Drag-over drop indicators use CSS custom properties for all parameters."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "--drag-border-width" in css
         assert "--drag-top-shadow" in css
         assert "--drag-bottom-shadow" in css
@@ -805,8 +805,8 @@ class TestLayerControlRendering:
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
         # Only LayerControl renders this checkbox (CONST.CLASSES.CHECKBOX), so
-        # the component is not shared and the rule stays in LayerControl.css.
-        css = read_css("foliplus/css/LayerControl.css")
+        # the component is not shared and the rule stays in its own stylesheet.
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ":indeterminate" in css
         assert ":indeterminate::after" in css
         # Should use a dash/minus icon (not a checkmark)
@@ -828,7 +828,7 @@ class TestLayerControlRendering:
         drag-over, :focus-visible)."""
         by_source = [
             (
-                "foliplus/css/LayerControl.css",
+                "foliplus/css/LayerControl/index.css",
                 [
                     (
                         'input[type="checkbox"]',
