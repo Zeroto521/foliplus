@@ -1232,3 +1232,64 @@ describe("event-bus bindings", () => {
     expect(m.cachedPoints).toBeNull();
   });
 });
+
+describe("hex label rendering (shared canvas recipe)", () => {
+  const makeCtx = () => ({
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    lineJoin: "",
+    strokeStyle: "",
+    lineWidth: 0,
+    fillStyle: "",
+    strokeText: vi.fn(),
+    fillText: vi.fn(),
+  });
+  const feat = (centroid: [number, number] | null, value: number) =>
+    ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [] },
+      properties: { centroid, value },
+    }) as never;
+
+  let m: ReturnType<typeof makeManager>;
+
+  beforeEach(() => {
+    m = makeManager();
+    m.ui = makeCtrl(m);
+    (m.map as unknown as { latLngToContainerPoint: unknown }).latLngToContainerPoint =
+      vi.fn(() => ({ x: 10, y: 20 }));
+  });
+
+  it("resolveLabelStyle reads the shared --label-* tokens and caches them", () => {
+    const style = m.resolveLabelStyle();
+    expect(style.font).toContain("12px");
+    expect(m.resolveLabelStyle()).toBe(style);
+  });
+
+  it("drawHexLabel strokes the halo then fills the value at the centroid", () => {
+    const ctx = makeCtx();
+    const style = m.resolveLabelStyle();
+
+    m.drawHexLabel(
+      ctx as unknown as CanvasRenderingContext2D,
+      feat([26.08, 119.3], 42),
+      style,
+    );
+
+    expect(ctx.strokeText).toHaveBeenCalledWith("42", 10, 20);
+    expect(ctx.fillText).toHaveBeenCalledWith("42", 10, 20);
+  });
+
+  it("drawHexLabel skips a feature without a centroid", () => {
+    const ctx = makeCtx();
+
+    m.drawHexLabel(
+      ctx as unknown as CanvasRenderingContext2D,
+      feat(null, 7),
+      m.resolveLabelStyle(),
+    );
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
