@@ -177,7 +177,11 @@ describe("LayerUI keyboard", () => {
       expect(tabStops).toHaveLength(1);
     });
 
-    it("pointer click paints the cursor class and moves the Tab stop", () => {
+    it("pointer click moves the Tab stop without painting the cursor class", () => {
+      // The index and the Tab stop must follow the pointer (Enter has to hit
+      // the clicked row), but the cursor visual does not: it is sticky and
+      // nothing on the click path clears it, so painting it here would leave
+      // the row white + glow after a plain visibility toggle.
       const rows = ui.getNavigableItems();
       const target = rows[1];
       const checkbox = target.querySelector(
@@ -186,7 +190,7 @@ describe("LayerUI keyboard", () => {
       checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(target.tabIndex).toBe(0);
       expect(rows[0].tabIndex).toBe(-1);
-      expect(target.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(target.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
   });
 
@@ -299,9 +303,10 @@ describe("LayerUI keyboard", () => {
       expect(document.activeElement).toBe(checkbox);
     });
 
-    it("repeated checkbox clicks keep the row cursor visual on", () => {
-      // Click is a cursor arrival: the visual stays until Escape / another
-      // row / an outside press. (#278 only removed dblclick→focusLayer.)
+    it("repeated checkbox clicks keep the cursor visual off", () => {
+      // A checkbox press is a visibility toggle, not a navigation arrival.
+      // The visual is sticky — no toggle-path event clears it — so the click
+      // path must not paint it. The index still re-homes to the clicked row.
       const overlay = findItem(ui, "overlay1");
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -310,17 +315,18 @@ describe("LayerUI keyboard", () => {
       for (let i = 0; i < 3; i++) {
         checkbox.checked = !checkbox.checked;
         checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+        expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       }
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        1,
+        0,
       );
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
     });
 
-    it("clicking another row hands the cursor visual over", () => {
-      // Arrow-keys light row A. A pointer click on row B must move the class
-      // — never leave A glowing while B is the target.
+    it("clicking another row re-homes the index but keeps the cursor off", () => {
+      // The visual is only ever painted by a real focus arrival (keyboard
+      // focusin / setActiveItem), so a pointer click never moves it — and in
+      // particular never leaves the previously lit row glowing.
       const a = findItem(ui, "overlay1");
       const b = findItem(ui, "base1");
       const bBox = b.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -331,26 +337,19 @@ describe("LayerUI keyboard", () => {
       bBox.checked = !bBox.checked;
       bBox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+      expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(ui.activeIdx).toBe(indexFor("base1"));
     });
 
-    it("label click paints the cursor; Escape lifts it", () => {
+    it("label click re-homes the index without painting the cursor", () => {
+      // The label selects the row for keyboard input; it does not light the
+      // visual. Escape still drops whatever a real focus arrival lit.
       const overlay = findItem(ui, "overlay1");
-
       const label = overlay.querySelector("label") as HTMLElement;
+
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(ui.activeIdx).toBe(indexFor("overlay1"));
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-
-      pressKey(overlay, "Escape");
-
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        0,
-      );
-      expect(document.activeElement).toBe(overlay);
     });
 
     it("mousedown outside the panel drops the cursor through the shared dispatcher", () => {

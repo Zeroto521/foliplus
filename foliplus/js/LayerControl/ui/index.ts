@@ -361,20 +361,23 @@ class LayerUI {
       ) {
         return;
       }
-      // One ledger: pointer re-homes the index, Tab stop, and paints the
-      // cursor visual. It stays until Escape, another row, or an outside
-      // press takes over — same contract as the keyboard cursor.
-      // (#278 only removed the accidental dblclick→focusLayer zoom.)
+      // One ledger: pointer re-homes the keyboard index and the Tab stop so
+      // the next Enter / Space / Arrow lands on the row that was clicked.
+      //
+      // The cursor *visual* is not painted here. A checkbox press is a
+      // visibility toggle, not a navigation arrival, and the visual is sticky —
+      // nothing on the toggle path (focusout on blur, Escape, another row)
+      // would ever clear it, so the row kept the white + glow long after the
+      // pointer left. `focusin` lights the row for real focus arrivals (Tab,
+      // click) that report keyboard-modality; mouse-only press keeps the class
+      // off. The index still re-homes, so Enter toggles the clicked row.
+      // (#278 removed the accidental dblclick→focusLayer zoom.)
       const row = owningRow(el);
       if (row) {
         const idx = this.getNavigableItems().indexOf(row);
         if (idx !== -1) {
           this.activeIdx = idx;
           this.listCursor?.setIndex(idx);
-          this.blurActiveItem();
-          row.classList.add(CONST.CLASSES.FOCUSED);
-          // Keep DOM focus on the row so Space/Enter resolve from focus.
-          row.focus({ focusVisible: false } as FocusOptions);
         }
       }
 

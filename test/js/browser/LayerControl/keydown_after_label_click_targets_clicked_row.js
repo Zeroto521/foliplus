@@ -16,16 +16,20 @@
   );
 
   // Mouse-click the label of the second row (selects it without toggling).
-  // Pointer click must NOT paint the cursor visual (#278) — only re-home
-  // the keyboard index so Enter hits the right row.
+  // Pointer click must NOT paint the cursor visual — only re-home the keyboard
+  // index so Enter hits the right row. A real label click moves DOM focus to
+  // the row's checkbox (the label is unlabelled, so focus lands there rather
+  // than on the label itself), and that focus move is what re-homes the index.
   const label = items[1].querySelector(".foliplus-layer-label");
   if (!label) return null;
+  const box = items[1].querySelector('input[type="checkbox"]');
   label.click();
+  box.focus();
 
   // Enter must now target the row the mouse just selected, not the first row.
-  const beforeState = items[1].querySelector('input[type="checkbox"]').checked;
+  const beforeState = box.checked;
   items[1].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-  const afterState = items[1].querySelector('input[type="checkbox"]').checked;
+  const afterState = box.checked;
 
   return {
     beforeState,

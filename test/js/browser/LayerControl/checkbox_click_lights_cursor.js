@@ -16,21 +16,33 @@
     glow: getComputedStyle(el).boxShadow !== "none",
   });
 
-  // 1) Click lights the row and keeps it (until Escape / another row / outside).
+  // 1) A checkbox press toggles visibility without painting the cursor visual.
+  // The cursor recipe is sticky — nothing on the toggle path clears it — so a
+  // plain toggle must not leave the row white + glow long after the pointer
+  // moved on. The keyboard *index* still re-homes, so the click contract is
+  // asserted separately (keydown_after_label_click_targets_clicked_row).
   checkbox.click();
   const afterClick = lit(row);
 
-  // 2) Repeated clicks stay on the same row.
+  // 2) Repeated toggles stay quiet.
   checkbox.click();
   const afterAgain = lit(row);
 
-  // 3) Clicking another row hands the visual over.
+  // 3) Keyboard-modality focus still lights the row — the recipe itself is
+  // intact, only the pointer path stopped reaching for it.
+  checkbox.focus({ focusVisible: true });
+  checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  const litByKeyboard = lit(row);
+
+  // 4) The other row's toggle does not light either row.
+  checkbox.blur();
+  row.classList.remove("foliplus-layer-focused");
   otherBox.click();
-  const handedOver = {
+  const otherClick = {
     first: lit(row),
     second: lit(other),
     anyClass: Boolean(panel.querySelector(".foliplus-layer-focused")),
   };
 
-  return { afterClick, afterAgain, handedOver };
+  return { afterClick, afterAgain, litByKeyboard, otherClick };
 };

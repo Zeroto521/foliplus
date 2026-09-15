@@ -39,9 +39,12 @@
   const baseCheckedHover = pick(base);
   base.classList.remove("foliplus-layer-focused");
 
-  // Overlay row still gets the full cursor recipe.
-  const overlayBox = overlay.querySelector('input[type="checkbox"]');
-  if (overlayBox) overlayBox.click();
+  // Overlay data row still gets the full cursor recipe — lit by keyboard
+  // focus, not by a checkbox press (a press is a visibility toggle and no
+  // longer paints the recipe; the recipe is sticky and nothing on the
+  // toggle path would ever clear it). The overlay is the same node the probe
+  // was built from, so no classList juggling is needed.
+  overlay.focus();
   const overlayAfter = pick(overlay);
 
   // Color picker row is quiet too.

@@ -3345,14 +3345,20 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
-    def test_checkbox_click_lights_row_cursor(self, browser, tmp_path):
-        """Click lights the row cursor and keeps it until another row takes over.
+    def test_checkbox_click_stays_quiet(self, browser, tmp_path):
+        """Toggling a row's checkbox must not paint the cursor visual.
 
-        Pointer click is a cursor arrival (white + glow). Repeated clicks stay
-        on the same row; clicking another row hands the visual over.
+        The cursor recipe is sticky: nothing on the toggle path (blur, Escape,
+        another row) would clear it, so the row kept white + glow indefinitely.
+        A pointer press only re-homes the keyboard index; focusin still lights
+        the row for keyboard-modality focus, so the recipe itself stays intact.
         """
-        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
-        with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
+        overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
+            page,
+            _,
+        ):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -3365,20 +3371,24 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, (
                 f"checkbox click snippet failed: {result}"
             )
-            assert result["afterClick"]["focusedClass"] is True, (
-                "click must light the row cursor, got " + str(result)
+            assert result["afterClick"]["focusedClass"] is False, (
+                "a checkbox toggle must not paint the cursor class, got "
+                + str(result)
             )
-            assert result["afterClick"]["glow"] is True, (
-                "click must show the cursor glow, got " + str(result)
+            assert result["afterClick"]["glow"] is False, (
+                "a checkbox toggle must not paint the cursor glow, got "
+                + str(result)
             )
-            assert result["afterAgain"]["focusedClass"] is True, (
-                "repeated clicks must keep the cursor, got " + str(result)
+            assert result["afterAgain"]["focusedClass"] is False, (
+                "repeated toggles must stay quiet, got " + str(result)
             )
-            assert result["handedOver"]["first"]["focusedClass"] is False, (
-                "clicking another row must drop the previous cursor, got " + str(result)
+            assert result["litByKeyboard"]["focusedClass"] is True, (
+                "keyboard-modality focus must still light the row, got "
+                + str(result)
             )
-            assert result["handedOver"]["second"]["focusedClass"] is True, (
-                "the clicked row must carry the cursor, got " + str(result)
+            assert result["otherClick"]["anyClass"] is False, (
+                "toggling a second row must not light any row, got "
+                + str(result)
             )
 
     def test_base_basemap_quiet_focus(self, browser, tmp_path):

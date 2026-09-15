@@ -89,6 +89,7 @@
 - `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, which reads the same `dist/artifacts.json` the build wrote, and CI renders every control against an isolated copy of the built wheel ([#300](https://github.com/Zeroto521/foliplus/pull/300))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
+- `LayerControl`: clicking a layer row's checkbox no longer leaves the row's cursor highlight (white surface, red glow) stuck on — the click still re-homes the keyboard index and Tab stop, and keyboard focus still lights the row ([#334](https://github.com/Zeroto521/foliplus/pull/334))
 
 ## [v0.3.0] (2026-08-02)
 
