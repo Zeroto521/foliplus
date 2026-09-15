@@ -9,12 +9,15 @@
   name, so a new one inherits the shell without editing the lists below.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Shell ── */
+/* ── Shell ──
+   The three plain dropdowns take the whole recipe. A row panel shares only what
+   it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
+   shadow and z-index, so restating those here was two sources for one decision
+   with the panel's copy silently winning. */
 :is(
   .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
-  .foliplus-layer-more-menu,
-  .foliplus-row-panel
+  .foliplus-layer-more-menu
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -25,6 +28,15 @@
   z-index: var(--z-index-floating);
   overflow-y: auto;
   /* Entrance: subtle fade + slide-down, plays once when the menu mounts. */
+  animation: foliplus-dropdown-in 0.15s ease-out;
+}
+
+.foliplus-row-panel {
+  box-sizing: border-box;
+  margin-top: var(--space-xs);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  overflow-y: auto;
   animation: foliplus-dropdown-in 0.15s ease-out;
 }
 
