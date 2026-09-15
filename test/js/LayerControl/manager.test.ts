@@ -818,10 +818,14 @@ describe("LayerManager", () => {
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(manager.ui.updateLayerItem).toHaveBeenCalled();
     expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
+    // A re-registration is how the API says the layer's content changed, so the
+    // cached field list — and the auto field resolved from it — must be dropped.
+    expect(manager.ui.invalidateFields).toHaveBeenCalledWith("overlay1");
   });
 
   it("unregisterLayer removes the UI row and reindexes", () => {
@@ -833,6 +837,7 @@ describe("LayerManager", () => {
     manager.ui = {
       reindexItems: vi.fn(),
       saveHiddenIds: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
@@ -846,6 +851,7 @@ describe("LayerManager", () => {
       hiddenIds: new Set(["overlay1", "base1"]),
       reindexItems: vi.fn(),
       saveHiddenIds,
+      invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
 
@@ -1578,6 +1584,62 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
     expect(enforceSpy).toHaveBeenCalled();
+  });
+
+  it("a successful move persists the new order and emits LAYER_CHANGE", () => {
+    // Reorder is observable to outside consumers only through these two
+    // side effects — keyboard.ts reindexes the DOM off the event, and
+    // reload-time order comes back from the persisted id list. A refactor
+    // that reorders without notifying or persisting would pass every
+    // `layers` snapshot assertion above and still silently regress.
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "b", name: "B", isBase: false },
+      { id: "c", name: "C", isBase: false },
+    ]);
+    vi.useFakeTimers();
+    const saveSpy = vi.spyOn(Storage, "save");
+    const onLayerChange = vi.fn();
+    manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
+
+    expect(manager.moveLayerUp("c")).toBe(true);
+
+    expect(onLayerChange).toHaveBeenCalledTimes(1);
+    // One hop: index 2 -> 1. reorder(2, 1) on [a, b, c] gives [a, c, b].
+    expect(manager.layers.map(l => l.id)).toEqual(["a", "c", "b"]);
+    vi.advanceTimersByTime(100);
+    const orderCalls = saveSpy.mock.calls.filter(c => c[0] === CONST.STORAGE.ORDER_KEY);
+    expect(orderCalls).toHaveLength(1);
+    expect(orderCalls[0][1]).toEqual(["a", "c", "b"]);
+
+    saveSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("a rejected move produces no side effects —no event, no persistence, no re-ordering", () => {
+    // The rejection paths are `idx`/group-boundary checks, but the contract is
+    // that all of them are inert. If a later edit adds enforcement between the
+    // check and the early return, these catch it; the per-case behavior itself
+    // is covered by the boundary tests above.
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "base1", name: "Base1", isBase: true },
+    ]);
+    // Spy before the act: an unspy'd method assertion is a no-op claim.
+    const enforceSpy = vi.spyOn(manager, "enforceOrder");
+    const onLayerChange = vi.fn();
+    manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
+
+    expect(manager.moveLayerUp("a")).toBe(false);
+    expect(manager.moveLayerDown("a")).toBe(false);
+    expect(manager.moveLayerUp("base1")).toBe(false);
+    expect(manager.moveLayerDown("base1")).toBe(false);
+    expect(manager.moveLayerUp("unknown")).toBe(false);
+    expect(manager.moveLayerDown("unknown")).toBe(false);
+
+    expect(onLayerChange).not.toHaveBeenCalled();
+    expect(enforceSpy).not.toHaveBeenCalled();
+    expect(manager.layers.map(l => l.id)).toEqual(["a", "base1"]);
   });
 });
 

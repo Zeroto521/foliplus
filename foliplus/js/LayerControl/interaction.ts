@@ -66,6 +66,9 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (action === CONST.ACTION.RENAME_LAYER) {
     ui.renameLayer(ui.activeMenu?.layerId ?? "");
   }
+  if (action === CONST.ACTION.STYLE_LAYER) {
+    ui.openStylePanel(ui.activeMenu?.layerId ?? "");
+  }
   // Attributes anchors to the menu's own row — the menu is the source of
   // truth for which row owns it, and falling back to `li` would anchor the
   // panel to the menu's own <li> if the menu state were lost.
@@ -74,6 +77,8 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   }
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
+  // Any other menu item (focus-layer, style-layer, or an unknown action)
+  // closes the menu and returns focus to the layer row.
   ui.closeMoreMenu(action !== CONST.ACTION.RENAME_LAYER);
 };
 
