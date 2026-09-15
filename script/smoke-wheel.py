@@ -65,9 +65,7 @@ def check_manifest(dist_path: Path) -> list[str]:
     """
     manifest = json.loads((dist_path / "artifacts.json").read_text(encoding="utf-8"))
     listed = manifest["artifacts"]
-    expected = {
-        f"foliplus-{name}.min.{ext}" for name in listed for ext in ("js", "css")
-    }
+    expected = {artifact_name(name, ext) for name in listed for ext in ("js", "css")}
     on_disk = {p.name for p in dist_path.iterdir() if p.is_file()}
     if expected - on_disk:
         raise SmokeFailure(f"missing from dist/: {sorted(expected - on_disk)}")
@@ -78,6 +76,17 @@ def check_manifest(dist_path: Path) -> list[str]:
             f"unexpected files in dist/: {sorted(on_disk - expected - {'artifacts.json'})}"
         )
     return listed
+
+
+def artifact_name(name: str, ext: str) -> str:
+    """One `dist/` filename for a component name and extension.
+
+    The naming scheme is shared with `BaseControl.control_assets()` and
+    `script/build.mjs`; keeping it to one function per file means a rename
+    cannot land on one consumer and miss the other.
+    """
+
+    return f"foliplus-{name}.min.{ext}"
 
 
 def assert_not_source_checkout(foliplus: ModuleType) -> None:
@@ -170,7 +179,7 @@ def main() -> None:
     # Read the bundles back through the same anchor as the manifest, so a
     # render can never certify a wheel whose files it never opened.
     for cls in classes:
-        render_control(folium, cls, dist_dir / f"foliplus-{cls.__name__}.min.js")
+        render_control(folium, cls, dist_dir / artifact_name(cls.__name__, "js"))
 
     print(
         f"rendered {len(classes)} controls: "

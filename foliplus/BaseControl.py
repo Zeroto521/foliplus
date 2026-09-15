@@ -139,10 +139,14 @@ def expected_artifacts() -> list[str]:
     Read from the manifest the build writes, not re-derived: ``test_assets.py``
     asserts wheel membership against this list and ``build.test.ts`` asserts
     artifact presence, so a component added on one side fails both stacks.
+
+    Filenames come through :func:`control_assets`, the one place that knows how
+    a component name maps to artifacts — re-deriving them here would let a
+    rename land on one side and miss the other.
     """
 
     names = json.loads(ARTIFACTS_MANIFEST.read_text(encoding="utf-8"))["artifacts"]
-    return [f"foliplus-{name}.min.{ext}" for name in names for ext in ("js", "css")]
+    return [p.name for name in names for p in control_assets(name)]
 
 
 @cache

@@ -13,9 +13,11 @@ really does carry the artifacts.
 from __future__ import annotations
 
 import glob
+import importlib.util
 import subprocess
 import sys
 import tarfile
+import types
 import zipfile
 from pathlib import Path
 
@@ -39,6 +41,23 @@ from foliplus.SearchControl import SearchControl
 # `test/js/script/build.test.ts` read it. A new control is therefore
 # asserted in both stacks without either suite re-deriving the names.
 EXPECTED = expected_artifacts()
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "script" / "smoke-wheel.py"
+
+
+def _smoke_module() -> types.ModuleType:
+    """`script/smoke-wheel.py`, loaded without importing the release stack.
+
+    This file already imports `BaseControl`, so the cross-check belongs here
+    rather than in `test_smoke_wheel.py`, which deliberately avoids it to stay
+    lightweight enough to run without branca, numpy or pandas.
+    """
+    spec = importlib.util.spec_from_file_location("smoke_wheel_assert", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def _clear() -> None:
@@ -186,6 +205,22 @@ def test_manifest_has_both_halves():
     """Every component name yields a JS and a CSS artifact, including common."""
     assert len(EXPECTED) == 2 * len(set(n.rsplit(".min.", 1)[0] for n in EXPECTED))
     assert any(n.startswith("foliplus-common.min.") for n in EXPECTED)
+
+
+def test_smoke_script_shares_the_naming_scheme():
+    """The release CI verifier must name files the way `BaseControl` does.
+
+    It re-implements the scheme, because it cannot import the package it is
+    verifying. If it drifted, the gate would check filenames the render never
+    opens — a manifest that passes while the bundles stay empty.
+    """
+    from foliplus.BaseControl import control_assets
+
+    smoke = _smoke_module()
+    for name in set(n.rsplit(".min.", 1)[0].removeprefix("foliplus-") for n in EXPECTED):
+        js, css = control_assets(name)
+        assert js.name == smoke.artifact_name(name, "js")
+        assert css.name == smoke.artifact_name(name, "css")
 
 
 def test_wheel_contains_all_artifacts():

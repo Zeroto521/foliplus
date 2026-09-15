@@ -86,6 +86,30 @@ def _pairs(names: list[str]) -> list[str]:
     return [f"foliplus-{n}.min.{e}" for n in names for e in ("js", "css")]
 
 
+# ── artifact_name ──────────────────────────────────────────────────
+
+
+def test_artifact_name_builds_both_halves(smoke):
+    """The naming scheme matches what `BaseControl.control_assets()` emits."""
+    assert smoke.artifact_name("ScaleControl", "js") == "foliplus-ScaleControl.min.js"
+    assert (
+        smoke.artifact_name("ScaleControl", "css") == "foliplus-ScaleControl.min.css"
+    )
+
+
+def test_artifact_name_is_the_only_naming_site(smoke):
+    """No other place in the script re-derives the filename."""
+    source = SCRIPT.read_text(encoding="utf-8")
+    inline = [
+        line
+        for line in source.splitlines()
+        if 'f"foliplus-' in line and "artifact_name" not in line
+    ]
+    assert inline == [
+        '    return f"foliplus-{name}.min.{ext}"'
+    ], f"filename re-derived outside artifact_name: {inline}"
+
+
 # ── check_manifest ──────────────────────────────────────────────────
 
 
