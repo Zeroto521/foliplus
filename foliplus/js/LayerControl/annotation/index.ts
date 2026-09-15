@@ -170,7 +170,8 @@ class AnnotationManager {
    *  the canvas. */
   renderLabels(id: string): LayerLabel[] {
     this.clearLabels(id);
-    if (!this.getConfig(id).show) return [];
+    const cfg = this.getConfig(id);
+    if (!cfg.show) return [];
     const field = this.resolveField(id);
     if (!field) return [];
     const layer = this.layerFind(id);
@@ -185,13 +186,16 @@ class AnnotationManager {
       // The anchor kind is decided once here; the canvas reads it to offset a
       // point label below its marker and centre a path label on its centroid.
       const atPoint = this.isPointAnchor(leaf);
-      const text = this.formatValue(raw, this.getConfig(id).format, locale);
+      const text = this.formatValue(raw, cfg.format, locale);
       if (!text) return;
       labels.push({
         id: `${id}:${labels.length}`,
         text,
         latlng: anchor,
         atPoint,
+        // Equal priority across the board: within a layer the planner falls
+        // back to box width then render order, and across layers all labels go
+        // through one shared plan with no layer-stacking preference.
         priority: 50,
       });
     });

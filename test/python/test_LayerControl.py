@@ -1197,7 +1197,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_overlap_hides(self, browser, tmp_path):
-        """Two labels overlapping ≥75% collapse to the first (array order)."""
+        """Two labels whose halo-inclusive boxes overlap collapse to the first."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_overlap_hides"))

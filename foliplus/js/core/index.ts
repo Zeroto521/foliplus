@@ -45,8 +45,10 @@ export {
   HIDE_OVERLAP,
   hOverlap,
   hides,
+  intersects,
   planVisible,
   vOverlap,
+  withinRect,
 } from "./labelCollision.js";
 export type { Box, PlacedLabel } from "./labelCollision.js";
 export { createControlEnv } from "./controlEnv.js";

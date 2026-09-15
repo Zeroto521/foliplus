@@ -84,8 +84,6 @@ describe("build artifacts", () => {
     // budget: ListCursor pushed it past 100KB, the createLayers panes
     // generalisation (#280) added the per-pane routing, the pluggable
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
-    // generalisation (#280) added the per-pane routing, the pluggable
-    // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
     // in the same bundle because the runtime registers it on foliplus.core,
     // and the per-layer style panel (#236) shipped labelField + the shared
     // form primitives through the same shell; so do the shared label

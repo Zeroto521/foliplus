@@ -114,11 +114,12 @@ const intersects = (a: Box, b: Box): boolean =>
  * geometry, for a renderer that would otherwise measure and draw every label the
  * layer owns rather than every label on screen.
  *
- * `rect` is the caller's definition of "visible", and getting that right is the
- * caller's job: the live viewport normally, but **not** during an export, which
- * renders an extent the user may not be looking at. A caller that culls has to
- * suspend it (or pass the export's rect) while an export runs, or the exported
- * image loses every label outside the current view.
+ * `rect` must be the extent the caller is actually rendering, which is not
+ * always the live viewport: a render target that paints some *other* extent has
+ * to pass that extent (or suspend culling), or it loses every label outside the
+ * current view. The annotation canvas passes its own container box, which is
+ * also the extent an export of that container captures, so culling by it is
+ * safe on both paths.
  */
 const withinRect = <T extends PlacedLabel>(labels: readonly T[], rect: Box): T[] =>
   labels.filter(label => intersects(label.box, rect));
