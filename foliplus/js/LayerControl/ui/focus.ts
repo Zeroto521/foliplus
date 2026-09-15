@@ -104,6 +104,9 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Hide every other visible layer so the focused one stands out —including
   // layers that overlap the focused bounds (the mask only dims outside).
   hideOtherLayers(ui);
+  // Labels of the layers just hidden must leave the screen with them: the
+  // canvas draws the spotlighted layer's labels only for the duration.
+  ui.m.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow —one O(panes) pass, not a per-leaf-element loop.
   bringFocusedLayerToFront(ui, layer, layerInfo.canvas ?? null);
@@ -190,6 +193,7 @@ const dismissFocus = (ui: LayerUI): void => {
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
+  ui.m.annotation.setFocusFilter(null);
   for (const restore of ui.focusedPaneRestores) restore();
   ui.focusedPaneRestores = [];
 
@@ -249,9 +253,27 @@ const bringFocusedLayerToFront = (
   canvas: HTMLCanvasElement | null,
 ): void => {
   const restores: Array<() => void> = [];
+  const focusedZ = CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP;
+  // Ladder above the focused layer, preserving Leaflet's normal order and
+  // staying under the mask (PANE_Z): labels, then markers, tooltip, popup. The
+  // label pane normally sits below the data panes' top, so without the lift the
+  // layer the focus raised would cover its own labels; without the rest of the
+  // ladder, those labels would in turn cover the popup a click just opened.
+  const liftZ = (el: HTMLElement | undefined, z: number): void => {
+    if (!el) return;
+    const orig = el.style.zIndex;
+    el.style.zIndex = String(z);
+    restores.push(() => {
+      el.style.zIndex = orig;
+    });
+  };
+  liftZ(ui.m.map.getPane(CONST.ANNOTATION_PANE), focusedZ + 1);
+  liftZ(ui.m.map.getPane("markerPane"), focusedZ + 2);
+  liftZ(ui.m.map.getPane("tooltipPane"), focusedZ + 3);
+  liftZ(ui.m.map.getPane("popupPane"), focusedZ + 4);
   const lift = (el: HTMLElement): void => {
     const orig = el.style.zIndex;
-    el.style.zIndex = String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP);
+    el.style.zIndex = String(focusedZ);
     // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
     // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
     el.classList.add(CONST.CLASSES.FOCUS_PANE);
