@@ -98,11 +98,7 @@ const syncVisibility = (
  *
  * @returns true if the layer id resolved to a registry entry.
  */
-const applyVisibility = (
-  ui: LayerUI,
-  id: string,
-  visible: boolean,
-): boolean => {
+const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return false;
   const layer = ui.m.findLayer(layerInfo);
