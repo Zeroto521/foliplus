@@ -1,33 +1,22 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
-const distDir = resolve(__dirname, "foliplus/dist");
+// Vitest runs with the repo root as cwd, same convention bundle-size-check
+// relies on — so dist/ resolves without a parent-directory walk.
+const distDir = resolve(process.cwd(), "foliplus/dist");
 
-const JS_ARTIFACTS = [
-  "foliplus-common.min.js",
-  "foliplus-ExportControl.min.js",
-  "foliplus-FullscreenControl.min.js",
-  "foliplus-HeatmapControl.min.js",
-  "foliplus-LayerControl.min.js",
-  "foliplus-LocateControl.min.js",
-  "foliplus-MeasureControl.min.js",
-  "foliplus-ScaleControl.min.js",
-  "foliplus-SearchControl.min.js",
-];
+// Artifact names come from dist/artifacts.json, which `script/build.mjs`
+// writes on every real build — the same list `test/python/test_assets.py`
+// asserts wheel membership against. A new component therefore shows up in
+// both stacks without either test hardcoding its name.
+const names = JSON.parse(
+  readFileSync(resolve(distDir, "artifacts.json"), "utf-8"),
+).artifacts;
+const artifactsFor = ext => names.map(name => `foliplus-${name}.min.${ext}`);
 
-const CSS_ARTIFACTS = [
-  "foliplus-common.min.css",
-  "foliplus-ExportControl.min.css",
-  "foliplus-FullscreenControl.min.css",
-  "foliplus-HeatmapControl.min.css",
-  "foliplus-LayerControl.min.css",
-  "foliplus-MeasureControl.min.css",
-  "foliplus-ScaleControl.min.css",
-  "foliplus-SearchControl.min.css",
-];
+const JS_ARTIFACTS = artifactsFor("js");
+const CSS_ARTIFACTS = artifactsFor("css");
 
 describe("build artifacts", () => {
   it("all JS artifacts exist", () => {
@@ -147,5 +136,14 @@ describe("build artifacts", () => {
   it("has correct number of CSS artifacts", () => {
     const cssFiles = readdirSync(distDir).filter(f => f.endsWith(".min.css"));
     expect(cssFiles.length).toBeGreaterThanOrEqual(CSS_ARTIFACTS.length);
+  });
+
+  it("manifest covers both halves of every component", () => {
+    for (const name of names) {
+      expect(JS_ARTIFACTS).toContain(`foliplus-${name}.min.js`);
+      expect(CSS_ARTIFACTS).toContain(`foliplus-${name}.min.css`);
+    }
+    expect(names).toContain("common");
+    expect(names).not.toContain("runtime");
   });
 });
