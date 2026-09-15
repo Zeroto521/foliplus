@@ -200,6 +200,21 @@ interface LayerAPI {
   unregisterLayer: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
+  /**
+   * Programmatically set a layer's visibility — the same transition the panel
+   * checkbox performs: the Leaflet layer is added to or removed from the map,
+   * callback-only (canvas) layers get `onToggle`, the panel row's checkbox and
+   * toggle-all control follow, and the persisted hidden set is updated so the
+   * choice survives a reload.
+   *
+   * This closes the write side of the visibility contract. `LayerInfo.visible`,
+   * `onToggle`, and the persisted hidden set all existed already, but only the
+   * panel's checkbox wrote them, so a host page that wanted to hide layers by
+   * id had to synthesize a DOM event against a row it does not own.
+   *
+   * @returns true if the layer was found and its visibility was set.
+   */
+  setVisible: (id: string, visible: boolean) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (
