@@ -31,6 +31,14 @@ describe("collectLabelFields", () => {
     expect(fields).toEqual([{ name: "value", numeric: true }]);
   });
 
+  it("keeps the earlier type when a later leaf carries null", () => {
+    // The upgrade branch only fires for a real value: a later leaf with null for
+    // an already-seen key must not downgrade what the first leaf established.
+    const fields = collectLabelFields([leaf({ value: 12.5 }), leaf({ value: null })]);
+
+    expect(fields).toEqual([{ name: "value", numeric: true }]);
+  });
+
   it("ignores leaves without feature.properties", () => {
     // Annotation label markers ride inside the layer tree and carry no
     // feature; they must not contribute a field.

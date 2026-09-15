@@ -52,6 +52,9 @@ describe("LayerUI style panel", () => {
   const fieldSelectOf = (item: HTMLElement): HTMLSelectElement =>
     panelOf(item)!.querySelector(".foliplus-style-field-select") as HTMLSelectElement;
 
+  const formatSelectOf = (item: HTMLElement): HTMLSelectElement =>
+    panelOf(item)!.querySelector(".foliplus-style-format-select") as HTMLSelectElement;
+
   // ─────────────────── open / close lifecycle ───────────────────
 
   it("mounts the panel inside the layer row (attrs panel recipe)", () => {
@@ -241,6 +244,38 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
     expect(saveAnnotations).toHaveBeenCalled();
     expect(manager.annotation.getConfig("overlay1").show).toBe(true);
+  });
+
+  it("opens no panel for an empty layer id", () => {
+    ui.openStylePanel("");
+
+    expect(ui.stylePanelLayerId).toBeNull();
+  });
+
+  it("normalises non-string persisted values instead of trusting storage", () => {
+    // localStorage is writable by anything on the page, so a field or format of
+    // the wrong shape must not reach the config as-is.
+    ui.labelConfigs = { overlay1: { show: true, field: 42, format: 7 } };
+
+    ui.applyStyleLabelState();
+
+    const cfg = manager.annotation.getConfig("overlay1");
+    expect(cfg.field).toBe("");
+    expect(cfg.format).toBe(CONST.FORMAT.AUTO);
+  });
+
+  it("shows auto for a persisted config with no format", () => {
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: "" as never,
+    });
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    expect(formatSelectOf(item).value).toBe(CONST.FORMAT.AUTO);
   });
 
   it("choosing a field updates the config", () => {
