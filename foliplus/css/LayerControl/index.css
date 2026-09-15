@@ -7,7 +7,8 @@
    map-state.css  tile hidden, drag-pulse keyframes, container bg
    rename.css     inline rename input
    style.css      annotation style panel
-   annotation.css annotation label marker on the map
+   Annotation labels have no module here: they are drawn on a canvas
+   (LayerControl/annotation/canvas.ts) from the shared --label-* tokens.
    The entry's @import order IS the cascade order; esbuild and the
    build's expandEntry keep it verbatim. */
 @import "./focus.css";
@@ -18,4 +19,3 @@
 @import "./map-state.css";
 @import "./rename.css";
 @import "./style.css";
-@import "./annotation.css";

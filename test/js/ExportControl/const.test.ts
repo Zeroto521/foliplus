@@ -4,6 +4,31 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 // ===========================================================================
 // Static exported constants (value-only tests, no mocking needed).
 // ===========================================================================
+
+describe("SEL.CANVAS", () => {
+  it("selects every canvas overlay that paints map content", () => {
+    // The export's canvas pass is a whitelist: `collectLayerMarkers` skips
+    // CANVAS elements, so a canvas the selector misses vanishes silently from
+    // the exported image. This pins both the heatmap's hex canvas and
+    // LayerControl's annotation canvas into that whitelist.
+    const mapPane = document.createElement("div");
+    mapPane.className = "leaflet-map-pane";
+    const heat = document.createElement("canvas");
+    heat.className = "foliplus-heatmap-canvas";
+    const annotation = document.createElement("canvas");
+    annotation.className = "foliplus-annotation-canvas";
+    const unrelated = document.createElement("canvas");
+    mapPane.append(heat, annotation, unrelated);
+    document.body.appendChild(mapPane);
+
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
+      heat,
+      annotation,
+    ]);
+    mapPane.remove();
+  });
+});
+
 describe("STORAGE", () => {
   it("derives key from map container id", () => {
     expect(CONST.STORAGE.KEY).toContain("foliplus_export_rect_");

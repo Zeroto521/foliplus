@@ -86,7 +86,9 @@ describe("build artifacts", () => {
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
     // in the same bundle because the runtime registers it on foliplus.core,
     // and the per-layer style panel (#236) shipped labelField + the shared
-    // form primitives through the same shell.
+    // form primitives through the same shell; so do the shared label
+    // contracts (field collection, collision geometry). 140KB is the agreed
+    // ceiling — #332 raised it first, the larger value wins on merge.
     expect(size).toBeLessThan(140000);
   });
 

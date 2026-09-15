@@ -97,13 +97,6 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
-  /** Marker wrapper element used to render an annotation label. */
-  ANNOTATION_LABEL: "foliplus-annotation-label",
-  /** Anchor kind of an annotation label: a feature's own point, or the centre
-   *  of its extents. Decides both the vertical offset and whether the chip is
-   *  centred on the anchor or hangs below it. */
-  ANNOTATION_LABEL_POINT: "foliplus-annotation-label-point",
-  ANNOTATION_LABEL_SHAPE: "foliplus-annotation-label-shape",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */

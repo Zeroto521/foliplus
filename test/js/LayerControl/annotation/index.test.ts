@@ -1,10 +1,40 @@
 // AnnotationManager unit tests.
 // Logic under test: value formatting (incl. percent), anchor resolution,
-// field/value reading, and the label render/clear lifecycle. Uses duck-typed
-// leaf fixtures because the vitest L mock does not provide constructible
-// geometry classes.
+// field/value reading, and the label render/clear lifecycle.
+// Uses duck-typed leaf fixtures because the vitest L mock does not provide
+// constructible geometry classes. The canvas is stubbed — it is the browser
+// tests' job to verify actual drawing.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "../../../foliplus/js/LayerControl/annotation.js";
+import { AnnotationManager } from "../../../../foliplus/js/LayerControl/annotation/index.js";
+
+const mocks = vi.hoisted(() => {
+  interface MockCanvas {
+    setLayerLabels: ReturnType<typeof vi.fn>;
+    removeLayerLabels: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+  }
+  const instances: MockCanvas[] = [];
+  /** The visibility callback each canvas was built with (2nd ctor arg). */
+  const visibilityCallbacks: Array<(id: string) => boolean> = [];
+
+  class MockAnnotationCanvas implements MockCanvas {
+    setLayerLabels = vi.fn();
+    removeLayerLabels = vi.fn();
+    destroy = vi.fn();
+    constructor(_map: unknown, isLayerOnMap: (id: string) => boolean) {
+      instances.push(this);
+      visibilityCallbacks.push(isLayerOnMap);
+    }
+  }
+  return { MockAnnotationCanvas, instances, visibilityCallbacks };
+});
+
+vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
+  AnnotationCanvas: mocks.MockAnnotationCanvas,
+}));
+
+/** The canvas the last AnnotationManager created (they share one each). */
+const canvas = (): (typeof mocks)["instances"][number] => mocks.instances.at(-1)!;
 
 describe("AnnotationManager.formatValue", () => {
   const mgr = new AnnotationManager(map, () => null);
@@ -86,6 +116,16 @@ describe("AnnotationManager config round-trip", () => {
     expect(mgr.configEntries()).toHaveLength(1);
   });
 
+  it("hasConfig distinguishes never-configured from configured-to-default", () => {
+    const mgr = new AnnotationManager(map, () => null);
+
+    expect(mgr.hasConfig("none")).toBe(false);
+    mgr.setConfig("some", { show: false, field: "", format: "auto" });
+    // Still true even though the config equals the defaults — the persisted
+    // seed relies on this difference.
+    expect(mgr.hasConfig("some")).toBe(true);
+  });
+
   it("destroyLayer forgets the layer's config entry", () => {
     const mgr = new AnnotationManager(map, () => null);
     mgr.setConfig("gone", { show: true, field: "name", format: "auto" });
@@ -101,30 +141,24 @@ describe("AnnotationManager config round-trip", () => {
 });
 
 // ───────────────────────── tree fixtures ─────────────────────────
-// A duck-typed LayerGroup: eachLayer is the accessor traverse() prefers, and
-// add/removeLayer mirror the container calls renderLabels/clearLabels make.
+// A duck-typed LayerGroup: eachLayer is the accessor traverse() prefers.
 const mkLeaf = (opts: {
   props?: Record<string, unknown>;
   latlng?: { lat: number; lng: number };
   bounds?: { isValid: () => boolean; getCenter: () => { lat: number; lng: number } };
-  isLabel?: boolean;
 }): L.Layer => {
   const leaf: Record<string, unknown> = {};
   if (opts.props) leaf.feature = { properties: opts.props };
   if (opts.latlng) leaf.getLatLng = () => opts.latlng;
   if (opts.bounds) leaf.getBounds = () => opts.bounds;
-  if (opts.isLabel) leaf.isLabel = true;
   return leaf as unknown as L.Layer;
 };
 
 const mkGroup = (leaves: L.Layer[]): L.Layer => {
-  const removeLayer = vi.fn();
   const group = {
     eachLayer: (cb: (l: L.Layer) => void) => {
       for (const leaf of [...leaves]) cb(leaf);
     },
-    addLayer: vi.fn(),
-    removeLayer,
   };
   return group as unknown as L.Layer;
 };
@@ -162,13 +196,11 @@ describe("AnnotationManager.collectFields", () => {
 });
 
 describe("AnnotationManager.renderLabels", () => {
-  const markerMock = L.marker as unknown as ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
-    markerMock.mockClear();
+    mocks.instances.length = 0;
   });
 
-  it("creates one label marker per renderable leaf and parents it to the layer", () => {
+  it("hands one label per renderable leaf to the canvas", () => {
     const group = mkGroup([
       mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } }),
       mkLeaf({
@@ -185,60 +217,23 @@ describe("AnnotationManager.renderLabels", () => {
     const labels = mgr.renderLabels("l1");
 
     expect(labels).toHaveLength(2);
-    expect(markerMock).toHaveBeenCalledTimes(2);
+    expect(canvas().setLayerLabels).toHaveBeenCalledTimes(1);
+    const [layerId, received] = canvas().setLayerLabels.mock.calls[0] as [
+      string,
+      Array<{ text: string; latlng: L.LatLng; atPoint: boolean; priority: number }>,
+    ];
+    expect(layerId).toBe("l1");
     // First leaf anchors at its marker latlng and formats through formatValue.
-    const [firstCall, secondCall] = markerMock.mock.calls;
-    expect(firstCall[0]).toEqual({ lat: 40, lng: -74 });
-    expect(secondCall[0]).toEqual({ lat: 40.5, lng: -73.5 });
-    // The label node is handed to divIcon as an element (never an HTML
-    // string); the vitest stub discards its options, so read it back from
-    // the divIcon call arguments.
-    const iconOpts = (L.divIcon as unknown as ReturnType<typeof vi.fn>).mock
-      .calls[0]![0] as { html: HTMLElement };
-    expect(iconOpts.html.tagName).toBe("SPAN");
-    expect(iconOpts.html.textContent).toBe("1.2K");
-    expect(iconOpts.html.className).toContain("foliplus-annotation-label-text");
-    // Markers are added as children of the source layer and flagged isLabel.
-    const added = (
-      group as unknown as { addLayer: ReturnType<typeof vi.fn> }
-    ).addLayer.mock.calls.map(c => c[0]);
-    expect(added).toHaveLength(2);
-    expect(added.every(m => (m as { isLabel?: boolean }).isLabel)).toBe(true);
-  });
-
-  it("anchors a point label below its marker and a path label on its centroid", () => {
-    // The two anchor kinds want different relationships to their anchor, and a
-    // divIcon cannot place itself: the chip's width is unknown until layout, so
-    // the horizontal placement is a CSS transform on the inner span (see the
-    // label rules in LayerControl.css) and the offset comes from iconAnchor.
-    // Leaflet's divIcon default iconSize of 12x12 is what used to push a fixed
-    // box up against the anchor and let the text spill out to its right.
-    const group = mkGroup([
-      mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
-      mkLeaf({
-        props: { v: "2" },
-        bounds: {
-          isValid: () => true,
-          getCenter: () => ({ lat: 40.5, lng: -73.5 }),
-        },
-      }),
-    ]);
-    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
-    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
-    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
-    divIconMock.mockClear();
-
-    mgr.renderLabels("l1");
-
-    const [pointIcon, shapeIcon] = divIconMock.mock.calls.map(
-      c => c[0] as { className: string; iconAnchor: number[]; iconSize: number[] },
-    );
-    expect(pointIcon.iconSize).toEqual([0, 0]);
-    expect(pointIcon.iconAnchor).toEqual([0, -10]);
-    expect(pointIcon.className).toContain("foliplus-annotation-label-point");
-    expect(shapeIcon.iconSize).toEqual([0, 0]);
-    expect(shapeIcon.iconAnchor).toEqual([0, 0]);
-    expect(shapeIcon.className).toContain("foliplus-annotation-label-shape");
+    expect(received[0]!.text).toBe("1.2K");
+    expect(received[0]!.latlng).toEqual({ lat: 40, lng: -74 });
+    expect(received[0]!.atPoint).toBe(true);
+    // Second leaf is a path: bounds center, centred anchor kind.
+    expect(received[1]!.text).toBe("7");
+    expect(received[1]!.latlng).toEqual({ lat: 40.5, lng: -73.5 });
+    expect(received[1]!.atPoint).toBe(false);
+    // Equal priorities, stable unique ids for the collision planner.
+    expect(received.every(l => l.priority === 50)).toBe(true);
+    expect(new Set(received.map(l => l.id)).size).toBe(2);
   });
 
   it("resolves an open field through the shared auto pick", () => {
@@ -251,13 +246,14 @@ describe("AnnotationManager.renderLabels", () => {
     ]);
     const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
     mgr.setConfig("l1", { show: true, field: "", format: "auto" });
-    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
-    divIconMock.mockClear();
 
     mgr.renderLabels("l1");
 
-    const icon = divIconMock.mock.calls[0]![0] as { html: HTMLElement };
-    expect(icon.html.textContent).toBe("5");
+    const [, received] = canvas().setLayerLabels.mock.calls[0] as [
+      string,
+      Array<{ text: string }>,
+    ];
+    expect(received[0]!.text).toBe("5");
   });
 
   it("reuses the cached auto pick instead of re-walking the layer", () => {
@@ -284,22 +280,19 @@ describe("AnnotationManager.renderLabels", () => {
     const group = mkGroup([mkLeaf({ props, latlng: { lat: 40, lng: -74 } })]);
     const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
     mgr.setConfig("l1", { show: true, field: "", format: "auto" });
-    const divIconMock = L.divIcon as unknown as ReturnType<typeof vi.fn>;
 
-    divIconMock.mockClear();
     mgr.renderLabels("l1");
     expect(
-      (divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent,
+      (canvas().setLayerLabels.mock.calls[0]![1] as Array<{ text: string }>)[0]!.text,
     ).toBe("5");
 
     delete props.count;
     props.other = 7;
     mgr.invalidateAutoField("l1");
-    divIconMock.mockClear();
     mgr.renderLabels("l1");
 
     expect(
-      (divIconMock.mock.calls[0]![0] as { html: HTMLElement }).html.textContent,
+      (canvas().setLayerLabels.mock.calls[1]![1] as Array<{ text: string }>)[0]!.text,
     ).toBe("7");
   });
 
@@ -313,7 +306,8 @@ describe("AnnotationManager.renderLabels", () => {
     mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
 
     expect(mgr.renderLabels("l1")).toHaveLength(0);
-    expect(markerMock).not.toHaveBeenCalled();
+    // Nothing to draw: the canvas was never even created.
+    expect(mocks.instances).toHaveLength(0);
   });
 
   it("renders nothing when the config hides labels", () => {
@@ -322,51 +316,77 @@ describe("AnnotationManager.renderLabels", () => {
     mgr.setConfig("l1", { show: false, field: "v", format: "auto" });
 
     expect(mgr.renderLabels("l1")).toHaveLength(0);
-    expect(markerMock).not.toHaveBeenCalled();
+    expect(mocks.instances).toHaveLength(0);
   });
 
   it("renders nothing when the layer cannot be resolved", () => {
     const mgr = new AnnotationManager(map, () => null);
     mgr.setConfig("ghost", { show: true, field: "v", format: "auto" });
     expect(mgr.renderLabels("ghost")).toHaveLength(0);
+    expect(mocks.instances).toHaveLength(0);
+  });
+
+  it("hands every label to the canvas, with no cap", () => {
+    const leaves = Array.from({ length: 250 }, (_, i) =>
+      mkLeaf({ props: { v: `${i}` }, latlng: { lat: i, lng: 0 } }),
+    );
+    const group = mkGroup(leaves);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+
+    const labels = mgr.renderLabels("l1");
+
+    // No per-layer budget: showing every label the layer has is the point.
+    expect(labels).toHaveLength(250);
+    expect((canvas().setLayerLabels.mock.calls[0]![1] as unknown[]).length).toBe(250);
+  });
+
+  it("gives the canvas a membership check it can re-read at draw time", () => {
+    const group = mkGroup([mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } })]);
+    const onMap = { hasLayer: vi.fn(() => true) } as unknown as typeof map;
+    const mgr = new AnnotationManager(onMap, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1");
+
+    const canSee = mocks.visibilityCallbacks.at(-1)!;
+    expect(canSee("l1")).toBe(true);
+    expect(canSee("gone")).toBe(false);
   });
 });
 
 describe("AnnotationManager.clearLabels / destroy", () => {
-  const markerMock = L.marker as unknown as ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
-    markerMock.mockClear();
+    mocks.instances.length = 0;
   });
 
-  it("removes only isLabel leaves from the layer tree", () => {
-    const label = mkLeaf({ isLabel: true });
-    const data = mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } });
-    const group = mkGroup([label, data]);
+  it("asks the canvas to drop the layer's labels", () => {
+    const group = mkGroup([mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } })]);
     const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1");
+    expect(mocks.instances).toHaveLength(1);
 
     mgr.clearLabels("l1");
 
-    const removeLayer = (group as unknown as { removeLayer: ReturnType<typeof vi.fn> })
-      .removeLayer;
-    expect(removeLayer).toHaveBeenCalledTimes(1);
-    expect(removeLayer).toHaveBeenCalledWith(label);
+    expect(canvas().removeLayerLabels).toHaveBeenCalledWith("l1");
   });
 
-  it("destroy clears every layer's labels and forgets all configs", () => {
-    const group = mkGroup([
-      mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 }, isLabel: true }),
-    ]);
-    const mgr = new AnnotationManager(map, () => group);
+  it("destroy tears the canvas down and forgets all configs", () => {
+    const group = mkGroup([mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } })]);
+    const mgr = new AnnotationManager(map, id => (id === "a" ? group : null));
     mgr.setConfig("a", { show: true, field: "v", format: "auto" });
     mgr.setConfig("b", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("a");
 
     mgr.destroy();
 
+    expect(canvas().destroy).toHaveBeenCalledTimes(1);
     expect(mgr.configEntries()).toHaveLength(0);
-    expect(
-      (group as unknown as { removeLayer: ReturnType<typeof vi.fn> }).removeLayer,
-    ).toHaveBeenCalled();
+  });
+
+  it("destroy is safe before any canvas exists", () => {
+    const mgr = new AnnotationManager(map, () => null);
+    expect(() => mgr.destroy()).not.toThrow();
   });
 });
 

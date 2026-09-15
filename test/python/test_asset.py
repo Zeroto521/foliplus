@@ -266,11 +266,12 @@ def test_sdist_contains_all_artifacts():
 
 # ── Split stylesheet structure ──────────────────────────────────────
 # LayerControl.css is split into css/LayerControl/{index,focus,rows,menu,
-# attrs,controls,map-state,rename,style,annotation}.css by responsibility.
+# attrs,controls,map-state,rename,style}.css by responsibility.
 # These tests guard the split: modules exist, the entry imports them in
 # order, and each module owns the rules its name claims — a token moving to
 # the wrong module now fails precisely instead of silently surviving the
-# merged entry.
+# merged entry. Annotation labels have no module: they are drawn on a canvas,
+# not styled by CSS.
 
 LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
 
@@ -285,7 +286,6 @@ LAYER_MODULE_TOKENS = {
     "map-state.css": "@keyframes foliplus-drag-pulse",
     "rename.css": ".foliplus-layer-rename-input",
     "style.css": ".foliplus-layer-style-panel",
-    "annotation.css": ".foliplus-annotation-label-text",
 }
 
 # Exact import order expected in index.css — mirrors the single-file cascade
@@ -299,7 +299,6 @@ LAYER_IMPORT_ORDER = [
     "map-state.css",
     "rename.css",
     "style.css",
-    "annotation.css",
 ]
 
 
