@@ -574,6 +574,35 @@ describe("LayerUI style panel", () => {
     expect(layerHasLabelFields(ui, "overlay1")).toBe(true);
   });
 
+  it("re-renders a shown layer when its fields are invalidated", () => {
+    // Dropping the cache is not enough: the drawn labels carry text baked from
+    // the old fields while the picker would resolve a new auto field, so the
+    // map and the panel would disagree until the user touched a control.
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: CONST.FORMAT.AUTO,
+    });
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.invalidateFields("overlay1");
+
+    expect(renderLabels).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("does not re-render a layer whose labels are off", () => {
+    manager.annotation.setConfig("overlay1", {
+      show: false,
+      field: "",
+      format: CONST.FORMAT.AUTO,
+    });
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.invalidateFields("overlay1");
+
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
   it("invalidateFields drops a layer's cached list", () => {
     layerHasLabelFields(ui, "overlay1");
     expect(ui.fieldCache.has("overlay1")).toBe(true);

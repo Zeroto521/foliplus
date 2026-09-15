@@ -260,6 +260,22 @@ describe("AnnotationManager.renderLabels", () => {
     expect(icon.html.textContent).toBe("5");
   });
 
+  it("reuses the cached auto pick instead of re-walking the layer", () => {
+    // The auto answer is per-layer, so a second render (the common case: any
+    // field or format change) must not walk every feature again.
+    const group = mkGroup([
+      mkLeaf({ props: { count: 5 }, latlng: { lat: 40, lng: -74 } }),
+    ]);
+    const mgr = new AnnotationManager(map, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "", format: "auto" });
+    const collect = vi.spyOn(mgr, "collectFields");
+
+    mgr.renderLabels("l1");
+    mgr.renderLabels("l1");
+
+    expect(collect).toHaveBeenCalledTimes(1);
+  });
+
   it("re-samples the auto pick once its cache is dropped", () => {
     // The auto answer is cached per layer; when the layer's columns change the
     // cache has to go, or the labels keep reading a field that no longer exists
