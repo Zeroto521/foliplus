@@ -466,9 +466,7 @@ class TestFullscreenControlBrowser:
             # Native API is intact at load time — this is the precondition
             # that makes a snapshot read take the native branch.
             assert page.evaluate("() => document.fullscreenEnabled") is True
-            assert (
-                page.evaluate("() => typeof document.exitFullscreen") == "function"
-            )
+            assert page.evaluate("() => typeof document.exitFullscreen") == "function"
 
             # Flip the flag only now, after every module has been evaluated.
             page.evaluate(
