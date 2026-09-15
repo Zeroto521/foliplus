@@ -15,7 +15,6 @@
   color inputs after click. */
 :is(
   .foliplus-input,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-form-select,
   .foliplus-heatmap-ctrl select,
   .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,

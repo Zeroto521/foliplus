@@ -2,7 +2,7 @@
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import { createPanelHeader } from "#common/panel.js";
+import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -11,6 +11,7 @@ import type { LayerUI } from "./index.js";
 import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
+import { closeStylePanel } from "./style.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
@@ -25,6 +26,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   finishRename(ui);
   closeMoreMenu(ui, true);
   closeAttrsPanel(ui, false);
+  // The style panel floats from the same ⋮ menu; never show both.
+  closeStylePanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
@@ -137,55 +140,43 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     layerInfo?.iconSvg ??
     (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
 
-  const panel = dom.el(
-    "div",
-    {
-      // `foliplus-panel` pulls in the shared panel vocabulary, so the
-      // attributes surface is styled by the same rules as every other panel
-      // (header bar, content scroll) instead of a lookalike.
-      class: `${CONST.CLASSES.ATTRS_PANEL} foliplus-panel`,
-      role: "dialog",
-      "aria-label": ui.T("attributes_layer"),
-    },
-    // Header bar — built by the same factory the fold panels use, so the type
-    // logo, title, and × line up with every other foliplus panel and cannot
-    // drift into a lookalike. Hover title is close_title (收起 / Collapse),
-    // same as the main panel.
-    createPanelHeader({
-      title: displayName,
-      iconSvg: typeSvg,
-      closeTitle: ui.T("close_title"),
-      iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
-    }),
-    // One flat list: third-party meta rows continue the same rhythm instead
-    // of opening a second group, so the panel reads as one column of facts.
-    dom.el(
-      "div",
-      { class: "foliplus-panel-content" },
-      renderList([...rows, ...metaRows]),
-    ),
-  );
+  // Shell (surface, header, content scroll) comes from the shared row-panel
+  // factory, so this surface is built by the same code as the per-layer style
+  // panel and neither can drift into a lookalike. Hover title is close_title
+  // (收起 / Collapse), same as the main panel.
+  const { panel, header, content } = createRowPanel({
+    cssClass: CONST.CLASSES.ATTRS_PANEL,
+    title: displayName,
+    // The header names the layer; the dialog itself is named by what the
+    // surface is, so a screen reader announces the panel, not the layer twice.
+    ariaLabel: ui.T("attributes_layer"),
+    iconSvg: typeSvg,
+    closeTitle: ui.T("close_title"),
+    iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+  });
+  // One flat list: third-party meta rows continue the same rhythm instead
+  // of opening a second group, so the panel reads as one column of facts.
+  content.appendChild(renderList([...rows, ...metaRows]));
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
-  // The 脳 sits inside the header, so one listener covers both.
-  panel
-    .querySelector(".foliplus-panel-header")
-    ?.addEventListener("click", () => closeAttrsPanel(ui, true));
+  // The × sits inside the header, so one listener covers both.
+  header.addEventListener("click", () => closeAttrsPanel(ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
-  // neither start a row drag nor inherit `user-select: none`. Capture-phase
-  // stop keeps HTML5 drag from treating the press as a drag candidate.
+  // neither start a row drag nor inherit `user-select: none`. The mousedown is
+  // stopped here (the row's own handlers live on the container), and which side
+  // of the panel the press landed on is recorded by the outside handler below —
+  // `dragstart` is dispatched on the draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
-  panel.addEventListener("dragstart", e => {
-    if (e.target instanceof Node && panel.contains(e.target)) e.preventDefault();
-  });
 
   item.style.position = "relative";
   item.appendChild(panel);
 
-  // Document capture dismiss: disableClickPropagation on the layer control
-  // stops bubble-phase mousedown from reaching document, so a press on the
-  // map or another foliplus control would never close the panel otherwise.
+  // Document capture dismiss (attrs recipe): disableClickPropagation on the
+  // layer control stops bubble-phase mousedown from reaching document, so a
+  // press on the map or another foliplus control would never close the
+  // panel otherwise. Capture also gives this handler the first look at every
+  // press, which is what makes it the right place to record the drag verdict.
   ui.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
     // Document-level dispatch can name `document` itself —no closest().
@@ -193,7 +184,11 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       closeAttrsPanel(ui, false);
       return;
     }
-    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) return;
+    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
+      ui.pressInPanel = true;
+      return;
+    }
+    ui.pressInPanel = false;
     closeAttrsPanel(ui, false);
   };
   document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
@@ -208,6 +203,8 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
     document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
     ui.attrsOutsideHandler = null;
   }
+  // No panel, no panel press: a stale verdict would block the next real drag.
+  ui.pressInPanel = false;
   if (!ui.activeAttrsPanel) return;
   const item = ui.activeAttrsPanel.item;
   ui.activeAttrsPanel.panel.remove();

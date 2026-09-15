@@ -395,12 +395,23 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(item);
       expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
 
-      // Capture phase: the layer control's disableClickPropagation never
-      // lets a bubble-phase press reach document.
-      document.dispatchEvent(
+      // The handler has to be registered in the *capture* phase, because the
+      // layer control stops mousedown from bubbling (Leaflet's
+      // disableClickPropagation). Dispatching on `document` cannot prove that —
+      // target === currentTarget, so a bubble-phase listener would run too. A
+      // wrapper that swallows the bubble, plus a press on its child, does.
+      const wrapper = document.createElement("div");
+      wrapper.addEventListener("mousedown", e => e.stopPropagation());
+      const outside = document.createElement("button");
+      wrapper.appendChild(outside);
+      document.body.appendChild(wrapper);
+
+      outside.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
+
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      wrapper.remove();
     });
 
     it("mousedown inside the panel does not dismiss it", () => {
@@ -411,6 +422,28 @@ describe("LayerUI attrs", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+    });
+
+    it("records the drag verdict on the press and drops it when the panel closes", () => {
+      // The row is the drag source for any press in the row, panel included, and
+      // `dragstart` cannot say where the press began — so the verdict is recorded
+      // here, on the press, and read by handleDragStart.
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+
+      panel.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(ui.pressInPanel).toBe(true);
+
+      // A press outside closes the panel and clears the verdict, so a stale
+      // `true` cannot cancel the next legitimate drag.
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.pressInPanel).toBe(false);
     });
 
     it("Escape closes an open attributes panel and returns focus to its row", () => {
