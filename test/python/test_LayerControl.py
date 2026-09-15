@@ -677,39 +677,26 @@ class TestLayerControlRendering:
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
 
-    def test_open_overlay_quiets_sibling_row_hover(self):
-        """While a row overlay is open — the more-menu or the attrs panel —
-        sibling rows must not join the Row-cursor recipe on hover: the cursor
-        crosses them on its way to the overlay, and without this rule every
-        layer under the path would light up (white surface + glow + ⋮-accent).
-        The owner row keeps the recipe — it is the anchor, and staying lit ties
-        the overlay to its row. One rule covers both overlays because they
-        share the anchor/traversal geometry. The suppressed rows also drop
-        position/z-index, so they can never paint above the overlay: its own
-        z-index is trapped in the owner's stacking context, where a later
-        sibling at z-index 1 would win."""
+    def test_open_overlay_lifts_owner_row_above_siblings(self):
+        """While a row overlay is open the owner row is lifted to the floating
+        index, so no sibling hover wake can paint over the menu or a row
+        panel: the overlay's own z-index is confined to the owner's stacking
+        context whenever the owner is hovered (the Row-cursor recipe gives it
+        z-index 1), where a later lit sibling would win — lifting the owner
+        carries the overlay with it and settles every combination. Sibling
+        rows keep their normal hover wake; that is their own state display.
+        One rule keys on the ⋮ menu plus the shared row-panel shell, so the
+        attrs AND the style panel get the guarantee without being named
+        individually."""
         css = read_css("foliplus/css/LayerControl.css")
-        # The trigger keys on the ⋮ menu plus the shared row-panel shell, so
-        # the attrs AND the style panel (both `foliplus-row-panel`) get the
-        # suppression without being named individually.
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
         assert f"&:has({overlay_list})" in css, (
-            "the suppression must key on the more-menu AND the row-panel shell"
+            "the lift must key on the more-menu AND the row-panel shell"
         )
-        # The owner row keeps the recipe: the same overlay list is also used in
-        # the :not(:has(...)) owner-exclusion of both suppression rules.
-        assert css.count(overlay_list) >= 3, (
-            "the overlay list must appear in the trigger AND the owner "
-            "exclusions (one per suppression rule)"
-        )
-        # The recipe's surface/glow/stacking are all neutralised on siblings.
-        assert "position: static" in css
-        assert "z-index: auto" in css
-        assert "box-shadow: none" in css
-        # Checked rows get a dedicated leg so their persistent state — wash,
-        # black type icon, accent ⋮ — survives the suppression: an open
-        # overlay must never read as a deselection.
-        assert "foliplus-layer-item.active:not(" in css
+        # The owner (the row containing the open overlay) is detected with
+        # :has() and raised — not the siblings, which keep their wake.
+        assert ".foliplus-layer-item:has(" in css
+        assert "z-index: var(--z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row (the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path).
         assert "margin-top: 0" in css
@@ -3581,14 +3568,16 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
             ), "panel stayed expanded after clicking outside"
 
-    def test_open_overlay_quiets_sibling_row_hover(self, browser, tmp_path):
-        """A row overlay owns the pointer while open: hovering a sibling row —
-        the path the cursor takes to reach the more-menu / attrs panel — must
-        not light the Row-cursor recipe on it (no glow, no drag grip, no
-        ⋮-accent), so the layers under the path stay quiet. Closing the
-        overlay restores normal hover, proving the rule keys on the open
-        overlay rather than on a dead hover. One suppression covers both the
-        more-menu and the attrs panel, and both are probed."""
+    def test_row_overlay_stays_visible_over_lit_siblings(self, browser, tmp_path):
+        """Sibling rows keep their hover wake while a row overlay is open —
+        that is their own state display and the overlay is the pointer's
+        destination, not a modal. The guarantee is the overlay staying
+        visible: the owner row is lifted to the floating index (the
+        overlay's z-index is confined to the owner's stacking context
+        whenever the owner is hovered), so no lit sibling can paint over it.
+        Probes both the ⋮ menu and the attrs panel: hovering a sibling
+        LIGHTS it, and the point at the overlay's centre still resolves to
+        the overlay itself."""
         layers = [
             folium.FeatureGroup(name=f"Overlay {i}", overlay=True, show=True)
             for i in range(3)
@@ -3605,31 +3594,31 @@ class TestLayerControlBrowser:
 
             ROW = ".foliplus-layer-item[data-layer-type=overlay]"
 
-            def snap_overlay(idx):
+            def row_wake(idx):
+                # The Row-cursor wake of a sibling row: glow + drag grip.
+                # Nothing may suppress it — it is the row's own state display.
                 return page.evaluate(
                     "idx => { const r = document.querySelectorAll('" + ROW + "')[idx];"
-                    " if (!r) return null; const cs = getComputedStyle(r);"
+                    " if (!r) return null;"
+                    " const cs = getComputedStyle(r);"
                     " const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
-                    " const m = r.querySelector('.foliplus-layer-more-btn');"
-                    " const i = r.querySelector('.foliplus-type-icon-col');"
-                    " return { bg: cs.backgroundColor, glow: cs.boxShadow !== 'none',"
-                    "  grip: g ? getComputedStyle(g).opacity : null,"
-                    "  more: m ? getComputedStyle(m).color : null,"
-                    "  icon: i ? getComputedStyle(i).color : null }; }",
+                    " return { glow: cs.boxShadow !== 'none',"
+                    "  grip: g ? getComputedStyle(g).opacity : null }; }",
                     idx,
                 )
 
-            def snap_sep():
+            def overlay_topmost(sel):
+                # The point at the overlay's centre must resolve to the overlay
+                # itself — a lit sibling would otherwise paint over it.
                 return page.evaluate(
-                    "() => { const r = document.querySelector("
-                    "  '.foliplus-layer-sep.foliplus-layer-toggle-all');"
-                    " if (!r) return null; const cs = getComputedStyle(r);"
-                    " return { bg: cs.backgroundColor, glow: cs.boxShadow !== 'none' }; }"
+                    "sel => { const el = document.querySelector(sel);"
+                    " if (!el) return null;"
+                    " const r = el.getBoundingClientRect();"
+                    " const hit = document.elementFromPoint("
+                    "   r.left + r.width / 2, r.top + r.height / 2);"
+                    " return hit ? !!hit.closest(sel) : null; }",
+                    sel,
                 )
-
-            base0, base1 = snap_overlay(0), snap_overlay(1)
-            base_sep = snap_sep()
-            assert not base0["glow"] and not base1["glow"] and not base_sep["glow"]
 
             def open_more_on_first_row():
                 page.evaluate(
@@ -3641,16 +3630,27 @@ class TestLayerControlBrowser:
                     ".foliplus-layer-more-menu.open", state="attached", timeout=5000
                 )
 
-            # ── more-menu open: the sibling row below stays at its rest ──
+            # ── ⋮ menu open: a hovering sibling wakes, the menu stays topmost ──
             open_more_on_first_row()
             page.hover(":nth-match(" + ROW + ", 2)")
-            page.wait_for_timeout(250)
-            assert page.is_visible(".foliplus-layer-more-menu.open")
-            quiet = snap_overlay(1)
-            assert quiet == base1, (
-                "hovering a sibling while the more-menu is open must not light "
-                "the Row-cursor recipe, got " + str(quiet) + " vs " + str(base1)
+            page.wait_for_function(
+                "() => getComputedStyle("
+                "  document.querySelectorAll('"
+                + ROW
+                + " .foliplus-drag-cell .drag-handle')[1]"
+                ").opacity === '1'",
+                timeout=2000,
             )
+            assert page.is_visible(".foliplus-layer-more-menu.open")
+            wake = row_wake(1)
+            assert wake["glow"] is True, (
+                "a sibling hover must keep its wake under an open overlay, got "
+                + str(wake)
+            )
+            assert overlay_topmost(".foliplus-layer-more-menu") is True, (
+                "the open menu must stay above a lit sibling (owner lifted)"
+            )
+
             # The owner anchor: the menu is the row's descendant, so the row
             # that owns it stays lit while the pointer is on the menu.
             page.hover(".foliplus-layer-more-menu.open li")
@@ -3661,48 +3661,13 @@ class TestLayerControlBrowser:
                 " return r ? getComputedStyle(r).boxShadow !== 'none' : null; }"
             ), "the row owning the open menu must stay lit while hovering it"
 
-            # ── control: the same hover lights the row with no overlay open ──
+            # ── attrs panel open: same contract ──
             # Escape closes the menu without collapsing the panel (a click
             # outside the panel would — bindOutsideCollapse).
             page.keyboard.press("Escape")
             page.wait_for_selector(
                 ".foliplus-layer-more-menu.open", state="detached", timeout=5000
             )
-            page.mouse.move(5, 400)  # drop the pointer, then hover fresh
-            page.hover(":nth-match(" + ROW + ", 2)")
-            page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelectorAll('"
-                + ROW
-                + " .foliplus-drag-cell .drag-handle')[1]"
-                ").opacity === '1'",
-                timeout=2000,
-            )
-            lit = snap_overlay(1)
-            assert lit != base1 and lit["glow"], (
-                "with no overlay open the same hover must light the row, got "
-                + str(lit)
-            )
-
-            # ── toggle-all control: hover lights it with no overlay open ──
-            SEP = ".foliplus-layer-sep.foliplus-layer-toggle-all"
-            page.mouse.move(5, 400)
-            page.hover(SEP)
-            page.wait_for_function(
-                "() => { const r = document.querySelector('" + SEP + "');"
-                " return getComputedStyle(r).boxShadow !== 'none'; }",
-                timeout=2000,
-            )
-            lit_sep = snap_sep()
-            assert lit_sep != base_sep and lit_sep["glow"], (
-                "with no overlay open hovering the toggle-all row must light "
-                "it, got " + str(lit_sep)
-            )
-
-            # ── attrs panel open: the same suppression quiets other rows ──
-            # The 280px attrs card fully covers the rows below the owner, so
-            # the probe hovers the toggle-all header above it instead — under
-            # the same suppression rule, and not covered by the card.
             page.mouse.move(5, 400)
             open_more_on_first_row()
             page.evaluate(
@@ -3713,13 +3678,15 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-attrs-panel", state="attached", timeout=5000
             )
+            # The 280px attrs card fully covers the rows below the owner, so
+            # the wake probe uses the toggle-all header above it instead.
+            SEP = ".foliplus-layer-sep.foliplus-layer-toggle-all"
             page.hover(SEP)
-            page.wait_for_timeout(250)
-            quiet = snap_sep()
-            assert quiet == base_sep, (
-                "hovering a sibling while the attrs panel is open must not "
-                "light the Row-cursor recipe, got "
-                + str(quiet)
-                + " vs "
-                + str(base_sep)
+            page.wait_for_function(
+                "() => { const r = document.querySelector('" + SEP + "');"
+                " return getComputedStyle(r).boxShadow !== 'none'; }",
+                timeout=2000,
+            )
+            assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
+                "the open attrs panel must stay above a lit sibling"
             )

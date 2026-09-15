@@ -117,6 +117,19 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   item.style.position = "relative";
   item.appendChild(menu);
 
+  // Tab moving focus out of the menu dismisses it — an open menu owns the
+  // keyboard cursor (ARIA menu pattern). Focus wandering within the menu,
+  // or onto the anchor row itself (jsdom falls a disabled-item click back
+  // to the row, and a real Tab can land on the row's own controls), keeps
+  // the menu open. The listener lives on the menu element, so it dies with
+  // the menu on close. Click-outside and Escape close through their own
+  // paths, and this re-closing is a no-op then (activeMenu is already gone).
+  menu.addEventListener("focusout", event => {
+    const next = (event as FocusEvent).relatedTarget as Node | null;
+    if (next && (next === item || item.contains(next))) return;
+    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+  });
+
   ui.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
