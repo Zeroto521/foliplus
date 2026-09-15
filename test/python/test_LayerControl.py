@@ -2933,8 +2933,8 @@ class TestLayerControlBrowser:
                 f"ArrowRight should toggle visibility, got {result}"
             )
 
-    def test_keydown_after_label_click_targets_clicked_row(self, browser, tmp_path):
-        """Mouse-selecting a row moves the keyboard cursor to that row."""
+    def test_keydown_after_label_press_targets_clicked_row(self, browser, tmp_path):
+        """Pointer-selecting a row moves the keyboard cursor to that row."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay1, overlay2) as (
@@ -2948,17 +2948,17 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
             result = page.evaluate(
-                _js("LayerControl/keydown_after_label_click_targets_clicked_row")
+                _js("LayerControl/keydown_after_label_press_targets_clicked_row")
             )
             assert result is not None, (
-                "keydown_after_label_click_targets_clicked_row failed"
+                "keydown_after_label_press_targets_clicked_row failed"
             )
             assert result["toggled"] is True, (
-                f"Enter after clicking a row label should toggle that row, got {result}"
+                f"Enter after pressing a row label should toggle that row, got {result}"
             )
             # After keyboard nav the browser may still treat the next mouse
             # focus as :focus-visible, so focusin can light the row — allowed.
-            # The hard contract is Enter targets the clicked row (`toggled`).
+            # The hard contract is Enter targets the pressed row (`toggled`).
 
     def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
         """Folding a group must not kill keyboard navigation.
@@ -3345,13 +3345,20 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
-    def test_checkbox_click_stays_quiet(self, browser, tmp_path):
-        """Toggling a row's checkbox must not paint the cursor visual.
+    def test_checkbox_click_keeps_cursor_off(self, browser, tmp_path):
+        """A pointer press on a row's checkbox must not paint the cursor visual.
 
-        The cursor recipe is sticky: nothing on the toggle path (blur, Escape,
-        another row) would clear it, so the row kept white + glow indefinitely.
-        A pointer press only re-homes the keyboard index; focusin still lights
-        the row for keyboard-modality focus, so the recipe itself stays intact.
+        The cursor class is sticky: nothing on the press path (blur, Escape,
+        another row) would clear it, so painting it left the row white + glow
+        indefinitely. A pointer press only re-homes the keyboard index.
+
+        The press contract itself rests on `isKeyboardVisibleFocus`: Chromium
+        reports `:focus-visible` false for the focus a mouse press causes, so
+        the press never reaches the class through focusin either. That browser
+        fact is measured, not assumed — if it ever changes the contract below
+        stops being meaningful. The final step pins the positive half: keyboard
+        focus still lights the row, so the recipe stays intact and the two
+        halves can't both be empty.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=True)
@@ -3367,9 +3374,9 @@ class TestLayerControlBrowser:
             )
             panel_ready(page)
             page.mouse.move(0, 0)
-            result = page.evaluate(_js("LayerControl/checkbox_click_lights_cursor"))
+            result = page.evaluate(_js("LayerControl/checkbox_click_keeps_cursor_off"))
             assert result is not None and "error" not in result, (
-                f"checkbox click snippet failed: {result}"
+                f"checkbox press snippet failed: {result}"
             )
             assert result["afterClick"]["focusedClass"] is False, (
                 "a checkbox toggle must not paint the cursor class, got "
@@ -3382,6 +3389,14 @@ class TestLayerControlBrowser:
             assert result["afterAgain"]["focusedClass"] is False, (
                 "repeated toggles must stay quiet, got " + str(result)
             )
+            # The precondition the quiet contract rests on: the focus a press
+            # causes is not keyboard-modality focus. If this ever flips true,
+            # every assertion above would be asserting against a browser change,
+            # not against the handler.
+            assert result["pressFocusVisible"] is False, (
+                "press focus must report :focus-visible false; the press-quiet "
+                "contract depends on it, got " + str(result)
+            )
             assert result["litByKeyboard"]["focusedClass"] is True, (
                 "keyboard-modality focus must still light the row, got "
                 + str(result)
@@ -3391,11 +3406,14 @@ class TestLayerControlBrowser:
                 + str(result)
             )
 
-    def test_base_basemap_quiet_focus(self, browser, tmp_path):
+    def test_base_basemap_quiet_recipe(self, browser, tmp_path):
         """Base basemap / color rows show no cursor glow; overlay rows still do.
 
-        Basemaps are stack slots, not data layers — click / keyboard focus
-        must not paint the white+glow recipe. Mouse cursor stays default.
+        Basemaps are stack slots, not data layers, so they are excluded from
+        the keyboard-navigable set and can never reach the focused state for
+        real. The base half of this test therefore applies the class by hand
+        to probe the quiet-override rule the CSS declares for it; the overlay
+        half drives the recipe through real keyboard focus.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("OpenStreetMap", name="OSM", overlay=False)
@@ -3408,7 +3426,7 @@ class TestLayerControlBrowser:
             )
             panel_ready(page)
             page.mouse.move(0, 0)
-            result = page.evaluate(_js("LayerControl/base_basemap_quiet_focus"))
+            result = page.evaluate(_js("LayerControl/base_basemap_quiet_recipe"))
             assert result is not None and "error" not in result, (
                 f"base basemap snippet failed: {result}"
             )
@@ -3425,9 +3443,16 @@ class TestLayerControlBrowser:
             assert result["baseCheckedHover"]["bg"] != result["white"], (
                 "checked base row must not flash white on hover, got " + str(result)
             )
-            # Overlay data row still gets the full recipe.
+            # Overlay data row still gets the full recipe: glow, clear white
+            # surface, and the pointer cursor the recipe declares.
             assert result["overlayAfter"]["glow"] is True, (
                 "overlay row must still show the cursor glow, got " + str(result)
+            )
+            assert result["overlayAfter"]["bg"] == result["white"], (
+                "overlay row must show the clear white surface, got " + str(result)
+            )
+            assert result["overlayAfter"]["cursor"] != "default", (
+                "overlay row must show the pointer cursor, got " + str(result)
             )
             # Color picker row is quiet when present.
             if result["colorAfter"] is not None:

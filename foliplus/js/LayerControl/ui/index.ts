@@ -354,24 +354,26 @@ class LayerUI {
       // panel's business, not the row's. Taking the cursor over here would
       // steal DOM focus back to the row, and a native <select> popup closes
       // the instant it loses focus — so the dropdown looked like it retracted
-      // the moment it opened. The panels carry their own click handling.
+      // the moment it opened. The panels carry their own pointer handling.
       if (
         el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
         el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
       ) {
         return;
       }
-      // One ledger: pointer re-homes the keyboard index and the Tab stop so
-      // the next Enter / Space / Arrow lands on the row that was clicked.
+      // One ledger: the pointer re-homes the keyboard index, the Tab stop,
+      // and DOM focus so Enter / Space / Arrow resolve from the row that was
+      // clicked. The press paints nothing else — a checkbox press is a
+      // visibility toggle, not a navigation arrival.
       //
-      // The cursor *visual* is not painted here. A checkbox press is a
-      // visibility toggle, not a navigation arrival, and the visual is sticky —
-      // nothing on the toggle path (focusout on blur, Escape, another row)
-      // would ever clear it, so the row kept the white + glow long after the
-      // pointer left. `focusin` lights the row for real focus arrivals (Tab,
-      // click) that report keyboard-modality; mouse-only press keeps the class
-      // off. The index still re-homes, so Enter toggles the clicked row.
-      // (#278 removed the accidental dblclick→focusLayer zoom.)
+      // The cursor *visual* is not painted here. The class is sticky: nothing
+      // on the press path (focusout on blur, Escape, another row) would ever
+      // clear it, so painting it on a press left the row white + glow long
+      // after the pointer moved on. `focusin` lights it for real focus
+      // arrivals — the focus a mouse press causes reports `:focus-visible`
+      // false and is refused, while keyboard focus reports true and lights.
+      // The manual `classList.add` was the only other route in, and it is
+      // gone.
       const row = owningRow(el);
       if (row) {
         const idx = this.getNavigableItems().indexOf(row);

@@ -17,10 +17,10 @@
   });
 
   // 1) A checkbox press toggles visibility without painting the cursor visual.
-  // The cursor recipe is sticky — nothing on the toggle path clears it — so a
-  // plain toggle must not leave the row white + glow long after the pointer
-  // moved on. The keyboard *index* still re-homes, so the click contract is
-  // asserted separately (keydown_after_label_click_targets_clicked_row).
+  // The class is sticky — nothing on the press path clears it — so a plain
+  // toggle must not leave the row white + glow long after the pointer moved
+  // on. Re-asserted in step 2 to catch a click handler that only skipped the
+  // first press.
   checkbox.click();
   const afterClick = lit(row);
 
@@ -28,13 +28,23 @@
   checkbox.click();
   const afterAgain = lit(row);
 
-  // 3) Keyboard-modality focus still lights the row — the recipe itself is
-  // intact, only the pointer path stopped reaching for it.
+  // 3) The press contract rests on one browser fact: the focus a mouse press
+  // causes reports :focus-visible false, so focusin never lights the class. If
+  // Chromium ever changes that, step 3 would go false and steps 1-2 would stop
+  // being meaningful — measure the precondition instead of assuming it.
+  checkbox.click();
+  const pressFocusVisible = checkbox.matches(":focus-visible");
+
+  // 4) Keyboard focus still lights the row — the recipe itself is intact, only
+  // the pointer path stopped reaching for it. Real Chromium focus after a
+  // mouse press reports :focus-visible false, so this is the only route into
+  // the class from a press; the press contract in steps 1-2 rests on that.
   checkbox.focus({ focusVisible: true });
   checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
   const litByKeyboard = lit(row);
 
-  // 4) The other row's toggle does not light either row.
+  // 5) The other row's press lights neither row. The class is dropped here to
+  // isolate step 5 from step 4's positive assertion.
   checkbox.blur();
   row.classList.remove("foliplus-layer-focused");
   otherBox.click();
@@ -44,5 +54,11 @@
     anyClass: Boolean(panel.querySelector(".foliplus-layer-focused")),
   };
 
-  return { afterClick, afterAgain, litByKeyboard, otherClick };
+  return {
+    afterClick,
+    afterAgain,
+    pressFocusVisible,
+    litByKeyboard,
+    otherClick,
+  };
 };
