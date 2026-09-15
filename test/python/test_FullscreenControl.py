@@ -578,8 +578,11 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert not self._rotate_hint_visible(page), "hint shown in landscape"
+            # Playwright hands page.evaluate a Node as "ref: <Node>", so ask
+            # for the serialized string explicitly.
             enter_svg = page.evaluate(
-                "document.querySelector('.foliplus-hint-FullscreenControl svg')"
+                "() => document.querySelector("
+                "'.foliplus-hint-FullscreenControl svg')?.outerHTML ?? ''"
             )
             assert "M8 3H5" in enter_svg, (
                 f"enter toast lost the MAXIMIZE glyph: {enter_svg}"
@@ -614,4 +617,48 @@ class TestFullscreenControlBrowser:
                 "() => !document.querySelector('.foliplus-hint-FullscreenControl-rotate')"
             )
             assert not self._rotate_hint_visible(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_pseudo_fullscreen_enter_exit(self, browser, tmp_path):
+        """Pseudo-fullscreen (no native API) can be entered and exited.
+
+        The exit branch must check the internal `map.isFullscreen` flag,
+        because `document.fullscreenElement` is always null when the native
+        Fullscreen API is unavailable.
+        """
+        with use_page(self._make_pseudo_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Enter with a real input event (page.click generates one).
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # Zoom hidden, icon MINIMIZE.
+            hidden = page.evaluate(
+                """() => document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-hidden')"""
+            )
+            assert hidden, "zoom not hidden in pseudo-fullscreen"
+
+            # Exit. The toggle button is hidden while fullscreen, so click via
+            # JS (Playwright's page.click would fail on the hidden element).
+            page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle').click()"
+            )
+            page.wait_for_function(
+                """() => !document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            visible = page.evaluate(
+                """() => !document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-hidden')"""
+            )
+            assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
