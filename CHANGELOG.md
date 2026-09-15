@@ -63,6 +63,7 @@
 - `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are created lazily and rebuilt after `removeControl` + `addControl` on the same control ([#307](https://github.com/Zeroto521/foliplus/pull/307))
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
+- `build`: the bundle size report is published to the PR comment before the threshold gate is evaluated, so a breach no longer aborts the job and leaves the comment on the last green verdict — `--enforce` re-adds the exit code for the gate ([#327](https://github.com/Zeroto521/foliplus/pull/327))
 
 ### Removed
 

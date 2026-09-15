@@ -114,7 +114,14 @@ describe("parseArgs", () => {
     expect(a.baseline).toBeFalsy();
     expect(a.report).toBeFalsy();
     expect(a.root).toBeFalsy();
+    expect(a.enforce).toBe(false);
     expect(a.errors).toEqual([]);
+  });
+
+  it("parses --enforce as an on/off switch, not a value", () => {
+    // A bare flag: the parser must not swallow the next argument as its value.
+    expect(parseArgs(["--enforce"]).enforce).toBe(true);
+    expect(parseArgs(["--enforce", "--threshold=20"]).threshold).toBe(20);
   });
 
   it("parses --emit and --root", () => {
@@ -357,7 +364,10 @@ describe("check", () => {
     );
   });
 
-  it("returns 1 when a bundle exceeds the threshold", () => {
+  it("returns 0 when a bundle exceeds the threshold", () => {
+    // The breach is a policy call, not a broken check: the table has already
+    // been written, so a non-zero exit here would only hide it from the PR
+    // comment that follows. `--enforce` is the explicit opt-in.
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
     const size = brotli(content);
@@ -368,7 +378,30 @@ describe("check", () => {
         argsWithBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
         root,
       ),
-    ).toBe(1);
+    ).toBe(0);
+  });
+
+  it("returns non-zero when a bundle exceeds the threshold with --enforce", () => {
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content });
+    const baseline = writeBaseline(root, {
+      files: { "a.min.js": Math.round(size * 0.8) },
+    });
+    const over = check(parseArgs(["--enforce", "--baseline=" + baseline]), root);
+    // 2 is the threshold-exit code, distinct from the 1 a malformed-args or
+    // missing-dist failure uses.
+    expect(over).toBe(2);
+    // Within threshold: enforce changes nothing.
+    const ok = check(
+      parseArgs([
+        "--enforce",
+        "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
+      ]),
+      root,
+    );
+    expect(ok).toBe(0);
   });
 
   it("warns but returns 0 when a bundle is in the low-margin band", () => {
@@ -502,7 +535,11 @@ describe("check", () => {
       JSON.stringify({ files: { "a.min.js": Math.round(size * 0.8) } }),
       "utf-8",
     );
-    expect(check(parseArgs(["--baseline=" + customBaseline]), root)).toBe(1);
+    // Over threshold, so the verdict is recorded — the exit code stays 0.
+    expect(check(parseArgs(["--baseline=" + customBaseline]), root)).toBe(0);
+    expect(check(parseArgs(["--enforce", "--baseline=" + customBaseline]), root)).toBe(
+      2,
+    );
   });
 
   it("writes a collapsible Markdown report via --report", () => {
@@ -523,6 +560,39 @@ describe("check", () => {
     expect(md).not.toContain("over threshold"); // nothing exceeds the threshold
   });
 
+  it("publishes the report even when every verdict is over threshold", () => {
+    // This is the CI ordering contract: the sticky comment is posted by a step
+    // that runs after this one. If the exit code were non-zero, the shell would
+    // abort before the comment was written and the table would stay on the
+    // verdict from the last green run. The report file must exist either way.
+    const root = mkTmp();
+    const content = "const x = 1;".repeat(100);
+    const size = brotli(content);
+    mkDist(root, { "a.min.js": content, "b.min.css": content });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" +
+        writeBaseline(root, {
+          files: {
+            "a.min.js": Math.round(size * 0.8),
+            "b.min.css": Math.round(size * 0.8),
+          },
+        }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).toContain("<b>2 over threshold</b>");
+    // --enforce turns the same verdict into a non-zero exit, without losing
+    // the already-written report.
+    const enforced = check(
+      parseArgs(["--enforce", "--baseline=" + args.baseline, "--report=" + report]),
+      root,
+    );
+    expect(enforced).toBe(2);
+    expect(readFileSync(report, "utf-8")).toContain("<b>2 over threshold</b>");
+  });
+
   it("flags over-threshold bundles in the report summary", () => {
     const root = mkTmp();
     const content = "const x = 1;".repeat(100);
@@ -535,7 +605,7 @@ describe("check", () => {
         writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
       "--report=" + report,
     ]);
-    expect(check(args, root)).toBe(1);
+    expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).toContain("over threshold");
   });
 
@@ -550,7 +620,7 @@ describe("check", () => {
         writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
       "--report=" + report,
     ]);
-    expect(check(args, root)).toBe(1);
+    expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).toContain("<b>1 over threshold</b>");
   });
 
@@ -811,7 +881,8 @@ describe("failure listing", () => {
       },
       true,
     );
-    expect(out.split("\n")[0]).toBe("1");
+    // Without --enforce the breach is a verdict, not a failure.
+    expect(out.split("\n")[0]).toBe("0");
     expect(out).toContain("bundle(s) exceeded threshold");
     expect(out).toContain("a.min.js");
     expect(out).toContain("b.min.js");
@@ -847,16 +918,31 @@ describe("cli entry point", () => {
     expect(res.stderr).toContain("No baseline provided");
   });
 
-  it("exits 1 and reports an unknown flag", () => {
+  it("reports the breach and exits 0 without --enforce", () => {
     const root = mkTmp();
     mkDist(root, { "a.min.js": "const x = 1;" });
-    // No baseline on purpose: the exit code must come from the over-threshold
-    // failure, not from the no-baseline warning.
+    // A growth from 10 bytes to ~20 is far past the 10% threshold, so the
+    // breach is real; what varies is whether it gates the process. The verdict
+    // is printed to stderr either way, which is what the CI reads.
     const baseline = join(root, "base.json");
     writeFileSync(baseline, JSON.stringify({ files: { "a.min.js": 10 } }), "utf-8");
     const res = run(root, "--baseline=" + baseline);
-    expect(res.status).toBe(1);
+    expect(res.status).toBe(0);
     expect(res.stderr).toContain("exceeded threshold");
+    expect(res.stderr).toContain("--enforce");
+  });
+
+  it("exits non-zero on a breach when --enforce is passed", () => {
+    // `--enforce` is the explicit opt-in the workflow gate step uses. A breach
+    // without it must not abort a job, because the sticky comment is a later
+    // step in that same job and would never be written.
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    const baseline = join(root, "base.json");
+    writeFileSync(baseline, JSON.stringify({ files: { "a.min.js": 10 } }), "utf-8");
+    const res = run(root, "--baseline=" + baseline, "--enforce");
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("the build fails here");
   });
 
   it("exits 1 without running when an argument is malformed", () => {
