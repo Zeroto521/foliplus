@@ -625,6 +625,15 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
   renderResults(ctrl, items);
 };
 
+/**
+ * Whether a query still matches the input box. The captured `query` is always
+ * "up to date" inside its own closure, so the check has to run against the
+ * live input. Shared by the cache-hit path and the render-time drop so the two
+ * cannot drift; trimming keeps both in sync with the input listener.
+ */
+const compareWithInput = (ctrl: SearchControlState, query: string): boolean =>
+  query === ctrl.inp.value.trim();
+
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
 
@@ -644,7 +653,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
   const cached = ctrl.cachedSuggestions.get(query);
-  if (cached) {
+  // The cache survives removePanel() (index.ts clears it only on destroy), so
+  // it can outlive the request that produced it. Only a request may retire an
+  // entry — renderSuggestions overwrites on a hit.
+  if (cached && compareWithInput(ctrl, query)) {
     renderSuggestions(ctrl, cached, query);
     return;
   }
@@ -656,10 +668,9 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
-    ctrl.throttleTimer = setTimeout(
-      () => fetchSuggestions(ctrl, query),
-      provider.throttleMs - (now - since),
-    );
+    ctrl.throttleTimer = setTimeout(() => {
+      fetchSuggestions(ctrl, ctrl.inp.value.trim());
+    }, provider.throttleMs - (now - since));
     return;
   }
   ctrl.lastSuggestFetch = Date.now();
@@ -683,7 +694,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
         return { ...item, lng: String(lng), lat: String(lat) };
       });
       if (reqSeq !== ctrl.suggestSeq) return;
-      if (query !== ctrl.inp.value.trim()) return;
+      // Same live-input check as the cache-hit path above, via one helper so
+      // the two call sites cannot drift. Silently discarded: the request that
+      // retired this panel already ran, so there is nothing to close, and
+      // re-issuing for the new input here would race the debounce the input
+      // listener already owns.
+      if (!compareWithInput(ctrl, query)) return;
       // Cache first result so searchAddress can serve it from geoCache.
       // results is always an array (normalizeSuggest), so index 0 is either
       // an item or undefined.
