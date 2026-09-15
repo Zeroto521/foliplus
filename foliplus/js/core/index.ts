@@ -41,6 +41,14 @@ export {
   resolveSelectedField,
 } from "./labelField.js";
 export type { LabelField } from "./labelField.js";
+export {
+  HIDE_OVERLAP,
+  hOverlap,
+  hides,
+  planVisible,
+  vOverlap,
+} from "./labelCollision.js";
+export type { Box, PlacedLabel } from "./labelCollision.js";
 export { createControlEnv } from "./controlEnv.js";
 export { registerHintIcon } from "./hint.js";
 export * from "./event/index.js";
