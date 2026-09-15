@@ -12,4 +12,4 @@
     hitIsCanvas: hit === canvas,
     hitTag: hit ? hit.tagName : null,
   };
-}
+};

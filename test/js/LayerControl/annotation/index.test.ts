@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     destroy: ReturnType<typeof vi.fn>;
   }
   const instances: MockCanvas[] = [];
+
   class MockAnnotationCanvas implements MockCanvas {
     setLayerLabels = vi.fn();
     removeLayerLabels = vi.fn();

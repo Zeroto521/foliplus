@@ -2,13 +2,13 @@
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { autoLabelField } from "#core/labelField.js";
-import { cssVar } from "#common/cssvar.js";
 import {
+  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
-  type CanvasLabelStyle,
 } from "#common/canvasLabel.js";
+import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
