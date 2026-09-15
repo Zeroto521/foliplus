@@ -53,6 +53,13 @@ const label = (id: string, text: string): LayerLabel => ({
   priority: 50,
 });
 
+/** Same, at a chosen latitude: the mock maps lat → x = 100 + lat, so distinct
+ *  latitudes keep two labels out of each other's collision box. */
+const labelAt = (id: string, text: string, lat: number): LayerLabel => ({
+  ...label(id, text),
+  latlng: { lat, lng: 0 } as L.LatLng,
+});
+
 const makeEnv = (isLayerOnMap: (id: string) => boolean = () => true) => {
   const container = document.createElement("div");
   Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
@@ -195,6 +202,25 @@ describe("AnnotationCanvas.draw", () => {
     canvas.removeLayerLabels("never-registered");
 
     expect(ctx.clearRect).not.toHaveBeenCalled();
+  });
+
+  it("draws only the focused layer's labels while a focus filter is set", () => {
+    const { canvas } = makeEnv();
+    // Far apart, so the collision plan cannot hide one of them.
+    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
+    canvas.setLayerLabels("b", [labelAt("b1", "beta", 400)]);
+
+    ctx.fillText.mockClear();
+    canvas.setFocusFilter("a");
+    const focused = ctx.fillText.mock.calls.map(c => c[0]);
+    expect(focused).toContain("alpha");
+    expect(focused).not.toContain("beta");
+
+    ctx.fillText.mockClear();
+    canvas.setFocusFilter(null);
+    const all = ctx.fillText.mock.calls.map(c => c[0]);
+    expect(all).toContain("alpha");
+    expect(all).toContain("beta");
   });
 });
 

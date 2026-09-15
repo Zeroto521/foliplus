@@ -57,6 +57,10 @@ class AnnotationCanvas {
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
   private cachedStyle: CanvasLabelStyle | null = null;
+  /** When set, only this layer's labels draw. The focus mode spotlights one
+   *  layer and hides the rest, so the others' labels must not linger over
+   *  geometry that is no longer on screen. */
+  private focusFilter: string | null = null;
 
   constructor(map: L.Map, isLayerOnMap: (layerId: string) => boolean) {
     this.map = map;
@@ -134,6 +138,14 @@ class AnnotationCanvas {
     if (this.labelsByLayer.delete(layerId)) this.scheduleDraw();
   }
 
+  /** Restrict drawing to one layer — the focus mode's spotlight — or pass null
+   *  to clear the restriction. */
+  setFocusFilter(layerId: string | null): void {
+    if (this.focusFilter === layerId) return;
+    this.focusFilter = layerId;
+    this.scheduleDraw();
+  }
+
   destroy(): void {
     this.scheduleDraw.cancel();
     this.map.off("resize", this.onResize);
@@ -193,7 +205,11 @@ class AnnotationCanvas {
     ctx.clearRect(0, 0, w, h);
 
     const all: Array<LabelCandidate> = [...this.labelsByLayer.entries()]
-      .filter(([layerId]) => this.isLayerOnMap(layerId))
+      .filter(
+        ([layerId]) =>
+          this.isLayerOnMap(layerId) &&
+          (this.focusFilter === null || layerId === this.focusFilter),
+      )
       .flatMap(([, labels]) => labels)
       .map(label => ({
         id: label.id,
