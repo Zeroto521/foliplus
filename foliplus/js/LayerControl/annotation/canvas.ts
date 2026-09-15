@@ -14,6 +14,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { throttleRaf } from "#common/throttle.js";
+import { ANNOTATION_PANE } from "../const.js";
 import {
   type LabelCandidate,
   type LabelSpec,
@@ -56,6 +57,10 @@ class AnnotationCanvas {
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
   private cachedStyle: CanvasLabelStyle | null = null;
+  /** When set, only this layer's labels draw. The focus mode spotlights one
+   *  layer and hides the rest, so the others' labels must not linger over
+   *  geometry that is no longer on screen. */
+  private focusFilter: string | null = null;
 
   constructor(map: L.Map, isLayerOnMap: (layerId: string) => boolean) {
     this.map = map;
@@ -68,7 +73,12 @@ class AnnotationCanvas {
     this.canvas.style.inset = "0";
     // The labels are not interactive: clicks land on the feature beneath.
     this.canvas.style.pointerEvents = "none";
-    map.getPane("overlayPane")!.appendChild(this.canvas);
+    // The dedicated label pane (LayerManager.enforceOrder z-orders it above
+    // every data pane, below markers/tooltips). Created here as a fallback so
+    // the canvas has a home even if a label renders before the first enforce.
+    const pane = map.getPane(ANNOTATION_PANE) ?? map.createPane(ANNOTATION_PANE);
+    pane.classList.add("foliplus-annotation-pane");
+    pane.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
 
     this.resize();
@@ -107,14 +117,21 @@ class AnnotationCanvas {
     this.map.on("zoomend", this.onZoomEnd);
     this.map.on("move zoom moveend layeradd layerremove", this.onMapChange);
 
-    // Export safety: the exporter renders this same container, so culling by
-    // the live container box cannot lose labels — the *real* risk would be
-    // culling by a stale view while the exporter changed it. The export events
-    // exist so this canvas redraws with the new view before the capture.
+    // Export safety. The exporter's locked path grows the container and shifts
+    // the view, then captures on the very next frame — so the redraw here is
+    // synchronous (re-measure, re-position, draw): a throttled redraw would
+    // land a frame late and the capture would read the pre-export canvas, with
+    // the old size and the old viewport. Culling by the container box stays
+    // correct, because by now the container *is* the export extent.
     const events = ensureEvents(map);
+    const redrawNow = () => {
+      this.resize();
+      this.updatePosition();
+      this.draw();
+    };
     this.unsubscribe.push(
-      events.on(EVENTS.BEFORE_EXPORT, () => this.scheduleDraw()),
-      events.on(EVENTS.AFTER_EXPORT, () => this.scheduleDraw()),
+      events.on(EVENTS.BEFORE_EXPORT, redrawNow),
+      events.on(EVENTS.AFTER_EXPORT, redrawNow),
     );
   }
 
@@ -126,6 +143,14 @@ class AnnotationCanvas {
 
   removeLayerLabels(layerId: string): void {
     if (this.labelsByLayer.delete(layerId)) this.scheduleDraw();
+  }
+
+  /** Restrict drawing to one layer — the focus mode's spotlight — or pass null
+   *  to clear the restriction. */
+  setFocusFilter(layerId: string | null): void {
+    if (this.focusFilter === layerId) return;
+    this.focusFilter = layerId;
+    this.scheduleDraw();
   }
 
   destroy(): void {
@@ -187,7 +212,11 @@ class AnnotationCanvas {
     ctx.clearRect(0, 0, w, h);
 
     const all: Array<LabelCandidate> = [...this.labelsByLayer.entries()]
-      .filter(([layerId]) => this.isLayerOnMap(layerId))
+      .filter(
+        ([layerId]) =>
+          this.isLayerOnMap(layerId) &&
+          (this.focusFilter === null || layerId === this.focusFilter),
+      )
       .flatMap(([, labels]) => labels)
       .map(label => ({
         id: label.id,

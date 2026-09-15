@@ -141,7 +141,13 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
-    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
+    // Position in the panel (0 = topmost) feeds the label priority, so a layer
+    // above wins the collision against one below.
+    this.annotation = new AnnotationManager(
+      this.map,
+      id => this.findLayer(id),
+      id => this.layers.findIndex(l => l.id === id),
+    );
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -595,6 +601,18 @@ class LayerManager implements LayerAPI {
       if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
       const markerPaneEl = this.map.getPane("markerPane");
       if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+
+      // Annotation labels live on their own pane — one canvas carrying every
+      // layer's labels — slotted above the data panes and below the markers:
+      // labels never hide under a layer's own geometry, and never cover the
+      // interaction markers. Created here even before the canvas exists, so
+      // the first label render already lands in the right slot.
+      const annotationPaneEl =
+        this.map.getPane(CONST.ANNOTATION_PANE) ??
+        this.map.createPane(CONST.ANNOTATION_PANE);
+      // createPane always returns the element (or throws), so no guard here.
+      annotationPaneEl.classList.add("foliplus-annotation-pane");
+      annotationPaneEl.style.zIndex = String(topZ - 2);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
