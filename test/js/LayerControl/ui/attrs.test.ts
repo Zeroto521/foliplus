@@ -413,6 +413,28 @@ describe("LayerUI attrs", () => {
       expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
     });
 
+    it("records the drag verdict on the press and drops it when the panel closes", () => {
+      // The row is the drag source for any press in the row, panel included, and
+      // `dragstart` cannot say where the press began — so the verdict is recorded
+      // here, on the press, and read by handleDragStart.
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+
+      panel.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(ui.pressInPanel).toBe(true);
+
+      // A press outside closes the panel and clears the verdict, so a stale
+      // `true` cannot cancel the next legitimate drag.
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.pressInPanel).toBe(false);
+    });
+
     it("Escape closes an open attributes panel and returns focus to its row", () => {
       const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();
