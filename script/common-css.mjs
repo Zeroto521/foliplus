@@ -10,17 +10,17 @@
  */
 
 /** Match the bare quoted form of a CSS @import: `@import "name.css";`. */
-export const IMPORT_RE = /^@import\s+["']([^"']+)["']\s*;/;
+const IMPORT_RE = /^@import\s+["']([^"']+)["']\s*;/;
 
 /** Collect the bare filenames this source imports, in declaration order. */
-export const parseImports = source =>
+const parseImports = source =>
   source
     .split("\n")
     .map(line => line.trim().match(IMPORT_RE)?.[1])
     .filter(Boolean);
 
 /** Drop `@import` statements from a source; the merged bundle must not carry them. */
-export const stripImports = source =>
+const stripImports = source =>
   source
     .split("\n")
     .filter(line => !line.trim().match(IMPORT_RE))
@@ -47,7 +47,7 @@ export const stripImports = source =>
  * @returns {string[]} filenames in topological (dependency-first) order
  * @throws {Error} on self-import, unresolved import, or an import cycle
  */
-export const orderCommonCss = sources => {
+const orderCommonCss = sources => {
   const files = [...sources.keys()];
   const depsOf = new Map(files.map(f => [f, parseImports(sources.get(f))]));
 
@@ -85,3 +85,5 @@ export const orderCommonCss = sources => {
 
   return ordered;
 };
+
+export { orderCommonCss, parseImports, stripImports };
