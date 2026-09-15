@@ -424,6 +424,74 @@ path.foliplus-focus-mask {
     }
   }
 
+  /* ── Open overlay: the dropdown owns the pointer ──
+     While a row overlay is open — the more-menu or the attributes panel —
+     the cursor crosses sibling rows on its way to it; those rows must NOT
+     join the Row-cursor recipe (no white surface, glow, drag grip,
+     ⋮-accent) or every layer under the path would light up. The row that
+     owns the open overlay keeps the recipe — it is the anchor, and staying
+     lit ties the overlay to its row. Suppressed rows also drop
+     position/z-index entirely, so they can never paint above the overlay:
+     its own z-index is confined to the owner's stacking context, so raising
+     it alone could not beat a later sibling at z-index 1. One rule covers
+     both overlays — the more-menu and the attrs panel share the same
+     anchor/traversal geometry, so they share the suppression. */
+  &:has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel) {
+    /* Neutralise the transient Row-cursor recipe on siblings: no glow, no
+       stacking bump, no drag grip. The colour/background legs are split by
+       checked state below — an overlay must not cancel a checked row's
+       persistent wash/icon/⋮ readout either. */
+    .foliplus-layer-item:not(
+        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+      ):is(:hover, .foliplus-layer-focused),
+    .foliplus-layer-sep.foliplus-layer-toggle-all:is(:hover, .foliplus-layer-focused) {
+      position: static;
+      z-index: auto;
+      box-shadow: none;
+
+      .foliplus-drag-cell .drag-handle {
+        opacity: 0;
+      }
+    }
+    /* Unchecked rows fall back to the plain surface and muted glyphs — the
+       exact rest state of an unchecked row, so suppressed hover is
+       indistinguishable from resting. */
+    .foliplus-layer-item:not(.active):not(
+        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+      ):is(:hover, .foliplus-layer-focused),
+    .foliplus-layer-sep.foliplus-layer-toggle-all:not(.active):is(
+        :hover,
+        .foliplus-layer-focused
+      ) {
+      background: var(--neutral-0);
+
+      .foliplus-type-icon-col {
+        color: var(--text-muted);
+      }
+      .foliplus-layer-more-btn {
+        color: var(--text-primary);
+      }
+    }
+    /* Checked rows keep their persistent state — wash, black type icon,
+       accent ⋮ — which is exactly their rest state too. */
+    .foliplus-layer-item.active:not(
+        :has(.foliplus-layer-more-menu.open, .foliplus-layer-attrs-panel)
+      ):is(:hover, .foliplus-layer-focused),
+    .foliplus-layer-sep.foliplus-layer-toggle-all.active:is(
+        :hover,
+        .foliplus-layer-focused
+      ) {
+      background: var(--accent-light);
+
+      .foliplus-type-icon-col {
+        color: var(--text-primary);
+      }
+      .foliplus-layer-more-btn {
+        color: var(--accent-primary);
+      }
+    }
+  }
+
   /* ── Base basemap / color picker rows stay quiet ──
      No cursor glow or white wash on hover / keyboard focus: these are
      stack slots, not data layers you navigate to. The row itself stays
@@ -574,6 +642,13 @@ path.foliplus-focus-mask {
     position: absolute;
     top: 100%;
     right: 0;
+    /* Flush with the owning row's bottom edge — the shared dropdown shell
+       adds a 2px margin-top that would open a sliver of list under the cursor
+       path to the menu (the row below would light up there, and the owner row
+       would blink out of :hover in the gap). With zero gap the cursor leaves
+       the owner row straight into its menu, so the owner stays lit the whole
+       way: the menu is its descendant. */
+    margin-top: 0;
     /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
        little slack, without the dead gap the verb-only labels left at 128px.
        Min-width — not fixed — so a future longer label widens it instead of

@@ -81,6 +81,24 @@ def test_expected_artifacts_cover_both_sides():
     assert len(set(EXPECTED)) == len(EXPECTED)
 
 
+def test_dist_bundle_applies_svg_compression():
+    """The dist bundles carry SVGO-compressed SVG strings (polyline → path).
+
+    The source-transform onLoad guard once appended a hardcoded ``"/"`` to a
+    ``path.resolve()``-based source dir, so the prefix never matched a
+    backslash path on Windows and every source transform was silently
+    skipped — bundles built there shipped the raw ``<polyline>`` chevron
+    instead of a ``<path>``, tripping the fold-button browser test. Pinning
+    the compressed form here guards the fix on every platform.
+    """
+    js = (dist_dir / "foliplus-LayerControl.min.js").read_text(encoding="utf-8")
+    assert "<polyline" not in js, (
+        "the FOLD chevron must be SVGO-compressed to a <path> — a raw "
+        "polyline means the source-transform plugin was skipped on this "
+        "platform (Windows path-separator guard)"
+    )
+
+
 def test_load_asset_reads_a_present_file():
     """The success path: a present artifact is returned as text, untouched."""
     js = dist_dir / "foliplus-common.min.js"
