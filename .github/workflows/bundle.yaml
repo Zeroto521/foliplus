@@ -98,6 +98,11 @@ jobs:
       # verdict is the one the Report step recorded against the same baseline,
       # so this is a re-read of the same numbers, not a re-measure.
       - name: Enforce threshold
+        # The gate lives on pull_request only, so a branch push does not see a
+        # base-sizes.json from a Capture step that ran against the PR's own
+        # `head_ref`. The if is defensive, not reachable from the workflow's
+        # current triggers: it keeps the step skipped rather than failing on a
+        # missing file if a push trigger is added later.
         if: ${{ github.event.pull_request }}
         run: |
           node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce

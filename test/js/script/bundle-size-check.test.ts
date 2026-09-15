@@ -1,3 +1,4 @@
+import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -887,6 +888,123 @@ describe("failure listing", () => {
     expect(out).toContain("a.min.js");
     expect(out).toContain("b.min.js");
   });
+
+  it("points the reader at --enforce rather than exiting", () => {
+    // The non-enforce message must name the opt-in, or the reader cannot tell
+    // that this run chose not to gate.
+    const root = mkTmp();
+    const body = "const x = 1;".repeat(100);
+    const size = brotli(body);
+    mkDist(root, { "a.min.js": body });
+    const out = runCheck(root, { files: { "a.min.js": Math.round(size * 0.5) } }, true);
+    expect(out.split("\n")[0]).toBe("0");
+    expect(out).toContain("Use --enforce to fail the build.");
+  });
+});
+
+// `--enforce` turns the same verdict into a gate. `runCheck` is the default
+// (no gate); this is the same call with the flag on, so the two together pin
+// the separation between the verdict and whether it fails the process.
+const runEnforce = (root: string, data: unknown, ...extra: string[]): string => {
+  const baseline = writeBaseline(root, data);
+  const logs: string[] = [];
+  const warn = console.warn;
+  const log = console.log;
+  const err = console.error;
+  console.warn = (...a) => logs.push(a.join(" "));
+  console.log = (...a) => logs.push(a.join(" "));
+  console.error = (...a) => logs.push(a.join(" "));
+  try {
+    const code = check(
+      parseArgs(["--baseline=" + baseline, "--enforce", ...extra]),
+      root,
+    );
+    return String(code) + "\n" + logs.join("\n");
+  } finally {
+    console.warn = warn;
+    console.log = log;
+    console.error = err;
+  }
+};
+
+// A growth pair built from the real brotli size, not a guessed byte count: a
+// baseline a tenth of the real output reads as a bundle that vanished rather
+// than as growth, so the percentage the threshold is applied to would be wrong.
+const growDist = (root: string, factor: number) => {
+  const body = "a".repeat(2000);
+  const curr = brotli(body);
+  mkDist(root, { "a.min.js": body });
+  return { files: { "a.min.js": Math.max(1, Math.round(curr * (1 - factor))) } };
+};
+
+// Runs the checked-in script as CI does. Hoisted so the exit-code tests can
+// compare the real process status, not the value `check` returns.
+const runProcess = (root: string, ...argv: string[]) =>
+  spawnSync(
+    process.execPath,
+    ["script/bundle-size-check.mjs", "--root=" + root, ...argv],
+    { cwd: process.cwd(), encoding: "utf-8" },
+  );
+
+describe("threshold and enforce", () => {
+  // The two switches are independent: `--threshold` picks the verdict,
+  // `--enforce` picks whether it gates. Cover both directions of each so the
+  // flags cannot silently ignore each other.
+  it("admits growth inside an explicit threshold even under --enforce", () => {
+    // If `--enforce` were ignored the run would still exit 0, and if
+    // `--threshold` were ignored it would exit 2 on a growth the raised bar
+    // admits — either way this catches it. A 1% baseline cut grows the bundle
+    // by ~1.01%, far inside a 20% bar.
+    const root = mkTmp();
+    const data = growDist(root, 0.01);
+    const a = runEnforce(root, data, "--threshold=20");
+    expect(a.split("\n")[0]).toBe("0");
+    expect(a).toContain("All bundles within threshold.");
+  });
+
+  it("fails under --enforce when an explicit threshold is exceeded", () => {
+    // A 25% cut grows the bundle by ~33%: past the doubled 20% bar but inside
+    // the default 10%, which proves the explicit threshold is the one applied,
+    // not the default.
+    const root = mkTmp();
+    const data = growDist(root, 0.25);
+    const a = runEnforce(root, data, "--threshold=20");
+    expect(a.split("\n")[0]).toBe("2");
+    expect(a).toContain("exceeded threshold");
+  });
+
+  it("does not gate the same breach without --enforce", () => {
+    // Same growth as above with the flag off: the verdict is unchanged, only
+    // the exit code differs. Together with the test above it pins the
+    // separation between a verdict and a gate.
+    const root = mkTmp();
+    const data = growDist(root, 0.25);
+    const a = runCheck(root, data, true);
+    expect(a.split("\n")[0]).toBe("0");
+    expect(a).toContain("exceeded threshold");
+  });
+
+  it("distinguishes the three exit codes end to end", () => {
+    // 0 = a verdict, 2 = the build chose to gate on it, 1 = the tool cannot
+    // run. One shared code would make a malformed flag and a real breach read
+    // alike, so all three are exercised from the same dist tree. The baseline
+    // must hold a size close to the real brotli output: a tiny baseline grows
+    // to "new"-territory and reads as an unknown percentage.
+    const root = mkTmp();
+    const body = "a".repeat(2000);
+    mkDist(root, { "a.min.js": body });
+    const baseline = writeBaseline(root, {
+      files: { "a.min.js": Math.round(brotli(body) * 0.75) },
+    });
+    const verdict = runProcess(root, "--baseline=" + baseline);
+    const gated = runProcess(root, "--baseline=" + baseline, "--enforce");
+    const broken = runProcess(root, "--threshold=abc");
+    expect(verdict.status).toBe(0); // no --enforce: the verdict does not gate
+    expect(gated.status).toBe(2); // --enforce: the same verdict does
+    expect(broken.status).toBe(1); // malformed flag: the run never started
+    expect(verdict.status).not.toBe(gated.status);
+    expect(broken.status).not.toBe(gated.status);
+  });
 });
 
 describe("cli entry point", () => {
@@ -895,18 +1013,8 @@ describe("cli entry point", () => {
   // the missing-baseline path. `--root` is the only thing varied — it points at
   // a scratch tree that is a git checkout for the script but has no node_modules,
   // so an unresolvable tool exercises the catch in `toolVersion`.
-  const run = (root: string, ...argv: string[]) => {
-    const { spawnSync } = require("child_process");
-    return spawnSync(
-      process.execPath,
-      [
-        "script/bundle-size-check.mjs",
-        "--root=" + root,
-        ...(argv.length ? argv : ["--baseline=absent.json"]),
-      ],
-      { cwd: process.cwd(), encoding: "utf-8" },
-    );
-  };
+  const run = (root: string, ...argv: string[]) =>
+    runProcess(root, ...(argv.length ? argv : ["--baseline=absent.json"]));
 
   it("exits 0 and renders the sizes when no baseline exists", () => {
     const root = mkTmp();
