@@ -66,7 +66,7 @@
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
 
-- Naming: singularize the split module filenames — `css/LayerControl/{row,attr,control}.css` and `js/LayerControl/ui/attr.ts` (were `rows`/`attrs`/`controls`); no behaviour change
+- Naming: singularize the split module filenames — `css/LayerControl/{row,attr,control}.css` and `js/LayerControl/ui/attr.ts` (were `rows`/`attrs`/`controls`); no behaviour change ([#335](https://github.com/Zeroto521/foliplus/pull/335))
 
 ### Removed
 
