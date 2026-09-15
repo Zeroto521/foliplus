@@ -231,3 +231,56 @@ describe("planVisible — grid index", () => {
     expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
   });
 });
+
+describe("planVisible — grid edges", () => {
+  const lbl = (
+    index: number,
+    box: { x: number; y: number; w: number; h: number },
+    priority = 50,
+  ) => ({ index, priority, box });
+
+  it("returns nothing for an empty set", () => {
+    expect(planVisible([]).size).toBe(0);
+  });
+
+  it("keeps a lone label", () => {
+    const only = lbl(0, { x: 0, y: 0, w: 40, h: 16 });
+    expect(planVisible([only]).has(only)).toBe(true);
+  });
+
+  it("indexes negative coordinates (labels off the top-left of the viewport)", () => {
+    const a = lbl(0, { x: -200, y: -90, w: 40, h: 16 });
+    const b = lbl(1, { x: -195, y: -85, w: 40, h: 16 }); // overlaps a
+
+    const kept = planVisible([a, b]);
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+
+  it("keeps non-finite boxes without hanging, and they block nothing", () => {
+    // `Math.floor(Infinity)` would leave the cell loop unbounded; a NaN box
+    // never enters one. Both must simply survive.
+    const infinite = lbl(0, { x: 0, y: 0, w: Infinity, h: 16 });
+    const nan = lbl(1, { x: NaN, y: NaN, w: 10, h: 10 });
+    const normal = lbl(2, { x: 50, y: 0, w: 40, h: 16 });
+
+    const kept = planVisible([infinite, nan, normal]);
+
+    expect(kept.has(infinite)).toBe(true);
+    expect(kept.has(nan)).toBe(true);
+    expect(kept.has(normal)).toBe(true);
+  });
+
+  it("compares two boxes that only meet across a cell boundary", () => {
+    // Both span cells 0 and 1 — the overlap sits on the boundary, and the pair
+    // must still be compared.
+    const a = lbl(0, { x: 0, y: 0, w: 64, h: 16 }, 90);
+    const b = lbl(1, { x: 10, y: 0, w: 64, h: 16 }, 10); // 10..74, 54px of overlap
+
+    const kept = planVisible([a, b]);
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+});

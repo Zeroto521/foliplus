@@ -113,6 +113,20 @@ const planVisible = <T extends PlacedLabel>(
     const x1 = Math.floor((box.x + box.w) / GRID_CELL);
     const y1 = Math.floor((box.y + box.h) / GRID_CELL);
 
+    // A non-finite coordinate cannot be indexed: `floor(Infinity)` leaves the
+    // cell loop without a bound. Such a label simply enters the plan unindexed
+    // — it survives (nothing finite collides with it geometrically) and no
+    // other label can match it either way.
+    if (
+      !Number.isFinite(x0) ||
+      !Number.isFinite(y0) ||
+      !Number.isFinite(x1) ||
+      !Number.isFinite(y1)
+    ) {
+      survivors.add(label);
+      continue;
+    }
+
     let collides = false;
     for (let cx = x0; cx <= x1 && !collides; cx++) {
       for (let cy = y0; cy <= y1 && !collides; cy++) {
