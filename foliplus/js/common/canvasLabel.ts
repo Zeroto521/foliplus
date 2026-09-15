@@ -9,21 +9,28 @@ import { cssVar } from "./cssvar.js";
 
 /** Everything drawing a canvas label needs, resolved from the tokens. */
 interface CanvasLabelStyle {
-  /** Ready for `ctx.font`. */
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: string;
+  /** Ready for `ctx.font`. Derived from the three fields above so a caller that
+   *  measures text for layout uses the very same numbers this draw will. */
   font: string;
   color: string;
   haloColor: string;
   haloWidth: number;
 }
 
-/** Resolve the canvas label style from the --label-* tokens on `root`. The
- *  heatmap aliases its own --heatmap-label-* tokens to these, so both
- *  components read the same values. */
+/** Resolve the canvas label style from the --label-* tokens on `root` — the one
+ *  place a page restyles map-label typography, for the heatmap's hex values and
+ *  LayerControl's annotation labels alike. */
 const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
   const fontFamily = cssVar(root, "--label-font-family", "sans-serif");
   const fontSize = parseFloat(cssVar(root, "--label-font-size", "12")) || 12;
   const fontWeight = cssVar(root, "--label-font-weight", "bold");
   return {
+    fontFamily,
+    fontSize,
+    fontWeight,
     font: `${fontWeight} ${fontSize}px ${fontFamily}`,
     color: cssVar(root, "--label-color", "#fff"),
     haloColor: cssVar(root, "--label-halo-color", "rgba(0, 0, 0, 0.75)"),
@@ -31,12 +38,14 @@ const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
   };
 };
 
-/** Apply the shared font and metrics to a context once per frame. */
+/** Apply the shared font and metrics to a context once per frame. The font is
+ *  assigned only when it changed: a canvas context re-parses the font string on
+ *  every assignment, and the heatmap runs this once per hexagon per frame. */
 const prepareCanvasLabel = (
   ctx: CanvasRenderingContext2D,
   style: CanvasLabelStyle,
 ): void => {
-  ctx.font = style.font;
+  if (ctx.font !== style.font) ctx.font = style.font;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";

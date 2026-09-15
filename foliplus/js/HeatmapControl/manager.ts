@@ -8,7 +8,6 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -339,9 +338,6 @@ class HeatmapManager {
       CONF.label_format,
       CONF.locale_code,
     );
-    // Preserve the "set the font once" guard: assigning the same font string to
-    // a canvas context is not free, and this runs once per hexagon per frame.
-    if (ctx.font !== style.font) ctx.font = style.font;
     prepareCanvasLabel(ctx, style);
     drawCanvasLabel(ctx, text, pt.x, pt.y, style);
   }

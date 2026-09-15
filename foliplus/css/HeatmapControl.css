@@ -26,16 +26,11 @@
   --heatmap-inline-width: 52px;
   --heatmap-accent-arrow-offset: var(--size-6);
   --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
-  /* Label Canvas — the canvas renderer reads these through getComputedStyle,
-     so they stay named for this component; the values come from the shared
-     map-label tokens so the hex labels and LayerControl's annotation labels
-     render as one language. */
-  --heatmap-label-font-family: var(--label-font-family);
-  --heatmap-label-font-weight: var(--label-font-weight);
-  --heatmap-label-font-size: var(--label-font-size);
-  --heatmap-label-color: var(--label-color);
-  --heatmap-label-stroke-color: var(--label-halo-color);
-  --heatmap-label-stroke-width: var(--label-halo-width);
+  /* Label typography is not redeclared here: the canvas renderer
+     (common/canvasLabel, shared with LayerControl's annotation labels) reads the
+     shared map-label tokens — --label-font-family / -size / -weight / -color /
+     -halo-color / -halo-width from common/token.css — directly, so one override
+     styles a hex value and an annotation label alike. */
 
   /* ── Sections: Data / Style / Labels ── */
   .foliplus-heatmap-section-block {
