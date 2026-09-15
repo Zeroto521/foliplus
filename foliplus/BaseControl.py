@@ -136,7 +136,7 @@ def control_assets(name: str) -> tuple[Path, Path]:
 def expected_artifacts() -> list[str]:
     """Every ``dist/`` filename a complete build emits, as bare names.
 
-    Read from the manifest the build writes, not re-derived: ``test_assets.py``
+    Read from the manifest the build writes, not re-derived: ``test_asset.py``
     asserts wheel membership against this list and ``build.test.ts`` asserts
     artifact presence, so a component added on one side fails both stacks.
 
