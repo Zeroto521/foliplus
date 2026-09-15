@@ -31,9 +31,9 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
+import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
@@ -107,24 +107,9 @@ const postcssPlugin = {
   },
 };
 
-/** esbuild onLoad plugin that applies SVG/HTML source transforms
- *  to foliplus source files — no .build/ mirror needed. */
-const sourceTransformPlugin = {
-  name: "source-transform",
-  setup(build) {
-    build.onLoad({ filter: /\.(ts|js)$/ }, async args => {
-      // esbuild hands out forward-slash paths even on Windows, while
-      // path.resolve produces backslashes. Normalize both sides or this
-      // guard silently skips EVERY file on Windows and the SVG/HTML
-      // transforms never run, making local dist diverge from CI artifacts.
-      const norm = p => p.replaceAll("\\", "/");
-      if (!norm(args.path).startsWith(norm(srcDir) + "/")) return null;
-      if (args.path.endsWith(".d.ts")) return null;
-      const source = readFileSync(args.path, "utf-8");
-      return { contents: transformSource(source), loader: "ts" };
-    });
-  },
-};
+// The SVG/HTML source-transform plugin lives in its own module so its path
+// guard is unit-testable; here it is bound to the configured source dir.
+const sourceTransformPlugin = createSourceTransformPlugin(srcDir);
 
 /** esbuild onResolve plugin that redirects _shared-registry.js import
  *  (from runtime/index.ts) to the generated file in .build/js/. */
@@ -420,8 +405,3 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     process.exit(1);
   });
 }
-
-// Test surface: the path guard that decides whether the source transforms
-// run is exactly where the Windows separator bug lived, so the plugin and
-// the source dir it guards against are exported for the script tests.
-export { sourceTransformPlugin, srcDir };
