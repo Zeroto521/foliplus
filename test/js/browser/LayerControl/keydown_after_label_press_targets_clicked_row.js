@@ -15,12 +15,12 @@
     new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
   );
 
-  // Pointer-click the second row. A real label click focuses the row's
-  // checkbox (the label is unlabelled, so focus lands there rather than on
-  // the label itself) and toggles its `checked` — the click handler resolves
-  // visibility from the layer list, not `checked`, so the click itself does
-  // not toggle. The press must NOT paint the cursor visual, only re-home the
-  // keyboard index so Enter hits the right row.
+  // Pointer-click the second row's name. The label wraps its own checkbox, so
+  // the click both toggles `checked` and gives the checkbox real DOM focus.
+  // The click handler resolves visibility from the layer list, not `checked`,
+  // so the click itself does not toggle. The press must NOT paint the cursor
+  // visual — only re-home the keyboard index, and leave DOM focus on this row
+  // so Enter resolves from it rather than being re-homed by resolveActiveIdx.
   const box = items[1].querySelector('input[type="checkbox"]');
   const beforeState = box.checked;
   const label = items[1].querySelector(".foliplus-layer-label");

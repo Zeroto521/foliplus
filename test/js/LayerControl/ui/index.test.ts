@@ -141,7 +141,9 @@ describe("LayerUI shell — event subscriptions", () => {
     vi.useRealTimers();
 
     expect(
-      attached.uiContainer!.querySelector("[data-layer-id='late1']"),
+      attached.uiContainer!.querySelector(
+        ".foliplus-layer-item[data-layer-id='late1']",
+      ),
     ).not.toBeNull();
   });
 });
@@ -211,8 +213,12 @@ describe("LayerUI shell — delegates", () => {
   it("reindexAfterMove rebuilds the list without dropping rows", () => {
     ui.reindexAfterMove();
 
-    expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
-    expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();
+    expect(
+      ui.uiContainer!.querySelector(".foliplus-layer-item[data-layer-id='overlay1']"),
+    ).not.toBeNull();
+    expect(
+      ui.uiContainer!.querySelector(".foliplus-layer-item[data-layer-id='base1']"),
+    ).not.toBeNull();
   });
 
   it("syncVisibility resolves visibility from the map when a layer exists", () => {

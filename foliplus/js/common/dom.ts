@@ -297,7 +297,15 @@ const updateItemLabel = (
   if (!item) return null;
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
-  label.textContent = name;
+  // Write through the text node, not `label.textContent`: on a data row the
+  // label wraps the checkbox (implicit label, so a name click gives it real
+  // DOM focus), and `textContent = …` would delete it. Select the direct
+  // text child so the toggle inside the label survives.
+  const text = Array.from(label.childNodes).find(
+    (n): n is Text => n.nodeType === Node.TEXT_NODE,
+  );
+  if (text) text.nodeValue = name;
+  else label.appendChild(document.createTextNode(name));
   // The row's toggle input announces the same name as the label cell. A data
   // row's toggle is its checkbox; the color basemap row's is the color swatch,
   // and it has no checkbox — without this the basemap swatch would keep

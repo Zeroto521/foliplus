@@ -840,7 +840,9 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
-    expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
+    expect(
+      manager.uiContainer.querySelector(".foliplus-layer-item[data-layer-id=overlay1]"),
+    ).toBeNull();
     expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
