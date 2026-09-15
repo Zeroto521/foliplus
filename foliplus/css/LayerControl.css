@@ -709,47 +709,22 @@ path.foliplus-focus-mask {
   }
 
   /* ── Attributes panel ──
-     Read-only metadata for one layer row. It IS a foliplus panel: the surface
-     carries `foliplus-panel` and its header/content use the shared panel
-     classes, so every visual rule comes from common/panel.css. This block only
-     positions the surface, sizes the type logo, adds the close affordance and
-     lays out the label/value rows (the heatmap form-row rhythm).
-
-     The width is capped at the anchoring row on purpose: the panel content
-     clips horizontally (common/panel.css `overflow-x: hidden`), so a fixed
-     width wider than `--panel-width` slices the left column off. */
+     Read-only metadata for one layer row. The surface is the shared row panel
+     (`foliplus-row-panel`, built by createRowPanel): anchoring, width, height
+     cap, card chrome and the label/value row rhythm all come from there and
+     from common/panel.css — this block carries only what is specific to this
+     panel: the copyable-text exception, the type logo size, and the <dd>
+     control column. */
   .foliplus-layer-attrs-panel {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: var(--panel-width);
-    max-height: 340px;
-    padding: 0;
-    overflow-x: hidden;
-    /* Same card chrome as an expanded foliplus panel. */
-    border-radius: var(--radius-card);
-    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
-    /* Read-only metadata must stay copyable; the parent row is user-select:none. */
+    /* Read-only metadata must stay copyable; the parent row is user-select:none
+       and the shared row-panel recipe keeps that. */
     user-select: text;
-    cursor: default;
   }
-  /* Header closes the panel — same affordance as the main Layer/Heatmap
-     panels (bindPanelToggle collapses on header click). */
   /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
      inside the shared .foliplus-header-icon box. */
   .foliplus-layer-attrs-icon svg {
     width: 100%;
     height: 100%;
-  }
-  /* Detail rows reuse the shared label/control geometry
-     (common/panel.css .foliplus-form-row / -label / -control), the same one the
-     heatmap's form rows use — these hooks only carry the panel specifics. */
-  .foliplus-layer-attrs-panel .foliplus-form-row {
-    padding: 0 var(--space-lg);
   }
   /* A long value (a URL source) takes its own line under the label. */
   .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
@@ -945,4 +920,75 @@ path.foliplus-focus-mask {
   height: 100%;
   color: inherit;
   width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation style panel
+  Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
+  the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
+  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
+  width, card chrome and header come from one place. This block only sizes the
+  label glyph and states the two controls form.css does not cover.
+  ══════════════════════════════════════════════════════════════════════ */
+.foliplus-layer-ctrl {
+  /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
+     size inside the shared .foliplus-header-icon box (attrs panel recipe). */
+  .foliplus-layer-style-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The switch is a flex row so the slider and its ring share one box. */
+  .foliplus-layer-style-panel .foliplus-toggle-switch {
+    display: flex;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation label marker (drawn on the map, mounted on markerPane)
+  A plain text label haloed for legibility on any basemap. The colour, size and
+  halo all come from the shared map-label tokens (common/token.css), the same
+  ones HeatmapControl's canvas labels read — so a hex value and an annotation
+  label over the same feature render as one language. The DOM equivalent of the
+  canvas stroke is a text-shadow in the halo colour; the radii scale off
+  `--label-halo-width` so both follow one knob.
+  pointer-events: none so clicks fall through to the data feature / map.
+  ══════════════════════════════════════════════════════════════════════ */
+.leaflet-marker-icon.foliplus-annotation-label {
+  pointer-events: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  line-height: 1;
+
+  /* The marker box is 0x0 (divIcon `iconSize: [0, 0]`), so the chip has to
+     place itself. `transform` here rather than on the marker: Leaflet writes
+     its own inline transform on the marker element to position it, which would
+     win over any stylesheet transform. Positioned against the marker box, so
+     the iconAnchor decides the vertical relationship and the modifier class
+     below decides the horizontal one. */
+  .foliplus-annotation-label-text {
+    position: absolute;
+    display: inline-block;
+    font-family: var(--label-font-family);
+    font-size: var(--label-font-size);
+    font-weight: var(--label-font-weight);
+    color: var(--label-color);
+    white-space: nowrap;
+    text-shadow:
+      0 0 var(--label-halo-width) var(--label-halo-color),
+      0 0 calc(var(--label-halo-width) * 2) var(--label-halo-color),
+      0 0 calc(var(--label-halo-width) * 4) var(--label-halo-color);
+  }
+
+  /* A point feature: centred on the marker, the chip's top edge just below it
+     — the relationship MeasureControl's area label has to its centroid dot. */
+  &.foliplus-annotation-label-point .foliplus-annotation-label-text {
+    transform: translateX(-50%);
+  }
+
+  /* A path feature: the centroid IS the anchor, so the chip is centred on it. */
+  &.foliplus-annotation-label-shape .foliplus-annotation-label-text {
+    transform: translate(-50%, -50%);
+  }
 }

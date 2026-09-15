@@ -1,9 +1,10 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { autoLabelField } from "#core/labelField.js";
 import { cssVar } from "#common/cssvar.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import { formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
@@ -325,7 +326,7 @@ class HeatmapManager {
     const centroid = feat.properties.centroid;
     if (!centroid) return;
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = formatNumber(
+    const text = formatLabelNumber(
       feat.properties.value ?? 0,
       CONF.label_format,
       CONF.locale_code,
@@ -411,9 +412,14 @@ class HeatmapManager {
     return fields;
   }
 
+  /** The field to use when the user has not picked one. The rule itself is
+   *  shared with LayerControl's annotation labels (core/labelField): first
+   *  numeric, else first. This layer's field contract is numeric-only by
+   *  construction, so in practice this stays the first entry — but the
+   *  fallback no longer lives in two places. */
   pickAutoField(fields: string[] | null): string | null {
     if (!fields || fields.length === 0) return null;
-    return fields[0];
+    return autoLabelField(fields.map(name => ({ name, numeric: true })));
   }
 
   /**

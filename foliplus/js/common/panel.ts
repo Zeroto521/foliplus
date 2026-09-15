@@ -303,6 +303,52 @@ const createPanelHeader = (opts: {
 };
 
 /**
+ * Create the floating surface a layer row opens from its ⋮ menu: the
+ * attributes panel and the per-layer style panel.
+ *
+ * It is a `foliplus-panel` with the fold panels' header/content vocabulary, but
+ * anchored under its own row instead of folded into the control — so the caller
+ * mounts the returned `panel` on the row. Anchoring, width, height cap, card
+ * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
+ * recipe, and the header from {@link createPanelHeader}, so a new row panel
+ * cannot drift into a lookalike of the ones already here.
+ *
+ * `iconClass` stays a parameter because each component's SVGs are viewBox-only
+ * and need their own sizing hook inside the shared icon box.
+ */
+const createRowPanel = (opts: {
+  cssClass: string;
+  title: string;
+  iconSvg: string;
+  closeTitle: string;
+  iconClass: string;
+  /** Accessible name of the dialog. Defaults to `title`; the attributes panel
+   *  names the *surface* (Layer attributes) while its header shows the layer's
+   *  own display name, so the two are separate knobs. */
+  ariaLabel?: string;
+}): {
+  panel: HTMLElement;
+  header: HTMLElement;
+  content: HTMLElement;
+} => {
+  const panel = dom.el("div", {
+    class: `${opts.cssClass} foliplus-panel foliplus-row-panel`,
+    role: "dialog",
+    "aria-label": opts.ariaLabel ?? opts.title,
+  });
+  const header = createPanelHeader({
+    title: opts.title,
+    iconSvg: opts.iconSvg,
+    closeTitle: opts.closeTitle,
+    iconClass: opts.iconClass,
+  });
+  const content = dom.el("div", { class: "foliplus-panel-content" });
+  panel.appendChild(header);
+  panel.appendChild(content);
+  return { panel, header, content };
+};
+
+/**
  * Create a panel-style control with toggle button, header, and content area.
  * Used by HeatmapControl and LayerControl for consistent panel UI.
  * Automatically wires up bindPanelToggle and bindOutsideCollapse.
@@ -388,4 +434,5 @@ export {
   createFoldControl,
   createPanelControl,
   createPanelHeader,
+  createRowPanel,
 };

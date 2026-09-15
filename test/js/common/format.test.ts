@@ -4,6 +4,7 @@ import { debounce } from "#common/debounce.js";
 import {
   LAT_LNG_PRECISION,
   formatCoord,
+  formatLabelNumber,
   formatLatLng,
   formatNumber,
   formatTimestamp,
@@ -144,6 +145,18 @@ describe("formatNumber", () => {
     expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
     expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
   });
+
+  it("percent multiplies by 100 and trims trailing digits (default max 1)", () => {
+    expect(formatNumber(0.35, "percent", "en")).toBe("35%");
+    expect(formatNumber(0.3333, "percent", "en")).toBe("33.3%");
+  });
+
+  it("percent caps decimals via fractionDigits (0 gives whole percents)", () => {
+    expect(formatNumber(0.3333, "percent", "en", 0)).toBe("33%");
+    expect(formatNumber(0.3333, "percent", "en", 2)).toBe("33.33%");
+    // The annotation panel passes 0 for comma/int; percent now honours it too.
+    expect(formatNumber(0.35, "percent", "en", 0)).toBe("35%");
+  });
 });
 
 describe("formatCoord / formatLatLng", () => {
@@ -215,6 +228,32 @@ describe("debounce", () => {
 
     expect(fn).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("formatLabelNumber", () => {
+  it("keeps a whole number whole under an explicit style", () => {
+    // A map label states a count or an id; the comma style's one-decimal
+    // default would put "6,000.0" on the map.
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(6000, "int")).toBe("6000");
+  });
+
+  it("leaves auto to trim its own decimals", () => {
+    expect(formatLabelNumber(6000, "auto")).toBe(formatNumber(6000, "auto"));
+    expect(formatLabelNumber(12.5, "auto")).toBe(formatNumber(12.5, "auto"));
+  });
+
+  it("defaults to auto, so a missing config still renders", () => {
+    expect(formatLabelNumber(42)).toBe(formatNumber(42, "auto"));
+  });
+
+  it("is the label contract, not the table contract", () => {
+    // The difference from formatNumber is the whole point: a table cell may
+    // carry 6,000.0, a label over the map may not.
+    expect(formatNumber(6000, "comma")).toBe("6,000.0");
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(0.35, "percent")).toBe("35%");
   });
 });
 
