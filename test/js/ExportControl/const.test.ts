@@ -9,8 +9,8 @@ describe("export canvas whitelists", () => {
   it("reach every canvas overlay that paints map content", () => {
     // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
     // so a canvas in neither list vanishes from the export without any error.
-    // CANVAS is walked per layer pane; SHARED_CANVAS covers a canvas that lives
-    // in a pane of its own (LayerControl's annotation labels).
+    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the canvas that
+    // lives in a pane of its own (LayerControl's annotation labels).
     const mapPane = document.createElement("div");
     mapPane.className = "leaflet-map-pane";
     const heat = document.createElement("canvas");
@@ -22,7 +22,7 @@ describe("export canvas whitelists", () => {
     document.body.appendChild(mapPane);
 
     expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([heat]);
-    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.SHARED_CANVAS))).toEqual([
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
       annotation,
     ]);
     mapPane.remove();

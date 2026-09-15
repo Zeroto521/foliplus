@@ -117,14 +117,21 @@ class AnnotationCanvas {
     this.map.on("zoomend", this.onZoomEnd);
     this.map.on("move zoom moveend layeradd layerremove", this.onMapChange);
 
-    // Export safety: the exporter renders this same container, so culling by
-    // the live container box cannot lose labels — the *real* risk would be
-    // culling by a stale view while the exporter changed it. The export events
-    // exist so this canvas redraws with the new view before the capture.
+    // Export safety. The exporter's locked path grows the container and shifts
+    // the view, then captures on the very next frame — so the redraw here is
+    // synchronous (re-measure, re-position, draw): a throttled redraw would
+    // land a frame late and the capture would read the pre-export canvas, with
+    // the old size and the old viewport. Culling by the container box stays
+    // correct, because by now the container *is* the export extent.
     const events = ensureEvents(map);
+    const redrawNow = () => {
+      this.resize();
+      this.updatePosition();
+      this.draw();
+    };
     this.unsubscribe.push(
-      events.on(EVENTS.BEFORE_EXPORT, () => this.scheduleDraw()),
-      events.on(EVENTS.AFTER_EXPORT, () => this.scheduleDraw()),
+      events.on(EVENTS.BEFORE_EXPORT, redrawNow),
+      events.on(EVENTS.AFTER_EXPORT, redrawNow),
     );
   }
 

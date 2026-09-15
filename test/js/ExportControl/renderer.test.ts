@@ -188,27 +188,6 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
     sh: h,
   };
 }
-describe("renderSharedCanvases", () => {
-  it("renders shared-pane canvases, which the per-layer walk never reaches", async () => {
-    const renderer = makeRenderer();
-    const container = renderer.map.getContainer() as HTMLElement;
-    const mapPane = document.createElement("div");
-    mapPane.className = "leaflet-map-pane";
-    const annotation = document.createElement("canvas");
-    annotation.className = "foliplus-annotation-canvas";
-    const unrelated = document.createElement("canvas");
-    mapPane.append(annotation, unrelated);
-    container.appendChild(mapPane);
-
-    const spy = vi.spyOn(renderer, "renderCanvasElement").mockResolvedValue();
-    await renderer.renderSharedCanvases(makeRC(100, 100));
-
-    expect(spy).toHaveBeenCalledWith(expect.anything(), annotation);
-    // The whitelist is what keeps an unrelated canvas out of the image.
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-});
-
 /** Tiles centred on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
 

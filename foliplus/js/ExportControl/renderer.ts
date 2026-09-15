@@ -317,20 +317,15 @@ class ExportRenderer {
       }
     }
 
-    // Canvas overlays in a shared pane (LayerControl's annotation pane holds
-    // every layer's labels) belong to no single layer, so the walk above never
-    // reaches them.
-    await this.renderSharedCanvases(rc);
+    // Canvas overlays in a shared pane — LayerControl's annotation pane holds
+    // every layer's labels — belong to no single layer, so the walk above never
+    // reaches them. Render them last, matching their top-of-the-stack z.
+    const container = this.map.getContainer();
+    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
+      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
+    }
 
     return canvas;
-  }
-
-  /** Render the canvas overlays of shared (non-layer) panes. */
-  async renderSharedCanvases(rc: RenderCtx) {
-    const container = this.map.getContainer();
-    for (const ce of container.querySelectorAll(CONST.SEL.SHARED_CANVAS)) {
-      await this.renderCanvasElement(rc, ce as HTMLCanvasElement);
-    }
   }
 
   /** Render a standalone canvas element (e.g. HeatmapControl). */
@@ -519,10 +514,15 @@ class ExportRenderer {
     }
   }
 
-  /** Render canvas elements from a single pane. */
-  async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
+  /** Render the canvas elements within `root` — a layer's own pane, or the map
+   *  container for a canvas that lives in a shared pane of its own. */
+  async renderPaneCanvas(
+    rc: RenderCtx,
+    root: HTMLElement,
+    selector: string = CONST.SEL.CANVAS,
+  ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
+    for (const ce of root.querySelectorAll(selector)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;

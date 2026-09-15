@@ -265,13 +265,28 @@ describe("AnnotationCanvas.map reactions", () => {
     expect(ctx.fillText).toHaveBeenCalled();
   });
 
-  it("redraws on the export events", () => {
-    const { canvas } = makeEnv();
+  it("re-measures and redraws before the capture, not a frame later", () => {
+    const { canvas, container } = makeEnv();
     canvas.setLayerLabels("l1", [label("a", "alpha")]);
+    const el = elOf(canvas);
+    expect(el.width).toBe(800);
 
+    // The exporter's locked path grows the container, shifts the view, then
+    // captures on the next frame — the canvas has to be re-measured and redrawn
+    // synchronously, or the capture reads the pre-export size and viewport.
+    Object.defineProperty(container, "clientWidth", {
+      value: 1200,
+      configurable: true,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      value: 900,
+      configurable: true,
+    });
     ctx.clearRect.mockClear();
     mocks.exportHandlers.forEach(cb => cb());
 
+    expect(el.width).toBe(1200);
+    expect(el.height).toBe(900);
     expect(ctx.clearRect).toHaveBeenCalled();
   });
 });
