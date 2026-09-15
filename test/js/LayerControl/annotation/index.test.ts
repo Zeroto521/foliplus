@@ -1,11 +1,11 @@
 // AnnotationManager unit tests.
 // Logic under test: value formatting (incl. percent), anchor resolution,
-// field/value reading, the label render/clear lifecycle, and the label cap.
+// field/value reading, and the label render/clear lifecycle.
 // Uses duck-typed leaf fixtures because the vitest L mock does not provide
 // constructible geometry classes. The canvas is stubbed — it is the browser
 // tests' job to verify actual drawing.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "../../../foliplus/js/LayerControl/annotation.js";
+import { AnnotationManager } from "../../../../foliplus/js/LayerControl/annotation/index.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => {
   return { MockAnnotationCanvas, instances };
 });
 
-vi.mock("#foliplus/LayerControl/annotationCanvas.js", () => ({
+vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
   AnnotationCanvas: mocks.MockAnnotationCanvas,
 }));
 

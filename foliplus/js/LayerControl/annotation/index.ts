@@ -7,7 +7,7 @@
 // change re-renders rather than updating in place.
 //
 // Labels are not DOM children of their source layer any more: they live on a
-// shared canvas overlay (annotationCanvas) that owns drawing, culling and
+// shared canvas overlay (annotation/canvas) that owns drawing, culling and
 // collision. The manager keeps the decision side — which features get a label
 // and what it says — plus the visibility signal the canvas needs to drop a
 // hidden layer's labels.
@@ -18,8 +18,8 @@ import {
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { AnnotationCanvas, type LayerLabel } from "./annotationCanvas.js";
-import * as CONST from "./const.js";
+import * as CONST from "../const.js";
+import { AnnotationCanvas, type LayerLabel } from "./canvas.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 

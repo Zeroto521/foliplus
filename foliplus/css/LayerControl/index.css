@@ -8,7 +8,7 @@
    rename.css     inline rename input
    style.css      annotation style panel
    Annotation labels have no module here: they are drawn on a canvas
-   (LayerControl/annotationCanvas.ts) from the shared --label-* tokens.
+   (LayerControl/annotation/canvas.ts) from the shared --label-* tokens.
    The entry's @import order IS the cascade order; esbuild and the
    build's expandEntry keep it verbatim. */
 @import "./focus.css";

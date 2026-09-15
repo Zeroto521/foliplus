@@ -19,7 +19,7 @@ import {
   type LabelSpec,
   type PlacedLabel,
   planLabelLayout,
-} from "./annotationLayout.js";
+} from "./layout.js";
 
 /** One label to draw, described by its feature rather than by pixels — the
  *  canvas converts the latlng to container pixels on every draw, so a pan does

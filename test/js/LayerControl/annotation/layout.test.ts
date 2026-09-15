@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   layoutLabel,
   planLabelLayout,
-} from "#foliplus/LayerControl/annotationLayout.js";
+} from "#foliplus/LayerControl/annotation/layout.js";
 
 const SPEC = {
   fontFamily: "sans-serif",
