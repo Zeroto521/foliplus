@@ -7,7 +7,7 @@
  */
 
 /** Bundle size status markers (over/low/up/down/same/new/missing). */
-export const STATUS = {
+const STATUS = {
   over: "✗",
   low: "⚠",
   up: "↑",
@@ -18,8 +18,10 @@ export const STATUS = {
 };
 
 /** Warning (U+26A0 without the emoji variation selector). */
-export const WARN = "⚠";
+const WARN = "⚠";
 /** Success / all-good. */
-export const OK = "✓";
+const OK = "✓";
 /** Failure. */
-export const FAIL = "✗";
+const FAIL = "✗";
+
+export { FAIL, OK, STATUS, WARN };
