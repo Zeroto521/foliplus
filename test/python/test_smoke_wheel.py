@@ -92,9 +92,7 @@ def _pairs(names: list[str]) -> list[str]:
 def test_artifact_name_builds_both_halves(smoke):
     """The naming scheme matches what `BaseControl.control_assets()` emits."""
     assert smoke.artifact_name("ScaleControl", "js") == "foliplus-ScaleControl.min.js"
-    assert (
-        smoke.artifact_name("ScaleControl", "css") == "foliplus-ScaleControl.min.css"
-    )
+    assert smoke.artifact_name("ScaleControl", "css") == "foliplus-ScaleControl.min.css"
 
 
 def test_artifact_name_is_the_only_naming_site(smoke):
@@ -105,9 +103,9 @@ def test_artifact_name_is_the_only_naming_site(smoke):
         for line in source.splitlines()
         if 'f"foliplus-' in line and "artifact_name" not in line
     ]
-    assert inline == [
-        '    return f"foliplus-{name}.min.{ext}"'
-    ], f"filename re-derived outside artifact_name: {inline}"
+    assert inline == ['    return f"foliplus-{name}.min.{ext}"'], (
+        f"filename re-derived outside artifact_name: {inline}"
+    )
 
 
 # ── check_manifest ──────────────────────────────────────────────────
