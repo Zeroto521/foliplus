@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  orderCommonCss,
-  parseImports,
-  stripImports,
-} from "#script/common-css.mjs";
+import { orderCommonCss, parseImports, stripImports } from "#script/common-css.mjs";
 
 /** Build a source from a list of imports plus an optional body. */
 const src = (imports: string[], body = ".x { color: red; }") =>
@@ -67,7 +63,8 @@ describe("orderCommonCss", () => {
 
 describe("parseImports", () => {
   it("collects quoted imports in declaration order, ignoring other lines", () => {
-    const source = '/* header */\n@import "b.css";\n.x { color: red; }\n@import "a.css";';
+    const source =
+      '/* header */\n@import "b.css";\n.x { color: red; }\n@import "a.css";';
     expect(parseImports(source)).toEqual(["b.css", "a.css"]);
   });
 
