@@ -50,5 +50,18 @@
   "LayerControl.readonly_error": "layers is read-only — use LayerAPI instead.",
   "LayerControl.readonly_del_error": "layers is read-only — use LayerAPI instead.",
   "LayerControl.readonly_method_error": "layers.{method}() is read-only — use LayerAPI instead.",
-  "LayerControl.blocked": "Map is temporarily unavailable"
+  "LayerControl.blocked": "Map is temporarily unavailable",
+  "LayerControl.style_layer": "Style",
+  "LayerControl.style_layer_tooltip": "Configure this layer's style",
+  "LayerControl.style_label_no_data": "No labelable fields on this layer",
+  "LayerControl.style_label": "Labels",
+  "LayerControl.style_label_tooltip": "Show text labels on features",
+  "LayerControl.style_label_field": "Label Field",
+  "LayerControl.style_label_field_auto": "Auto Detect",
+  "LayerControl.style_label_format": "Number Format",
+  "LayerControl.style_label_format_auto": "Auto",
+  "LayerControl.style_label_format_int": "Integer",
+  "LayerControl.style_label_format_comma": "Thousands Separator",
+  "LayerControl.style_label_format_percent": "Percent",
+  "LayerControl.style_reset": "Reset"
 }

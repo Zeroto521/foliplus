@@ -818,10 +818,14 @@ describe("LayerManager", () => {
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(manager.ui.updateLayerItem).toHaveBeenCalled();
     expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
+    // A re-registration is how the API says the layer's content changed, so the
+    // cached field list — and the auto field resolved from it — must be dropped.
+    expect(manager.ui.invalidateFields).toHaveBeenCalledWith("overlay1");
   });
 
   it("unregisterLayer removes the UI row and reindexes", () => {
@@ -833,6 +837,7 @@ describe("LayerManager", () => {
     manager.ui = {
       reindexItems: vi.fn(),
       saveHiddenIds: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
@@ -846,6 +851,7 @@ describe("LayerManager", () => {
       hiddenIds: new Set(["overlay1", "base1"]),
       reindexItems: vi.fn(),
       saveHiddenIds,
+      invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
 
