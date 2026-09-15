@@ -87,7 +87,6 @@ const CLASSES = {
   SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
   SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
-  BTN: "foliplus-heatmap-btn",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
   BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",

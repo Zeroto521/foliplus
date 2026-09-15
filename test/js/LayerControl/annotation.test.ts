@@ -332,7 +332,7 @@ describe("AnnotationManager.renderLabels", () => {
   });
 });
 
-describe("AnnotationManager.clearLabels / refreshAll / destroy", () => {
+describe("AnnotationManager.clearLabels / destroy", () => {
   const markerMock = L.marker as unknown as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -351,20 +351,6 @@ describe("AnnotationManager.clearLabels / refreshAll / destroy", () => {
       .removeLayer;
     expect(removeLayer).toHaveBeenCalledTimes(1);
     expect(removeLayer).toHaveBeenCalledWith(label);
-  });
-
-  it("refreshAll re-renders only layers whose config shows labels", () => {
-    const shown = mkGroup([mkLeaf({ props: { v: "5" }, latlng: { lat: 0, lng: 0 } })]);
-    const hidden = mkGroup([mkLeaf({ props: { v: "6" }, latlng: { lat: 1, lng: 1 } })]);
-    const mgr = new AnnotationManager(map, id =>
-      id === "a" ? shown : id === "b" ? hidden : null,
-    );
-    mgr.setConfig("a", { show: true, field: "v", format: "auto" });
-    mgr.setConfig("b", { show: false, field: "v", format: "auto" });
-
-    mgr.refreshAll();
-
-    expect(markerMock).toHaveBeenCalledTimes(1);
   });
 
   it("destroy clears every layer's labels and forgets all configs", () => {

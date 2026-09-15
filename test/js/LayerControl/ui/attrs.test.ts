@@ -395,12 +395,23 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(item);
       expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
 
-      // Capture phase: the layer control's disableClickPropagation never
-      // lets a bubble-phase press reach document.
-      document.dispatchEvent(
+      // The handler has to be registered in the *capture* phase, because the
+      // layer control stops mousedown from bubbling (Leaflet's
+      // disableClickPropagation). Dispatching on `document` cannot prove that —
+      // target === currentTarget, so a bubble-phase listener would run too. A
+      // wrapper that swallows the bubble, plus a press on its child, does.
+      const wrapper = document.createElement("div");
+      wrapper.addEventListener("mousedown", e => e.stopPropagation());
+      const outside = document.createElement("button");
+      wrapper.appendChild(outside);
+      document.body.appendChild(wrapper);
+
+      outside.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
+
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      wrapper.remove();
     });
 
     it("mousedown inside the panel does not dismiss it", () => {

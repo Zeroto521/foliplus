@@ -181,7 +181,9 @@ class AnnotationManager {
   /** Render labels for a layer according to its current config.
    *  Removes any existing labels first (so field/format/show changes are a
    *  single tear-down + re-build rather than two separate paths).
-   *  Returns the list of LabelMarker it created (for external tracking). */
+   *  Returns the markers it created: callers that track them (and the tests,
+   *  which assert on "nothing was drawn") read that instead of re-walking the
+   *  layer to find them. */
   renderLabels(id: string): LabelMarker[] {
     this.clearLabels(id);
     if (!this.getConfig(id).show) return [];
@@ -243,13 +245,6 @@ class AnnotationManager {
         (layer as L.LayerGroup).removeLayer(leaf);
       }
     });
-  }
-
-  /** Re-render every configured layer's labels. */
-  refreshAll(): void {
-    for (const [id, cfg] of this.config.entries()) {
-      if (cfg.show) this.renderLabels(id);
-    }
   }
 
   /** Tear down labels for a layer and forget its config (e.g. on
