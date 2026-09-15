@@ -105,7 +105,7 @@ describe("mergeCss", () => {
       ["token.css", src([], ":root { --x: 1; }")],
     ]);
     expect(mergeCss(sources, "common")).toBe(
-      ':root { --x: 1; }\n.panel { color: red; }',
+      ":root { --x: 1; }\n.panel { color: red; }",
     );
   });
 

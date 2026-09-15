@@ -1,4 +1,3 @@
-
 /* ── Inline rename input (swaps the layer label's text node) ──
    Visual chrome comes from the shared .foliplus-input base (common.css);
    only the component-specific padding / color inherit live here — the

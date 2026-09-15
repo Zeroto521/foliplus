@@ -148,11 +148,4 @@ const expandEntry = (sources, entry, label) => {
     .join("\n");
 };
 
-export {
-  expandEntry,
-  mergeCss,
-  normalizeImport,
-  orderCss,
-  parseImports,
-  stripImports,
-};
+export { expandEntry, mergeCss, normalizeImport, orderCss, parseImports, stripImports };

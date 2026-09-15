@@ -32,9 +32,9 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { expandEntry, mergeCss } from "./merge-css.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyphs.mjs";
+import { expandEntry, mergeCss } from "./merge-css.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
