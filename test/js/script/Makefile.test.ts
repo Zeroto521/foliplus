@@ -1,10 +1,11 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
-const MAKEFILE = readFileSync(resolve(__dirname, "Makefile"), "utf-8").split("\n");
+// Resolved against cwd, matching build.mjs's `root: "."` default — the same
+// repo root every build target asserts on.
+const ROOT = resolve(".");
+const MAKEFILE = readFileSync(resolve(ROOT, "Makefile"), "utf-8").split("\n");
 
 /** Index of a target's header line, or -1. Skips ``.PHONY``/``.DEFAULT`` entries. */
 const at = (target: string): number => {
@@ -67,7 +68,7 @@ const allTargets = (): Map<string, string[]> => {
 // targets therefore must not be runnable standalone without building first.
 describe("test targets build before asserting on dist/", () => {
   it("dist is not tracked, so build output is never checked in", () => {
-    const ignore = readFileSync(resolve(__dirname, ".gitignore"), "utf-8").split("\n");
+    const ignore = readFileSync(resolve(ROOT, ".gitignore"), "utf-8").split("\n");
     expect(ignore.some(l => l.replace(/\s/g, "") === "foliplus/dist/")).toBe(true);
   });
 
