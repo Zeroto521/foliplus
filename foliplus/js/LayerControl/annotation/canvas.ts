@@ -41,6 +41,9 @@ class AnnotationCanvas {
   private readonly labelsByLayer = new Map<string, LayerLabel[]>();
   private readonly scheduleDraw: (() => void) & { cancel: () => void };
   private readonly unsubscribe: Array<() => void> = [];
+  /** Bound map handlers, kept so destroy() can unbind them. */
+  private readonly onMapChange: () => void;
+  private readonly onResize: () => void;
   /** Whether a layer's labels should draw right now. The canvas is a passive
    *  overlay — labels are not children of their source layer — so a hidden
    *  layer (removed from the map) must drop out of the draw, exactly as the
@@ -74,12 +77,16 @@ class AnnotationCanvas {
       this.updatePosition();
       this.draw();
     });
-    const onMove = () => this.scheduleDraw();
-    this.map.on("resize", () => {
+    // layeradd/layerremove is how LayerControl hides and shows a layer
+    // (map.removeLayer/addLayer), so those redraw too — the draw re-reads
+    // membership and a hidden layer's labels drop out.
+    this.onMapChange = () => this.scheduleDraw();
+    this.onResize = () => {
       this.resize();
       this.draw();
-    });
-    this.map.on("move zoom moveend zoomend", onMove);
+    };
+    this.map.on("resize", this.onResize);
+    this.map.on("move zoom moveend zoomend layeradd layerremove", this.onMapChange);
 
     // Export safety: the exporter renders this same container, so culling by
     // the live container box cannot lose labels — the *real* risk would be
@@ -104,6 +111,8 @@ class AnnotationCanvas {
 
   destroy(): void {
     this.scheduleDraw.cancel();
+    this.map.off("resize", this.onResize);
+    this.map.off("move zoom moveend zoomend layeradd layerremove", this.onMapChange);
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     this.canvas.remove();
