@@ -40,8 +40,8 @@ interface PlacedLabel {
 const HIDE_OVERLAP = 0.75;
 
 /**
- * Collision grid cell size, in container pixels — a little larger than a
- * typical label, so a label usually touches one to four cells.
+ * Collision grid cell size, in container pixels — around one label, so a label
+ * usually touches a handful of cells (a 110px-wide label touches six).
  *
  * Fixed, rather than derived from the widest box: one very long label would
  * otherwise blow the cell up and pack every other label into a handful of
@@ -49,6 +49,21 @@ const HIDE_OVERLAP = 0.75;
  * A box larger than a cell simply spans several of them, at its own cost only.
  */
 const GRID_CELL = 64;
+
+/**
+ * Below this many labels the plain pairwise sweep is the faster planner: the
+ * Map and its string keys cost more than the comparisons they save (measured —
+ * the grid only pays off past a few hundred labels, and MeasureControl's plans
+ * are tens).
+ */
+const GRID_THRESHOLD = 256;
+
+/**
+ * A box spanning more cells than this is left unindexed — it would touch
+ * millions of buckets. Real labels are a few hundred pixels wide, so this only
+ * guards against a broken or deliberately unbounded box.
+ */
+const GRID_MAX_SPAN = 4096;
 
 /** Horizontal overlap width of two boxes, or 0 when they do not overlap on the
  *  x-axis. */
@@ -85,8 +100,19 @@ const hides = (a: Box, b: Box, overlap: number = HIDE_OVERLAP): boolean =>
  *
  * A spatial grid keeps this near-linear instead of O(n²): a lookup only tests
  * the buckets the box touches (see GRID_CELL). A colliding pair always shares a
- * cell — overlap implies cell intersection — so the survivors are exactly what
- * the pairwise sweep would return: the same rule, evaluated faster.
+ * cell — overlap implies cell intersection — so the survivors match the
+ * pairwise sweep. Two deliberate departures from it:
+ *
+ *  - the grid rests on "hidden ⇒ the boxes share a cell", which holds only for a
+ *    strictly positive threshold: `overlap > 0` and `box.w > 0` are
+ *    preconditions. (Both callers guarantee them — MeasureControl falls back to
+ *    a chip size, LayerControl adds the halo width.)
+ *  - a box that cannot be indexed — non-finite, or spanning more than
+ *    GRID_MAX_SPAN cells — enters the plan unindexed and simply survives: it
+ *    blocks nothing, and nothing is compared against it.
+ *
+ * Small sets skip the index entirely (see GRID_THRESHOLD). A plan over thousands
+ * of labels is still worth culling by viewport first, where the caller can.
  */
 const planVisible = <T extends PlacedLabel>(
   labels: readonly T[],
@@ -103,6 +129,9 @@ const planVisible = <T extends PlacedLabel>(
     })
     .map(entry => entry.label);
 
+  // Below the threshold the sweep is simply faster (see GRID_THRESHOLD).
+  if (ranked.length < GRID_THRESHOLD) return pairwiseVisible(ranked, overlap);
+
   const buckets = new Map<string, Box[]>();
   const survivors = new Set<T>();
 
@@ -113,16 +142,10 @@ const planVisible = <T extends PlacedLabel>(
     const x1 = Math.floor((box.x + box.w) / GRID_CELL);
     const y1 = Math.floor((box.y + box.h) / GRID_CELL);
 
-    // A non-finite coordinate cannot be indexed: `floor(Infinity)` leaves the
-    // cell loop without a bound. Such a label simply enters the plan unindexed
-    // — it survives (nothing finite collides with it geometrically) and no
-    // other label can match it either way.
-    if (
-      !Number.isFinite(x0) ||
-      !Number.isFinite(y0) ||
-      !Number.isFinite(x1) ||
-      !Number.isFinite(y1)
-    ) {
+    // Unindexable (see the doc): survive, compare against nothing. The span
+    // check subsumes non-finite coordinates — NaN and Infinity both fail it.
+    const span = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (!Number.isFinite(span) || span > GRID_MAX_SPAN) {
       survivors.add(label);
       continue;
     }
@@ -145,6 +168,22 @@ const planVisible = <T extends PlacedLabel>(
         else buckets.set(key, [box]);
       }
     }
+  }
+  return survivors;
+};
+
+/** The every-pair sweep — the semantics the grid reproduces, and the cheaper
+ *  planner while the set is small (see GRID_THRESHOLD). */
+const pairwiseVisible = <T extends PlacedLabel>(
+  ranked: readonly T[],
+  overlap: number,
+): Set<T> => {
+  const survivors = new Set<T>();
+  const claimed: Box[] = [];
+  for (const label of ranked) {
+    if (claimed.some(box => hides(label.box, box, overlap))) continue;
+    survivors.add(label);
+    claimed.push(label.box);
   }
   return survivors;
 };

@@ -230,6 +230,29 @@ describe("planVisible — grid index", () => {
 
     expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
   });
+
+  it("matches pairwise when coordinates snap to cell multiples", () => {
+    // The worst case for bucketing: x/y land on (or half a pixel either side
+    // of) a 64px multiple, so boxes start and end exactly on cell borders.
+    const rand = makeRng(4321);
+    const snap = (v: number) =>
+      Math.round(v / 64) * 64 + (rand() < 0.5 ? -0.5 : 0.5);
+    const labels = Array.from({ length: 500 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: {
+        x: snap(rand() * 1000),
+        y: snap(rand() * 800),
+        w: 20 + rand() * 90,
+        h: 12,
+      },
+    }));
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
 });
 
 describe("planVisible — grid edges", () => {
@@ -238,6 +261,18 @@ describe("planVisible — grid edges", () => {
     box: { x: number; y: number; w: number; h: number },
     priority = 50,
   ) => ({ index, priority, box });
+
+  /** Pad a small set past GRID_THRESHOLD — below it the pairwise sweep is
+   *  selected on purpose, and these cases are about the grid. The filler sits
+   *  far away and never overlaps, so it cannot affect the pair under test. */
+  const withGrid = (labels: Array<ReturnType<typeof lbl>>) => [
+    ...labels,
+    ...Array.from({ length: 300 }, (_, i) => ({
+      index: 100000 + i,
+      priority: 50,
+      box: { x: 200000 + i * 100, y: 200000, w: 20, h: 12 },
+    })),
+  ];
 
   it("returns nothing for an empty set", () => {
     expect(planVisible([]).size).toBe(0);
@@ -252,23 +287,25 @@ describe("planVisible — grid edges", () => {
     const a = lbl(0, { x: -200, y: -90, w: 40, h: 16 });
     const b = lbl(1, { x: -195, y: -85, w: 40, h: 16 }); // overlaps a
 
-    const kept = planVisible([a, b]);
+    const kept = planVisible(withGrid([a, b]));
 
     expect(kept.has(a)).toBe(true);
     expect(kept.has(b)).toBe(false);
   });
 
-  it("keeps non-finite boxes without hanging, and they block nothing", () => {
-    // `Math.floor(Infinity)` would leave the cell loop unbounded; a NaN box
-    // never enters one. Both must simply survive.
+  it("keeps unindexable boxes without hanging, and they block nothing", () => {
+    // Non-finite would leave the cell loop unbounded; a finite-but-astronomic
+    // span would touch millions of buckets. Both survive unindexed.
     const infinite = lbl(0, { x: 0, y: 0, w: Infinity, h: 16 });
     const nan = lbl(1, { x: NaN, y: NaN, w: 10, h: 10 });
-    const normal = lbl(2, { x: 50, y: 0, w: 40, h: 16 });
+    const huge = lbl(2, { x: 0, y: 0, w: 1e9, h: 16 });
+    const normal = lbl(3, { x: 50, y: 0, w: 40, h: 16 });
 
-    const kept = planVisible([infinite, nan, normal]);
+    const kept = planVisible(withGrid([infinite, nan, huge, normal]));
 
     expect(kept.has(infinite)).toBe(true);
     expect(kept.has(nan)).toBe(true);
+    expect(kept.has(huge)).toBe(true);
     expect(kept.has(normal)).toBe(true);
   });
 
@@ -278,9 +315,30 @@ describe("planVisible — grid edges", () => {
     const a = lbl(0, { x: 0, y: 0, w: 64, h: 16 }, 90);
     const b = lbl(1, { x: 10, y: 0, w: 64, h: 16 }, 10); // 10..74, 54px of overlap
 
-    const kept = planVisible([a, b]);
+    const kept = planVisible(withGrid([a, b]));
 
     expect(kept.has(a)).toBe(true);
     expect(kept.has(b)).toBe(false);
+  });
+
+  it("handles large coordinates", () => {
+    const a = lbl(0, { x: -1e7, y: -1e7, w: 40, h: 16 }, 90);
+    const b = lbl(1, { x: -1e7 + 10, y: -1e7, w: 40, h: 16 }, 10);
+
+    const kept = planVisible(withGrid([a, b]));
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+
+  it("states its precondition: a zero-width box degenerates the rule", () => {
+    // Not a behaviour to preserve — the contract. The grid's equivalence rests
+    // on "hidden ⇒ the boxes share a cell", which needs a strictly positive
+    // threshold; at a zero width the criterion collapses to `hOverlap >= 0`,
+    // which even a separated pair satisfies. Both callers pass real widths.
+    const zeroWidth = { x: 0, y: 0, w: 0, h: 16 };
+    const apart = { x: 200, y: 0, w: 40, h: 16 };
+
+    expect(hides(zeroWidth, apart, HIDE_OVERLAP)).toBe(true);
   });
 });
