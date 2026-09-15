@@ -3,6 +3,12 @@ import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { autoLabelField } from "#core/labelField.js";
 import { cssVar } from "#common/cssvar.js";
+import {
+  drawCanvasLabel,
+  prepareCanvasLabel,
+  resolveCanvasLabelStyle,
+  type CanvasLabelStyle,
+} from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -51,13 +57,8 @@ interface AggregatedData {
   classColors: string[];
 }
 
-/** Canvas label style resolved from CSS custom properties. */
-interface LabelStyle {
-  font: string;
-  color: string;
-  stroke: string;
-  strokeWidth: number;
-}
+/** Canvas label style resolved from the shared --label-* tokens (the common
+ *  recipe the annotation canvas uses too, so both read as one language). */
 
 /** A point layer collected from LayerControl. */
 interface PointLayerInfo {
@@ -125,7 +126,7 @@ class HeatmapManager {
   cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   cachedFeatures: HexFeature[] | null;
   cachedAgg: { key: string; data: AggregatedData } | null;
-  cachedLabelStyle: LabelStyle | null;
+  cachedLabelStyle: CanvasLabelStyle | null;
   renderAll: boolean;
   /**
    * One-shot guard: true after the first successful initScan rebuild (or the
@@ -314,17 +315,13 @@ class HeatmapManager {
     }
   }
 
-  /** Resolve label styling from CSS custom properties (cached once). */
-  resolveLabelStyle(): LabelStyle {
+  /** Resolve label styling from the shared --label-* tokens (cached once). The
+   *  values are the same the annotation canvas reads — both go through
+   *  common/canvasLabel — so a hex value and an annotation label render as one
+   *  language. */
+  resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
-
-    const css = (prop: string, fb = "") => cssVar(this.ui!.ctrl, prop, fb);
-    this.cachedLabelStyle = {
-      font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
-      color: css("--heatmap-label-color", "#fff"),
-      stroke: css("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-      strokeWidth: parseFloat(css("--heatmap-label-stroke-width", "3")),
-    };
+    this.cachedLabelStyle = resolveCanvasLabelStyle(this.ui!.ctrl);
     return this.cachedLabelStyle;
   }
 
@@ -332,7 +329,7 @@ class HeatmapManager {
   drawHexLabel(
     ctx: CanvasRenderingContext2D,
     feat: HexFeature,
-    { font, color, stroke, strokeWidth }: LabelStyle,
+    style: CanvasLabelStyle,
   ) {
     const centroid = feat.properties.centroid;
     if (!centroid) return;
@@ -342,15 +339,11 @@ class HeatmapManager {
       CONF.label_format,
       CONF.locale_code,
     );
-    if (ctx.font !== font) ctx.font = font;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = strokeWidth;
-    ctx.lineJoin = "round";
-    ctx.strokeText(text, pt.x, pt.y);
-    ctx.fillStyle = color;
-    ctx.fillText(text, pt.x, pt.y);
+    // Preserve the "set the font once" guard: assigning the same font string to
+    // a canvas context is not free, and this runs once per hexagon per frame.
+    if (ctx.font !== style.font) ctx.font = style.font;
+    prepareCanvasLabel(ctx, style);
+    drawCanvasLabel(ctx, text, pt.x, pt.y, style);
   }
 
   // --- Data Extraction ---
