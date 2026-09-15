@@ -63,5 +63,6 @@
   "LayerControl.style_label_format_int": "整数",
   "LayerControl.style_label_format_comma": "千分位",
   "LayerControl.style_label_format_percent": "百分比",
+  "LayerControl.label_truncated": "要素过多，仅显示前一部分标注",
   "LayerControl.style_reset": "重置"
 }

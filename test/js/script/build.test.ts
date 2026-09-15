@@ -76,7 +76,7 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-134KB)", () => {
+  it("common JS has reasonable size (20-140KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path). The common bundle is tree-shaken from the
@@ -86,7 +86,9 @@ describe("build artifacts", () => {
     // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
     // in the same bundle because the runtime registers it on foliplus.core, and
     // so do the shared label contracts (field collection, collision geometry).
-    expect(size).toBeLessThan(134000);
+    // 140KB (not the current 130.8KB) is the agreed ceiling: the sibling
+    // branch's #332 raised it first, and the larger value wins on merge.
+    expect(size).toBeLessThan(140000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
