@@ -33,9 +33,15 @@ SCRIPT = REPO_ROOT / "script" / "smoke-wheel.py"
 _CONTROL_NAMES = ("ExportControl", "LayerControl", "ScaleControl")
 
 
-def _make_stub() -> types.ModuleType:
-    """A `foliplus` stand-in exposing only the classes under test."""
+def _make_stub(package_dir: Path | None = None) -> types.ModuleType:
+    """A `foliplus` stand-in exposing only the classes under test.
+
+    `package_dir` pins `__file__`, which `assert_not_source_checkout()`
+    reads to decide whether the import came from a checkout or an install.
+    """
     stub = types.ModuleType("foliplus")
+    if package_dir is not None:
+        stub.__file__ = str(package_dir / "__init__.py")
     for name in _CONTROL_NAMES:
         setattr(stub, name, type(name, (), {}))
     return stub
@@ -173,3 +179,134 @@ def test_locate_controls_is_sorted(smoke, package):
     """Discovery order is deterministic, so CI output is diffable."""
     names = [c.__name__ for c in smoke.locate_controls(package)]
     assert names == sorted(names)
+
+
+# ── render_control ─────────────────────────────────────────────────
+
+
+def _render_stub(html: str) -> types.ModuleType:
+    """A `folium` stub that renders one fixed document regardless of control."""
+    class Map:
+        def get_root(self) -> Map:
+            return self
+
+    Map.__init__ = lambda self, location: None
+    Map.render = lambda self: html
+    module = types.ModuleType("folium")
+    module.Map = Map
+    return module
+
+
+def _bundle(control: str, externalise: bool = True) -> str:
+    """The shape a real bundle has: an esbuild banner, then the runtime ref."""
+    head = f"/*! foliplus@v0.1.0 · {control} */\n"
+    body = "var c = foliplus.BaseControl;" if externalise else "var x = 1;"
+    return head + body
+
+
+def _cls(name: str) -> type:
+    """A control class carrying the surface `render_control()` touches."""
+    return type(name, (), {"add_to": lambda self, m: None})
+
+
+def test_render_control_passes_on_a_real_bundle(tmp_path, smoke):
+    """Banner and externalisation present in both bundle and HTML → passes."""
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
+    smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+def test_render_control_rejects_a_bundle_without_the_component(tmp_path, smoke):
+    """The sharp form of the defect: the file exists, but is not the bundle.
+
+    `_load_asset` sees a present file, the render emits a perfectly valid
+    document, and the gate would pass unless the bundle's own content is
+    required to be in the HTML. A banner-only file carries the shared
+    `foliplus@` marker, so only the component-specific marker catches it.
+    """
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.BaseControl;")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text("/*! foliplus@v0.1.0 */\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match="bundle holds no"):
+        smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+def test_render_control_rejects_a_bundle_without_the_runtime(tmp_path, smoke):
+    """A bundle that names the component but never externalises to the shared
+    runtime cannot drive it — dead code, and the render proves it."""
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.BaseControl;")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text(_bundle("ScaleControl", externalise=False), encoding="utf-8")
+    with pytest.raises(AssertionError, match="bundle holds no"):
+        smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+def test_render_control_rejects_html_without_the_component(tmp_path, smoke):
+    """The bundle is right but the render lost it: the page ships a dead control."""
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.BaseControl;")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
+    with pytest.raises(AssertionError, match="missing from the rendered page"):
+        smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+def test_render_control_rejects_html_without_the_runtime(tmp_path, smoke):
+    """The component banner is in the document but the runtime reference is not."""
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 · ScaleControl */\n")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
+    with pytest.raises(AssertionError, match="missing from the rendered page"):
+        smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+def test_render_control_rejects_html_without_any_banner(tmp_path, smoke):
+    """No `foliplus@` anywhere: the shared runtime never reached the document."""
+    folium_stub = _render_stub("no assets at all")
+    bundle = tmp_path / "foliplus-ScaleControl.min.js"
+    bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
+    with pytest.raises(AssertionError, match="shared bundle banner absent"):
+        smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+# ── assert_not_source_checkout ──────────────────────────────────────
+
+
+def test_assert_not_source_checkout_accepts_an_install(tmp_path, smoke):
+    """A package that lives next to no repo files passes silently."""
+    pkg = tmp_path / "foliplus"
+    pkg.mkdir()
+    smoke.assert_not_source_checkout(_make_stub(pkg))
+
+
+def test_assert_not_source_checkout_rejects_a_checkout(tmp_path, smoke):
+    """`pyproject.toml` beside the package means the source tree won."""
+    pkg = tmp_path / "foliplus"
+    pkg.mkdir()
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    with pytest.raises(smoke.SmokeFailure) as exc:
+        smoke.assert_not_source_checkout(_make_stub(pkg))
+    message = str(exc.value)
+    assert "source checkout" in message
+    assert "pyproject.toml" in message
+
+
+def test_assert_not_source_checkout_marks_matter_independently(tmp_path, smoke):
+    """`test/` alone is enough — a CI layout without pyproject is still a repo."""
+    pkg = tmp_path / "foliplus"
+    pkg.mkdir()
+    (tmp_path / "test").mkdir()
+    with pytest.raises(smoke.SmokeFailure) as exc:
+        smoke.assert_not_source_checkout(_make_stub(pkg))
+    assert "test" in str(exc.value)
+
+
+def test_assert_not_source_checkout_rejects_editable_install(tmp_path, smoke):
+    """An editable checkout carries both markers and must be refused, not
+    silently certified by whatever `dist/` the working copy happens to hold."""
+    pkg = tmp_path / "foliplus"
+    pkg.mkdir()
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    (tmp_path / "test").mkdir()
+    with pytest.raises(smoke.SmokeFailure):
+        smoke.assert_not_source_checkout(_make_stub(pkg))
