@@ -17,6 +17,15 @@ const toggleFold = (ui: LayerUI, group: string): void => {
 };
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
+  // A press that began on a floating row panel is not a reorder gesture: the
+  // panel is a detail surface, not a drag handle, and it is a *descendant* of
+  // the draggable row — so the browser reports the row as the drag source and
+  // the panel's own `dragstart` listener can never fire. The press is what
+  // carries the verdict (ui.pressInPanel), not the drag event.
+  if (ui.pressInPanel) {
+    event.preventDefault();
+    return;
+  }
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
