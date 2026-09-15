@@ -55,6 +55,12 @@ const FOCUS = {
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
 const FOCUS_PANE = "foliplus-focus-overlay";
 
+/** Leaflet pane hosting the annotation label canvas (plus its own CSS class).
+ *  One pane carries *every* layer's labels, so its z-index sits above all data
+ *  panes but below Leaflet's markers and tooltips — labels never hide under a
+ *  layer's own geometry, and never cover the interaction markers. */
+const ANNOTATION_PANE = "foliplus-annotation-pane";
+
 /** CSS class names. */
 const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
@@ -159,6 +165,7 @@ const DEFAULT_ANNOTATION = {
 
 export {
   ACTION,
+  ANNOTATION_PANE,
   CLASSES,
   COLOR,
   DATA,

@@ -596,6 +596,19 @@ class LayerManager implements LayerAPI {
       const markerPaneEl = this.map.getPane("markerPane");
       if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
 
+      // Annotation labels live on their own pane — one canvas carrying every
+      // layer's labels — slotted above the data panes and below the markers:
+      // labels never hide under a layer's own geometry, and never cover the
+      // interaction markers. Created here even before the canvas exists, so
+      // the first label render already lands in the right slot.
+      const annotationPaneEl =
+        this.map.getPane(CONST.ANNOTATION_PANE) ??
+        this.map.createPane(CONST.ANNOTATION_PANE);
+      if (annotationPaneEl) {
+        annotationPaneEl.classList.add("foliplus-annotation-pane");
+        annotationPaneEl.style.zIndex = String(topZ - 2);
+      }
+
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
     } finally {

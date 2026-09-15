@@ -14,6 +14,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { throttleRaf } from "#common/throttle.js";
+import { ANNOTATION_PANE } from "../const.js";
 import {
   type LabelCandidate,
   type LabelSpec,
@@ -68,7 +69,12 @@ class AnnotationCanvas {
     this.canvas.style.inset = "0";
     // The labels are not interactive: clicks land on the feature beneath.
     this.canvas.style.pointerEvents = "none";
-    map.getPane("overlayPane")!.appendChild(this.canvas);
+    // The dedicated label pane (LayerManager.enforceOrder z-orders it above
+    // every data pane, below markers/tooltips). Created here as a fallback so
+    // the canvas has a home even if a label renders before the first enforce.
+    const pane = map.getPane(ANNOTATION_PANE) ?? map.createPane(ANNOTATION_PANE);
+    pane.classList.add("foliplus-annotation-pane");
+    pane.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
 
     this.resize();
