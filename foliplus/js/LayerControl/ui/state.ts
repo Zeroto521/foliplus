@@ -11,6 +11,9 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.hiddenIds = state.hiddenIds;
   ui.renamedNames = state.names;
   ui.hiddenHasState = state.hiddenHasState;
+  // Style (label) configs are stored on the UI shell and applied by
+  // ui/style.ts once the layers resolve (deferred init passes).
+  ui.labelConfigs = state.annotations;
 };
 
 /** Save fold state to localStorage. */

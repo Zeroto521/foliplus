@@ -28,7 +28,7 @@
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
-
+- `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 ### Changed
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
@@ -96,7 +96,6 @@
 - `FullscreenControl`: `hide_others` parameter (default `true`) to hide all other map controls in fullscreen; icon switches between maximize/minimize ([#33](https://github.com/Zeroto521/foliplus/pull/33), [#49](https://github.com/Zeroto521/foliplus/pull/49))
 - `SearchControl`/`MeasureControl`: separator between toggle button and toolbar in expanded mode ([#43](https://github.com/Zeroto521/foliplus/pull/43))
 - `SearchControl`: toggle button stays fixed on screen side when expanded ([#45](https://github.com/Zeroto521/foliplus/pull/45))
-- `LayerControl`: `setVisible(id, visible)` on `LayerAPI` — the panel checkbox used to be the only way to show or hide a layer, so a host page had to synthesize a DOM event against a row it does not own; the choice persists like a user toggle ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`: batch show/hide of all overlay or base layers via toggle-all checkbox ([#47](https://github.com/Zeroto521/foliplus/pull/47), [#101](https://github.com/Zeroto521/foliplus/pull/101), [#108](https://github.com/Zeroto521/foliplus/pull/108))
 - `MeasureControl`: measurement persistence via `localStorage` — markers, distances, and circles survive page refresh ([#48](https://github.com/Zeroto521/foliplus/pull/48), [#83](https://github.com/Zeroto521/foliplus/pull/83))
 - `LayerControl`: fold/unfold toggle-all rows for overlay and base groups ([#52](https://github.com/Zeroto521/foliplus/pull/52), [#55](https://github.com/Zeroto521/foliplus/pull/55))

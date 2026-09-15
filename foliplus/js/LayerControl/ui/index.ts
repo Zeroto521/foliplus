@@ -1,6 +1,7 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and wiring.
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import type { LabelField } from "#core/labelField.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
@@ -93,6 +94,12 @@ import {
   syncHiddenId,
 } from "./state.js";
 import {
+  applyStyleLabelState,
+  closeStylePanel,
+  invalidateFields,
+  openStylePanel,
+} from "./style.js";
+import {
   applyVisibility,
   getLayerItems,
   handleChange,
@@ -174,6 +181,19 @@ class LayerUI {
    *  Capture is required: the layer control's disableClickPropagation
    *  stops bubble-phase events from ever reaching document. */
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Same capture-phase dismiss, for the style panel. */
+  styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Layer id whose annotation style panel is open, or null. */
+  stylePanelLayerId: string | null;
+  /** Per-layer label-field cache (collectFields walks every feature). */
+  fieldCache: Map<string, LabelField[]>;
+  /** Whether the current press began inside a floating row panel. Written on
+   *  the press (the panel's document-level capture handler) and read by
+   *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
+   *  event itself cannot say where the press began. */
+  pressInPanel: boolean;
+  /** Persisted per-layer annotation configs, applied once layers resolve. */
+  labelConfigs: Record<string, unknown>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -213,6 +233,11 @@ class LayerUI {
     this.onMoreMapClick = null;
     this.activeMenu = null;
     this.attrsOutsideHandler = null;
+    this.styleOutsideHandler = null;
+    this.stylePanelLayerId = null;
+    this.fieldCache = new Map();
+    this.pressInPanel = false;
+    this.labelConfigs = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -288,6 +313,9 @@ class LayerUI {
     this.unsubscribeControlAttached = this.events.on(EVENTS.CONTROL_ATTACHED, () => {
       if (!this.uiContainer?.isConnected) return;
       this.initTypesAndVisibility();
+      // Re-apply is idempotent: a late-registered layer may just now have
+      // a resolvable feature set (and thus labelable fields).
+      this.applyStyleLabelState();
     });
   }
 
@@ -322,6 +350,17 @@ class LayerUI {
     this.onInput = event => this.handleInput(event);
     this.onClick = event => {
       const el = event.target as HTMLElement;
+      // A press inside a row's floating panel (attributes / style) is the
+      // panel's business, not the row's. Taking the cursor over here would
+      // steal DOM focus back to the row, and a native <select> popup closes
+      // the instant it loses focus — so the dropdown looked like it retracted
+      // the moment it opened. The panels carry their own click handling.
+      if (
+        el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
+        el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
+      ) {
+        return;
+      }
       // One ledger: pointer re-homes the index, Tab stop, and paints the
       // cursor visual. It stays until Escape, another row, or an outside
       // press takes over — same contract as the keyboard cursor.
@@ -438,6 +477,7 @@ class LayerUI {
     if (!item) return;
     const layerInfo = this.m.layerRegistry.get(id);
     if (!layerInfo || layerInfo.isBase) return;
+    this.invalidateFields(id);
     const count = this.mgmt.getFeatureCount(id);
     const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
     const typeCol = item.querySelector(
@@ -487,6 +527,7 @@ class LayerUI {
     const container = this.uiContainer;
     if (!container) return;
     this.closeMoreMenu(false);
+    this.closeStylePanel(false);
     this.finishRename(true);
     // Remove any focus animation still in flight (rect + row highlight).
     dismissFocus(this);
@@ -677,6 +718,25 @@ class LayerUI {
   }
   closeAttrsPanel(setFocus: boolean) {
     return closeAttrsPanel(this, setFocus);
+  }
+  openStylePanel(layerId: string) {
+    return openStylePanel(this, layerId);
+  }
+  closeStylePanel(setFocus: boolean) {
+    return closeStylePanel(this, setFocus);
+  }
+  /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
+   *  cached field list). Peer ui/ modules call the module function directly
+   *  instead — see the sibling-import convention from #296. */
+  invalidateFields(layerId: string) {
+    return invalidateFields(this, layerId);
+  }
+  /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
+   *  ran, and `vi.spyOn` needs a method on the instance (an imported function
+   *  is captured at load time). Kept for the same reason #296 kept the menu
+   *  and rename hubs. */
+  applyStyleLabelState() {
+    return applyStyleLabelState(this);
   }
   renameLayer(layerId: string) {
     return renameLayer(this, layerId);
