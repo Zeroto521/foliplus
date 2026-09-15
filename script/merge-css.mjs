@@ -131,7 +131,8 @@ const expandEntry = (sources, entry, label) => {
   if (!sources.has(entry)) {
     throw new Error(`build: css/${label}/ has no entry "${entry}"`);
   }
-  return sources
+  const imported = new Set([entry]);
+  const result = sources
     .get(entry)
     .split("\n")
     .map(line => {
@@ -143,9 +144,21 @@ const expandEntry = (sources, entry, label) => {
           `build: css/${label}/${entry} imports "${target}" which is not in css/${label}/`,
         );
       }
+      imported.add(target);
       return stripImports(sources.get(target));
     })
     .join("\n");
+
+  // A module sitting in the directory but never imported would silently
+  // vanish from the bundle — the same drift `orderCss` cannot have (it walks
+  // every source), so flag it here instead of shipping a half stylesheet.
+  const orphan = [...sources.keys()].filter(f => !imported.has(f));
+  if (orphan.length) {
+    throw new Error(
+      `build: css/${label}/ ${orphan.join(", ")} never imported by ${entry}`,
+    );
+  }
+  return result;
 };
 
 export { expandEntry, mergeCss, normalizeImport, orderCss, parseImports, stripImports };

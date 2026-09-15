@@ -140,13 +140,24 @@ describe("expandEntry", () => {
     const sources = new Map([
       ["index.css", '@import "./a.css";'],
       ["a.css", '@import "token.css";\n.a { color: red; }'],
-      ["token.css", ":root { --x: 1; }"],
     ]);
     // The module's `@import "token.css"` is dropped — the shared tokens are
     // already injected via foliplus-common.min.css, so a component module must
-    // not pull them in a second time.
+    // not pull them in a second time. `token.css` itself is NOT a source here
+    // (it lives in css/common/, not in the component directory).
     expect(expandEntry(sources, "index.css", "LayerControl")).toBe(
       ".a { color: red; }",
+    );
+  });
+
+  it("throws when a directory module is never imported (orphan guard)", () => {
+    const sources = new Map([
+      ["index.css", '@import "./a.css";'],
+      ["a.css", ".a { color: red; }"],
+      ["b.css", ".b { color: blue; }"], // sits in the dir, never imported
+    ]);
+    expect(() => expandEntry(sources, "index.css", "LayerControl")).toThrow(
+      /b\.css never imported by index\.css/,
     );
   });
 
