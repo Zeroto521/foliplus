@@ -33,6 +33,7 @@
 
 ### Changed
 
+- `Project architecture`: drop `core/index.ts` — no source imports it and the shared-registry scan never registers it, so an export added there would have had no runtime effect
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LayerControl`: rework internal architecture into `LayerRegistry` (ordered layer list, read-only `api.layers`) + `PaneManager` (pane lifecycle: creation, discovery cache, fallback mapping, DOM migration) + `LayerUI` (fold/drag/color state), orchestrated by a slim `LayerManager` ([#117](https://github.com/Zeroto521/foliplus/pull/117), [#119](https://github.com/Zeroto521/foliplus/pull/119), [#120](https://github.com/Zeroto521/foliplus/pull/120), [#121](https://github.com/Zeroto521/foliplus/pull/121), [#214](https://github.com/Zeroto521/foliplus/pull/214))
 - `Project architecture`: migrate from single Jinja-embedded JavaScript IIFE to modular TypeScript with ES module structure. Each component now has its own `*.ts` source file, bundled via esbuild into a single IIFE for distribution ([#122](https://github.com/Zeroto521/foliplus/pull/122), [#125](https://github.com/Zeroto521/foliplus/pull/125), [#136](https://github.com/Zeroto521/foliplus/pull/136), [#137](https://github.com/Zeroto521/foliplus/pull/137), [#195](https://github.com/Zeroto521/foliplus/pull/195), [#210](https://github.com/Zeroto521/foliplus/pull/210), [#257](https://github.com/Zeroto521/foliplus/pull/257), [#290](https://github.com/Zeroto521/foliplus/pull/290), [#308](https://github.com/Zeroto521/foliplus/pull/308), [#315](https://github.com/Zeroto521/foliplus/pull/315), [#330](https://github.com/Zeroto521/foliplus/pull/330))
@@ -68,6 +69,7 @@
 
 ### Removed
 
+- `core`: drop `core/index.ts` — a 63-line re-export barrel with zero importers and no runtime surface
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `HeatmapControl`: remove the nested `style` dict parameter; `field`, `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
