@@ -610,10 +610,9 @@ class LayerManager implements LayerAPI {
       const annotationPaneEl =
         this.map.getPane(CONST.ANNOTATION_PANE) ??
         this.map.createPane(CONST.ANNOTATION_PANE);
-      if (annotationPaneEl) {
-        annotationPaneEl.classList.add("foliplus-annotation-pane");
-        annotationPaneEl.style.zIndex = String(topZ - 2);
-      }
+      // createPane always returns the element (or throws), so no guard here.
+      annotationPaneEl.classList.add("foliplus-annotation-pane");
+      annotationPaneEl.style.zIndex = String(topZ - 2);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();

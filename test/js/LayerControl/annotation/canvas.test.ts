@@ -222,6 +222,18 @@ describe("AnnotationCanvas.draw", () => {
     expect(all).toContain("alpha");
     expect(all).toContain("beta");
   });
+
+  it("ignores a focus filter that is already the current one", () => {
+    const { canvas } = makeEnv();
+    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
+    canvas.setFocusFilter("a");
+
+    ctx.clearRect.mockClear();
+    canvas.setFocusFilter("a");
+
+    // No state change, no redraw.
+    expect(ctx.clearRect).not.toHaveBeenCalled();
+  });
 });
 
 describe("AnnotationCanvas.map reactions", () => {

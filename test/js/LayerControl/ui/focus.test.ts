@@ -61,6 +61,19 @@ describe("LayerUI focus", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("focusLayer()", () => {
+    it("tolerates a pane missing from the map while lifting the focus ladder", () => {
+      // The ladder lifts the label pane and the interaction panes into the
+      // focus band; a map without some of them must not break the focus.
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        ["markerPane", "tooltipPane", "popupPane"].includes(name)
+          ? undefined
+          : realGetPane(name),
+      );
+
+      expect(() => ui.focusLayer("overlay1")).not.toThrow();
+    });
+
     it("draws a border-only dashed rectangle on the layer bounds", () => {
       ui.focusLayer("overlay1");
 
