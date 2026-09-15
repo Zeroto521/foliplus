@@ -8,7 +8,8 @@ import {
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
 
-const JS_DIR = resolve(__dirname, "../../../foliplus/js");
+// Via vitest's cwd — the convention build.test.ts uses too.
+const JS_DIR = resolve(process.cwd(), "foliplus/js");
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
