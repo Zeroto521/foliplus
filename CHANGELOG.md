@@ -160,4 +160,3 @@
 [v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.1.0
-
