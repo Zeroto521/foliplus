@@ -214,6 +214,28 @@ describe("generateRegistry", () => {
     expect(output).not.toContain("core/component");
   });
 
+  it("never registers a bare domain barrel (core/index.ts)", () => {
+    // coreSubs and coreSingleFiles both exclude index.ts, so the registry can
+    // only ever expose core/<sub> or core/<file>. A `core/index` registration
+    // would mean an import resolves to a specifier nobody bundles — a barrel
+    // with no runtime surface.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/geo/index.ts": `export const fromWgs84 = () => {};`,
+      "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `
+        import { fromWgs84 } from "#core/geo/index.js";
+        import { fromWgs84 as again } from "#core/index.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["geo"]');
+    expect(output).not.toContain('core/index');
+    expect(output).not.toContain("#core/index.js");
+  });
+
   it("registers BaseControl", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
