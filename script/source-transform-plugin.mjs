@@ -15,11 +15,11 @@ const normPath = p => p.replaceAll("\\", "/");
  *  Windows, forward slashes elsewhere), so both sides are normalised to
  *  forward slashes before the prefix check — a hardcoded "/" suffix on a
  *  `path.resolve()`-based dir silently skipped EVERY file on Windows. */
-export const isSourceFile = (srcDir, path) =>
+const isSourceFile = (srcDir, path) =>
   normPath(path).startsWith(normPath(srcDir) + "/");
 
 /** The source-transform plugin, bound to the source dir it guards. */
-export const createSourceTransformPlugin = srcDir => ({
+const createSourceTransformPlugin = srcDir => ({
   name: "source-transform",
   setup(build) {
     build.onLoad({ filter: /\.(ts|js)$/ }, async args => {
@@ -30,3 +30,5 @@ export const createSourceTransformPlugin = srcDir => ({
     });
   },
 });
+
+export { createSourceTransformPlugin, isSourceFile };
