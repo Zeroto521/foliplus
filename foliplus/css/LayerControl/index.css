@@ -1,9 +1,9 @@
 /* LayerControl stylesheet, split by responsibility.
    focus.css      map-level pane interaction + focus rect/mask/glow
-   rows.css       layer rows: fold, drag, cursor, item, open-overlay
+   row.css        layer rows: fold, drag, cursor, item, open-overlay
    menu.css       more-button + overflow dropdown
-   attrs.css      attributes panel
-   controls.css   focusing pulse + checkbox + color picker
+   attr.css       attributes panel
+   control.css    focusing pulse + checkbox + color picker
    map-state.css  tile hidden, drag-pulse keyframes, container bg
    rename.css     inline rename input
    style.css      annotation style panel
@@ -12,10 +12,10 @@
    The entry's @import order IS the cascade order; esbuild and the
    build's expandEntry keep it verbatim. */
 @import "./focus.css";
-@import "./rows.css";
+@import "./row.css";
 @import "./menu.css";
-@import "./attrs.css";
-@import "./controls.css";
+@import "./attr.css";
+@import "./control.css";
 @import "./map-state.css";
 @import "./rename.css";
 @import "./style.css";

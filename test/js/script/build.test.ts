@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 const distDir = resolve(process.cwd(), "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
-// writes on every real build — the same list `test/python/test_assets.py`
+// writes on every real build — the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names = JSON.parse(

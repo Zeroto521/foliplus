@@ -23,7 +23,7 @@ import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { brotliCompressSync } from "zlib";
 import { help, parseArgs as parseArgsCore } from "./args.mjs";
-import { FAIL, OK, STATUS, WARN } from "./glyphs.mjs";
+import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
 
 // A threshold breach is a policy decision, not a broken check. The report —
 // the table and the tree of who exceeded — is the thing that must reach the
