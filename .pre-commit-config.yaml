@@ -36,8 +36,12 @@ repos:
     rev: v2.3.1
     hooks:
       - id: mypy
-        additional_dependencies: [folium, jinja2]
-        args: [--ignore-missing-imports, foliplus]
+        # Pinned: the hook's type analysis depends on folium/jinja2 stubs, and
+        # an unpinned bump can surface new/unused `# type: ignore` errors.
+        additional_dependencies: [folium==0.20.0, jinja2==3.1.6]
+        # --strict + --ignore-missing-imports live in pyproject.toml
+        # ([tool.mypy]); the hook only names the package to check.
+        args: [foliplus]
         pass_filenames: false
 
   # ── Spell check ──

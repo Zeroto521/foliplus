@@ -64,6 +64,54 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
+  # ── PEP 561 consumer check ──
+  # Builds the wheel, installs it into a scratch venv, and runs mypy from a
+  # *downstream* script: with py.typed shipped, a Literal-bound constructor
+  # argument ("method") must be flagged instead of the package being skipped.
+  typed-consumer:
+    name: typed-consumer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history needed for setuptools_scm to derive __version__ from tags.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+
+      - run: uv build
+
+      - name: install wheel + mypy into a scratch venv
+        run: |
+          uv venv /tmp/consumer
+          # Pinned to the pre-commit hook's mypy rev for a deterministic gate.
+          uv pip install --python /tmp/consumer/bin/python dist/*.whl "mypy==2.3.1"
+
+      - name: assert a downstream mypy catches a Literal mismatch
+        run: |
+          cat > /tmp/consumer/consumer.py <<'EOF'
+          from foliplus import HeatmapControl, LocaleConfig
+
+          HeatmapControl(method="quantile")  # valid — must not be flagged
+          HeatmapControl(method="bogus")  # invalid — mypy must flag it
+          EOF
+          set +e
+          /tmp/consumer/bin/mypy /tmp/consumer/consumer.py > /tmp/consumer/mypy.out 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            cat /tmp/consumer/mypy.out
+            echo "expected mypy to fail on HeatmapControl(method='bogus')"
+            exit 1
+          fi
+          grep -q "Literal" /tmp/consumer/mypy.out || {
+            cat /tmp/consumer/mypy.out
+            echo "expected a Literal mismatch, got a different error"
+            exit 1
+          }
+
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest

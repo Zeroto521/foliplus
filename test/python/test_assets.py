@@ -14,6 +14,7 @@ real distribution really does carry the artifacts.
 from __future__ import annotations
 
 import glob
+import os
 import re
 import subprocess
 import tarfile
@@ -389,12 +390,20 @@ def test_verify_gate_fails_when_a_control_has_no_stylesheet():
 
 
 def _run_verify() -> subprocess.CompletedProcess[str]:
-    """Run `node script/build.mjs --verify` from the repo root."""
+    """Run `node script/build.mjs --verify` from the repo root.
+
+    ``encoding="utf-8"`` is required on Windows: node writes piped output as
+    UTF-8 (the ``✓`` marks), and ``text=True`` would otherwise decode with the
+    system locale (e.g. GBK), crashing the reader thread and leaving
+    ``stderr=None``.
+    """
     return subprocess.run(
         ["node", str(BUILD_SCRIPT), "--verify"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
     )
 
@@ -466,7 +475,7 @@ def test_newest_distribution_matches_the_build():
     wheels = sorted(glob.glob(str(Path.cwd() / "dist" / "*.whl")))
     if not wheels:
         pytest.skip("no wheel built — run `make build-python` first")
-    newest = max(wheels, key=Path.getmtime)
+    newest = max(wheels, key=os.path.getmtime)
     version = _packaged_version(newest)
     assert version is not None, f"{newest} has no foliplus/_version.py"
 
@@ -478,7 +487,8 @@ def test_newest_distribution_matches_the_build():
         f"{newest} version {version!r} has no commit pin — "
         "it did not come from `uv build`"
     )
-    assert pin.group(1).startswith(commit), (
+    # `git rev-parse HEAD` yields the full sha; the wheel pins a short prefix.
+    assert commit.startswith(pin.group(1)), (
         f"{newest} was built from {pin.group(1)} but HEAD is {commit} — "
         "the wheel is stale, rerun `make build-python`"
     )
