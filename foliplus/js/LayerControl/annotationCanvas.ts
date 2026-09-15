@@ -62,10 +62,18 @@ class AnnotationCanvas {
     this.ctx = this.canvas.getContext("2d")!;
 
     this.resize();
+    this.updatePosition();
 
-    // Redraw throttled during pan/zoom, exactly once afterwards. The exporter
-    // may change the view for its capture, so a locked export skips culling.
-    this.scheduleDraw = throttleRaf(() => this.draw());
+    // Redraw throttled during pan/zoom, exactly once afterwards. Leaflet pans
+    // by translating `mapPane`, and this canvas lives inside it — so the draw
+    // must first cancel that translation (updatePosition), or the labels get
+    // the pan twice: once from the inherited transform and once from the new
+    // container coordinates, and drift off their features. The exporter may
+    // change the view for its capture, so a locked export skips culling.
+    this.scheduleDraw = throttleRaf(() => {
+      this.updatePosition();
+      this.draw();
+    });
     const onMove = () => this.scheduleDraw();
     this.map.on("resize", () => {
       this.resize();
@@ -108,6 +116,17 @@ class AnnotationCanvas {
     this.canvas.height = Math.max(1, Math.round(h * dpr));
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
+  }
+
+  /** Cancel the mapPane's pan translation so the canvas stays put in the
+   *  container while its contents are redrawn in container coordinates — the
+   *  same trick HeatmapControl's canvas uses (see core/layer/LayerFactory). */
+  private updatePosition(): void {
+    const mapPane = this.map.getPanes().mapPane;
+    if (!mapPane) return;
+    const pos = L.DomUtil.getPosition(mapPane);
+    this.canvas.style.left = `${-pos.x}px`;
+    this.canvas.style.top = `${-pos.y}px`;
   }
 
   private spec(): LabelSpec {
