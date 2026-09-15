@@ -14,16 +14,19 @@ const mocks = vi.hoisted(() => {
     destroy: ReturnType<typeof vi.fn>;
   }
   const instances: MockCanvas[] = [];
+  /** The visibility callback each canvas was built with (2nd ctor arg). */
+  const visibilityCallbacks: Array<(id: string) => boolean> = [];
 
   class MockAnnotationCanvas implements MockCanvas {
     setLayerLabels = vi.fn();
     removeLayerLabels = vi.fn();
     destroy = vi.fn();
-    constructor() {
+    constructor(_map: unknown, isLayerOnMap: (id: string) => boolean) {
       instances.push(this);
+      visibilityCallbacks.push(isLayerOnMap);
     }
   }
-  return { MockAnnotationCanvas, instances };
+  return { MockAnnotationCanvas, instances, visibilityCallbacks };
 });
 
 vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
@@ -111,6 +114,16 @@ describe("AnnotationManager config round-trip", () => {
       format: "auto",
     });
     expect(mgr.configEntries()).toHaveLength(1);
+  });
+
+  it("hasConfig distinguishes never-configured from configured-to-default", () => {
+    const mgr = new AnnotationManager(map, () => null);
+
+    expect(mgr.hasConfig("none")).toBe(false);
+    mgr.setConfig("some", { show: false, field: "", format: "auto" });
+    // Still true even though the config equals the defaults — the persisted
+    // seed relies on this difference.
+    expect(mgr.hasConfig("some")).toBe(true);
   });
 
   it("destroyLayer forgets the layer's config entry", () => {
@@ -326,6 +339,18 @@ describe("AnnotationManager.renderLabels", () => {
     // No per-layer budget: showing every label the layer has is the point.
     expect(labels).toHaveLength(250);
     expect((canvas().setLayerLabels.mock.calls[0]![1] as unknown[]).length).toBe(250);
+  });
+
+  it("gives the canvas a membership check it can re-read at draw time", () => {
+    const group = mkGroup([mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } })]);
+    const onMap = { hasLayer: vi.fn(() => true) } as unknown as typeof map;
+    const mgr = new AnnotationManager(onMap, id => (id === "l1" ? group : null));
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1");
+
+    const canSee = mocks.visibilityCallbacks.at(-1)!;
+    expect(canSee("l1")).toBe(true);
+    expect(canSee("gone")).toBe(false);
   });
 });
 

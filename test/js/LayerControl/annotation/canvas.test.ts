@@ -8,9 +8,17 @@ import {
   type LayerLabel,
 } from "#foliplus/LayerControl/annotation/canvas.js";
 
+const mocks = vi.hoisted(() => ({ exportHandlers: [] as Array<() => void> }));
+
 vi.mock("#core/event/index.js", () => ({
   EVENTS: { BEFORE_EXPORT: "before-export", AFTER_EXPORT: "after-export" },
-  ensureEvents: () => ({ on: vi.fn(() => vi.fn()), emit: vi.fn() }),
+  ensureEvents: () => ({
+    on: (_event: string, cb: () => void) => {
+      mocks.exportHandlers.push(cb);
+      return vi.fn();
+    },
+    emit: vi.fn(),
+  }),
 }));
 
 vi.mock("#common/throttle.js", () => ({
@@ -73,6 +81,7 @@ let ctx: ReturnType<typeof makeCtx>;
 
 beforeEach(() => {
   ctx = makeCtx();
+  mocks.exportHandlers.length = 0;
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
     ctx as unknown as CanvasRenderingContext2D,
   );
@@ -175,6 +184,46 @@ describe("AnnotationCanvas.draw", () => {
     canvas.removeLayerLabels("never-registered");
 
     expect(ctx.clearRect).not.toHaveBeenCalled();
+  });
+});
+
+describe("AnnotationCanvas.map reactions", () => {
+  const handler = (on: ReturnType<typeof vi.fn>, name: string) =>
+    on.mock.calls.find(c => c[0] === name)?.[1] as () => void;
+  const elOf = (canvas: unknown) => (canvas as { canvas: HTMLCanvasElement }).canvas;
+
+  it("redraws on resize", () => {
+    const { on, canvas } = makeEnv();
+    canvas.setLayerLabels("l1", [label("a", "alpha")]);
+    ctx.clearRect.mockClear();
+
+    handler(on, "resize")();
+
+    expect(ctx.clearRect).toHaveBeenCalled();
+  });
+
+  it("hides through a zoom transition and redraws on the far side", () => {
+    const { on, canvas } = makeEnv();
+    canvas.setLayerLabels("l1", [label("a", "alpha")]);
+    const el = elOf(canvas);
+
+    handler(on, "zoomstart")();
+    expect(el.style.visibility).toBe("hidden");
+
+    ctx.fillText.mockClear();
+    handler(on, "zoomend")();
+    expect(el.style.visibility).toBe("");
+    expect(ctx.fillText).toHaveBeenCalled();
+  });
+
+  it("redraws on the export events", () => {
+    const { canvas } = makeEnv();
+    canvas.setLayerLabels("l1", [label("a", "alpha")]);
+
+    ctx.clearRect.mockClear();
+    mocks.exportHandlers.forEach(cb => cb());
+
+    expect(ctx.clearRect).toHaveBeenCalled();
   });
 });
 
