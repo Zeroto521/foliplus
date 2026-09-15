@@ -35,6 +35,26 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("bindControls — lifecycle hooks", () => {
+  it("installs every listener cleanup and callback onto the state", () => {
+    const { ctrl } = setup();
+    // schemeBarCleanup is registered here, unconditionally. The other three are
+    // only wired when the dropdown is opened. Declaring all of them on the
+    // control class in index.ts makes a missing assignment a compile error;
+    // this covers the runtime half.
+    expect(ctrl.schemeBarCleanup).toBeTypeOf("function");
+    expect(ctrl.toggleDropdown).toBeTypeOf("function");
+    expect(ctrl.selectScheme).toBeTypeOf("function");
+    expect(ctrl.dropdownCleanup).toBeNull();
+
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(ctrl.dropdownCleanup).toBeTypeOf("function");
+    // Two distinct unbind closures — the scheme bar and the dropdown have
+    // independent document-level listeners that must not collapse into one.
+    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.dropdownCleanup);
+  });
+});
+
 describe("bindControls — template render and initial values", () => {
   it("renders the panel template and wires the queried elements", () => {
     const { ctrl, panel } = setup();

@@ -3,7 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
-import { makeCtrl, makeManager } from "./fixture.js";
+import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -330,6 +330,26 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.cachedFeatures).toBeNull();
     expect(m.cachedAgg).toBeNull();
     expect(m.overlay.unregister).toHaveBeenCalled();
+  });
+
+  it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
+    const m = makeManager();
+    const schemeBarCleanup = vi.fn();
+    const dropdownCleanup = vi.fn();
+    m.ui = {
+      ...makeCtrl(m, makeConf()),
+      schemeBarCleanup,
+      dropdownCleanup,
+    };
+    m.clearHeatmapCanvas();
+    expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
+    expect(dropdownCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {
+    const m = makeManager();
+    m.ui = null;
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
   });
 
   it("clearHeatmapCanvas emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count to 0", () => {
