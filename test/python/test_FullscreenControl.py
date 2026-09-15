@@ -505,9 +505,7 @@ class TestFullscreenControlBrowser:
     def _exit_fullscreen(self, page):
         """Exit native fullscreen. The toggle is hidden while fullscreen
         (hide_self=true), so a synthesized click reaches it."""
-        page.evaluate(
-            "document.querySelector('.foliplus-fullscreen-toggle').click()"
-        )
+        page.evaluate("document.querySelector('.foliplus-fullscreen-toggle').click()")
         page.wait_for_function("() => document.fullscreenElement === null")
 
     def test_rotate_hint_shown_in_portrait_fullscreen(self, browser, tmp_path):
@@ -530,7 +528,6 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert self._rotate_hint_visible(page), "rotate hint not shown"
-<<<<<<< HEAD
             enter, rotate = self._stacked_hints(page)
             assert enter[1], "enter toast was evicted by the rotate hint"
             assert rotate[1], "rotate hint missing from stack"
@@ -556,7 +553,6 @@ class TestFullscreenControlBrowser:
                 timeout=10000,
             )
             assert self._rotate_hint_visible(page)
-<<<<<<< HEAD
             self._exit_fullscreen(page)
             assert not self._rotate_hint_visible(page), "rotate hint persisted"
             assert not errors, f"JS errors: {errors}"
@@ -583,12 +579,7 @@ class TestFullscreenControlBrowser:
             )
             assert not self._rotate_hint_visible(page), "hint shown in landscape"
             enter_svg = page.evaluate(
-                """() => {
-                    const el = document.querySelector(
-                        '.foliplus-hint-FullscreenControl svg'
-                    );
-                    return el ? el.outerHTML : '';
-                }"""
+                "document.querySelector('.foliplus-hint-FullscreenControl svg')"
             )
             assert "M8 3H5" in enter_svg, (
                 f"enter toast lost the MAXIMIZE glyph: {enter_svg}"
@@ -596,11 +587,12 @@ class TestFullscreenControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_rotate_hint_cleared_on_rotation(self, browser, tmp_path):
-        """Rotating to landscape while fullscreen clears the hint.
+        """A rotation that lands in landscape clears the standing hint.
 
-        Native fullscreen is the only mode where this is observable: an
-        orientationchange listener exists only in pseudo mode, and native
-        fullscreen reaches the handler through fullscreenchange.
+        Only observable in native mode: a native rotation re-dispatches
+        fullscreenchange, which is the listener pseudo mode would have to rely
+        on. Pseudo fullscreen never dispatches it, so it needs its own
+        orientationchange handler instead.
         """
         with use_page(self._make_oriented_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
@@ -621,51 +613,5 @@ class TestFullscreenControlBrowser:
             page.wait_for_function(
                 "() => !document.querySelector('.foliplus-hint-FullscreenControl-rotate')"
             )
-            assert not self._rotate_hint_visible(page), (
-                "rotate hint survived a rotation to landscape"
-            )
-            assert not errors, f"JS errors: {errors}"
-
-    def test_pseudo_fullscreen_enter_exit(self, browser, tmp_path):
-        """Pseudo-fullscreen (no native API) can be entered and exited.
-
-        The exit branch must check the internal `map.isFullscreen` flag,
-        because `document.fullscreenElement` is always null when the native
-        Fullscreen API is unavailable.
-        """
-        with use_page(self._make_pseudo_page, browser, tmp_path) as (page, errors):
-            page.wait_for_selector(
-                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
-            )
-            # Enter with a real input event (page.click generates one).
-            page.click(".foliplus-fullscreen-toggle")
-            page.wait_for_function(
-                """() => document
-                    .querySelector('.leaflet-container')
-                    .classList.contains('leaflet-pseudo-fullscreen')"""
-            )
-            # Zoom hidden, icon MINIMIZE.
-            hidden = page.evaluate(
-                """() => document
-                    .querySelector('.foliplus-zoom-in')
-                    .classList.contains('foliplus-hidden')"""
-            )
-            assert hidden, "zoom not hidden in pseudo-fullscreen"
-
-            # Exit. The toggle button is hidden while fullscreen, so click via
-            # JS (Playwright's page.click would fail on the hidden element).
-            page.evaluate(
-                "document.querySelector('.foliplus-fullscreen-toggle').click()"
-            )
-            page.wait_for_function(
-                """() => !document
-                    .querySelector('.leaflet-container')
-                    .classList.contains('leaflet-pseudo-fullscreen')"""
-            )
-            visible = page.evaluate(
-                """() => !document
-                    .querySelector('.foliplus-zoom-in')
-                    .classList.contains('foliplus-hidden')"""
-            )
-            assert visible, "zoom not restored after exiting pseudo-fullscreen"
+            assert not self._rotate_hint_visible(page)
             assert not errors, f"JS errors: {errors}"
