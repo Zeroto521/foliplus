@@ -5,12 +5,13 @@
 // constructible geometry classes. The canvas is stubbed — it is the browser
 // tests' job to verify actual drawing.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "../../../../foliplus/js/LayerControl/annotation/index.js";
+import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
     setLayerLabels: ReturnType<typeof vi.fn>;
     removeLayerLabels: ReturnType<typeof vi.fn>;
+    setFocusFilter: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
   }
   const instances: MockCanvas[] = [];
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => {
   class MockAnnotationCanvas implements MockCanvas {
     setLayerLabels = vi.fn();
     removeLayerLabels = vi.fn();
+    setFocusFilter = vi.fn();
     destroy = vi.fn();
     constructor(_map: unknown, isLayerOnMap: (id: string) => boolean) {
       instances.push(this);
@@ -351,6 +353,70 @@ describe("AnnotationManager.renderLabels", () => {
     const canSee = mocks.visibilityCallbacks.at(-1)!;
     expect(canSee("l1")).toBe(true);
     expect(canSee("gone")).toBe(false);
+  });
+});
+
+describe("AnnotationManager layer priority & focus", () => {
+  beforeEach(() => {
+    mocks.instances.length = 0;
+  });
+
+  const oneLeaf = () =>
+    mkGroup([mkLeaf({ props: { v: "1" }, latlng: { lat: 0, lng: 0 } })]);
+
+  const priorityOf = (call: number): number =>
+    (canvas().setLayerLabels.mock.calls[call]![1] as Array<{ priority: number }>)[0]!
+      .priority;
+
+  it("outranks a layer below it in the panel, so it wins the collision", () => {
+    const group = oneLeaf();
+    const order = new Map([
+      ["top", 0],
+      ["middle", 1],
+      ["bottom", 2],
+    ]);
+    const mgr = new AnnotationManager(
+      map,
+      () => group,
+      id => order.get(id) ?? -1,
+    );
+
+    for (const id of ["top", "middle", "bottom"]) {
+      mgr.setConfig(id, { show: true, field: "v", format: "auto" });
+      mgr.renderLabels(id);
+    }
+
+    expect(priorityOf(0)).toBeGreaterThan(priorityOf(1));
+    expect(priorityOf(1)).toBeGreaterThan(priorityOf(2));
+  });
+
+  it("keeps the neutral priority when the layer's position is unknown", () => {
+    const mgr = new AnnotationManager(map, () => oneLeaf());
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1");
+
+    expect(priorityOf(0)).toBe(50);
+  });
+
+  it("forwards the focus filter to the canvas, and clears it", () => {
+    const mgr = new AnnotationManager(map, () => oneLeaf());
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1");
+
+    mgr.setFocusFilter("l1");
+    expect(canvas().setFocusFilter).toHaveBeenCalledWith("l1");
+
+    mgr.setFocusFilter(null);
+    expect(canvas().setFocusFilter).toHaveBeenCalledWith(null);
+  });
+
+  it("applies a focus filter set before the canvas existed", () => {
+    const mgr = new AnnotationManager(map, () => oneLeaf());
+    mgr.setFocusFilter("l1"); // no canvas yet
+    mgr.setConfig("l1", { show: true, field: "v", format: "auto" });
+    mgr.renderLabels("l1"); // creates the canvas
+
+    expect(canvas().setFocusFilter).toHaveBeenCalledWith("l1");
   });
 });
 

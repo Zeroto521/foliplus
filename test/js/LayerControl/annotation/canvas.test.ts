@@ -53,18 +53,28 @@ const label = (id: string, text: string): LayerLabel => ({
   priority: 50,
 });
 
+/** Same, at a chosen latitude: the mock maps lat → x = 100 + lat, so distinct
+ *  latitudes keep two labels out of each other's collision box. */
+const labelAt = (id: string, text: string, lat: number): LayerLabel => ({
+  ...label(id, text),
+  latlng: { lat, lng: 0 } as L.LatLng,
+});
+
 const makeEnv = (isLayerOnMap: (id: string) => boolean = () => true) => {
   const container = document.createElement("div");
   Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
   Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
   const mapPane = document.createElement("div");
-  const overlayPane = document.createElement("div");
+  // The canvas asks for its own pane and falls back to createPane, so the mock
+  // backs both the way Leaflet does: one registry, created on demand.
+  const panes: Record<string, HTMLElement> = {};
   const on = vi.fn();
   const off = vi.fn();
   const map = {
     getContainer: () => container,
     getPanes: () => ({ mapPane }),
-    getPane: (name: string) => (name === "overlayPane" ? overlayPane : null),
+    getPane: (name: string) => panes[name] ?? null,
+    createPane: (name: string) => (panes[name] = document.createElement("div")),
     on,
     off,
     latLngToContainerPoint: (ll: { lat: number; lng: number }) => ({
@@ -74,7 +84,14 @@ const makeEnv = (isLayerOnMap: (id: string) => boolean = () => true) => {
   } as unknown as L.Map;
 
   const canvas = new AnnotationCanvas(map, isLayerOnMap);
-  return { container, mapPane, overlayPane, on, off, canvas };
+  return {
+    container,
+    mapPane,
+    on,
+    off,
+    canvas,
+    annotationPane: panes["foliplus-annotation-pane"]!,
+  };
 };
 
 let ctx: ReturnType<typeof makeCtx>;
@@ -95,12 +112,14 @@ afterEach(() => {
 });
 
 describe("AnnotationCanvas construction", () => {
-  it("mounts one non-interactive canvas in the overlay pane, DPR-scaled", () => {
-    const { overlayPane, canvas } = makeEnv();
+  it("mounts one non-interactive canvas in the label pane, DPR-scaled", () => {
+    const { annotationPane, canvas } = makeEnv();
 
-    const el = overlayPane.querySelector("canvas")!;
+    const el = annotationPane.querySelector("canvas")!;
     expect(el).toBe(canvas["canvas"]);
     expect(el.className).toBe("foliplus-annotation-canvas");
+    // The pane is the one LayerManager z-orders above the data panes.
+    expect(annotationPane.classList.contains("foliplus-annotation-pane")).toBe(true);
     // Labels must never intercept a click meant for the feature.
     expect(el.style.pointerEvents).toBe("none");
     // jsdom devicePixelRatio is 1; the container box is what was measured.
@@ -120,8 +139,7 @@ describe("AnnotationCanvas construction", () => {
   });
 
   it("subscribes to the map events that require a redraw", () => {
-    const { mapPane, on } = makeEnv();
-    void mapPane;
+    const { on } = makeEnv();
 
     const names = on.mock.calls.map(c => c[0]);
     expect(names).toContain("resize");
@@ -185,6 +203,37 @@ describe("AnnotationCanvas.draw", () => {
 
     expect(ctx.clearRect).not.toHaveBeenCalled();
   });
+
+  it("draws only the focused layer's labels while a focus filter is set", () => {
+    const { canvas } = makeEnv();
+    // Far apart, so the collision plan cannot hide one of them.
+    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
+    canvas.setLayerLabels("b", [labelAt("b1", "beta", 400)]);
+
+    ctx.fillText.mockClear();
+    canvas.setFocusFilter("a");
+    const focused = ctx.fillText.mock.calls.map(c => c[0]);
+    expect(focused).toContain("alpha");
+    expect(focused).not.toContain("beta");
+
+    ctx.fillText.mockClear();
+    canvas.setFocusFilter(null);
+    const all = ctx.fillText.mock.calls.map(c => c[0]);
+    expect(all).toContain("alpha");
+    expect(all).toContain("beta");
+  });
+
+  it("ignores a focus filter that is already the current one", () => {
+    const { canvas } = makeEnv();
+    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
+    canvas.setFocusFilter("a");
+
+    ctx.clearRect.mockClear();
+    canvas.setFocusFilter("a");
+
+    // No state change, no redraw.
+    expect(ctx.clearRect).not.toHaveBeenCalled();
+  });
 });
 
 describe("AnnotationCanvas.map reactions", () => {
@@ -216,24 +265,39 @@ describe("AnnotationCanvas.map reactions", () => {
     expect(ctx.fillText).toHaveBeenCalled();
   });
 
-  it("redraws on the export events", () => {
-    const { canvas } = makeEnv();
+  it("re-measures and redraws before the capture, not a frame later", () => {
+    const { canvas, container } = makeEnv();
     canvas.setLayerLabels("l1", [label("a", "alpha")]);
+    const el = elOf(canvas);
+    expect(el.width).toBe(800);
 
+    // The exporter's locked path grows the container, shifts the view, then
+    // captures on the next frame — the canvas has to be re-measured and redrawn
+    // synchronously, or the capture reads the pre-export size and viewport.
+    Object.defineProperty(container, "clientWidth", {
+      value: 1200,
+      configurable: true,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      value: 900,
+      configurable: true,
+    });
     ctx.clearRect.mockClear();
     mocks.exportHandlers.forEach(cb => cb());
 
+    expect(el.width).toBe(1200);
+    expect(el.height).toBe(900);
     expect(ctx.clearRect).toHaveBeenCalled();
   });
 });
 
 describe("AnnotationCanvas.destroy", () => {
   it("unbinds the map listeners and removes the canvas", () => {
-    const { overlayPane, off, canvas } = makeEnv();
+    const { annotationPane, off, canvas } = makeEnv();
 
     canvas.destroy();
 
-    expect(overlayPane.querySelector("canvas")).toBeNull();
+    expect(annotationPane.querySelector("canvas")).toBeNull();
     const offNames = off.mock.calls.map(c => c[0]);
     expect(offNames).toContain("resize");
     expect(offNames.some(n => n.includes("layeradd"))).toBe(true);
