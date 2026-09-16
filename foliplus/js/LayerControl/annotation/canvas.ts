@@ -12,6 +12,7 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
+import { cancelMapPaneTranslate } from "#common/dom.js";
 import { type PlacedLabel } from "./layout.js";
 
 /** One layer's label canvas. Painting is driven by the AnnotationManager, so
@@ -76,14 +77,9 @@ class AnnotationCanvas {
   }
 
   /** Cancel the mapPane's pan translation so the canvas stays put in the
-   *  container while its contents are drawn in container coordinates — the
-   *  same trick HeatmapControl's canvas uses (see core/layer/LayerFactory). */
+   *  container while its contents are drawn in container coordinates. */
   private updatePosition(): void {
-    const mapPane = this.map.getPanes().mapPane;
-    if (!mapPane) return;
-    const pos = L.DomUtil.getPosition(mapPane);
-    this.canvas.style.left = `${-pos.x}px`;
-    this.canvas.style.top = `${-pos.y}px`;
+    cancelMapPaneTranslate(this.canvas, this.map);
   }
 
   private resize(): void {

@@ -1266,16 +1266,15 @@ describe("LayerUI focus", () => {
   });
 
   describe("focusLayer auto-cancel on map navigation", () => {
-    // Helper: grab the moveend handler that focusLayer registered via map.on.
-    const getMoveendHandler = () =>
-      (map.on as any).mock.calls.find((c: any[]) => c[0] === "moveend")?.[1];
+    // The annotation manager registers its own moveend/zoomend handlers at
+    // construction (bindMapSync); the focus auto-cancel handlers are the last
+    // ones registered.
+    const lastHandler = (event: string) =>
+      [...(map.on as any).mock.calls].reverse().find((c: any[]) => c[0] === event)?.[1];
 
-    // The annotation manager registers its own zoomend handler at construction;
-    // the focus auto-cancel handler is the last one registered.
-    const getZoomendHandler = () =>
-      [...(map.on as any).mock.calls]
-        .reverse()
-        .find((c: any[]) => c[0] === "zoomend")?.[1];
+    const getMoveendHandler = () => lastHandler("moveend");
+
+    const getZoomendHandler = () => lastHandler("zoomend");
 
     it("registers moveend and zoomend handlers that auto-cancel after the grace window", () => {
       vi.useFakeTimers();

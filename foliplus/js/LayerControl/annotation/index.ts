@@ -17,7 +17,7 @@ import {
 import { forEachLeaf } from "#core/layer/index.js";
 import { type CanvasLabelStyle, resolveCanvasLabelStyle } from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { throttleRaf } from "#common/throttle.js";
+import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
 import { AnnotationCanvas } from "./canvas.js";
 import {
@@ -29,6 +29,13 @@ import {
 } from "./layout.js";
 
 // CONF is a free variable from the IIFE template wrapper.
+
+/** How far outside the viewport an anchor may sit and still get laid out.
+ *  A label is centred on its anchor and at most a few hundred px wide, so
+ *  anything beyond this margin can never intersect the viewport — culling
+ *  before layoutLabel skips the per-character width estimate for the bulk
+ *  of a dense layer (6k points rarely have 6k on screen). */
+const ANCHOR_CULL_MARGIN = 300;
 
 /** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
@@ -74,12 +81,19 @@ class AnnotationManager {
   private readonly canvases = new Map<string, AnnotationCanvas>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
-  private readonly scheduleRefresh: (() => void) & { cancel: () => void };
+  /** Map-event wiring shared with the other canvas overlays (see
+   *  bindMapSync): zoom hide/show, pan translate, full plan on zoom/resize. */
+  private readonly mapCleanup: () => void;
   private readonly unsubscribe: Array<() => void> = [];
   /** Typography from the --label-* tokens, cached like the canvases cache their
    *  paint style: re-reading six CSS variables per throttled frame is pure
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
+  /** mapPane's position at the last full plan — the pan fast path translates
+   *  the planned boxes by the delta from it instead of re-planning. */
+  private planOrigin: { x: number; y: number } | null = null;
+  /** What the last full plan handed each canvas, kept for the pan translate. */
+  private readonly lastPlanned = new Map<string, PlacedLabel[]>();
 
   constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
@@ -87,16 +101,27 @@ class AnnotationManager {
     this.config = new Map();
     this.autoFieldCache = new Map();
 
-    this.scheduleRefresh = throttleRaf(() => this.refresh());
-    // Layer add/remove is how LayerControl hides and shows a layer, so the plan
-    // re-reads membership on those too.
-    this.map.on("move zoom moveend layeradd layerremove", this.scheduleRefresh);
-    this.map.on("resize", this.scheduleRefresh);
-    // Leaflet animates a zoom by CSS-transforming mapPane; the canvases inside
-    // it would be smeared by that transform, so hide the labels for the
-    // duration and redraw on the far side (the #339 canvas did the same).
-    this.map.on("zoomstart", this.hideLabels);
-    this.map.on("zoomend", this.showLabels);
+    // The same event contract HeatmapControl's canvas uses. A pan translates
+    // every label by the same delta, so the collision decision stands — only
+    // the boxes move (refreshPan). Anything that can change geometry (zoom,
+    // resize, a pan settling) goes through a full plan. The zoom hide/show
+    // pair keeps the fixed-pixel labels off-screen while Leaflet
+    // CSS-transforms mapPane (the #339 canvas did the same).
+    this.mapCleanup = bindMapSync({
+      map: mapInstance,
+      hideEvents: ["zoomstart"],
+      showEvents: ["zoomend"],
+      updateEvents: ["zoom", "moveend", "resize"],
+      onHide: this.hideLabels,
+      onShow: this.showLabels,
+      onUpdate: () => this.refresh(),
+      onMove: () => this.refreshPan(),
+    });
+    // Membership changes repaint only the layer that moved — every other
+    // layer's plan still stands (same boxes, same collision). Toggling a
+    // 6k-point layer's checkbox must not re-plan the whole map.
+    mapInstance.on("layeradd", this.onLayerMembership);
+    mapInstance.on("layerremove", this.onLayerMembership);
 
     // Export safety: the exporter's locked path grows the container and shifts
     // the view, then captures on the very next frame — so the redraw here is
@@ -287,14 +312,14 @@ class AnnotationManager {
   }
 
   destroy(): void {
-    this.scheduleRefresh.cancel();
-    this.map.off("move zoom moveend layeradd layerremove", this.scheduleRefresh);
-    this.map.off("resize", this.scheduleRefresh);
-    this.map.off("zoomstart", this.hideLabels);
-    this.map.off("zoomend", this.showLabels);
+    this.mapCleanup();
+    this.map.off("layeradd", this.onLayerMembership);
+    this.map.off("layerremove", this.onLayerMembership);
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
+    this.lastPlanned.clear();
+    this.planOrigin = null;
     this.config.clear();
     this.autoFieldCache.clear();
   }
@@ -321,6 +346,31 @@ class AnnotationManager {
     this.refresh();
   };
 
+  /** Repaint one layer after its map membership changed (the panel's checkbox
+   *  hide/show goes through map.removeLayer/addLayer). Only that layer's plan
+   *  changes — every other layer keeps its boxes and its collision decision.
+   *  A dense layer stays cheap here because plannedFor pre-culls off-screen
+   *  anchors before laying out any text. */
+  private readonly onLayerMembership = (event: { layer?: L.Layer }): void => {
+    const target = event.layer;
+    if (!target) return;
+    for (const [id, canvas] of this.canvases) {
+      if (this.layerFind(id) !== target) continue;
+      const container = this.map.getContainer();
+      const spec = (this.cachedSpec ??= specOf(container));
+      const viewport = {
+        x: 0,
+        y: 0,
+        w: container.clientWidth,
+        h: container.clientHeight,
+      };
+      const planned = this.plannedFor(id, spec, viewport);
+      this.lastPlanned.set(id, planned);
+      canvas.paint(planned);
+      return;
+    }
+  };
+
   /** Plan each visible layer's labels independently, then hand every canvas its
    *  slice. Collision is per layer by design: the layers themselves are
    *  stacked, so a layer above already covers the labels below — hiding a lower
@@ -336,8 +386,62 @@ class AnnotationManager {
       w: container.clientWidth,
       h: container.clientHeight,
     };
+    // Remember where the mapPane sat while planning — the pan fast path
+    // translates by the delta from here (same source latLngToContainerPoint
+    // uses, so the translate matches a re-plan exactly).
+    const mapPane = this.map.getPanes().mapPane;
+    this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
+    this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
-      canvas.paint(this.plannedFor(id, spec, viewport));
+      const planned = this.plannedFor(id, spec, viewport);
+      this.lastPlanned.set(id, planned);
+      canvas.paint(planned);
+    }
+  }
+
+  /** Pan fast path: a pan translates every label by the same delta, so the
+   *  last plan's boxes shift wholesale instead of re-running the planner. The
+   *  viewport cull still applies — a label entering the frame during the pan
+   *  appears on the full re-plan at moveend (the planner's trade for skipping
+   *  O(n log n) per frame). */
+  private refreshPan(): void {
+    if (this.canvases.size === 0) return;
+    const mapPane = this.map.getPanes().mapPane;
+    const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
+    if (!this.planOrigin || !pos) {
+      this.refresh();
+      return;
+    }
+    const dx = pos.x - this.planOrigin.x;
+    const dy = pos.y - this.planOrigin.y;
+    if (dx === 0 && dy === 0) return;
+    const container = this.map.getContainer();
+    const viewport = {
+      x: 0,
+      y: 0,
+      w: container.clientWidth,
+      h: container.clientHeight,
+    };
+    for (const [id, canvas] of this.canvases) {
+      const planned = this.lastPlanned.get(id);
+      if (!planned) {
+        // A canvas born after the last full plan (a layer enabled mid-pan)
+        // has nothing to translate — plan it properly.
+        const spec = (this.cachedSpec ??= specOf(container));
+        const fresh = this.plannedFor(id, spec, viewport);
+        this.lastPlanned.set(id, fresh);
+        canvas.paint(fresh);
+        continue;
+      }
+      canvas.paint(
+        withinRect(
+          planned.map(label => ({
+            ...label,
+            box: { ...label.box, x: label.box.x + dx, y: label.box.y + dy },
+          })),
+          viewport,
+        ),
+      );
     }
   }
 
@@ -348,13 +452,28 @@ class AnnotationManager {
     const labels = this.labelsByLayer.get(id);
     if (!labels || labels.length === 0) return [];
 
-    const candidates: LabelCandidate[] = labels.map(label => ({
-      id: label.id,
-      text: label.text,
-      atPoint: label.atPoint,
-      priority: label.priority,
-      anchor: this.map.latLngToContainerPoint(label.latlng),
-    }));
+    const candidates: LabelCandidate[] = [];
+    for (const label of labels) {
+      const anchor = this.map.latLngToContainerPoint(label.latlng);
+      // Cheap pre-cull on the anchor alone: layoutLabel walks the text per
+      // character, which is the bulk of the plan's cost on a dense layer —
+      // and a 6k-point layer rarely has 6k anchors on screen.
+      if (
+        anchor.x < viewport.x - ANCHOR_CULL_MARGIN ||
+        anchor.x > viewport.x + viewport.w + ANCHOR_CULL_MARGIN ||
+        anchor.y < viewport.y - ANCHOR_CULL_MARGIN ||
+        anchor.y > viewport.y + viewport.h + ANCHOR_CULL_MARGIN
+      ) {
+        continue;
+      }
+      candidates.push({
+        id: label.id,
+        text: label.text,
+        atPoint: label.atPoint,
+        priority: label.priority,
+        anchor,
+      });
+    }
 
     // Collision off: the layer wants every label drawn, so only the layout and
     // the viewport cull still apply.
