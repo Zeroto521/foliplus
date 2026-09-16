@@ -1317,8 +1317,8 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Source layer"]).toBe("Stores");
-    expect(m.sourceMeta["Aggregation field"]).toBe("sales");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
   });
 
@@ -1331,8 +1331,8 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Source layer"]).toBe("Stores");
-    expect(m.sourceMeta["Aggregation field"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
   it("uses the auto field when fieldAuto is on", () => {
@@ -1345,19 +1345,19 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Aggregation field"]).toBe("dwell");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 
   it("clears both rows when no layer is selected", () => {
     const m = makeManager();
-    m.sourceMeta["Source layer"] = "Stores";
-    m.sourceMeta["Aggregation field"] = "sales";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
     m.selectedLayerId = null;
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Source layer"]).toBe("");
-    expect(m.sourceMeta["Aggregation field"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
   it("keeps a plain field name as-is (no properties. prefix)", () => {
@@ -1370,17 +1370,17 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Aggregation field"]).toBe("value");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("value");
   });
 
   it("clears the name when the selected id is no longer in pointLayers", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "other", name: "Other", layer: null, count: 1 }];
     m.selectedLayerId = "gone";
-    m.sourceMeta["Source layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["Source layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
   });
 });

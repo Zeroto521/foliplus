@@ -721,17 +721,12 @@ class HeatmapManager {
    * `sourceMeta` (the object createCanvas registered), so LayerControl's
    * attributes panel can answer "where did this heatmap come from?".
    * Empty values are written too — the attrs panel drops blank rows.
-   *
-   * Translator is built from the live CONF rather than the module-level `T`:
-   * meta keys are display labels, and tests/fixtures inject locale tables
-   * onto CONF after this module is first imported.
    */
   syncSourceMeta() {
-    const t = createScopedTranslator(CONF);
     const layerName = this.selectedLayerId
       ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
       : "";
-    this.sourceMeta[t("meta_source_layer")] = layerName;
+    this.sourceMeta[T("meta_source_layer")] = layerName;
 
     let fieldLabel = "";
     if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
@@ -740,7 +735,7 @@ class HeatmapManager {
         fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
       }
     }
-    this.sourceMeta[t("meta_agg_field")] = fieldLabel;
+    this.sourceMeta[T("meta_agg_field")] = fieldLabel;
 
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
     // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;

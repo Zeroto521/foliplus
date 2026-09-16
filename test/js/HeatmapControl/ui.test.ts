@@ -470,8 +470,8 @@ describe("layer dropdown — source meta publish", () => {
     fire(ctrl.layerSelect, "change");
 
     expect(m.currentAgg).toBe(CONST.AGG.SUM);
-    expect(m.sourceMeta["Source layer"]).toBe("Stores");
-    expect(m.sourceMeta["Aggregation field"]).toBe("sales");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
   });
 
@@ -479,16 +479,16 @@ describe("layer dropdown — source meta publish", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
-    m.sourceMeta["Source layer"] = "Stores";
-    m.sourceMeta["Aggregation field"] = "sales";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
     const ctrl = makeCtrl(m, makeConf());
     rebuildLayerDropdown(ctrl);
 
     ctrl.layerSelect.value = "";
     fire(ctrl.layerSelect, "change");
 
-    expect(m.sourceMeta["Source layer"]).toBe("");
-    expect(m.sourceMeta["Aggregation field"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
   it("resolves autoFieldKey before publishing on a restored selection", () => {
@@ -511,8 +511,8 @@ describe("layer dropdown — source meta publish", () => {
     rebuildLayerDropdown(ctrl);
 
     expect(m.autoFieldKey).toBe("properties.dwell");
-    expect(m.sourceMeta["Source layer"]).toBe("Stores");
-    expect(m.sourceMeta["Aggregation field"]).toBe("dwell");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 });
 

@@ -32,8 +32,10 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 
 /** Build a real HeatmapManager with all external deps stubbed out. */
 function makeManager() {
-  window.CONF = {
-    ...window.CONF,
+  // Mutate in place — module-level `T = createScopedTranslator(CONF)` captured
+  // the setup-time object; replacing window.CONF would strand that reference
+  // on SearchControl and meta keys would resolve to the wrong prefix.
+  Object.assign(window.CONF, {
     name: "HeatmapControl",
     color_scheme: "Reds",
     method: "jenks",
@@ -53,7 +55,7 @@ function makeManager() {
         "HeatmapControl.meta_agg_field": "Aggregation field",
       },
     },
-  };
+  });
 
   globalThis.h3 = {
     latLngToCell: vi.fn(() => "abc123"),

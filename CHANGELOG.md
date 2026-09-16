@@ -30,7 +30,6 @@
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
-- `HeatmapControl`: attributes panel shows the heatmap's source — the selected point layer name and aggregation field. `LayerAPI.createCanvas` accepts provenance (`source` / `updatedAt` / `meta`); Heatmap publishes a shared `meta` object and refreshes it whenever the layer or field selection changes ([#348](https://github.com/Zeroto521/foliplus/pull/348))
 
 ### Changed
 
