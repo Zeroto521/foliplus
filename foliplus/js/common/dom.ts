@@ -297,7 +297,15 @@ const updateItemLabel = (
   if (!item) return null;
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
-  label.textContent = name;
+  // Write through the text node, not `label.textContent`: on a data row the
+  // label wraps the checkbox (implicit label, so a name click gives it real
+  // DOM focus), and `textContent = …` would delete it. Select the direct
+  // text child so the toggle inside the label survives.
+  const text = Array.from(label.childNodes).find(
+    (n): n is Text => n.nodeType === Node.TEXT_NODE,
+  );
+  if (text) text.nodeValue = name;
+  else label.appendChild(document.createTextNode(name));
   // The row's toggle input announces the same name as the label cell. A data
   // row's toggle is its checkbox; the color basemap row's is the color swatch,
   // and it has no checkbox — without this the basemap swatch would keep
@@ -323,7 +331,12 @@ const removeInlineEditInput = (
   label: HTMLLabelElement | null,
 ): HTMLInputElement | null => {
   if (!label) return null;
-  const input = label.querySelector("input") as HTMLInputElement | null;
+  // Anchor on the text input. The label also wraps the row's checkbox (implicit
+  // label, so a name click gives it DOM focus), and a bare
+  // `querySelector("input")` would return that first -- teardown would then
+  // delete the visibility toggle instead of the edit field, and leave the
+  // edit input in place.
+  const input = label.querySelector('input[type="text"]') as HTMLInputElement | null;
   if (input) label.removeChild(input);
   return input;
 };
@@ -386,7 +399,13 @@ const createInlineEditInput = (opts: {
   });
   input.addEventListener("blur", () => commit(input.value));
 
-  opts.label.textContent = "";
+  // Replace the label's own text only. `label.textContent = ""` clears the
+  // whole subtree, which on a data row deletes the checkbox the label wraps
+  // (implicit label, so a name click gives it DOM focus). Dropping it would
+  // make every rename silently uninstall the row's visibility toggle.
+  for (const node of Array.from(opts.label.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) opts.label.removeChild(node);
+  }
   opts.label.appendChild(input);
   input.focus();
   input.select();

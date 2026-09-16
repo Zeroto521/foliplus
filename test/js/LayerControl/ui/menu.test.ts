@@ -147,6 +147,84 @@ describe("LayerUI menu", () => {
       expect(() => ui.closeMoreMenu(false)).not.toThrow();
     });
 
+    it("does not re-enter the close while remove() is still in flight", () => {
+      // `menu.remove()` fires focusout synchronously, so the menu's own listener
+      // runs inside closeMoreMenu() while ui.activeMenu is still set. That is the
+      // re-entrancy that makes the second remove() throw NotFoundError on a node
+      // that is no longer a child. The listener has to come off before the menu
+      // does, which is why the test drives the focusout itself: jsdom does not
+      // dispatch focusout on a detached node, so the real close is silent here and
+      // a test that only asserts "no throw" is green on unfixed code.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+
+      const removeCalls: unknown[] = [];
+      const origRemove = Element.prototype.remove;
+      vi.spyOn(Element.prototype, "remove").mockImplementation(function remove() {
+        removeCalls.push(this);
+        // The real browser: focus leaves the menu before it is gone.
+        if (this !== menu) return;
+        try {
+          this.dispatchEvent(
+            new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }),
+          );
+        } catch {
+          // Stack overflow: the re-entrant close recursed remove() -> focusout ->
+          // remove() before throwing NotFoundError. Unfixed code gets here.
+        }
+        return origRemove.call(this);
+      });
+
+      try {
+        expect(() => ui.closeMoreMenu(false)).not.toThrow();
+      } finally {
+        vi.restoreAllMocks();
+      }
+
+      // Detaching the listener first means exactly one remove() per close.
+      // Unfixed code re-enters and gets [menu, menu], the second of which runs
+      // on a node that is no longer a child.
+      expect(removeCalls).toEqual([menu]);
+      expect(ui.activeMenu).toBeNull();
+    });
+
+    it("focusout from a detached menu is a no-op", () => {
+      // A listener left on a menu that another close path already removed must
+      // not re-close: it would throw on a node with no parent and clobber
+      // whatever menu is open now. The gate is identity, not "is there a menu".
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+      const oldFocusOut = ui.activeMenu!.onFocusOut as (event: FocusEvent) => void;
+
+      // Spy from the start: the first close's own remove() is expected, the
+      // stray focusout must add nothing.
+      const removeCalls: unknown[] = [];
+      const origRemove = Element.prototype.remove;
+      vi.spyOn(Element.prototype, "remove").mockImplementation(function remove() {
+        removeCalls.push(this);
+        return origRemove.call(this);
+      });
+      ui.closeMoreMenu(false);
+      expect(ui.activeMenu).toBeNull();
+      expect(removeCalls).toEqual([menu]);
+
+      // A second, genuinely open menu: a stray focusout from the first one must
+      // not touch it.
+      ui.openMoreMenu(item);
+      const second = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+      expect(second).not.toBe(menu);
+
+      // `menu` is detached, so the identity gate rejects this event outright.
+      // Unfixed code only checks that some menu is open and removes the live one.
+      oldFocusOut(new FocusEvent("focusout", { relatedTarget: null }));
+      expect(removeCalls).toEqual([menu]);
+      expect(ui.activeMenu!.menu).toBe(second);
+
+      vi.restoreAllMocks();
+    });
+
     it("exposes the attributes action", () => {
       const item = findItem(ui, "overlay1");
 

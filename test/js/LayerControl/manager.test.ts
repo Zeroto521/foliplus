@@ -855,7 +855,9 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
-    expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
+    expect(
+      manager.uiContainer.querySelector(".foliplus-layer-item[data-layer-id=overlay1]"),
+    ).toBeNull();
     expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
@@ -1762,7 +1764,7 @@ describe("LayerManager user-assigned names", () => {
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;
-    const input = label.querySelector("input") as HTMLInputElement;
+    const input = label.querySelector('input[type="text"]') as HTMLInputElement;
     input.value = "My Layer";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(manager.ui.displayName("ext")).toBe("My Layer");

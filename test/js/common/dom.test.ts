@@ -536,7 +536,7 @@ describe("removeInlineEditInput", () => {
 
     const removed = removeInlineEditInput(label as HTMLLabelElement);
     expect(removed).toBe(input);
-    expect(label.querySelector("input")).toBeNull();
+    expect(label.querySelector('input[type="text"]')).toBeNull();
     // trailing content preserved
     expect(label.textContent).toBe("trailing");
   });
@@ -562,7 +562,7 @@ describe("createInlineEditInput", () => {
     expect(input.value).toBe("Start");
     expect(input.className).toContain("editing");
     expect(input.getAttribute("aria-label")).toBe("Rename");
-    expect(label.querySelector("input")).toBe(input);
+    expect(label.querySelector('input[type="text"]')).toBe(input);
   });
 
   it("commits a trimmed non-empty value on Enter", () => {

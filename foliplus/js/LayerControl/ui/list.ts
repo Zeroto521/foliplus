@@ -267,21 +267,27 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
       { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
       { html: SVGs.DRAG_HANDLE },
     ),
+    // The label wraps the checkbox, not just its text. A name click therefore
+    // acts on the toggle, so the row and its toggle share one hit target.
     dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      dom.el("input", {
-        type: "checkbox",
-        checked: "",
-        [CONST.DATA.INDEX]: String(idx),
-        // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot —initLayerItem sets it per checked state
-        // before this row can be hovered, so leave it unseeded rather than
-        // flashing the layer name.
-        "aria-label": name,
-      }),
+      "label",
+      { class: CONST.CLASSES.LAYER_LABEL },
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.CHECKBOX },
+        dom.el("input", {
+          type: "checkbox",
+          checked: "",
+          [CONST.DATA.INDEX]: String(idx),
+          // The name reaches assistive tech via aria-label. `title` is the
+          // Select/Deselect slot —initLayerItem sets it per checked state
+          // before this row can be hovered, so leave it unseeded rather than
+          // flashing the layer name.
+          "aria-label": name,
+        }),
+      ),
+      name,
     ),
-    dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
     dom.el("span", {
       class: CONST.CLASSES.COUNT_COL,
       [CONST.DATA.LAYER_ID]: layerInfo.id,

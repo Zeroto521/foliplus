@@ -165,11 +165,14 @@ class LayerUI {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   private unsubscribeControlAttached: (() => void) | null;
-  /** Currently visible overflow menu (or null). */
+  /** Currently visible overflow menu (or null). `onFocusOut` is the listener
+   *  `closeMoreMenu()` must detach before removing the menu — its own removal
+   *  fires focusout and would otherwise re-enter the close. */
   declare activeMenu: {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
+    onFocusOut: (event: FocusEvent) => void;
   } | null;
   /** Currently visible attributes panel (or null). */
   declare activeAttrsPanel: {
@@ -354,27 +357,32 @@ class LayerUI {
       // panel's business, not the row's. Taking the cursor over here would
       // steal DOM focus back to the row, and a native <select> popup closes
       // the instant it loses focus — so the dropdown looked like it retracted
-      // the moment it opened. The panels carry their own click handling.
+      // the moment it opened. The panels carry their own pointer handling.
       if (
         el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
         el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
       ) {
         return;
       }
-      // One ledger: pointer re-homes the index, Tab stop, and paints the
-      // cursor visual. It stays until Escape, another row, or an outside
-      // press takes over — same contract as the keyboard cursor.
-      // (#278 only removed the accidental dblclick→focusLayer zoom.)
+      // One ledger: the pointer re-homes the keyboard index, the Tab stop,
+      // and DOM focus so Enter / Space / Arrow resolve from the row that was
+      // clicked. The press paints nothing else — a checkbox press is a
+      // visibility toggle, not a navigation arrival.
+      //
+      // The cursor *visual* is not painted here. The class is sticky: nothing
+      // on the press path (focusout on blur, Escape, another row) would ever
+      // clear it, so painting it on a press left the row white + glow long
+      // after the pointer moved on. `focusin` lights it for real focus
+      // arrivals — the focus a mouse press causes reports `:focus-visible`
+      // false and is refused, while keyboard focus reports true and lights.
+      // The manual `classList.add` was the only other route in, and it is
+      // gone.
       const row = owningRow(el);
       if (row) {
         const idx = this.getNavigableItems().indexOf(row);
         if (idx !== -1) {
           this.activeIdx = idx;
           this.listCursor?.setIndex(idx);
-          this.blurActiveItem();
-          row.classList.add(CONST.CLASSES.FOCUSED);
-          // Keep DOM focus on the row so Space/Enter resolve from focus.
-          row.focus({ focusVisible: false } as FocusOptions);
         }
       }
 
