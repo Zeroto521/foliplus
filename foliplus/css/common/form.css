@@ -22,6 +22,11 @@
      labels aren't clipped, while short ones stay left-aligned with the rest. */
   min-width: 88px;
   font-size: var(--font-size-sm);
+  /* Explicit normal: the attrs panel uses <dt>, whose UA stylesheet is bold.
+     Heatmap form labels are plain elements at normal weight — without this
+     the two panels read as different products. Bold stays on section
+     headings only. */
+  font-weight: var(--font-weight-normal);
   color: var(--text-primary);
   text-align: right;
   white-space: nowrap;
