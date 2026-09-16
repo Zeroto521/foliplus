@@ -92,6 +92,9 @@ interface SavedConfig {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
+  /** Translator bound to the module-level CONF, assigned once in the
+   *  constructor — same shape as MeasureControl / ExportControl managers. */
+  T: (key: string) => string;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -115,6 +118,12 @@ class HeatmapManager {
    */
   layerVisible: boolean;
   overlay: CreateCanvasAPI;
+  /**
+   * Mutable metadata published to LayerControl's attributes panel (source
+   * layer name + aggregation field). Created once and handed to createCanvas
+   * so later in-place updates ride the same object the registry holds.
+   */
+  sourceMeta: Record<string, string | number>;
   /**
    * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
    * manager and read/write sibling fields through that shape, so it is typed
@@ -154,6 +163,7 @@ class HeatmapManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
@@ -171,6 +181,7 @@ class HeatmapManager {
     this.currentLabelShow = CONF.label_show ?? false;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
+    this.sourceMeta = {};
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -178,10 +189,13 @@ class HeatmapManager {
     // z-order (drag-reorder) through the pane model.
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: T("title"),
+      name: this.T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
+      // Shared with the registry — syncSourceMeta mutates it in place so the
+      // attrs panel always reads the latest source layer / field.
+      meta: this.sourceMeta,
       onToggle: (visible: boolean) => {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
@@ -705,6 +719,41 @@ class HeatmapManager {
     } catch (e) {
       log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
     }
+  }
+
+  /**
+   * Publish the current source layer name + aggregation field into
+   * `sourceMeta` (the object createCanvas registered), so LayerControl's
+   * attributes panel can answer "where did this heatmap come from?".
+   * Empty values are written too — the attrs panel drops blank rows.
+   * `touchLayer` fires only when a published value actually changed, so a
+   * no-op dropdown rebuild does not bump the panel's Updated stamp.
+   */
+  syncSourceMeta() {
+    const layerName = this.selectedLayerId
+      ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
+      : "";
+    let fieldLabel = "";
+    if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
+      const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
+      if (key) {
+        fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
+      }
+    }
+
+    const sourceKey = this.T("meta_source_layer");
+    const fieldKey = this.T("meta_agg_field");
+    const changed =
+      this.sourceMeta[sourceKey] !== layerName ||
+      this.sourceMeta[fieldKey] !== fieldLabel;
+    this.sourceMeta[sourceKey] = layerName;
+    this.sourceMeta[fieldKey] = fieldLabel;
+
+    if (!changed) return;
+    // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
+    // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
+    // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
+    map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Apply a loaded config object to the manager's state. */
