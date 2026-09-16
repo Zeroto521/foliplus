@@ -2612,7 +2612,7 @@ class TestLayerControlBrowser:
         migrateLayers must skip container nodes when writing pane options.
         The container's own pane stays whatever registerLayer assigned
         (paneName), and must NOT be overwritten with a fallback
-        `foliplus_pane_*` name during migration.
+        `foliplus-pane-*` name during migration.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))

@@ -16,7 +16,7 @@ const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 
 const RENDERER_KEY = "foliplus_renderer_";
 
-const FALLBACK_PANE_PREFIX = "foliplus_pane_";
+const FALLBACK_PANE_PREFIX = "foliplus-pane-";
 
 /** Geometry type names (used by layer traversal / type detection). */
 const GEOM_TYPE = {
