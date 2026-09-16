@@ -151,3 +151,193 @@ describe("withinRect", () => {
     expect(withinRect([onEdge], { x: 0, y: 0, w: 400, h: 300 })).toEqual([onEdge]);
   });
 });
+
+// ───────────────────────── grid-index equivalence ─────────────────────────
+// The spatial grid is an evaluation strategy, not a rule change. This pins its
+// survivors to what the original pairwise sweep returns, on a set dense enough
+// that cell sharing actually decides the outcome.
+
+interface RefLabel {
+  box: { x: number; y: number; w: number; h: number };
+  priority: number;
+}
+
+/** The pairwise sweep this module used before the grid — the reference. */
+const pairwise = <T extends RefLabel>(
+  labels: readonly T[],
+  overlap: number = HIDE_OVERLAP,
+): Set<T> => {
+  const ranked = [...labels]
+    .map((label, index) => ({ label, index }))
+    .sort((a, b) => {
+      if (b.label.priority !== a.label.priority) {
+        return b.label.priority - a.label.priority;
+      }
+      if (b.label.box.w !== a.label.box.w) return b.label.box.w - a.label.box.w;
+      return a.index - b.index;
+    })
+    .map(entry => entry.label);
+
+  const survivors = new Set<T>();
+  const claimed: RefLabel["box"][] = [];
+  for (const label of ranked) {
+    if (claimed.some(box => hides(label.box, box, overlap))) continue;
+    survivors.add(label);
+    claimed.push(label.box);
+  }
+  return survivors;
+};
+
+describe("planVisible — grid index", () => {
+  /** Deterministic PRNG, so a mismatch reproduces. */
+  const makeRng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+
+  it("returns exactly the pairwise survivors on a dense set", () => {
+    const rand = makeRng(20240915);
+    const labels = Array.from({ length: 800 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: {
+        x: rand() * 1200,
+        y: rand() * 800,
+        w: 20 + rand() * 90,
+        h: 12 + rand() * 8,
+      },
+    }));
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
+
+  it("stays equivalent with one far larger box in the set", () => {
+    // A single very long label must not change the outcome — and, because the
+    // cell size is fixed, must not pack everyone else into a few buckets.
+    const rand = makeRng(99);
+    const labels = Array.from({ length: 300 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: { x: rand() * 800, y: rand() * 600, w: 20 + rand() * 60, h: 12 },
+    }));
+    labels.push({ index: 999, priority: 50, box: { x: 0, y: 0, w: 4000, h: 16 } });
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
+
+  it("matches pairwise when coordinates snap to cell multiples", () => {
+    // The worst case for bucketing: x/y land on (or half a pixel either side
+    // of) a 64px multiple, so boxes start and end exactly on cell borders.
+    const rand = makeRng(4321);
+    const snap = (v: number) => Math.round(v / 64) * 64 + (rand() < 0.5 ? -0.5 : 0.5);
+    const labels = Array.from({ length: 500 }, (_, index) => ({
+      index,
+      priority: Math.floor(rand() * 100),
+      box: {
+        x: snap(rand() * 1000),
+        y: snap(rand() * 800),
+        w: 20 + rand() * 90,
+        h: 12,
+      },
+    }));
+
+    const ids = (set: Set<(typeof labels)[number]>) =>
+      [...set].map(label => label.index).sort((a, b) => a - b);
+
+    expect(ids(planVisible(labels))).toEqual(ids(pairwise(labels)));
+  });
+});
+
+describe("planVisible — grid edges", () => {
+  const lbl = (
+    index: number,
+    box: { x: number; y: number; w: number; h: number },
+    priority = 50,
+  ) => ({ index, priority, box });
+
+  /** Pad a small set past GRID_THRESHOLD — below it the pairwise sweep is
+   *  selected on purpose, and these cases are about the grid. The filler sits
+   *  far away and never overlaps, so it cannot affect the pair under test. */
+  const withGrid = (labels: Array<ReturnType<typeof lbl>>) => [
+    ...labels,
+    ...Array.from({ length: 300 }, (_, i) => ({
+      index: 100000 + i,
+      priority: 50,
+      box: { x: 200000 + i * 100, y: 200000, w: 20, h: 12 },
+    })),
+  ];
+
+  it("returns nothing for an empty set", () => {
+    expect(planVisible([]).size).toBe(0);
+  });
+
+  it("keeps a lone label", () => {
+    const only = lbl(0, { x: 0, y: 0, w: 40, h: 16 });
+    expect(planVisible([only]).has(only)).toBe(true);
+  });
+
+  it("indexes negative coordinates (labels off the top-left of the viewport)", () => {
+    const a = lbl(0, { x: -200, y: -90, w: 40, h: 16 });
+    const b = lbl(1, { x: -195, y: -85, w: 40, h: 16 }); // overlaps a
+
+    const kept = planVisible(withGrid([a, b]));
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+
+  it("keeps unindexable boxes without hanging, and they block nothing", () => {
+    // Non-finite would leave the cell loop unbounded; a finite-but-astronomic
+    // span would touch millions of buckets. Both survive unindexed.
+    const infinite = lbl(0, { x: 0, y: 0, w: Infinity, h: 16 });
+    const nan = lbl(1, { x: NaN, y: NaN, w: 10, h: 10 });
+    const huge = lbl(2, { x: 0, y: 0, w: 1e9, h: 16 });
+    const normal = lbl(3, { x: 50, y: 0, w: 40, h: 16 });
+
+    const kept = planVisible(withGrid([infinite, nan, huge, normal]));
+
+    expect(kept.has(infinite)).toBe(true);
+    expect(kept.has(nan)).toBe(true);
+    expect(kept.has(huge)).toBe(true);
+    expect(kept.has(normal)).toBe(true);
+  });
+
+  it("compares two boxes that only meet across a cell boundary", () => {
+    // Both span cells 0 and 1 — the overlap sits on the boundary, and the pair
+    // must still be compared.
+    const a = lbl(0, { x: 0, y: 0, w: 64, h: 16 }, 90);
+    const b = lbl(1, { x: 10, y: 0, w: 64, h: 16 }, 10); // 10..74, 54px of overlap
+
+    const kept = planVisible(withGrid([a, b]));
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+
+  it("handles large coordinates", () => {
+    const a = lbl(0, { x: -1e7, y: -1e7, w: 40, h: 16 }, 90);
+    const b = lbl(1, { x: -1e7 + 10, y: -1e7, w: 40, h: 16 }, 10);
+
+    const kept = planVisible(withGrid([a, b]));
+
+    expect(kept.has(a)).toBe(true);
+    expect(kept.has(b)).toBe(false);
+  });
+
+  it("states its precondition: a zero-width box degenerates the rule", () => {
+    // Not a behaviour to preserve — the contract. The grid's equivalence rests
+    // on "hidden ⇒ the boxes share a cell", which needs a strictly positive
+    // threshold; at a zero width the criterion collapses to `hOverlap >= 0`,
+    // which even a separated pair satisfies. Both callers pass real widths.
+    const zeroWidth = { x: 0, y: 0, w: 0, h: 16 };
+    const apart = { x: 200, y: 0, w: 40, h: 16 };
+
+    expect(hides(zeroWidth, apart, HIDE_OVERLAP)).toBe(true);
+  });
+});
