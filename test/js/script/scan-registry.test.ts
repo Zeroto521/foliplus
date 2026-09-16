@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -282,5 +282,17 @@ describe("generateRegistry", () => {
     const output = readRegistry(buildDir);
     expect(output).toContain("// AUTO-GENERATED");
     expect(output).toContain("window.foliplus = window.foliplus || {};");
+  });
+
+  it("core carries no domain barrel on disk", () => {
+    // `script/build.mjs` skips `entry.name === "core"` when discovering
+    // components, so `core/index.ts` was never an entry point; a file added
+    // here would be a re-export nobody resolves. The four subdomain barrels are
+    // load-bearing and must stay — they are the intended shape of `core`.
+    const coreDir = resolve(process.cwd(), "foliplus/js", "core");
+    expect(existsSync(join(coreDir, "index.ts"))).toBe(false);
+    for (const sub of ["geo", "geocode", "layer", "event"]) {
+      expect(existsSync(join(coreDir, sub, "index.ts"))).toBe(true);
+    }
   });
 });
