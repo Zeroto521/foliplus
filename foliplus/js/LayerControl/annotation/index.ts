@@ -1,75 +1,123 @@
 // LayerControl annotation — per-layer text-label rendering.
 //
-// Annotations are drawn by LayerControl on top of data layers: one label per
-// feature, anchored at the feature's anchor point (point below the marker,
-// polygon/line centred on the centroid). The value is read from
-// feature.properties[field] and formatted at render time, so a field or format
-// change re-renders rather than updating in place.
+// Labels are drawn on one canvas per layer, each mounted in its layer's own
+// annotation pane, so they take their layer's place in the stack: a layer above
+// covers them, they cover the layers below.
 //
-// Labels are not DOM children of their source layer any more: they live on a
-// shared canvas overlay (annotation/canvas) that owns drawing, culling and
-// collision. The manager keeps the decision side — which features get a label
-// and what it says — plus the visibility signal the canvas needs to drop a
-// hidden layer's labels.
+// Collision is per layer too, by design: the z-order already expresses "who
+// covers whom", so a cross-layer plan would only make an upper layer's labels
+// vanish under a lower layer's — the layers themselves are the avoidance.
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { type Box, withinRect } from "#core/labelCollision.js";
 import {
   type LabelField,
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
+import { type CanvasLabelStyle, resolveCanvasLabelStyle } from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
+import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
-import { AnnotationCanvas, type LayerLabel } from "./canvas.js";
+import { AnnotationCanvas } from "./canvas.js";
+import {
+  type LabelCandidate,
+  type LabelSpec,
+  type PlacedLabel,
+  layoutLabel,
+  planLabelLayout,
+} from "./layout.js";
 
 // CONF is a free variable from the IIFE template wrapper.
+
+/** A label a layer asked for, described by its feature rather than by pixels —
+ *  the plan converts the latlng on every frame, so a pan leaves no stale
+ *  coordinates behind. */
+interface LayerLabel {
+  id: string;
+  text: string;
+  latlng: L.LatLng;
+  atPoint: boolean;
+  priority: number;
+}
 
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
   show: boolean;
   field: string;
   format: NumberStyle;
+  /** Whether this layer's own labels thin themselves out where they overlap. */
+  collide: boolean;
 }
 
-/** Label priority from a layer's panel position: a layer above must win the
- *  collision against one below it, so position 0 (topmost) outranks 1, 1
- *  outranks 2, and so on. An unknown position (-1) is neutral — the planner's
- *  own tie-breaks (box width, then insertion order) decide those. */
-const labelPriority = (order: number): number =>
-  order < 0 ? 50 : Math.max(1, 100 - order);
+/** Label priority is uniform within a layer: collision is per layer, so the
+ *  planner's tie-breaks (box width, then insertion order) decide which of two
+ *  overlapping labels in the same layer survives. The field itself stays — it
+ *  is part of the shared planner's candidate contract. */
+const LABEL_PRIORITY = 50;
 
 /**
- * AnnotationManager owns per-layer label state and rendering.
- * Pure logic + the canvas hand-off; state and persistence are written to
- * LayerPersistence by LayerUI.
+ * AnnotationManager owns per-layer label state, the per-layer plans and the
+ * per-layer canvases. state and persistence are written to LayerPersistence
+ * by LayerUI.
  */
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
-  /** A layer's position in the panel (0 = topmost), for label priority. */
-  private readonly layerOrder: (id: string) => number;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
-  /** The shared label canvas, created on first use (tests stub the class). */
-  private canvas: AnnotationCanvas | null = null;
+  /** The labels each layer wants drawn. */
+  private readonly labelsByLayer = new Map<string, LayerLabel[]>();
+  /** A layer's own label pane and the canvas mounted in it. */
+  private readonly panes = new Map<string, HTMLElement>();
+  private readonly canvases = new Map<string, AnnotationCanvas>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
+  private readonly scheduleRefresh: (() => void) & { cancel: () => void };
+  private readonly unsubscribe: Array<() => void> = [];
+  /** Typography from the --label-* tokens, cached like the canvases cache their
+   *  paint style: re-reading six CSS variables per throttled frame is pure
+   *  overhead, and the tokens only change with the theme. */
+  private cachedSpec: LabelSpec | null = null;
 
-  constructor(
-    mapInstance: L.Map,
-    layerFind: (id: string) => L.Layer | null,
-    layerOrder: (id: string) => number = () => -1,
-  ) {
+  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
     this.layerFind = layerFind;
-    this.layerOrder = layerOrder;
     this.config = new Map();
     this.autoFieldCache = new Map();
+
+    this.scheduleRefresh = throttleRaf(() => this.refresh());
+    // Layer add/remove is how LayerControl hides and shows a layer, so the plan
+    // re-reads membership on those too.
+    this.map.on("move zoom moveend layeradd layerremove", this.scheduleRefresh);
+    this.map.on("resize", this.scheduleRefresh);
+    // Leaflet animates a zoom by CSS-transforming mapPane; the canvases inside
+    // it would be smeared by that transform, so hide the labels for the
+    // duration and redraw on the far side (the #339 canvas did the same).
+    this.map.on("zoomstart", this.hideLabels);
+    this.map.on("zoomend", this.showLabels);
+
+    // Export safety: the exporter's locked path grows the container and shifts
+    // the view, then captures on the very next frame — so the redraw here is
+    // synchronous. A throttled one would land a frame late and the capture
+    // would read the pre-export canvas.
+    const events = ensureEvents(mapInstance);
+    this.unsubscribe.push(
+      events.on(EVENTS.BEFORE_EXPORT, () => this.refresh()),
+      events.on(EVENTS.AFTER_EXPORT, () => this.refresh()),
+    );
   }
 
-  /** Read the config for a layer, or the default (labels off) when unset. */
+  /** Read the config for a layer, or the default (labels off) when unset. The
+   *  collide default is the page's (`label_collide`, the parameter both controls
+   *  share); a stored user choice — the panel toggle — overrides it per layer. */
   getConfig(id: string): AnnotationConfig {
-    return { ...CONST.DEFAULT_ANNOTATION, ...(this.config.get(id) ?? {}) };
+    return {
+      ...CONST.DEFAULT_ANNOTATION,
+      collide: CONF.label_collide ?? true,
+      ...(this.config.get(id) ?? {}),
+    };
   }
 
   setConfig(id: string, cfg: AnnotationConfig): void {
@@ -181,7 +229,7 @@ class AnnotationManager {
   /** Render labels for a layer according to its current config.
    *  Removes any existing labels first (so field/format/show changes are a
    *  single tear-down + re-build rather than two separate paths).
-   *  Returns the labels handed to the canvas: callers that track them (and the
+   *  Returns the labels the plan was given: callers that track them (and the
    *  tests, which assert on "nothing was drawn") read that instead of walking
    *  the canvas. */
   renderLabels(id: string): LayerLabel[] {
@@ -193,17 +241,13 @@ class AnnotationManager {
     const layer = this.layerFind(id);
     if (!layer) return [];
     const locale = CONF.locale_code ?? "en";
-    // One priority per layer, from its panel position: labels of a layer above
-    // outrank one below, so the shared plan keeps the upper label where the two
-    // collide (the lower one steps aside instead of drawing over it).
-    const priority = labelPriority(this.layerOrder(id));
     const labels: LayerLabel[] = [];
 
     forEachLeaf(layer, (leaf: L.Layer) => {
       const raw = this.readFieldValue(leaf, field);
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
-      // The anchor kind is decided once here; the canvas reads it to offset a
+      // The anchor kind is decided once here; the plan reads it to offset a
       // point label below its marker and centre a path label on its centroid.
       const atPoint = this.isPointAnchor(leaf);
       const text = this.formatValue(raw, cfg.format, locale);
@@ -213,60 +257,165 @@ class AnnotationManager {
         text,
         latlng: anchor,
         atPoint,
-        priority,
+        priority: LABEL_PRIORITY,
       });
     });
 
     if (labels.length > 0) {
-      this.ensureCanvas().setLayerLabels(id, labels);
+      this.labelsByLayer.set(id, labels);
+      this.ensureCanvas(id);
     }
+    this.refresh();
     return labels;
   }
 
   /** Remove every annotation label that belongs to a given layer. */
   clearLabels(id: string): void {
-    this.canvas?.removeLayerLabels(id);
+    if (!this.labelsByLayer.delete(id)) return;
+    this.canvases.get(id)?.paint([]);
+    this.refresh();
   }
 
   /** Tear down labels for a layer and forget its config (e.g. on
    *  unregister). Deleting the entry keeps a removed layer's id from being
    *  written back to localStorage by the next annotations save. */
   destroyLayer(id: string): void {
-    this.canvas?.removeLayerLabels(id);
+    this.clearLabels(id);
+    this.dropCanvas(id);
     this.config.delete(id);
     this.autoFieldCache.delete(id);
   }
 
   destroy(): void {
-    this.canvas?.destroy();
-    this.canvas = null;
+    this.scheduleRefresh.cancel();
+    this.map.off("move zoom moveend layeradd layerremove", this.scheduleRefresh);
+    this.map.off("resize", this.scheduleRefresh);
+    this.map.off("zoomstart", this.hideLabels);
+    this.map.off("zoomend", this.showLabels);
+    this.unsubscribe.forEach(off => off());
+    this.unsubscribe.length = 0;
+    for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
     this.config.clear();
     this.autoFieldCache.clear();
   }
 
-  /** Restrict the labels to one layer while the focus mode spotlights it — the
+  /** Restrict the plan to one layer while the focus mode spotlights it — the
    *  other layers' labels would otherwise float over geometry the focus just
-   *  hid. Null clears the restriction. */
+   *  hid (and, worse, hide the spotlighted layer's labels from the plan). Null
+   *  clears the restriction. */
   setFocusFilter(layerId: string | null): void {
+    if (this.focusFilter === layerId) return;
     this.focusFilter = layerId;
-    this.canvas?.setFocusFilter(layerId);
+    this.refresh();
   }
 
-  /** Lazily create the shared canvas. The visibility callback re-reads the
-   *  layer's map membership at draw time, so labels of a hidden layer drop out
-   *  without any state to keep in sync. */
-  private ensureCanvas(): AnnotationCanvas {
-    if (!this.canvas) {
-      this.canvas = new AnnotationCanvas(this.map, id => {
-        const layer = this.layerFind(id);
-        return !!layer && this.map.hasLayer(layer);
-      });
-      // A canvas created mid-focus must pick up the spotlight it was born into.
-      if (this.focusFilter !== null) this.canvas.setFocusFilter(this.focusFilter);
+  /** Hide every label canvas for the duration of a zoom animation (see the
+   *  constructor's zoomstart/zoomend wiring). */
+  private hideLabels = (): void => {
+    for (const canvas of this.canvases.values()) canvas.setVisible(false);
+  };
+
+  /** Un-hide the canvases after the animation and redraw at the new zoom. */
+  private showLabels = (): void => {
+    for (const canvas of this.canvases.values()) canvas.setVisible(true);
+    this.refresh();
+  };
+
+  /** Plan each visible layer's labels independently, then hand every canvas its
+   *  slice. Collision is per layer by design: the layers themselves are
+   *  stacked, so a layer above already covers the labels below — hiding a lower
+   *  layer's label would add nothing, and a cross-layer plan would make an
+   *  upper layer's labels vanish under a lower layer's. */
+  private refresh(): void {
+    if (this.canvases.size === 0) return;
+    const container = this.map.getContainer();
+    const spec = (this.cachedSpec ??= specOf(container));
+    const viewport = {
+      x: 0,
+      y: 0,
+      w: container.clientWidth,
+      h: container.clientHeight,
+    };
+    for (const [id, canvas] of this.canvases) {
+      canvas.paint(this.plannedFor(id, spec, viewport));
     }
-    return this.canvas;
+  }
+
+  /** What one layer's canvas draws: its own labels, laid out, culled to the
+   *  viewport and — unless the layer opted out — thinned by collision. */
+  private plannedFor(id: string, spec: LabelSpec, viewport: Box): PlacedLabel[] {
+    if (!this.isVisible(id)) return [];
+    const labels = this.labelsByLayer.get(id);
+    if (!labels || labels.length === 0) return [];
+
+    const candidates: LabelCandidate[] = labels.map(label => ({
+      id: label.id,
+      text: label.text,
+      atPoint: label.atPoint,
+      priority: label.priority,
+      anchor: this.map.latLngToContainerPoint(label.latlng),
+    }));
+
+    // Collision off: the layer wants every label drawn, so only the layout and
+    // the viewport cull still apply.
+    if (!this.getConfig(id).collide) {
+      return withinRect(
+        candidates.map(label => layoutLabel(label, spec)),
+        viewport,
+      );
+    }
+    return planLabelLayout(candidates, spec, viewport);
+  }
+
+  /** Whether a layer's labels take part right now: it has to be on the map, and
+   *  — while a focus is active — it has to be the spotlighted layer. */
+  private isVisible(id: string): boolean {
+    if (this.focusFilter !== null && id !== this.focusFilter) return false;
+    const layer = this.layerFind(id);
+    return !!layer && this.map.hasLayer(layer);
+  }
+
+  /** Lazily create a layer's pane + canvas. The pane is what puts labels at the
+   *  layer's place in the stack — LayerManager.enforceOrder z-orders it. */
+  private ensureCanvas(id: string): void {
+    if (this.canvases.has(id)) return;
+    const name = CONST.ANNOTATION_PANE_PREFIX + id;
+    const pane = this.map.getPane(name) ?? this.map.createPane(name);
+    pane.classList.add("foliplus-annotation-pane");
+    this.panes.set(id, pane);
+    this.canvases.set(id, new AnnotationCanvas(this.map, pane));
+  }
+
+  /** Drop a layer's canvas and pane. Called on unregister and on teardown; the
+   *  pane has to leave Leaflet's registry too, or getPane keeps returning it. */
+  private dropCanvas(id: string): void {
+    this.canvases.get(id)?.destroy();
+    this.canvases.delete(id);
+    const pane = this.panes.get(id);
+    if (!pane) return;
+    pane.remove();
+    const registry = this.map as unknown as {
+      _panes?: Record<string, HTMLElement>;
+    };
+    if (registry._panes) {
+      delete registry._panes[CONST.ANNOTATION_PANE_PREFIX + id];
+    }
+    this.panes.delete(id);
   }
 }
+
+/** The label typography for the plan, from the shared --label-* tokens. */
+const specOf = (root: HTMLElement): LabelSpec => {
+  const style: CanvasLabelStyle = resolveCanvasLabelStyle(root);
+  return {
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+    haloWidth: style.haloWidth,
+    pointOffsetY: 10,
+    shapeOffsetY: 0,
+  };
+};
 
 /** Parse a string value to a number when it's genuinely numeric. */
 const parseNum = (v: string): number | null => {
@@ -275,4 +424,4 @@ const parseNum = (v: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export { AnnotationManager, type AnnotationConfig };
+export { AnnotationManager, type AnnotationConfig, type LayerLabel };

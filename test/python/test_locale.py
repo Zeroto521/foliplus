@@ -156,6 +156,8 @@ _JS_USED_KEYS = {
     "LayerControl.style_label_format_int",
     "LayerControl.style_label_format_comma",
     "LayerControl.style_label_format_percent",
+    "LayerControl.style_label_collide",
+    "LayerControl.style_label_collide_tooltip",
     "LayerControl.style_reset",
     "LayerControl.style_label_no_data",
     "LayerControl.attributes_layer",

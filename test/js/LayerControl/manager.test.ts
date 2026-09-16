@@ -174,19 +174,27 @@ describe("LayerManager", () => {
     expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
   });
 
-  it("creates the annotation pane on a map that has none yet", () => {
-    // enforceOrder both creates and z-orders the label pane; the create branch
-    // only runs the first time (later enforces find the pane and just re-order
-    // it).
+  it("slots a layer's label pane just above that layer", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    const pane = document.createElement("div");
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
-      name === CONST.ANNOTATION_PANE ? undefined : realGetPane(name),
+      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? pane : realGetPane(name),
     );
-    map.createPane.mockClear();
 
     manager.enforceOrder();
 
-    expect(map.createPane).toHaveBeenCalledWith(CONST.ANNOTATION_PANE);
+    expect(pane.style.zIndex).toBe(String(manager.computeZIndex(1, false) + 1));
+  });
+
+  it("skips the label-pane slot when the layer has no annotation pane", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? null : realGetPane(name),
+    );
+
+    expect(() => manager.enforceOrder()).not.toThrow();
   });
 
   it("computeZIndex returns expected values", () => {

@@ -301,6 +301,16 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, pane);
           }
 
+          // The layer's annotation labels sit one z-step above its content, in
+          // a pane the content walk never visits (created with map.createPane).
+          // Drawing them here — right after this layer, before the next layer
+          // up — keeps the export's stack order identical to the map's: a layer
+          // above covers this layer's labels.
+          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + li.id);
+          if (labelPane) {
+            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+          }
+
           // Markers and divIcons in this layer
           const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
@@ -315,14 +325,6 @@ class ExportRenderer {
           ExportRenderer.mapPhase(done / passable.length, ExportRenderer.PHASES.layers),
         );
       }
-    }
-
-    // Canvas overlays in a shared pane — LayerControl's annotation pane holds
-    // every layer's labels — belong to no single layer, so the walk above never
-    // reaches them. Render them last, matching their top-of-the-stack z.
-    const container = this.map.getContainer();
-    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
-      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
     }
 
     return canvas;
@@ -514,15 +516,15 @@ class ExportRenderer {
     }
   }
 
-  /** Render the canvas elements within `root` — a layer's own pane, or the map
-   *  container for a canvas that lives in a shared pane of its own. */
+  /** Render canvas elements from a pane — or the container, for canvases that
+   *  live in a pane the per-layer walk never visits (annotation labels). */
   async renderPaneCanvas(
     rc: RenderCtx,
-    root: HTMLElement,
+    pane: HTMLElement,
     selector: string = CONST.SEL.CANVAS,
   ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of root.querySelectorAll(selector)) {
+    for (const ce of pane.querySelectorAll(selector)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
