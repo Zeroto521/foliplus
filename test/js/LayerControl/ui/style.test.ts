@@ -987,4 +987,94 @@ describe("LayerUI style panel", () => {
 
     expect(labelShowSetter).toHaveBeenCalledWith(false);
   });
+
+  it("delegated panel refreshes when LAYER_STYLE_CHANGE fires for its layer", () => {
+    const labelShowSetter = vi.fn();
+    let currentLabelShow = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: currentLabelShow }),
+      styleSetters: { labelShow: labelShowSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+
+    // Simulate the component's own panel flipping the value and emitting.
+    currentLabelShow = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(toggle.checked).toBe(false);
+  });
+
+  it("delegated panel does not overwrite an input being edited", () => {
+    let currentLabelShow = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: currentLabelShow }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.focus();
+
+    currentLabelShow = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    // The user is editing this input — the remote value must not overwrite it.
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("closeStylePanel unsubscribes from LAYER_STYLE_CHANGE", () => {
+    const offSpy = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    ui.openStylePanel("heat1");
+    expect(ui.styleUnsubscribe).not.toBeNull();
+
+    // Capture the unsubscribe and verify it is called on close.
+    const unsub = ui.styleUnsubscribe!;
+    ui.styleUnsubscribe = () => {
+      offSpy();
+      unsub();
+    };
+    ui.closeStylePanel(false);
+
+    expect(offSpy).toHaveBeenCalled();
+    expect(ui.styleUnsubscribe).toBeNull();
+  });
+
+  it("empty styleSetters does not enable the delegated panel", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: {},
+    });
+    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+  });
 });

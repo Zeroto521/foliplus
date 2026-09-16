@@ -4,6 +4,7 @@
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
 // scroll, close affordance), exactly like the attributes panel — so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
+import { EVENTS } from "#core/event/index.js";
 import {
   AUTO_FIELD,
   type LabelField,
@@ -577,33 +578,32 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // is never overwritten (activeElement guard).
   if (delegated) {
     const bus = ui.m.events;
-    ui.styleUnsubscribe = bus.on(
-      "foliplus:layer:style-change" as never,
-      ((payload: { id: string }) => {
-        if (payload.id !== layerId) return;
-        const li = ui.m.layerRegistry.get(layerId);
-        const values = li?.styleProvider?.();
-        if (!values) return;
-        const showInput = panel.querySelector(
-          `.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`,
-        ) as HTMLInputElement | null;
-        if (showInput && document.activeElement !== showInput) {
-          showInput.checked = !!values.labelShow;
-        }
-        const collideInput = panel.querySelector(
-          `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
-        ) as HTMLInputElement | null;
-        if (collideInput && document.activeElement !== collideInput) {
-          collideInput.checked = values.labelCollide !== false;
-        }
-        const fieldSel = panel.querySelector(
-          `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-        ) as HTMLSelectElement | null;
-        if (fieldSel && document.activeElement !== fieldSel) {
-          fieldSel.value = String(values.field ?? "");
-        }
-      }) as never,
-    );
+    ui.styleUnsubscribe = bus.on(EVENTS.LAYER_STYLE_CHANGE, ((payload: {
+      id: string;
+    }) => {
+      if (payload.id !== layerId) return;
+      const li = ui.m.layerRegistry.get(layerId);
+      const values = li?.styleProvider?.();
+      if (!values) return;
+      const showInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (showInput && document.activeElement !== showInput) {
+        showInput.checked = !!values.labelShow;
+      }
+      const collideInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (collideInput && document.activeElement !== collideInput) {
+        collideInput.checked = values.labelCollide !== false;
+      }
+      const fieldSel = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+      ) as HTMLSelectElement | null;
+      if (fieldSel && document.activeElement !== fieldSel) {
+        fieldSel.value = String(values.field ?? "");
+      }
+    }) as never);
   }
 
   ui.stylePanelLayerId = layerId;

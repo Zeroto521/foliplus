@@ -230,6 +230,26 @@ describe("bindControls — change handlers", () => {
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
+
+  it("label toggle emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
+    const { ctrl, m } = setup();
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.labelChk.checked = false;
+    fire(ctrl.labelChk, "change");
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
+  });
+
+  it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
+    const { ctrl, m } = setup();
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.fieldSelect.value = "properties.sales";
+    fire(ctrl.fieldSelect, "change");
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
+  });
 });
 
 describe("bindControls — clear (reset) button", () => {

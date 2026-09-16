@@ -131,6 +131,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.m.renderHexagons();
     persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
   ctrl.methodSelect.onchange = () => {
@@ -204,6 +205,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.currentLabelShow = ctrl.labelChk.checked;
     ctrl.m.renderHexagons();
     persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
