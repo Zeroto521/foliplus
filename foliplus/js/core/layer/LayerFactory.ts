@@ -287,8 +287,7 @@ class LayerFactory {
     const paneName = `${CANVAS_PANE_PREFIX}${opts.id}`;
     const { pane } = panes.ensurePane(paneName, false);
 
-    // Generic class so any createCanvas consumer shares overlay CSS; component
-    // identity (HeatmapControl) rides on opts.className.
+    // Generic class so every createCanvas consumer shares the overlay CSS.
     const canvas = dom.el("canvas", {
       class: "foliplus-canvas-layer",
       parent: pane,
