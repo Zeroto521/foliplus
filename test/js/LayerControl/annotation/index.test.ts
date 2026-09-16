@@ -399,6 +399,46 @@ describe("AnnotationManager — render & plan", () => {
     expect(painted(0)).toHaveLength(0);
   });
 
+  it("destroy tears down the map wiring and the canvases", () => {
+    const { map, panes } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const off = map.off as unknown as ReturnType<typeof vi.fn>;
+
+    mgr.destroy();
+
+    expect(off).toHaveBeenCalled();
+    expect(canvas().destroy).toHaveBeenCalled();
+    expect(panes["foliplus-annotation-a"]).toBeUndefined();
+    expect(mgr.configEntries()).toHaveLength(0);
+  });
+
+  it("re-plans a layer whose stored plan is missing during a pan", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => panePos,
+    };
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const callsAfterFullPlan = proj.mock.calls.length;
+
+    // Defensive path: a canvas whose plan did not make it into lastPlanned
+    // has nothing to translate, so the pan plans it properly.
+    (mgr as unknown as { lastPlanned: Map<string, unknown> }).lastPlanned.clear();
+    panePos = { x: 25, y: 0 };
+    const move = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+    move();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+
+    expect(proj.mock.calls.length).toBeGreaterThan(callsAfterFullPlan);
+  });
+
   it("clears a layer's labels and tears its canvas down", () => {
     const { map, panes } = makeMap();
     const mgr = new AnnotationManager(map, () => oneLabel());
