@@ -134,13 +134,71 @@ const renderDelegatedStylePanel = (
   if (!setters || Object.keys(setters).length === 0) return null;
 
   const values = li.styleProvider?.() ?? {};
+  const showChecked = !!values.labelShow;
+  const bodyRows: HTMLElement[] = [];
+
+  if (setters.field) {
+    const options = li.fieldOptions?.() ?? [];
+    const fieldSelect = dom.el(
+      "select",
+      {
+        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+        "aria-label": ui.T("style_label_field"),
+      },
+      ...options.map(o =>
+        dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
+      ),
+    );
+    if (typeof values.field === "string") {
+      (fieldSelect as HTMLSelectElement).value = values.field;
+    }
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+      ),
+    );
+  }
+
+  if (setters.labelCollide) {
+    const toggle = dom.el("input", {
+      type: "checkbox",
+      class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
+      checked: values.labelCollide !== false ? "" : null,
+      "aria-label": ui.T("style_label_collide_tooltip"),
+    });
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.FORM_LABEL },
+          ui.T("style_label_collide"),
+        ),
+        dom.el(
+          "div",
+          { class: CONST.CLASSES.FORM_CONTROL },
+          dom.el(
+            "label",
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
+            toggle,
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          ),
+        ),
+      ),
+    );
+  }
+
   const rows: HTMLElement[] = [];
 
   if (setters.labelShow) {
     const toggle = dom.el("input", {
       type: "checkbox",
       class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
-      checked: values.labelShow ? "" : null,
+      checked: showChecked ? "" : null,
       "aria-label": ui.T("style_label_tooltip"),
     });
     rows.push(
@@ -162,59 +220,12 @@ const renderDelegatedStylePanel = (
     );
   }
 
-  if (setters.field) {
-    const options = li.fieldOptions?.() ?? [];
-    const fieldSelect = dom.el(
-      "select",
-      {
-        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-        "aria-label": ui.T("style_label_field"),
-      },
-      ...options.map(o =>
-        dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
-      ),
-    );
-    if (typeof values.field === "string") {
-      (fieldSelect as HTMLSelectElement).value = values.field;
-    }
-    rows.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
-      ),
-    );
-  }
-
-  if (setters.labelCollide) {
-    const toggle = dom.el("input", {
-      type: "checkbox",
-      class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
-      checked: values.labelCollide !== false ? "" : null,
-      "aria-label": ui.T("style_label_collide_tooltip"),
-    });
-    rows.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el(
-          "label",
-          { class: CONST.CLASSES.FORM_LABEL },
-          ui.T("style_label_collide"),
-        ),
-        dom.el(
-          "div",
-          { class: CONST.CLASSES.FORM_CONTROL },
-          dom.el(
-            "label",
-            { class: CONST.CLASSES.TOGGLE_SWITCH },
-            toggle,
-            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-          ),
-        ),
-      ),
-    );
+  // Body: field + avoid-overlap, collapsed when the label toggle is off —
+  // same "switch off → hide body" rule the annotation panel uses.
+  if (bodyRows.length) {
+    const body = dom.el("div", { class: "foliplus-style-body" }, ...bodyRows);
+    body.classList.toggle("foliplus-hidden", !showChecked);
+    rows.push(body);
   }
 
   if (!rows.length) return null;
@@ -460,6 +471,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT) &&
         setters.labelShow
       ) {
+        const body = panel.querySelector(".foliplus-style-body") as HTMLElement | null;
+        if (body) body.classList.toggle("foliplus-hidden", !t.checked);
         setters.labelShow(t.checked);
       } else if (
         t instanceof HTMLInputElement &&

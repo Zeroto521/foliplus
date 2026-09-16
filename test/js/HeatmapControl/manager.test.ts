@@ -1405,3 +1405,108 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.fieldOptions!()).toEqual([]);
   });
 });
+
+describe("HeatmapManager — source meta for the attrs panel", () => {
+  const metaOf = (m: HeatmapManager) =>
+    window.map.foliplus.LayerAPI.createCanvas.mock.calls.find(
+      ([opts]: [{ id?: string }]) => opts.id === m.layerId,
+    )![0].meta as Record<string, string | number>;
+
+  it("passes a shared meta object to createCanvas", () => {
+    const m = makeManager();
+    const meta = metaOf(m);
+    expect(meta).toBe(m.sourceMeta);
+    expect(meta).toEqual({});
+  });
+
+  it("writes source layer name and aggregation field on sync", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 2 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "sum";
+    m.fieldAuto = false;
+    m.currentField = "properties.sales";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("omits the field row under count aggregation", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "count";
+    m.currentField = "properties.sales";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
+  });
+
+  it("uses the auto field when fieldAuto is on", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "avg";
+    m.fieldAuto = true;
+    m.autoFieldKey = "properties.dwell";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
+  });
+
+  it("clears both rows when no layer is selected", () => {
+    const m = makeManager();
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
+    m.selectedLayerId = null;
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
+  });
+
+  it("keeps a plain field name as-is (no properties. prefix)", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "max";
+    m.fieldAuto = false;
+    m.currentField = "value";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("value");
+  });
+
+  it("clears the name when the selected id is no longer in pointLayers", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "other", name: "Other", layer: null, count: 1 }];
+    m.selectedLayerId = "gone";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+  });
+
+  it("does not stamp Updated when the published values are unchanged", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "count";
+
+    m.syncSourceMeta();
+    const touch = window.map.foliplus.LayerAPI.touchLayer;
+    expect(touch).toHaveBeenCalledTimes(1);
+
+    m.syncSourceMeta();
+    expect(touch).toHaveBeenCalledTimes(1);
+  });
+});

@@ -750,12 +750,21 @@ describe("LayerUI focus", () => {
       ).toBe(true);
     });
 
-    it("marks a canvas (heatmap) focused layer with focus-pane", () => {
+    it("marks a canvas (heatmap) focused layer's dedicated pane with focus-pane", () => {
       const canvas = document.createElement("canvas");
+      const canvasPane = document.createElement("div");
+      canvasPane.classList.add("foliplus-layer-pane");
+      canvasPane.appendChild(canvas);
+      const paneName = "foliplus-canvas-heat1";
+      manager.map.getPane.mockImplementation((name: string) => {
+        if (name === paneName) return canvasPane;
+        return document.createElement("div");
+      });
       manager.registerLayer({
         id: "heat1",
         name: "Heat",
         canvas,
+        paneName,
         onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
@@ -765,6 +774,28 @@ describe("LayerUI focus", () => {
       });
 
       ui.focusLayer("heat1");
+
+      expect(canvasPane.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(false);
+    });
+
+    it("falls back to lifting the canvas when its dedicated pane is missing", () => {
+      const canvas = document.createElement("canvas");
+      manager.map.getPane.mockImplementation(() => null);
+      manager.registerLayer({
+        id: "heat2",
+        name: "Heat",
+        canvas,
+        paneName: "foliplus-canvas-heat2",
+        onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+
+      ui.focusLayer("heat2");
 
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
     });

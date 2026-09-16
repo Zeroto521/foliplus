@@ -84,7 +84,6 @@ describe("RegisterLayerOpts", () => {
       visible: false,
       canvas: null,
       onToggle,
-      onZIndex: () => {},
       featureCountProvider,
       getBounds,
       source: "data.csv",

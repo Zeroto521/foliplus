@@ -1319,9 +1319,16 @@ class TestLayerControlBrowser:
             assert api["hasSetVisible"]
             assert api["hasGetSize"]
             assert api["canvasTag"] == "CANVAS"
+            assert api["canvasClass"], "canvas should carry foliplus-canvas-layer"
+            assert api["parentIsPane"], "canvas should live in a foliplus-layer-pane"
+            assert api["paneRegistered"], "canvas pane should be on the map"
 
     def test_canvas_register_unregister(self, browser, tmp_path):
-        """Canvas register() creates a layer item; unregister() removes it."""
+        """Canvas register() creates a layer item; unregister() removes it.
+
+        Also asserts the pane model: canvas mounts in its own pane, setZIndex
+        writes the pane, and only destroy() drops the pane from the map.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
             assert result is not None
@@ -1329,6 +1336,14 @@ class TestLayerControlBrowser:
             assert not result["hasItemAfter"], (
                 "Canvas layer item should be removed after unregister"
             )
+            assert result["inPane"], "canvas pane should have foliplus-layer-pane"
+            assert result["canvasParent"], "canvas parent should be the dedicated pane"
+            assert result["paneZ"] == "640", "setZIndex should write the pane style"
+            assert result["registeredPaneName"] == "foliplus-canvas-__test_canvas_reg__"
+            assert result["paneAfterUnregister"], (
+                "unregister keeps the pane for re-register"
+            )
+            assert not result["paneAfterDestroy"], "destroy drops the pane"
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """migrateLayers moves Markers to per-layer panes."""
@@ -2281,7 +2296,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
+        (layer/paneName/iconSvg/onToggle/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -2303,7 +2318,6 @@ class TestLayerControlBrowser:
                 # partial re-register.
                 assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
-                assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
@@ -2612,7 +2626,7 @@ class TestLayerControlBrowser:
         migrateLayers must skip container nodes when writing pane options.
         The container's own pane stays whatever registerLayer assigned
         (paneName), and must NOT be overwritten with a fallback
-        `foliplus_pane_*` name during migration.
+        `foliplus-pane-*` name during migration.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))

@@ -46,9 +46,9 @@ interface HeatmapControlUI {
 /** Save the current config after any user-initiated change. */
 const persist = (ctrl: HeatmapControlUI) => {
   ctrl.m.saveConfig();
-  // Field/method/scheme changes rewrite the canvas — stamp the layer so the
-  // attributes panel's Updated row reflects the latest render.
-  ctrl.m.map.foliplus?.LayerAPI?.touchLayer?.(ctrl.m.layerId);
+  // Field/layer changes rewrite the canvas — mirror source layer + field into
+  // the attrs panel and stamp Updated so the panel tracks the latest render.
+  ctrl.m.syncSourceMeta();
 };
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
@@ -249,6 +249,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.borderColorInput.value = ctrl.conf.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
+    // Drop the published source rows — the canvas unregisters on clear, but the
+    // shared meta object outlives it and would repopulate stale values on re-register.
+    ctrl.m.syncSourceMeta();
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
@@ -304,7 +307,16 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     syncSelect(ctrl, sel, ctrl.m.selectedLayerId);
     updateFieldSelector(ctrl);
     ctrl.m.renderHexagons();
+  } else if (ctrl.m.selectedLayerId) {
+    // Restored selection (localStorage / rebuild): resolve the field list
+    // first so autoFieldKey is fresh — syncSourceMeta reads it under fieldAuto.
+    updateFieldSelector(ctrl);
   }
+
+  // Selection (auto, restored, or user) and field resolution are settled here —
+  // publish source-layer / agg-field so the attrs panel is current without a
+  // further user edit.
+  ctrl.m.syncSourceMeta();
 
   if (ctrl.m.selectedLayerId) sel.value = ctrl.m.selectedLayerId;
   else sel.selectedIndex = 0;

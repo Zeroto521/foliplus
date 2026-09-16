@@ -1077,4 +1077,44 @@ describe("LayerUI style panel", () => {
     });
     expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
   });
+
+  it("delegated panel collapses body when label toggle is off", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, field: "count" }),
+      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
+      fieldOptions: () => ["count"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const body = panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(true);
+  });
+
+  it("delegated panel expands body when label toggle is flipped on", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, field: "count" }),
+      styleSetters: { labelShow: labelShowSetter, field: vi.fn() },
+      fieldOptions: () => ["count"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const body = panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(false);
+    expect(labelShowSetter).toHaveBeenCalledWith(true);
+  });
 });
