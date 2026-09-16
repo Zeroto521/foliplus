@@ -392,9 +392,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
       { marker: { feature: { properties: { price: 2 } } } },
     ]);
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
-    expect(fields).toContain("properties.price");
-    expect(fields).not.toContain("properties.name");
-    expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+    expect(fields).toContain("price");
+    expect(fields).not.toContain("name");
+    expect(fields.filter(f => f === "price")).toHaveLength(1);
   });
 });
 
@@ -786,7 +786,7 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
-      m.currentField = "properties.price";
+      m.currentField = "price";
       m.fieldAuto = false;
 
       m.saveConfig();
@@ -800,7 +800,7 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
-      expect(stored.field).toBe("properties.price");
+      expect(stored.field).toBe("price");
       expect(stored.fieldAuto).toBe(false);
     });
 
@@ -894,7 +894,8 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
-      expect(m.currentField).toBe("properties.qty");
+      // Legacy "properties." prefix is stripped on load.
+      expect(m.currentField).toBe("qty");
       expect(m.fieldAuto).toBe(false);
     });
 
@@ -942,7 +943,7 @@ describe("HeatmapManager — persistence", () => {
       m1.borderWeight = 0.5;
       m1.borderColor = "#111111";
       m1.currentLabelShow = true;
-      m1.currentField = "properties.value";
+      m1.currentField = "value";
       m1.fieldAuto = false;
       m1.saveConfig();
 
@@ -959,7 +960,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.borderWeight).toBe(0.5);
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
-      expect(m2.currentField).toBe("properties.value");
+      expect(m2.currentField).toBe("value");
       expect(m2.fieldAuto).toBe(false);
     });
 
@@ -1323,9 +1324,7 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
 
     m.currentLabelShow = false;
-    m.currentField = "properties.count";
-    // The provider strips the "properties." prefix for display consistency
-    // with the annotation panel.
+    m.currentField = "count";
     expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
   });
 
@@ -1342,23 +1341,23 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("field setter adds the properties. prefix back", () => {
+  it("field setter stores the bare field name", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
 
     opts.styleSetters!.field!("count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
     expect(m.fieldAuto).toBe(false);
   });
 
-  it("field setter keeps an already-prefixed field as-is", () => {
+  it("field setter strips a legacy properties. prefix", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
 
     opts.styleSetters!.field!("properties.count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
   });
 
   it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
@@ -1368,9 +1367,9 @@ describe("HeatmapManager — style delegation", () => {
     const saveSpy = vi.spyOn(m, "saveConfig");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("properties.count");
+    opts.styleSetters!.field!("count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
     expect(m.fieldAuto).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
