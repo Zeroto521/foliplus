@@ -1497,4 +1497,37 @@ describe("MeasureManager — label cleanup", () => {
     manager.setLabelsVisible(false);
     expect(manager.labelsVisible).toBe(false);
   });
+
+  it("setLabelsVisible tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager();
+    // A marker with no DOM element — labelChipOf returns null.
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+    manager.registerLabel(bareMarker as unknown as L.Marker, 60);
+
+    expect(() => manager.setLabelsVisible(false)).not.toThrow();
+  });
+
+  it("registerLabel with label_show=false tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager({ label_show: false });
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+
+    expect(() =>
+      manager.registerLabel(bareMarker as unknown as L.Marker, 60),
+    ).not.toThrow();
+  });
+
+  it("destroy calls offModeChange and offLayerRemoved when set", () => {
+    const { manager, map } = makeLabelManager();
+    const offModeChange = vi.fn();
+    const offLayerRemoved = vi.fn();
+    (manager as unknown as { offModeChange: () => void }).offModeChange = offModeChange;
+    (manager as unknown as { offLayerRemoved: () => void }).offLayerRemoved =
+      offLayerRemoved;
+
+    manager.destroy();
+
+    expect(offModeChange).toHaveBeenCalled();
+    expect(offLayerRemoved).toHaveBeenCalled();
+    expect(map.off).toHaveBeenCalledWith("unload", expect.any(Function));
+  });
 });

@@ -1214,4 +1214,25 @@ describe("LayerUI style panel", () => {
 
     expect(fieldSelect.value).toBe("sum");
   });
+
+  it("delegated change handler ignores unrecognized controls", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    // Dispatch a change on a plain div inside the panel — no known control
+    // class matches, so the handler returns early without calling any setter.
+    const bogus = document.createElement("div");
+    panelOf(item)!.appendChild(bogus);
+    bogus.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelShowSetter).not.toHaveBeenCalled();
+  });
 });
