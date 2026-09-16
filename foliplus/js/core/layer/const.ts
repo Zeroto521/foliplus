@@ -16,11 +16,16 @@ const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 
 const RENDERER_KEY = "foliplus_renderer_";
 
+/** Auto-generated per-layer fallback pane (underscore, stamp-keyed).
+ *  Named component panes use hyphens instead — see CANVAS_PANE_PREFIX and
+ *  LayerControl's ANNOTATION_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus_pane_";
 
 /** Pane name prefix for `createCanvas` overlays (HeatmapControl).
- *  The canvas mounts in its own Leaflet pane so z-order, focus hide, and
- *  export walk the same pane model as every other layer. */
+ *  Hyphenated like `foliplus-annotation-*` — these are named, component-owned
+ *  panes, not the auto-generated fallback family. The canvas mounts here so
+ *  z-order, focus hide, and export walk the same pane model as every other
+ *  layer. */
 const CANVAS_PANE_PREFIX = "foliplus-canvas-";
 
 /** Geometry type names (used by layer traversal / type detection). */

@@ -179,7 +179,6 @@ class HeatmapManager {
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
       name: T("title"),
-      className: "foliplus-heatmap-canvas",
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),

@@ -16,20 +16,20 @@ describe("export canvas whitelists", () => {
     mapPane.className = "leaflet-map-pane";
     const layerPane = document.createElement("div");
     layerPane.className = "foliplus-layer-pane";
-    const thirdParty = document.createElement("canvas");
-    thirdParty.className = "vendor-overlay";
+    const vendorCanvas = document.createElement("canvas");
+    vendorCanvas.className = "vendor-overlay";
     const annotationPane = document.createElement("div");
     annotationPane.className = "foliplus-annotation-pane";
     const annotation = document.createElement("canvas");
     annotation.className = "foliplus-annotation-canvas";
-    layerPane.append(thirdParty);
+    layerPane.append(vendorCanvas);
     annotationPane.append(annotation);
     mapPane.append(layerPane, annotationPane);
     document.body.appendChild(mapPane);
 
-    // Pane walk: any canvas a third-party layer mounts in its own pane.
+    // Pane walk: any canvas a vendor layer mounts in its own pane.
     expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
-      thirdParty,
+      vendorCanvas,
     ]);
     expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
       annotation,
