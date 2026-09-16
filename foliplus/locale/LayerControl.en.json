@@ -56,6 +56,8 @@
   "LayerControl.style_label_no_data": "No labelable fields on this layer",
   "LayerControl.style_label": "Labels",
   "LayerControl.style_label_tooltip": "Show text labels on features",
+  "LayerControl.style_label_collide": "Avoid Overlap",
+  "LayerControl.style_label_collide_tooltip": "Hide this layer's own labels where they overlap",
   "LayerControl.style_label_field": "Label Field",
   "LayerControl.style_label_field_auto": "Auto Detect",
   "LayerControl.style_label_format": "Number Format",

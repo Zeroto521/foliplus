@@ -317,14 +317,6 @@ class ExportRenderer {
       }
     }
 
-    // Canvas overlays in a shared pane — LayerControl's annotation pane holds
-    // every layer's labels — belong to no single layer, so the walk above never
-    // reaches them. Render them last, matching their top-of-the-stack z.
-    const container = this.map.getContainer();
-    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
-      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
-    }
-
     return canvas;
   }
 
@@ -514,15 +506,10 @@ class ExportRenderer {
     }
   }
 
-  /** Render the canvas elements within `root` — a layer's own pane, or the map
-   *  container for a canvas that lives in a shared pane of its own. */
-  async renderPaneCanvas(
-    rc: RenderCtx,
-    root: HTMLElement,
-    selector: string = CONST.SEL.CANVAS,
-  ) {
+  /** Render canvas elements from a single pane. */
+  async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of root.querySelectorAll(selector)) {
+    for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;

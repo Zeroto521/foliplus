@@ -1,35 +1,8 @@
-// AnnotationCanvas unit tests — the overlay's own logic: element setup, pane
-// mounting, cancelling mapPane's pan translation, layer-visibility filtering,
-// label hand-off and teardown. Draw calls land on a recording context; what the
-// pixels actually look like is the browser tests' job.
+// AnnotationCanvas unit tests — one canvas per layer, mounted in that layer's
+// own pane; it paints the slice the manager hands it and nothing else.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AnnotationCanvas,
-  type LayerLabel,
-} from "#foliplus/LayerControl/annotation/canvas.js";
-
-const mocks = vi.hoisted(() => ({ exportHandlers: [] as Array<() => void> }));
-
-vi.mock("#core/event/index.js", () => ({
-  EVENTS: { BEFORE_EXPORT: "before-export", AFTER_EXPORT: "after-export" },
-  ensureEvents: () => ({
-    on: (_event: string, cb: () => void) => {
-      mocks.exportHandlers.push(cb);
-      return vi.fn();
-    },
-    emit: vi.fn(),
-  }),
-}));
-
-vi.mock("#common/throttle.js", () => ({
-  // Synchronous: these tests are about what a scheduled draw *does*, not about
-  // frame coalescing (common/throttle has its own tests for that).
-  throttleRaf: (fn: () => void) => {
-    const wrapped = () => fn();
-    wrapped.cancel = vi.fn();
-    return wrapped;
-  },
-}));
+import { AnnotationCanvas } from "#foliplus/LayerControl/annotation/canvas.js";
+import type { PlacedLabel } from "#foliplus/LayerControl/annotation/layout.js";
 
 const makeCtx = () => ({
   font: "",
@@ -45,60 +18,20 @@ const makeCtx = () => ({
   fillText: vi.fn(),
 });
 
-const label = (id: string, text: string): LayerLabel => ({
-  id,
+/** A planned label at a given box (the plan has already positioned it). */
+const placed = (text: string, box = { x: 10, y: 20, w: 40, h: 12 }): PlacedLabel => ({
+  id: text,
   text,
-  latlng: { lat: 0, lng: 0 } as L.LatLng,
   atPoint: true,
   priority: 50,
+  anchor: { x: 0, y: 0 },
+  box,
 });
-
-/** Same, at a chosen latitude: the mock maps lat → x = 100 + lat, so distinct
- *  latitudes keep two labels out of each other's collision box. */
-const labelAt = (id: string, text: string, lat: number): LayerLabel => ({
-  ...label(id, text),
-  latlng: { lat, lng: 0 } as L.LatLng,
-});
-
-const makeEnv = (isLayerOnMap: (id: string) => boolean = () => true) => {
-  const container = document.createElement("div");
-  Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
-  Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
-  const mapPane = document.createElement("div");
-  // The canvas asks for its own pane and falls back to createPane, so the mock
-  // backs both the way Leaflet does: one registry, created on demand.
-  const panes: Record<string, HTMLElement> = {};
-  const on = vi.fn();
-  const off = vi.fn();
-  const map = {
-    getContainer: () => container,
-    getPanes: () => ({ mapPane }),
-    getPane: (name: string) => panes[name] ?? null,
-    createPane: (name: string) => (panes[name] = document.createElement("div")),
-    on,
-    off,
-    latLngToContainerPoint: (ll: { lat: number; lng: number }) => ({
-      x: 100 + ll.lat,
-      y: 50 + ll.lng,
-    }),
-  } as unknown as L.Map;
-
-  const canvas = new AnnotationCanvas(map, isLayerOnMap);
-  return {
-    container,
-    mapPane,
-    on,
-    off,
-    canvas,
-    annotationPane: panes["foliplus-annotation-pane"]!,
-  };
-};
 
 let ctx: ReturnType<typeof makeCtx>;
 
 beforeEach(() => {
   ctx = makeCtx();
-  mocks.exportHandlers.length = 0;
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
     ctx as unknown as CanvasRenderingContext2D,
   );
@@ -111,195 +44,102 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("AnnotationCanvas construction", () => {
-  it("mounts one non-interactive canvas in the label pane, DPR-scaled", () => {
-    const { annotationPane, canvas } = makeEnv();
+const makeEnv = () => {
+  const container = document.createElement("div");
+  Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
+  Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
+  const mapPane = document.createElement("div");
+  const map = {
+    getContainer: () => container,
+    getPanes: () => ({ mapPane }),
+  } as unknown as L.Map;
 
-    const el = annotationPane.querySelector("canvas")!;
-    expect(el).toBe(canvas["canvas"]);
+  const pane = document.createElement("div");
+  const canvas = new AnnotationCanvas(map, pane);
+  return { container, mapPane, pane, canvas };
+};
+
+const elOf = (canvas: AnnotationCanvas) =>
+  (canvas as unknown as { canvas: HTMLCanvasElement }).canvas;
+
+describe("AnnotationCanvas", () => {
+  it("mounts a non-interactive canvas in the pane it is given, DPR-scaled", () => {
+    const { pane, canvas } = makeEnv();
+
+    const el = pane.querySelector("canvas")!;
+    expect(el).toBe(elOf(canvas));
     expect(el.className).toBe("foliplus-annotation-canvas");
-    // The pane is the one LayerManager z-orders above the data panes.
-    expect(annotationPane.classList.contains("foliplus-annotation-pane")).toBe(true);
     // Labels must never intercept a click meant for the feature.
     expect(el.style.pointerEvents).toBe("none");
     // jsdom devicePixelRatio is 1; the container box is what was measured.
     expect(el.width).toBe(800);
     expect(el.height).toBe(600);
-    expect(el.style.width).toBe("800px");
   });
 
   it("cancels mapPane's pan translation so the canvas stays put", () => {
-    const { canvas } = makeEnv();
+    const el = elOf(makeEnv().canvas);
 
-    // getPosition is stubbed to {10, 20} (see beforeEach) — the canvas offsets
-    // itself by the negative so the labels do not ride the pan twice.
-    const el = canvas["canvas"];
+    // getPosition is stubbed to {10, 20} — the canvas offsets by the negative so
+    // the labels do not ride the pan twice.
     expect(el.style.left).toBe("-10px");
     expect(el.style.top).toBe("-20px");
   });
 
-  it("subscribes to the map events that require a redraw", () => {
-    const { on } = makeEnv();
-
-    const names = on.mock.calls.map(c => c[0]);
-    expect(names).toContain("resize");
-    expect(on.mock.calls.some(c => c[0].includes("layeradd"))).toBe(true);
-  });
-});
-
-describe("AnnotationCanvas.draw", () => {
-  it("draws a layer's labels in container-pixel coordinates", () => {
+  it("paints the labels it is handed, and clears the previous frame", () => {
     const { canvas } = makeEnv();
 
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
-
+    canvas.paint([placed("alpha")]);
     expect(ctx.clearRect).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledWith(
       "alpha",
       expect.any(Number),
       expect.any(Number),
     );
-  });
 
-  it("skips a layer whose visibility callback says it is hidden", () => {
-    const { canvas } = makeEnv(id => id === "shown");
-
-    canvas.setLayerLabels("shown", [label("a", "alpha")]);
-    canvas.setLayerLabels("hidden", [label("b", "beta")]);
     ctx.fillText.mockClear();
-    canvas.setLayerLabels("shown", [label("a", "alpha")]);
-
-    const drawn = ctx.fillText.mock.calls.map(c => c[0]);
-    expect(drawn).toContain("alpha");
-    expect(drawn).not.toContain("beta");
+    canvas.paint([placed("beta")]);
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "beta",
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 
-  it("draws nothing (but clears) when every layer is hidden", () => {
-    const { canvas } = makeEnv(() => false);
+  it("draws the text at the box's centre", () => {
+    const { canvas } = makeEnv();
 
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
+    canvas.paint([placed("alpha", { x: 100, y: 200, w: 40, h: 12 })]);
+
+    expect(ctx.fillText).toHaveBeenCalledWith("alpha", 120, 206);
+  });
+
+  it("clears and draws nothing for an empty plan", () => {
+    const { canvas } = makeEnv();
+
+    canvas.paint([]);
 
     expect(ctx.clearRect).toHaveBeenCalled();
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
-  it("drops a layer's labels on removeLayerLabels", () => {
-    const { canvas } = makeEnv();
-
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
-    expect(ctx.fillText).toHaveBeenCalled();
-
-    ctx.fillText.mockClear();
-    canvas.removeLayerLabels("l1");
-
-    expect(ctx.fillText).not.toHaveBeenCalled();
-  });
-
-  it("removeLayerLabels is a no-op for an unknown layer", () => {
-    const { canvas } = makeEnv();
-    ctx.clearRect.mockClear();
-
-    canvas.removeLayerLabels("never-registered");
-
-    expect(ctx.clearRect).not.toHaveBeenCalled();
-  });
-
-  it("draws only the focused layer's labels while a focus filter is set", () => {
-    const { canvas } = makeEnv();
-    // Far apart, so the collision plan cannot hide one of them.
-    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
-    canvas.setLayerLabels("b", [labelAt("b1", "beta", 400)]);
-
-    ctx.fillText.mockClear();
-    canvas.setFocusFilter("a");
-    const focused = ctx.fillText.mock.calls.map(c => c[0]);
-    expect(focused).toContain("alpha");
-    expect(focused).not.toContain("beta");
-
-    ctx.fillText.mockClear();
-    canvas.setFocusFilter(null);
-    const all = ctx.fillText.mock.calls.map(c => c[0]);
-    expect(all).toContain("alpha");
-    expect(all).toContain("beta");
-  });
-
-  it("ignores a focus filter that is already the current one", () => {
-    const { canvas } = makeEnv();
-    canvas.setLayerLabels("a", [labelAt("a1", "alpha", 0)]);
-    canvas.setFocusFilter("a");
-
-    ctx.clearRect.mockClear();
-    canvas.setFocusFilter("a");
-
-    // No state change, no redraw.
-    expect(ctx.clearRect).not.toHaveBeenCalled();
-  });
-});
-
-describe("AnnotationCanvas.map reactions", () => {
-  const handler = (on: ReturnType<typeof vi.fn>, name: string) =>
-    on.mock.calls.find(c => c[0] === name)?.[1] as () => void;
-  const elOf = (canvas: unknown) => (canvas as { canvas: HTMLCanvasElement }).canvas;
-
-  it("redraws on resize", () => {
-    const { on, canvas } = makeEnv();
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
-    ctx.clearRect.mockClear();
-
-    handler(on, "resize")();
-
-    expect(ctx.clearRect).toHaveBeenCalled();
-  });
-
-  it("hides through a zoom transition and redraws on the far side", () => {
-    const { on, canvas } = makeEnv();
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
+  it("re-measures the container on every paint", () => {
+    const { container, canvas } = makeEnv();
     const el = elOf(canvas);
 
-    handler(on, "zoomstart")();
-    expect(el.style.visibility).toBe("hidden");
-
-    ctx.fillText.mockClear();
-    handler(on, "zoomend")();
-    expect(el.style.visibility).toBe("");
-    expect(ctx.fillText).toHaveBeenCalled();
-  });
-
-  it("re-measures and redraws before the capture, not a frame later", () => {
-    const { canvas, container } = makeEnv();
-    canvas.setLayerLabels("l1", [label("a", "alpha")]);
-    const el = elOf(canvas);
-    expect(el.width).toBe(800);
-
-    // The exporter's locked path grows the container, shifts the view, then
-    // captures on the next frame — the canvas has to be re-measured and redrawn
-    // synchronously, or the capture reads the pre-export size and viewport.
     Object.defineProperty(container, "clientWidth", {
       value: 1200,
       configurable: true,
     });
-    Object.defineProperty(container, "clientHeight", {
-      value: 900,
-      configurable: true,
-    });
-    ctx.clearRect.mockClear();
-    mocks.exportHandlers.forEach(cb => cb());
+    canvas.paint([placed("alpha")]);
 
     expect(el.width).toBe(1200);
-    expect(el.height).toBe(900);
-    expect(ctx.clearRect).toHaveBeenCalled();
   });
-});
 
-describe("AnnotationCanvas.destroy", () => {
-  it("unbinds the map listeners and removes the canvas", () => {
-    const { annotationPane, off, canvas } = makeEnv();
+  it("destroy removes the canvas from the pane", () => {
+    const { pane, canvas } = makeEnv();
 
     canvas.destroy();
 
-    expect(annotationPane.querySelector("canvas")).toBeNull();
-    const offNames = off.mock.calls.map(c => c[0]);
-    expect(offNames).toContain("resize");
-    expect(offNames.some(n => n.includes("layeradd"))).toBe(true);
+    expect(pane.querySelector("canvas")).toBeNull();
   });
 });

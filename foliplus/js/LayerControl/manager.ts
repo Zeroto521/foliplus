@@ -587,6 +587,14 @@ class LayerManager implements LayerAPI {
         if (!hasLayer) continue;
 
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
+
+        // The layer's label pane (created by AnnotationManager) rides just
+        // above it: labels cover that layer's own geometry, and the next layer
+        // up still covers the labels — the stack the panel shows.
+        const annotationPane = this.map.getPane(
+          CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+        );
+        if (annotationPane) annotationPane.style.zIndex = String(z + 1);
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
@@ -601,18 +609,6 @@ class LayerManager implements LayerAPI {
       if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
       const markerPaneEl = this.map.getPane("markerPane");
       if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
-
-      // Annotation labels live on their own pane — one canvas carrying every
-      // layer's labels — slotted above the data panes and below the markers:
-      // labels never hide under a layer's own geometry, and never cover the
-      // interaction markers. Created here even before the canvas exists, so
-      // the first label render already lands in the right slot.
-      const annotationPaneEl =
-        this.map.getPane(CONST.ANNOTATION_PANE) ??
-        this.map.createPane(CONST.ANNOTATION_PANE);
-      // createPane always returns the element (or throws), so no guard here.
-      annotationPaneEl.classList.add("foliplus-annotation-pane");
-      annotationPaneEl.style.zIndex = String(topZ - 2);
 
       this.panes.migrateLayers(layersToMove);
       this.syncAttribution();

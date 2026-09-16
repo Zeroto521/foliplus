@@ -579,10 +579,14 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      const marked = Array.from(panes.values()).filter(p =>
-        p.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      // The per-layer label pane is rightly marked — the focused layer's own
+      // labels must stay visible — but the *shared* panes must not be touched.
+      const shared = Array.from(panes.entries()).filter(([name]) =>
+        ["overlayPane", "markerPane"].includes(name),
       );
-      expect(marked).toHaveLength(0);
+      expect(
+        shared.every(([, p]) => !p.classList.contains(CONST.CLASSES.FOCUS_PANE)),
+      ).toBe(true);
     });
 
     it("applies the glow class to the focused pane (not per leaf element)", () => {

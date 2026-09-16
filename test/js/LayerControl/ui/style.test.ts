@@ -675,6 +675,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: CONST.FORMAT.AUTO,
+      collide: true,
     });
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
   });
@@ -839,7 +840,12 @@ describe("LayerUI style panel", () => {
         unknown
       >;
       expect(getter()).toEqual({
-        overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+        overlay1: {
+          show: true,
+          field: "count",
+          format: CONST.FORMAT.AUTO,
+          collide: true,
+        },
       });
     } finally {
       vi.useRealTimers();

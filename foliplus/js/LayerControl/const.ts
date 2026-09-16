@@ -55,11 +55,10 @@ const FOCUS = {
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
 const FOCUS_PANE = "foliplus-focus-overlay";
 
-/** Leaflet pane hosting the annotation label canvas (plus its own CSS class).
- *  One pane carries *every* layer's labels, so its z-index sits above all data
- *  panes but below Leaflet's markers and tooltips — labels never hide under a
- *  layer's own geometry, and never cover the interaction markers. */
-const ANNOTATION_PANE = "foliplus-annotation-pane";
+/** Leaflet pane name prefix for a layer's annotation labels: one pane per
+ *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** CSS class names. */
 const CLASSES = {
@@ -110,6 +109,9 @@ const CLASSES = {
   STYLE_FORMAT_ROW: "foliplus-style-format-row",
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
+  /** The "avoid overlap" switch — its own class, because the panel's change
+   *  delegation keys on the class to tell the two switches apart. */
+  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
@@ -156,16 +158,18 @@ const FORMAT = {
   PERCENT: "percent",
 } as const satisfies Record<FormatKey, NumberStyle>;
 
-/** Default annotation config for a layer (disabled). */
+/** Default annotation config for a layer (disabled). `collide` is the fallback
+ *  only — the effective default comes from the page's per-layer attribute. */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
   format: FORMAT.AUTO,
+  collide: true,
 } as const;
 
 export {
   ACTION,
-  ANNOTATION_PANE,
+  ANNOTATION_PANE_PREFIX,
   CLASSES,
   COLOR,
   DATA,

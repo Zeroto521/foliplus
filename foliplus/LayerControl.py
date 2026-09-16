@@ -81,8 +81,25 @@ class LayerControl(BaseControl):
         *,
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
+        label_collide: bool = True,
     ):
+        """Create the control.
+
+        Parameters
+        ----------
+        position
+            Leaflet control position.
+        locale
+            Locale code or a :class:`LocaleConfig`.
+        label_collide
+            Page-wide default for the per-layer "avoid overlap" setting: when
+            enabled, a layer's own labels thin themselves out where they
+            overlap. Labels from *different* layers never avoid each other — the
+            layers are stacked, so an upper layer simply covers the lower one's.
+            The style panel overrides this per layer.
+        """
         super().__init__(position=position, locale=locale)
+        self.label_collide = label_collide
         self._template = self._get_template()
 
     def _extra_config(self) -> dict:
@@ -128,4 +145,4 @@ class LayerControl(BaseControl):
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: cast(bool, d["isBase"]))
-        return {"data": data}
+        return {"data": data, "label_collide": self.label_collide}

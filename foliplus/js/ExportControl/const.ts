@@ -62,20 +62,16 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 /** DOM selectors used during render. */
 const SEL = {
   /**
-   * Canvas overlays that paint map content and so belong in the exported image,
-   * reached through the per-layer pane walk (`getLayerPanes`). **A new canvas
-   * overlay must be added here or to {@link SEL.ANNOTATION_CANVAS}** —
+   * Canvas overlays that paint map content and so belong in the exported image
+   * — the heatmap's hexes and LayerControl's annotation labels. Both live in a
+   * pane the per-layer walk visits (each layer's label canvas mounts in that
+   * layer's own pane). **A new canvas overlay must be added here** —
    * `collectLayerMarkers` deliberately skips CANVAS elements (a dedicated pass
-   * owns them), so a canvas that is in neither list vanishes from the export
-   * without any error.
+   * owns them), so a canvas that is not listed vanishes from the export without
+   * any error.
    */
-  CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
-  /**
-   * LayerControl's annotation labels: one canvas carries every layer's labels
-   * in a pane of its own, so the per-layer walk never reaches it and it needs
-   * its own pass.
-   */
-  ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
+  CANVAS:
+    ".leaflet-map-pane canvas.foliplus-heatmap-canvas, .leaflet-map-pane canvas.foliplus-annotation-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
