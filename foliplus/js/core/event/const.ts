@@ -89,7 +89,7 @@ const EVENT_REGISTRY: Record<string, EventMeta> = {
   [EVENTS.LAYER_STYLE_CHANGE]: {
     description:
       "A layer's style value changed — subscribers pull fresh values from styleProvider",
-    publisher: "Component managers (Heatmap / Measure)",
+    publisher: "Component managers",
     subscribers: [COMPONENTS.LayerControl],
     payload: "{ id: string }",
   },
