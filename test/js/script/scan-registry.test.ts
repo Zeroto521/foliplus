@@ -135,6 +135,29 @@ describe("scanImports", () => {
     expect(result).toEqual({});
   });
 
+  it("resolves a top-level core barrel to the bare `core` key", () => {
+    // The scanner maps a specifier onto a key with no domain awareness:
+    // `#core/index.js` and `#core/geo/index.js` both strip the trailing
+    // `/index.js`, so they come out as `core` and `core/geo`. The guard that
+    // turns the bare `core` key into nothing lives in `generateRegistry`, not
+    // here — if that layer ever lost its `index.ts` exclusion, `core` would be
+    // published as a registry module. Locking the shape keeps that failure
+    // visible at the scanner level instead of only at the registry.
+    const dir = mkDir("test", {
+      "core/geo/index.ts": `export const fromWgs84 = () => {};`,
+      "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
+      "MyComponent/index.ts": `
+        import { fromWgs84 } from "#core/geo/index.js";
+        import { fromWgs84 as again } from "#core/index.js";
+      `,
+    });
+    const result = scanImports(dir);
+    expect(result).toEqual({
+      core: ["fromWgs84"],
+      "core/geo": ["fromWgs84"],
+    });
+  });
+
   it("ignores .d.ts files", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { dom } from "#common/dom.js";`,

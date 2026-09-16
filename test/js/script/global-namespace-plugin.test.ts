@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -10,6 +10,43 @@ import {
 
 // Via vitest's cwd — the convention build.test.ts uses too.
 const JS_DIR = resolve(process.cwd(), "foliplus/js");
+
+// Specifier → path, for the two shared-library aliases only.
+const ALIASES = new Map([
+  ["#core/", resolve(JS_DIR, "core")],
+  ["#common/", resolve(JS_DIR, "common")],
+]);
+
+// Every `from "…"` specifier across the production sources. A directory
+// barrel (`#core/index.js`, `#common/index.js`) is only an entry point when
+// the bundler points at it; nothing bundles them, so an import of one
+// resolves to a namespace nobody publishes.
+const aliasedSpecifiers = (): Map<string, string[]> => {
+  const seen = new Map<string, string[]>();
+  for (const dir of [...ALIASES.values()]) {
+    const stack = [dir];
+    while (stack.length) {
+      const cur = stack.pop();
+      for (const entry of readdirSync(cur, { withFileTypes: true })) {
+        const full = join(cur, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(full);
+          continue;
+        }
+        if (!entry.name.endsWith(".ts")) continue;
+        for (const match of readFileSync(full, "utf-8").matchAll(
+          /from\s+["']([^"']+)["']/g,
+        )) {
+          const spec = match[1];
+          if (spec.startsWith("#core/") || spec.startsWith("#common/")) {
+            seen.set(spec, [...(seen.get(spec) ?? []), full]);
+          }
+        }
+      }
+    }
+  }
+  return seen;
+};
 
 describe("sharedGlobalNamespace", () => {
   it("maps #core/layer/* to foliplus.core.layer", () => {
@@ -63,6 +100,18 @@ describe("sharedGlobalNamespace", () => {
         `${spec} → ${ns}`,
       ).toBe(true);
     }
+  });
+  it("is never called for a bare core or common domain barrel", () => {
+    // No production source imports `#core/index.js` or `#common/index.js`.
+    // This is the import side of the deletion: `core/index.ts` was a barrel
+    // nothing imported, so this handler never ran for it, and the explicit
+    // `#core/index.js` mapping above only served an import nobody wrote.
+    // The four subdomain barrels (geo, geocode, layer, event) are the
+    // intended shape — each one resolves to `foliplus.core.<sub>`.
+    const imports = [...aliasedSpecifiers().entries()].filter(
+      ([spec]) => /\/index\.js$/.test(spec) && /#(core|common)\/index\.js$/.test(spec),
+    );
+    expect(imports).toEqual([]);
   });
 });
 
