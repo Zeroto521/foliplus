@@ -17,7 +17,7 @@ import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { isKeyboardVisibleFocus, isInFloatingPanel, owningRow } from "./context.js";
+import { isInFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,

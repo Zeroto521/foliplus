@@ -1170,9 +1170,7 @@ describe("LayerUI focus", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(
-        `.${CONST.CLASSES.ATTRS_PANEL}`,
-      ) as HTMLElement;
+      const panel = item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`) as HTMLElement;
       expect(panel).not.toBeNull();
       ui.handleDblClick({ target: panel, bubbles: true } as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();

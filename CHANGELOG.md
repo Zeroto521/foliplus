@@ -89,7 +89,6 @@
 - `build`: a missing bundled JS/CSS artifact now raises `MissingAssetsError` instead of rendering with an empty bundle — `make build-python` gates `uv build` on `npm run build:verify`, which reads the same `dist/artifacts.json` the build wrote, and CI renders every control against an isolated copy of the built wheel ([#300](https://github.com/Zeroto521/foliplus/pull/300))
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
-- `LayerControl`: double-clicking a control inside the style / attributes floating panel (e.g. the label switch's slider span) no longer triggers focus-layer zoom — the container `dblclick` handler now ignores presses inside those panels, matching the click handler ([#346](https://github.com/Zeroto521/foliplus/pull/346))
 
 ## [v0.3.0] (2026-08-02)
 
