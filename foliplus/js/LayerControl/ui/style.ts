@@ -400,18 +400,18 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   content.append(
     dom.el(
       "div",
-      { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label")),
       dom.el(
         "div",
-        { class: "foliplus-form-control" },
+        { class: CONST.CLASSES.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
         // label should all flip the checkbox — the switch is one <label>.
         dom.el(
           "label",
-          { class: "foliplus-toggle-switch" },
+          { class: CONST.CLASSES.TOGGLE_SWITCH },
           showToggle,
-          dom.el("span", { class: "foliplus-toggle-slider" }),
+          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
         ),
       ),
     ),
@@ -479,7 +479,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT) &&
         setters.labelShow
       ) {
-        const body = panel.querySelector(".foliplus-style-body") as HTMLElement | null;
+        const body = panel.querySelector(
+          `.${CONST.CLASSES.STYLE_BODY}`,
+        ) as HTMLElement | null;
         if (body) body.classList.toggle("foliplus-hidden", !t.checked);
         setters.labelShow(t.checked);
       } else if (
@@ -508,7 +510,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Reveal / collapse the body under the toggle. No field is written here:
       // leaving it at the auto sentinel is what makes the picker read "Auto" and
       // what lets the layer keep labelling itself if its columns change.
-      const body = panel.querySelector(".foliplus-style-body") as HTMLElement | null;
+      const body = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_BODY}`,
+      ) as HTMLElement | null;
       if (body) body.classList.toggle("foliplus-hidden", !show);
       const fieldSel = panel.querySelector(
         ".foliplus-style-field-select",
