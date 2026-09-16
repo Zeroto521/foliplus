@@ -723,14 +723,7 @@ describe("LayerManager", () => {
     ]);
     const li = m2.layers[0];
     expect(li).toMatchObject({ id: "a", name: "A", visible: true, isBase: false });
-    for (const key of [
-      "paneName",
-      "iconSvg",
-      "type",
-      "canvas",
-      "onToggle",
-      "onZIndex",
-    ]) {
+    for (const key of ["paneName", "iconSvg", "type", "canvas", "onToggle"]) {
       expect(key in li).toBe(true);
     }
   });
@@ -809,11 +802,24 @@ describe("LayerManager", () => {
   it("createCanvas delegates to the factory", () => {
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
-    const api = manager.createCanvas({ id: "canvas1" });
-    expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
-    expect(typeof api.register).toBe("function");
-    expect(typeof api.bringToFront).toBe("function");
-    api.destroy();
+    // The shared mock's getPane always returns a fresh element; force the
+    // canvas-pane name to miss so ensurePane takes the createPane path.
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name.startsWith("foliplus-canvas-") ? null : realGetPane(name),
+    );
+    try {
+      const api = manager.createCanvas({ id: "canvas1" });
+      expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
+      expect(typeof api.register).toBe("function");
+      expect(typeof api.bringToFront).toBe("function");
+      expect(api.canvas.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
+        true,
+      );
+      api.destroy();
+    } finally {
+      map.getPane = realGetPane;
+    }
   });
 
   it("registerLayer appends a base layer when no base exists yet", () => {
@@ -966,6 +972,18 @@ describe("LayerManager", () => {
     );
   });
 
+  it("registerLayer with a canvas skips the SVG renderer for its pane", () => {
+    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    const paneName = "foliplus-canvas-heat_no_svg";
+    manager.registerLayer({
+      id: "heat_no_svg",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      paneName,
+    });
+    expect(window.L.svg).not.toHaveBeenCalled();
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get
     // paneSet written so enforceOrder does not fall back to a generated pane.
@@ -988,6 +1006,35 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
     manager.enforceOrder();
     expect(tile.setZIndex).toHaveBeenCalled();
+  });
+
+  it("enforceOrder z-orders a canvas layer's dedicated pane (no Leaflet layer)", () => {
+    const paneName = "foliplus-canvas-heat1";
+    const canvasPane = document.createElement("div");
+    canvasPane.classList.add("foliplus-layer-pane");
+    const realGetPane = map.getPane;
+    const realCreatePane = map.createPane;
+    map.getPane = vi.fn((name: string) =>
+      name === paneName ? canvasPane : realGetPane(name),
+    );
+    map.createPane = vi.fn((name: string) =>
+      name === paneName ? canvasPane : realCreatePane(name),
+    );
+
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      paneName,
+    });
+    manager.enforceOrder();
+
+    // Overlays are prepended, so heat1 lands at index 0 of
+    // [heat1, overlay1, base1].
+    const expected = manager.computeZIndex(0, false);
+    expect(canvasPane.style.zIndex).toBe(String(expected));
+    map.getPane = realGetPane;
+    map.createPane = realCreatePane;
   });
 
   it("extractPoints collects markers with features", () => {

@@ -67,16 +67,17 @@ const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 /** DOM selectors used during render. */
 const SEL = {
   /**
-   * Canvas overlays inside a layer's own content panes. The heatmap's hex
-   * canvas is registered as a layer's canvas (rendered by
-   * `renderCanvasElement`, not this selector); this one exists for canvas
-   * elements a third-party layer mounts directly in its pane.
+   * Canvas overlays inside a layer's own content panes. Registered canvas
+   * layers (HeatmapControl via `createCanvas`) are rendered by
+   * `renderCanvasElement` from `li.canvas`, not this selector; this one
+   * exists for canvas elements a third-party layer mounts directly in its
+   * pane. Keep it generic — the pane walk already scopes the search.
    * **A new canvas overlay must be added here or to
    * {@link SEL.ANNOTATION_CANVAS}** — `collectLayerMarkers` deliberately skips
    * CANVAS elements (a dedicated pass owns them), so a canvas that is in
    * neither list vanishes from the export without any error.
    */
-  CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+  CANVAS: "canvas",
   /**
    * LayerControl's annotation labels: each layer's labels draw on a canvas in
    * that layer's *own* annotation pane, which the manager creates with

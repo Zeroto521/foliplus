@@ -100,6 +100,10 @@ _JS_USED_KEYS = {
     "HeatmapControl.clear",
     "HeatmapControl.no_layer",
     "HeatmapControl.no_layercontrol",
+    "HeatmapControl.meta_source_layer",
+    "HeatmapControl.meta_agg_field",
+    "HeatmapControl.meta_source_layer",
+    "HeatmapControl.meta_agg_field",
     # LayerControl
     "LayerControl.toggle_title",
     "LayerControl.panel_title",

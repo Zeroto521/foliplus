@@ -32,8 +32,10 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 
 /** Build a real HeatmapManager with all external deps stubbed out. */
 function makeManager() {
-  window.CONF = {
-    ...window.CONF,
+  // Mutate in place — module-level `T = createScopedTranslator(CONF)` captured
+  // the setup-time object; replacing window.CONF would strand that reference
+  // on SearchControl and meta keys would resolve to the wrong prefix.
+  Object.assign(window.CONF, {
     name: "HeatmapControl",
     color_scheme: "Reds",
     method: "jenks",
@@ -46,7 +48,7 @@ function makeManager() {
     border_opacity: 0.9,
     label_show: true,
     label_format: "auto",
-  };
+  });
 
   globalThis.h3 = {
     latLngToCell: vi.fn(() => "abc123"),
@@ -75,6 +77,7 @@ function makeManager() {
     LayerAPI: {
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
+      touchLayer: vi.fn(() => true),
       createCanvas: vi.fn(() => ({
         register: vi.fn(),
         unregister: vi.fn(),

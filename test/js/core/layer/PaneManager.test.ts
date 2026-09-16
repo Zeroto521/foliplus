@@ -160,6 +160,18 @@ describe("PaneManager", () => {
     expect(result.renderer).toBeDefined();
   });
 
+  it("ensurePane skips the SVG renderer when needRenderer is false (canvas panes)", () => {
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const result = pm.ensurePane("foliplus-canvas-heat", false);
+    expect(window.L.svg).not.toHaveBeenCalled();
+    expect(result.renderer).toBeNull();
+  });
+
   it("ensurePane reuses an existing renderer", () => {
     const pane = document.createElement("div");
     const renderer = { addTo: vi.fn() };
@@ -467,6 +479,53 @@ describe("PaneManager", () => {
     expect(map._panes["foliplus-pane-1"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
     expect(pm.fallbackPaneMap.size).toBe(0);
+  });
+
+  // ── removePane (createCanvas.destroy / private panes) ──
+
+  it("removePane detaches the pane and clears both renderer registries", () => {
+    const pane = document.createElement("div");
+    document.body.appendChild(pane);
+    const renderer = { id: "r" };
+    const map = makeMap(
+      { "foliplus-canvas-heat": pane },
+      {
+        renderer: { "foliplus-canvas-heat": renderer },
+        leafletRenderer: { "foliplus-canvas-heat": renderer },
+      },
+    );
+    const pm = new PaneManager(map);
+    pm.registerSubPanes(["foliplus-canvas-heat"]);
+    pm.removePane("foliplus-canvas-heat");
+    expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+    expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
+    expect(map[`${CONST.RENDERER_KEY}foliplus-canvas-heat`]).toBeUndefined();
+    expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
+    expect(pane.parentNode).toBeNull();
+    expect(pm.childPanes.has("foliplus-canvas-heat")).toBe(false);
+  });
+
+  it("removePane is a no-op for an unknown pane name", () => {
+    const map = makeMap({}, { leafletRenderer: {} });
+    const pm = new PaneManager(map);
+    expect(() => pm.removePane("never-created")).not.toThrow();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("removePane leaves sibling panes alone", () => {
+    const heat = document.createElement("div");
+    const other = document.createElement("div");
+    document.body.appendChild(heat);
+    document.body.appendChild(other);
+    const map = makeMap(
+      { "foliplus-canvas-heat": heat, "foliplus-canvas-other": other },
+      { leafletRenderer: {} },
+    );
+    const pm = new PaneManager(map);
+    pm.removePane("foliplus-canvas-heat");
+    expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
+    expect(map._panes["foliplus-canvas-other"]).toBe(other);
+    expect(other.parentNode).not.toBeNull();
   });
 
   it("destroy clears the records but leaves the map DOM alone", () => {
