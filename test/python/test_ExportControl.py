@@ -873,9 +873,10 @@ class TestExportControlBrowser:
 
     def test_export_with_annotation_labels(self, browser, tmp_path):
         """Export with LayerControl annotation labels keeps them drawn, no errors."""
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_annotation"
-        ) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, slug="export_annotation") as (
+            page,
+            errors,
+        ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 

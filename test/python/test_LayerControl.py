@@ -1261,9 +1261,7 @@ class TestLayerControlBrowser:
             assert result["shown"] > 0, result
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_each_layer_own_pane_ordered_by_layer(
-        self, browser, tmp_path
-    ):
+    def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
         """Each labelled layer gets its own canvas pane, z-ordered with its layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
