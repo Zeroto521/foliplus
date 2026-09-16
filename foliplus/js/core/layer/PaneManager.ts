@@ -87,6 +87,23 @@ class PaneManager {
     return { pane, renderer };
   }
 
+  /** Remove a custom pane from the DOM and Leaflet's registry so `getPane`
+   *  stops returning a detached node. Used by createCanvas.destroy and any
+   *  component that owns a private pane (annotation labels). */
+  removePane(paneName: string) {
+    const key = CONST.RENDERER_KEY + paneName;
+    const renderer = (this.map as L.Map & PaneRendererMap)[key];
+    if (renderer) {
+      if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
+      delete (this.map as L.Map & PaneRendererMap)[key];
+    }
+    delete this.map._paneRenderers?.[paneName];
+    this.map.getPane(paneName)?.remove();
+    if (this.map._panes) delete this.map._panes[paneName];
+    this.childPanes.delete(paneName);
+    this.paneCache.clear();
+  }
+
   /** Reclaim the fallback pane that `unregisterLayer` just released.
    *  Must run after the layer is off the map, so nothing still renders into
    *  the pane. The caller supplies the stamp, since `fallbackPaneMap` is

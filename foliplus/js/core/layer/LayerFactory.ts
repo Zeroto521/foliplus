@@ -5,6 +5,7 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
+import { CANVAS_PANE_PREFIX } from "./const.js";
 import type { RegisterLayerOpts } from "./type.js";
 import type {
   CreateCanvasAPI,
@@ -278,21 +279,19 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    const {
-      map,
-      panes: _panes,
-      registerLayer,
-      unregisterLayer,
-      bringLayerToFront,
-    } = this.deps;
+    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
     if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
 
-    const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane) throw new Error(log.msg("mapPane not available"));
+    // Dedicated Leaflet pane: z-order, focus hide, and export all treat the
+    // canvas like any other layer pane. No SVG renderer — the canvas paints.
+    const paneName = `${CANVAS_PANE_PREFIX}${opts.id}`;
+    const { pane } = panes.ensurePane(paneName, false);
 
+    // Generic class so any createCanvas consumer shares overlay CSS; component
+    // identity (HeatmapControl) rides on opts.className.
     const canvas = dom.el("canvas", {
-      class: "foliplus-heatmap-canvas",
-      parent: mapPane,
+      class: "foliplus-canvas-layer",
+      parent: pane,
     }) as HTMLCanvasElement;
     if (opts.className) canvas.classList.add(opts.className);
 
@@ -330,12 +329,6 @@ class LayerFactory {
         canvas.classList.toggle(HIDDEN, !visible);
       });
 
-    const onZIndex =
-      opts.onZIndex ||
-      ((z: number) => {
-        canvas.style.zIndex = String(z);
-      });
-
     const unregister = () => {
       if (!registered) return;
       registered = false;
@@ -350,8 +343,8 @@ class LayerFactory {
       name: opts.name || opts.id,
       iconSvg: opts.iconSvg || null,
       canvas,
+      paneName,
       onToggle,
-      onZIndex,
       featureCountProvider: opts.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? null,
     };
@@ -385,10 +378,11 @@ class LayerFactory {
         onMove.cancel();
         unregister();
         canvas.remove();
+        panes.removePane(paneName);
       },
       bringToFront: () => bringLayerToFront(opts.id),
       setZIndex: (z: number) => {
-        canvas.style.zIndex = String(z);
+        pane.style.zIndex = String(z);
       },
       setVisible: (v: boolean) => {
         canvas.classList.toggle(HIDDEN, !v);

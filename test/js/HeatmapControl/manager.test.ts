@@ -404,6 +404,12 @@ describe("HeatmapManager — layer visibility vs zoom", () => {
   const onToggleOf = (m: HeatmapManager): ((visible: boolean) => void) =>
     window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0].onToggle;
 
+  it("passes the heatmap className into createCanvas", () => {
+    makeManager();
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
+    expect(opts.className).toBe("foliplus-heatmap-canvas");
+  });
+
   const zoomendHandlers = (m: HeatmapManager): Array<() => void> =>
     m.map.on.mock.calls
       .filter(([evt]: [string]) => evt === "zoomend")

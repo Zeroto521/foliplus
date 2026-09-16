@@ -109,7 +109,13 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   ui.m.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow —one O(panes) pass, not a per-leaf-element loop.
-  bringFocusedLayerToFront(ui, layerId, layer, layerInfo.canvas ?? null);
+  bringFocusedLayerToFront(
+    ui,
+    layerId,
+    layer,
+    layerInfo.paneName ?? null,
+    layerInfo.canvas ?? null,
+  );
 
   // Register LayerControl's own mode for the duration of the focus, BEFORE
   // the fitBounds/flyTo branching. Both paths draw a focus overlay and
@@ -228,8 +234,9 @@ const dismissFocus = (ui: LayerUI): void => {
  * Declarative: one class write on the map container. CSS
  * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
  * hides every layer pane except the focused one —instead of a JS
- * visibility loop over N panes. `bringFocusedLayerToFront` marks the
- * focused pane(s)/canvas with `foliplus-focus-pane` so they stay visible.
+ * visibility loop over N panes. Canvas layers (heatmap) live in their own
+ * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
+ * marks the focused pane with `foliplus-focus-pane` so it stays visible.
  */
 const hideOtherLayers = (ui: LayerUI): void => {
   ui.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
@@ -238,8 +245,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
 /**
  * Temporarily lift the focused layer's pane above every other layer so the
  * hidden layers stacked above it cannot cover it —a layer at the bottom
- * of the z-order stays hidden even with the boost glow. Canvas layers
- * (heatmap) have no pane; their canvas element's z-index is lifted instead.
+ * of the z-order stays hidden even with the boost glow.
  *
  * This is the single O(panes) pass that also applies the focused-layer glow
  * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
@@ -251,6 +257,7 @@ const bringFocusedLayerToFront = (
   ui: LayerUI,
   layerId: string,
   layer: L.Layer | null,
+  paneName: string | null,
   canvas: HTMLCanvasElement | null,
 ): void => {
   const restores: Array<() => void> = [];
@@ -289,9 +296,11 @@ const bringFocusedLayerToFront = (
   liftZ("tooltipPane", focusedZ + 3);
   liftZ("popupPane", focusedZ + 4);
 
-  if (canvas) {
-    lift(canvas);
-  } else if (layer) {
+  // Priority: a real Leaflet layer uses pane discovery (covers sub-panes and
+  // fallbacks). Canvas-only layers own a dedicated pane (createCanvas) — lift
+  // that, not the raw canvas element, so focus-hide CSS and glow attach to the
+  // pane like every other layer. Fall back to the canvas if the pane is missing.
+  if (layer) {
     // Best-effort: some third-party layers expose children without a pane
     // (getLayerPanes walks options.pane), so skip the lift if discovery
     // throws —the hide + glow still work without it.
@@ -309,6 +318,15 @@ const bringFocusedLayerToFront = (
       const pane = ui.m.map.getPane(name);
       if (pane) lift(pane);
     }
+  } else if (paneName) {
+    const canvasPane = ui.m.map.getPane(paneName);
+    if (canvasPane) {
+      lift(canvasPane);
+    } else if (canvas) {
+      lift(canvas);
+    }
+  } else if (canvas) {
+    lift(canvas);
   }
   ui.focusedPaneRestores = restores;
 };

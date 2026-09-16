@@ -14,15 +14,23 @@ describe("export canvas whitelists", () => {
     // layer's content panes, unreachable from the per-layer walk.
     const mapPane = document.createElement("div");
     mapPane.className = "leaflet-map-pane";
-    const heat = document.createElement("canvas");
-    heat.className = "foliplus-heatmap-canvas";
+    const layerPane = document.createElement("div");
+    layerPane.className = "foliplus-layer-pane";
+    const thirdParty = document.createElement("canvas");
+    thirdParty.className = "vendor-overlay";
+    const annotationPane = document.createElement("div");
+    annotationPane.className = "foliplus-annotation-pane";
     const annotation = document.createElement("canvas");
     annotation.className = "foliplus-annotation-canvas";
-    const unrelated = document.createElement("canvas");
-    mapPane.append(heat, annotation, unrelated);
+    layerPane.append(thirdParty);
+    annotationPane.append(annotation);
+    mapPane.append(layerPane, annotationPane);
     document.body.appendChild(mapPane);
 
-    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([heat]);
+    // Pane walk: any canvas a third-party layer mounts in its own pane.
+    expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
+      thirdParty,
+    ]);
     expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
       annotation,
     ]);

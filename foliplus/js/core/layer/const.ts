@@ -18,6 +18,11 @@ const RENDERER_KEY = "foliplus_renderer_";
 
 const FALLBACK_PANE_PREFIX = "foliplus_pane_";
 
+/** Pane name prefix for `createCanvas` overlays (HeatmapControl).
+ *  The canvas mounts in its own Leaflet pane so z-order, focus hide, and
+ *  export walk the same pane model as every other layer. */
+const CANVAS_PANE_PREFIX = "foliplus-canvas-";
+
 /** Geometry type names (used by layer traversal / type detection). */
 const GEOM_TYPE = {
   POINT: "point",
@@ -29,6 +34,7 @@ const GEOM_TYPE = {
 };
 
 export {
+  CANVAS_PANE_PREFIX,
   CHILD_PANE_STEP,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
