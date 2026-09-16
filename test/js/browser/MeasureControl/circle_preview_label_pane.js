@@ -57,7 +57,7 @@
   ).map(p => {
     const cls = p.className;
     return {
-      name: cls.match(/measure_(graph|label)-pane/)?.[1] || null,
+      name: cls.match(/foliplus-measure-(graph|label)-pane/)?.[1] || null,
       z: getComputedStyle(p).zIndex,
     };
   });
