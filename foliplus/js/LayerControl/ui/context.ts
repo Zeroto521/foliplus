@@ -24,6 +24,22 @@ const owningRow = (el: EventTarget | null): HTMLElement | null => {
   return (el as Element).closest(CONST.SEL.ROW) as HTMLElement | null;
 };
 
+/** Is the event target inside a floating row panel (style / attributes)?
+ *
+ *  Those panels are *children* of the layer row, so container-level click and
+ *  dblclick handlers must ignore them: their chrome (toggle slider spans,
+ *  labels, selects) is not an `input`/`button`, and stealing the press would
+ *  both steal DOM focus from panel controls and — on a quick double flip of
+ *  the label switch — fall through to focusLayer. */
+const isInFloatingPanel = (el: EventTarget | null): boolean => {
+  if (!el || typeof (el as Element).closest !== "function") return false;
+  return Boolean(
+    (el as Element).closest(
+      `.${CONST.CLASSES.STYLE_PANEL}, .${CONST.CLASSES.ATTRS_PANEL}`,
+    ),
+  );
+};
+
 /**
  * Push one persisted rename out to whatever projections of it exist.
  *
@@ -44,4 +60,10 @@ const applyNameProjection = (
  *  10px type and is rendered below its label on the full panel width. */
 const ATTRS_ROW_WRAP_CHARS = 32;
 
-export { ATTRS_ROW_WRAP_CHARS, applyNameProjection, isKeyboardVisibleFocus, owningRow };
+export {
+  ATTRS_ROW_WRAP_CHARS,
+  applyNameProjection,
+  isKeyboardVisibleFocus,
+  isInFloatingPanel,
+  owningRow,
+};
