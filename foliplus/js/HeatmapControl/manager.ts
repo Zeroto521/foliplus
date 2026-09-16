@@ -210,6 +210,7 @@ class HeatmapManager {
         field: this.currentField.startsWith("properties.")
           ? this.currentField.slice("properties.".length)
           : this.currentField,
+        fieldAuto: this.fieldAuto,
       }),
       styleSetters: {
         labelShow: v => {

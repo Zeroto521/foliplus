@@ -952,9 +952,9 @@ describe("LayerUI style panel", () => {
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: true, field: "properties.count" }),
+      styleProvider: () => ({ labelShow: true, field: "count", fieldAuto: false }),
       styleSetters: { labelShow: vi.fn(), field: vi.fn() },
-      fieldOptions: () => ["properties.count", "properties.sum"],
+      fieldOptions: () => ["count", "sum"],
     });
     const item = findItem(ui, "heat1");
 
@@ -963,8 +963,9 @@ describe("LayerUI style panel", () => {
     const fieldSelect = panelOf(item)!.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
-    expect(fieldSelect.options.length).toBe(2);
-    expect(fieldSelect.value).toBe("properties.count");
+    // Auto placeholder + 2 real options.
+    expect(fieldSelect.options.length).toBe(3);
+    expect(fieldSelect.value).toBe("count");
   });
 
   it("delegated change dispatches to styleSetters", () => {

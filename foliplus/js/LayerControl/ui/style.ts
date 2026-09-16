@@ -145,6 +145,14 @@ const renderDelegatedStylePanel = (
         class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
         "aria-label": ui.T("style_label_field"),
       },
+      // Always show the Auto entry as a disabled placeholder — same pattern as
+      // the annotation panel and the heatmap's own field select. Selecting a
+      // real field calls the setter, which clears fieldAuto.
+      dom.el(
+        "option",
+        { value: AUTO_FIELD, disabled: true },
+        ui.T("style_label_field_auto"),
+      ),
       ...options.map(o =>
         dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
       ),
@@ -223,7 +231,7 @@ const renderDelegatedStylePanel = (
   // Body: field + avoid-overlap, collapsed when the label toggle is off —
   // same "switch off → hide body" rule the annotation panel uses.
   if (bodyRows.length) {
-    const body = dom.el("div", { class: "foliplus-style-body" }, ...bodyRows);
+    const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...bodyRows);
     body.classList.toggle("foliplus-hidden", !showChecked);
     rows.push(body);
   }
@@ -337,9 +345,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // number — comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
-    { class: "foliplus-form-row foliplus-style-format-row" },
-    dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_format")),
-    dom.el("div", { class: "foliplus-form-control" }, formatSelect),
+    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_format")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
   );
   syncFormatRow(
     fields,
@@ -353,26 +361,26 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // the heatmap's rule: open the gate, the first thing shows up).
   const body = dom.el(
     "div",
-    { class: "foliplus-style-body" },
+    { class: CONST.CLASSES.STYLE_BODY },
     dom.el(
       "div",
-      { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_field")),
-      dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
+      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
     formatRow,
     dom.el(
       "div",
-      { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_collide")),
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_collide")),
       dom.el(
         "div",
-        { class: "foliplus-form-control" },
+        { class: CONST.CLASSES.FORM_CONTROL },
         dom.el(
           "label",
-          { class: "foliplus-toggle-switch" },
+          { class: CONST.CLASSES.TOGGLE_SWITCH },
           collideToggle,
-          dom.el("span", { class: "foliplus-toggle-slider" }),
+          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
         ),
       ),
     ),

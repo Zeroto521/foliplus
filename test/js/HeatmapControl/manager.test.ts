@@ -1320,15 +1320,21 @@ describe("HeatmapManager — style delegation", () => {
   it("styleProvider returns the live labelShow and field values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: true,
+      field: "",
+      fieldAuto: true,
+    });
 
     m.currentLabelShow = false;
     m.currentField = "properties.count";
+    m.fieldAuto = false;
     // The provider strips the "properties." prefix for display consistency
     // with the annotation panel.
     expect(opts.styleProvider!()).toEqual({
       labelShow: false,
       field: "count",
+      fieldAuto: false,
     });
   });
 
