@@ -67,7 +67,6 @@ const sharedGlobalNamespace = spec => {
   // and fails on any entry that does not parse.
   if (spec === "#core/hint.js") return "foliplus.hint";
   if (spec === "#core/component.js") return "foliplus.core.component";
-  if (spec === "#core/index.js") return "foliplus.core.index";
   if (spec === "#core/interaction.js") return "foliplus.core.interaction";
   if (spec === "#core/labelCollision.js") return "foliplus.core.labelCollision";
   if (spec === "#core/labelField.js") return "foliplus.core.labelField";

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -135,6 +135,29 @@ describe("scanImports", () => {
     expect(result).toEqual({});
   });
 
+  it("resolves a top-level core barrel to the bare `core` key", () => {
+    // The scanner maps a specifier onto a key with no domain awareness:
+    // `#core/index.js` and `#core/geo/index.js` both strip the trailing
+    // `/index.js`, so they come out as `core` and `core/geo`. The guard that
+    // turns the bare `core` key into nothing lives in `generateRegistry`, not
+    // here — if that layer ever lost its `index.ts` exclusion, `core` would be
+    // published as a registry module. Locking the shape keeps that failure
+    // visible at the scanner level instead of only at the registry.
+    const dir = mkDir("test", {
+      "core/geo/index.ts": `export const fromWgs84 = () => {};`,
+      "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
+      "MyComponent/index.ts": `
+        import { fromWgs84 } from "#core/geo/index.js";
+        import { fromWgs84 as again } from "#core/index.js";
+      `,
+    });
+    const result = scanImports(dir);
+    expect(result).toEqual({
+      core: ["fromWgs84"],
+      "core/geo": ["fromWgs84"],
+    });
+  });
+
   it("ignores .d.ts files", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { dom } from "#common/dom.js";`,
@@ -214,6 +237,28 @@ describe("generateRegistry", () => {
     expect(output).not.toContain("core/component");
   });
 
+  it("never registers a bare domain barrel (core/index.ts)", () => {
+    // coreSubs and coreSingleFiles both exclude index.ts, so the registry can
+    // only ever expose core/<sub> or core/<file>. A `core/index` registration
+    // would mean an import resolves to a specifier nobody bundles — a barrel
+    // with no runtime surface.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/geo/index.ts": `export const fromWgs84 = () => {};`,
+      "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `
+        import { fromWgs84 } from "#core/geo/index.js";
+        import { fromWgs84 as again } from "#core/index.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["geo"]');
+    expect(output).not.toContain("core/index");
+    expect(output).not.toContain("#core/index.js");
+  });
+
   it("registers BaseControl", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
@@ -237,5 +282,17 @@ describe("generateRegistry", () => {
     const output = readRegistry(buildDir);
     expect(output).toContain("// AUTO-GENERATED");
     expect(output).toContain("window.foliplus = window.foliplus || {};");
+  });
+
+  it("core carries no domain barrel on disk", () => {
+    // `script/build.mjs` skips `entry.name === "core"` when discovering
+    // components, so `core/index.ts` was never an entry point; a file added
+    // here would be a re-export nobody resolves. The four subdomain barrels are
+    // load-bearing and must stay — they are the intended shape of `core`.
+    const coreDir = resolve(process.cwd(), "foliplus/js", "core");
+    expect(existsSync(join(coreDir, "index.ts"))).toBe(false);
+    for (const sub of ["geo", "geocode", "layer", "event"]) {
+      expect(existsSync(join(coreDir, sub, "index.ts"))).toBe(true);
+    }
   });
 });
