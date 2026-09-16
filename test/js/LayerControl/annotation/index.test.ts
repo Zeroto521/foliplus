@@ -193,26 +193,6 @@ describe("AnnotationManager — render & plan", () => {
     expect(painted(0)).toHaveLength(0);
   });
 
-  it("outranks a layer below it in the panel", () => {
-    const { map } = makeMap();
-    const order = new Map([
-      ["a", 0],
-      ["b", 1],
-    ]);
-    const mgr = new AnnotationManager(
-      map,
-      () => oneLabel(),
-      id => order.get(id) ?? -1,
-    );
-
-    for (const id of ["a", "b"]) {
-      mgr.setConfig(id, CONFIG);
-      mgr.renderLabels(id);
-    }
-
-    expect(painted(0)[0]!.priority).toBeGreaterThan(painted(1)[0]!.priority);
-  });
-
   it("plans only the spotlighted layer while a focus filter is set", () => {
     const { map } = makeMap();
     const mgr = new AnnotationManager(map, () => oneLabel());

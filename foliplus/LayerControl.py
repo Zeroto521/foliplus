@@ -68,6 +68,13 @@ class LayerControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
+    label_collide : bool, default True
+        Page-wide default for the per-layer "avoid overlap" setting: when
+        enabled, a layer's own labels thin themselves out where they overlap.
+        Labels from *different* layers never avoid each other — the layers are
+        stacked, so an upper layer simply covers the lower one's. The style
+        panel overrides this per layer.
+
     Examples
     --------
     >>> import folium
@@ -76,6 +83,8 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
+    _export_fields = ("label_collide",)
+
     def __init__(
         self,
         *,
@@ -83,21 +92,6 @@ class LayerControl(BaseControl):
         locale: str | LocaleConfig | None = None,
         label_collide: bool = True,
     ):
-        """Create the control.
-
-        Parameters
-        ----------
-        position
-            Leaflet control position.
-        locale
-            Locale code or a :class:`LocaleConfig`.
-        label_collide
-            Page-wide default for the per-layer "avoid overlap" setting: when
-            enabled, a layer's own labels thin themselves out where they
-            overlap. Labels from *different* layers never avoid each other — the
-            layers are stacked, so an upper layer simply covers the lower one's.
-            The style panel overrides this per layer.
-        """
         super().__init__(position=position, locale=locale)
         self.label_collide = label_collide
         self._template = self._get_template()
@@ -145,4 +139,4 @@ class LayerControl(BaseControl):
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: cast(bool, d["isBase"]))
-        return {"data": data, "label_collide": self.label_collide}
+        return {"data": data}

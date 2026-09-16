@@ -317,6 +317,15 @@ class ExportRenderer {
       }
     }
 
+    // Annotation panes are siblings of their layer's content panes — the
+    // manager creates each one with map.createPane — so the per-layer walk
+    // above never reaches them. Render them last, matching their z-order
+    // (each rides its layer's place in the stack).
+    const container = this.map.getContainer();
+    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
+      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
+    }
+
     return canvas;
   }
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import folium
 from conftest import (
     _js,
+    assert_config_value,
     assert_locale,
     make_browser_page,
     panel_ready,
@@ -38,6 +39,15 @@ class TestLayerControlPython:
 
     def test_default_locale(self):
         assert LayerControl()._locale_code == ""
+
+    def test_default_label_collide(self):
+        assert LayerControl().label_collide is True
+
+    def test_custom_label_collide(self):
+        assert LayerControl(label_collide=False).label_collide is False
+
+    def test_label_collide_in_export_fields(self):
+        assert "label_collide" in LayerControl._export_fields
 
     def test_custom_locale(self):
         assert LayerControl(locale="zh")._locale_code == "zh"
@@ -142,6 +152,16 @@ class TestLayerControlRendering:
     def test_position_renders(self):
         html = render_control(LayerControl(position="bottomright"))
         assert "bottomright" in html
+
+    def test_label_collide_default_true(self):
+        """label_collide defaults to true and renders as a JS boolean."""
+        html = render_control(LayerControl())
+        assert_config_value(html, "label_collide", True)
+
+    def test_label_collide_false(self):
+        """label_collide=False renders false and disables collision detection."""
+        html = render_control(LayerControl(label_collide=False))
+        assert_config_value(html, "label_collide", False)
 
     def test_multiple_base_layers(self):
         """Multiple base layers are all collected by render()."""
@@ -1241,19 +1261,42 @@ class TestLayerControlBrowser:
             assert result["shown"] > 0, result
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_multi_layer_share_one_canvas_above_layers(
+    def test_annotation_each_layer_own_pane_ordered_by_layer(
         self, browser, tmp_path
     ):
-        """Several labelled layers share one canvas, drawn above every data pane."""
+        """Each labelled layer gets its own canvas pane, z-ordered with its layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
             assert result is not None and result["canvas"] is True, result
-            assert result["canvasCount"] == 1, result
-            assert result["opaque"] > 0, result
-            assert result["layerPaneCount"] >= 2, result
-            # The label pane must clear every data pane it annotates.
-            assert result["annZ"] > result["maxLayerZ"], result
+            # One pane + one canvas per labelled layer — not a shared canvas.
+            assert result["canvasCount"] == 2, result
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] > 0, result
+            # Layer B is above layer A in the panel (createLayers prepends), so
+            # its z is higher.
+            assert result["layerB"] > result["layerA"], result
+            # Each label pane rides one z-step above its own layer, so the
+            # upper layer's labels cover the lower layer's — the stack order.
+            assert result["annB"] == result["layerB"] + 1, result
+            assert result["annA"] == result["layerA"] + 1, result
+            assert result["annB"] > result["annA"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_focus_lifts_label_pane(self, browser, tmp_path):
+        """Focusing a layer raises its label pane and draws only its labels."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_focus_lifts_pane"))
+            assert result is not None and result["row"] is True, result
+            # Focus lifts the focused layer's label pane to focusedZ + 1
+            # (FOCUS.PANE_Z 9000 − FOCUSED_Z_GAP 10 + 1).
+            assert result["after"]["annA"] == 8991, result
+            # The unfocused layer's pane stays where it was.
+            assert result["after"]["annB"] == result["before"]["annB"], result
+            # The focus filter plans the spotlighted layer only.
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] == 0, result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

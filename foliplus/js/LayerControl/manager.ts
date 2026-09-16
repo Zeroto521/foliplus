@@ -141,13 +141,9 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
-    // Position in the panel (0 = topmost) feeds the label priority, so a layer
-    // above wins the collision against one below.
-    this.annotation = new AnnotationManager(
-      this.map,
-      id => this.findLayer(id),
-      id => this.layers.findIndex(l => l.id === id),
-    );
+    // The annotation manager plans each layer's labels on that layer's own
+    // pane; enforceOrder z-orders the panes along with their layers.
+    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();

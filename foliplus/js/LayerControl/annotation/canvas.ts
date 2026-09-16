@@ -3,8 +3,8 @@
 // One canvas per labelled layer, mounted in that layer's own annotation pane
 // (created here, z-ordered by LayerManager.enforceOrder), so labels take their
 // layer's place in the stack: a layer above covers them, and they cover the
-// layers below. Placement stays global — the manager plans every layer's labels
-// in one pass so they avoid each other across layers — and this class only
+// layers below. Placement stays per layer — the manager plans each layer's
+// labels separately, so collision never crosses layers — and this class only
 // paints the slice it is handed.
 import {
   type CanvasLabelStyle,

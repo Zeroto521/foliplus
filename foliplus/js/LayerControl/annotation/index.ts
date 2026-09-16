@@ -4,10 +4,9 @@
 // annotation pane, so they take their layer's place in the stack: a layer above
 // covers them, they cover the layers below.
 //
-// Placement, though, is global: one plan per frame over every visible layer's
-// labels, so labels from different layers still avoid each other (otherwise two
-// layers' labels would stack into a smudge). This manager owns that plan and
-// hands each layer its surviving slice; the canvas only paints.
+// Collision is per layer too, by design: the z-order already expresses "who
+// covers whom", so a cross-layer plan would only make an upper layer's labels
+// vanish under a lower layer's — the layers themselves are the avoidance.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { type Box, withinRect } from "#core/labelCollision.js";
 import {
@@ -51,12 +50,11 @@ interface AnnotationConfig {
   collide: boolean;
 }
 
-/** Label priority from a layer's panel position: a layer above must win the
- *  collision against one below it, so position 0 (topmost) outranks 1, 1
- *  outranks 2, and so on. An unknown position (-1) is neutral — the planner's
- *  own tie-breaks (box width, then insertion order) decide those. */
-const labelPriority = (order: number): number =>
-  order < 0 ? 50 : Math.max(1, 100 - order);
+/** Label priority is uniform within a layer: collision is per layer, so the
+ *  planner's tie-breaks (box width, then insertion order) decide which of two
+ *  overlapping labels in the same layer survives. The field itself stays — it
+ *  is part of the shared planner's candidate contract. */
+const LABEL_PRIORITY = 50;
 
 /**
  * AnnotationManager owns per-layer label state, the shared placement plan and
@@ -66,8 +64,6 @@ const labelPriority = (order: number): number =>
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
-  /** A layer's position in the panel (0 = topmost), for label priority. */
-  private readonly layerOrder: (id: string) => number;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
@@ -81,14 +77,9 @@ class AnnotationManager {
   private readonly scheduleRefresh: (() => void) & { cancel: () => void };
   private readonly unsubscribe: Array<() => void> = [];
 
-  constructor(
-    mapInstance: L.Map,
-    layerFind: (id: string) => L.Layer | null,
-    layerOrder: (id: string) => number = () => -1,
-  ) {
+  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
     this.layerFind = layerFind;
-    this.layerOrder = layerOrder;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -241,10 +232,6 @@ class AnnotationManager {
     const layer = this.layerFind(id);
     if (!layer) return [];
     const locale = CONF.locale_code ?? "en";
-    // One priority per layer, from its panel position: labels of a layer above
-    // outrank one below, so the shared plan keeps the upper label where the two
-    // collide.
-    const priority = labelPriority(this.layerOrder(id));
     const labels: LayerLabel[] = [];
 
     forEachLeaf(layer, (leaf: L.Layer) => {
@@ -261,7 +248,7 @@ class AnnotationManager {
         text,
         latlng: anchor,
         atPoint,
-        priority,
+        priority: LABEL_PRIORITY,
       });
     });
 
