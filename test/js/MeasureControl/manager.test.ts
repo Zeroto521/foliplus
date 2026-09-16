@@ -1005,7 +1005,7 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
   it("edit mode suspends data layers but keeps measurement layers interactive", () => {
     const { manager, map } = makeManager();
     const { leaf: measureLeaf } = makeLeaf(map);
-    measureLeaf.options.pane = "measure_graph";
+    measureLeaf.options.pane = "foliplus-measure-graph";
     const { leaf: dataLeaf } = makeLeaf(map);
     dataLeaf.options.pane = "overlayPane";
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>

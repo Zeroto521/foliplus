@@ -482,7 +482,7 @@ class TestMeasureControlBrowser:
                 f"label pane z wrong (expected graph+2): {state}"
             )
             for phase in ("near", "far"):
-                assert "measure_label-pane" in state[phase]["pane"], (
+                assert "foliplus-measure-label-pane" in state[phase]["pane"], (
                     f"circle preview label is in {state[phase]['pane']} at {phase} radius"
                 )
                 assert int(state[phase]["z"]) == panes["label"], (
@@ -951,7 +951,7 @@ class TestMeasureControlBrowser:
                 const paneName = el => {
                     const pane = el.closest('.leaflet-pane');
                     if (!pane) return null;
-                    const m = pane.className.match(/measure_(\\w+)-pane/);
+                    const m = pane.className.match(/foliplus-measure-(\\w+)-pane/);
                     return m ? m[1] : null;
                 };
                 const dotZ = paneZ(dot);
