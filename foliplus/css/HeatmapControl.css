@@ -229,8 +229,11 @@
   }
 }
 
-/* ── Heatmap Canvas (inside mapPane, offset by -panX/-panY) ── */
-.foliplus-heatmap-canvas {
+/* ── createCanvas overlay (inside its own pane, offset by -panX/-panY) ──
+   Generic class from LayerFactory.createCanvas — any canvas layer shares
+   these overlay styles. HeatmapControl is the current consumer. Annotation
+   labels use AnnotationCanvas + inline styles, not this API. */
+.foliplus-canvas-layer {
   position: absolute;
   top: 0;
   left: 0;

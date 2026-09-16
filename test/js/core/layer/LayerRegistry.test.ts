@@ -43,7 +43,6 @@ describe("LayerRegistry", () => {
       expect(info.iconSvg).toBeNull();
       expect(info.canvas).toBeNull();
       expect(info.onToggle).toBeNull();
-      expect(info.onZIndex).toBeNull();
     });
 
     it("preserves existing values from existingLi", () => {
