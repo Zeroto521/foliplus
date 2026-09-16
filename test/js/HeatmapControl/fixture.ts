@@ -46,6 +46,13 @@ function makeManager() {
     border_opacity: 0.9,
     label_show: true,
     label_format: "auto",
+    // Scoped translator keys used by syncSourceMeta / attrs meta rows.
+    locale_tables: {
+      en: {
+        "HeatmapControl.meta_source_layer": "Source layer",
+        "HeatmapControl.meta_agg_field": "Aggregation field",
+      },
+    },
   };
 
   globalThis.h3 = {
@@ -75,6 +82,7 @@ function makeManager() {
     LayerAPI: {
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
+      touchLayer: vi.fn(() => true),
       createCanvas: vi.fn(() => ({
         register: vi.fn(),
         unregister: vi.fn(),

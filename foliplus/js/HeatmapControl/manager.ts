@@ -116,6 +116,12 @@ class HeatmapManager {
   layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
+   * Mutable metadata published to LayerControl's attributes panel (source
+   * layer name + aggregation field). Created once and handed to createCanvas
+   * so later in-place updates ride the same object the registry holds.
+   */
+  sourceMeta: Record<string, string | number>;
+  /**
    * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
    * manager and read/write sibling fields through that shape, so it is typed
    * here as the partial it actually holds (only `ctrl` at construction) rather
@@ -171,6 +177,7 @@ class HeatmapManager {
     this.currentLabelShow = CONF.label_show ?? false;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
+    this.sourceMeta = {};
     // Create a managed canvas via LayerControl API.
     // Canvas lives in `.leaflet-map-pane` with position offset to cancel
     // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
@@ -181,6 +188,9 @@ class HeatmapManager {
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
+      // Shared with the registry — syncSourceMeta mutates it in place so the
+      // attrs panel always reads the latest source layer / field.
+      meta: this.sourceMeta,
       onToggle: (visible: boolean) => {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
@@ -704,6 +714,38 @@ class HeatmapManager {
     } catch (e) {
       log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
     }
+  }
+
+  /**
+   * Publish the current source layer name + aggregation field into
+   * `sourceMeta` (the object createCanvas registered), so LayerControl's
+   * attributes panel can answer "where did this heatmap come from?".
+   * Empty values are written too — the attrs panel drops blank rows.
+   *
+   * Translator is built from the live CONF rather than the module-level `T`:
+   * meta keys are display labels, and tests/fixtures inject locale tables
+   * onto CONF after this module is first imported.
+   */
+  syncSourceMeta() {
+    const t = createScopedTranslator(CONF);
+    const layerName = this.selectedLayerId
+      ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
+      : "";
+    this.sourceMeta[t("meta_source_layer")] = layerName;
+
+    let fieldLabel = "";
+    if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
+      const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
+      if (key) {
+        fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
+      }
+    }
+    this.sourceMeta[t("meta_agg_field")] = fieldLabel;
+
+    // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
+    // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
+    // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
+    map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Apply a loaded config object to the manager's state. */
