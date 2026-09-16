@@ -92,6 +92,9 @@ interface SavedConfig {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
+  /** Translator bound to the module-level CONF, assigned once in the
+   *  constructor — same shape as MeasureControl / ExportControl managers. */
+  T: (key: string) => string;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -160,6 +163,7 @@ class HeatmapManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
@@ -184,7 +188,7 @@ class HeatmapManager {
     // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: T("title"),
+      name: this.T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
@@ -726,7 +730,7 @@ class HeatmapManager {
     const layerName = this.selectedLayerId
       ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
       : "";
-    this.sourceMeta[T("meta_source_layer")] = layerName;
+    this.sourceMeta[this.T("meta_source_layer")] = layerName;
 
     let fieldLabel = "";
     if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
@@ -735,7 +739,7 @@ class HeatmapManager {
         fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
       }
     }
-    this.sourceMeta[T("meta_agg_field")] = fieldLabel;
+    this.sourceMeta[this.T("meta_agg_field")] = fieldLabel;
 
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
     // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
