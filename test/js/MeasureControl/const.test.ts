@@ -28,7 +28,7 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it covers the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to measure_graph, the label to measure_label —
+    // goes to foliplus-measure-graph, the label to foliplus-measure-label �?
     // the label pane always paints above the graph pane, so pane ordering
     // alone covers the dot without any z-index or anchor trickery. The
     // default [0, -10] anchor sits the chip *above* the point (negative y in
@@ -43,7 +43,7 @@ describe("LABEL anchors", () => {
   it("is distinct from the non-overlapping anchors so a regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values — or to a positive-y "clear the dot via
+    // collapse back to those values �?or to a positive-y "clear the dot via
     // vertical offset" fix, which hides the real (pane-order) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
@@ -81,9 +81,9 @@ describe("ID", () => {
 
 describe("PANES", () => {
   it("defines pane names", () => {
-    expect(CONST.PANES.GRAPH).toBe("measure_graph");
-    expect(CONST.PANES.NODE).toBe("measure_node");
-    expect(CONST.PANES.LABEL).toBe("measure_label");
+    expect(CONST.PANES.GRAPH).toBe("foliplus-measure-graph");
+    expect(CONST.PANES.NODE).toBe("foliplus-measure-node");
+    expect(CONST.PANES.LABEL).toBe("foliplus-measure-label");
   });
 });
 
@@ -95,8 +95,8 @@ describe("LABEL anchors", () => {
   });
 
   it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
-    // The centroid label (measure_label pane) and the center dot
-    // (CircleMarker in measure_graph pane) share a latlng. The label pane's
+    // The centroid label (foliplus-measure-label pane) and the center dot
+    // (CircleMarker in foliplus-measure-graph pane) share a latlng. The label pane's
     // z is graph + 1, so the label always paints above the dot by pane
     // ordering. The [0, -10] anchor lifts the chip above the dot's centered
     // position, so the dot stays visible underneath as the edit-mode drag
@@ -110,7 +110,7 @@ describe("LABEL anchors", () => {
   it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values — or to a positive-y "clear the dot via
+    // collapse back to those values �?or to a positive-y "clear the dot via
     // vertical offset" fix, which hides the real (z-index) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);

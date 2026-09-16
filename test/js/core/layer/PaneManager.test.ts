@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 
-// Mock L.svg — needed by PaneManager.ensurePane
+// Mock L.svg �?needed by PaneManager.ensurePane
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
@@ -79,18 +79,18 @@ describe("PaneManager", () => {
   it("isDefaultPane returns false for custom panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    expect(pm.isDefaultPane("measure_graph")).toBe(false);
-    expect(pm.isDefaultPane("measure_label")).toBe(false);
+    expect(pm.isDefaultPane("foliplus-measure-graph")).toBe(false);
+    expect(pm.isDefaultPane("foliplus-measure-label")).toBe(false);
     expect(pm.isDefaultPane("my-custom-pane")).toBe(false);
   });
 
   it("getLayerPanes returns the layer's custom pane", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    const layer = { options: { pane: "measure_graph" } };
+    const layer = { options: { pane: "foliplus-measure-graph" } };
     // discoverChildPanes walks options.pane on the layer itself
     const panes = pm.getLayerPanes(layer);
-    expect(panes).toContain("measure_graph");
+    expect(panes).toContain("foliplus-measure-graph");
   });
 
   it("getLayerPanes returns fallback pane when registered", () => {
@@ -117,7 +117,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("measure_graph", false);
+    const result = pm.ensurePane("foliplus-measure-graph", false);
     expect(map.createPane).not.toHaveBeenCalled();
     expect(result.pane).toBe(existingPane);
     expect(result.renderer).toBeNull();
@@ -130,14 +130,14 @@ describe("PaneManager", () => {
       createPane: vi.fn(() => newPane),
     };
     const pm = new PaneManager(map);
-    pm.ensurePane("measure_graph", false);
-    expect(map.createPane).toHaveBeenCalledWith("measure_graph");
+    pm.ensurePane("foliplus-measure-graph", false);
+    expect(map.createPane).toHaveBeenCalledWith("foliplus-measure-graph");
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
 
   it("ensurePane sets provisional z-index on first creation only", () => {
     // First creation: graph=BASE, node=BASE+STEP, label=BASE+2*STEP.
-    // Re-entry (pane already exists) must NOT touch z-index — bumpPanes
+    // Re-entry (pane already exists) must NOT touch z-index �?bumpPanes
     // may have already overwritten it with a position-based base.
     const panes: Record<string, HTMLElement> = {};
     const map = {
@@ -148,22 +148,26 @@ describe("PaneManager", () => {
       }),
     };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["measure_graph", "measure_node", "measure_label"]);
+    pm.registerSubPanes([
+      "foliplus-measure-graph",
+      "foliplus-measure-node",
+      "foliplus-measure-label",
+    ]);
 
-    pm.ensurePane("measure_label", false);
-    pm.ensurePane("measure_node", false);
-    pm.ensurePane("measure_graph", false);
+    pm.ensurePane("foliplus-measure-label", false);
+    pm.ensurePane("foliplus-measure-node", false);
+    pm.ensurePane("foliplus-measure-graph", false);
 
     const base = CONST.Z_INDEX.BASE;
     const step = Number(CONST.CHILD_PANE_STEP);
-    expect(panes["measure_graph"]!.style.zIndex).toBe(String(base));
-    expect(panes["measure_node"]!.style.zIndex).toBe(String(base + step));
-    expect(panes["measure_label"]!.style.zIndex).toBe(String(base + 2 * step));
+    expect(panes["foliplus-measure-graph"]!.style.zIndex).toBe(String(base));
+    expect(panes["foliplus-measure-node"]!.style.zIndex).toBe(String(base + step));
+    expect(panes["foliplus-measure-label"]!.style.zIndex).toBe(String(base + 2 * step));
 
     // Simulate bumpPanes overwriting with a higher position-based base.
-    panes["measure_label"]!.style.zIndex = "622";
-    pm.ensurePane("measure_label", false);
-    expect(panes["measure_label"]!.style.zIndex).toBe("622");
+    panes["foliplus-measure-label"]!.style.zIndex = "622";
+    pm.ensurePane("foliplus-measure-label", false);
+    expect(panes["foliplus-measure-label"]!.style.zIndex).toBe("622");
   });
 
   it("ensurePane creates an SVG renderer when needRenderer is true", () => {
@@ -173,8 +177,8 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("measure_graph", true);
-    expect(window.L.svg).toHaveBeenCalledWith({ pane: "measure_graph" });
+    const result = pm.ensurePane("foliplus-measure-graph", true);
+    expect(window.L.svg).toHaveBeenCalledWith({ pane: "foliplus-measure-graph" });
     expect(result.renderer).toBeDefined();
   });
 
@@ -196,10 +200,10 @@ describe("PaneManager", () => {
     const map = {
       getPane: vi.fn(() => pane),
       createPane: vi.fn(),
-      foliplus_renderer_measure_graph: renderer,
+      "foliplus_renderer_foliplus-measure-graph": renderer,
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("measure_graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true);
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBe(renderer);
   });
@@ -241,7 +245,7 @@ describe("PaneManager", () => {
 
   it("bumpPanes handles three sub-panes with ascending offsets", () => {
     // The whole point of the panes-list refactor is N panes. Exercise a
-    // 3-pane layer (graph, node, label — the shape MeasureControl's
+    // 3-pane layer (graph, node, label �?the shape MeasureControl's
     // closed PR #271 wanted) to prove the offset math doesn't have a
     // hard-coded cap.
     const graph = document.createElement("div");
@@ -312,11 +316,11 @@ describe("PaneManager", () => {
   it("discoverChildPanes reuses the cache until invalidated", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    const layer = { options: { pane: "measure_graph" } };
-    expect(pm.discoverChildPanes(layer)).toEqual(["measure_graph"]);
-    // Second call must hit the cache — the options change is ignored until reset
+    const layer = { options: { pane: "foliplus-measure-graph" } };
+    expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
+    // Second call must hit the cache �?the options change is ignored until reset
     layer.options.pane = "other_pane";
-    expect(pm.discoverChildPanes(layer)).toEqual(["measure_graph"]);
+    expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
     // After a targeted invalidation the new pane is observed
     pm.reset(window.L.stamp(layer));
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
@@ -332,7 +336,7 @@ describe("PaneManager", () => {
   });
 
   it("sweepChildPanes keeps a pane shared by multiple layers", () => {
-    // Two layers both use "shared_label" — after sweeping, the pane must
+    // Two layers both use "shared_label" �?after sweeping, the pane must
     // stay because it's still referenced by at least one layer.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -487,7 +491,7 @@ describe("PaneManager", () => {
     const pane = document.createElement("div");
     document.body.appendChild(pane);
     // Tile layers get a fallback pane with needRenderer=false, so there is no
-    // foliplus RENDERER_KEY entry to clean — only the pane + Leaflet's own
+    // foliplus RENDERER_KEY entry to clean �?only the pane + Leaflet's own
     // registry.
     const map = makeMap({ "foliplus-pane-1": pane }, { leafletRenderer: {} });
     const pm = new PaneManager(map);
@@ -552,13 +556,13 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.paneCache.set(1, ["a"]);
     pm.fallbackPaneMap.set(1, "foliplus-pane-1");
-    pm.registerSubPanes(["measure_label"]);
+    pm.registerSubPanes(["foliplus-measure-label"]);
     pm.destroy();
     expect(pm.paneCache.size).toBe(0);
     expect(pm.fallbackPaneMap.size).toBe(0);
     expect(pm.childPanes.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
-    // registered layers from the map — they are still live, so the pane DOM
+    // registered layers from the map �?they are still live, so the pane DOM
     // must survive them.
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._panes["foliplus-pane-1"]).toBe(pane);
@@ -583,8 +587,8 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Path());
     const renderer = { _container: container };
-    pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
-    expect(layer.options.pane).toBe("measure_graph");
+    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);
     expect(path.parentNode).toBe(container);
   });
@@ -602,8 +606,8 @@ describe("PaneManager", () => {
       options: {},
     };
     const renderer = { _container: container };
-    pm.migrateLayers([{ layer: parent, paneName: "measure_graph", renderer }]);
-    expect(child.options.pane).toBe("measure_graph");
+    pm.migrateLayers([{ layer: parent, paneName: "foliplus-measure-graph", renderer }]);
+    expect(child.options.pane).toBe("foliplus-measure-graph");
     expect(child.options.paneSet).toBe(true);
     expect(childPath.parentNode).toBe(container);
   });
@@ -623,7 +627,7 @@ describe("PaneManager", () => {
     // Force instanceof checks by setting prototypes
     Object.setPrototypeOf(layer, new window.L.Marker());
     const renderer = { _container: document.createElement("div") };
-    pm.migrateLayers([{ layer, paneName: "measure_graph", renderer }]);
+    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(paneEl);
   });
@@ -644,8 +648,8 @@ describe("PaneManager", () => {
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
     // whole layer without setting options.pane/paneSet, so the manager re-queued
     // it on every enforceOrder pass. The options must still be marked handled.
-    pm.migrateLayers([{ layer, paneName: "measure_graph", renderer: null }]);
-    expect(layer.options.pane).toBe("measure_graph");
+    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
+    expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);
   });
 });

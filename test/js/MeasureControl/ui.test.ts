@@ -3,7 +3,7 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui.js";
 import { createScopedTranslator } from "#common/locale.js";
 
-// Mock delete-icon helpers — capture the click callback so tests can trigger it.
+// Mock delete-icon helpers �?capture the click callback so tests can trigger it.
 // Keep the original exports (DEL_ICON_* constants) via importOriginal and
 // override the function helpers.
 const {
@@ -138,7 +138,7 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 });
 
 /** MeasureManager-shaped fake carrying its own `conf` and a translator bound
- *  to it — mirroring the real manager (which binds `this.T = T` in its
+ *  to it �?mirroring the real manager (which binds `this.T = T` in its
  *  constructor) so the UI reads delete-icon titles through the per-instance
  *  translator, never an ambient module-level one. */
 const makeMgr = (conf: ComponentConfig = makeConf()) => {
@@ -157,7 +157,7 @@ const makeMgr = (conf: ComponentConfig = makeConf()) => {
   };
 };
 
-describe("attachCircleUI — delete flow", () => {
+describe("attachCircleUI �?delete flow", () => {
   const makeLayer = (name: string) => ({
     _name: name,
     on: vi.fn(),
@@ -250,7 +250,7 @@ describe("attachCircleUI — delete flow", () => {
     expect(labelCall).toBeDefined();
   });
 
-  it("shows the circle delete ✕ when the overlay opens (regression)", () => {
+  it("shows the circle delete �?when the overlay opens (regression)", () => {
     const { delMarker, opts } = makeOpts();
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
@@ -309,7 +309,7 @@ describe("attachDistanceUI", () => {
   });
 
   it("reads the delete-icon titles through the manager-bound translator (injected conf), not window.CONF", () => {
-    // The ambient CONF disagrees with the injected conf — the title must key on
+    // The ambient CONF disagrees with the injected conf �?the title must key on
     // the per-instance manager T (bound to its own conf in the constructor),
     // never a module-level translator captured from window.CONF at import time.
     const savedConf = window.CONF;
@@ -325,7 +325,7 @@ describe("attachDistanceUI", () => {
       const mgr = makeMgr(conf);
       UI.attachDistanceUI(mgr as any, makeOpts() as any);
 
-      // 2 endpoints → both ✕ are del_all; the rendered text must come from
+      // 2 endpoints �?both �?are del_all; the rendered text must come from
       // the injected conf's table via mgr.T, never the ambient window.CONF.
       const titles = (makeDelIcon as any).mock.calls.map(c => c[1]?.title);
       expect(titles).toEqual(["INJECTED del_all", "INJECTED del_all"]);
@@ -336,7 +336,7 @@ describe("attachDistanceUI", () => {
     }
   });
 
-  it("re-titles the last endpoint's ✕ to del_all when a 3-point distance collapses to 2 (regression)", () => {
+  it("re-titles the last endpoint's �?to del_all when a 3-point distance collapses to 2 (regression)", () => {
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -372,15 +372,15 @@ describe("attachDistanceUI", () => {
       } as any,
     );
 
-    // Give the last endpoint's ✕ a real element so the rebind can re-title it.
+    // Give the last endpoint's �?a real element so the rebind can re-title it.
     const lastDel = (makeDelIcon as any).mock.results[2].value as any;
     const iconEl = { title: "" };
     (lastDel.getElement as any).mockReturnValue(iconEl);
 
     const middleDel = (makeDelIcon as any).mock.results[1].value as any;
-    (middleDel as any)._delClick(); // 3 → 2 points
+    (middleDel as any)._delClick(); // 3 �?2 points
 
-    // After collapsing, the endpoint's ✕ switches to "delete the whole
+    // After collapsing, the endpoint's �?switches to "delete the whole
     // distance" and its title follows the injected conf's del_all.
     expect(iconEl.title).toBe("Delete measurement");
     expect(mgr.T).toHaveBeenCalledWith("del_all");
@@ -401,15 +401,15 @@ describe("attachDistanceUI", () => {
     expect(() => toggle(false)).not.toThrow();
   });
 
-  it("keeps the overlay opener on the last endpoint's ✕ after collapsing to 2 points (regression)", () => {
+  it("keeps the overlay opener on the last endpoint's �?after collapsing to 2 points (regression)", () => {
     // A 3-point distance: deleting the middle node collapses it to 2 points,
-    // and the last endpoint's ✕ switches from "delete one node" to "delete the
+    // and the last endpoint's �?switches from "delete one node" to "delete the
     // whole distance". The regression: that rebind previously nuked the
-    // overlay-opener too, so clicking the ✕'s non-X area could no longer
+    // overlay-opener too, so clicking the �?s non-X area could no longer
     // open the edit panel. We verify behavior by spying on the last del
     // marker's on() after attachDistanceUI: the rebind must re-call
     // bindOpenOverlay (which is layer.on("click", ...)), so a new click
-    // handler lands on the last ✕ after the delete fires.
+    // handler lands on the last �?after the delete fires.
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -449,7 +449,7 @@ describe("attachDistanceUI", () => {
     const middleDel = (makeDelIcon as any).mock.results[1].value as any;
     const lastDel = (makeDelIcon as any).mock.results[2].value as any;
 
-    // Spy on the last del marker's on() — record any click handler bound
+    // Spy on the last del marker's on() �?record any click handler bound
     // AFTER this point (i.e. from the rebind path).
     const postBindClickHandlers: Array<(e: any) => void> = [];
     (lastDel.on as any).mockImplementation((ev: string, fn: (e: any) => void) => {
@@ -458,14 +458,14 @@ describe("attachDistanceUI", () => {
     });
     (lastDel.off as any).mockImplementation(() => lastDel);
 
-    // Delete the middle node via its ✕ callback → points collapses to 2,
-    // rebind fires on the last endpoint's ✕.
+    // Delete the middle node via its �?callback �?points collapses to 2,
+    // rebind fires on the last endpoint's �?
     (middleDel as any)._delClick();
 
     // The fix: rebind calls attachDelClick + bindOpenOverlay. bindOpenOverlay
-    // wires layer.on("click", ...) — so at least one click handler must land
-    // on the last ✕ post-rebind. The regression only re-added attachDelClick,
-    // which (with our mock) stores _delClick but never calls on("click") —
+    // wires layer.on("click", ...) �?so at least one click handler must land
+    // on the last �?post-rebind. The regression only re-added attachDelClick,
+    // which (with our mock) stores _delClick but never calls on("click") �?
     // so postBindClickHandlers would be empty without the bindOpenOverlay fix.
     expect(postBindClickHandlers.length).toBeGreaterThanOrEqual(1);
 
@@ -524,7 +524,7 @@ describe("attachDistanceUI", () => {
     // Initial: 2 labels registered (one per segment).
     expect(registerLabel).toHaveBeenCalledTimes(2);
 
-    // Delete the middle node (node index 1 → point index 1).
+    // Delete the middle node (node index 1 �?point index 1).
     const middleDel = (makeDelIcon as any).mock.results[1].value;
     const beforeCalls = registerLabel.mock.calls.length;
 
@@ -605,7 +605,7 @@ describe("attachDistanceUI", () => {
       CONST.LABEL_PRIORITY.TOTAL,
     ]);
 
-    // Delete the middle node → one segment left, which is now the total.
+    // Delete the middle node �?one segment left, which is now the total.
     (makeDelIcon.mock.results[1].value as any)._delClick();
 
     const lastCall = registerLabel.mock.calls.at(-1);
@@ -665,7 +665,7 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
     // The centroid dot is a CircleMarker with NODE_SOLID (same as circle
-    // center) — no divIcon needed, avoids the SVG z-index collision.
+    // center) �?no divIcon needed, avoids the SVG z-index collision.
     const centroidCalls = (window.L.circleMarker as any).mock.calls.filter(
       ([, opts]) => opts?.className === CONST.CLASSES.NODE_SOLID,
     );
@@ -683,14 +683,14 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
-    // node pane), [1]=centroidLabel (pane=measure_label),
+    // node pane), [1]=centroidLabel (pane=foliplus-measure-label),
     // [2]=centroidDelMarker (node pane). The dot is an SVG path (CircleMarker),
     // so it lives above the fill by pane z-order (node > graph).
     // The label's offset (CENTROID_Z_OFFSET) keeps it above segment labels
     // after sortLayers re-sorts by Y on zoom.
     // [0] = centroidDot (CircleMarker): node pane
     expect(addLayerCalls[0].pane).toBe(CONST.PANES.NODE);
-    // [1] = centroidLabel: pane = LABEL → label, has offset
+    // [1] = centroidLabel: pane = LABEL �?label, has offset
     expect(addLayerCalls[1].pane).toBe(CONST.PANES.LABEL);
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
@@ -768,11 +768,11 @@ describe("attachPolygonUI", () => {
     // The centroid bind must survive: leaving edit mode still disables it.
     toggle(false);
     expect(centroidEl.style.cursor).toBe("");
-    // And the centroid ✕ still deletes the whole measurement.
+    // And the centroid �?still deletes the whole measurement.
     expect(() => centroidDel._delClick()).not.toThrow();
   });
 
-  it("rebinds every remaining node ✕ to delete-all and re-titles after a 4-point polygon collapses to 3", () => {
+  it("rebinds every remaining node �?to delete-all and re-titles after a 4-point polygon collapses to 3", () => {
     const mgr = makeMgr();
     const layers = {
       removeLayer: vi.fn(),
@@ -811,20 +811,20 @@ describe("attachPolygonUI", () => {
     const nodeDel = (makeDelIcon as any).mock.results;
     const deletedNode = nodeDel[2].value as any; // node index 1
 
-    // Give a remaining node's ✕ an element so the rebind's re-title lands.
+    // Give a remaining node's �?an element so the rebind's re-title lands.
     const survivor = nodeDel[3].value as any;
     const iconEl = { title: "" };
     (survivor.getElement as any).mockReturnValue(iconEl);
 
-    deletedNode._delClick(); // 4 → 3 points
+    deletedNode._delClick(); // 4 �?3 points
 
     // The node delete itself must not delete the whole measurement.
     expect(onDelete).not.toHaveBeenCalled();
-    // Every remaining ✕ re-titles to del_all from the injected conf.
+    // Every remaining �?re-titles to del_all from the injected conf.
     expect(iconEl.title).toBe("Delete measurement");
     expect(mgr.T).toHaveBeenCalledWith("del_all");
 
-    // Clicking a remaining node's ✕ (del-icon target) now deletes the whole
+    // Clicking a remaining node's �?(del-icon target) now deletes the whole
     // measurement instead of just that node. The rebind registers the del-all
     // click handler LAST (after the initial bindOpenOverlay one).
     const clickCalls = (survivor.on as any).mock.calls.filter(

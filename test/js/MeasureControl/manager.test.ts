@@ -15,7 +15,7 @@ vi.mock("#foliplus/MeasureControl/collision.js", () => ({
   }),
 }));
 
-// Hoistable mock for guardBlocked — allows per-test override to exercise the
+// Hoistable mock for guardBlocked �?allows per-test override to exercise the
 // blocked-path in setMode() without affecting the real ensureModes/ModeManager
 // that the interaction-lock tests depend on.
 const modeMocks = vi.hoisted(() => ({
@@ -30,7 +30,7 @@ vi.mock("#core/mode.js", async () => {
   };
 });
 
-// Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
+// Shared mock LayerAPI factory �?builds a CreateLayersAPI with spy methods.
 function mockLayerAPI() {
   return {
     register: vi.fn(),
@@ -98,7 +98,7 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("MeasureManager — persistence", () => {
+describe("MeasureManager �?persistence", () => {
   it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
     const { manager } = makeManager();
     const bus = ensureEvents(manager.map);
@@ -153,7 +153,7 @@ describe("MeasureManager — persistence", () => {
   });
 });
 
-describe("MeasureManager — mode switching", () => {
+describe("MeasureManager �?mode switching", () => {
   it("setMode CLEAR clears all measurements", () => {
     const { manager } = makeManager();
     const clearSpy = vi.spyOn(manager, "clearAll");
@@ -267,7 +267,7 @@ describe("MeasureManager — mode switching", () => {
   it("survives a dispatched mousemove with no containerPoint", () => {
     // Regression: Leaflet fills containerPoint only for browser-driven events.
     // Programmatic `map.fire("mousemove", { latlng })` (as the browser tests do)
-    // must not throw — the handler reads the pixel point from `latlng`.
+    // must not throw �?the handler reads the pixel point from `latlng`.
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
     map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
@@ -345,7 +345,7 @@ describe("MeasureManager — mode switching", () => {
   });
 });
 
-describe("MeasureManager — setEditMode", () => {
+describe("MeasureManager �?setEditMode", () => {
   it("shows the edit hint and activates the edit button when enabled", () => {
     const { manager } = makeManager();
     const editBtn = document.createElement("button");
@@ -420,7 +420,7 @@ describe("MeasureManager — setEditMode", () => {
     const close = vi.fn();
     manager.registerEditOverlayCloser(close, "m1");
 
-    // First session: open → close
+    // First session: open �?close
     manager.setEditMode(true);
     manager.setEditMode(false);
     expect(close).toHaveBeenCalledTimes(1);
@@ -619,7 +619,7 @@ describe("MeasureManager — setEditMode", () => {
   });
 });
 
-describe("MeasureManager — lifecycle", () => {
+describe("MeasureManager �?lifecycle", () => {
   it("destroy unbinds map events", () => {
     const { manager, map } = makeManager();
     manager.destroy();
@@ -635,7 +635,7 @@ describe("MeasureManager — lifecycle", () => {
   });
 });
 
-describe("MeasureManager — persistence edge cases", () => {
+describe("MeasureManager �?persistence edge cases", () => {
   it("clearAll collapses expanded panel when ctrl exists", () => {
     const { manager } = makeManager();
     const ctrl = document.createElement("div");
@@ -652,7 +652,7 @@ describe("MeasureManager — persistence edge cases", () => {
   });
 });
 
-describe("MeasureManager — global events", () => {
+describe("MeasureManager �?global events", () => {
   it("onUnload clears active mode and layers without wiping measurements", () => {
     const { manager, map, layers } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
@@ -676,7 +676,7 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
     manager.currentMode = CONST.MODE.DISTANCE;
-    // The Escape shortcut is registered via registerInteractions →
+    // The Escape shortcut is registered via registerInteractions �?
     // InteractionManager, which listens on document. Dispatch a real keydown
     // so the handler reaches onKeyDown through the real routing path.
     document.dispatchEvent(
@@ -721,7 +721,7 @@ describe("MeasureManager — global events", () => {
   });
 });
 
-describe("MeasureManager — cleanMapEvents", () => {
+describe("MeasureManager �?cleanMapEvents", () => {
   it("cleans up modeInstance and hides hints", () => {
     const { manager } = makeManager();
     const mode = { cleanup: vi.fn() } as any;
@@ -737,7 +737,7 @@ describe("MeasureManager — cleanMapEvents", () => {
   });
 });
 
-describe("MeasureManager — active Escape shortcut lifecycle", () => {
+describe("MeasureManager �?active Escape shortcut lifecycle", () => {
   it("setMode registers high-priority active-escape shortcut", () => {
     const { manager, map } = makeManager();
     manager.setMode(CONST.MODE.DISTANCE);
@@ -779,7 +779,7 @@ describe("MeasureManager — active Escape shortcut lifecycle", () => {
   });
 });
 
-describe("MeasureManager — export auto-clear", () => {
+describe("MeasureManager �?export auto-clear", () => {
   it("EVENTS.MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
     const { manager } = makeManager();
     manager.setMode("distance");
@@ -824,7 +824,7 @@ describe("MeasureManager — export auto-clear", () => {
 });
 
 // ==================== Layer lifecycle cleanup ====================
-describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
+describe("MeasureManager �?EVENTS.LAYER_REMOVED auto-cleanup", () => {
   it("clears active mode when own layer is removed via EVENTS.LAYER_REMOVED event", () => {
     const { manager, map } = makeManager();
     manager.currentMode = CONST.MODE.DISTANCE;
@@ -930,7 +930,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
   });
 });
 
-describe("MeasureManager — export click", () => {
+describe("MeasureManager �?export click", () => {
   it("bindExportClick registers the click handler", () => {
     const { manager } = makeManager();
     const btn = document.createElement("button");
@@ -941,7 +941,7 @@ describe("MeasureManager — export click", () => {
 // ==================== Measure-mode layer interaction lock (mode-driven) ====================
 // The lock lives in core/mode ModeManager; these tests pin the MeasureManager
 // integration: setMode/clearActiveMode flow through the centralized lock.
-describe("MeasureManager — mode-driven layer interaction lock", () => {
+describe("MeasureManager �?mode-driven layer interaction lock", () => {
   const makeTop = (leaf: unknown) => ({
     eachLayer: (fn: (l: unknown) => void) => fn(leaf),
   });
@@ -987,7 +987,7 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     expect(callsAfterFirst).toBe(1);
 
     manager.setMode(CONST.MODE.DISTANCE);
-    // Already suspended by ModeManager → no second walk.
+    // Already suspended by ModeManager �?no second walk.
     expect(map.eachLayer.mock.calls.length).toBe(callsAfterFirst);
     expect(leaf.options.interactive).toBe(false);
   });
@@ -1005,7 +1005,7 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
   it("edit mode suspends data layers but keeps measurement layers interactive", () => {
     const { manager, map } = makeManager();
     const { leaf: measureLeaf } = makeLeaf(map);
-    measureLeaf.options.pane = "measure_graph";
+    measureLeaf.options.pane = "foliplus-measure-graph";
     const { leaf: dataLeaf } = makeLeaf(map);
     dataLeaf.options.pane = "overlayPane";
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
@@ -1036,7 +1036,7 @@ it("onExportClick triggers the export flow", () => {
   expect(event.stopPropagation).toHaveBeenCalled();
 });
 
-describe("MeasureManager — onMapClick handler", () => {
+describe("MeasureManager �?onMapClick handler", () => {
   it("hides del icons when clicking empty map space", () => {
     const { manager } = makeManager();
     // the onMapClick handler is bound during bindGlobalEvents
@@ -1115,7 +1115,7 @@ function makeLabelMarker(): L.Marker {
   return marker as unknown as L.Marker;
 }
 
-// requestAnimationFrame is unavailable in jsdom/node — defer each callback to
+// requestAnimationFrame is unavailable in jsdom/node �?defer each callback to
 // the next microtask so it behaves like a real async paint frame. The
 // manager's labelPlanFrame re-entrancy guard only works if the callback does
 // NOT run synchronously on the same stack as the schedule call.
@@ -1167,7 +1167,7 @@ beforeEach(() => {
   placeLabels.mockReset();
 });
 
-describe("MeasureManager — registerLabel lifecycle", () => {
+describe("MeasureManager �?registerLabel lifecycle", () => {
   it("runs a placement plan on the next frame after registering a label", () => {
     const { manager } = makeLabelManager();
     const marker = makeLabelMarker();
@@ -1305,7 +1305,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   });
 });
 
-describe("MeasureManager — map event binding", () => {
+describe("MeasureManager �?map event binding", () => {
   it("binds move/zoom/resize events lazily on the first label", () => {
     const { manager, map } = makeLabelManager();
 
@@ -1371,7 +1371,7 @@ describe("MeasureManager — map event binding", () => {
   });
 });
 
-describe("MeasureManager — label cleanup", () => {
+describe("MeasureManager �?label cleanup", () => {
   it("destroy clears the label set and unbinds map events", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
@@ -1386,13 +1386,13 @@ describe("MeasureManager — label cleanup", () => {
     expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
   });
 
-  it("destroy tolerates an unflushed rAF — the pending plan runs against an empty set", () => {
+  it("destroy tolerates an unflushed rAF �?the pending plan runs against an empty set", () => {
     const { manager, map } = makeLabelManager();
     const marker = makeLabelMarker();
     placeLabels.mockClear();
 
     manager.registerLabel(marker, 60);
-    // Do not flush rAF — leave a plan in flight.
+    // Do not flush rAF �?leave a plan in flight.
     manager.destroy();
 
     // Now drain the pending rAF; it must not throw even though the manager

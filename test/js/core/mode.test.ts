@@ -106,15 +106,15 @@ describe("ModeManager", () => {
       const walksAfterFirst = map.eachLayer.mock.calls.length;
       expect(walksAfterFirst).toBe(1);
 
-      // Second component enters a mode — already locked, no re-walk.
+      // Second component enters a mode �?already locked, no re-walk.
       mm.setMode("ExportControl", "selecting");
       expect(map.eachLayer.mock.calls.length).toBe(walksAfterFirst);
 
-      // One component clears but the other is still active — stays disabled.
+      // One component clears but the other is still active �?stays disabled.
       mm.setMode("MeasureControl", null);
       expect(leaf.options.interactive).toBe(false);
 
-      // Last mode clears — interaction restored.
+      // Last mode clears �?interaction restored.
       mm.setMode("ExportControl", null);
       expect(leaf.options.interactive).toBe(true);
     });
@@ -151,7 +151,7 @@ describe("ModeManager", () => {
           removeInteractiveTarget: vi.fn(),
         };
       };
-      const measureLeaf = makeLeafWithPane("measure_graph");
+      const measureLeaf = makeLeafWithPane("foliplus-measure-graph");
       const dataLeaf = makeLeafWithPane("overlayPane");
       const map = {
         eachLayer: vi.fn((fn: (l: unknown) => void) =>
@@ -171,10 +171,10 @@ describe("ModeManager", () => {
       mm.setMode(
         "MeasureControl",
         "edit",
-        (leaf: L.Layer) => (leaf as any).options.pane === "measure_graph",
+        (leaf: L.Layer) => (leaf as any).options.pane === "foliplus-measure-graph",
       );
 
-      expect(measureLeaf.options.interactive).toBe(true); // skipped → kept live
+      expect(measureLeaf.options.interactive).toBe(true); // skipped �?kept live
       expect(dataLeaf.options.interactive).toBe(false); // suspended
 
       mm.setMode("MeasureControl", null);
@@ -194,7 +194,7 @@ describe("ModeManager", () => {
           removeInteractiveTarget: vi.fn(),
         };
       };
-      const measureLeaf = makeLeafWithPane("measure_graph");
+      const measureLeaf = makeLeafWithPane("foliplus-measure-graph");
       const map = {
         eachLayer: vi.fn((fn: (l: unknown) => void) =>
           fn({ eachLayer: (c: (l: unknown) => void) => c(measureLeaf) }),
@@ -228,7 +228,7 @@ describe("ensureModes", () => {
     expect(map.foliplus.modes).toBe(m1);
   });
 
-  it("is per-map — separate maps get separate managers", () => {
+  it("is per-map �?separate maps get separate managers", () => {
     const mapA = { on: vi.fn() } as any;
     const mapB = { on: vi.fn() } as any;
     expect(ensureModes(mapA)).not.toBe(ensureModes(mapB));
