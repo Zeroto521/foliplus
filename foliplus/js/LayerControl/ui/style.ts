@@ -146,16 +146,16 @@ const renderDelegatedStylePanel = (
     rows.push(
       dom.el(
         "div",
-        { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label")),
         dom.el(
           "div",
-          { class: "foliplus-form-control" },
+          { class: CONST.CLASSES.FORM_CONTROL },
           dom.el(
             "label",
-            { class: "foliplus-toggle-switch" },
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
             toggle,
-            dom.el("span", { class: "foliplus-toggle-slider" }),
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
           ),
         ),
       ),
@@ -180,9 +180,9 @@ const renderDelegatedStylePanel = (
     rows.push(
       dom.el(
         "div",
-        { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_field")),
-        dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
       ),
     );
   }
@@ -197,16 +197,20 @@ const renderDelegatedStylePanel = (
     rows.push(
       dom.el(
         "div",
-        { class: "foliplus-form-row" },
-        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_collide")),
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.FORM_LABEL },
+          ui.T("style_label_collide"),
+        ),
         dom.el(
           "div",
-          { class: "foliplus-form-control" },
+          { class: CONST.CLASSES.FORM_CONTROL },
           dom.el(
             "label",
-            { class: "foliplus-toggle-switch" },
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
             toggle,
-            dom.el("span", { class: "foliplus-toggle-slider" }),
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
           ),
         ),
       ),

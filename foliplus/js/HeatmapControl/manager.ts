@@ -190,7 +190,11 @@ class HeatmapManager {
       // pulls fresh values from the provider (the event carries only the id).
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
-        field: this.currentField,
+        // Strip the "properties." prefix for display — the drawer and the
+        // annotation panel both show bare field names.
+        field: this.currentField.startsWith("properties.")
+          ? this.currentField.slice("properties.".length)
+          : this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -202,7 +206,10 @@ class HeatmapManager {
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
         field: v => {
-          this.currentField = String(v ?? "");
+          // The drawer shows bare field names (no "properties." prefix, same
+          // as the annotation panel); the internal contract keeps the prefix.
+          const raw = String(v ?? "");
+          this.currentField = raw.startsWith("properties.") ? raw : `properties.${raw}`;
           this.fieldAuto = false;
           this.renderHexagons();
           this.saveConfig();
@@ -212,7 +219,11 @@ class HeatmapManager {
         },
       },
       fieldOptions: () =>
-        this.selectedLayerId ? this.collectFields([{ id: this.selectedLayerId }]) : [],
+        this.selectedLayerId
+          ? this.collectFields([{ id: this.selectedLayerId }]).map(f =>
+              f.startsWith("properties.") ? f.slice("properties.".length) : f,
+            )
+          : [],
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes

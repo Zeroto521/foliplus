@@ -118,6 +118,12 @@ const CLASSES = {
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Shared form-row layout classes (also used by HeatmapControl template). */
+  FORM_ROW: "foliplus-form-row",
+  FORM_LABEL: "foliplus-form-label",
+  FORM_CONTROL: "foliplus-form-control",
+  TOGGLE_SWITCH: "foliplus-toggle-switch",
+  TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };

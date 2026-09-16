@@ -494,7 +494,7 @@ class MeasureManager {
     return this.labelShow;
   }
 
-  /** Runtime toggle for label visibility (the drawer's "标签" switch). Hides
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
    *  every chip via the same `visibility` mechanism collision uses, so the two
    *  never fight over the element. */
   setLabelsVisible = (visible: boolean): void => {
@@ -507,7 +507,7 @@ class MeasureManager {
     this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
   };
 
-  /** Runtime toggle for collision (the drawer's "避免重叠" switch). */
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
   setLabelCollide = (on: boolean): void => {
     this.labelCollide = on;
     this.scheduleLabelPlan();
@@ -526,6 +526,12 @@ class MeasureManager {
   registerLabel = (marker: L.Marker, priority: number): (() => void) => {
     const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
     this.bindLabelMapEvents();
     this.scheduleLabelPlan();
 

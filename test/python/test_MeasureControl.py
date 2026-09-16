@@ -52,6 +52,11 @@ class TestMeasureControlPython:
     def test_label_show_in_export_fields(self):
         assert "label_show" in MeasureControl._export_fields
 
+    def test_label_show_false_renders_false(self):
+        """label_show=False renders false so the JS side hides labels on load."""
+        html = render_control(MeasureControl(label_show=False))
+        assert_config_value(html, "label_show", False)
+
     def test_default_label_collide(self):
         assert MeasureControl().label_collide is True
 

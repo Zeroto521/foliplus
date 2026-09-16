@@ -1324,9 +1324,11 @@ describe("HeatmapManager — style delegation", () => {
 
     m.currentLabelShow = false;
     m.currentField = "properties.count";
+    // The provider strips the "properties." prefix for display consistency
+    // with the annotation panel.
     expect(opts.styleProvider!()).toEqual({
       labelShow: false,
-      field: "properties.count",
+      field: "count",
     });
   });
 
@@ -1341,6 +1343,25 @@ describe("HeatmapManager — style delegation", () => {
     expect(m.currentLabelShow).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("field setter adds the properties. prefix back", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("count");
+
+    expect(m.currentField).toBe("properties.count");
+    expect(m.fieldAuto).toBe(false);
+  });
+
+  it("field setter keeps an already-prefixed field as-is", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("properties.count");
+
+    expect(m.currentField).toBe("properties.count");
   });
 
   it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
@@ -1374,7 +1395,8 @@ describe("HeatmapManager — style delegation", () => {
       },
     ]);
     const opts = getCanvasOpts();
-    expect(opts.fieldOptions!()).toEqual(["properties.count"]);
+    // Bare field names — the "properties." prefix is stripped for display.
+    expect(opts.fieldOptions!()).toEqual(["count"]);
   });
 
   it("fieldOptions returns empty when no source layer is selected", () => {

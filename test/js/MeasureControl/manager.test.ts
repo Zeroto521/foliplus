@@ -1281,6 +1281,17 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(chip.style.visibility).toBe("");
   });
 
+  it("registerLabel hides the chip when label_show starts false", () => {
+    const { manager } = makeLabelManager({ label_show: false });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    const chip = (marker.getElement() as HTMLElement).querySelector(
+      ".foliplus-measure-label",
+    )!;
+    expect(chip.style.visibility).toBe("hidden");
+  });
+
   it("styleProvider returns the live labelShow and labelCollide values", () => {
     const { manager, map } = makeLabelManager({ label_collide: false });
     const createLayers = (
