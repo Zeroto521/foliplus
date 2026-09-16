@@ -85,6 +85,20 @@ describe("AnnotationCanvas", () => {
     expect(el.style.top).toBe("-20px");
   });
 
+  it("hides and re-shows via visibility, leaving the drawn pixels intact", () => {
+    const { canvas } = makeEnv();
+    const el = elOf(canvas);
+    canvas.paint([placed("alpha")]);
+
+    canvas.setVisible(false);
+    expect(el.style.visibility).toBe("hidden");
+    // A hide is purely visual — the frame is not re-painted.
+    expect(ctx.clearRect).toHaveBeenCalledTimes(1);
+
+    canvas.setVisible(true);
+    expect(el.style.visibility).toBe("");
+  });
+
   it("paints the labels it is handed, and clears the previous frame", () => {
     const { canvas } = makeEnv();
 

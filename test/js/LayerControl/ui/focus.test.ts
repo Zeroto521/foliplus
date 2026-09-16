@@ -703,6 +703,41 @@ describe("LayerUI focus", () => {
       expect(panes.get("custom_pane")?.style.zIndex).toBe("0");
     });
 
+    it("lifts the focused layer's label pane one step above it, without the glow", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+
+      // The layer's labels ride one step above the raised layer (focusedZ + 1),
+      // so they stay readable over its geometry — and get no glow of their own.
+      const labelPane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay2")!;
+      expect(labelPane.style.zIndex).toBe(
+        String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
+      );
+      expect(labelPane.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(false);
+
+      ui.cancelFocus();
+
+      expect(labelPane.style.zIndex).toBe("0");
+    });
+
     it("lifts a canvas (heatmap) focused layer above others and restores it", () => {
       const canvas = document.createElement("canvas");
       canvas.style.zIndex = "5";
@@ -931,8 +966,12 @@ describe("LayerUI focus", () => {
     const getMoveendHandler = () =>
       (map.on as any).mock.calls.find((c: any[]) => c[0] === "moveend")?.[1];
 
+    // The annotation manager registers its own zoomend handler at construction;
+    // the focus auto-cancel handler is the last one registered.
     const getZoomendHandler = () =>
-      (map.on as any).mock.calls.find((c: any[]) => c[0] === "zoomend")?.[1];
+      [...(map.on as any).mock.calls]
+        .reverse()
+        .find((c: any[]) => c[0] === "zoomend")?.[1];
 
     it("registers moveend and zoomend handlers that auto-cancel after the grace window", () => {
       vi.useFakeTimers();

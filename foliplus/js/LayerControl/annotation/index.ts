@@ -57,8 +57,8 @@ interface AnnotationConfig {
 const LABEL_PRIORITY = 50;
 
 /**
- * AnnotationManager owns per-layer label state, the shared placement plan and
- * the per-layer canvases. state and persistence are written to LayerPersistence
+ * AnnotationManager owns per-layer label state, the per-layer plans and the
+ * per-layer canvases. state and persistence are written to LayerPersistence
  * by LayerUI.
  */
 class AnnotationManager {
@@ -76,6 +76,10 @@ class AnnotationManager {
   private focusFilter: string | null = null;
   private readonly scheduleRefresh: (() => void) & { cancel: () => void };
   private readonly unsubscribe: Array<() => void> = [];
+  /** Typography from the --label-* tokens, cached like the canvases cache their
+   *  paint style: re-reading six CSS variables per throttled frame is pure
+   *  overhead, and the tokens only change with the theme. */
+  private cachedSpec: LabelSpec | null = null;
 
   constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
@@ -88,6 +92,11 @@ class AnnotationManager {
     // re-reads membership on those too.
     this.map.on("move zoom moveend layeradd layerremove", this.scheduleRefresh);
     this.map.on("resize", this.scheduleRefresh);
+    // Leaflet animates a zoom by CSS-transforming mapPane; the canvases inside
+    // it would be smeared by that transform, so hide the labels for the
+    // duration and redraw on the far side (the #339 canvas did the same).
+    this.map.on("zoomstart", this.hideLabels);
+    this.map.on("zoomend", this.showLabels);
 
     // Export safety: the exporter's locked path grows the container and shifts
     // the view, then captures on the very next frame — so the redraw here is
@@ -281,6 +290,8 @@ class AnnotationManager {
     this.scheduleRefresh.cancel();
     this.map.off("move zoom moveend layeradd layerremove", this.scheduleRefresh);
     this.map.off("resize", this.scheduleRefresh);
+    this.map.off("zoomstart", this.hideLabels);
+    this.map.off("zoomend", this.showLabels);
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
@@ -298,6 +309,18 @@ class AnnotationManager {
     this.refresh();
   }
 
+  /** Hide every label canvas for the duration of a zoom animation (see the
+   *  constructor's zoomstart/zoomend wiring). */
+  private hideLabels = (): void => {
+    for (const canvas of this.canvases.values()) canvas.setVisible(false);
+  };
+
+  /** Un-hide the canvases after the animation and redraw at the new zoom. */
+  private showLabels = (): void => {
+    for (const canvas of this.canvases.values()) canvas.setVisible(true);
+    this.refresh();
+  };
+
   /** Plan each visible layer's labels independently, then hand every canvas its
    *  slice. Collision is per layer by design: the layers themselves are
    *  stacked, so a layer above already covers the labels below — hiding a lower
@@ -306,7 +329,7 @@ class AnnotationManager {
   private refresh(): void {
     if (this.canvases.size === 0) return;
     const container = this.map.getContainer();
-    const spec = specOf(container);
+    const spec = (this.cachedSpec ??= specOf(container));
     const viewport = {
       x: 0,
       y: 0,

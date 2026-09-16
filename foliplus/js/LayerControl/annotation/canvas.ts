@@ -64,6 +64,13 @@ class AnnotationCanvas {
     }
   }
 
+  /** Hide the canvas while Leaflet's zoom animation runs — the pane's parent
+   *  mapPane is CSS-transformed mid-zoom, which would smear the fixed-pixel
+   *  labels. The manager redraws on zoomend. */
+  setVisible(visible: boolean): void {
+    this.canvas.style.visibility = visible ? "" : "hidden";
+  }
+
   destroy(): void {
     this.canvas.remove();
   }

@@ -1109,25 +1109,25 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
   });
 
-  it("renders annotation labels from their own pane after the layer walk", async () => {
-    // Each layer's label canvas mounts in a pane the manager creates with
-    // map.createPane — a sibling of the layer's content panes — so the
-    // per-layer walk never reaches it. render() must sweep the container for
-    // it, or the labels vanish from the exported image without any error.
+  it("renders a layer's annotation labels right after its content", async () => {
+    // Each layer's label canvas mounts in its own pane (map.createPane), a
+    // sibling of the content panes the walk visits. render() draws it right
+    // after the layer's content — before the next layer up covers it — so the
+    // exported stack order matches the map's.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,
     );
     const map = (globalThis as any).map;
-    const container = map.getContainer() as HTMLElement;
-    const mapPane = document.createElement("div");
-    mapPane.className = "leaflet-map-pane";
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-annotation-pane";
     const annCanvas = document.createElement("canvas");
     annCanvas.className = "foliplus-annotation-canvas";
-    mapPane.appendChild(annCanvas);
-    container.appendChild(mapPane);
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
     map.foliplus = {
       LayerAPI: {
-        layers: [{ visible: true, layer: { options: {} } }],
+        layers: [{ visible: true, id: "vec", layer: { options: {} } }],
         getLayerPanes: () => [],
       },
     };
@@ -1137,12 +1137,12 @@ describe("ExportRenderer.render — layer pass routing", () => {
 
     await runRender(vi.fn());
 
-    // The container sweep runs once, after the walk, with the annotation
-    // selector — the per-layer walk passed no panes to sweep.
+    // The label pane is swept once, with the annotation selector, right after
+    // the layer's content walk (which passed no panes of its own).
     expect(paneCanvas).toHaveBeenCalledTimes(1);
     expect(paneCanvas).toHaveBeenCalledWith(
       expect.anything(),
-      container,
+      labelPane,
       CONST.SEL.ANNOTATION_CANVAS,
     );
   });

@@ -3,17 +3,20 @@
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
     paint: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
   }
   const instances: MockCanvas[] = [];
 
   class MockAnnotationCanvas implements MockCanvas {
     paint = vi.fn();
+    setVisible = vi.fn();
     destroy = vi.fn();
     constructor(_map: unknown, _pane: unknown) {
       instances.push(this);
@@ -146,6 +149,21 @@ describe("AnnotationManager — config", () => {
     expect(mgr.hasConfig("l1")).toBe(true);
     expect(mgr.configEntries()).toHaveLength(1);
   });
+
+  it("defaults collision off when the page sets label_collide false", () => {
+    const saved = (window as { CONF?: Record<string, unknown> }).CONF;
+    (window as { CONF?: Record<string, unknown> }).CONF = {
+      ...saved,
+      label_collide: false,
+    };
+    try {
+      const { map } = makeMap();
+      const mgr = new AnnotationManager(map, () => null);
+      expect(mgr.getConfig("none").collide).toBe(false);
+    } finally {
+      (window as { CONF?: Record<string, unknown> }).CONF = saved;
+    }
+  });
 });
 
 describe("AnnotationManager — render & plan", () => {
@@ -252,5 +270,49 @@ describe("AnnotationManager — render & plan", () => {
     expect(canvas().destroy).toHaveBeenCalled();
     expect(panes["foliplus-annotation-a"]).toBeUndefined();
     expect(mgr.configEntries()).toHaveLength(0);
+  });
+
+  it("hides the canvases during a zoom animation and redraws on zoomend", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+
+    const c = canvas();
+    const on = map.on as unknown as ReturnType<typeof vi.fn>;
+    const zoomStart = on.mock.calls.find(call => call[0] === "zoomstart")?.[1];
+    const zoomEnd = on.mock.calls.find(call => call[0] === "zoomend")?.[1];
+    expect(zoomStart).toBeTypeOf("function");
+    expect(zoomEnd).toBeTypeOf("function");
+
+    c.setVisible.mockClear();
+    c.paint.mockClear();
+    zoomStart();
+    expect(c.setVisible).toHaveBeenCalledWith(false);
+    expect(c.paint).not.toHaveBeenCalled();
+
+    zoomEnd();
+    expect(c.setVisible).toHaveBeenCalledWith(true);
+    // The redraw on the far side of the animation lands the labels at the new zoom.
+    expect(c.paint).toHaveBeenCalled();
+  });
+
+  it("redraws synchronously around an export", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+
+    const c = canvas();
+    c.paint.mockClear();
+    const events = (
+      map as unknown as {
+        foliplus?: { events?: { emit: (e: string, p: unknown) => void } };
+      }
+    ).foliplus?.events;
+    events?.emit(EVENTS.BEFORE_EXPORT, { component: "test" });
+    events?.emit(EVENTS.AFTER_EXPORT, { component: "test" });
+    // Both sides of the export refresh in the same frame the capture reads.
+    expect(c.paint).toHaveBeenCalledTimes(2);
   });
 });

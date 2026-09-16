@@ -59,6 +59,11 @@ const CLASSES = {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** Leaflet pane-name prefix for LayerControl's per-layer annotation labels.
+ *  The renderer walks each layer's label pane right after its content, so the
+ *  exported stack order matches the map's (a layer above covers the labels). */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+
 /** DOM selectors used during render. */
 const SEL = {
   /**
@@ -231,6 +236,7 @@ export {
   TIMING,
   CLASSES,
   SVG_NS,
+  ANNOTATION_PANE_PREFIX,
   SEL,
   detectConcurrency,
   TILE_CONCURRENCY,

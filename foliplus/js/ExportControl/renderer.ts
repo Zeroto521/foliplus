@@ -301,6 +301,16 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, pane);
           }
 
+          // The layer's annotation labels sit one z-step above its content, in
+          // a pane the content walk never visits (created with map.createPane).
+          // Drawing them here — right after this layer, before the next layer
+          // up — keeps the export's stack order identical to the map's: a layer
+          // above covers this layer's labels.
+          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + li.id);
+          if (labelPane) {
+            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+          }
+
           // Markers and divIcons in this layer
           const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
@@ -315,15 +325,6 @@ class ExportRenderer {
           ExportRenderer.mapPhase(done / passable.length, ExportRenderer.PHASES.layers),
         );
       }
-    }
-
-    // Annotation panes are siblings of their layer's content panes — the
-    // manager creates each one with map.createPane — so the per-layer walk
-    // above never reaches them. Render them last, matching their z-order
-    // (each rides its layer's place in the stack).
-    const container = this.map.getContainer();
-    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
-      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
     }
 
     return canvas;

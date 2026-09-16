@@ -158,13 +158,11 @@ const FORMAT = {
   PERCENT: "percent",
 } as const satisfies Record<FormatKey, NumberStyle>;
 
-/** Default annotation config for a layer (disabled). `collide` is the fallback
- *  only — the effective default comes from the page's per-layer attribute. */
+/** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
   format: FORMAT.AUTO,
-  collide: true,
 } as const;
 
 export {

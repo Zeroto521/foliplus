@@ -187,6 +187,16 @@ describe("LayerManager", () => {
     expect(pane.style.zIndex).toBe(String(manager.computeZIndex(1, false) + 1));
   });
 
+  it("skips the label-pane slot when the layer has no annotation pane", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? null : realGetPane(name),
+    );
+
+    expect(() => manager.enforceOrder()).not.toThrow();
+  });
+
   it("computeZIndex returns expected values", () => {
     // 2 layers, index 0, layer count = 2
     // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
