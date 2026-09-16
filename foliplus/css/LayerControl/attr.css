@@ -16,14 +16,13 @@
     width: 100%;
     height: 100%;
   }
-  /* One grid for the whole list: `auto` sizes the label column to the
-     longest label (Aggregation Field), so every value starts on the same
-     left edge. Per-row flex cannot do that — each row would size its own
-     label column and the values would stair-step. Horizontal inset lives
-     here because `display: contents` rows have no padding box. */
+  /* One grid for the whole list, pinned to the shared --form-label-width so
+     the attrs panel's control column sits on the same vertical line as the
+     heatmap and style panels. Horizontal inset lives here because
+     `display: contents` rows have no padding box. */
   .foliplus-layer-attrs-panel dl {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: var(--form-label-width) 1fr;
     column-gap: var(--space-md);
     align-items: center;
     padding: 0 var(--space-lg);
@@ -31,8 +30,9 @@
   .foliplus-layer-attrs-panel .foliplus-form-row {
     display: contents;
   }
-  /* Shared label typography (sm / normal / right-aligned / text-primary)
-     from common/form.css — same language as the heatmap form labels. */
+  /* Shared label typography from common/form.css — same language as the
+     heatmap form labels. Height/centering replace the flex-row min-height
+     that `display: contents` drops. */
   .foliplus-layer-attrs-panel .foliplus-form-label {
     min-height: var(--toggle-size);
     display: flex;
@@ -40,14 +40,15 @@
     justify-content: flex-end;
   }
   .foliplus-layer-attrs-panel .foliplus-form-control {
-    /* Read-only text reads like a control: left-aligned, wrapping, and with
-       tabular figures so counts and timestamps line up column-wise. `margin: 0`
-       because a <dd> carries a UA block margin the heatmap's <div> does not. */
+    /* Read-only text: left-aligned, wrapping, tabular figures so counts and
+       timestamps line up. sm (not md) so a medium+short timestamp stays on
+       one line inside the fixed label-column layout. `margin: 0` because a
+       <dd> carries a UA block margin the heatmap's <div> does not. */
     margin: 0;
     min-height: var(--toggle-size);
     display: flex;
     align-items: center;
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }

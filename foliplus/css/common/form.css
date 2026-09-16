@@ -18,19 +18,18 @@
 
 .foliplus-form-label {
   flex-shrink: 0;
-  /* min-width, not width: the column grows past 88px so longer localized
-     labels aren't clipped, while short ones stay left-aligned with the rest. */
-  min-width: 88px;
+  /* Fixed width, not min-width: every panel (heatmap / attrs / style) shares
+     one control-column edge. Longer labels wrap inside the box instead of
+     pushing the control right. Explicit normal weight: the attrs panel uses
+     <dt>, whose UA stylesheet is bold — bold stays on section headings. */
+  width: var(--form-label-width);
   font-size: var(--font-size-sm);
-  /* Explicit normal: the attrs panel uses <dt>, whose UA stylesheet is bold.
-     Heatmap form labels are plain elements at normal weight — without this
-     the two panels read as different products. Bold stays on section
-     headings only. */
   font-weight: var(--font-weight-normal);
   color: var(--text-primary);
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
   padding-right: var(--space-xs);
+  box-sizing: border-box;
 }
 
 .foliplus-form-control {
