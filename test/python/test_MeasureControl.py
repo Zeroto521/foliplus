@@ -319,12 +319,12 @@ class TestMeasureControlBrowser:
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate("document.querySelector('[data-mode=distance]').click()")
             page.wait_for_timeout(500)
-            # Tool selected â€?registered immediately (needed to show hidden layer)
+            # Tool selected â€” registered immediately (needed to show hidden layer)
             registered = page.evaluate("window.__measureManager.layers.registered()")
             assert registered, (
                 "Layer should be registered immediately after tool select"
             )
-            # First click on map â€?triggers content addition
+            # First click on map â€” triggers content addition
             page.evaluate(_js("MeasureControl/click_map_start_point"))
             page.wait_for_timeout(500)
             # Second click + right-click to finish
@@ -482,7 +482,7 @@ class TestMeasureControlBrowser:
 
         Mirrors the circle mode's radius-endpoint node so all three preview
         shapes share one cursor affordance. The dot is created lazily on the
-        first move â€?entering the mode with no points placed shows nothing.
+        first move â€” entering the mode with no points placed shows nothing.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             state = page.evaluate(
@@ -499,7 +499,7 @@ class TestMeasureControlBrowser:
             assert s["node"] > s["preview"], f"node below preview line: {s}"
             assert s["node"] > s["dashed"], f"node below dashed line: {s}"
             # After a third move the recreated node must still be above both
-            # lines â€?the old in-place `setLatLng` path let the live line
+            # lines â€” the old in-place `setLatLng` path let the live line
             # climb over it (regression: PR #252).
             s2 = state["stackAfterThirdMove"]
             assert s2["node"] > s2["preview"], (
@@ -517,7 +517,7 @@ class TestMeasureControlBrowser:
 
         Mirrors the circle mode's radius-endpoint node so all three preview
         shapes share one cursor affordance. The dot is created lazily on the
-        first move â€?entering the mode with no points placed shows nothing.
+        first move â€” entering the mode with no points placed shows nothing.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             state = page.evaluate(
@@ -528,7 +528,7 @@ class TestMeasureControlBrowser:
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
             assert moved, f"polygon cursor node did not follow the mouse: {state}"
             # Recreated each frame, so there must be exactly one dot at all
-            # times â€?the old path's DOM node identity is not a valid check.
+            # times â€” the old path's DOM node identity is not a valid check.
             assert state["dotsAfterTwo"] == 1, (
                 f"expected exactly one cursor dot after two moves, "
                 f"got {state['dotsAfterTwo']}"
@@ -544,7 +544,7 @@ class TestMeasureControlBrowser:
             assert s["node"] > s["dashed"], f"node below dashed path: {s}"
             assert s["node"] > s["fill"], f"node below the shape fill: {s}"
             # After a third move, the recreated node must still be above the
-            # fill â€?the old in-place `setLatLng` path let the fill climb over
+            # fill â€” the old in-place `setLatLng` path let the fill climb over
             # it because `setLatLngs` re-sorts the SVG root but `setLatLng`
             # does not (regression: PR #252).
             s2 = state["stackAfterThirdMove"]
@@ -584,7 +584,7 @@ class TestMeasureControlBrowser:
         """Regression: map unload must NOT wipe persisted measurements.
 
         unload previously called clearAll(), which wrote an empty array back to
-        localStorage â€?a data-loss risk on page refresh. It must only clear
+        localStorage â€” a data-loss risk on page refresh. It must only clear
         transient UI state and keep the persisted measurements.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -682,7 +682,7 @@ class TestMeasureControlBrowser:
     def test_marker_survives_reload_with_blocked_geocode(self, browser, tmp_path):
         """Regression: marker placed while geocode is blocked still survives reload."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            # Block geocoding entirely â€?reverseGeocode never resolves
+            # Block geocoding entirely â€” reverseGeocode never resolves
             page.route(
                 "**/nominatim.openstreetmap.org/**",
                 lambda route: route.abort(),
@@ -695,7 +695,7 @@ class TestMeasureControlBrowser:
             assert len(parsed) == 1, (
                 f"marker must be saved immediately, got {len(parsed)}"
             )
-            # Reload â€?marker must still appear
+            # Reload â€” marker must still appear
             page.reload()
             page.wait_for_timeout(2000)
             count = page.evaluate("window.__measureManager.measurements.length")
@@ -756,11 +756,11 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/seed_marker_popup_storage"))
             page.reload()
             page.wait_for_timeout(2000)
-            # Geocode resolved while popup is closed â€?address backfilled
+            # Geocode resolved while popup is closed â€” address backfilled
             addr = page.evaluate("window.__measureManager.measurements[0]?.address")
             assert addr, f"expected address to be backfilled, got {addr!r}"
 
-            # Now open the popup â€?it must show the resolved address
+            # Now open the popup â€” it must show the resolved address
             page.evaluate(_js("MeasureControl/open_restored_marker_popup"))
             page.wait_for_timeout(200)
             popup_text = page.evaluate(_js("MeasureControl/read_popup_text"))
@@ -777,7 +777,7 @@ class TestMeasureControlBrowser:
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             baseline = page.evaluate("window.__map._events['click']?.length || 0")
-            # Draw 2 circles â€?each binds an onMapClickActive handler
+            # Draw 2 circles â€” each binds an onMapClickActive handler
             for _ in range(2):
                 page.evaluate(_js("MeasureControl/draw_circle"))
                 page.wait_for_timeout(500)
@@ -1026,14 +1026,14 @@ class TestMeasureControlBrowser:
             # Add a measurement
             page.evaluate(_js("MeasureControl/add_layer_and_clear_all"))
             page.wait_for_timeout(300)
-            # clearAll should be safe â€?no crash, panel collapse via ctrl
+            # clearAll should be safe â€” no crash, panel collapse via ctrl
             assert not errors, f"JS errors: {errors}"
 
     def test_del_icon_offset_consistent_across_modes(self, browser, tmp_path):
-        """Delete icons (âœ? sit at the same offset from their anchor across all modes.
+        """Delete icons (âœ•) sit at the same offset from their anchor across all modes.
 
         Distance nodes, circle center, and polygon nodes/centroid all use the same
-        `makeDelIcon(anchor)` + shared CSS offset, so the âœ?must be the same
+        `makeDelIcon(anchor)` + shared CSS offset, so the âœ• must be the same
         distance & direction from its anchor in every measurement type.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -1042,10 +1042,10 @@ class TestMeasureControlBrowser:
             offsets = page.evaluate(_js("MeasureControl/read_del_icon_offsets"))
             assert errors == [], f"JS errors: {errors}"
             assert len(offsets["modes"]) >= 7, (
-                f"expected â‰? del icons (2 distance + 1 circle + 4 polygon + centroid), got {len(offsets['modes'])}"
+                f"expected â‰¥7 del icons (2 distance + 1 circle + 4 polygon + centroid), got {len(offsets['modes'])}"
             )
             offsets_list = list(offsets["modes"].values())
-            assert offsets_list, "no delete icons found â€?measurements not created?"
+            assert offsets_list, "no delete icons found â€” measurements not created?"
             # All offsets must agree (within 2px for subpixel rendering)
             ref = offsets_list[0]
             for name, off in offsets["modes"].items():
@@ -1063,7 +1063,7 @@ class TestMeasureControlBrowser:
         The label was moved in place with `setLatLng`, which keeps the sibling
         position from creation time. Once a finalised circle's label had
         entered the pane after the preview started, the preview chip stayed
-        ahead of it and was painted under â€?the moving preview label visually
+        ahead of it and was painted under â€” the moving preview label visually
         disappeared below the earlier measurement's label.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

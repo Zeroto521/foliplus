@@ -1,7 +1,7 @@
 () => {
   // The preview radius label must land in the label pane, not the graph pane.
   // Inside the graph pane it competes for SVG paint order with the circle
-  // fill, the dashed radius line and both nodes �?a label whose rect overlaps
+  // fill, the dashed radius line and both nodes — a label whose rect overlaps
   // a node at a short radius is covered by whichever shape re-attaches last.
   // Distance and polygon already route their preview labels through
   // CONST.PANES.LABEL; the circle preview was the one omission, which is why

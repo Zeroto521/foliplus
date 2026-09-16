@@ -28,7 +28,7 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it covers the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to foliplus-measure-graph, the label to foliplus-measure-label �?
+    // goes to foliplus-measure-graph, the label to foliplus-measure-label —
     // the label pane always paints above the graph pane, so pane ordering
     // alone covers the dot without any z-index or anchor trickery. The
     // default [0, -10] anchor sits the chip *above* the point (negative y in
@@ -43,7 +43,7 @@ describe("LABEL anchors", () => {
   it("is distinct from the non-overlapping anchors so a regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values �?or to a positive-y "clear the dot via
+    // collapse back to those values — or to a positive-y "clear the dot via
     // vertical offset" fix, which hides the real (pane-order) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);
@@ -110,7 +110,7 @@ describe("LABEL anchors", () => {
   it("is distinct from the non-overlapping anchors so a value regression is caught", () => {
     // Radius and midpoint labels sit at different latlngs from their markers,
     // so they anchor at [0, 0]. The centroid anchor must not accidentally
-    // collapse back to those values �?or to a positive-y "clear the dot via
+    // collapse back to those values — or to a positive-y "clear the dot via
     // vertical offset" fix, which hides the real (z-index) problem.
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.RADIUS_ANCHOR);
     expect(CONST.LABEL.CENTROID_ANCHOR).not.toEqual(CONST.LABEL.MID_ANCHOR);

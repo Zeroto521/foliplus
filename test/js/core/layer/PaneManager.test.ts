@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 
-// Mock L.svg �?needed by PaneManager.ensurePane
+// Mock L.svg — needed by PaneManager.ensurePane
 beforeEach(() => {
   vi.clearAllMocks();
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
@@ -137,7 +137,7 @@ describe("PaneManager", () => {
 
   it("ensurePane sets provisional z-index on first creation only", () => {
     // First creation: graph=BASE, node=BASE+STEP, label=BASE+2*STEP.
-    // Re-entry (pane already exists) must NOT touch z-index �?bumpPanes
+    // Re-entry (pane already exists) must NOT touch z-index — bumpPanes
     // may have already overwritten it with a position-based base.
     const panes: Record<string, HTMLElement> = {};
     const map = {
@@ -245,7 +245,7 @@ describe("PaneManager", () => {
 
   it("bumpPanes handles three sub-panes with ascending offsets", () => {
     // The whole point of the panes-list refactor is N panes. Exercise a
-    // 3-pane layer (graph, node, label �?the shape MeasureControl's
+    // 3-pane layer (graph, node, label — the shape MeasureControl's
     // closed PR #271 wanted) to prove the offset math doesn't have a
     // hard-coded cap.
     const graph = document.createElement("div");
@@ -318,7 +318,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: { pane: "foliplus-measure-graph" } };
     expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
-    // Second call must hit the cache �?the options change is ignored until reset
+    // Second call must hit the cache — the options change is ignored until reset
     layer.options.pane = "other_pane";
     expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
     // After a targeted invalidation the new pane is observed
@@ -336,7 +336,7 @@ describe("PaneManager", () => {
   });
 
   it("sweepChildPanes keeps a pane shared by multiple layers", () => {
-    // Two layers both use "shared_label" �?after sweeping, the pane must
+    // Two layers both use "shared_label" — after sweeping, the pane must
     // stay because it's still referenced by at least one layer.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -491,7 +491,7 @@ describe("PaneManager", () => {
     const pane = document.createElement("div");
     document.body.appendChild(pane);
     // Tile layers get a fallback pane with needRenderer=false, so there is no
-    // foliplus RENDERER_KEY entry to clean �?only the pane + Leaflet's own
+    // foliplus RENDERER_KEY entry to clean — only the pane + Leaflet's own
     // registry.
     const map = makeMap({ "foliplus-pane-1": pane }, { leafletRenderer: {} });
     const pm = new PaneManager(map);
@@ -562,7 +562,7 @@ describe("PaneManager", () => {
     expect(pm.fallbackPaneMap.size).toBe(0);
     expect(pm.childPanes.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
-    // registered layers from the map �?they are still live, so the pane DOM
+    // registered layers from the map — they are still live, so the pane DOM
     // must survive them.
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._panes["foliplus-pane-1"]).toBe(pane);

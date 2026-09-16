@@ -1,12 +1,12 @@
 async () => {
   // While the circle preview is live, the radius label chip must be the LAST
-  // marker child of the label pane on every frame �?it is the newest element
+  // marker child of the label pane on every frame — it is the newest element
   // in the pane, so it sits above every other label chip that pane holds.
   //
   // Before the fix the label was moved in place with setLatLng, which keeps
   // the sibling position from creation time. If a label entered the pane
   // after the preview started, the preview chip stayed ahead of it and was
-  // painted under �?the moving preview label vanished below the earlier
+  // painted under — the moving preview label vanished below the earlier
   // chip.
   //
   // A real "finalised label then second preview" probe is not reproducible
@@ -16,7 +16,7 @@ async () => {
   // `setMode("circle")` refuses to arm. We simulate the same pane state by
   // planting an equivalent label chip through the manager's own `layers`
   // factory (the same path `finishCircle` uses) and starting a fresh
-  // preview �?the pane then holds an older chip plus the moving preview,
+  // preview — the pane then holds an older chip plus the moving preview,
   // and we assert the preview re-sorts to the tail on every frame.
   const mm = window.__measureManager;
   const map = window.__map;
