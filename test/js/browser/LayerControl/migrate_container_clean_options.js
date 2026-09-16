@@ -19,7 +19,7 @@
     leafPane,
     containerPane: typeof containerPane === "undefined" ? null : containerPane,
     isFallback:
-      typeof containerPane === "string" && containerPane.startsWith("foliplus_pane_"),
+      typeof containerPane === "string" && containerPane.startsWith("foliplus-pane-"),
     leafHasPath: !!(poly._path && poly._path.parentNode),
   };
 };

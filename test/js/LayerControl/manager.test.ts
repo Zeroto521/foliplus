@@ -8,7 +8,11 @@ import {
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
+import {
+  FALLBACK_PANE_PREFIX,
+  GEOM_TYPE,
+  Z_INDEX,
+} from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -171,7 +175,9 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
     manager.enforceOrder();
     expect(grid.options.zIndex).toBeDefined();
-    expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
+    expect(String(grid.options.pane)).not.toMatch(
+      new RegExp(`^${FALLBACK_PANE_PREFIX}`),
+    );
   });
 
   it("slots a layer's label pane just above that layer", () => {
@@ -291,7 +297,7 @@ describe("LayerManager", () => {
     // registry for the teardown to run.
     const paneA = document.createElement("div");
     const paneB = document.createElement("div");
-    const paneRegistry = { foliplus_pane_a: paneA, foliplus_pane_b: paneB };
+    const paneRegistry = { "foliplus-pane-a": paneA, "foliplus-pane-b": paneB };
     map._panes = paneRegistry;
     // Stable fallback so a debounced enforceOrder firing after this test's
     // teardown does not read a deleted registry.
@@ -307,15 +313,15 @@ describe("LayerManager", () => {
     window.L.stamp = stableStamp;
     const stampA = window.L.stamp(layerA);
     const stampB = window.L.stamp(layerB);
-    manager.panes.fallbackPaneMap.set(stampA, "foliplus_pane_a");
-    manager.panes.fallbackPaneMap.set(stampB, "foliplus_pane_b");
+    manager.panes.fallbackPaneMap.set(stampA, "foliplus-pane-a");
+    manager.panes.fallbackPaneMap.set(stampB, "foliplus-pane-b");
     expect(manager.unregisterLayer("fb_a")).toBe(true);
     // A is gone from both the records and the map DOM.
     expect(manager.panes.fallbackPaneMap.size).toBe(1);
-    expect(paneRegistry.foliplus_pane_a).toBeUndefined();
+    expect(paneRegistry["foliplus-pane-a"]).toBeUndefined();
     // B is still registered, so its pane survives the sweep.
-    expect(paneRegistry.foliplus_pane_b).toBe(paneB);
-    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus_pane_b"]);
+    expect(paneRegistry["foliplus-pane-b"]).toBe(paneB);
+    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus-pane-b"]);
     delete window["fb_a"];
     delete window["fb_b"];
   });
@@ -1151,7 +1157,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "fb", name: "Fb", layer });
     manager.enforceOrder();
-    expect(layer.options.pane).toMatch(/^foliplus_pane_/);
+    expect(layer.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
     expect(layer.options.paneSet).toBe(true);
   });
 
