@@ -43,6 +43,15 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
+    def test_default_label_show(self):
+        assert MeasureControl().label_show is True
+
+    def test_custom_label_show(self):
+        assert MeasureControl(label_show=False).label_show is False
+
+    def test_label_show_in_export_fields(self):
+        assert "label_show" in MeasureControl._export_fields
+
     def test_default_label_collide(self):
         assert MeasureControl().label_collide is True
 

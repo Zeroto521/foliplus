@@ -17,6 +17,9 @@ const EVENTS = {
   AFTER_EXPORT: "foliplus:export:after",
   /** A layer's feature count changed (data update / feature add/remove). */
   LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count-change",
+  /** A layer's style value changed — subscribers pull the fresh value from
+   *  the layer's styleProvider (the event carries the id, never the value). */
+  LAYER_STYLE_CHANGE: "foliplus:layer:style-change",
   /** A control finished attaching to the map (onAdd complete). Lets
    *  LayerControl run its init pass from a ready signal instead of a timer. */
   CONTROL_ATTACHED: "foliplus:control:attached",
@@ -31,6 +34,7 @@ interface EventPayloadMap {
   [EVENTS.BEFORE_EXPORT]: { component: string };
   [EVENTS.AFTER_EXPORT]: { component: string };
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { id: string };
+  [EVENTS.LAYER_STYLE_CHANGE]: { id: string };
   [EVENTS.CONTROL_ATTACHED]: { component: string };
 }
 
@@ -79,6 +83,13 @@ const EVENT_REGISTRY: Record<string, EventMeta> = {
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: {
     description: "A layer's feature count changed (data update / feature add/remove)",
     publisher: "LayerManager",
+    subscribers: [COMPONENTS.LayerControl],
+    payload: "{ id: string }",
+  },
+  [EVENTS.LAYER_STYLE_CHANGE]: {
+    description:
+      "A layer's style value changed — subscribers pull fresh values from styleProvider",
+    publisher: "Component managers (Heatmap / Measure)",
     subscribers: [COMPONENTS.LayerControl],
     payload: "{ id: string }",
   },

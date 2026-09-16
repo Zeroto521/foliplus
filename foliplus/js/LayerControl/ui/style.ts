@@ -36,6 +36,14 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
+/** Whether the layer delegates its style to the drawer via styleSetters
+ *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
+ *  also enables for these. */
+const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
+  const li = ui.m.layerRegistry.get(layerId);
+  return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
+};
+
 /** Drop a layer's cached field list and re-render if it is currently labelling.
  *  Called when a layer's features can change (runtime createLayers) or when the
  *  layer is removed.
@@ -111,9 +119,120 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
   row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
+/** Build the style panel DOM for a layer that delegates its style via
+ *  styleSetters (third-party canvas layers). Renders only the controls the
+ *  component declared — no body collapse, no format row, no reset. Returns
+ *  null when the layer has no delegation (falls through to the annotation
+ *  panel). */
+const renderDelegatedStylePanel = (
+  ui: LayerUI,
+  layerId: string,
+): HTMLElement | null => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const setters = li?.styleSetters;
+  if (!setters || Object.keys(setters).length === 0) return null;
+
+  const values = li.styleProvider?.() ?? {};
+  const rows: HTMLElement[] = [];
+
+  if (setters.labelShow) {
+    const toggle = dom.el("input", {
+      type: "checkbox",
+      class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
+      checked: values.labelShow ? "" : null,
+      "aria-label": ui.T("style_label_tooltip"),
+    });
+    rows.push(
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
+        dom.el(
+          "div",
+          { class: "foliplus-form-control" },
+          dom.el(
+            "label",
+            { class: "foliplus-toggle-switch" },
+            toggle,
+            dom.el("span", { class: "foliplus-toggle-slider" }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  if (setters.field) {
+    const options = li.fieldOptions?.() ?? [];
+    const fieldSelect = dom.el(
+      "select",
+      {
+        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+        "aria-label": ui.T("style_label_field"),
+      },
+      ...options.map(o =>
+        dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
+      ),
+    );
+    if (typeof values.field === "string") {
+      (fieldSelect as HTMLSelectElement).value = values.field;
+    }
+    rows.push(
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_field")),
+        dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
+      ),
+    );
+  }
+
+  if (setters.labelCollide) {
+    const toggle = dom.el("input", {
+      type: "checkbox",
+      class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
+      checked: values.labelCollide !== false ? "" : null,
+      "aria-label": ui.T("style_label_collide_tooltip"),
+    });
+    rows.push(
+      dom.el(
+        "div",
+        { class: "foliplus-form-row" },
+        dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_collide")),
+        dom.el(
+          "div",
+          { class: "foliplus-form-control" },
+          dom.el(
+            "label",
+            { class: "foliplus-toggle-switch" },
+            toggle,
+            dom.el("span", { class: "foliplus-toggle-slider" }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  if (!rows.length) return null;
+
+  const { panel, content } = createRowPanel({
+    cssClass: CONST.CLASSES.STYLE_PANEL,
+    title: ui.T("style_layer"),
+    iconSvg: SVGs.STYLE,
+    closeTitle: ui.T("close_title"),
+    iconClass: "foliplus-layer-style-icon foliplus-header-icon",
+  });
+  content.append(...rows);
+  return panel;
+};
+
 /** Build the style panel DOM for a layer. Returns null when there are no
  *  labelable fields (defensive: the menu item should have been disabled). */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
+  // Third-party canvas layers (heatmap, measure) declare their own controls
+  // via styleSetters — render those instead of the annotation panel.
+  if (layerHasStyleDelegation(ui, layerId)) {
+    return renderDelegatedStylePanel(ui, layerId);
+  }
   const fields = layerFields(ui, layerId);
   if (!fields.length) return null;
 
@@ -323,8 +442,38 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
+  const delegated = layerHasStyleDelegation(ui, layerId);
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
+    if (delegated) {
+      // Third-party layer: dispatch to the component's own setters.
+      const li = ui.m.layerRegistry.get(layerId);
+      const setters = li?.styleSetters;
+      if (!setters) return;
+      if (
+        t instanceof HTMLInputElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT) &&
+        setters.labelShow
+      ) {
+        setters.labelShow(t.checked);
+      } else if (
+        t instanceof HTMLInputElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT) &&
+        setters.labelCollide
+      ) {
+        setters.labelCollide(t.checked);
+      } else if (
+        t instanceof HTMLSelectElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT) &&
+        setters.field
+      ) {
+        setters.field(t.value);
+      } else {
+        return;
+      }
+      event.stopPropagation();
+      return;
+    }
     if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT)
@@ -422,6 +571,41 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   };
   document.addEventListener("mousedown", ui.styleOutsideHandler, true);
 
+  // When the component's own panel changes a style value while this drawer is
+  // open, pull the fresh values and refresh the controls. The event carries
+  // only the id — the drawer reads from styleProvider. An input being edited
+  // is never overwritten (activeElement guard).
+  if (delegated) {
+    const bus = ui.m.events;
+    ui.styleUnsubscribe = bus.on(
+      "foliplus:layer:style-change" as never,
+      ((payload: { id: string }) => {
+        if (payload.id !== layerId) return;
+        const li = ui.m.layerRegistry.get(layerId);
+        const values = li?.styleProvider?.();
+        if (!values) return;
+        const showInput = panel.querySelector(
+          `.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`,
+        ) as HTMLInputElement | null;
+        if (showInput && document.activeElement !== showInput) {
+          showInput.checked = !!values.labelShow;
+        }
+        const collideInput = panel.querySelector(
+          `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
+        ) as HTMLInputElement | null;
+        if (collideInput && document.activeElement !== collideInput) {
+          collideInput.checked = values.labelCollide !== false;
+        }
+        const fieldSel = panel.querySelector(
+          `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+        ) as HTMLSelectElement | null;
+        if (fieldSel && document.activeElement !== fieldSel) {
+          fieldSel.value = String(values.field ?? "");
+        }
+      }) as never,
+    );
+  }
+
   ui.stylePanelLayerId = layerId;
 };
 
@@ -431,6 +615,8 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     document.removeEventListener("mousedown", ui.styleOutsideHandler, true);
     ui.styleOutsideHandler = null;
   }
+  ui.styleUnsubscribe?.();
+  ui.styleUnsubscribe = null;
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
   const panel = ui.uiContainer.querySelector(
@@ -454,5 +640,6 @@ export {
   closeStylePanel,
   invalidateFields,
   layerHasLabelFields,
+  layerHasStyleDelegation,
   openStylePanel,
 };

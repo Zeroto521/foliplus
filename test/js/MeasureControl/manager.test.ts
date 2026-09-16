@@ -1197,11 +1197,11 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(placeLabels.mock.calls[0][2] as boolean).toBe(false);
   });
 
-  it("labelsCollide reads label_collide from CONF and defaults to true", () => {
+  it("labelsCollide defaults to true and flips via setLabelCollide", () => {
     const { manager } = makeLabelManager();
     expect(manager.labelsCollide).toBe(true);
 
-    window.CONF.label_collide = false;
+    manager.setLabelCollide(false);
     expect(manager.labelsCollide).toBe(false);
   });
 
@@ -1260,10 +1260,50 @@ describe("MeasureManager — registerLabel lifecycle", () => {
       ([ev]: [string]) => ev === "moveend",
     )![1];
 
-    window.CONF.label_collide = false;
+    manager.setLabelCollide(false);
     moveendCall();
     flushRaf();
     expect(placeLabels.mock.calls[1][2] as boolean).toBe(false);
+  });
+
+  it("setLabelsVisible hides and restores every chip via visibility", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    manager.setLabelsVisible(false);
+    const chip = (marker.getElement() as HTMLElement).querySelector(
+      ".foliplus-measure-label",
+    )!;
+    expect(chip.style.visibility).toBe("hidden");
+
+    manager.setLabelsVisible(true);
+    expect(chip.style.visibility).toBe("");
+  });
+
+  it("styleProvider returns the live labelShow and labelCollide values", () => {
+    const { manager, map } = makeLabelManager({ label_collide: false });
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleProvider: () => Record<string, unknown>;
+    };
+    expect(opts.styleProvider()).toEqual({ labelShow: true, labelCollide: false });
+
+    manager.setLabelCollide(true);
+    expect(opts.styleProvider().labelCollide).toBe(true);
+  });
+
+  it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
+    const { manager } = makeLabelManager();
+    const emitSpy = vi.spyOn(manager.events, "emit");
+
+    manager.setLabelsVisible(false);
+
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: manager.layerId,
+    });
   });
 
   it("re-plans a smaller set when a label is removed mid-measurement", () => {

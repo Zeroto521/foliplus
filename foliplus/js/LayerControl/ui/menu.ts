@@ -6,7 +6,7 @@ import * as SVGs from "../icon.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
-import { layerHasLabelFields } from "./style.js";
+import { layerHasLabelFields, layerHasStyleDelegation } from "./style.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -62,7 +62,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
-  const styleDisabled = focusDisabled || !layerHasLabelFields(ui, layerId);
+  const styleDisabled =
+    focusDisabled ||
+    (!layerHasLabelFields(ui, layerId) && !layerHasStyleDelegation(ui, layerId));
 
   menu.appendChild(
     dom.el(

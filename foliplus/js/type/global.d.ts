@@ -147,6 +147,7 @@ declare global {
     provider_config?: Record<string, unknown> | null;
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
+    label_show?: boolean;
     label_collide?: boolean;
     agg?: string;
     method?: string;

@@ -1293,3 +1293,93 @@ describe("hex label rendering (shared canvas recipe)", () => {
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 });
+
+describe("HeatmapManager — style delegation", () => {
+  function getCanvasOpts() {
+    const createCanvas = (
+      window.map.foliplus!.LayerAPI as unknown as {
+        createCanvas: ReturnType<typeof vi.fn>;
+      }
+    ).createCanvas;
+    return createCanvas.mock.calls[0][0] as {
+      styleProvider?: () => Record<string, unknown>;
+      styleSetters?: Record<string, (v: unknown) => void>;
+      fieldOptions?: () => string[];
+    };
+  }
+
+  it("createCanvas receives styleProvider, styleSetters and fieldOptions", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(typeof opts.styleProvider).toBe("function");
+    expect(typeof opts.styleSetters?.labelShow).toBe("function");
+    expect(typeof opts.styleSetters?.field).toBe("function");
+    expect(typeof opts.fieldOptions).toBe("function");
+  });
+
+  it("styleProvider returns the live labelShow and field values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+
+    m.currentLabelShow = false;
+    m.currentField = "properties.count";
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: false,
+      field: "properties.count",
+    });
+  });
+
+  it("labelShow setter flips state, re-renders and persists", () => {
+    const m = makeManager();
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelShow!(false);
+
+    expect(m.currentLabelShow).toBe(false);
+    expect(renderSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
+    const m = makeManager();
+    m.fieldAuto = true;
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("properties.count");
+
+    expect(m.currentField).toBe("properties.count");
+    expect(m.fieldAuto).toBe(false);
+    expect(renderSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("fieldOptions returns the numeric fields of the selected source layer", () => {
+    const m = makeManager();
+    m.selectedLayerId = "src1";
+    const extractPoints = (
+      window.map.foliplus!.LayerAPI as unknown as {
+        extractPoints: ReturnType<typeof vi.fn>;
+      }
+    ).extractPoints;
+    extractPoints.mockReturnValue([
+      {
+        marker: {
+          feature: { properties: { count: 5, name: "abc" } },
+        },
+      },
+    ]);
+    const opts = getCanvasOpts();
+    expect(opts.fieldOptions!()).toEqual(["properties.count"]);
+  });
+
+  it("fieldOptions returns empty when no source layer is selected", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.fieldOptions!()).toEqual([]);
+  });
+});

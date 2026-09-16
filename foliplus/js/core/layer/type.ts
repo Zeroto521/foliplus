@@ -30,6 +30,15 @@ interface RegisterLayerOpts {
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values this layer exposes to the style drawer — pulled on demand,
+   *  never cached on the registry (same contract as featureCountProvider). */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters. Both the component's own panel and the layer
+   *  drawer call these — the component owns the only copy of the value. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Options for a `field`-keyed select in the style drawer (e.g. the
+   *  heatmap's numeric source fields). Absent when the layer has no field. */
+  fieldOptions?: (() => string[]) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -63,6 +72,12 @@ interface LayerInfo {
   onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values exposed to the drawer — pull on demand, never cached. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters shared by the component panel and the drawer. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Options for a `field`-keyed select in the style drawer. */
+  fieldOptions?: (() => string[]) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -115,6 +130,12 @@ interface CreateLayersOpts {
    *  When set, LayerControl's count column uses this instead of the default
    *  countFeatureGeometry (which walks all leaf geometries). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  fieldOptions?: (() => string[]) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -129,6 +150,12 @@ interface CreateCanvasOpts {
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  fieldOptions?: (() => string[]) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
