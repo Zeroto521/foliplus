@@ -17,7 +17,7 @@ import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { isKeyboardVisibleFocus, isInFloatingPanel, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -355,10 +355,7 @@ class LayerUI {
       // steal DOM focus back to the row, and a native <select> popup closes
       // the instant it loses focus — so the dropdown looked like it retracted
       // the moment it opened. The panels carry their own click handling.
-      if (
-        el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
-        el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
-      ) {
+      if (isInFloatingPanel(el)) {
         return;
       }
       // One ledger: pointer re-homes the index, Tab stop, and paints the

@@ -1113,6 +1113,73 @@ describe("LayerUI focus", () => {
       focusSpy.mockRestore();
     });
 
+    it("does NOT focus the layer on a dblclick of the style-panel toggle slider", () => {
+      // The toggle switch is <label><input><span.slider></label>. Users click
+      // the slider span, which is not an `input`/`button` — two quick flips
+      // used to bubble a dblclick that fell through to focusLayer.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const slider = findItem(ui, "overlay1").querySelector(
+        ".foliplus-toggle-slider",
+      ) as HTMLElement;
+      expect(slider).not.toBeNull();
+      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick of the style-panel field select", () => {
+      // Same class of hit as the toggle slider: a <select> is neither
+      // `input` nor `button` in the denylist, so only the floating-panel
+      // early return keeps a double-click on it from focusing the layer.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const select = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+      ) as HTMLElement;
+      expect(select).not.toBeNull();
+      ui.handleDblClick({ target: select, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick of the style-panel collide slider", () => {
+      // The "avoid overlap" switch uses the same <label><input><span.slider>
+      // chrome as the show toggle — same double-flip hazard.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const collide = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
+      ) as HTMLInputElement;
+      expect(collide).not.toBeNull();
+      const slider = collide.parentElement!.querySelector(
+        ".foliplus-toggle-slider",
+      ) as HTMLElement;
+      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick inside the attrs panel", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(
+        `.${CONST.CLASSES.ATTRS_PANEL}`,
+      ) as HTMLElement;
+      expect(panel).not.toBeNull();
+      ui.handleDblClick({ target: panel, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeAttrsPanel(false);
+    });
+
     it("ignores a dblclick outside the layer panel", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
