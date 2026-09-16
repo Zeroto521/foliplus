@@ -43,7 +43,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           el.id = "map";
           return el;
         }),
-        getPane: vi.fn(() => ({ style: {} })),
+        getPane: vi.fn(() => ({
+          style: {},
+          classList: { add: vi.fn(), remove: vi.fn() },
+        })),
         createPane: vi.fn(() => ({
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
@@ -598,7 +601,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
             addLayer: vi.fn(),
             removeLayer: rl,
             getContainer: vi.fn(() => document.createElement("div")),
-            getPane: vi.fn(() => ({ style: {} })),
+            getPane: vi.fn(() => ({
+              style: {},
+              classList: { add: vi.fn(), remove: vi.fn() },
+            })),
             createPane: vi.fn(() => ({
               style: {},
               classList: { add: vi.fn(), remove: vi.fn() },

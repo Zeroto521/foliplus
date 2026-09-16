@@ -30,6 +30,13 @@ interface AnnotationConfig {
   format: NumberStyle;
 }
 
+/** Label priority from a layer's panel position: a layer above must win the
+ *  collision against one below it, so position 0 (topmost) outranks 1, 1
+ *  outranks 2, and so on. An unknown position (-1) is neutral — the planner's
+ *  own tie-breaks (box width, then insertion order) decide those. */
+const labelPriority = (order: number): number =>
+  order < 0 ? 50 : Math.max(1, 100 - order);
+
 /**
  * AnnotationManager owns per-layer label state and rendering.
  * Pure logic + the canvas hand-off; state and persistence are written to
@@ -38,15 +45,24 @@ interface AnnotationConfig {
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
+  /** A layer's position in the panel (0 = topmost), for label priority. */
+  private readonly layerOrder: (id: string) => number;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
   /** The shared label canvas, created on first use (tests stub the class). */
   private canvas: AnnotationCanvas | null = null;
+  /** The layer the focus mode is spotlighting, or null when not focusing. */
+  private focusFilter: string | null = null;
 
-  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
+  constructor(
+    mapInstance: L.Map,
+    layerFind: (id: string) => L.Layer | null,
+    layerOrder: (id: string) => number = () => -1,
+  ) {
     this.map = mapInstance;
     this.layerFind = layerFind;
+    this.layerOrder = layerOrder;
     this.config = new Map();
     this.autoFieldCache = new Map();
   }
@@ -177,6 +193,10 @@ class AnnotationManager {
     const layer = this.layerFind(id);
     if (!layer) return [];
     const locale = CONF.locale_code ?? "en";
+    // One priority per layer, from its panel position: labels of a layer above
+    // outrank one below, so the shared plan keeps the upper label where the two
+    // collide (the lower one steps aside instead of drawing over it).
+    const priority = labelPriority(this.layerOrder(id));
     const labels: LayerLabel[] = [];
 
     forEachLeaf(layer, (leaf: L.Layer) => {
@@ -193,10 +213,7 @@ class AnnotationManager {
         text,
         latlng: anchor,
         atPoint,
-        // Equal priority across the board: within a layer the planner falls
-        // back to box width then render order, and across layers all labels go
-        // through one shared plan with no layer-stacking preference.
-        priority: 50,
+        priority,
       });
     });
 
@@ -227,6 +244,14 @@ class AnnotationManager {
     this.autoFieldCache.clear();
   }
 
+  /** Restrict the labels to one layer while the focus mode spotlights it — the
+   *  other layers' labels would otherwise float over geometry the focus just
+   *  hid. Null clears the restriction. */
+  setFocusFilter(layerId: string | null): void {
+    this.focusFilter = layerId;
+    this.canvas?.setFocusFilter(layerId);
+  }
+
   /** Lazily create the shared canvas. The visibility callback re-reads the
    *  layer's map membership at draw time, so labels of a hidden layer drop out
    *  without any state to keep in sync. */
@@ -236,6 +261,8 @@ class AnnotationManager {
         const layer = this.layerFind(id);
         return !!layer && this.map.hasLayer(layer);
       });
+      // A canvas created mid-focus must pick up the spotlight it was born into.
+      if (this.focusFilter !== null) this.canvas.setFocusFilter(this.focusFilter);
     }
     return this.canvas;
   }

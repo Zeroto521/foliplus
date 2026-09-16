@@ -174,6 +174,21 @@ describe("LayerManager", () => {
     expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
   });
 
+  it("creates the annotation pane on a map that has none yet", () => {
+    // enforceOrder both creates and z-orders the label pane; the create branch
+    // only runs the first time (later enforces find the pane and just re-order
+    // it).
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name === CONST.ANNOTATION_PANE ? undefined : realGetPane(name),
+    );
+    map.createPane.mockClear();
+
+    manager.enforceOrder();
+
+    expect(map.createPane).toHaveBeenCalledWith(CONST.ANNOTATION_PANE);
+  });
+
   it("computeZIndex returns expected values", () => {
     // 2 layers, index 0, layer count = 2
     // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620

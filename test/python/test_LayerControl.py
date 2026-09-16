@@ -1241,6 +1241,21 @@ class TestLayerControlBrowser:
             assert result["shown"] > 0, result
             assert not errors, f"JS errors: {errors}"
 
+    def test_annotation_multi_layer_share_one_canvas_above_layers(
+        self, browser, tmp_path
+    ):
+        """Several labelled layers share one canvas, drawn above every data pane."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["canvasCount"] == 1, result
+            assert result["opaque"] > 0, result
+            assert result["layerPaneCount"] >= 2, result
+            # The label pane must clear every data pane it annotates.
+            assert result["annZ"] > result["maxLayerZ"], result
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
