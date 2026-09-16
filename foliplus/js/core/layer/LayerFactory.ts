@@ -1,7 +1,7 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONF / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
-import { dom } from "#common/dom.js";
+import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
@@ -310,9 +310,7 @@ class LayerFactory {
     };
 
     const updatePosition = () => {
-      const pos = L.DomUtil.getPosition(mapPane);
-      canvas.style.left = `${-pos.x}px`;
-      canvas.style.top = `${-pos.y}px`;
+      cancelMapPaneTranslate(canvas, map);
     };
 
     const getSize = () => {

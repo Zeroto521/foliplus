@@ -312,6 +312,28 @@ describe("AnnotationManager — render & plan", () => {
     expect(panned[0]!.box.y - fullPlan[0]!.box.y).toBeCloseTo(-15);
   });
 
+  it("falls back to a full plan when there is no plan origin", async () => {
+    const { map, mapPane } = makeMap();
+    // No mapPane while planning — the origin cannot be recorded.
+    let panes: { mapPane?: HTMLElement } = {};
+    (map as unknown as { getPanes: () => unknown }).getPanes = () => panes;
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const callsAfterFullPlan = proj.mock.calls.length;
+
+    // mapPane appears mid-life; the next pan cannot translate anything.
+    panes = { mapPane };
+    const move = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+    move();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+
+    expect(proj.mock.calls.length).toBeGreaterThan(callsAfterFullPlan);
+  });
+
   it("re-plans on moveend after a pan", async () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };
