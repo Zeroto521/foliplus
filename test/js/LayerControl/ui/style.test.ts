@@ -1118,4 +1118,100 @@ describe("LayerUI style panel", () => {
     expect(body.classList.contains("foliplus-hidden")).toBe(false);
     expect(labelShowSetter).toHaveBeenCalledWith(true);
   });
+
+  it("delegated change dispatches labelCollide to styleSetters", () => {
+    const labelCollideSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelCollide: true }),
+      styleSetters: { labelShow: vi.fn(), labelCollide: labelCollideSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const collideToggle = panelOf(item)!.querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    collideToggle.checked = false;
+    collideToggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelCollideSetter).toHaveBeenCalledWith(false);
+  });
+
+  it("delegated change dispatches field to styleSetters", () => {
+    const fieldSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, field: "count" }),
+      styleSetters: { labelShow: vi.fn(), field: fieldSetter },
+      fieldOptions: () => ["count", "sum"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const fieldSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement;
+    fieldSelect.value = "sum";
+    fieldSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(fieldSetter).toHaveBeenCalledWith("sum");
+  });
+
+  it("LAYER_STYLE_CHANGE updates the collide toggle from the provider", () => {
+    let currentCollide = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelCollide: currentCollide }),
+      styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const collideToggle = panelOf(item)!.querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    expect(collideToggle.checked).toBe(true);
+
+    currentCollide = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(collideToggle.checked).toBe(false);
+  });
+
+  it("LAYER_STYLE_CHANGE updates the field select from the provider", () => {
+    let currentField = "count";
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, field: currentField }),
+      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
+      fieldOptions: () => ["count", "sum"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const fieldSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement;
+    expect(fieldSelect.value).toBe("count");
+
+    currentField = "sum";
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(fieldSelect.value).toBe("sum");
+  });
 });

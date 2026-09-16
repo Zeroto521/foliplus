@@ -1459,4 +1459,42 @@ describe("MeasureManager — label cleanup", () => {
     expect(() => manager.destroy()).not.toThrow();
     expect(map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
   });
+
+  it("styleSetters.labelShow calls setLabelsVisible", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelsVisible");
+
+    opts.styleSetters.labelShow!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("styleSetters.labelCollide calls setLabelCollide", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelCollide");
+
+    opts.styleSetters.labelCollide!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("labelsVisible getter returns the live labelShow value", () => {
+    const { manager } = makeLabelManager();
+    expect(manager.labelsVisible).toBe(true);
+
+    manager.setLabelsVisible(false);
+    expect(manager.labelsVisible).toBe(false);
+  });
 });
