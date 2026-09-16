@@ -48,13 +48,6 @@ function makeManager() {
     border_opacity: 0.9,
     label_show: true,
     label_format: "auto",
-    // Scoped translator keys used by syncSourceMeta / attrs meta rows.
-    locale_tables: {
-      en: {
-        "HeatmapControl.meta_source_layer": "Source Layer",
-        "HeatmapControl.meta_agg_field": "Aggregation Field",
-      },
-    },
   });
 
   globalThis.h3 = {

@@ -1383,4 +1383,18 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
   });
+
+  it("does not stamp Updated when the published values are unchanged", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "count";
+
+    m.syncSourceMeta();
+    const touch = window.map.foliplus.LayerAPI.touchLayer;
+    expect(touch).toHaveBeenCalledTimes(1);
+
+    m.syncSourceMeta();
+    expect(touch).toHaveBeenCalledTimes(1);
+  });
 });

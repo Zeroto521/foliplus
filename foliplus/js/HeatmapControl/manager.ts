@@ -725,13 +725,13 @@ class HeatmapManager {
    * `sourceMeta` (the object createCanvas registered), so LayerControl's
    * attributes panel can answer "where did this heatmap come from?".
    * Empty values are written too — the attrs panel drops blank rows.
+   * `touchLayer` fires only when a published value actually changed, so a
+   * no-op dropdown rebuild does not bump the panel's Updated stamp.
    */
   syncSourceMeta() {
     const layerName = this.selectedLayerId
       ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
       : "";
-    this.sourceMeta[this.T("meta_source_layer")] = layerName;
-
     let fieldLabel = "";
     if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
       const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
@@ -739,8 +739,16 @@ class HeatmapManager {
         fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
       }
     }
-    this.sourceMeta[this.T("meta_agg_field")] = fieldLabel;
 
+    const sourceKey = this.T("meta_source_layer");
+    const fieldKey = this.T("meta_agg_field");
+    const changed =
+      this.sourceMeta[sourceKey] !== layerName ||
+      this.sourceMeta[fieldKey] !== fieldLabel;
+    this.sourceMeta[sourceKey] = layerName;
+    this.sourceMeta[fieldKey] = fieldLabel;
+
+    if (!changed) return;
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
     // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
     // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
