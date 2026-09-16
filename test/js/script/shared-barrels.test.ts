@@ -1,7 +1,7 @@
 /**
  * Shared-library barrels: a dead-code guard.
  *
- * `core/index.ts` was a 45-line re-export barrel that no source imported, and the
+ * `core/index.ts` was a 63-line re-export barrel that no source imported, and the
  * shared-registry scan (`script/scan-registry.mjs`) never registers it either —
  * `coreSubs` and `coreSingleFiles` both exclude `index.ts`, so the registry can
  * only ever expose `core/<sub>` or `core/<file>`. An export added to that barrel
@@ -29,9 +29,9 @@ const ALIASES = new Map([
   ["#common/", resolve(JS_DIR, "common")],
 ]);
 
-const sourceFiles = () => globSync({ cwd: ROOT, patterns: ["foliplus/js/**/*.ts"] });
+const tsSources = () => globSync({ cwd: ROOT, patterns: ["foliplus/js/**/*.ts"] });
 
-const specifiersOf = (files: string[]): Map<string, string[]> => {
+const aliasedSpecifiers = (files: string[]): Map<string, string[]> => {
   const seen = new Map<string, string[]>();
   for (const file of files) {
     const text = readFileSync(resolve(ROOT, file), "utf8");
@@ -50,7 +50,7 @@ const specifiersOf = (files: string[]): Map<string, string[]> => {
 
 describe("shared-library barrel imports", () => {
   it("no production source imports a core or common directory barrel", () => {
-    const specifiers = specifiersOf(sourceFiles());
+    const specifiers = aliasedSpecifiers(tsSources());
     const barrels = [...specifiers.entries()]
       .filter(([, files]) => files.length > 0)
       .filter(([spec]) => /\/index\.js$/.test(spec));
@@ -59,15 +59,15 @@ describe("shared-library barrel imports", () => {
     // intended shape: the registry generates an import for each of them from
     // `#core/<sub>/index.js`. A *domain* barrel (`#core/index.js`,
     // `#common/index.js`) is what the deletion removed, and neither is bundled.
-    const domainBarrels = barrels.filter(([spec]) =>
+    const barrelSpecifiers = barrels.filter(([spec]) =>
       /#(core|common)\/index\.js$/.test(spec),
     );
-    expect(domainBarrels).toEqual([]);
+    expect(barrelSpecifiers).toEqual([]);
   });
 
   it("every imported shared-library specifier resolves to an existing file", () => {
     const missing: Array<[string, string[]]> = [];
-    for (const [spec, files] of specifiersOf(sourceFiles()).entries()) {
+    for (const [spec, files] of aliasedSpecifiers(tsSources()).entries()) {
       const [, root] = [...ALIASES].find(([alias]) => spec.startsWith(alias))!;
       const rel = spec.slice(spec.indexOf("/") + 1, -".js".length) + ".ts";
       if (!globSync({ cwd: root, patterns: [rel] }).length) {
