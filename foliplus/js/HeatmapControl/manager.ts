@@ -206,11 +206,11 @@ class HeatmapManager {
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
         // Strip the "properties." prefix for display — the drawer and the
-        // annotation panel both show bare field names.
+        // annotation panel both show bare field names. An empty string is the
+        // AUTO_FIELD sentinel: the drawer's Auto placeholder is then selected.
         field: this.currentField.startsWith("properties.")
           ? this.currentField.slice("properties.".length)
           : this.currentField,
-        fieldAuto: this.fieldAuto,
       }),
       styleSetters: {
         labelShow: v => {
