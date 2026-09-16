@@ -2,6 +2,8 @@
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const cvs = api.createCanvas({ id: "__test_canvas__" });
+  const pane = cvs.canvas.parentElement;
+  const paneName = "foliplus-canvas-__test_canvas__";
   return {
     hasCanvas: !!cvs.canvas,
     hasCtx: !!cvs.ctx,
@@ -12,5 +14,9 @@
     hasSetVisible: typeof cvs.setVisible === "function",
     hasGetSize: typeof cvs.getSize === "function",
     canvasTag: cvs.canvas.tagName,
+    canvasClass: cvs.canvas.classList.contains("foliplus-canvas-layer"),
+    parentIsPane: !!pane && pane.classList.contains("foliplus-layer-pane"),
+    paneRegistered: !!window.map.getPane(paneName),
+    paneName,
   };
 };

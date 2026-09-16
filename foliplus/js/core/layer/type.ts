@@ -26,7 +26,6 @@ interface RegisterLayerOpts {
   visible?: boolean;
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
@@ -59,8 +58,6 @@ interface LayerInfo {
   isLabel?: boolean;
   /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
   onToggle?: ((visible: boolean) => void) | null;
-  /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
@@ -124,7 +121,6 @@ interface CreateCanvasOpts {
   className?: string;
   iconSvg?: string;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */

@@ -356,7 +356,8 @@ class LayerManager implements LayerAPI {
       } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
-    if (opts.paneName) this.panes.ensurePane(opts.paneName);
+    // Canvas layers (createCanvas) paint on a 2d canvas — no SVG renderer.
+    if (opts.paneName) this.panes.ensurePane(opts.paneName, !opts.canvas);
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer)) {
         this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
@@ -572,15 +573,23 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        const hasLayer = layer && this.map.hasLayer(layer);
         // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
         // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
         const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
         const z = this.computeZIndex(i, isGrid);
 
-        if (layerInfo.onZIndex) layerInfo.onZIndex(z);
-        if (!hasLayer) continue;
+        // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+        // they own a dedicated pane that must still take its place in the stack.
+        if (!layer) {
+          if (layerInfo.paneName) {
+            const { pane } = this.panes.ensurePane(layerInfo.paneName, false);
+            pane.style.zIndex = String(z);
+          }
+          continue;
+        }
+
+        if (!this.map.hasLayer(layer)) continue;
 
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
 

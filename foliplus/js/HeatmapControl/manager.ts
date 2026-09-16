@@ -183,9 +183,10 @@ class HeatmapManager {
     this.layerVisible = true;
     this.sourceMeta = {};
     // Create a managed canvas via LayerControl API.
-    // Canvas lives in `.leaflet-map-pane` with position offset to cancel
-    // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
-    // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
+    // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
+    // position offset that cancels the mapPane CSS transform. Drawn with
+    // latLngToContainerPoint. LayerControl handles visibility (checkbox) and
+    // z-order (drag-reorder) through the pane model.
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
       name: this.T("title"),

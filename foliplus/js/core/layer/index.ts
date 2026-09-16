@@ -2,6 +2,7 @@
 // LayerControl composes these via LayerManager; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
+  CANVAS_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   RECURSION,
