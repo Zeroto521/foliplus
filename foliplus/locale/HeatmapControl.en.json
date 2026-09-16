@@ -26,6 +26,6 @@
   "HeatmapControl.section_data": "Data",
   "HeatmapControl.section_style": "Style",
   "HeatmapControl.close_title": "Close",
-  "HeatmapControl.meta_source_layer": "Source layer",
-  "HeatmapControl.meta_agg_field": "Aggregation field"
+  "HeatmapControl.meta_source_layer": "Source Layer",
+  "HeatmapControl.meta_agg_field": "Aggregation Field"
 }

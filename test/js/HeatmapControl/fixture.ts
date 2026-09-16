@@ -51,8 +51,8 @@ function makeManager() {
     // Scoped translator keys used by syncSourceMeta / attrs meta rows.
     locale_tables: {
       en: {
-        "HeatmapControl.meta_source_layer": "Source layer",
-        "HeatmapControl.meta_agg_field": "Aggregation field",
+        "HeatmapControl.meta_source_layer": "Source Layer",
+        "HeatmapControl.meta_agg_field": "Aggregation Field",
       },
     },
   });

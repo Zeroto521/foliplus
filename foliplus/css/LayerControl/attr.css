@@ -2,10 +2,9 @@
   /* ── Attributes panel ──
      Read-only metadata for one layer row. The surface is the shared row panel
      (`foliplus-row-panel`, built by createRowPanel): anchoring, width, height
-     cap, card chrome and the label/value row rhythm all come from there and
-     from common/panel.css — this block carries only what is specific to this
-     panel: the copyable-text exception, the type logo size, and the <dd>
-     control column. */
+     cap, card chrome come from there and from common/panel.css — this block
+     carries what is specific to this panel: copyable text, the type logo
+     size, and a two-column grid so every value shares one left edge. */
   .foliplus-layer-attrs-panel {
     /* Read-only metadata must stay copyable; the parent row is user-select:none
        and the shared row-panel recipe keeps that. */
@@ -17,23 +16,44 @@
     width: 100%;
     height: 100%;
   }
-  /* A long value (a URL source) takes its own line under the label. */
-  .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
-    flex-wrap: wrap;
+  /* One grid for the whole list: `auto` sizes the label column to the
+     longest label (Aggregation Field), so every value starts on the same
+     left edge. Per-row flex cannot do that — each row would size its own
+     label column and the values would stair-step. Horizontal inset lives
+     here because `display: contents` rows have no padding box. */
+  .foliplus-layer-attrs-panel dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--space-md);
+    align-items: center;
+    padding: 0 var(--space-lg);
   }
-  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
-    flex-basis: 100%;
+  .foliplus-layer-attrs-panel .foliplus-form-row {
+    display: contents;
   }
-  /* Label/typography stay on the shared form recipe (sm / text-primary) so
-     the attrs panel and the heatmap config read as one product. This block
-     only adjusts the <dd> control column. */
+  /* Shared label typography (sm / normal / right-aligned / text-primary)
+     from common/form.css — same language as the heatmap form labels. */
+  .foliplus-layer-attrs-panel .foliplus-form-label {
+    min-height: var(--toggle-size);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
   .foliplus-layer-attrs-panel .foliplus-form-control {
     /* Read-only text reads like a control: left-aligned, wrapping, and with
        tabular figures so counts and timestamps line up column-wise. `margin: 0`
        because a <dd> carries a UA block margin the heatmap's <div> does not. */
     margin: 0;
+    min-height: var(--toggle-size);
+    display: flex;
+    align-items: center;
     font-size: var(--font-size-md);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
+  }
+  /* A long value (a URL source) drops under the label and takes the
+     full width of both columns. */
+  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
+    grid-column: 1 / -1;
   }
 }
