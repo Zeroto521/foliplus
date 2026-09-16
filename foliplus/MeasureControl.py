@@ -62,6 +62,12 @@ class MeasureControl(BaseControl):
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
         mode; area and circle modes always show plain distance.
 
+    label_show : bool, default True
+        Whether to show the measurement labels. Hidden labels stay registered
+        (collision and placement state is untouched) — switching back on
+        restores them on their anchors. Overridable at runtime from the layer
+        style drawer.
+
     label_collide : bool, default True
         Whether to run the label collision detector. When enabled, a label is
         hidden only when two chips **intersect on the y-axis AND** overlap at
@@ -137,6 +143,7 @@ class MeasureControl(BaseControl):
 
     _export_fields = (
         "show_bearing",
+        "label_show",
         "label_collide",
         "show_live_coords",
         "filename",
@@ -151,6 +158,7 @@ class MeasureControl(BaseControl):
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
+        label_show: bool = True,
         label_collide: bool = True,
         show_live_coords: bool = True,
         filename: str = "measurements",
@@ -159,6 +167,7 @@ class MeasureControl(BaseControl):
     ):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
+        self.label_show = label_show
         self.label_collide = label_collide
         self.show_live_coords = show_live_coords
         self.filename = filename

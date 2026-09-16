@@ -200,6 +200,46 @@ class HeatmapManager {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
+      // Style delegation for the layer style drawer — single source: both the
+      // heatmap panel and the drawer call the same setters, and the drawer
+      // pulls fresh values from the provider (the event carries only the id).
+      styleProvider: () => ({
+        labelShow: this.currentLabelShow,
+        // Strip the "properties." prefix for display — the drawer and the
+        // annotation panel both show bare field names. An empty string is the
+        // AUTO_FIELD sentinel: the drawer's Auto placeholder is then selected.
+        field: this.currentField.startsWith("properties.")
+          ? this.currentField.slice("properties.".length)
+          : this.currentField,
+      }),
+      styleSetters: {
+        labelShow: v => {
+          this.currentLabelShow = v === true;
+          this.renderHexagons();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
+        },
+        field: v => {
+          // The drawer shows bare field names (no "properties." prefix, same
+          // as the annotation panel); the internal contract keeps the prefix.
+          const raw = String(v ?? "");
+          this.currentField = raw.startsWith("properties.") ? raw : `properties.${raw}`;
+          this.fieldAuto = false;
+          this.renderHexagons();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui) this.ui.fieldSelect.value = this.currentField;
+        },
+      },
+      fieldOptions: () =>
+        this.selectedLayerId
+          ? this.collectFields([{ id: this.selectedLayerId }]).map(f =>
+              f.startsWith("properties.") ? f.slice("properties.".length) : f,
+            )
+          : [],
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes

@@ -147,6 +147,16 @@ class MeasureManager {
       ],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),
+      // The layer style drawer renders these two switches; the component owns
+      // the values (single source — both UIs call the same setters).
+      styleProvider: () => ({
+        labelShow: this.labelShow,
+        labelCollide: this.labelCollide,
+      }),
+      styleSetters: {
+        labelShow: v => this.setLabelsVisible(v === true),
+        labelCollide: v => this.setLabelCollide(v === true),
+      },
     });
     this.currentMode = null;
     this.modeInstance = null;
@@ -469,10 +479,40 @@ class MeasureManager {
 
   // ── Label collision detection ─────────────────────────────────
 
-  /** True unless collision detection was switched off by the Python config. */
+  /** True unless collision detection was switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelCollide = CONF.label_collide !== false;
+  /** True unless the labels were switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelShow = CONF.label_show !== false;
+
   get labelsCollide(): boolean {
-    return CONF.label_collide !== false;
+    return this.labelCollide;
   }
+
+  get labelsVisible(): boolean {
+    return this.labelShow;
+  }
+
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
+   *  every chip via the same `visibility` mechanism collision uses, so the two
+   *  never fight over the element. */
+  setLabelsVisible = (visible: boolean): void => {
+    this.labelShow = visible;
+    for (const { marker } of this.collidableLabels) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = visible ? "" : "hidden";
+    }
+    if (visible) this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
+  setLabelCollide = (on: boolean): void => {
+    this.labelCollide = on;
+    this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
 
   /**
    * Register a label chip for collision detection. `priority` says how much
@@ -486,6 +526,12 @@ class MeasureManager {
   registerLabel = (marker: L.Marker, priority: number): (() => void) => {
     const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
     this.bindLabelMapEvents();
     this.scheduleLabelPlan();
 

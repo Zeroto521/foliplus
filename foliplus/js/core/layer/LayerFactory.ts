@@ -113,6 +113,9 @@ class LayerFactory {
       subPanes: [...subPanes],
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? null,
+      fieldOptions: opts.fieldOptions ?? null,
     };
     // Register sub-panes eagerly so ensurePane can assign provisional
     // z-index on first creation. register() only fires when the first
@@ -345,6 +348,9 @@ class LayerFactory {
       paneName,
       onToggle,
       featureCountProvider: opts.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? null,
+      fieldOptions: opts.fieldOptions ?? null,
       getBounds: opts.getBounds ?? null,
       source: opts.source ?? null,
       updatedAt: opts.updatedAt ?? null,

@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { layerHasLabelFields } from "#foliplus/LayerControl/ui/style.js";
+import {
+  layerHasLabelFields,
+  layerHasStyleDelegation,
+} from "#foliplus/LayerControl/ui/style.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { findItem, initFixture } from "./fixture.js";
@@ -899,5 +902,220 @@ describe("LayerUI style panel", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // ─────────────────── delegated style panel (third-party) ───────────────────
+
+  it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
+    expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
+
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    expect(layerHasStyleDelegation(ui, "heat1")).toBe(true);
+  });
+
+  it("delegated panel renders only the controls the component declared", () => {
+    const labelShowSetter = vi.fn();
+    const labelCollideSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelCollide: false }),
+      styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const showToggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    const collideToggle = panel.querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    // labelShow true → checked; labelCollide false → unchecked.
+    expect(showToggle.checked).toBe(true);
+    expect(collideToggle.checked).toBe(false);
+    // No field setter declared → no field select.
+    expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
+  });
+
+  it("delegated panel renders a field select when fieldOptions is present", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, field: "count", fieldAuto: false }),
+      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
+      fieldOptions: () => ["count", "sum"],
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const fieldSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement;
+    // Auto placeholder + 2 real options.
+    expect(fieldSelect.options.length).toBe(3);
+    expect(fieldSelect.value).toBe("count");
+  });
+
+  it("delegated change dispatches to styleSetters", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelShowSetter).toHaveBeenCalledWith(false);
+  });
+
+  it("delegated panel refreshes when LAYER_STYLE_CHANGE fires for its layer", () => {
+    const labelShowSetter = vi.fn();
+    let currentLabelShow = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: currentLabelShow }),
+      styleSetters: { labelShow: labelShowSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+
+    // Simulate the component's own panel flipping the value and emitting.
+    currentLabelShow = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(toggle.checked).toBe(false);
+  });
+
+  it("delegated panel does not overwrite an input being edited", () => {
+    let currentLabelShow = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: currentLabelShow }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.focus();
+
+    currentLabelShow = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    // The user is editing this input — the remote value must not overwrite it.
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("closeStylePanel unsubscribes from LAYER_STYLE_CHANGE", () => {
+    const offSpy = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    ui.openStylePanel("heat1");
+    expect(ui.styleUnsubscribe).not.toBeNull();
+
+    // Capture the unsubscribe and verify it is called on close.
+    const unsub = ui.styleUnsubscribe!;
+    ui.styleUnsubscribe = () => {
+      offSpy();
+      unsub();
+    };
+    ui.closeStylePanel(false);
+
+    expect(offSpy).toHaveBeenCalled();
+    expect(ui.styleUnsubscribe).toBeNull();
+  });
+
+  it("empty styleSetters does not enable the delegated panel", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: {},
+    });
+    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+  });
+
+  it("delegated panel collapses body when label toggle is off", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, field: "count" }),
+      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
+      fieldOptions: () => ["count"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const body = panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(true);
+  });
+
+  it("delegated panel expands body when label toggle is flipped on", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, field: "count" }),
+      styleSetters: { labelShow: labelShowSetter, field: vi.fn() },
+      fieldOptions: () => ["count"],
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const body = panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(false);
+    expect(labelShowSetter).toHaveBeenCalledWith(true);
   });
 });

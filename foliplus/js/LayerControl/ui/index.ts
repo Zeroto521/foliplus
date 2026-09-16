@@ -183,6 +183,8 @@ class LayerUI {
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
+  styleUnsubscribe: (() => void) | null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
@@ -234,6 +236,7 @@ class LayerUI {
     this.activeMenu = null;
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
+    this.styleUnsubscribe = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
     this.pressInPanel = false;
