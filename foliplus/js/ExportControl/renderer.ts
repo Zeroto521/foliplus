@@ -515,10 +515,15 @@ class ExportRenderer {
     }
   }
 
-  /** Render canvas elements from a single pane. */
-  async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
+  /** Render canvas elements from a pane — or the container, for canvases that
+   *  live in a pane the per-layer walk never visits (annotation labels). */
+  async renderPaneCanvas(
+    rc: RenderCtx,
+    pane: HTMLElement,
+    selector: string = CONST.SEL.CANVAS,
+  ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
+    for (const ce of pane.querySelectorAll(selector)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
