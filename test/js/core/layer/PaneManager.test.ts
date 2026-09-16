@@ -12,6 +12,25 @@ beforeEach(() => {
 });
 let count = 0;
 
+// Naming convention: DOM/CSS/named panes use hyphens; internal object keys
+// (RENDERER_KEY) keep underscores. See CLAUDE / layer const comments.
+describe("pane prefix naming convention", () => {
+  it("fallback / canvas / annotation pane prefixes are hyphenated", () => {
+    for (const prefix of [
+      CONST.FALLBACK_PANE_PREFIX,
+      CONST.CANVAS_PANE_PREFIX,
+      "foliplus-annotation-",
+    ]) {
+      expect(prefix).toMatch(/^foliplus-[a-z]+-$/);
+      expect(prefix).not.toContain("_");
+    }
+  });
+
+  it("RENDERER_KEY stays underscored as an internal map key", () => {
+    expect(CONST.RENDERER_KEY).toBe("foliplus_renderer_");
+  });
+});
+
 // Map stub for the fallback-pane tests. Mirrors the two renderer registries
 // real Leaflet keeps, both keyed by pane name: foliplus's own key and
 // `_paneRenderers`. Pass a distinct leafletRenderer to force them apart.
@@ -53,9 +72,8 @@ describe("PaneManager", () => {
   it("isDefaultPane returns true for fallback panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    // FALLBACK_PANE_PREFIX = "foliplus-pane-"
-    expect(pm.isDefaultPane("foliplus-pane-123")).toBe(true);
-    expect(pm.isDefaultPane("foliplus-pane-xyz")).toBe(true);
+    expect(pm.isDefaultPane(`${CONST.FALLBACK_PANE_PREFIX}123`)).toBe(true);
+    expect(pm.isDefaultPane(`${CONST.FALLBACK_PANE_PREFIX}xyz`)).toBe(true);
   });
 
   it("isDefaultPane returns false for custom panes", () => {
@@ -403,7 +421,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.fallbackPaneMap.set(1, "foliplus-pane-1");
     pm.releaseFallbackPane(1);
-    expect(map["foliplus_renderer_foliplus-pane-1"]).toBeUndefined();
+    expect(map[CONST.RENDERER_KEY + "foliplus-pane-1"]).toBeUndefined();
     // getRenderer() re-adds a renderer it finds off the map, so a stale
     // _paneRenderers entry would resurrect the dead renderer.
     expect(map._paneRenderers["foliplus-pane-1"]).toBeUndefined();

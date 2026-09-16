@@ -8,7 +8,7 @@ import {
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
+import { FALLBACK_PANE_PREFIX, GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -171,7 +171,9 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
     manager.enforceOrder();
     expect(grid.options.zIndex).toBeDefined();
-    expect(String(grid.options.pane)).not.toMatch(/^foliplus-pane-/);
+    expect(String(grid.options.pane)).not.toMatch(
+      new RegExp(`^${FALLBACK_PANE_PREFIX}`),
+    );
   });
 
   it("slots a layer's label pane just above that layer", () => {
@@ -1151,7 +1153,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "fb", name: "Fb", layer });
     manager.enforceOrder();
-    expect(layer.options.pane).toMatch(/^foliplus-pane-/);
+    expect(layer.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
     expect(layer.options.paneSet).toBe(true);
   });
 
