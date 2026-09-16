@@ -13,6 +13,208 @@ import {
   pressKey,
 } from "./fixture.js";
 
+// ── Mocked core/mode — LayerControl.focusing ownership ──────
+// core/mode owns guardBlocked() and ModeManager.setMode(); these tests cover
+// focusLayer()'s registration of the exclusive "focusing" mode across its entry
+// and release paths. core/mode is mocked (not patched) because focusLayer()
+// reaches it through a free import, not a `map.foliplus` reference.
+
+// ── Hoistable mock state ──────────────────────────────────────────────
+// vi.hoisted() declares state that exists BEFORE the module body runs, so
+// the hoisted vi.mock() factory can reference it without TDZ errors. The
+// factory returns `get` accessors so tests can grab the SAME live spy
+// objects the code under test (focusLayer / dismissFocus) calls, and call
+// .mockReturnValue / vi.clearAllMocks on them.
+const modeMocks = vi.hoisted(() => {
+  const states = new Map<string, string | null>();
+  const setMode = vi.fn((component: string, mode: string | null) => {
+    if (mode === null) states.delete(component);
+    else states.set(component, mode);
+  });
+  const getMode = vi.fn((component: string) => states.get(component) ?? null);
+  const guardBlocked = vi.fn(() => false);
+  const clear = vi.fn(() => states.clear());
+  const ensureModes = vi.fn(() => ({
+    setMode,
+    getMode,
+    isBlocked: vi.fn(() => false),
+    clear,
+  }));
+  return {
+    ensureModes,
+    guardBlocked,
+    ModeManager: vi.fn(),
+    _setMode: setMode,
+    _getMode: getMode,
+    _reset: () => states.clear(),
+  };
+});
+
+// Match the exact specifier LayerControl/ui.ts uses; both "#core/mode.js" and
+// "#foliplus/core/mode.js" resolve to the same file, but mocking the alias
+// specifier prevents future alias changes from silently breaking this test.
+vi.mock("#core/mode.js", () => ({
+  ensureModes: modeMocks.ensureModes,
+  guardBlocked: modeMocks.guardBlocked,
+  ModeManager: modeMocks.ModeManager,
+}));
+
+  describe("LayerUI focusLayer — interaction lock", () => {
+    // Shorthands for the live mock spies. These are the SAME function objects
+    // the code under test (focusLayer / dismissFocus) calls.
+    const setModeSpy = modeMocks._setMode as ReturnType<typeof vi.fn>;
+    const getModeSpy = modeMocks._getMode as ReturnType<typeof vi.fn>;
+    const guardBlockedSpy = modeMocks.guardBlocked as ReturnType<typeof vi.fn>;
+
+    let ui: LayerUI;
+    let map: any;
+
+    beforeEach(() => {
+      // initFixture() toggles fake timers internally to flush the deferred
+      // attachUI work, so it must run first: installing fake timers after it
+      // would be undone by the fixture's useRealTimers() and runAllTimers()
+      // below would hit the real clock.
+      vi.clearAllMocks();
+      modeMocks._reset();
+      const fixture = initFixture();
+      vi.useFakeTimers();
+      ui = fixture.ui;
+      map = fixture.map;
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = "";
+      vi.clearAllMocks();
+      vi.useRealTimers();
+    });
+
+    describe("guardBlocked rejects focus when another component holds the map", () => {
+      it("shows a hint and returns early when blocked", () => {
+        guardBlockedSpy.mockReturnValue(true);
+
+        ui.focusLayer("overlay1");
+
+        expect(guardBlockedSpy).toHaveBeenCalledWith(
+          map,
+          "LayerControl",
+          expect.any(String),
+        );
+        expect(map.fitBounds).not.toHaveBeenCalled();
+        expect(window.L.rectangle).not.toHaveBeenCalled();
+        expect(setModeSpy).not.toHaveBeenCalled();
+      });
+
+      it("does NOT short-circuit when guard passes (control path)", () => {
+        guardBlockedSpy.mockReturnValue(false);
+
+        ui.focusLayer("overlay1");
+
+        expect(guardBlockedSpy).toHaveBeenCalledWith(
+          map,
+          "LayerControl",
+          expect.any(String),
+        );
+        expect(map.fitBounds).toHaveBeenCalled();
+        expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+      });
+    });
+
+    it("registers LayerControl.focusing mode for the duration of the focus", () => {
+      expect(getModeSpy("LayerControl")).toBeNull();
+
+      ui.focusLayer("overlay1");
+
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    });
+
+    it("clears the focusing mode in dismissFocus()", () => {
+      ui.focusLayer("overlay1");
+
+      vi.runAllTimers(); // fires the 3500ms auto-dismiss
+
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+      expect(getModeSpy("LayerControl")).toBeNull();
+    });
+
+    it("cancelFocus() releases the focusing mode (manual cancel path)", () => {
+      ui.focusLayer("overlay1");
+      expect(getModeSpy("LayerControl")).toBe("focusing");
+
+      ui.cancelFocus();
+
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+      expect(getModeSpy("LayerControl")).toBeNull();
+    });
+
+    it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
+      const { manager, ui, map } = initFixture();
+
+      ui.focusLayer("overlay1");
+      expect(getModeSpy("LayerControl")).toBe("focusing");
+
+      manager.destroy();
+
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+      expect(getModeSpy("LayerControl")).toBeNull();
+    });
+
+    it("keeps the focusing mode active throughout the focus window", () => {
+      ui.focusLayer("overlay1");
+      expect(getModeSpy("LayerControl")).toBe("focusing");
+
+      // Advance to well inside the 3500ms window; mode must still be held.
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS - 1000);
+      expect(getModeSpy("LayerControl")).toBe("focusing");
+    });
+
+    it("passes LayerControl as the component key in setMode calls", () => {
+      ui.focusLayer("overlay1");
+      vi.runAllTimers();
+
+      // Every setMode call must identify itself as LayerControl — the mode
+      // system keys modes per-component, so the wrong key would mean focus
+      // never clears or never blocks.
+      for (const call of setModeSpy.mock.calls as Array<[string, string | null]>) {
+        expect(call[0]).toBe("LayerControl");
+      }
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    });
+
+    it("re-registers the mode on a successive focus", () => {
+      ui.focusLayer("overlay1");
+      vi.runAllTimers();
+
+      ui.focusLayer("overlay1");
+
+      const focusingCalls = setModeSpy.mock.calls.filter(
+        (c: [string, string | null]) => c[1] === "focusing",
+      );
+      expect(focusingCalls).toHaveLength(2);
+    });
+
+    it("registers focusing mode on the flyTo path (tiny-bounds focus)", () => {
+      // The overlay1 leaf is a Polygon-style layer; spy on its getBounds to
+      // force a tiny area so focusLayer takes the flyTo branch. Regression
+      // test for the missing setMode on this path.
+      const tinyBounds = {
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 30.00001, lng: 100.00001 }),
+        getCenter: () => ({ lat: 30, lng: 100 }),
+      };
+      const layer = ui.m.findLayer(ui.m.layerRegistry.get("overlay1")!);
+      vi.spyOn(layer, "getBounds").mockReturnValue(tinyBounds);
+
+      ui.focusLayer("overlay1");
+
+      expect(map.flyTo).toHaveBeenCalled();
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+      expect(getModeSpy("LayerControl")).toBe("focusing");
+    });
+  });
+
+
 describe("LayerUI focus", () => {
   let manager: LayerManager;
   let ui: LayerUI;
