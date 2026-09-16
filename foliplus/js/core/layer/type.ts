@@ -132,6 +132,13 @@ interface CreateCanvasOpts {
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Data provenance shown in the layer attributes panel (a URL or filename). */
+  source?: string | null;
+  /** Last-update timestamp; epoch ms or any value `new Date()` can parse. */
+  updatedAt?: string | number | null;
+  /** Third-party label/value pairs appended to the attributes panel
+   *  (e.g. HeatmapControl's source layer + aggregation field). */
+  meta?: Record<string, string | number> | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */

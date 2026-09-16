@@ -354,6 +354,9 @@ class LayerFactory {
       onZIndex,
       featureCountProvider: opts.featureCountProvider ?? null,
       getBounds: opts.getBounds ?? null,
+      source: opts.source ?? null,
+      updatedAt: opts.updatedAt ?? null,
+      meta: opts.meta ?? null,
     };
     const register = () => {
       if (registered) return;

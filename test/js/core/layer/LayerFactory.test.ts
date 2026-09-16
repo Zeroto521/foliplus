@@ -561,6 +561,25 @@ describe("LayerFactory", () => {
       );
     });
 
+    it("register forwards source / updatedAt / meta provenance", () => {
+      const meta = { "Source layer": "Stores", "Aggregation field": "sales" };
+      const api = factory.createCanvas({
+        id: "canvas_test",
+        source: "stores.geojson",
+        updatedAt: 1700000000000,
+        meta,
+      });
+      api.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "canvas_test",
+          source: "stores.geojson",
+          updatedAt: 1700000000000,
+          meta,
+        }),
+      );
+    });
+
     it("register adds className when provided", () => {
       const api = factory.createCanvas({ id: "canvas_test", className: "my-canvas" });
       expect(api.canvas.classList.contains("my-canvas")).toBe(true);
