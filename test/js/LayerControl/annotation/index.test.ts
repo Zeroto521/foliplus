@@ -357,6 +357,48 @@ describe("AnnotationManager — render & plan", () => {
     expect(proj.mock.calls.length).toBeGreaterThan(callsAfterFullPlan);
   });
 
+  it("repaints only the layer whose map membership changed", () => {
+    const { map } = makeMap();
+    const layerA = oneLabel();
+    const layerB = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new AnnotationManager(map, id => (id === "a" ? layerA : layerB));
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    const [canvasA, canvasB] = mocks.instances;
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+
+    const removeHandler = (
+      map.on as unknown as ReturnType<typeof vi.fn>
+    ).mock.calls.find(call => call[0] === "layerremove")![1] as (e: {
+      layer?: unknown;
+    }) => void;
+    removeHandler({ layer: layerA });
+
+    // Only the layer that left the map is re-planned; the other keeps its
+    // boxes and its collision decision.
+    expect(canvasA!.paint).toHaveBeenCalled();
+    expect(canvasB!.paint).not.toHaveBeenCalled();
+  });
+
+  it("culls anchors far outside the viewport before laying out the text", () => {
+    const { map } = makeMap();
+    (
+      map as unknown as { latLngToContainerPoint: () => unknown }
+    ).latLngToContainerPoint = () => ({ x: -10000, y: -10000 });
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+
+    mgr.renderLabels("a");
+
+    // Far off-screen: the per-character width estimate never runs.
+    expect(painted(0)).toHaveLength(0);
+  });
+
   it("clears a layer's labels and tears its canvas down", () => {
     const { map, panes } = makeMap();
     const mgr = new AnnotationManager(map, () => oneLabel());
