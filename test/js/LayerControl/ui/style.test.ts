@@ -252,6 +252,51 @@ describe("LayerUI style panel", () => {
     expect(ui.stylePanelLayerId).toBeNull();
   });
 
+  it("renders the avoid-overlap switch, defaulting on from the page", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const collide = panelOf(item).querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    // No stored choice yet: the page default (label_collide ?? true) is on.
+    expect(collide.checked).toBe(true);
+    expect(collide.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("flipping the avoid-overlap switch patches the layer's collide flag", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+
+    const collide = panelOf(item).querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    collide.checked = false;
+    collide.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(setConfig).toHaveBeenCalled();
+    expect(manager.annotation.getConfig("overlay1").collide).toBe(false);
+  });
+
+  it("applyStyleLabelState restores the avoid-overlap switch from config", () => {
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: CONST.FORMAT.AUTO,
+      collide: false,
+    });
+    ui.applyStyleLabelState();
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    const collide = panelOf(item).querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    expect(collide.checked).toBe(false);
+  });
+
   it("normalises non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
@@ -501,7 +546,11 @@ describe("LayerUI style panel", () => {
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    expect(manager.annotation.getConfig("overlay1")).toEqual(CONST.DEFAULT_ANNOTATION);
+    // The default config, plus the page's collide default injected by getConfig.
+    expect(manager.annotation.getConfig("overlay1")).toEqual({
+      ...CONST.DEFAULT_ANNOTATION,
+      collide: true,
+    });
     expect(panelOf(item)).toBeUndefined();
     expect(focusSpy).toHaveBeenCalled();
   });
@@ -675,6 +724,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: CONST.FORMAT.AUTO,
+      collide: true,
     });
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
   });
@@ -839,7 +889,12 @@ describe("LayerUI style panel", () => {
         unknown
       >;
       expect(getter()).toEqual({
-        overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+        overlay1: {
+          show: true,
+          field: "count",
+          format: CONST.FORMAT.AUTO,
+          collide: true,
+        },
       });
     } finally {
       vi.useRealTimers();

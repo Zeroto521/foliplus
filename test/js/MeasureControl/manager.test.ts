@@ -1158,7 +1158,7 @@ beforeEach(() => {
     getElement: vi.fn(() => null),
     setLatLng: vi.fn(),
   }));
-  window.CONF.collide_labels = undefined;
+  window.CONF.label_collide = undefined;
   labelRafQueue = [];
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
     labelRafQueue.push(cb);
@@ -1180,7 +1180,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   });
 
   it("passes the collide flag through to placeLabels", () => {
-    const { manager } = makeLabelManager({ collide_labels: true });
+    const { manager } = makeLabelManager({ label_collide: true });
     const marker = makeLabelMarker();
     manager.registerLabel(marker, 60);
 
@@ -1189,7 +1189,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   });
 
   it("passes collide=false through when detection is off", () => {
-    const { manager } = makeLabelManager({ collide_labels: false });
+    const { manager } = makeLabelManager({ label_collide: false });
     const marker = makeLabelMarker();
     manager.registerLabel(marker, 60);
 
@@ -1197,11 +1197,11 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(placeLabels.mock.calls[0][2] as boolean).toBe(false);
   });
 
-  it("labelsCollide reads collide_labels from CONF and defaults to true", () => {
+  it("labelsCollide reads label_collide from CONF and defaults to true", () => {
     const { manager } = makeLabelManager();
     expect(manager.labelsCollide).toBe(true);
 
-    window.CONF.collide_labels = false;
+    window.CONF.label_collide = false;
     expect(manager.labelsCollide).toBe(false);
   });
 
@@ -1249,8 +1249,8 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect((placeLabels.mock.calls[0][0] as CollidableLabel[]).length).toBe(3);
   });
 
-  it("passes a runtime collide_labels flip through to the next plan", () => {
-    const { manager, map } = makeLabelManager({ collide_labels: true });
+  it("passes a runtime label_collide flip through to the next plan", () => {
+    const { manager, map } = makeLabelManager({ label_collide: true });
     const marker = makeLabelMarker();
     manager.registerLabel(marker, 60);
     flushRaf();
@@ -1260,7 +1260,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
       ([ev]: [string]) => ev === "moveend",
     )![1];
 
-    window.CONF.collide_labels = false;
+    window.CONF.label_collide = false;
     moveendCall();
     flushRaf();
     expect(placeLabels.mock.calls[1][2] as boolean).toBe(false);

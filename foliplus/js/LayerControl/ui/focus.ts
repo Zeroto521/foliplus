@@ -109,7 +109,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   ui.m.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow —one O(panes) pass, not a per-leaf-element loop.
-  bringFocusedLayerToFront(ui, layer, layerInfo.canvas ?? null);
+  bringFocusedLayerToFront(ui, layerId, layer, layerInfo.canvas ?? null);
 
   // Register LayerControl's own mode for the duration of the focus, BEFORE
   // the fitBounds/flyTo branching. Both paths draw a focus overlay and
@@ -249,17 +249,35 @@ const hideOtherLayers = (ui: LayerUI): void => {
  */
 const bringFocusedLayerToFront = (
   ui: LayerUI,
+  layerId: string,
   layer: L.Layer | null,
   canvas: HTMLCanvasElement | null,
 ): void => {
   const restores: Array<() => void> = [];
   const focusedZ = CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP;
-  // Ladder above the focused layer, preserving Leaflet's normal order and
-  // staying under the mask (PANE_Z): labels, then markers, tooltip, popup. The
-  // label pane normally sits below the data panes' top, so without the lift the
-  // layer the focus raised would cover its own labels; without the rest of the
-  // ladder, those labels would in turn cover the popup a click just opened.
-  const liftZ = (el: HTMLElement | undefined, z: number): void => {
+  const lift = (el: HTMLElement, z = focusedZ, glow = true): void => {
+    const orig = el.style.zIndex;
+    el.style.zIndex = String(z);
+    // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
+    // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
+    el.classList.add(CONST.CLASSES.FOCUS_PANE);
+    // Glow: applied at pane level (one element), fading in via CSS animation.
+    if (glow) el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+    restores.push(() => {
+      el.style.zIndex = orig;
+      el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+      el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+    });
+  };
+
+  // Ladder above the raised layer, preserving Leaflet's normal order and staying
+  // under the mask (PANE_Z): the layer's own labels, then markers, tooltip and
+  // popup. Without the first the raised layer covers its own labels; without the
+  // rest, those labels would cover the popup a click just opened.
+  const labelPane = ui.m.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerId);
+  if (labelPane) lift(labelPane, focusedZ + CONST.ANNOTATION_Z_OFFSET, false);
+  const liftZ = (name: string, z: number): void => {
+    const el = ui.m.map.getPane(name);
     if (!el) return;
     const orig = el.style.zIndex;
     el.style.zIndex = String(z);
@@ -267,24 +285,9 @@ const bringFocusedLayerToFront = (
       el.style.zIndex = orig;
     });
   };
-  liftZ(ui.m.map.getPane(CONST.ANNOTATION_PANE), focusedZ + 1);
-  liftZ(ui.m.map.getPane("markerPane"), focusedZ + 2);
-  liftZ(ui.m.map.getPane("tooltipPane"), focusedZ + 3);
-  liftZ(ui.m.map.getPane("popupPane"), focusedZ + 4);
-  const lift = (el: HTMLElement): void => {
-    const orig = el.style.zIndex;
-    el.style.zIndex = String(focusedZ);
-    // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
-    // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
-    el.classList.add(CONST.CLASSES.FOCUS_PANE);
-    // Glow: applied at pane level (one element), fading in via CSS animation.
-    el.classList.add(CONST.CLASSES.FOCUS_GLOW);
-    restores.push(() => {
-      el.style.zIndex = orig;
-      el.classList.remove(CONST.CLASSES.FOCUS_PANE);
-      el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
-    });
-  };
+  liftZ("markerPane", focusedZ + 2);
+  liftZ("tooltipPane", focusedZ + 3);
+  liftZ("popupPane", focusedZ + 4);
 
   if (canvas) {
     lift(canvas);

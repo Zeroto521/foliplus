@@ -1109,6 +1109,44 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
   });
 
+  it("renders a layer's annotation labels right after its content", async () => {
+    // Each layer's label canvas mounts in its own pane (map.createPane), a
+    // sibling of the content panes the walk visits. render() draws it right
+    // after the layer's content — before the next layer up covers it — so the
+    // exported stack order matches the map's.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-annotation-pane";
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-annotation-canvas";
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: {
+        layers: [{ visible: true, id: "vec", layer: { options: {} } }],
+        getLayerPanes: () => [],
+      },
+    };
+
+    const proto = ExportRenderer.prototype as any;
+    const paneCanvas = vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
+
+    await runRender(vi.fn());
+
+    // The label pane is swept once, with the annotation selector, right after
+    // the layer's content walk (which passed no panes of its own).
+    expect(paneCanvas).toHaveBeenCalledTimes(1);
+    expect(paneCanvas).toHaveBeenCalledWith(
+      expect.anything(),
+      labelPane,
+      CONST.SEL.ANNOTATION_CANVAS,
+    );
+  });
+
   it("runs the four marker passes when the layer's panes hold markers", async () => {
     // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
     // and svg from the pane and the four marker passes draw whatever is left.

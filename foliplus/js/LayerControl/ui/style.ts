@@ -88,6 +88,8 @@ const applyStyleLabelState = (ui: LayerUI): void => {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
       format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
+      // Absent in configs stored before the switch existed: default to on.
+      collide: cfg.collide !== false,
     });
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
@@ -177,6 +179,15 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     checked: showChecked ? "" : null,
     "aria-label": ui.T("style_label_tooltip"),
   });
+  // "Avoid overlap": thins this layer's own labels where they collide. Labels
+  // from *different* layers never avoid each other — the layers are stacked, so
+  // an upper layer simply covers the lower one's.
+  const collideToggle = dom.el("input", {
+    type: "checkbox",
+    class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
+    checked: cfg.collide ? "" : null,
+    "aria-label": ui.T("style_label_collide_tooltip"),
+  });
   const formatSelect = dom.el(
     "select",
     {
@@ -215,6 +226,21 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
     ),
     formatRow,
+    dom.el(
+      "div",
+      { class: "foliplus-form-row" },
+      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_collide")),
+      dom.el(
+        "div",
+        { class: "foliplus-form-control" },
+        dom.el(
+          "label",
+          { class: "foliplus-toggle-switch" },
+          collideToggle,
+          dom.el("span", { class: "foliplus-toggle-slider" }),
+        ),
+      ),
+    ),
   );
   body.classList.toggle("foliplus-hidden", !showChecked);
 
@@ -322,6 +348,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
       applyPatch(ui, layerId, { show, field: chosen });
+    } else if (
+      t instanceof HTMLInputElement &&
+      t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
+    ) {
+      applyPatch(ui, layerId, { collide: t.checked });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT)

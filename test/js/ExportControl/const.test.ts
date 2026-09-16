@@ -9,8 +9,9 @@ describe("export canvas whitelists", () => {
   it("reach every canvas overlay that paints map content", () => {
     // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
     // so a canvas in neither list vanishes from the export without any error.
-    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the canvas that
-    // lives in a pane of its own (LayerControl's annotation labels).
+    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the labels,
+    // whose pane the manager creates with map.createPane — a sibling of the
+    // layer's content panes, unreachable from the per-layer walk.
     const mapPane = document.createElement("div");
     mapPane.className = "leaflet-map-pane";
     const heat = document.createElement("canvas");

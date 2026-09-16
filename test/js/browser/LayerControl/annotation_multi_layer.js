@@ -26,33 +26,45 @@
     [26.1, 119.32, "gamma"],
     [26.11, 119.33, "delta"],
   ]);
+  // enforceOrder is debounced; run it now so each layer's pane — and its
+  // annotation pane — gets the z that places it in the stack.
+  ctrl.m.enforceOrder();
 
   return new Promise(resolve => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        const canvas = document.querySelector(".foliplus-annotation-canvas");
-        if (!canvas) return resolve({ canvas: false });
-        const ctx = canvas.getContext("2d");
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        let opaque = 0;
-        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) opaque++;
-
-        const annPane = document.querySelector(".foliplus-annotation-pane");
-        const layerPanes = Array.from(
-          document.querySelectorAll(".foliplus-layer-pane"),
-        );
-        const maxLayerZ = Math.max(
-          0,
-          ...layerPanes.map(p => parseInt(p.style.zIndex) || 0),
-        );
+        // Pane names come from the Leaflet _panes registry, not the DOM id —
+        // createPane does not set element.id, so read through map.getPane.
+        const zOf = id => {
+          const pane = window.map.getPane("foliplus-annotation-" + id);
+          return pane ? parseInt(pane.style.zIndex) || 0 : null;
+        };
+        const layerZOf = id => {
+          const pane = window.map.getPane(id + "_pane");
+          return pane ? parseInt(pane.style.zIndex) || 0 : null;
+        };
+        const opaqueOf = id => {
+          const canvas = window.map
+            .getPane("foliplus-annotation-" + id)
+            ?.querySelector("canvas");
+          if (!canvas) return 0;
+          const data = canvas
+            .getContext("2d")
+            .getImageData(0, 0, canvas.width, canvas.height).data;
+          let n = 0;
+          for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
+          return n;
+        };
         resolve({
           canvas: true,
-          opaque,
-          // Every labelled layer shares one canvas, and it sits above them all.
+          // One pane + one canvas per labelled layer, z-ordered with the layer.
           canvasCount: document.querySelectorAll(".foliplus-annotation-canvas").length,
-          layerPaneCount: layerPanes.length,
-          annZ: annPane ? parseInt(annPane.style.zIndex) || 0 : null,
-          maxLayerZ,
+          opaqueA: opaqueOf("__ml_a__"),
+          opaqueB: opaqueOf("__ml_b__"),
+          annA: zOf("__ml_a__"),
+          annB: zOf("__ml_b__"),
+          layerA: layerZOf("__ml_a__"),
+          layerB: layerZOf("__ml_b__"),
         });
       }),
     );

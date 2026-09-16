@@ -470,7 +470,7 @@ class MeasureManager {
 
   /** True unless collision detection was switched off by the Python config. */
   get labelsCollide(): boolean {
-    return CONF.collide_labels !== false;
+    return CONF.label_collide !== false;
   }
 
   /**
