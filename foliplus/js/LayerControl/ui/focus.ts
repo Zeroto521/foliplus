@@ -275,7 +275,7 @@ const bringFocusedLayerToFront = (
   // popup. Without the first the raised layer covers its own labels; without the
   // rest, those labels would cover the popup a click just opened.
   const labelPane = ui.m.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerId);
-  if (labelPane) lift(labelPane, focusedZ + 1, false);
+  if (labelPane) lift(labelPane, focusedZ + CONST.ANNOTATION_Z_OFFSET, false);
   const liftZ = (name: string, z: number): void => {
     const el = ui.m.map.getPane(name);
     if (!el) return;

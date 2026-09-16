@@ -85,6 +85,25 @@ describe("AnnotationCanvas", () => {
     expect(el.style.top).toBe("-20px");
   });
 
+  it("tolerates a map without a mapPane", () => {
+    const container = document.createElement("div");
+    Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
+    Object.defineProperty(container, "clientHeight", {
+      value: 600,
+      configurable: true,
+    });
+    const map = {
+      getContainer: () => container,
+      getPanes: () => ({}),
+    } as unknown as L.Map;
+    const pane = document.createElement("div");
+
+    const canvas = new AnnotationCanvas(map, pane);
+    // paint calls updatePosition, which bails on the missing mapPane.
+    expect(() => canvas.paint([])).not.toThrow();
+    expect(elOf(canvas).style.left).toBe("");
+  });
+
   it("hides and re-shows via visibility, leaving the drawn pixels intact", () => {
     const { canvas } = makeEnv();
     const el = elOf(canvas);

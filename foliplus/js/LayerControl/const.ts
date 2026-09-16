@@ -60,6 +60,12 @@ const FOCUS_PANE = "foliplus-focus-overlay";
  *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
 const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
+/** Z offset of a layer's annotation pane above its layer. Layers sit
+ *  `Z_INDEX.STEP` (10) apart, so +1 keeps the labels above their own layer
+ *  while the next layer up still covers them — the same gap the focus ladder
+ *  reuses when it raises a layer. */
+const ANNOTATION_Z_OFFSET = 1;
+
 /** CSS class names. */
 const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
@@ -168,6 +174,7 @@ const DEFAULT_ANNOTATION = {
 export {
   ACTION,
   ANNOTATION_PANE_PREFIX,
+  ANNOTATION_Z_OFFSET,
   CLASSES,
   COLOR,
   DATA,

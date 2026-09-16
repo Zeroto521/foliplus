@@ -590,7 +590,9 @@ class LayerManager implements LayerAPI {
         const annotationPane = this.map.getPane(
           CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
         );
-        if (annotationPane) annotationPane.style.zIndex = String(z + 1);
+        if (annotationPane) {
+          annotationPane.style.zIndex = String(z + CONST.ANNOTATION_Z_OFFSET);
+        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit

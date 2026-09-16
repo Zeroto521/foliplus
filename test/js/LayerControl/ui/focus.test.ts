@@ -738,6 +738,44 @@ describe("LayerUI focus", () => {
       expect(labelPane.style.zIndex).toBe("0");
     });
 
+    it("lifts the layer even when pane discovery throws", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("boom");
+      });
+
+      // Best-effort lift: discovery failure skips the pane loop, not the focus.
+      expect(() => ui.focusLayer("overlay2")).not.toThrow();
+    });
+
+    it("creates the focus pane when the map lacks it", () => {
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        name === CONST.FOCUS_PANE ? null : realGetPane(name),
+      );
+
+      ui.focusLayer("overlay1");
+
+      expect(map.createPane).toHaveBeenCalledWith(CONST.FOCUS_PANE);
+    });
+
     it("lifts a canvas (heatmap) focused layer above others and restores it", () => {
       const canvas = document.createElement("canvas");
       canvas.style.zIndex = "5";

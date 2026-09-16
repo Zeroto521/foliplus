@@ -164,6 +164,18 @@ describe("AnnotationManager — config", () => {
       (window as { CONF?: Record<string, unknown> }).CONF = saved;
     }
   });
+
+  it("resolves an auto field once and reuses the cached pick", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () =>
+      mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
+    );
+
+    // No explicit field: the shared auto pick resolves to the only column.
+    expect(mgr.resolveField("a")).toBe("v");
+    // A second read hits the auto-field cache instead of re-walking the layer.
+    expect(mgr.resolveField("a")).toBe("v");
+  });
 });
 
 describe("AnnotationManager — render & plan", () => {
