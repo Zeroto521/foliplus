@@ -103,15 +103,22 @@ describe("sharedGlobalNamespace", () => {
   });
   it("is never called for a bare core or common domain barrel", () => {
     // No production source imports `#core/index.js` or `#common/index.js`.
-    // This is the import side of the deletion: `core/index.ts` was a barrel
-    // nothing imported, so this handler never ran for it, and the explicit
-    // `#core/index.js` mapping above only served an import nobody wrote.
-    // The four subdomain barrels (geo, geocode, layer, event) are the
-    // intended shape — each one resolves to `foliplus.core.<sub>`.
+    // `core/index.ts` was a barrel nothing imported, so this handler never
+    // ran for it. The four subdomain barrels (geo, geocode, layer, event)
+    // are the intended shape — each one resolves to `foliplus.core.<sub>`.
     const imports = [...aliasedSpecifiers().entries()].filter(
       ([spec]) => /\/index\.js$/.test(spec) && /#(core|common)\/index\.js$/.test(spec),
     );
     expect(imports).toEqual([]);
+  });
+  it("never maps a bare core barrel to a core namespace", () => {
+    // The deleted `core/index.ts` barrel had an explicit mapping here
+    // (`foliplus.core.index`) that served no import. Left in place it was
+    // dead code that also kept the barrel's name reachable from the build;
+    // with it gone the specifier falls through to the `#common/*` fallback
+    // below, which strips the trailing `.js` and does not strip the leading
+    // alias. Either way the result must not be a `foliplus.core.*` namespace.
+    expect(sharedGlobalNamespace("#core/index.js")).not.toMatch(/^foliplus\.core\./);
   });
 });
 

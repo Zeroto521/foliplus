@@ -1,24 +1,34 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { globSync } from "tinyglobby";
+import { existsSync, readFileSync, readdirSync } from "fs";
+import { join, resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-// Every alias foliplus sources may import from, mapped to the directory it
-// resolves into. `#foliplus/` sits at the JS root, so it is included for the
-// resolution guard even though it has no shared-library counterpart.
+// Resolved against cwd, the same repo root every build script assumes.
+const ROOT = resolve(".");
+const JS_DIR = resolve(ROOT, "foliplus/js");
+
+// Every import alias declared in `package.json` `imports`, resolved the way the
+// bundler resolves it: `#core/foo.js` lands at `foliplus/js/core/foo.ts`.
 const ALIASES = new Map([
-  ["#core/", resolve(process.cwd(), "foliplus/js/core")],
-  ["#common/", resolve(process.cwd(), "foliplus/js/common")],
-  ["#foliplus/", resolve(process.cwd(), "foliplus/js")],
+  ["#core/", resolve(JS_DIR, "core")],
+  ["#common/", resolve(JS_DIR, "common")],
+  ["#foliplus/", JS_DIR],
 ]);
 
 // All `.ts` sources under foliplus/js, flat.
-const tsSources = () =>
-  globSync({ cwd: resolve(process.cwd()), patterns: ["foliplus/js/**/*.ts"] });
+const tsSources = (): string[] => {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".ts")) out.push(full);
+    }
+  };
+  walk(JS_DIR);
+  return out;
+};
 
-// `from "…"` specifiers across the sources, keyed by specifier. A directory
-// barrel (`#core/index.js`, `#common/index.js`) is only an entry point when
-// the bundler points at it, and nothing bundles them.
+// `from "…"` specifiers across the sources, keyed by specifier.
 const aliasedSpecifiers = (): Map<string, string[]> => {
   const seen = new Map<string, string[]>();
   for (const file of tsSources()) {
@@ -33,24 +43,34 @@ const aliasedSpecifiers = (): Map<string, string[]> => {
   return seen;
 };
 
+// The `.ts` source a specifier points at, or null when the file is gone.
+const resolveSpecifier = (spec: string): string | null => {
+  const alias = [...ALIASES].find(([a]) => spec.startsWith(a))![0];
+  const root = ALIASES.get(alias)!;
+  const rel = spec
+    .slice(alias.length)
+    .replace(/^foliplus\//, "")
+    .replace(/\.js$/, ".ts");
+  return existsSync(resolve(root, rel)) ? rel : null;
+};
+
 describe("shared-library imports", () => {
   it("every imported specifier resolves to an existing source file", () => {
-    // A specifier pointing at a module that is already gone is the class of
-    // bug the deleted `core/index.ts` barrel had: it re-exported names through
-    // a path nothing followed, so the break was invisible until something
+    // A specifier pointing at a module that is already gone is the class of bug
+    // the deleted `core/index.ts` barrel had: it re-exported names through a
+    // path nothing followed, so the break stayed invisible until something
     // finally did.
     const missing: Array<[string, string[]]> = [];
     for (const [spec, files] of aliasedSpecifiers().entries()) {
-      const root = ALIASES.get(spec.slice(0, spec.indexOf("/") + 2))!;
-      const rel = spec.slice(spec.indexOf("/") + 1, -".js".length) + ".ts";
-      if (!globSync({ cwd: root, patterns: [rel] }).length) {
-        missing.push([spec, files]);
-      }
+      if (resolveSpecifier(spec) === null) missing.push([spec, files]);
     }
     expect(missing).toEqual([]);
   });
 
   it("no source imports a core or common directory barrel", () => {
+    // A directory barrel (`#core/index.js`) is an entry point only when the
+    // bundler points at it, and nothing bundles one — `script/build.mjs`
+    // skips `core` entirely, so no `foliplus-core` artifact is emitted.
     const domainBarrels = [...aliasedSpecifiers().entries()].filter(([spec]) =>
       /#(core|common)\/index\.js$/.test(spec),
     );
@@ -58,16 +78,13 @@ describe("shared-library imports", () => {
   });
 
   it("core has no domain barrel", () => {
-    const jsDir = resolve(process.cwd(), "foliplus/js");
     // `script/build.mjs` skips `entry.name === "core"` when discovering
     // components, so `core/index.ts` was never an entry point; a file added
     // here would be an import nobody resolves.
-    expect(globSync({ cwd: jsDir, patterns: ["core/index.ts"] })).toEqual([]);
+    expect(existsSync(resolve(JS_DIR, "core/index.ts"))).toBe(false);
     // Subdomain barrels are load-bearing and must stay.
     for (const sub of ["geo", "geocode", "layer", "event"]) {
-      expect(globSync({ cwd: jsDir, patterns: [`core/${sub}/index.ts`] })).toEqual([
-        `core/${sub}/index.ts`,
-      ]);
+      expect(existsSync(resolve(JS_DIR, `core/${sub}/index.ts`))).toBe(true);
     }
   });
 });
