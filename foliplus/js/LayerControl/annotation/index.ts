@@ -17,7 +17,7 @@ import {
 import { forEachLeaf } from "#core/layer/index.js";
 import { type CanvasLabelStyle, resolveCanvasLabelStyle } from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { throttleRaf } from "#common/throttle.js";
+import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
 import { AnnotationCanvas } from "./canvas.js";
 import {
@@ -74,12 +74,19 @@ class AnnotationManager {
   private readonly canvases = new Map<string, AnnotationCanvas>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
-  private readonly scheduleRefresh: (() => void) & { cancel: () => void };
+  /** Map-event wiring shared with the other canvas overlays (see
+   *  bindMapSync): zoom hide/show, pan translate, full plan on zoom/resize. */
+  private readonly mapCleanup: () => void;
   private readonly unsubscribe: Array<() => void> = [];
   /** Typography from the --label-* tokens, cached like the canvases cache their
    *  paint style: re-reading six CSS variables per throttled frame is pure
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
+  /** mapPane's position at the last full plan — the pan fast path translates
+   *  the planned boxes by the delta from it instead of re-planning. */
+  private planOrigin: { x: number; y: number } | null = null;
+  /** What the last full plan handed each canvas, kept for the pan translate. */
+  private readonly lastPlanned = new Map<string, PlacedLabel[]>();
 
   constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
     this.map = mapInstance;
@@ -87,16 +94,24 @@ class AnnotationManager {
     this.config = new Map();
     this.autoFieldCache = new Map();
 
-    this.scheduleRefresh = throttleRaf(() => this.refresh());
-    // Layer add/remove is how LayerControl hides and shows a layer, so the plan
-    // re-reads membership on those too.
-    this.map.on("move zoom moveend layeradd layerremove", this.scheduleRefresh);
-    this.map.on("resize", this.scheduleRefresh);
-    // Leaflet animates a zoom by CSS-transforming mapPane; the canvases inside
-    // it would be smeared by that transform, so hide the labels for the
-    // duration and redraw on the far side (the #339 canvas did the same).
-    this.map.on("zoomstart", this.hideLabels);
-    this.map.on("zoomend", this.showLabels);
+    // The same event contract HeatmapControl's canvas uses. A pan translates
+    // every label by the same delta, so the collision decision stands — only
+    // the boxes move (refreshPan). Anything that can change membership or
+    // geometry (zoom, membership toggles, resize) goes through a full plan.
+    // Layer add/remove is how LayerControl hides and shows a layer, so the
+    // plan re-reads membership on those too. The zoom hide/show pair keeps
+    // the fixed-pixel labels off-screen while Leaflet CSS-transforms mapPane
+    // (the #339 canvas did the same).
+    this.mapCleanup = bindMapSync({
+      map: mapInstance,
+      hideEvents: ["zoomstart"],
+      showEvents: ["zoomend"],
+      updateEvents: ["zoom", "moveend", "layeradd", "layerremove", "resize"],
+      onHide: this.hideLabels,
+      onShow: this.showLabels,
+      onUpdate: () => this.refresh(),
+      onMove: () => this.refreshPan(),
+    });
 
     // Export safety: the exporter's locked path grows the container and shifts
     // the view, then captures on the very next frame — so the redraw here is
@@ -287,14 +302,12 @@ class AnnotationManager {
   }
 
   destroy(): void {
-    this.scheduleRefresh.cancel();
-    this.map.off("move zoom moveend layeradd layerremove", this.scheduleRefresh);
-    this.map.off("resize", this.scheduleRefresh);
-    this.map.off("zoomstart", this.hideLabels);
-    this.map.off("zoomend", this.showLabels);
+    this.mapCleanup();
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
+    this.lastPlanned.clear();
+    this.planOrigin = null;
     this.config.clear();
     this.autoFieldCache.clear();
   }
@@ -336,8 +349,62 @@ class AnnotationManager {
       w: container.clientWidth,
       h: container.clientHeight,
     };
+    // Remember where the mapPane sat while planning — the pan fast path
+    // translates by the delta from here (same source latLngToContainerPoint
+    // uses, so the translate matches a re-plan exactly).
+    const mapPane = this.map.getPanes().mapPane;
+    this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
+    this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
-      canvas.paint(this.plannedFor(id, spec, viewport));
+      const planned = this.plannedFor(id, spec, viewport);
+      this.lastPlanned.set(id, planned);
+      canvas.paint(planned);
+    }
+  }
+
+  /** Pan fast path: a pan translates every label by the same delta, so the
+   *  last plan's boxes shift wholesale instead of re-running the planner. The
+   *  viewport cull still applies — a label entering the frame during the pan
+   *  appears on the full re-plan at moveend (the planner's trade for skipping
+   *  O(n log n) per frame). */
+  private refreshPan(): void {
+    if (this.canvases.size === 0) return;
+    const mapPane = this.map.getPanes().mapPane;
+    const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
+    if (!this.planOrigin || !pos) {
+      this.refresh();
+      return;
+    }
+    const dx = pos.x - this.planOrigin.x;
+    const dy = pos.y - this.planOrigin.y;
+    if (dx === 0 && dy === 0) return;
+    const container = this.map.getContainer();
+    const viewport = {
+      x: 0,
+      y: 0,
+      w: container.clientWidth,
+      h: container.clientHeight,
+    };
+    for (const [id, canvas] of this.canvases) {
+      const planned = this.lastPlanned.get(id);
+      if (!planned) {
+        // A canvas born after the last full plan (a layer enabled mid-pan)
+        // has nothing to translate — plan it properly.
+        const spec = (this.cachedSpec ??= specOf(container));
+        const fresh = this.plannedFor(id, spec, viewport);
+        this.lastPlanned.set(id, fresh);
+        canvas.paint(fresh);
+        continue;
+      }
+      canvas.paint(
+        withinRect(
+          planned.map(label => ({
+            ...label,
+            box: { ...label.box, x: label.box.x + dx, y: label.box.y + dy },
+          })),
+          viewport,
+        ),
+      );
     }
   }
 

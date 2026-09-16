@@ -44,10 +44,12 @@ const makeMap = () => {
   Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
   Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
   const panes: Record<string, HTMLElement> = {};
+  const mapPane = document.createElement("div");
   const map = {
     getContainer: () => container,
     getPane: (name: string) => panes[name] ?? null,
     createPane: (name: string) => (panes[name] = document.createElement("div")),
+    getPanes: () => ({ mapPane }),
     hasLayer: () => true,
     on: vi.fn(),
     off: vi.fn(),
@@ -55,7 +57,12 @@ const makeMap = () => {
     // Leaflet keeps its pane registry here, and the teardown path clears it.
     _panes: panes,
   } as unknown as L.Map;
-  return { container, panes, map };
+  // The plan records where mapPane sat while planning (the pan fast path
+  // translates by the delta). Tests move it by overwriting this stub.
+  (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+    getPosition: () => ({ x: 0, y: 0 }),
+  };
+  return { container, panes, mapPane, map };
 };
 
 const mkLeaf = (opts: {
@@ -269,6 +276,63 @@ describe("AnnotationManager — render & plan", () => {
     mgr.renderLabels("a");
 
     expect(painted(0)).toHaveLength(1);
+  });
+
+  it("translates the last plan on pan instead of re-planning", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => panePos,
+    };
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const callsAfterFullPlan = proj.mock.calls.length;
+    const c = canvas();
+    const fullPlan = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    c.paint.mockClear();
+
+    // Pan: mapPane slides; the move handler runs the fast path next frame.
+    panePos = { x: 40, y: -15 };
+    const move = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+    move();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+
+    // No new projections: the old plan's boxes were translated wholesale.
+    expect(proj.mock.calls.length).toBe(callsAfterFullPlan);
+    const panned = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    expect(panned[0]!.box.x - fullPlan[0]!.box.x).toBeCloseTo(40);
+    expect(panned[0]!.box.y - fullPlan[0]!.box.y).toBeCloseTo(-15);
+  });
+
+  it("re-plans on moveend after a pan", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => panePos,
+    };
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const callsAfterFullPlan = proj.mock.calls.length;
+
+    panePos = { x: 40, y: 0 };
+    const full = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(call =>
+      call[0].includes("moveend"),
+    )![1] as () => void;
+    full();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+
+    // moveend closes the pan with a real plan, not a translate.
+    expect(proj.mock.calls.length).toBeGreaterThan(callsAfterFullPlan);
   });
 
   it("clears a layer's labels and tears its canvas down", () => {

@@ -13,6 +13,7 @@ import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { throttleRaf } from "#common/throttle.js";
 import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
@@ -92,7 +93,7 @@ class MeasureManager {
    *   together instead of one measurement at a time. */
   private collidableLabels: CollidableLabel[] = [];
   /** Deferred re-plan; coalesces bursts of label updates into one pass. */
-  private labelPlanFrame: number | null = null;
+  private readonly scheduleLabelPlan = throttleRaf(() => this.planLabels());
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
   /** Cursor-following coordinate readout, live for the manager's lifetime.
@@ -500,20 +501,6 @@ class MeasureManager {
     };
   };
 
-  /** Defer a collision re-plan to the next frame so a burst of label updates
-   *  (a drag move, a node delete, a map move) runs one planner pass, not one
-   *  per update. */
-  private scheduleLabelPlan(): void {
-    if (this.labelPlanFrame !== null) return;
-    // Mark in-flight before the rAF call so the guard coalesces even when a
-    // synchronous test stub returns 0 (falsy but not null).
-    this.labelPlanFrame = 1;
-    requestAnimationFrame(() => {
-      this.labelPlanFrame = null;
-      this.planLabels();
-    });
-  }
-
   /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
    *  last plan stale. Bound lazily on the first label, released when the
    *  last one is removed. */
@@ -632,6 +619,7 @@ class MeasureManager {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
+    this.scheduleLabelPlan.cancel();
     this.clearAll();
     this.hideCoordReadout();
     this.coordReadoutEl?.remove();

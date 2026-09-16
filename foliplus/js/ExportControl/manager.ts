@@ -10,6 +10,7 @@ import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
+import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
 import { ExportRenderer } from "./renderer.js";
@@ -254,7 +255,7 @@ class ExportManager {
   /** Restore and lock crop box from saved geo bounds. */
   restoreFromSavedBounds() {
     this.showCropBox();
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       if (!this.cropState || this.cropState.locked) return;
       if (!this.savedBounds) return;
       this.cropState.savedGeoBounds = {
@@ -736,7 +737,7 @@ class ExportManager {
     // browser has applied the layout changes before we render.
     this.map.invalidateSize(false);
     this.map.setView(cropCenter, savedZoom, { animate: false });
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       void this.mapContainer.offsetHeight; // Force synchronous reflow
       void this.doRender(r, scaleValue, bg, geoBounds, onProgress)
         .finally(restore)
