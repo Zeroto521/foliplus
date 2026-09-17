@@ -19,7 +19,6 @@ import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
 import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
 import type { ProviderConfig } from "#core/geocode/type.js";
-import type { InteractionManager as CoreInteractionManager } from "#core/interaction.js";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
@@ -309,7 +308,7 @@ declare global {
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */
-    interaction: CoreInteractionManager;
+    interaction: InteractionManager;
     /** Default geocode provider spec for this map, registered by provider-aware
      *  controls (e.g. SearchControl) so indirect geocoding follows it. */
     geocodeProvider?: string | ProviderConfig;
