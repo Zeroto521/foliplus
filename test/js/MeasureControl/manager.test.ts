@@ -1307,7 +1307,10 @@ describe("MeasureManager — registerLabel lifecycle", () => {
   });
 
   it("styleDefaults returns the Python CONF snapshot, not live toggles", () => {
-    const { manager, map } = makeLabelManager({ label_show: true, label_collide: false });
+    const { manager, map } = makeLabelManager({
+      label_show: true,
+      label_collide: false,
+    });
     const createLayers = (
       map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
     ).createLayers;
