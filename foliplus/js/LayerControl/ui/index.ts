@@ -17,7 +17,7 @@ import type { LayerManager } from "../manager.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { isInFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -358,9 +358,7 @@ class LayerUI {
       // steal DOM focus back to the row, and a native <select> popup closes
       // the instant it loses focus — so the dropdown looked like it retracted
       // the moment it opened. The panels carry their own click handling.
-      if (isInFloatingPanel(el)) {
-        return;
-      }
+      if (inFloatingPanel(el)) return;
       // One ledger: pointer re-homes the index, Tab stop, and paints the
       // cursor visual. It stays until Escape, another row, or an outside
       // press takes over — same contract as the keyboard cursor.
@@ -373,7 +371,11 @@ class LayerUI {
           this.listCursor?.setIndex(idx);
           this.blurActiveItem();
           row.classList.add(CONST.CLASSES.FOCUSED);
-          // Keep DOM focus on the row so Space/Enter resolve from focus.
+          // Keep DOM focus on the row so Space/Enter resolve from focus, and
+          // so Escape still reaches handleKeyDown's container guard — the
+          // panel floats from the ⋮ press, so its own controls hold focus,
+          // and this press must not park the cursor on the anchor row for
+          // the whole time the user is flipping controls inside it.
           row.focus({ focusVisible: false } as FocusOptions);
         }
       }
@@ -405,8 +407,9 @@ class LayerUI {
     // never keys on `:focus-visible`, so Escape is just "remove the class".
     this.onFocusIn = event => {
       const el = event.target as Element | null;
+      if (!el || inFloatingPanel(el)) return;
       const row = owningRow(el);
-      if (!el || !row) return;
+      if (!row) return;
       const idx = this.getNavigableItems().indexOf(row);
       if (idx !== -1) this.activeIdx = idx;
       if (!isKeyboardVisibleFocus(el)) return;
@@ -416,11 +419,19 @@ class LayerUI {
     };
     // Focus left the row entirely (Tab away, click outside, browser chrome):
     // drop the JS cursor class. Moves within the same row keep it.
+    //
+    // A press inside a floating panel does NOT count as leaving: the panel is
+    // nested in its own anchor row, so its controls are descendants of the
+    // row the user pressed to open it, and `row.contains(relatedTarget)` is
+    // true for every one of them. The user just asked the row to do a detail
+    // task — they did not abandon it, so the cursor stays, and a native
+    // <select> popup does not retract on losing focus.
     this.onFocusOut = event => {
       const row = owningRow(event.target);
-      if (!row) return;
+      if (!row || inFloatingPanel(event.target)) return;
       const next = event.relatedTarget as Element | null;
       if (next && (next === row || row.contains(next))) return;
+      if (inFloatingPanel(next)) return;
       row.classList.remove(CONST.CLASSES.FOCUSED);
     };
     this.interactionCleanup = registerInteractions(this);

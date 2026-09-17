@@ -31,7 +31,7 @@ const owningRow = (el: EventTarget | null): HTMLElement | null => {
  *  labels, selects) is not an `input`/`button`, and stealing the press would
  *  both steal DOM focus from panel controls and — on a quick double flip of
  *  the label switch — fall through to focusLayer. */
-const isInFloatingPanel = (el: EventTarget | null): boolean => {
+const inFloatingPanel = (el: EventTarget | null): boolean => {
   if (!el || typeof (el as Element).closest !== "function") return false;
   return Boolean(
     (el as Element).closest(
@@ -64,7 +64,7 @@ const ATTRS_ROW_WRAP_CHARS = 32;
 export {
   ATTRS_ROW_WRAP_CHARS,
   applyNameProjection,
+  inFloatingPanel,
   isKeyboardVisibleFocus,
-  isInFloatingPanel,
   owningRow,
 };
