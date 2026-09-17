@@ -57,6 +57,10 @@ describe("colorInput / numberInput / inlineControls", () => {
     expect(num.max).toBe("32");
     expect(num.value).toBe("11");
 
+    const bareNum = numberInput({ value: 8, min: 1, max: 10 }) as HTMLInputElement;
+    expect(bareNum.className).toBe("foliplus-form-number-input");
+    expect(bareNum.step).toBe("1");
+
     const row = inlineControls(color, num);
     expect(row.className).toBe("foliplus-form-inline");
     expect(row.children.length).toBe(2);

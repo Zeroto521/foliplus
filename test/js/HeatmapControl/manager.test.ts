@@ -1479,6 +1479,53 @@ describe("HeatmapManager — style delegation", () => {
     expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MIN);
   });
 
+  it("labelColor setter ignores non-string values and normalizes #rgb", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!(42);
+    expect(m.currentLabelColor).toBe("#ffffff");
+
+    opts.styleSetters!.labelColor!("#abc");
+    expect(m.currentLabelColor).toBe("#aabbcc");
+  });
+
+  it("labelSize setter ignores NaN and non-number values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(Number.NaN);
+    expect(m.currentLabelSize).toBe(11);
+
+    opts.styleSetters!.labelSize!("18" as unknown as number);
+    expect(m.currentLabelSize).toBe(11);
+  });
+
+  it("labelColor and labelSize setters no-op the UI sync when not bound", () => {
+    const m = makeManager();
+    // ui is null — the optional chaining must not throw.
+    expect(() => {
+      getCanvasOpts().styleSetters!.labelColor!("#00ff00");
+      getCanvasOpts().styleSetters!.labelSize!(20);
+    }).not.toThrow();
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.currentLabelSize).toBe(20);
+  });
+
+  it("labelColor and labelSize setters sync the bound panel inputs", () => {
+    const m = makeManager();
+    const labelColorInput = { value: "#ffffff" } as HTMLInputElement;
+    const labelSizeInput = { value: "11" } as HTMLInputElement;
+    m.ui = { labelColorInput, labelSizeInput } as unknown as HeatmapManager["ui"];
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!("#00ff00");
+    opts.styleSetters!.labelSize!(16);
+
+    expect(labelColorInput.value).toBe("#00ff00");
+    expect(labelSizeInput.value).toBe("16");
+  });
+
   it("labelFormat setter updates state, redraws labels and persists", () => {
     const m = makeManager();
     const redrawSpy = vi.spyOn(m, "redrawHeatmap");
