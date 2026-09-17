@@ -56,7 +56,7 @@
   "LayerControl.style_label_no_data": "该图层无可标注字段",
   "LayerControl.style_label": "标注",
   "LayerControl.style_label_tooltip": "在要素上显示文本标注",
-  "LayerControl.style_label_style": "样式",
+  "LayerControl.style_label_style": "颜色 / 字号",
   "LayerControl.style_label_color": "标注颜色",
   "LayerControl.style_label_size": "标注字号",
   "LayerControl.style_label_collide": "标签避让",

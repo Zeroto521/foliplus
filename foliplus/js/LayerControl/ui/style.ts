@@ -12,6 +12,11 @@ import {
   resolveSelectedField,
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
+import {
+  colorInput as formColorInput,
+  numberInput as formNumberInput,
+  inlineControls,
+} from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import type { AnnotationConfig } from "../annotation/index.js";
@@ -166,27 +171,30 @@ const renderDelegatedStylePanel = (
   // Order under the toggle: appearance, then number format, then collide.
   if (setters.labelColor || setters.labelSize) {
     const colorInput = setters.labelColor
-      ? dom.el("input", {
-          type: "color",
-          class: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+      ? formColorInput({
           value: typeof values.labelColor === "string" ? values.labelColor : "#ffffff",
-          "aria-label": ui.T("style_label_color"),
+          className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+          ariaLabel: ui.T("style_label_color"),
         })
       : null;
     const sizeInput = setters.labelSize
-      ? dom.el("input", {
-          type: "number",
-          class: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-          min: "6",
-          max: "32",
-          step: "1",
-          value: String(typeof values.labelSize === "number" ? values.labelSize : 11),
-          "aria-label": ui.T("style_label_size"),
+      ? formNumberInput({
+          value: typeof values.labelSize === "number" ? values.labelSize : 11,
+          min: 6,
+          max: 32,
+          step: 1,
+          className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+          ariaLabel: ui.T("style_label_size"),
         })
       : null;
-    const inline = dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_INLINE },
+    // Live on input — same as the heatmap panel's size/color handlers.
+    colorInput?.addEventListener("input", () => {
+      setters.labelColor?.((colorInput as HTMLInputElement).value);
+    });
+    sizeInput?.addEventListener("input", () => {
+      setters.labelSize?.(Number((sizeInput as HTMLInputElement).value));
+    });
+    const inline = inlineControls(
       ...(colorInput ? [colorInput] : []),
       ...(sizeInput ? [sizeInput] : []),
     );

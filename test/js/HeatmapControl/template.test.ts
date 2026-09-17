@@ -27,7 +27,7 @@ describe("panelContentHTML", () => {
       scheme: "Color",
       border: "Border",
       label: "Label",
-      label_style: "Label Style",
+      label_style: "Color / Size",
       label_format: "Number Format",
       label_format_auto: "Auto",
       label_format_int: "Integer",
@@ -167,20 +167,20 @@ describe("panelContentHTML", () => {
     expect(html).toContain("data-heatmap-label-color");
     expect(html).toContain("data-heatmap-label-size");
     expect(html).toContain("data-heatmap-label-format");
-    expect(html).toContain("Label Style");
+    expect(html).toContain("Color / Size");
     expect(html).toContain("Number Format");
     expect(html).toContain("Thousands Separator");
   });
 
   it("includes border color picker", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-color-input");
+    expect(html).toContain("foliplus-form-color-input");
     expect(html).toContain('type="color"');
   });
 
   it("includes border weight input", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-weight-input");
+    expect(html).toContain("foliplus-form-number-input");
   });
 
   it("includes section divider", () => {

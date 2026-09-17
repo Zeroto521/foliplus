@@ -20,7 +20,7 @@
   "HeatmapControl.scheme": "色带",
   "HeatmapControl.border": "边框",
   "HeatmapControl.label": "标注",
-  "HeatmapControl.label_style": "样式",
+  "HeatmapControl.label_style": "颜色 / 字号",
   "HeatmapControl.label_format": "数字格式",
   "HeatmapControl.label_format_auto": "自动",
   "HeatmapControl.label_format_int": "整数",

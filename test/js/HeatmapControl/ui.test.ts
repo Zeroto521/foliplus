@@ -190,14 +190,15 @@ describe("bindControls — change handlers", () => {
     expect(render).toHaveBeenCalled();
   });
 
-  it("border color change persists without re-rendering", () => {
+  it("border color input is live: applies and persists on every pick", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.borderColorInput.value = "#000000";
-    fire(ctrl.borderColorInput, "change");
+    fire(ctrl.borderColorInput, "input");
+    expect(m.borderColor).toBe("#000000");
     expect(save).toHaveBeenCalled();
-    expect(render).not.toHaveBeenCalled();
+    expect(render).toHaveBeenCalled();
   });
 
   it("border weight change clamps out-of-range values back into range", () => {

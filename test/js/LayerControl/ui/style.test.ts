@@ -985,11 +985,11 @@ describe("LayerUI style panel", () => {
     expect(size.value).toBe("14");
 
     color.value = "#00ff00";
-    color.dispatchEvent(new Event("change", { bubbles: true }));
+    color.dispatchEvent(new Event("input", { bubbles: true }));
     expect(labelColorSetter).toHaveBeenCalledWith("#00ff00");
 
     size.value = "18";
-    size.dispatchEvent(new Event("change", { bubbles: true }));
+    size.dispatchEvent(new Event("input", { bubbles: true }));
     expect(labelSizeSetter).toHaveBeenCalledWith(18);
   });
 

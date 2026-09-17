@@ -20,7 +20,7 @@
   "HeatmapControl.scheme": "Color Scheme",
   "HeatmapControl.border": "Border",
   "HeatmapControl.label": "Labels",
-  "HeatmapControl.label_style": "Style",
+  "HeatmapControl.label_style": "Color / Size",
   "HeatmapControl.label_format": "Number Format",
   "HeatmapControl.label_format_auto": "Auto",
   "HeatmapControl.label_format_int": "Integer",

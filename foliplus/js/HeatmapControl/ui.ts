@@ -3,6 +3,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
+import { bindLiveColor, bindLiveNumber } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
@@ -188,34 +189,22 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
-  ctrl.borderColorInput.oninput = () => {
-    ctrl.m.borderColor = ctrl.borderColorInput.value;
+  bindLiveColor(ctrl.borderColorInput, value => {
+    ctrl.m.borderColor = value;
     ctrl.m.renderHexagons();
     persist(ctrl);
-  };
-  ctrl.borderColorInput.onchange = () => {
-    persist(ctrl);
-  };
+  });
 
-  ctrl.borderWeightInput.oninput = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
-      ctrl.m.borderWeight = v;
+  bindLiveNumber(ctrl.borderWeightInput, {
+    min: CONST.BORDER.WEIGHT_MIN,
+    max: CONST.BORDER.WEIGHT_MAX,
+    fallback: CONST.BORDER.WEIGHT_DEFAULT,
+    onCommit: value => {
+      ctrl.m.borderWeight = value;
       ctrl.m.renderHexagons();
-      // Persist during input (not only onchange) so an uncommitted edit
-      // still survives a reload instead of snapping back to the default.
       persist(ctrl);
-    }
-  };
-  ctrl.borderWeightInput.onchange = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    ctrl.m.borderWeight = isNaN(v)
-      ? CONST.BORDER.WEIGHT_DEFAULT
-      : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
-    ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
+    },
+  });
 
   ctrl.labelChk.onchange = () => {
     ctrl.m.currentLabelShow = ctrl.labelChk.checked;
@@ -231,35 +220,26 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
-  ctrl.labelColorInput.oninput = () => {
-    ctrl.m.currentLabelColor = ctrl.labelColorInput.value;
+  bindLiveColor(ctrl.labelColorInput, value => {
+    ctrl.m.currentLabelColor = value;
     ctrl.m.cachedLabelStyle = null;
     ctrl.m.redrawHeatmap();
     persist(ctrl);
     ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
-  };
+  });
 
-  ctrl.labelSizeInput.oninput = () => {
-    const v = parseInt(ctrl.labelSizeInput.value, 10);
-    if (!Number.isNaN(v) && v >= CONST.LABEL.SIZE_MIN && v <= CONST.LABEL.SIZE_MAX) {
-      ctrl.m.currentLabelSize = v;
+  bindLiveNumber(ctrl.labelSizeInput, {
+    min: CONST.LABEL.SIZE_MIN,
+    max: CONST.LABEL.SIZE_MAX,
+    fallback: CONST.LABEL.SIZE_DEFAULT,
+    onCommit: value => {
+      ctrl.m.currentLabelSize = value;
       ctrl.m.cachedLabelStyle = null;
       ctrl.m.redrawHeatmap();
       persist(ctrl);
       ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
-    }
-  };
-  ctrl.labelSizeInput.onchange = () => {
-    const v = parseInt(ctrl.labelSizeInput.value, 10);
-    ctrl.m.currentLabelSize = Number.isNaN(v)
-      ? CONST.LABEL.SIZE_DEFAULT
-      : Math.min(CONST.LABEL.SIZE_MAX, Math.max(CONST.LABEL.SIZE_MIN, v));
-    ctrl.labelSizeInput.value = String(ctrl.m.currentLabelSize);
-    ctrl.m.cachedLabelStyle = null;
-    ctrl.m.redrawHeatmap();
-    persist(ctrl);
-    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
-  };
+    },
+  });
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
