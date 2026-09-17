@@ -38,6 +38,7 @@ describe("LayerRegistry", () => {
       expect(info.id).toBe("test");
       expect(info.name).toBe("test");
       expect(info.visible).toBe(true);
+      expect(info.opacity).toBe(1);
       expect(info.isBase).toBe(false);
       expect(info.paneName).toBeNull();
       expect(info.iconSvg).toBeNull();
@@ -48,10 +49,11 @@ describe("LayerRegistry", () => {
     it("preserves existing values from existingLi", () => {
       const info = registry.createLayerInfo(
         { id: "test" },
-        { name: "Existing", visible: false },
+        { name: "Existing", visible: false, opacity: 0.5 },
       );
       expect(info.name).toBe("Existing");
       expect(info.visible).toBe(false);
+      expect(info.opacity).toBe(0.5);
     });
 
     it("keeps the current name when a layer is re-registered", () => {

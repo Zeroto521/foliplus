@@ -20,6 +20,8 @@ const STORAGE = {
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
   /** Map of layer id → annotation config (show/field/format). */
   ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
+  /** Map of layer id → opacity (0-1). Only non-default values are stored. */
+  OPACITY_KEY: `foliplus_layer_opacity_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
@@ -119,6 +121,12 @@ const CLASSES = {
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Shared section heading (form.css). */
+  SECTION_HEADING: "foliplus-section-heading",
+  /** Opacity control: range slider + paired number input. */
+  STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
+  STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
+  STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
   /** Shared form-row layout classes (also used by HeatmapControl template). */
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",

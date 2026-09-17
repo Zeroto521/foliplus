@@ -14,6 +14,7 @@ const loadPersistedState = (ui: LayerUI) => {
   // Style (label) configs are stored on the UI shell and applied by
   // ui/style.ts once the layers resolve (deferred init passes).
   ui.labelConfigs = state.annotations;
+  ui.opacityMap = state.opacity;
 };
 
 /** Save fold state to localStorage. */
@@ -26,6 +27,11 @@ const saveFoldState = (ui: LayerUI) => {
 
 const saveHiddenIds = (ui: LayerUI) => {
   ui.m.persistence.saveHiddenIds(() => ui.hiddenIds);
+};
+
+/** Save per-layer opacity map to localStorage, coalescing rapid calls. */
+const saveOpacityMap = (ui: LayerUI) => {
+  ui.m.persistence.saveOpacity(() => ui.opacityMap);
 };
 
 /**
@@ -66,6 +72,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
+    if (id in ui.opacityMap) applyOpacityStateOne(ui, layerInfo, ui.opacityMap[id]);
     return;
   }
 
@@ -79,6 +86,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     ...ui.m.layers.map(li => li.id),
     ...ui.hiddenIds,
     ...Object.keys(ui.renamedNames),
+    ...Object.keys(ui.opacityMap),
   ]);
   for (const layerId of ids) {
     if (layerId in ui.renamedNames) {
@@ -105,6 +113,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     }
     const layerInfo = registry.get(layerId);
     if (!layerInfo) continue; // stale id —pruned by persistence on save
+    if (layerId in ui.opacityMap) {
+      applyOpacityStateOne(ui, layerInfo, ui.opacityMap[layerId]);
+    }
     if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
     else if (ui.hiddenHasState) applyVisibleStateOne(ui, layerInfo);
   }
@@ -200,6 +211,42 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   else if (layer && !ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
 
   layerInfo.visible = true;
+};
+
+/**
+ * Apply one layer's opacity to the registry entry and the live layer.
+ * Canvas layers paint through `style.opacity`; Leaflet paths go through
+ * `setStyle({ opacity, fillOpacity })`; nested groups recurse.
+ */
+const applyOpacityStateOne = (_ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
+  layerInfo.opacity = opacity;
+  if (layerInfo.canvas) {
+    layerInfo.canvas.style.opacity = String(opacity);
+    return;
+  }
+  applyLeafletOpacity(layerInfo.layer, opacity);
+};
+
+/** Recursive path/markers opacity application. */
+const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
+  if (!layer) return;
+  type OpacityCapable = L.Layer & {
+    setStyle?: (style: { opacity: number; fillOpacity: number }) => void;
+    eachLayer?: (fn: (l: L.Layer) => void) => void;
+    setOpacity?: (v: number) => void;
+  };
+  const target = layer as OpacityCapable;
+  if (typeof target.setStyle === "function") {
+    target.setStyle({ opacity, fillOpacity: opacity });
+    return;
+  }
+  if (typeof target.eachLayer === "function") {
+    target.eachLayer(child => applyLeafletOpacity(child, opacity));
+    return;
+  }
+  if (typeof target.setOpacity === "function") {
+    target.setOpacity(opacity);
+  }
 };
 
 /**
@@ -301,9 +348,11 @@ export {
   loadPersistedState,
   saveFoldState,
   saveHiddenIds,
+  saveOpacityMap,
   applyUserState,
   applyHiddenOne,
   applyHiddenStateOne,
+  applyOpacityStateOne,
   applyVisibleStateOne,
   reconcileHiddenIds,
   saveNamesState,

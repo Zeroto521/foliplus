@@ -19,6 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
+import { applyOpacityStateOne, saveOpacityMap } from "./state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
@@ -65,6 +66,92 @@ const persistStyleLabel = (ui: LayerUI): void => {
   ui.m.persistence.saveAnnotations(() =>
     Object.fromEntries(ui.m.annotation.configEntries()),
   );
+};
+
+/** Shared section heading (common/form.css `.foliplus-section-heading`). */
+const sectionHeading = (text: string): HTMLElement =>
+  dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, text);
+
+/** UI percentage (0-100) for a stored opacity (0-1). */
+const opacityToPct = (opacity: number | undefined): number =>
+  Math.round(Math.max(0, Math.min(1, opacity ?? 1)) * 100);
+
+/** Clamp a raw UI percentage into [0, 100]. */
+const clampPct = (raw: number): number => {
+  if (!Number.isFinite(raw)) return 100;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+};
+
+/** Keep the range + number inputs in sync without fighting the focused one. */
+const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
+  const range = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+  ) as HTMLInputElement | null;
+  const num = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
+  ) as HTMLInputElement | null;
+  if (range && document.activeElement !== range) range.value = String(pct);
+  if (num && document.activeElement !== num) num.value = String(pct);
+};
+
+/** Apply a UI percentage to the layer, persist it, and sync both inputs. */
+const commitOpacityPct = (
+  ui: LayerUI,
+  layerId: string,
+  panel: HTMLElement,
+  rawPct: number,
+): void => {
+  const pct = clampPct(rawPct);
+  const opacity = pct / 100;
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
+  applyOpacityStateOne(ui, li, opacity);
+  if (opacity === 1) delete ui.opacityMap[layerId];
+  else ui.opacityMap[layerId] = opacity;
+  saveOpacityMap(ui);
+  syncOpacityInputs(panel, pct);
+};
+
+/** Build the opacity form row (range slider + number, two-way bound). */
+const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const range = dom.el("input", {
+    type: "range",
+    class: CONST.CLASSES.STYLE_OPACITY_RANGE,
+    min: "0",
+    max: "100",
+    step: "5",
+    value: String(pct),
+    "aria-label": ui.T("style_opacity"),
+  });
+  const number = dom.el("input", {
+    type: "number",
+    class: CONST.CLASSES.STYLE_OPACITY_NUMBER,
+    min: "0",
+    max: "100",
+    step: "5",
+    value: String(pct),
+    "aria-label": ui.T("style_opacity"),
+  });
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_CONTROL },
+      dom.el("div", { class: CONST.CLASSES.STYLE_OPACITY_CONTROL }, range, number),
+    ),
+  );
+};
+
+/** Reset one layer's opacity to fully opaque and drop its persisted entry. */
+const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (li) applyOpacityStateOne(ui, li, 1);
+  delete ui.opacityMap[layerId];
+  saveOpacityMap(ui);
 };
 
 /** Shared Reset footer — divider + button, same vocabulary for the annotation
@@ -155,7 +242,7 @@ const renderDelegatedStylePanel = (
 
   const values = li.styleProvider?.() ?? {};
   const showChecked = !!values.labelShow;
-  const bodyRows: HTMLElement[] = [];
+  const labelRows: HTMLElement[] = [];
 
   if (setters.labelCollide) {
     const toggle = dom.el("input", {
@@ -164,7 +251,7 @@ const renderDelegatedStylePanel = (
       checked: values.labelCollide !== false ? "" : null,
       "aria-label": ui.T("style_label_collide_tooltip"),
     });
-    bodyRows.push(
+    labelRows.push(
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_ROW },
@@ -197,6 +284,7 @@ const renderDelegatedStylePanel = (
       "aria-label": ui.T("style_label_tooltip"),
     });
     rows.push(
+      sectionHeading(ui.T("section_label")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_ROW },
@@ -217,11 +305,17 @@ const renderDelegatedStylePanel = (
 
   // Body: avoid-overlap, collapsed when the label toggle is off —
   // same "switch off → hide body" rule the annotation panel uses.
-  if (bodyRows.length) {
-    const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...bodyRows);
+  // A collide-only component still needs the heading above its body.
+  if (labelRows.length) {
+    if (!setters.labelShow) rows.push(sectionHeading(ui.T("section_label")));
+    const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...labelRows);
     body.classList.toggle("foliplus-hidden", !showChecked);
     rows.push(body);
   }
+
+  // Layer section: opacity is LayerControl-owned, independent of the
+  // component's own styleSetters.
+  rows.push(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
 
   if (!rows.length) return null;
 
@@ -388,6 +482,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   content.append(
+    sectionHeading(ui.T("section_label")),
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
@@ -406,6 +501,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
+    sectionHeading(ui.T("section_layer")),
+    buildOpacityRow(ui, layerId),
   );
   appendResetFooter(ui, content);
   return panel;
@@ -443,8 +540,32 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
   const delegated = layerHasStyleDelegation(ui, layerId);
+
+  /** Shared opacity handler for both panel flavours (LayerControl-owned). */
+  const handleOpacityTarget = (t: EventTarget | null): boolean => {
+    if (!(t instanceof HTMLInputElement)) return false;
+    if (
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE) &&
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_NUMBER)
+    ) {
+      return false;
+    }
+    commitOpacityPct(ui, layerId, panel, Number(t.value));
+    return true;
+  };
+
+  panel.addEventListener("input", (event: Event) => {
+    // Live slider updates while dragging; stop so the container's color
+    // input handler never sees the range.
+    if (handleOpacityTarget(event.target)) event.stopPropagation();
+  });
+
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
+    if (handleOpacityTarget(t)) {
+      event.stopPropagation();
+      return;
+    }
     if (delegated) {
       // Third-party layer: dispatch to the component's own setters.
       const li = ui.m.layerRegistry.get(layerId);
@@ -539,6 +660,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
+      // Opacity is LayerControl-owned in both flavours: always restore 1.
+      resetLayerOpacity(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.

@@ -84,6 +84,7 @@ describe("LayerPersistence", () => {
         hiddenIds: new Set(["a", "b"]),
         names: { a: "A2", "not-registered-yet": "Pending" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
+        opacity: {},
         hiddenHasState: true,
       });
     });
@@ -148,8 +149,23 @@ describe("LayerPersistence", () => {
         hiddenIds: new Set(),
         names: {},
         annotations: {},
+        opacity: {},
         hiddenHasState: false,
       });
+    });
+
+    it("loads opacity values and drops unknown / out-of-range entries", () => {
+      seedStorage({
+        [CONST.STORAGE.OPACITY_KEY]: {
+          a: 0.5,
+          ghost: 0.2,
+          b: 2,
+          c: "high",
+          d: -0.1,
+        },
+      });
+      const p = makePersistence(["a", "b", "c"]);
+      expect(p.load().opacity).toEqual({ a: 0.5 });
     });
 
     it("tolerates a corrupt record of the wrong shape", () => {
@@ -168,6 +184,7 @@ describe("LayerPersistence", () => {
         hiddenIds: new Set(),
         names: {},
         annotations: {},
+        opacity: {},
         hiddenHasState: false,
       });
     });

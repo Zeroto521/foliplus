@@ -91,6 +91,7 @@ import {
   saveFoldState,
   saveHiddenIds,
   saveNamesState,
+  saveOpacityMap,
   syncHiddenId,
 } from "./state.js";
 import {
@@ -196,6 +197,8 @@ class LayerUI {
   pressInPanel: boolean;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
   labelConfigs: Record<string, unknown>;
+  /** Persisted per-layer opacity map (id → 0-1). Applied on load / late register. */
+  opacityMap: Record<string, number>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -241,6 +244,7 @@ class LayerUI {
     this.fieldCache = new Map();
     this.pressInPanel = false;
     this.labelConfigs = {};
+    this.opacityMap = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -635,6 +639,9 @@ class LayerUI {
   }
   saveNamesState() {
     return saveNamesState(this);
+  }
+  saveOpacityMap() {
+    return saveOpacityMap(this);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {

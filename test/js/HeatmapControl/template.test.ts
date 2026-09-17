@@ -40,7 +40,7 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-extra-body");
 
     // Section headings
-    expect(html).toContain("foliplus-heatmap-section-heading");
+    expect(html).toContain("foliplus-section-heading");
 
     // Form rows — shared common/form.css primitives
     expect(html).toContain("foliplus-form-row");

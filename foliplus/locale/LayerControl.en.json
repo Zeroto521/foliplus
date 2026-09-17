@@ -65,5 +65,8 @@
   "LayerControl.style_label_format_int": "Integer",
   "LayerControl.style_label_format_comma": "Thousands Separator",
   "LayerControl.style_label_format_percent": "Percent",
-  "LayerControl.style_reset": "Reset"
+  "LayerControl.style_reset": "Reset",
+  "LayerControl.section_label": "Label",
+  "LayerControl.section_layer": "Layer",
+  "LayerControl.style_opacity": "Opacity"
 }

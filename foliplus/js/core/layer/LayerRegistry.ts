@@ -75,6 +75,7 @@ class LayerRegistry {
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       visible: opts.visible ?? existingLi?.visible ?? true,
+      opacity: opts.opacity ?? existingLi?.opacity ?? 1,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       subPanes: opts.subPanes ?? existingLi?.subPanes ?? [],

@@ -65,5 +65,8 @@
   "LayerControl.style_label_format_int": "整数",
   "LayerControl.style_label_format_comma": "千分位",
   "LayerControl.style_label_format_percent": "百分比",
-  "LayerControl.style_reset": "重置"
+  "LayerControl.style_reset": "重置",
+  "LayerControl.section_label": "标注",
+  "LayerControl.section_layer": "图层",
+  "LayerControl.style_opacity": "透明度"
 }

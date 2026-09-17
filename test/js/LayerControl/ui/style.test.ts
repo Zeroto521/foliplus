@@ -578,6 +578,125 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
   });
 
+  // ─────────────────── section headings + opacity ───────────────────
+
+  it("renders label and layer section headings", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.length).toBe(2);
+    expect(headings[0].textContent).toBe("LayerControl.section_label");
+    expect(headings[1].textContent).toBe("LayerControl.section_layer");
+  });
+
+  it("renders a range + number opacity pair defaulting to 100", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+    expect(range).not.toBeNull();
+    expect(number).not.toBeNull();
+    expect(range.type).toBe("range");
+    expect(range.min).toBe("0");
+    expect(range.max).toBe("100");
+    expect(range.step).toBe("5");
+    expect(range.value).toBe("100");
+    expect(number.value).toBe("100");
+  });
+
+  it("opacity input applies setStyle on Path-like layers and persists", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "60";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.6, fillOpacity: 0.6 });
+    expect(li.opacity).toBe(0.6);
+    expect(ui.opacityMap.overlay1).toBe(0.6);
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+    expect(number.value).toBe("60");
+  });
+
+  it("opacity number change syncs the range and clamps out-of-range values", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+
+    number.value = "150";
+    number.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(li.opacity).toBe(1);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(range.value).toBe("100");
+  });
+
+  it("canvas layers apply opacity via canvas.style.opacity", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const li = manager.layerRegistry.get("heat1")!;
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "40";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(li.canvas!.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("reset restores opacity to fully opaque and drops the persisted entry", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    range.value = "30";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
+    expect(li.opacity).toBe(1);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+  });
+
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -966,6 +1085,11 @@ describe("LayerUI style panel", () => {
     // Aggregation field is data config on the component's own panel — never
     // delegated into the drawer.
     expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
+    // Shared section headings + opacity row always ride along.
+    expect(
+      panel.querySelectorAll(".foliplus-section-heading").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(panel.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
   });
 
   it("delegated panel omits the field select even when field setter is present", () => {

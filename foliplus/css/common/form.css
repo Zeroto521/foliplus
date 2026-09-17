@@ -142,3 +142,107 @@
   border-color: var(--accent-primary);
   box-shadow: var(--focus-ring);
 }
+
+/* Section heading used by HeatmapControl and LayerControl style panels. */
+.foliplus-section-heading {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+  padding: var(--space-md) var(--space-xl) var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Opacity control: checkerboard track + accent thumb + compact number. */
+.foliplus-style-opacity-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.foliplus-style-opacity-range {
+  flex: 1;
+  min-width: 0;
+  height: var(--size-16);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+}
+
+.foliplus-style-opacity-range::-webkit-slider-runnable-track {
+  height: var(--size-12);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: repeating-conic-gradient(
+      var(--neutral-300) 0% 25%,
+      var(--neutral-0) 0% 50%
+    )
+    50% / var(--size-8) var(--size-8);
+}
+
+.foliplus-style-opacity-range::-moz-range-track {
+  height: var(--size-12);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: repeating-conic-gradient(
+      var(--neutral-300) 0% 25%,
+      var(--neutral-0) 0% 50%
+    )
+    50% / var(--size-8) var(--size-8);
+}
+
+.foliplus-style-opacity-range::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--size-12);
+  height: var(--size-12);
+  border: var(--border-thin) solid var(--accent-hover);
+  border-radius: var(--radius-round);
+  background: var(--accent-primary);
+  cursor: pointer;
+}
+
+.foliplus-style-opacity-range::-moz-range-thumb {
+  width: var(--size-12);
+  height: var(--size-12);
+  border: var(--border-thin) solid var(--accent-hover);
+  border-radius: var(--radius-round);
+  background: var(--accent-primary);
+  cursor: pointer;
+}
+
+.foliplus-style-opacity-range:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.foliplus-style-opacity-number {
+  width: 36px;
+  flex-shrink: 0;
+  height: var(--size-20);
+  padding: 0 var(--size-2);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  color: var(--text-primary);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  box-sizing: border-box;
+  appearance: textfield;
+}
+
+.foliplus-style-opacity-number::-webkit-outer-spin-button,
+.foliplus-style-opacity-number::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.foliplus-style-opacity-number:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--focus-ring);
+}

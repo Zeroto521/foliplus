@@ -24,6 +24,8 @@ interface RegisterLayerOpts {
   subPanes?: string[];
   iconSvg?: string | null;
   visible?: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
@@ -56,6 +58,8 @@ interface LayerInfo {
   name: string;
   layer: L.Layer | null;
   visible: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   isBase: boolean;
   paneName: string | null;
   /** Sub-panes (see `RegisterLayerOpts.subPanes`). Ordered by z ascending. */
