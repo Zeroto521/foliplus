@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attr.js";
-import { isInFloatingPanel, owningRow } from "./context.js";
+import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
   cancelFocus,
@@ -446,7 +446,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
-  if (isInFloatingPanel(target)) return;
+  if (inFloatingPanel(target)) return;
   if (
     target.closest(
       [

@@ -1,7 +1,7 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { autoLabelField } from "#core/labelField.js";
+import { autoLabelField, bareFieldName } from "#core/labelField.js";
 import {
   type CanvasLabelStyle,
   drawCanvasLabel,
@@ -170,7 +170,7 @@ class HeatmapManager {
     this.selectedLayerId = null;
     this.pointLayers = [];
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
-    this.currentField = CONF.field ?? "";
+    this.currentField = bareFieldName(CONF.field ?? "");
     this.currentScheme = CONF.color_scheme ?? "Reds";
     this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
     this.autoFieldKey = null;
@@ -212,14 +212,9 @@ class HeatmapManager {
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
         // Empty string is the AUTO sentinel — when fieldAuto is on, the drawer
-        // must show Auto (the same rule as the heatmap's own field select).
-        // Otherwise strip the "properties." prefix so the drawer and the
-        // annotation panel both show bare field names.
-        field: this.fieldAuto
-          ? ""
-          : this.currentField.startsWith("properties.")
-            ? this.currentField.slice("properties.".length)
-            : this.currentField,
+        // must show Auto (same rule as the heatmap's own field select). The
+        // bare field name is the same contract as the annotation panel.
+        field: this.fieldAuto ? "" : this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -234,16 +229,12 @@ class HeatmapManager {
           // Empty string is the AUTO sentinel (the drawer's disabled Auto
           // placeholder, and what Reset writes). Restore the Python-configured
           // field and re-enable auto resolution — construction / clear state.
-          const raw = String(v ?? "");
+          const raw = bareFieldName(String(v ?? ""));
           if (!raw) {
             this.currentField = defaultField;
             this.fieldAuto = true;
           } else {
-            // The drawer shows bare field names (no "properties." prefix, same
-            // as the annotation panel); the internal contract keeps the prefix.
-            this.currentField = raw.startsWith("properties.")
-              ? raw
-              : `properties.${raw}`;
+            this.currentField = raw;
             this.fieldAuto = false;
           }
           this.renderHexagons();
@@ -256,11 +247,7 @@ class HeatmapManager {
         },
       },
       fieldOptions: () =>
-        this.selectedLayerId
-          ? this.collectFields([{ id: this.selectedLayerId }]).map(f =>
-              f.startsWith("properties.") ? f.slice("properties.".length) : f,
-            )
-          : [],
+        this.selectedLayerId ? this.collectFields([{ id: this.selectedLayerId }]) : [],
       // Snapshot taken at construction — Reset restores these, never the
       // live toggles or the localStorage-persisted config. Empty field is
       // the AUTO sentinel (the field setter restores defaultField).
@@ -475,21 +462,21 @@ class HeatmapManager {
     }
   }
 
+  /** Numeric property keys on the source points, bare names (no prefix) —
+   *  same contract as LayerControl's annotation field picker. */
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
-        const m = pt.marker;
-        if (m?.feature?.properties) {
-          const props = m.feature.properties;
-          Object.keys(props).forEach(k => {
-            if (typeof props[k] === "number" && !seen.has(k)) {
-              seen.add(k);
-              fields.push(`properties.${k}`);
-            }
-          });
-        }
+        const props = pt.marker?.feature?.properties;
+        if (!props) return;
+        Object.keys(props).forEach(k => {
+          if (typeof props[k] === "number" && !seen.has(k)) {
+            seen.add(k);
+            fields.push(k);
+          }
+        });
       });
     });
     return fields;
@@ -507,7 +494,9 @@ class HeatmapManager {
 
   /**
    * Read a numeric field off a point marker (foliplus data contract).
-   * Supported field syntax: "value", "options.value", "properties.<key>".
+   * Supported field syntax: "value", "options.value", and a bare
+   * `feature.properties` key. A legacy `"properties.<key>"` id is accepted
+   * and stripped so older saved configs keep working.
    */
   readMarkerField(
     marker: L.Marker | L.CircleMarker,
@@ -517,11 +506,8 @@ class HeatmapManager {
     const extended = marker as HeatmapPointMarker;
     if (field === "value") return extended.value;
     if (field === "options.value") return extended.options?.value;
-    if (field.startsWith("properties.")) {
-      const key = field.substring(11);
-      return marker.feature?.properties?.[key];
-    }
-    return undefined;
+    const key = bareFieldName(field);
+    return marker.feature?.properties?.[key];
   }
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
@@ -804,9 +790,7 @@ class HeatmapManager {
     let fieldLabel = "";
     if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
       const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
-      if (key) {
-        fieldLabel = key.startsWith("properties.") ? key.substring(11) : key;
-      }
+      if (key) fieldLabel = bareFieldName(key);
     }
 
     const sourceKey = this.T("meta_source_layer");
@@ -840,7 +824,7 @@ class HeatmapManager {
     }
     if (saved.borderColor) this.borderColor = saved.borderColor;
     if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
-    if (saved.field) this.currentField = saved.field;
+    if (saved.field) this.currentField = bareFieldName(saved.field);
     if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
     this.selectedLayerId = saved.layerId ?? null;
   }

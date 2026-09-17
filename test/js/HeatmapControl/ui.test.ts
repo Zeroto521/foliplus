@@ -123,13 +123,13 @@ describe("bindControls — change handlers", () => {
     ]);
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.autoFieldKey).toBe("properties.sales");
+    expect(m.autoFieldKey).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.fieldSelect.value = "properties.sales";
+    ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
-    expect(m.currentField).toBe("properties.sales");
+    expect(m.currentField).toBe("sales");
     expect(m.fieldAuto).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -244,7 +244,7 @@ describe("bindControls — change handlers", () => {
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.fieldSelect.value = "properties.sales";
+    ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
@@ -266,9 +266,9 @@ describe("bindControls — clear (reset) button", () => {
     const { ctrl, m, panel } = setup(conf);
     m.selectedLayerId = "p1";
     m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "properties.x";
+    m.currentField = "x";
     m.fieldAuto = false;
-    m.autoFieldKey = "properties.y";
+    m.autoFieldKey = "y";
     m.currentScheme = "Greens";
     m.numClasses = 8;
     m.currentMethod = "quantile";
@@ -531,7 +531,7 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConf());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.autoFieldKey).toBe("properties.dwell");
+    expect(m.autoFieldKey).toBe("dwell");
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });

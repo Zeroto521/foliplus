@@ -213,6 +213,17 @@ describe("aggregateData", () => {
     expect(result.getAggValue(result.hexCells["same_cell"])).toBe(15);
   });
 
+  it("AVG returns 0 for a zero-count cell", () => {
+    m.currentAgg = CONST.AGG.AVG;
+    globalThis.h3.latLngToCell = vi.fn(() => "same_cell");
+    const pts = [{ lat: 26.08, lng: 119.3, value: 5 }];
+    const result = m.aggregateData(pts, 4);
+    // Normal cell: avg of 5 is 5.
+    expect(result.getAggValue(result.hexCells["same_cell"])).toBe(5);
+    // Defensive: a cell with count 0 returns 0, not NaN.
+    expect(result.getAggValue({ sum: 0, count: 0, min: 0, max: 0 })).toBe(0);
+  });
+
   it("returns null for empty points", () => {
     m.overlay.canvas = {};
     const result = m.aggregateData([], 4);
@@ -392,9 +403,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
       { marker: { feature: { properties: { price: 2 } } } },
     ]);
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
-    expect(fields).toContain("properties.price");
-    expect(fields).not.toContain("properties.name");
-    expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+    expect(fields).toContain("price");
+    expect(fields).not.toContain("name");
+    expect(fields.filter(f => f === "price")).toHaveLength(1);
   });
 });
 
@@ -786,7 +797,7 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
-      m.currentField = "properties.price";
+      m.currentField = "price";
       m.fieldAuto = false;
 
       m.saveConfig();
@@ -800,7 +811,7 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
-      expect(stored.field).toBe("properties.price");
+      expect(stored.field).toBe("price");
       expect(stored.fieldAuto).toBe(false);
     });
 
@@ -894,7 +905,8 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
-      expect(m.currentField).toBe("properties.qty");
+      // Legacy "properties." prefix is stripped on load.
+      expect(m.currentField).toBe("qty");
       expect(m.fieldAuto).toBe(false);
     });
 
@@ -942,7 +954,7 @@ describe("HeatmapManager — persistence", () => {
       m1.borderWeight = 0.5;
       m1.borderColor = "#111111";
       m1.currentLabelShow = true;
-      m1.currentField = "properties.value";
+      m1.currentField = "value";
       m1.fieldAuto = false;
       m1.saveConfig();
 
@@ -959,7 +971,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.borderWeight).toBe(0.5);
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
-      expect(m2.currentField).toBe("properties.value");
+      expect(m2.currentField).toBe("value");
       expect(m2.fieldAuto).toBe(false);
     });
 
@@ -1324,10 +1336,8 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
 
     m.currentLabelShow = false;
-    m.currentField = "properties.count";
     m.fieldAuto = false;
-    // The provider strips the "properties." prefix for display consistency
-    // with the annotation panel.
+    m.currentField = "count";
     expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
   });
 
@@ -1336,10 +1346,16 @@ describe("HeatmapManager — style delegation", () => {
     // when currentField still carries the Python-configured name.
     const m = makeManager();
     m.fieldAuto = true;
-    m.currentField = "properties.count";
+    m.currentField = "count";
     const opts = getCanvasOpts();
 
     expect(opts.styleProvider!().field).toBe("");
+  });
+
+  it("constructs with empty field when CONF.field is absent", () => {
+    delete (window.CONF as Record<string, unknown>).field;
+    const m = makeManager();
+    expect(m.currentField).toBe("");
   });
 
   it("labelShow setter flips state, re-renders and persists", () => {
@@ -1355,23 +1371,23 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("field setter adds the properties. prefix back", () => {
+  it("field setter stores the bare field name", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
 
     opts.styleSetters!.field!("count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
     expect(m.fieldAuto).toBe(false);
   });
 
-  it("field setter keeps an already-prefixed field as-is", () => {
+  it("field setter strips a legacy properties. prefix", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
 
     opts.styleSetters!.field!("properties.count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
   });
 
   it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
@@ -1381,9 +1397,9 @@ describe("HeatmapManager — style delegation", () => {
     const saveSpy = vi.spyOn(m, "saveConfig");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("properties.count");
+    opts.styleSetters!.field!("count");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(m.currentField).toBe("count");
     expect(m.fieldAuto).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
@@ -1392,10 +1408,10 @@ describe("HeatmapManager — style delegation", () => {
   it("field setter with empty string restores auto (Python CONF field)", () => {
     // Empty is the AUTO sentinel — Reset writes it. The setter must restore
     // the construction-time CONF.field snapshot and re-enable auto resolution,
-    // not prefix the empty string.
+    // not treat it as "clear the field and leave auto off".
     const m = makeManager({ field: "value" });
     m.fieldAuto = false;
-    m.currentField = "properties.count";
+    m.currentField = "count";
     const opts = getCanvasOpts();
 
     opts.styleSetters!.field!("");
@@ -1416,7 +1432,7 @@ describe("HeatmapManager — style delegation", () => {
 
     // Runtime toggles must not leak into the Reset snapshot.
     m.currentLabelShow = false;
-    m.currentField = "properties.sum";
+    m.currentField = "sum";
     m.fieldAuto = false;
     expect(opts.styleDefaults!()).toEqual({ labelShow: true, field: "" });
   });
@@ -1431,6 +1447,47 @@ describe("HeatmapManager — style delegation", () => {
 
     expect(m.currentLabelShow).toBe(true);
     expect(opts.styleDefaults!().labelShow).toBe(true);
+  });
+
+  it("labelShow setter syncs ui.labelChk when the panel is attached", () => {
+    const m = makeManager();
+    const labelChk = document.createElement("input");
+    labelChk.type = "checkbox";
+    labelChk.checked = true;
+    (m as unknown as { ui: { labelChk: HTMLInputElement } }).ui = { labelChk };
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelShow!(false);
+
+    expect(labelChk.checked).toBe(false);
+  });
+
+  it("field setter syncs ui.fieldSelect when the panel is attached", () => {
+    const m = makeManager();
+    const fieldSelect = document.createElement("select");
+    const opt = document.createElement("option");
+    opt.value = "sales";
+    fieldSelect.appendChild(opt);
+    (m as unknown as { ui: { fieldSelect: HTMLSelectElement } }).ui = {
+      fieldSelect,
+    };
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("sales");
+
+    expect(fieldSelect.value).toBe("sales");
+  });
+
+  it("field setter treats null/undefined as an empty auto-field sentinel", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!(null);
+
+    // Empty restores the construction-time field and turns auto back on —
+    // the path Reset uses.
+    expect(m.currentField).toBe("");
+    expect(m.fieldAuto).toBe(true);
   });
 
   it("fieldOptions returns the numeric fields of the selected source layer", () => {
