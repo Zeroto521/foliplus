@@ -124,15 +124,6 @@ describe("DATA_ATTR", () => {
   });
 });
 
-describe("FORMAT", () => {
-  it("matches the annotation panel's number-format vocabulary", () => {
-    expect(CONST.FORMAT.AUTO).toBe("auto");
-    expect(CONST.FORMAT.INT).toBe("int");
-    expect(CONST.FORMAT.COMMA).toBe("comma");
-    expect(CONST.FORMAT.PERCENT).toBe("percent");
-  });
-});
-
 describe("generateId", () => {
   it("returns the default ID when no namespace is provided", () => {
     expect(generateId(CONST.ID)).toBe("foliplus_heatmap");

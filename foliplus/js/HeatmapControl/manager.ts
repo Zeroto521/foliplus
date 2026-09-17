@@ -9,7 +9,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { type NumberStyle, formatLabelNumber } from "#common/format.js";
+import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
@@ -184,7 +184,7 @@ class HeatmapManager {
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.currentLabelShow = CONF.label_show !== false;
-    this.currentLabelFormat = (CONF.label_format ?? "auto") as NumberStyle;
+    this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
@@ -229,7 +229,9 @@ class HeatmapManager {
         // Format only rewrites the label text — redraw from cache, skip the
         // H3 re-aggregation that labelShow triggers.
         labelFormat: v => {
-          this.currentLabelFormat = (typeof v === "string" ? v : "auto") as NumberStyle;
+          this.currentLabelFormat = (
+            typeof v === "string" ? v : NUMBER_FORMAT.AUTO
+          ) as NumberStyle;
           this.redrawHeatmap();
           this.saveConfig();
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);

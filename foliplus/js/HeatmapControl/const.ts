@@ -2,7 +2,6 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
-import { NUMBER_FORMAT } from "#common/format.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -126,16 +125,12 @@ const DATA_ATTR = {
   BTN_CLEAR: "data-heatmap-btn-clear",
 };
 
-/** Label number-format keys — shared with LayerControl via `#common/format.js`. */
-const FORMAT = NUMBER_FORMAT;
-
 export {
   AGG,
   BORDER,
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,
-  FORMAT,
   GRAY,
   H3,
   ID,

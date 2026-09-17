@@ -3,12 +3,19 @@ import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
 import {
   LAT_LNG_PRECISION,
+  NUMBER_FORMAT,
   formatCoord,
   formatLabelNumber,
   formatLatLng,
   formatNumber,
   formatTimestamp,
 } from "#common/format.js";
+
+describe("NUMBER_FORMAT", () => {
+  it("covers every NumberStyle key", () => {
+    expect(Object.values(NUMBER_FORMAT)).toEqual(["auto", "int", "comma", "percent"]);
+  });
+});
 
 describe("formatTimestamp", () => {
   it("renders epoch ms and date strings", () => {

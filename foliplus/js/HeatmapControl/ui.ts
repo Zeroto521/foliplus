@@ -3,7 +3,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
-import { type NumberStyle } from "#common/format.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
@@ -256,7 +256,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
     ctrl.labelChk.checked = ctrl.conf.label_show !== false;
-    ctrl.labelFormatSelect.value = (ctrl.conf.label_format ?? "auto") as NumberStyle;
+    ctrl.labelFormatSelect.value = (ctrl.conf.label_format ??
+      NUMBER_FORMAT.AUTO) as NumberStyle;
     ctrl.borderWeightInput.value = String(
       ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );
@@ -578,7 +579,8 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
-  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ?? "auto") as NumberStyle;
+  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
+    NUMBER_FORMAT.AUTO) as NumberStyle;
   ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
   ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();

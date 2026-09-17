@@ -5,6 +5,7 @@
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
+import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "./const.js";
 
 /** Build the panel-content HTML string (data section + style section). */
@@ -109,10 +110,10 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         <label class="foliplus-form-label">${T("label_format")}</label>
         <div class="foliplus-form-control">
           <select class="foliplus-form-select" ${CONST.DATA_ATTR.LABEL_FORMAT}>
-            <option value="${CONST.FORMAT.AUTO}">${T("label_format_auto")}</option>
-            <option value="${CONST.FORMAT.INT}">${T("label_format_int")}</option>
-            <option value="${CONST.FORMAT.COMMA}">${T("label_format_comma")}</option>
-            <option value="${CONST.FORMAT.PERCENT}">${T("label_format_percent")}</option>
+            <option value="${NUMBER_FORMAT.AUTO}">${T("label_format_auto")}</option>
+            <option value="${NUMBER_FORMAT.INT}">${T("label_format_int")}</option>
+            <option value="${NUMBER_FORMAT.COMMA}">${T("label_format_comma")}</option>
+            <option value="${NUMBER_FORMAT.PERCENT}">${T("label_format_percent")}</option>
           </select>
         </div>
       </div>

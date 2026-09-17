@@ -160,15 +160,11 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Annotation label number-format presets — shared with HeatmapControl via
- *  `#common/format.js` so both panels use one vocabulary. */
-const FORMAT = NUMBER_FORMAT;
-
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
-  format: FORMAT.AUTO,
+  format: NUMBER_FORMAT.AUTO,
 } as const;
 
 export {
@@ -181,7 +177,6 @@ export {
   DEFAULT_ANNOTATION,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
-  FORMAT,
   FOCUS,
   FOCUS_PANE,
   GROUP,
