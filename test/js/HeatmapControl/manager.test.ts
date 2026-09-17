@@ -213,6 +213,17 @@ describe("aggregateData", () => {
     expect(result.getAggValue(result.hexCells["same_cell"])).toBe(15);
   });
 
+  it("AVG returns 0 for a zero-count cell", () => {
+    m.currentAgg = CONST.AGG.AVG;
+    globalThis.h3.latLngToCell = vi.fn(() => "same_cell");
+    const pts = [{ lat: 26.08, lng: 119.3, value: 5 }];
+    const result = m.aggregateData(pts, 4);
+    // Normal cell: avg of 5 is 5.
+    expect(result.getAggValue(result.hexCells["same_cell"])).toBe(5);
+    // Defensive: a cell with count 0 returns 0, not NaN.
+    expect(result.getAggValue({ sum: 0, count: 0, min: 0, max: 0 })).toBe(0);
+  });
+
   it("returns null for empty points", () => {
     m.overlay.canvas = {};
     const result = m.aggregateData([], 4);
