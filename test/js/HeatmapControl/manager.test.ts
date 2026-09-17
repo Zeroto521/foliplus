@@ -1392,6 +1392,45 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
+  it("labelShow setter syncs ui.labelChk when the panel is attached", () => {
+    const m = makeManager();
+    const labelChk = document.createElement("input");
+    labelChk.type = "checkbox";
+    labelChk.checked = true;
+    (m as unknown as { ui: { labelChk: HTMLInputElement } }).ui = { labelChk };
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelShow!(false);
+
+    expect(labelChk.checked).toBe(false);
+  });
+
+  it("field setter syncs ui.fieldSelect when the panel is attached", () => {
+    const m = makeManager();
+    const fieldSelect = document.createElement("select");
+    const opt = document.createElement("option");
+    opt.value = "sales";
+    fieldSelect.appendChild(opt);
+    (m as unknown as { ui: { fieldSelect: HTMLSelectElement } }).ui = {
+      fieldSelect,
+    };
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("sales");
+
+    expect(fieldSelect.value).toBe("sales");
+  });
+
+  it("field setter treats null/undefined as an empty auto-field sentinel", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!(null);
+
+    expect(m.currentField).toBe("");
+    expect(m.fieldAuto).toBe(false);
+  });
+
   it("fieldOptions returns the numeric fields of the selected source layer", () => {
     const m = makeManager();
     m.selectedLayerId = "src1";

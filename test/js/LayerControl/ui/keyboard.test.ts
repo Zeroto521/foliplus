@@ -672,6 +672,49 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
+    it("focusin on a non-row target inside the container is a no-op", () => {
+      // owningRow() is null for chrome that sits beside the rows (panel
+      // padding, group headings). The early return must not throw or paint.
+      const stray = document.createElement("div");
+      ui.uiContainer.appendChild(stray);
+
+      stray.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      stray.remove();
+    });
+
+    it("focusout into a floating panel keeps the row cursor", () => {
+      // The PR's onFocusOut guard: a relatedTarget inside a style/attrs panel
+      // is a detail task on the same row, not an abandon — even when the panel
+      // element is not a DOM descendant of the row that lost focus.
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      const detachedPanel = document.createElement("div");
+      detachedPanel.className = CONST.CLASSES.STYLE_PANEL;
+      const panelControl = document.createElement("button");
+      detachedPanel.appendChild(panelControl);
+      document.body.appendChild(detachedPanel);
+
+      checkbox.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: panelControl,
+        }),
+      );
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      detachedPanel.remove();
+    });
+
     it("Escape is complete without any residual suppress class", () => {
       const overlay = findItem(ui, "overlay1");
       const spy = stubFocusVisible(overlay, true);
