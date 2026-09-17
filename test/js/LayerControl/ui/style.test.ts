@@ -1040,6 +1040,26 @@ describe("LayerUI style panel", () => {
     }
   });
 
+  it("annotation format labels fall back to the raw key when T returns empty", () => {
+    const item = findItem(ui, "overlay1");
+    const realT = ui.T;
+    ui.T = (key: string) => (key.startsWith("style_label_format_") ? "" : realT(key));
+
+    ui.openStylePanel("overlay1");
+
+    const opts = panelOf(item)!.querySelectorAll(
+      ".foliplus-style-format-select option",
+    );
+    expect([...opts].map(o => o.textContent)).toEqual([
+      "auto",
+      "int",
+      "comma",
+      "percent",
+    ]);
+
+    ui.T = realT;
+  });
+
   // ─────────────────── delegated style panel (third-party) ───────────────────
 
   it("delegated panel with only labelShow + labelFormat omits color/size row", () => {
@@ -1058,6 +1078,34 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
     expect(panel.querySelector(".foliplus-style-label-size-input")).toBeNull();
     expect(panel.querySelector(".foliplus-style-format-select")).not.toBeNull();
+  });
+
+  it("delegated format labels fall back to the raw key when T returns empty", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    const realT = ui.T;
+    ui.T = (key: string) => (key.startsWith("style_label_format_") ? "" : realT(key));
+
+    ui.openStylePanel("heat1");
+
+    // The || f fallback made the option text the raw format key.
+    const opts = panelOf(item)!.querySelectorAll(
+      ".foliplus-style-format-select option",
+    );
+    expect([...opts].map(o => o.textContent)).toEqual([
+      "auto",
+      "int",
+      "comma",
+      "percent",
+    ]);
+
+    ui.T = realT;
   });
 
   it("delegated panel renders a format select when labelFormat setter is present", () => {
