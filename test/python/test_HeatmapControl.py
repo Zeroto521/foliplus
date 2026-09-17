@@ -1162,12 +1162,8 @@ class TestHeatmapAutoFieldBrowser:
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "population" in field_opts, (
-                f"Missing 'population': {field_opts}"
-            )
-            assert "density" in field_opts, (
-                f"Missing 'density': {field_opts}"
-            )
+            assert "population" in field_opts, f"Missing 'population': {field_opts}"
+            assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
@@ -1222,16 +1218,12 @@ class TestHeatmapAutoFieldBrowser:
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key == "elevation", (
-                f"Expected 'elevation', got '{auto_key}'"
-            )
+            assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "elevation" in field_opts, (
-                f"Missing 'elevation': {field_opts}"
-            )
+            assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
 
             assert not errors, f"JS errors: {errors}"
