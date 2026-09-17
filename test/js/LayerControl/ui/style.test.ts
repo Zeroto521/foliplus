@@ -558,6 +558,26 @@ describe("LayerUI style panel", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("reset also restores collide (not just show/field/format)", () => {
+    // Regression: DEFAULT_ANNOTATION alone omits collide, so a user-toggled
+    // avoid-overlap switch used to survive Reset. defaultConfig() carries it.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: CONST.FORMAT.AUTO,
+      collide: false,
+    });
+
+    const btn = panelOf(item).querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
+  });
+
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -1202,5 +1222,235 @@ describe("LayerUI style panel", () => {
     stray.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(fieldSetter).not.toHaveBeenCalled();
+  });
+
+  // ─────────────────── delegated reset (Python CONF defaults) ───────────────────
+
+  it("delegated panel hides Reset when the layer supplies no styleDefaults", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    expect(panelOf(item)!.querySelector(".foliplus-style-reset-btn")).toBeNull();
+  });
+
+  it("delegated panel renders Reset when styleDefaults is present", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaults: () => ({ labelShow: false }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    expect(btn.textContent).toBe("LayerControl.style_reset");
+  });
+
+  it("delegated Reset calls each setter with its styleDefaults value and closes", () => {
+    const labelShowSetter = vi.fn();
+    const labelCollideSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelCollide: false }),
+      styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
+      styleDefaults: () => ({ labelShow: false, labelCollide: true }),
+    });
+    const item = findItem(ui, "heat1");
+    const focusSpy = vi.fn();
+    item.focus = focusSpy;
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // Python CONF defaults — never the live / persisted values.
+    expect(labelShowSetter).toHaveBeenCalledWith(false);
+    expect(labelCollideSetter).toHaveBeenCalledWith(true);
+    expect(panelOf(item)).toBeUndefined();
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  it("delegated Reset skips setters with no matching default", () => {
+    const labelShowSetter = vi.fn();
+    const labelCollideSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelCollide: true }),
+      styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
+      styleDefaults: () => ({ labelShow: false }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(labelShowSetter).toHaveBeenCalledWith(false);
+    expect(labelCollideSetter).not.toHaveBeenCalled();
+  });
+
+  it("delegated panel tolerates a missing styleProvider (empty values)", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const showToggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    const collideToggle = panelOf(item)!.querySelector(
+      ".foliplus-style-collide-input",
+    ) as HTMLInputElement;
+    // Empty provider → both toggles read as off / collide-on default.
+    expect(showToggle.checked).toBe(false);
+    expect(collideToggle.checked).toBe(true);
+  });
+
+  it("delegated panel with only labelCollide still renders (no show row)", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelCollide: true }),
+      styleSetters: { labelCollide: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
+    expect(
+      panelOf(item)!.querySelector(".foliplus-style-collide-input"),
+    ).not.toBeNull();
+  });
+
+  it("delegated Reset closes cleanly when styleDefaults returns undefined", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+      styleDefaults: () => undefined as unknown as Record<string, unknown>,
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // No default keys → no setter call, but the panel still closes.
+    expect(labelShowSetter).not.toHaveBeenCalled();
+    expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("LAYER_STYLE_CHANGE for a different layer id is ignored", () => {
+    let currentLabelShow = true;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: currentLabelShow }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+
+    currentLabelShow = false;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "other-layer" },
+    );
+
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("LAYER_STYLE_CHANGE bails when styleProvider returns nothing", () => {
+    let provide: () => Record<string, unknown> | undefined = () => ({
+      labelShow: true,
+    });
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => provide(),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+
+    provide = () => undefined;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("delegated Reset no-ops when styleSetters is cleared after open", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+      styleDefaults: () => ({ labelShow: false }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    // Simulate the layer being torn down between open and Reset.
+    const li = manager.layerRegistry.get("heat1")!;
+    (li as { styleSetters: unknown }).styleSetters = null;
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(labelShowSetter).not.toHaveBeenCalled();
+    expect(panelOf(item)).toBeUndefined();
   });
 });

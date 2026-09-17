@@ -137,6 +137,10 @@ class MeasureManager {
     this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.store = new MeasureStore(this.map, this.layerId);
+    // Class fields already hold the Python CONF defaults at this point —
+    // snapshot them before any runtime toggle so Reset cannot drift.
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelCollide = this.labelCollide;
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
@@ -157,6 +161,12 @@ class MeasureManager {
         labelShow: v => this.setLabelsVisible(v === true),
         labelCollide: v => this.setLabelCollide(v === true),
       },
+      // Snapshot taken at construction — Reset restores these, never the
+      // live runtime toggles.
+      styleDefaults: () => ({
+        labelShow: defaultLabelShow,
+        labelCollide: defaultLabelCollide,
+      }),
     });
     this.currentMode = null;
     this.modeInstance = null;

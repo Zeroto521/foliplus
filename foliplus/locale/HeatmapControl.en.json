@@ -20,7 +20,7 @@
   "HeatmapControl.scheme": "Color Scheme",
   "HeatmapControl.border": "Border",
   "HeatmapControl.label": "Labels",
-  "HeatmapControl.clear": "Reset",
+  "HeatmapControl.clear": "Clear",
   "HeatmapControl.no_layer": "No point layers found — add a GeoJson/Marker layer with .feature to enable heatmap",
   "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl — please add LayerControl to the map first",
   "HeatmapControl.section_data": "Data",

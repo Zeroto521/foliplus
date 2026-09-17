@@ -134,13 +134,22 @@ class AnnotationManager {
     );
   }
 
+  /** The Python CONF default annotation config (labels off, auto field, auto
+   *  format, page-level collide). Reset restores this — never the persisted
+   *  user choice. */
+  defaultConfig(): AnnotationConfig {
+    return {
+      ...CONST.DEFAULT_ANNOTATION,
+      collide: CONF.label_collide ?? true,
+    };
+  }
+
   /** Read the config for a layer, or the default (labels off) when unset. The
    *  collide default is the page's (`label_collide`, the parameter both controls
    *  share); a stored user choice — the panel toggle — overrides it per layer. */
   getConfig(id: string): AnnotationConfig {
     return {
-      ...CONST.DEFAULT_ANNOTATION,
-      collide: CONF.label_collide ?? true,
+      ...this.defaultConfig(),
       ...(this.config.get(id) ?? {}),
     };
   }

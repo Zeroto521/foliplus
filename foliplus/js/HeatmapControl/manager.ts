@@ -178,10 +178,15 @@ class HeatmapManager {
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
-    this.currentLabelShow = CONF.label_show ?? false;
+    // Python default is True; only an explicit false turns labels off — same
+    // `!== false` rule MeasureControl uses for label_show / label_collide.
+    this.currentLabelShow = CONF.label_show !== false;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
+    // Snapshot the Python CONF style defaults before any runtime toggle so
+    // Reset restores exactly what construction started from (never localStorage).
+    const defaultLabelShow = this.currentLabelShow;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -216,6 +221,11 @@ class HeatmapManager {
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
       },
+      // Snapshot taken at construction — Reset restores this, never the
+      // live toggle or the localStorage-persisted config.
+      styleDefaults: () => ({
+        labelShow: defaultLabelShow,
+      }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes

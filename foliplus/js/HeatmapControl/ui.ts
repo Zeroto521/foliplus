@@ -242,7 +242,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     );
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
-    ctrl.labelChk.checked = ctrl.conf.label_show ?? false;
+    ctrl.labelChk.checked = ctrl.conf.label_show !== false;
     ctrl.borderWeightInput.value = String(
       ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );
@@ -563,7 +563,7 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
-  ctrl.m.currentLabelShow = ctrl.conf.label_show ?? false;
+  ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
   ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
   ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();

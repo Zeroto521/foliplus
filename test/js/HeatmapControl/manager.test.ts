@@ -1316,7 +1316,7 @@ describe("HeatmapManager — style delegation", () => {
     return createCanvas.mock.calls[0][0] as {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
-      fieldOptions?: () => string[];
+      styleDefaults?: () => Record<string, unknown>;
     };
   }
 
@@ -1376,6 +1376,31 @@ describe("HeatmapManager — style delegation", () => {
       id: m.layerId,
     });
     expect(labelChk.checked).toBe(true);
+  });
+
+  it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaults).toBe("function");
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    m.currentLabelShow = false;
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+  });
+
+  it("labelShow defaults to true when CONF omits label_show", () => {
+    // Python serializes label_show=True by default; a missing key must not
+    // silently flip labels off — the same `!== false` rule MeasureControl uses.
+    const m = makeManager({ label_show: undefined });
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+
+    expect(m.currentLabelShow).toBe(true);
+    expect(opts.styleDefaults!().labelShow).toBe(true);
   });
 });
 

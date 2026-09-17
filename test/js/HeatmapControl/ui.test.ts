@@ -330,7 +330,8 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.currentScheme).toBe("Reds");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
     expect(m.currentMethod).toBe(CONST.METHOD.JENKS);
-    expect(m.currentLabelShow).toBe(false);
+    // Python default is True; only an explicit false turns labels off.
+    expect(m.currentLabelShow).toBe(true);
     expect(m.borderWeight).toBe(CONST.BORDER.WEIGHT_DEFAULT);
     expect(m.borderColor).toBe(CONST.GRAY);
     expect(m.currentField).toBe("");

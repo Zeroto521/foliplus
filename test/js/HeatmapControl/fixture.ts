@@ -31,24 +31,30 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 });
 
 /** Build a real HeatmapManager with all external deps stubbed out. */
-function makeManager() {
+function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
   // Mutate in place — module-level `T = createScopedTranslator(CONF)` captured
   // the setup-time object; replacing window.CONF would strand that reference
   // on SearchControl and meta keys would resolve to the wrong prefix.
-  Object.assign(window.CONF, {
-    name: "HeatmapControl",
-    color_scheme: "Reds",
-    method: "jenks",
-    n_classes: 6,
-    agg: "count",
-    field: null,
-    fill_opacity: 0.7,
-    border_color: "#333333",
-    border_weight: 1.5,
-    border_opacity: 0.9,
-    label_show: true,
-    label_format: "auto",
-  });
+  // `confOverrides` wins last so a test can omit/replace a key (including
+  // setting it to undefined to simulate a CONF that never sent it).
+  Object.assign(
+    window.CONF,
+    {
+      name: "HeatmapControl",
+      color_scheme: "Reds",
+      method: "jenks",
+      n_classes: 6,
+      agg: "count",
+      field: null,
+      fill_opacity: 0.7,
+      border_color: "#333333",
+      border_weight: 1.5,
+      border_opacity: 0.9,
+      label_show: true,
+      label_format: "auto",
+    },
+    confOverrides,
+  );
 
   globalThis.h3 = {
     latLngToCell: vi.fn(() => "abc123"),
