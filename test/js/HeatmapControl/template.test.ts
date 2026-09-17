@@ -27,7 +27,7 @@ describe("panelContentHTML", () => {
       scheme: "Color",
       border: "Border",
       label: "Label",
-      label_style: "Color / Size",
+      label_style: "Color / Font Size",
       label_format: "Number Format",
       label_format_auto: "Auto",
       label_format_int: "Integer",
@@ -167,7 +167,7 @@ describe("panelContentHTML", () => {
     expect(html).toContain("data-heatmap-label-color");
     expect(html).toContain("data-heatmap-label-size");
     expect(html).toContain("data-heatmap-label-format");
-    expect(html).toContain("Color / Size");
+    expect(html).toContain("Color / Font Size");
     expect(html).toContain("Number Format");
     expect(html).toContain("Thousands Separator");
   });

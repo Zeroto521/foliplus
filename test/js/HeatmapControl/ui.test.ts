@@ -259,6 +259,34 @@ describe("bindControls — change handlers", () => {
     });
   });
 
+  it("label color input is live and notifies the layer drawer", () => {
+    const { ctrl, m } = setup();
+    const redraw = vi.spyOn(m, "redrawHeatmap");
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.labelColorInput.value = "#00ff00";
+    fire(ctrl.labelColorInput, "input");
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.cachedLabelStyle).toBeNull();
+    expect(redraw).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
+  });
+
+  it("label size input is live and clamps on commit", () => {
+    const { ctrl, m } = setup();
+    const redraw = vi.spyOn(m, "redrawHeatmap");
+    ctrl.labelSizeInput.value = "18";
+    fire(ctrl.labelSizeInput, "input");
+    expect(m.currentLabelSize).toBe(18);
+    expect(redraw).toHaveBeenCalled();
+
+    ctrl.labelSizeInput.value = "99";
+    fire(ctrl.labelSizeInput, "change");
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+    expect(ctrl.labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
+  });
+
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");

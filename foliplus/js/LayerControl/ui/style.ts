@@ -13,6 +13,8 @@ import {
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
 import {
+  LABEL_COLOR_DEFAULT,
+  LABEL_SIZE,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
@@ -172,17 +174,23 @@ const renderDelegatedStylePanel = (
   if (setters.labelColor || setters.labelSize) {
     const colorInput = setters.labelColor
       ? formColorInput({
-          value: typeof values.labelColor === "string" ? values.labelColor : "#ffffff",
+          value:
+            typeof values.labelColor === "string"
+              ? values.labelColor
+              : LABEL_COLOR_DEFAULT,
           className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
           ariaLabel: ui.T("style_label_color"),
         })
       : null;
     const sizeInput = setters.labelSize
       ? formNumberInput({
-          value: typeof values.labelSize === "number" ? values.labelSize : 11,
-          min: 6,
-          max: 32,
-          step: 1,
+          value:
+            typeof values.labelSize === "number"
+              ? values.labelSize
+              : LABEL_SIZE.SIZE_DEFAULT,
+          min: LABEL_SIZE.SIZE_MIN,
+          max: LABEL_SIZE.SIZE_MAX,
+          step: LABEL_SIZE.SIZE_STEP,
           className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
           ariaLabel: ui.T("style_label_size"),
         })

@@ -3,7 +3,12 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
-import { bindLiveColor, bindLiveNumber, normalizeHexColor } from "#common/form.js";
+import {
+  bindLiveColor,
+  bindLiveNumber,
+  clampLabelSize,
+  normalizeHexColor,
+} from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
@@ -610,9 +615,8 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentLabelColor = normalizeHexColor(
     ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
   );
-  ctrl.m.currentLabelSize = Math.min(
-    CONST.LABEL.SIZE_MAX,
-    Math.max(CONST.LABEL.SIZE_MIN, ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT),
+  ctrl.m.currentLabelSize = clampLabelSize(
+    ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT,
   );
   ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
     NUMBER_FORMAT.AUTO) as NumberStyle;

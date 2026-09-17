@@ -127,9 +127,10 @@ describe("DATA_ATTR", () => {
 });
 
 describe("LABEL", () => {
-  it("defines size bounds and defaults", () => {
+  it("shares the common form.js size bounds and color default", () => {
     expect(CONST.LABEL.SIZE_MIN).toBe(6);
     expect(CONST.LABEL.SIZE_MAX).toBe(32);
+    expect(CONST.LABEL.SIZE_STEP).toBe(1);
     expect(CONST.LABEL.SIZE_DEFAULT).toBe(11);
     expect(CONST.LABEL.COLOR_DEFAULT).toBe("#ffffff");
   });

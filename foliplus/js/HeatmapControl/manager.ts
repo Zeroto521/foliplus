@@ -9,7 +9,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { normalizeHexColor } from "#common/form.js";
+import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -195,10 +195,7 @@ class HeatmapManager {
     this.currentLabelColor = normalizeHexColor(
       CONF.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
-    this.currentLabelSize = Math.min(
-      CONST.LABEL.SIZE_MAX,
-      Math.max(CONST.LABEL.SIZE_MIN, CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT),
-    );
+    this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
     this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
@@ -262,10 +259,7 @@ class HeatmapManager {
         labelSize: v => {
           const n =
             typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
-          this.currentLabelSize = Math.min(
-            CONST.LABEL.SIZE_MAX,
-            Math.max(CONST.LABEL.SIZE_MIN, n),
-          );
+          this.currentLabelSize = clampLabelSize(n);
           this.cachedLabelStyle = null;
           this.redrawHeatmap();
           this.saveConfig();
@@ -880,10 +874,7 @@ class HeatmapManager {
     if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
     if (saved.labelColor) this.currentLabelColor = saved.labelColor;
     if (saved.labelSize !== undefined) {
-      this.currentLabelSize = Math.min(
-        CONST.LABEL.SIZE_MAX,
-        Math.max(CONST.LABEL.SIZE_MIN, saved.labelSize),
-      );
+      this.currentLabelSize = clampLabelSize(saved.labelSize);
     }
     if (saved.labelFormat) this.currentLabelFormat = saved.labelFormat;
     if (saved.field) this.currentField = bareFieldName(saved.field);

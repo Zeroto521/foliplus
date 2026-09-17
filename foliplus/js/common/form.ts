@@ -4,6 +4,21 @@
 // from drifting.
 import { dom } from "./dom.js";
 
+/** Shared label typography bounds (px). One home for the heatmap panel,
+ *  the layer style drawer, and the canvas-label overlay. */
+const LABEL_SIZE = {
+  SIZE_MIN: 6,
+  SIZE_MAX: 32,
+  SIZE_STEP: 1,
+  SIZE_DEFAULT: 11,
+} as const;
+
+const LABEL_COLOR_DEFAULT = "#ffffff";
+
+/** Clamp a raw label-size number into the shared bounds. */
+const clampLabelSize = (value: number): number =>
+  Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
+
 /** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
 const normalizeHexColor = (value: string): string => {
   if (/^#[0-9a-fA-F]{3}$/.test(value)) {
@@ -86,8 +101,11 @@ const bindLiveColor = (
 export {
   bindLiveColor,
   bindLiveNumber,
+  clampLabelSize,
   colorInput,
   inlineControls,
+  LABEL_COLOR_DEFAULT,
+  LABEL_SIZE,
   normalizeHexColor,
   numberInput,
 };

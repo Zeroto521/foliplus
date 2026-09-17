@@ -2,6 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -68,13 +69,11 @@ const BORDER = {
   WEIGHT_DEFAULT: 1,
 };
 
-/** Hex-label typography bounds. Mirrors Python `label_size: PositiveInt`. */
+/** Hex-label typography — shared bounds from common/form.js so the layer
+ *  style drawer never re-declares 6/32/11. */
 const LABEL = {
-  SIZE_MIN: 6,
-  SIZE_MAX: 32,
-  SIZE_STEP: 1,
-  SIZE_DEFAULT: 11,
-  COLOR_DEFAULT: "#ffffff",
+  ...LABEL_SIZE,
+  COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
 };
 
 const CLASSES = {

@@ -993,6 +993,78 @@ describe("LayerUI style panel", () => {
     expect(labelSizeSetter).toHaveBeenCalledWith(18);
   });
 
+  it("delegated panel renders only the color input when size setter is absent", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelColor: "#ff0000" }),
+      styleSetters: { labelShow: vi.fn(), labelColor: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    expect(panel.querySelector(".foliplus-style-label-color-input")).not.toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-size-input")).toBeNull();
+  });
+
+  it("delegated panel renders only the size input when color setter is absent", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelSize: 14 }),
+      styleSetters: { labelShow: vi.fn(), labelSize: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-size-input")).not.toBeNull();
+  });
+
+  it("LAYER_STYLE_CHANGE refreshes color and size inputs", () => {
+    let color = "#ff0000";
+    let size = 12;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        labelShow: true,
+        labelColor: color,
+        labelSize: size,
+      }),
+      styleSetters: { labelShow: vi.fn(), labelColor: vi.fn(), labelSize: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const colorEl = panel.querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const sizeEl = panel.querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    expect(colorEl.value).toBe("#ff0000");
+    expect(sizeEl.value).toBe("12");
+
+    color = "#00ff00";
+    size = 20;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(colorEl.value).toBe("#00ff00");
+    expect(sizeEl.value).toBe("20");
+  });
+
   it("delegated panel omits the format select when labelFormat setter is absent", () => {
     manager.registerLayer({
       id: "heat1",
