@@ -203,11 +203,9 @@ class HeatmapManager {
       // Style delegation for the layer style drawer — single source: both the
       // heatmap panel and the drawer call the same setters, and the drawer
       // pulls fresh values from the provider (the event carries only the id).
+      // Aggregation field stays data config on the heatmap panel only.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
-        // Bare field name (same contract as the annotation panel). Empty
-        // string is the AUTO_FIELD sentinel.
-        field: this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -217,15 +215,6 @@ class HeatmapManager {
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
-        },
-        field: v => {
-          this.currentField = bareFieldName(String(v ?? ""));
-          this.fieldAuto = false;
-          this.renderHexagons();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) this.ui.fieldSelect.value = this.currentField;
         },
       },
       fieldOptions: () =>

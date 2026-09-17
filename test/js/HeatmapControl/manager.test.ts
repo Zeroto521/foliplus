@@ -1325,18 +1325,18 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
-    expect(typeof opts.styleSetters?.field).toBe("function");
+    // Aggregation field is data config — not delegated into the style drawer.
+    expect(opts.styleSetters?.field).toBeUndefined();
     expect(typeof opts.fieldOptions).toBe("function");
   });
 
-  it("styleProvider returns the live labelShow and field values", () => {
+  it("styleProvider returns the live labelShow value", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleProvider!()).toEqual({ labelShow: true });
 
     m.currentLabelShow = false;
-    m.currentField = "count";
-    expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
+    expect(opts.styleProvider!()).toEqual({ labelShow: false });
   });
 
   it("constructs with empty field when CONF.field is absent", () => {
@@ -1354,40 +1354,6 @@ describe("HeatmapManager — style delegation", () => {
     opts.styleSetters!.labelShow!(false);
 
     expect(m.currentLabelShow).toBe(false);
-    expect(renderSpy).toHaveBeenCalled();
-    expect(saveSpy).toHaveBeenCalled();
-  });
-
-  it("field setter stores the bare field name", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("count");
-
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
-  });
-
-  it("field setter strips a legacy properties. prefix", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("properties.count");
-
-    expect(m.currentField).toBe("count");
-  });
-
-  it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
-    const m = makeManager();
-    m.fieldAuto = true;
-    const renderSpy = vi.spyOn(m, "renderHexagons");
-    const saveSpy = vi.spyOn(m, "saveConfig");
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("count");
-
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
   });

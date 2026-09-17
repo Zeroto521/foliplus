@@ -137,39 +137,6 @@ const renderDelegatedStylePanel = (
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
 
-  if (setters.field) {
-    const options = li.fieldOptions?.() ?? [];
-    const fieldSelect = dom.el(
-      "select",
-      {
-        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-        "aria-label": ui.T("style_label_field"),
-      },
-      // Always show the Auto entry as a disabled placeholder — same pattern as
-      // the annotation panel and the heatmap's own field select. Selecting a
-      // real field calls the setter, which clears fieldAuto.
-      dom.el(
-        "option",
-        { value: AUTO_FIELD, disabled: true },
-        ui.T("style_label_field_auto"),
-      ),
-      ...options.map(o =>
-        dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
-      ),
-    );
-    if (typeof values.field === "string") {
-      (fieldSelect as HTMLSelectElement).value = values.field;
-    }
-    bodyRows.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
-      ),
-    );
-  }
-
   if (setters.labelCollide) {
     const toggle = dom.el("input", {
       type: "checkbox",
@@ -228,7 +195,7 @@ const renderDelegatedStylePanel = (
     );
   }
 
-  // Body: field + avoid-overlap, collapsed when the label toggle is off —
+  // Body: avoid-overlap, collapsed when the label toggle is off —
   // same "switch off → hide body" rule the annotation panel uses.
   if (bodyRows.length) {
     const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...bodyRows);
@@ -490,12 +457,6 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         setters.labelCollide
       ) {
         setters.labelCollide(t.checked);
-      } else if (
-        t instanceof HTMLSelectElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT) &&
-        setters.field
-      ) {
-        setters.field(t.value);
       } else {
         return;
       }
@@ -625,12 +586,6 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLInputElement | null;
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
-      }
-      const fieldSel = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-      ) as HTMLSelectElement | null;
-      if (fieldSel && document.activeElement !== fieldSel) {
-        fieldSel.value = String(values.field ?? "");
       }
     }) as never);
   }

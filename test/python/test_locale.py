@@ -466,7 +466,7 @@ class TestPartialCustomTable:
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
         # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Layer"
+        assert table["HeatmapControl.layer"] == "Aggregation Layer"
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""
@@ -513,7 +513,7 @@ class TestToFile:
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("HeatmapControl.title") == "网格聚合"
-            assert loaded.get("HeatmapControl.layer") == "图层"
+            assert loaded.get("HeatmapControl.layer") == "聚合图层"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))
