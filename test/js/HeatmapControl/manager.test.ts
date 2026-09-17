@@ -797,6 +797,7 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
+      m.currentLabelFormat = "comma";
       m.currentField = "price";
       m.fieldAuto = false;
 
@@ -811,6 +812,7 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
+      expect(stored.labelFormat).toBe("comma");
       expect(stored.field).toBe("price");
       expect(stored.fieldAuto).toBe(false);
     });
@@ -894,6 +896,7 @@ describe("HeatmapManager — persistence", () => {
         borderWeight: 3,
         borderColor: "#00ff00",
         labelShow: true,
+        labelFormat: "percent",
         field: "properties.qty",
         fieldAuto: false,
       });
@@ -905,6 +908,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
+      expect(m.currentLabelFormat).toBe("percent");
       // Legacy "properties." prefix is stripped on load.
       expect(m.currentField).toBe("qty");
       expect(m.fieldAuto).toBe(false);
@@ -1325,18 +1329,26 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
+    expect(typeof opts.styleSetters?.labelFormat).toBe("function");
     // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
     expect(opts.fieldOptions).toBeUndefined();
   });
 
-  it("styleProvider returns the live labelShow value", () => {
+  it("styleProvider returns the live labelShow and labelFormat values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true });
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: true,
+      labelFormat: "auto",
+    });
 
     m.currentLabelShow = false;
-    expect(opts.styleProvider!()).toEqual({ labelShow: false });
+    m.currentLabelFormat = "comma";
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: false,
+      labelFormat: "comma",
+    });
   });
 
   it("constructs with empty field when CONF.field is absent", () => {
@@ -1378,17 +1390,74 @@ describe("HeatmapManager — style delegation", () => {
     expect(labelChk.checked).toBe(true);
   });
 
+  it("labelFormat setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelFormatSelect = { value: "auto" } as HTMLSelectElement;
+    m.ui = { labelFormatSelect } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelFormatSelect.value).toBe("comma");
+  });
+
   it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
     const m = makeManager();
     const opts = getCanvasOpts() as {
       styleDefaults?: () => Record<string, unknown>;
     };
     expect(typeof opts.styleDefaults).toBe("function");
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelFormat: "auto",
+    });
 
     // Runtime toggles must not leak into the Reset snapshot.
     m.currentLabelShow = false;
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+    m.currentLabelFormat = "comma";
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelFormat: "auto",
+    });
+  });
+
+  it("labelFormat setter updates state, redraws labels and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(m.currentLabelFormat).toBe("comma");
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelFormat setter falls back to auto for non-string values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!(42);
+
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("currentLabelFormat seeds from CONF.label_format", () => {
+    const m = makeManager({ label_format: "percent" });
+    expect(m.currentLabelFormat).toBe("percent");
+  });
+
+  it("labelFormat defaults to auto when CONF omits label_format", () => {
+    const m = makeManager({ label_format: undefined });
+    expect(m.currentLabelFormat).toBe("auto");
   });
 
   it("labelShow defaults to true when CONF omits label_show", () => {

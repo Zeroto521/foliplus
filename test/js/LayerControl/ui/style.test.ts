@@ -8,6 +8,7 @@ import {
 } from "#foliplus/LayerControl/ui/style.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 import { findItem, initFixture } from "./fixture.js";
 
 describe("LayerUI style panel", () => {
@@ -102,7 +103,7 @@ describe("LayerUI style panel", () => {
     const format = panel.querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
-    expect(format.value).toBe(CONST.FORMAT.AUTO);
+    expect(format.value).toBe(NUMBER_FORMAT.AUTO);
     // One option per cached field plus the placeholder.
     expect(field.options.length).toBe(2);
   });
@@ -286,7 +287,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
       collide: false,
     });
     ui.applyStyleLabelState();
@@ -309,7 +310,7 @@ describe("LayerUI style panel", () => {
 
     const cfg = manager.annotation.getConfig("overlay1");
     expect(cfg.field).toBe("");
-    expect(cfg.format).toBe(CONST.FORMAT.AUTO);
+    expect(cfg.format).toBe(NUMBER_FORMAT.AUTO);
   });
 
   it("shows auto for a persisted config with no format", () => {
@@ -323,7 +324,7 @@ describe("LayerUI style panel", () => {
 
     ui.openStylePanel("overlay1");
 
-    expect(formatSelectOf(item).value).toBe(CONST.FORMAT.AUTO);
+    expect(formatSelectOf(item).value).toBe(NUMBER_FORMAT.AUTO);
   });
 
   it("choosing a field updates the config", () => {
@@ -433,7 +434,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "name",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
 
     ui.openStylePanel("overlay1");
@@ -450,7 +451,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
 
     ui.openStylePanel("overlay1");
@@ -526,11 +527,11 @@ describe("LayerUI style panel", () => {
     const format = panelOf(item).querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
-    format.value = CONST.FORMAT.COMMA;
+    format.value = NUMBER_FORMAT.COMMA;
     format.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(setConfig).toHaveBeenCalled();
-    expect(manager.annotation.getConfig("overlay1").format).toBe(CONST.FORMAT.COMMA);
+    expect(manager.annotation.getConfig("overlay1").format).toBe(NUMBER_FORMAT.COMMA);
   });
 
   it("reset restores the default config and closes the panel", () => {
@@ -541,7 +542,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.INT,
+      format: NUMBER_FORMAT.INT,
     });
 
     const btn = panelOf(item).querySelector(
@@ -566,7 +567,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
       collide: false,
     });
 
@@ -688,7 +689,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -701,7 +702,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: false,
       field: "",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -736,7 +737,7 @@ describe("LayerUI style panel", () => {
 
   it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
     ui.labelConfigs = {
-      overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     };
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -746,7 +747,7 @@ describe("LayerUI style panel", () => {
     expect(setConfig).toHaveBeenCalledWith("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
       collide: true,
     });
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
@@ -760,10 +761,10 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: false,
       field: "",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
     ui.labelConfigs = {
-      overlay1: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     };
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -801,7 +802,7 @@ describe("LayerUI style panel", () => {
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
     ui.labelConfigs = {
-      ghost: { show: true, field: "count", format: CONST.FORMAT.AUTO },
+      ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     };
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -870,7 +871,7 @@ describe("LayerUI style panel", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
-      format: CONST.FORMAT.AUTO,
+      format: NUMBER_FORMAT.AUTO,
     });
     const item = findItem(ui, "overlay1");
 
@@ -915,7 +916,7 @@ describe("LayerUI style panel", () => {
         overlay1: {
           show: true,
           field: "count",
-          format: CONST.FORMAT.AUTO,
+          format: NUMBER_FORMAT.AUTO,
           collide: true,
         },
       });
@@ -925,6 +926,131 @@ describe("LayerUI style panel", () => {
   });
 
   // ─────────────────── delegated style panel (third-party) ───────────────────
+
+  it("delegated panel renders a format select when labelFormat setter is present", () => {
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const formatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect).not.toBeNull();
+    expect(formatSelect.value).toBe("comma");
+    const opts = Array.from(formatSelect.options).map(o => o.value);
+    expect(opts).toEqual(Object.values(NUMBER_FORMAT));
+  });
+
+  it("delegated panel omits the format select when labelFormat setter is absent", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    expect(panelOf(item)!.querySelector(".foliplus-style-format-select")).toBeNull();
+  });
+
+  it("delegated format select dispatches to styleSetters.labelFormat", () => {
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    formatSelect.value = "percent";
+    formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelFormatSetter).toHaveBeenCalledWith("percent");
+  });
+
+  it("delegated panel refreshes format select on LAYER_STYLE_CHANGE", () => {
+    let currentFormat = "auto";
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: currentFormat }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect.value).toBe("auto");
+
+    currentFormat = "int";
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(formatSelect.value).toBe("int");
+  });
+
+  it("delegated panel hides format select under the label body when labels are off", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const body = panel.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(true);
+    expect(body.querySelector(".foliplus-style-format-select")).not.toBeNull();
+  });
+
+  it("delegated Reset includes labelFormat when published in styleDefaults", () => {
+    const labelShowSetter = vi.fn();
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
+      styleSetters: { labelShow: labelShowSetter, labelFormat: labelFormatSetter },
+      styleDefaults: () => ({ labelShow: false, labelFormat: "auto" }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(labelFormatSetter).toHaveBeenCalledWith("auto");
+  });
 
   it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
     expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
@@ -1452,5 +1578,73 @@ describe("LayerUI style panel", () => {
 
     expect(labelShowSetter).not.toHaveBeenCalled();
     expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("delegated change no-ops when styleSetters is cleared after open", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const li = manager.layerRegistry.get("heat1")!;
+    (li as { styleSetters: unknown }).styleSetters = null;
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelShowSetter).not.toHaveBeenCalled();
+  });
+
+  it("delegated format select falls back to auto for a non-string provider value", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: 42 }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect.value).toBe("auto");
+  });
+
+  it("LAYER_STYLE_CHANGE resets format select to auto for a non-string value", () => {
+    let currentFormat: unknown = "comma";
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: currentFormat }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect.value).toBe("comma");
+
+    currentFormat = 99;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(formatSelect.value).toBe("auto");
   });
 });

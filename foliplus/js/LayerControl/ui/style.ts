@@ -12,7 +12,7 @@ import {
   resolveSelectedField,
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
-import { type NumberStyle } from "#common/format.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import type { AnnotationConfig } from "../annotation/index.js";
 import * as CONST from "../const.js";
@@ -116,7 +116,7 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     ui.m.annotation.setConfig(id, {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
-      format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
+      format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
       // Absent in configs stored before the switch existed: default to on.
       collide: cfg.collide !== false,
     });
@@ -140,11 +140,16 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
   row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
+/** One <option> per NUMBER_FORMAT entry — shared by the annotation and the
+ *  delegated panel so both dropdowns stay in lockstep with the type. */
+const numberFormatOptions = (fmtLabel: (f: string) => string): HTMLElement[] =>
+  Object.values(NUMBER_FORMAT).map(f => dom.el("option", { value: f }, fmtLabel(f)));
+
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
- *  component declared — no format row. Reset is present only when the layer
- *  also supplies styleDefaults (the Python CONF snapshot). Returns null when
- *  the layer has no delegation (falls through to the annotation panel). */
+ *  component declared. Reset is present only when the layer also supplies
+ *  styleDefaults (the Python CONF snapshot). Returns null when the layer has
+ *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
@@ -156,6 +161,34 @@ const renderDelegatedStylePanel = (
   const values = li.styleProvider?.() ?? {};
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
+
+  // Number format lives under the label toggle — same collapse rule as the
+  // annotation panel's format row (hidden when labels are off).
+  if (setters.labelFormat) {
+    const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+    const formatSelect = dom.el(
+      "select",
+      {
+        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+        "aria-label": ui.T("style_label_format"),
+      },
+      ...numberFormatOptions(fmtLabel),
+    );
+    (formatSelect as HTMLSelectElement).value =
+      typeof values.labelFormat === "string" ? values.labelFormat : NUMBER_FORMAT.AUTO;
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.FORM_LABEL },
+          ui.T("style_label_format"),
+        ),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
+      ),
+    );
+  }
 
   if (setters.labelCollide) {
     const toggle = dom.el("input", {
@@ -296,12 +329,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
-  const formatOpts = [
-    CONST.FORMAT.AUTO,
-    CONST.FORMAT.INT,
-    CONST.FORMAT.COMMA,
-    CONST.FORMAT.PERCENT,
-  ].map(f => dom.el("option", { value: f }, fmtLabel(f)));
+  const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
   // not the browser default — without it, a tab stop on a switch looks
@@ -329,7 +357,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     },
     ...formatOpts,
   );
-  (formatSelect as HTMLSelectElement).value = cfg.format || CONST.FORMAT.AUTO;
+  (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a
   // number — comma/percent/int all render the same as auto in that case.
@@ -466,6 +494,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         setters.labelCollide
       ) {
         setters.labelCollide(t.checked);
+      } else if (
+        t instanceof HTMLSelectElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
+        setters.labelFormat
+      ) {
+        setters.labelFormat(t.value);
       } else {
         return;
       }
@@ -610,6 +644,15 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLInputElement | null;
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
+      }
+      const formatSelect = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+      ) as HTMLSelectElement | null;
+      if (formatSelect && document.activeElement !== formatSelect) {
+        formatSelect.value =
+          typeof values.labelFormat === "string"
+            ? values.labelFormat
+            : NUMBER_FORMAT.AUTO;
       }
     }) as never);
   }

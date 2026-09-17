@@ -109,19 +109,20 @@ const SEL = {
 const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
 
 const DATA_ATTR = {
-  LAYER: "data-hm-layer",
-  EXTRA_BODY: "data-hm-extra-body",
-  AGG: "data-hm-agg",
-  FIELD: "data-hm-field",
-  FIELD_SELECT: "data-hm-field-select",
-  METHOD: "data-hm-method",
-  CLASS_COUNT: "data-hm-class-count",
-  SCHEME_CTRL: "data-hm-scheme-ctrl",
-  SCHEME_HIDDEN: "data-hm-scheme-hidden",
-  BORDER_COLOR: "data-hm-border-color",
-  BORDER_WEIGHT: "data-hm-border-weight",
-  LABEL_CHK: "data-hm-label-chk",
-  BTN_CLEAR: "data-hm-btn-clear",
+  LAYER: "data-heatmap-layer",
+  EXTRA_BODY: "data-heatmap-extra-body",
+  AGG: "data-heatmap-agg",
+  FIELD: "data-heatmap-field",
+  FIELD_SELECT: "data-heatmap-field-select",
+  METHOD: "data-heatmap-method",
+  CLASS_COUNT: "data-heatmap-class-count",
+  SCHEME_CTRL: "data-heatmap-scheme-ctrl",
+  SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
+  BORDER_COLOR: "data-heatmap-border-color",
+  BORDER_WEIGHT: "data-heatmap-border-weight",
+  LABEL_CHK: "data-heatmap-label-chk",
+  LABEL_FORMAT: "data-heatmap-label-format",
+  BTN_CLEAR: "data-heatmap-btn-clear",
 };
 
 export {

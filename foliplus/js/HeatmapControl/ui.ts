@@ -3,6 +3,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
@@ -39,6 +40,7 @@ interface HeatmapControlUI {
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
   labelChk: HTMLInputElement;
+  labelFormatSelect: HTMLSelectElement;
   closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
 }
@@ -101,11 +103,15 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.labelChk = panelContent.querySelector(
     `[${CONST.DATA_ATTR.LABEL_CHK}]`,
   ) as HTMLInputElement;
+  ctrl.labelFormatSelect = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.LABEL_FORMAT}]`,
+  ) as HTMLSelectElement;
 
   // Set initial values from manager defaults
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
   ctrl.labelChk.checked = ctrl.m.currentLabelShow;
+  ctrl.labelFormatSelect.value = ctrl.m.currentLabelFormat;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -208,6 +214,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
+  ctrl.labelFormatSelect.onchange = () => {
+    ctrl.m.currentLabelFormat = ctrl.labelFormatSelect.value as NumberStyle;
+    ctrl.m.redrawHeatmap();
+    persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  };
+
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
       ctrl.schemeDropdown &&
@@ -243,6 +256,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
     ctrl.labelChk.checked = ctrl.conf.label_show !== false;
+    ctrl.labelFormatSelect.value = (ctrl.conf.label_format ??
+      NUMBER_FORMAT.AUTO) as NumberStyle;
     ctrl.borderWeightInput.value = String(
       ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );
@@ -252,6 +267,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     // Drop the published source rows — the canvas unregisters on clear, but the
     // shared meta object outlives it and would repopulate stale values on re-register.
     ctrl.m.syncSourceMeta();
+    // An open layer style drawer mirrors these values — refresh it too.
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
@@ -564,6 +581,8 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
+  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
+    NUMBER_FORMAT.AUTO) as NumberStyle;
   ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
   ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();

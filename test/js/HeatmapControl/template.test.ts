@@ -10,6 +10,7 @@ describe("panelContentHTML", () => {
     const map: Record<string, string> = {
       section_data: "Data",
       section_style: "Style",
+      section_label: "Label Section",
       layer: "Aggregation Layer",
       agg_method: "Aggregation Method",
       agg_count: "Count",
@@ -26,6 +27,11 @@ describe("panelContentHTML", () => {
       scheme: "Color",
       border: "Border",
       label: "Label",
+      label_format: "Number Format",
+      label_format_auto: "Auto",
+      label_format_int: "Integer",
+      label_format_comma: "Thousands Separator",
+      label_format_percent: "Percent",
       clear: "Clear",
     };
     return map[key] ?? key;
@@ -49,22 +55,23 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-form-select");
   });
 
-  it("includes all data-hm-* query targets", () => {
+  it("includes all data-heatmap-* query targets", () => {
     const html = panelContentHTML(T);
     const expectedAttrs = [
-      "data-hm-layer",
-      "data-hm-extra-body",
-      "data-hm-agg",
-      "data-hm-field",
-      "data-hm-field-select",
-      "data-hm-method",
-      "data-hm-class-count",
-      "data-hm-scheme-ctrl",
-      "data-hm-scheme-hidden",
-      "data-hm-border-color",
-      "data-hm-border-weight",
-      "data-hm-label-chk",
-      "data-hm-btn-clear",
+      "data-heatmap-layer",
+      "data-heatmap-extra-body",
+      "data-heatmap-agg",
+      "data-heatmap-field",
+      "data-heatmap-field-select",
+      "data-heatmap-method",
+      "data-heatmap-class-count",
+      "data-heatmap-scheme-ctrl",
+      "data-heatmap-scheme-hidden",
+      "data-heatmap-border-color",
+      "data-heatmap-border-weight",
+      "data-heatmap-label-chk",
+      "data-heatmap-label-format",
+      "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
@@ -75,6 +82,7 @@ describe("panelContentHTML", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Data");
     expect(html).toContain("Style");
+    expect(html).toContain("Label Section");
   });
 
   it("includes translated form labels", () => {
@@ -151,6 +159,17 @@ describe("panelContentHTML", () => {
     expect(html).toContain('type="checkbox"');
   });
 
+  it("includes the label number-format select with all four options", () => {
+    const html = panelContentHTML(T);
+    expect(html).toContain("data-heatmap-label-format");
+    expect(html).toContain('value="auto"');
+    expect(html).toContain('value="int"');
+    expect(html).toContain('value="comma"');
+    expect(html).toContain('value="percent"');
+    expect(html).toContain("Number Format");
+    expect(html).toContain("Thousands Separator");
+  });
+
   it("includes border color picker", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-color-input");
@@ -172,12 +191,12 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
     expect(html).not.toContain("foliplus-heatmap-btn-confirm");
-    expect(html).not.toContain("data-hm-btn-confirm");
+    expect(html).not.toContain("data-heatmap-btn-confirm");
   });
 
   it("extra body uses shared foliplus-hidden class by default", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("data-hm-extra-body>");
+    expect(html).toContain("data-heatmap-extra-body>");
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+foliplus-hidden/);
   });
 

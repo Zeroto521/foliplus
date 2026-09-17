@@ -1,10 +1,11 @@
 // HeatmapControl DOM template — isolated from logic for maintainability.
 // Static HTML is built via innerHTML; dynamic/conditional rendering uses dom.el.
 //
-// Key elements use `data-hm-*` attributes so ui.ts can find them via querySelector.
+// Key elements use `data-heatmap-*` attributes so ui.ts can find them via querySelector.
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
+import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "./const.js";
 
 /** Build the panel-content HTML string (data section + style section). */
@@ -88,7 +89,14 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
-      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
+    </div>
+
+    <div class="foliplus-heatmap-section-heading">
+      ${T("section_label")}
+    </div>
+
+    <div class="foliplus-heatmap-section-block">
+      <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("label")}</label>
         <div class="foliplus-form-control">
           <label class="foliplus-toggle-switch">
@@ -98,6 +106,17 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
+      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
+        <label class="foliplus-form-label">${T("label_format")}</label>
+        <div class="foliplus-form-control">
+          <select class="foliplus-form-select" ${CONST.DATA_ATTR.LABEL_FORMAT}>
+            <option value="${NUMBER_FORMAT.AUTO}">${T("label_format_auto")}</option>
+            <option value="${NUMBER_FORMAT.INT}">${T("label_format_int")}</option>
+            <option value="${NUMBER_FORMAT.COMMA}">${T("label_format_comma")}</option>
+            <option value="${NUMBER_FORMAT.PERCENT}">${T("label_format_percent")}</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <hr class="foliplus-section-divider">

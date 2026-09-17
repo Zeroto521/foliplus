@@ -35,6 +35,7 @@ class HeatmapControl extends BaseControl {
   declare borderColorInput: HTMLInputElement;
   declare borderWeightInput: HTMLInputElement;
   declare labelChk: HTMLInputElement;
+  declare labelFormatSelect: HTMLSelectElement;
   declare closeSchemeDropdown: (event: MouseEvent) => void;
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
