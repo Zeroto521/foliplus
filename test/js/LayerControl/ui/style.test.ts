@@ -926,6 +926,131 @@ describe("LayerUI style panel", () => {
 
   // ─────────────────── delegated style panel (third-party) ───────────────────
 
+  it("delegated panel renders a format select when labelFormat setter is present", () => {
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const formatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect).not.toBeNull();
+    expect(formatSelect.value).toBe("comma");
+    const opts = Array.from(formatSelect.options).map(o => o.value);
+    expect(opts).toEqual(["auto", "int", "comma", "percent"]);
+  });
+
+  it("delegated panel omits the format select when labelFormat setter is absent", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    expect(panelOf(item)!.querySelector(".foliplus-style-format-select")).toBeNull();
+  });
+
+  it("delegated format select dispatches to styleSetters.labelFormat", () => {
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    formatSelect.value = "percent";
+    formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(labelFormatSetter).toHaveBeenCalledWith("percent");
+  });
+
+  it("delegated panel refreshes format select on LAYER_STYLE_CHANGE", () => {
+    let currentFormat = "auto";
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: currentFormat }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const formatSelect = panelOf(item)!.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(formatSelect.value).toBe("auto");
+
+    currentFormat = "int";
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(formatSelect.value).toBe("int");
+  });
+
+  it("delegated panel hides format select under the label body when labels are off", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const body = panel.querySelector(".foliplus-style-body") as HTMLElement;
+    expect(body.classList.contains("foliplus-hidden")).toBe(true);
+    expect(body.querySelector(".foliplus-style-format-select")).not.toBeNull();
+  });
+
+  it("delegated Reset includes labelFormat when published in styleDefaults", () => {
+    const labelShowSetter = vi.fn();
+    const labelFormatSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
+      styleSetters: { labelShow: labelShowSetter, labelFormat: labelFormatSetter },
+      styleDefaults: () => ({ labelShow: false, labelFormat: "auto" }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(labelFormatSetter).toHaveBeenCalledWith("auto");
+  });
+
   it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
     expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
 

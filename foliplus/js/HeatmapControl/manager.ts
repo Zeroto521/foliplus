@@ -9,7 +9,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { formatLabelNumber } from "#common/format.js";
+import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
@@ -85,6 +85,7 @@ interface SavedConfig {
   borderWeight?: number;
   borderColor?: string;
   labelShow?: boolean;
+  labelFormat?: NumberStyle;
   field?: string;
   fieldAuto?: boolean;
 }
@@ -110,6 +111,8 @@ class HeatmapManager {
   borderWeight: number;
   borderColor: string;
   currentLabelShow: boolean;
+  /** Runtime label number format — the drawer owns this; Python CONF seeds it. */
+  currentLabelFormat: NumberStyle;
   valueFallbackWarned: boolean;
   /**
    * Whether LayerControl currently shows this heatmap layer. Mirrors the
@@ -181,12 +184,14 @@ class HeatmapManager {
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.currentLabelShow = CONF.label_show !== false;
+    this.currentLabelFormat = (CONF.label_format ?? "auto") as NumberStyle;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
+    const defaultLabelFormat = this.currentLabelFormat;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -210,6 +215,7 @@ class HeatmapManager {
       // heatmap panel. The drawer pulls fresh values from the provider.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
+        labelFormat: this.currentLabelFormat,
       }),
       styleSetters: {
         labelShow: v => {
@@ -220,11 +226,23 @@ class HeatmapManager {
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
+        // Format only rewrites the label text — redraw from cache, skip the
+        // H3 re-aggregation that labelShow triggers.
+        labelFormat: v => {
+          this.currentLabelFormat = (typeof v === "string"
+            ? v
+            : "auto") as NumberStyle;
+          this.redrawHeatmap();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        },
       },
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaults: () => ({
         labelShow: defaultLabelShow,
+        labelFormat: defaultLabelFormat,
       }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
@@ -376,7 +394,7 @@ class HeatmapManager {
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
     const text = formatLabelNumber(
       feat.properties.value ?? 0,
-      CONF.label_format,
+      this.currentLabelFormat,
       CONF.locale_code,
     );
     prepareCanvasLabel(ctx, style);
@@ -730,6 +748,7 @@ class HeatmapManager {
         borderWeight: this.borderWeight,
         borderColor: this.borderColor,
         labelShow: this.currentLabelShow,
+        labelFormat: this.currentLabelFormat,
         field: this.currentField,
         fieldAuto: this.fieldAuto,
       } satisfies SavedConfig,
@@ -795,6 +814,7 @@ class HeatmapManager {
     }
     if (saved.borderColor) this.borderColor = saved.borderColor;
     if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
+    if (saved.labelFormat) this.currentLabelFormat = saved.labelFormat;
     if (saved.field) this.currentField = bareFieldName(saved.field);
     if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
     this.selectedLayerId = saved.layerId ?? null;

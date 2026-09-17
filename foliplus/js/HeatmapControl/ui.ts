@@ -2,6 +2,7 @@
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { type NumberStyle } from "#common/format.js";
 import { dom } from "#common/dom.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
@@ -564,6 +565,7 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
+  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ?? "auto") as NumberStyle;
   ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
   ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();

@@ -142,9 +142,9 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
 
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
- *  component declared — no format row. Reset is present only when the layer
- *  also supplies styleDefaults (the Python CONF snapshot). Returns null when
- *  the layer has no delegation (falls through to the annotation panel). */
+ *  component declared. Reset is present only when the layer also supplies
+ *  styleDefaults (the Python CONF snapshot). Returns null when the layer has
+ *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
@@ -156,6 +156,37 @@ const renderDelegatedStylePanel = (
   const values = li.styleProvider?.() ?? {};
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
+
+  // Number format lives under the label toggle — same collapse rule as the
+  // annotation panel's format row (hidden when labels are off).
+  if (setters.labelFormat) {
+    const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+    const formatSelect = dom.el(
+      "select",
+      {
+        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+        "aria-label": ui.T("style_label_format"),
+      },
+      ...[
+        CONST.FORMAT.AUTO,
+        CONST.FORMAT.INT,
+        CONST.FORMAT.COMMA,
+        CONST.FORMAT.PERCENT,
+      ].map(f => dom.el("option", { value: f }, fmtLabel(f))),
+    );
+    (formatSelect as HTMLSelectElement).value =
+      typeof values.labelFormat === "string"
+        ? values.labelFormat
+        : CONST.FORMAT.AUTO;
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_format")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
+      ),
+    );
+  }
 
   if (setters.labelCollide) {
     const toggle = dom.el("input", {
@@ -466,6 +497,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         setters.labelCollide
       ) {
         setters.labelCollide(t.checked);
+      } else if (
+        t instanceof HTMLSelectElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
+        setters.labelFormat
+      ) {
+        setters.labelFormat(t.value);
       } else {
         return;
       }
@@ -610,6 +647,15 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLInputElement | null;
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
+      }
+      const formatSelect = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+      ) as HTMLSelectElement | null;
+      if (formatSelect && document.activeElement !== formatSelect) {
+        formatSelect.value =
+          typeof values.labelFormat === "string"
+            ? values.labelFormat
+            : CONST.FORMAT.AUTO;
       }
     }) as never);
   }

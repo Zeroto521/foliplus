@@ -10,7 +10,7 @@ from .locale import LocaleConfig
 
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
-LABEL_FORMAT = Literal["auto", "int", "comma"]
+LABEL_FORMAT = Literal["auto", "int", "comma", "percent"]
 
 
 class HeatmapControl(BaseControl):
@@ -93,7 +93,7 @@ class HeatmapControl(BaseControl):
     label_color : str, default "#fff"
         Label text color.
 
-    label_format : Literal["auto", "int", "comma"], default "auto"
+    label_format : Literal["auto", "int", "comma", "percent"], default "auto"
         Number format for hexagon value labels:
 
         - ``"auto"``: locale-native compact notation (en ``10K``, zh ``1.2万``);
