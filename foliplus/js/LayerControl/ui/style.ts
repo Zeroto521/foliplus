@@ -6,16 +6,16 @@
 // no JS positioning and no scroll/resize bookkeeping to clean up.
 import { EVENTS } from "#core/event/index.js";
 import {
+  type LabelStyleValues,
+  numberFormatOptions,
+  renderLabelControls,
+} from "#core/labelControl.js";
+import {
   AUTO_FIELD,
   type LabelField,
   isNumericField,
   resolveSelectedField,
 } from "#core/labelField.js";
-import {
-  type LabelStyleValues,
-  numberFormatOptions,
-  renderLabelControls,
-} from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
@@ -334,7 +334,11 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_style")),
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_style"),
+      ),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -345,7 +349,11 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_collide")),
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_collide"),
+      ),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },

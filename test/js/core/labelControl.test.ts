@@ -3,8 +3,8 @@
 // contract: which rows a declaration renders, how changes dispatch, how the
 // refresh mirrors a remote write, and where its vocabulary resolves from.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createTranslator } from "#common/locale.js";
 import { renderLabelControls } from "#core/labelControl.js";
+import { createTranslator } from "#common/locale.js";
 
 interface Values {
   labelShow?: boolean;
@@ -224,9 +224,9 @@ describe("renderLabelControls — refresh", () => {
     expect(inRoot<HTMLSelectElement>(root, ".foliplus-style-format-select").value).toBe(
       "percent",
     );
-    expect(inRoot<HTMLInputElement>(root, ".foliplus-style-collide-input").checked).toBe(
-      false,
-    );
+    expect(
+      inRoot<HTMLInputElement>(root, ".foliplus-style-collide-input").checked,
+    ).toBe(false);
     expect(
       inRoot<HTMLInputElement>(root, ".foliplus-style-label-color-input").value,
     ).toBe("#00ff00");
