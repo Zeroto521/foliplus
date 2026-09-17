@@ -328,6 +328,26 @@ describe("LayerUI style panel", () => {
     expect(size.value).toBe("32");
   });
 
+  it("annotation panel falls back when config color/size are empty", () => {
+    manager.annotation.setConfig("overlay1", {
+      ...CONST.DEFAULT_ANNOTATION,
+      show: true,
+      color: "",
+      size: 0,
+    });
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const color = panelOf(item).querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const size = panelOf(item).querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    expect(color.value).toBe("#ffffff");
+    expect(size.value).toBe("11");
+  });
+
   it("applyStyleLabelState restores the avoid-overlap switch from config", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -798,6 +818,29 @@ describe("LayerUI style panel", () => {
       collide: true,
     });
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("applyStyleLabelState falls back for non-typed stored color/size", () => {
+    ui.labelConfigs = {
+      overlay1: {
+        show: true,
+        field: "count",
+        color: 42 as unknown as string,
+        size: "big" as unknown as number,
+        format: NUMBER_FORMAT.AUTO,
+      },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).toHaveBeenCalledWith(
+      "overlay1",
+      expect.objectContaining({
+        color: CONST.DEFAULT_ANNOTATION.color,
+        size: CONST.DEFAULT_ANNOTATION.size,
+      }),
+    );
   });
 
   it("applyStyleLabelState leaves an already-configured layer alone", () => {

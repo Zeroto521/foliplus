@@ -91,6 +91,11 @@ describe("withLabelPaint", () => {
     expect(painted.fontSize).toBe(base.fontSize);
     expect(painted.font).toBe(base.font);
   });
+
+  it("with empty opts is a pure passthrough of the base style", () => {
+    const base = resolveCanvasLabelStyle(root());
+    expect(withLabelPaint(base, {})).toEqual(base);
+  });
 });
 
 describe("prepareCanvasLabel", () => {

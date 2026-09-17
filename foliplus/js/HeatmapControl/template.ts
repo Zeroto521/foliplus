@@ -109,8 +109,8 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("label_style")}</label>
         <div class="foliplus-form-control foliplus-form-inline">
-          <input class="foliplus-form-color-input" type="color" ${CONST.DATA_ATTR.LABEL_COLOR}>
-          <input class="foliplus-form-number-input" type="number" min="${CONST.LABEL.SIZE_MIN}" max="${CONST.LABEL.SIZE_MAX}" step="${CONST.LABEL.SIZE_STEP}" ${CONST.DATA_ATTR.LABEL_SIZE}>
+          <input class="foliplus-form-color-input" type="color" aria-label="${T("label_color")}" ${CONST.DATA_ATTR.LABEL_COLOR}>
+          <input class="foliplus-form-number-input" type="number" min="${CONST.LABEL.SIZE_MIN}" max="${CONST.LABEL.SIZE_MAX}" step="${CONST.LABEL.SIZE_STEP}" aria-label="${T("label_size")}" ${CONST.DATA_ATTR.LABEL_SIZE}>
         </div>
       </div>
 

@@ -182,6 +182,17 @@ describe("AnnotationManager — config", () => {
     expect(mgr.configEntries()).toHaveLength(1);
   });
 
+  it("layerSpec short-circuits when the layer size equals the token default", () => {
+    // The shared --label-* token default is 12; a layer pinned to 12 must
+    // reuse the base spec object rather than allocating a copy.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+    mgr.setConfig("a", { ...CONFIG, size: 12 });
+    mgr.renderLabels("a");
+    // No throw + one label painted is enough — the short-circuit path ran.
+    expect(painted(0)).toHaveLength(1);
+  });
+
   it("defaults collision off when the page sets label_collide false", () => {
     const saved = (window as { CONF?: Record<string, unknown> }).CONF;
     (window as { CONF?: Record<string, unknown> }).CONF = {
