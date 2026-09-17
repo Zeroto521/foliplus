@@ -1339,6 +1339,12 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
   });
 
+  it("constructs with empty field when CONF.field is absent", () => {
+    delete (window.CONF as Record<string, unknown>).field;
+    const m = makeManager();
+    expect(m.currentField).toBe("");
+  });
+
   it("labelShow setter flips state, re-renders and persists", () => {
     const m = makeManager();
     const renderSpy = vi.spyOn(m, "renderHexagons");
