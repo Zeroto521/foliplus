@@ -37,6 +37,35 @@
   min-width: 0;
 }
 
+/* Two controls sharing one form-control cell (color + number, like border). */
+.foliplus-form-inline {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.foliplus-form-color-input {
+  width: var(--ctrl-size);
+  height: var(--ctrl-size);
+  padding: 0;
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.foliplus-form-number-input {
+  width: 4.5em;
+  height: var(--ctrl-size);
+  font-size: var(--font-size-md);
+  padding: 0 var(--space-sm);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
 /* Shared select (mirrors HeatmapControl's form-select visual). The wide
    right padding keeps localized option text clear of the arrow glyph. */
 .foliplus-form-select {

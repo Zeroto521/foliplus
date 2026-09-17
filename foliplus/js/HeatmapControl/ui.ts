@@ -7,7 +7,7 @@ import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
-import { HeatmapManager } from "./manager.js";
+import { HeatmapManager, normalizeHexColor } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
@@ -40,6 +40,8 @@ interface HeatmapControlUI {
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
   labelChk: HTMLInputElement;
+  labelColorInput: HTMLInputElement;
+  labelSizeInput: HTMLInputElement;
   labelFormatSelect: HTMLSelectElement;
   closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
@@ -103,6 +105,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.labelChk = panelContent.querySelector(
     `[${CONST.DATA_ATTR.LABEL_CHK}]`,
   ) as HTMLInputElement;
+  ctrl.labelColorInput = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.LABEL_COLOR}]`,
+  ) as HTMLInputElement;
+  ctrl.labelSizeInput = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.LABEL_SIZE}]`,
+  ) as HTMLInputElement;
   ctrl.labelFormatSelect = panelContent.querySelector(
     `[${CONST.DATA_ATTR.LABEL_FORMAT}]`,
   ) as HTMLSelectElement;
@@ -111,6 +119,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
   ctrl.labelChk.checked = ctrl.m.currentLabelShow;
+  ctrl.labelColorInput.value = ctrl.m.currentLabelColor;
+  ctrl.labelSizeInput.value = String(ctrl.m.currentLabelSize);
   ctrl.labelFormatSelect.value = ctrl.m.currentLabelFormat;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
@@ -221,6 +231,36 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
+  ctrl.labelColorInput.oninput = () => {
+    ctrl.m.currentLabelColor = ctrl.labelColorInput.value;
+    ctrl.m.cachedLabelStyle = null;
+    ctrl.m.redrawHeatmap();
+    persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  };
+
+  ctrl.labelSizeInput.oninput = () => {
+    const v = parseInt(ctrl.labelSizeInput.value, 10);
+    if (!Number.isNaN(v) && v >= CONST.LABEL.SIZE_MIN && v <= CONST.LABEL.SIZE_MAX) {
+      ctrl.m.currentLabelSize = v;
+      ctrl.m.cachedLabelStyle = null;
+      ctrl.m.redrawHeatmap();
+      persist(ctrl);
+      ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+    }
+  };
+  ctrl.labelSizeInput.onchange = () => {
+    const v = parseInt(ctrl.labelSizeInput.value, 10);
+    ctrl.m.currentLabelSize = Number.isNaN(v)
+      ? CONST.LABEL.SIZE_DEFAULT
+      : Math.min(CONST.LABEL.SIZE_MAX, Math.max(CONST.LABEL.SIZE_MIN, v));
+    ctrl.labelSizeInput.value = String(ctrl.m.currentLabelSize);
+    ctrl.m.cachedLabelStyle = null;
+    ctrl.m.redrawHeatmap();
+    persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  };
+
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
       ctrl.schemeDropdown &&
@@ -256,6 +296,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
     ctrl.labelChk.checked = ctrl.conf.label_show !== false;
+    ctrl.labelColorInput.value = normalizeHexColor(
+      ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+    );
+    ctrl.labelSizeInput.value = String(
+      ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT,
+    );
     ctrl.labelFormatSelect.value = (ctrl.conf.label_format ??
       NUMBER_FORMAT.AUTO) as NumberStyle;
     ctrl.borderWeightInput.value = String(
@@ -581,8 +627,16 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
   ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
+  ctrl.m.currentLabelColor = normalizeHexColor(
+    ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+  );
+  ctrl.m.currentLabelSize = Math.min(
+    CONST.LABEL.SIZE_MAX,
+    Math.max(CONST.LABEL.SIZE_MIN, ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT),
+  );
   ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
     NUMBER_FORMAT.AUTO) as NumberStyle;
+  ctrl.m.cachedLabelStyle = null;
   ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
   ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();

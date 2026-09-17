@@ -87,11 +87,11 @@ class HeatmapControl(BaseControl):
     label_show : bool, default True
         Whether to show the aggregated value as a label at each hex center.
 
-    label_size : int, default 11
-        Label font size (px). Must be positive.
-
     label_color : str, default "#fff"
         Label text color.
+
+    label_size : int, default 11
+        Label font size (px). Must be positive.
 
     label_format : Literal["auto", "int", "comma", "percent"], default "auto"
         Number format for hexagon value labels:
@@ -132,8 +132,8 @@ class HeatmapControl(BaseControl):
         "fill_opacity",
         "border_opacity",
         "label_show",
-        "label_size",
         "label_color",
+        "label_size",
         "label_format",
     )
 
@@ -153,8 +153,8 @@ class HeatmapControl(BaseControl):
         fill_opacity: Fraction = 0.7,
         border_opacity: Fraction = 0.9,
         label_show: bool = True,
-        label_size: PositiveInt = 11,
         label_color: str = "#fff",
+        label_size: PositiveInt = 11,
         label_format: LABEL_FORMAT = "auto",
         locale: str | LocaleConfig | None = None,
     ):
@@ -178,7 +178,7 @@ class HeatmapControl(BaseControl):
         self.fill_opacity = fill_opacity
         self.border_opacity = border_opacity
         self.label_show = label_show
-        self.label_size = label_size
         self.label_color = label_color
+        self.label_size = label_size
         self.label_format = label_format
         self._template = self._get_template()

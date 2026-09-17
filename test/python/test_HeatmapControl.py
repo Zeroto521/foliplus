@@ -49,6 +49,8 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "count")
         assert_config_value(html, "border_weight", 1.5)
         assert_config_value(html, "label_show", True)
+        assert_config_value(html, "label_color", "#fff")
+        assert_config_value(html, "label_size", 11)
         assert_config_value(html, "label_format", "auto")
 
     def test_custom_params(self):
@@ -296,11 +298,13 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.section_style" in html
 
     def test_section_label_renders(self):
-        """Labels section heading and number-format select are rendered."""
+        """Labels section heading and style/format controls are rendered."""
         html = render_control(HeatmapControl())
         assert "HeatmapControl.section_label" in html
+        assert "HeatmapControl.label_style" in html
+        assert "data-heatmap-label-color" in html
+        assert "data-heatmap-label-size" in html
         assert "data-heatmap-label-format" in html
-        assert "HeatmapControl.label_format" in html
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""

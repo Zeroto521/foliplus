@@ -114,13 +114,24 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-heatmap-border-color");
     expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-heatmap-border-weight");
     expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-heatmap-label-chk");
+    expect(CONST.DATA_ATTR.LABEL_COLOR).toBe("data-heatmap-label-color");
+    expect(CONST.DATA_ATTR.LABEL_SIZE).toBe("data-heatmap-label-size");
     expect(CONST.DATA_ATTR.LABEL_FORMAT).toBe("data-heatmap-label-format");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 14 data-heatmap attribute keys (no confirm button)", () => {
+  it("has 16 data-heatmap attribute keys (no confirm button)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(14);
+    expect(keys.length).toBe(16);
+  });
+});
+
+describe("LABEL", () => {
+  it("defines size bounds and defaults", () => {
+    expect(CONST.LABEL.SIZE_MIN).toBe(6);
+    expect(CONST.LABEL.SIZE_MAX).toBe(32);
+    expect(CONST.LABEL.SIZE_DEFAULT).toBe(11);
+    expect(CONST.LABEL.COLOR_DEFAULT).toBe("#ffffff");
   });
 });
 

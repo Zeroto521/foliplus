@@ -106,6 +106,14 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
+      <div class="foliplus-form-row">
+        <label class="foliplus-form-label">${T("label_style")}</label>
+        <div class="foliplus-form-control foliplus-heatmap-form-inline">
+          <input class="foliplus-heatmap-color-input" type="color" ${CONST.DATA_ATTR.LABEL_COLOR}>
+          <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.LABEL.SIZE_MIN}" max="${CONST.LABEL.SIZE_MAX}" step="${CONST.LABEL.SIZE_STEP}" ${CONST.DATA_ATTR.LABEL_SIZE}>
+        </div>
+      </div>
+
       <div class="foliplus-form-row foliplus-heatmap-section-block-last">
         <label class="foliplus-form-label">${T("label_format")}</label>
         <div class="foliplus-form-control">

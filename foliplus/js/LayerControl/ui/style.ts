@@ -162,6 +162,44 @@ const renderDelegatedStylePanel = (
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
 
+  // Color + size share one row (same recipe as the heatmap border row).
+  // Order under the toggle: appearance, then number format, then collide.
+  if (setters.labelColor || setters.labelSize) {
+    const colorInput = setters.labelColor
+      ? dom.el("input", {
+          type: "color",
+          class: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+          value: typeof values.labelColor === "string" ? values.labelColor : "#ffffff",
+          "aria-label": ui.T("style_label_color"),
+        })
+      : null;
+    const sizeInput = setters.labelSize
+      ? dom.el("input", {
+          type: "number",
+          class: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+          min: "6",
+          max: "32",
+          step: "1",
+          value: String(typeof values.labelSize === "number" ? values.labelSize : 11),
+          "aria-label": ui.T("style_label_size"),
+        })
+      : null;
+    const inline = dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_INLINE },
+      ...(colorInput ? [colorInput] : []),
+      ...(sizeInput ? [sizeInput] : []),
+    );
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+      ),
+    );
+  }
+
   // Number format lives under the label toggle — same collapse rule as the
   // annotation panel's format row (hidden when labels are off).
   if (setters.labelFormat) {
@@ -495,6 +533,18 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) {
         setters.labelCollide(t.checked);
       } else if (
+        t instanceof HTMLInputElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_LABEL_COLOR_INPUT) &&
+        setters.labelColor
+      ) {
+        setters.labelColor(t.value);
+      } else if (
+        t instanceof HTMLInputElement &&
+        t.classList.contains(CONST.CLASSES.STYLE_LABEL_SIZE_INPUT) &&
+        setters.labelSize
+      ) {
+        setters.labelSize(Number(t.value));
+      } else if (
         t instanceof HTMLSelectElement &&
         t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
         setters.labelFormat
@@ -644,6 +694,22 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLInputElement | null;
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
+      }
+      const colorInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (colorInput && document.activeElement !== colorInput) {
+        if (typeof values.labelColor === "string") {
+          colorInput.value = values.labelColor;
+        }
+      }
+      const sizeInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (sizeInput && document.activeElement !== sizeInput) {
+        if (typeof values.labelSize === "number") {
+          sizeInput.value = String(values.labelSize);
+        }
       }
       const formatSelect = panel.querySelector(
         `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,

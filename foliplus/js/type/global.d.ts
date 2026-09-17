@@ -158,6 +158,8 @@ declare global {
     border_color?: string;
     border_opacity?: number;
     fill_opacity?: number;
+    label_color?: string;
+    label_size?: number;
     label_format?: NumberStyle;
     label_show?: boolean;
     hide_self?: boolean;

@@ -950,6 +950,49 @@ describe("LayerUI style panel", () => {
     expect(opts).toEqual(Object.values(NUMBER_FORMAT));
   });
 
+  it("delegated panel renders color and size inputs when those setters exist", () => {
+    const labelColorSetter = vi.fn();
+    const labelSizeSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        labelShow: true,
+        labelColor: "#ff0000",
+        labelSize: 14,
+        labelFormat: "auto",
+      }),
+      styleSetters: {
+        labelShow: vi.fn(),
+        labelColor: labelColorSetter,
+        labelSize: labelSizeSetter,
+        labelFormat: vi.fn(),
+      },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const color = panel.querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const size = panel.querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    expect(color.value).toBe("#ff0000");
+    expect(size.value).toBe("14");
+
+    color.value = "#00ff00";
+    color.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(labelColorSetter).toHaveBeenCalledWith("#00ff00");
+
+    size.value = "18";
+    size.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(labelSizeSetter).toHaveBeenCalledWith(18);
+  });
+
   it("delegated panel omits the format select when labelFormat setter is absent", () => {
     manager.registerLayer({
       id: "heat1",
