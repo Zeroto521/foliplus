@@ -15,7 +15,11 @@ import {
   collectLabelFields,
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
-import { type CanvasLabelStyle, resolveCanvasLabelStyle } from "#common/canvasLabel.js";
+import {
+  type CanvasLabelStyle,
+  resolveCanvasLabelStyle,
+  withLabelPaint,
+} from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
@@ -52,6 +56,9 @@ interface LayerLabel {
 interface AnnotationConfig {
   show: boolean;
   field: string;
+  /** Runtime paint overrides — fall back to the shared --label-* tokens. */
+  color: string;
+  size: number;
   format: NumberStyle;
   /** Whether this layer's own labels thin themselves out where they overlap. */
   collide: boolean;
@@ -366,16 +373,15 @@ class AnnotationManager {
     for (const [id, canvas] of this.canvases) {
       if (this.layerFind(id) !== target) continue;
       const container = this.map.getContainer();
-      const spec = (this.cachedSpec ??= specOf(container));
       const viewport = {
         x: 0,
         y: 0,
         w: container.clientWidth,
         h: container.clientHeight,
       };
-      const planned = this.plannedFor(id, spec, viewport);
+      const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
       this.lastPlanned.set(id, planned);
-      canvas.paint(planned);
+      canvas.paint(planned, this.paintStyle(container, id));
       return;
     }
   };
@@ -402,10 +408,26 @@ class AnnotationManager {
     this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
-      const planned = this.plannedFor(id, spec, viewport);
+      const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
       this.lastPlanned.set(id, planned);
-      canvas.paint(planned);
+      canvas.paint(planned, this.paintStyle(container, id));
     }
+  }
+
+  /** Per-layer layout spec: shared tokens, with that layer's font size. */
+  private layerSpec(container: HTMLElement, id: string): LabelSpec {
+    const base = (this.cachedSpec ??= specOf(container));
+    const size = this.getConfig(id).size;
+    return size === base.fontSize ? base : { ...base, fontSize: size };
+  }
+
+  /** Per-layer paint style: shared tokens, with that layer's color/size. */
+  private paintStyle(container: HTMLElement, id: string): CanvasLabelStyle {
+    const cfg = this.getConfig(id);
+    return withLabelPaint(resolveCanvasLabelStyle(container), {
+      color: cfg.color,
+      size: cfg.size,
+    });
   }
 
   /** Pan fast path: a pan translates every label by the same delta, so the
@@ -436,10 +458,9 @@ class AnnotationManager {
       if (!planned) {
         // A canvas born after the last full plan (a layer enabled mid-pan)
         // has nothing to translate — plan it properly.
-        const spec = (this.cachedSpec ??= specOf(container));
-        const fresh = this.plannedFor(id, spec, viewport);
+        const fresh = this.plannedFor(id, this.layerSpec(container, id), viewport);
         this.lastPlanned.set(id, fresh);
-        canvas.paint(fresh);
+        canvas.paint(fresh, this.paintStyle(container, id));
         continue;
       }
       canvas.paint(
@@ -450,6 +471,7 @@ class AnnotationManager {
           })),
           viewport,
         ),
+        this.paintStyle(container, id),
       );
     }
   }

@@ -6,6 +6,7 @@ import {
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
+  withLabelPaint,
 } from "#common/canvasLabel.js";
 
 /** A container carrying the shared --label-* tokens (jsdom reads inline
@@ -68,6 +69,27 @@ describe("resolveCanvasLabelStyle", () => {
     // A junk size must not parse to NaN and poison the font string.
     expect(style.font).toBe("bold 12px sans-serif");
     expect(style.haloWidth).toBe(3);
+  });
+});
+
+describe("withLabelPaint", () => {
+  it("overlays runtime color/size and rebuilds the font string", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { color: "#ff0000", size: 18 });
+    expect(painted.color).toBe("#ff0000");
+    expect(painted.fontSize).toBe(18);
+    expect(painted.font).toBe("bold 18px sans-serif");
+    // Halo and family stay on the shared tokens.
+    expect(painted.haloColor).toBe(base.haloColor);
+    expect(painted.fontFamily).toBe(base.fontFamily);
+  });
+
+  it("leaves unspecified fields on the base style", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { color: "#00ff00" });
+    expect(painted.color).toBe("#00ff00");
+    expect(painted.fontSize).toBe(base.fontSize);
+    expect(painted.font).toBe(base.font);
   });
 });
 

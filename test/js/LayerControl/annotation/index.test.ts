@@ -83,7 +83,14 @@ const mkGroup = (leaves: L.Layer[]): L.Layer =>
 const oneLabel = (): L.Layer =>
   mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]);
 
-const CONFIG = { show: true, field: "v", format: "auto", collide: true } as const;
+const CONFIG = {
+  show: true,
+  field: "v",
+  color: "#ffffff",
+  size: 11,
+  format: "auto",
+  collide: true,
+} as const;
 
 describe("AnnotationManager — formatting and fields", () => {
   const { map } = makeMap();
@@ -146,6 +153,8 @@ describe("AnnotationManager — config", () => {
     expect(mgr.getConfig("none")).toEqual({
       show: false,
       field: "",
+      color: "#ffffff",
+      size: 11,
       format: "auto",
       collide: true,
     });
@@ -153,11 +162,20 @@ describe("AnnotationManager — config", () => {
     expect(mgr.defaultConfig()).toEqual({
       show: false,
       field: "",
+      color: "#ffffff",
+      size: 11,
       format: "auto",
       collide: true,
     });
 
-    const cfg = { show: true, field: "name", format: "auto", collide: false };
+    const cfg = {
+      show: true,
+      field: "name",
+      color: "#ff0000",
+      size: 16,
+      format: "auto",
+      collide: false,
+    };
     mgr.setConfig("l1", cfg);
     expect(mgr.getConfig("l1")).toEqual(cfg);
     expect(mgr.hasConfig("l1")).toBe(true);

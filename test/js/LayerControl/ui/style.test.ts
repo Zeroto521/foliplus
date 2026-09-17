@@ -283,6 +283,51 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").collide).toBe(false);
   });
 
+  it("annotation body order is field → color/size → format → collide", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const rows = [
+      ...panelOf(item).querySelectorAll(".foliplus-style-body .foliplus-form-row"),
+    ];
+    const labels = rows.map(
+      r => r.querySelector(".foliplus-form-label")?.textContent ?? "",
+    );
+    expect(labels).toEqual([
+      "LayerControl.style_label_field",
+      "LayerControl.style_label_style",
+      "LayerControl.style_label_format",
+      "LayerControl.style_label_collide",
+    ]);
+  });
+
+  it("annotation color and size inputs are live and clamp on commit", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    const color = panelOf(item).querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const size = panelOf(item).querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+
+    color.value = "#00ff00";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").color).toBe("#00ff00");
+    expect(renderLabels).toHaveBeenCalled();
+
+    size.value = "18";
+    size.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").size).toBe(18);
+
+    size.value = "99";
+    size.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").size).toBe(32);
+    expect(size.value).toBe("32");
+  });
+
   it("applyStyleLabelState restores the avoid-overlap switch from config", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -747,6 +792,8 @@ describe("LayerUI style panel", () => {
     expect(setConfig).toHaveBeenCalledWith("overlay1", {
       show: true,
       field: "count",
+      color: CONST.DEFAULT_ANNOTATION.color,
+      size: CONST.DEFAULT_ANNOTATION.size,
       format: NUMBER_FORMAT.AUTO,
       collide: true,
     });
@@ -916,6 +963,8 @@ describe("LayerUI style panel", () => {
         overlay1: {
           show: true,
           field: "count",
+          color: CONST.DEFAULT_ANNOTATION.color,
+          size: CONST.DEFAULT_ANNOTATION.size,
           format: NUMBER_FORMAT.AUTO,
           collide: true,
         },
