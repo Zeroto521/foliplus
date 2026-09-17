@@ -200,10 +200,9 @@ class HeatmapManager {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
-      // Style delegation for the layer style drawer — single source: both the
-      // heatmap panel and the drawer call the same setters, and the drawer
-      // pulls fresh values from the provider (the event carries only the id).
-      // Aggregation field stays data config on the heatmap panel only.
+      // Style delegation for the layer style drawer. The drawer only mirrors
+      // presentation styles; aggregation field stays data config on the
+      // heatmap panel. The drawer pulls fresh values from the provider.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
       }),
@@ -217,8 +216,6 @@ class HeatmapManager {
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
       },
-      fieldOptions: () =>
-        this.selectedLayerId ? this.collectFields([{ id: this.selectedLayerId }]) : [],
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes

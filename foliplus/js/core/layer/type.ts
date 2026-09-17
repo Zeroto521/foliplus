@@ -35,9 +35,6 @@ interface RegisterLayerOpts {
   /** Canonical style setters. Both the component's own panel and the layer
    *  drawer call these — the component owns the only copy of the value. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer (e.g. the
-   *  heatmap's numeric source fields). Absent when the layer has no field. */
-  fieldOptions?: (() => string[]) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -73,8 +70,6 @@ interface LayerInfo {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer. */
-  fieldOptions?: (() => string[]) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -131,8 +126,6 @@ interface CreateLayersOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -150,8 +143,6 @@ interface CreateCanvasOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;

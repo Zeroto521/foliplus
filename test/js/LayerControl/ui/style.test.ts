@@ -955,7 +955,6 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true, field: "count" }),
       styleSetters: { labelShow: vi.fn(), field: vi.fn() },
-      fieldOptions: () => ["count", "sum"],
     });
     const item = findItem(ui, "heat1");
 
@@ -1179,5 +1178,29 @@ describe("LayerUI style panel", () => {
     bogus.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(labelShowSetter).not.toHaveBeenCalled();
+  });
+
+  it("delegated change handler ignores a stray field select", () => {
+    const labelShowSetter = vi.fn();
+    const fieldSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, field: "count" }),
+      styleSetters: { labelShow: labelShowSetter, field: fieldSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    // The drawer no longer renders a field select, but a third-party layer
+    // could still register `field`. A stray change must not reach the setter.
+    const stray = document.createElement("select");
+    stray.className = "foliplus-form-select foliplus-style-field-select";
+    panelOf(item)!.appendChild(stray);
+    stray.value = "sum";
+    stray.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(fieldSetter).not.toHaveBeenCalled();
   });
 });

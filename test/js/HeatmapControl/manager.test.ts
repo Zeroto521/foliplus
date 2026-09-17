@@ -1320,14 +1320,14 @@ describe("HeatmapManager — style delegation", () => {
     };
   }
 
-  it("createCanvas receives styleProvider, styleSetters and fieldOptions", () => {
+  it("createCanvas receives styleProvider and styleSetters (no field)", () => {
     makeManager();
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
     // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
-    expect(typeof opts.fieldOptions).toBe("function");
+    expect(opts.fieldOptions).toBeUndefined();
   });
 
   it("styleProvider returns the live labelShow value", () => {
@@ -1358,30 +1358,24 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("fieldOptions returns the numeric fields of the selected source layer", () => {
+  it("labelShow setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
     const m = makeManager();
-    m.selectedLayerId = "src1";
-    const extractPoints = (
-      window.map.foliplus!.LayerAPI as unknown as {
-        extractPoints: ReturnType<typeof vi.fn>;
-      }
-    ).extractPoints;
-    extractPoints.mockReturnValue([
-      {
-        marker: {
-          feature: { properties: { count: 5, name: "abc" } },
-        },
-      },
-    ]);
+    // makeManager builds a bare map stub; the setter reaches LayerAPI through
+    // this.map.foliplus (makeCtrl wires the same object).
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelChk = { checked: false };
+    m.ui = { labelChk } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
-    // Bare field names — the "properties." prefix is stripped for display.
-    expect(opts.fieldOptions!()).toEqual(["count"]);
-  });
 
-  it("fieldOptions returns empty when no source layer is selected", () => {
-    makeManager();
-    const opts = getCanvasOpts();
-    expect(opts.fieldOptions!()).toEqual([]);
+    opts.styleSetters!.labelShow!(true);
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelChk.checked).toBe(true);
   });
 });
 
