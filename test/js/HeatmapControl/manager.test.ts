@@ -213,6 +213,17 @@ describe("aggregateData", () => {
     expect(result.getAggValue(result.hexCells["same_cell"])).toBe(15);
   });
 
+  it("AVG returns 0 for a zero-count cell", () => {
+    m.currentAgg = CONST.AGG.AVG;
+    globalThis.h3.latLngToCell = vi.fn(() => "same_cell");
+    const pts = [{ lat: 26.08, lng: 119.3, value: 5 }];
+    const result = m.aggregateData(pts, 4);
+    // Normal cell: avg of 5 is 5.
+    expect(result.getAggValue(result.hexCells["same_cell"])).toBe(5);
+    // Defensive: a cell with count 0 returns 0, not NaN.
+    expect(result.getAggValue({ sum: 0, count: 0, min: 0, max: 0 })).toBe(0);
+  });
+
   it("returns null for empty points", () => {
     m.overlay.canvas = {};
     const result = m.aggregateData([], 4);
@@ -392,9 +403,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
       { marker: { feature: { properties: { price: 2 } } } },
     ]);
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
-    expect(fields).toContain("properties.price");
-    expect(fields).not.toContain("properties.name");
-    expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+    expect(fields).toContain("price");
+    expect(fields).not.toContain("name");
+    expect(fields.filter(f => f === "price")).toHaveLength(1);
   });
 });
 
@@ -786,7 +797,8 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
-      m.currentField = "properties.price";
+      m.currentLabelFormat = "comma";
+      m.currentField = "price";
       m.fieldAuto = false;
 
       m.saveConfig();
@@ -800,7 +812,8 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
-      expect(stored.field).toBe("properties.price");
+      expect(stored.labelFormat).toBe("comma");
+      expect(stored.field).toBe("price");
       expect(stored.fieldAuto).toBe(false);
     });
 
@@ -883,6 +896,7 @@ describe("HeatmapManager — persistence", () => {
         borderWeight: 3,
         borderColor: "#00ff00",
         labelShow: true,
+        labelFormat: "percent",
         field: "properties.qty",
         fieldAuto: false,
       });
@@ -894,7 +908,9 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
-      expect(m.currentField).toBe("properties.qty");
+      expect(m.currentLabelFormat).toBe("percent");
+      // Legacy "properties." prefix is stripped on load.
+      expect(m.currentField).toBe("qty");
       expect(m.fieldAuto).toBe(false);
     });
 
@@ -942,7 +958,7 @@ describe("HeatmapManager — persistence", () => {
       m1.borderWeight = 0.5;
       m1.borderColor = "#111111";
       m1.currentLabelShow = true;
-      m1.currentField = "properties.value";
+      m1.currentField = "value";
       m1.fieldAuto = false;
       m1.saveConfig();
 
@@ -959,7 +975,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.borderWeight).toBe(0.5);
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
-      expect(m2.currentField).toBe("properties.value");
+      expect(m2.currentField).toBe("value");
       expect(m2.fieldAuto).toBe(false);
     });
 
@@ -1261,10 +1277,20 @@ describe("hex label rendering (shared canvas recipe)", () => {
       vi.fn(() => ({ x: 10, y: 20 }));
   });
 
-  it("resolveLabelStyle reads the shared --label-* tokens and caches them", () => {
+  it("resolveLabelStyle overlays runtime size/color on the shared tokens", () => {
     const style = m.resolveLabelStyle();
-    expect(style.font).toContain("12px");
+    // Runtime size (CONF 11) wins over the --label-* token default (12).
+    expect(style.fontSize).toBe(11);
+    expect(style.font).toContain("11px");
+    expect(style.color).toBe("#ffffff");
     expect(m.resolveLabelStyle()).toBe(style);
+  });
+
+  it("resolveLabelStyle picks up a runtime size change after cache clear", () => {
+    m.resolveLabelStyle();
+    m.currentLabelSize = 18;
+    m.cachedLabelStyle = null;
+    expect(m.resolveLabelStyle().font).toContain("18px");
   });
 
   it("drawHexLabel strokes the halo then fills the value at the centroid", () => {
@@ -1304,29 +1330,49 @@ describe("HeatmapManager — style delegation", () => {
     return createCanvas.mock.calls[0][0] as {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
-      fieldOptions?: () => string[];
+      styleDefaults?: () => Record<string, unknown>;
     };
   }
 
-  it("createCanvas receives styleProvider, styleSetters and fieldOptions", () => {
+  it("createCanvas receives styleProvider and styleSetters (no field)", () => {
     makeManager();
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
-    expect(typeof opts.styleSetters?.field).toBe("function");
-    expect(typeof opts.fieldOptions).toBe("function");
+    expect(typeof opts.styleSetters?.labelColor).toBe("function");
+    expect(typeof opts.styleSetters?.labelSize).toBe("function");
+    expect(typeof opts.styleSetters?.labelFormat).toBe("function");
+    // Aggregation field is data config — not delegated into the style drawer.
+    expect(opts.styleSetters?.field).toBeUndefined();
+    expect(opts.fieldOptions).toBeUndefined();
   });
 
-  it("styleProvider returns the live labelShow and field values", () => {
+  it("styleProvider returns the live labelShow, color, size and format values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
 
     m.currentLabelShow = false;
-    m.currentField = "properties.count";
-    // The provider strips the "properties." prefix for display consistency
-    // with the annotation panel.
-    expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
+    m.currentLabelColor = "#ff0000";
+    m.currentLabelSize = 16;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: false,
+      labelColor: "#ff0000",
+      labelSize: 16,
+      labelFormat: "comma",
+    });
+  });
+
+  it("constructs with empty field when CONF.field is absent", () => {
+    delete (window.CONF as Record<string, unknown>).field;
+    const m = makeManager();
+    expect(m.currentField).toBe("");
   });
 
   it("labelShow setter flips state, re-renders and persists", () => {
@@ -1342,64 +1388,186 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("field setter adds the properties. prefix back", () => {
+  it("labelShow setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
     const m = makeManager();
+    // makeManager builds a bare map stub; the setter reaches LayerAPI through
+    // this.map.foliplus (makeCtrl wires the same object).
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelChk = { checked: false };
+    m.ui = { labelChk } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("count");
+    opts.styleSetters!.labelShow!(true);
 
-    expect(m.currentField).toBe("properties.count");
-    expect(m.fieldAuto).toBe(false);
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelChk.checked).toBe(true);
   });
 
-  it("field setter keeps an already-prefixed field as-is", () => {
+  it("labelFormat setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
     const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelFormatSelect = { value: "auto" } as HTMLSelectElement;
+    m.ui = { labelFormatSelect } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("properties.count");
+    opts.styleSetters!.labelFormat!("comma");
 
-    expect(m.currentField).toBe("properties.count");
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelFormatSelect.value).toBe("comma");
   });
 
-  it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
+  it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
     const m = makeManager();
-    m.fieldAuto = true;
-    const renderSpy = vi.spyOn(m, "renderHexagons");
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaults).toBe("function");
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    m.currentLabelShow = false;
+    m.currentLabelColor = "#00ff00";
+    m.currentLabelSize = 20;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+  });
+
+  it("labelColor and labelSize setters update state, clear the style cache and persist", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
     const saveSpy = vi.spyOn(m, "saveConfig");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("properties.count");
+    opts.styleSetters!.labelColor!("#00ff00");
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.cachedLabelStyle).toBeNull();
 
-    expect(m.currentField).toBe("properties.count");
-    expect(m.fieldAuto).toBe(false);
-    expect(renderSpy).toHaveBeenCalled();
+    opts.styleSetters!.labelSize!(18);
+    expect(m.currentLabelSize).toBe(18);
+    expect(redrawSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("fieldOptions returns the numeric fields of the selected source layer", () => {
+  it("labelSize setter clamps out-of-range values", () => {
     const m = makeManager();
-    m.selectedLayerId = "src1";
-    const extractPoints = (
-      window.map.foliplus!.LayerAPI as unknown as {
-        extractPoints: ReturnType<typeof vi.fn>;
-      }
-    ).extractPoints;
-    extractPoints.mockReturnValue([
-      {
-        marker: {
-          feature: { properties: { count: 5, name: "abc" } },
-        },
-      },
-    ]);
     const opts = getCanvasOpts();
-    // Bare field names — the "properties." prefix is stripped for display.
-    expect(opts.fieldOptions!()).toEqual(["count"]);
+
+    opts.styleSetters!.labelSize!(99);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+
+    opts.styleSetters!.labelSize!(1);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MIN);
   });
 
-  it("fieldOptions returns empty when no source layer is selected", () => {
-    makeManager();
+  it("labelColor setter ignores non-string values and normalizes #rgb", () => {
+    const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.fieldOptions!()).toEqual([]);
+
+    opts.styleSetters!.labelColor!(42);
+    expect(m.currentLabelColor).toBe("#ffffff");
+
+    opts.styleSetters!.labelColor!("#abc");
+    expect(m.currentLabelColor).toBe("#aabbcc");
+  });
+
+  it("labelSize setter ignores NaN and non-number values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(Number.NaN);
+    expect(m.currentLabelSize).toBe(11);
+
+    opts.styleSetters!.labelSize!("18" as unknown as number);
+    expect(m.currentLabelSize).toBe(11);
+  });
+
+  it("labelColor and labelSize setters no-op the UI sync when not bound", () => {
+    const m = makeManager();
+    // ui is null — the optional chaining must not throw.
+    expect(() => {
+      getCanvasOpts().styleSetters!.labelColor!("#00ff00");
+      getCanvasOpts().styleSetters!.labelSize!(20);
+    }).not.toThrow();
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.currentLabelSize).toBe(20);
+  });
+
+  it("labelColor and labelSize setters sync the bound panel inputs", () => {
+    const m = makeManager();
+    const labelColorInput = { value: "#ffffff" } as HTMLInputElement;
+    const labelSizeInput = { value: "11" } as HTMLInputElement;
+    m.ui = { labelColorInput, labelSizeInput } as unknown as HeatmapManager["ui"];
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!("#00ff00");
+    opts.styleSetters!.labelSize!(16);
+
+    expect(labelColorInput.value).toBe("#00ff00");
+    expect(labelSizeInput.value).toBe("16");
+  });
+
+  it("labelFormat setter updates state, redraws labels and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(m.currentLabelFormat).toBe("comma");
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelFormat setter falls back to auto for non-string values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!(42);
+
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("currentLabelFormat seeds from CONF.label_format", () => {
+    const m = makeManager({ label_format: "percent" });
+    expect(m.currentLabelFormat).toBe("percent");
+  });
+
+  it("labelFormat defaults to auto when CONF omits label_format", () => {
+    const m = makeManager({ label_format: undefined });
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("labelShow defaults to true when CONF omits label_show", () => {
+    // Python serializes label_show=True by default; a missing key must not
+    // silently flip labels off — the same `!== false` rule MeasureControl uses.
+    const m = makeManager({ label_show: undefined });
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+
+    expect(m.currentLabelShow).toBe(true);
+    expect(opts.styleDefaults!().labelShow).toBe(true);
   });
 });
 

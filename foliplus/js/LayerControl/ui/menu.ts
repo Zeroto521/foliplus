@@ -144,8 +144,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (!ui.activeMenu) return;
   const item = ui.activeMenu.item;
-  ui.activeMenu.menu.remove();
+  const menu = ui.activeMenu.menu;
+  // Clear the pointer before removing: the removal can trigger the menu's own
+  // focusout, which calls closeMoreMenu again — that re-entrant pass must see
+  // null, not call remove() on a detached menu (NotFoundError).
   ui.activeMenu = null;
+  menu.remove();
   if (setFocus) item.focus();
 };
 

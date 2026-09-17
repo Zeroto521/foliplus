@@ -79,8 +79,8 @@
 :is(
   .foliplus-input,
   .foliplus-heatmap-ctrl select,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-color-input,
-  .foliplus-heatmap-ctrl .foliplus-heatmap-weight-input,
+  .foliplus-form-color-input,
+  .foliplus-form-number-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
 ):focus,
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {

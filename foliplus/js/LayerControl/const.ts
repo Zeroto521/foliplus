@@ -1,4 +1,5 @@
-import type { NumberStyle } from "#common/format.js";
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -116,6 +117,8 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
+  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
+  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
@@ -160,22 +163,13 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Annotation label number-format presets. Values mirror `NumberStyle`
- *  (common/format.ts) — the UI-facing constant map, so the locale keys and the
- *  format dropdown are named rather than typed. */
-type FormatKey = "AUTO" | "INT" | "COMMA" | "PERCENT";
-const FORMAT = {
-  AUTO: "auto",
-  INT: "int",
-  COMMA: "comma",
-  PERCENT: "percent",
-} as const satisfies Record<FormatKey, NumberStyle>;
-
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
-  format: FORMAT.AUTO,
+  color: LABEL_COLOR_DEFAULT,
+  size: LABEL_SIZE.SIZE_DEFAULT,
+  format: NUMBER_FORMAT.AUTO,
 } as const;
 
 export {
@@ -188,7 +182,6 @@ export {
   DEFAULT_ANNOTATION,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
-  FORMAT,
   FOCUS,
   FOCUS_PANE,
   GROUP,

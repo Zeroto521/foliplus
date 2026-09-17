@@ -37,6 +37,61 @@
   min-width: 0;
 }
 
+/* Two controls sharing one form-control cell (border / label color+size).
+   Mirrors the former .foliplus-heatmap-form-inline — one recipe for both. */
+.foliplus-form-inline {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Color swatch — the polished heatmap control, promoted so the layer style
+   drawer matches the heatmap panel pixel-for-pixel. */
+.foliplus-form-color-input {
+  flex: 1;
+  height: var(--ctrl-size);
+  padding: var(--border-thin);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+  outline: none;
+  box-sizing: border-box;
+  transition: var(--transition-input);
+
+  &::-webkit-color-swatch-wrapper {
+    padding: var(--border-thin);
+  }
+  &::-webkit-color-swatch {
+    border: none;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* Compact integer / weight field beside a color swatch. */
+.foliplus-form-number-input {
+  width: var(--form-number-width, 52px);
+  height: var(--ctrl-size);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--size-6);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  text-align: center;
+  transition: var(--transition-input);
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    appearance: textfield;
+  }
+}
+
 /* Shared select (mirrors HeatmapControl's form-select visual). The wide
    right padding keeps localized option text clear of the arrow glyph. */
 .foliplus-form-select {

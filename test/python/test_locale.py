@@ -96,7 +96,16 @@ _JS_USED_KEYS = {
     "HeatmapControl.heads",
     "HeatmapControl.scheme",
     "HeatmapControl.border",
+    "HeatmapControl.section_label",
     "HeatmapControl.label",
+    "HeatmapControl.label_style",
+    "HeatmapControl.label_color",
+    "HeatmapControl.label_size",
+    "HeatmapControl.label_format",
+    "HeatmapControl.label_format_auto",
+    "HeatmapControl.label_format_int",
+    "HeatmapControl.label_format_comma",
+    "HeatmapControl.label_format_percent",
     "HeatmapControl.clear",
     "HeatmapControl.no_layer",
     "HeatmapControl.no_layercontrol",
@@ -153,6 +162,9 @@ _JS_USED_KEYS = {
     "LayerControl.style_layer_tooltip",
     "LayerControl.style_label",
     "LayerControl.style_label_tooltip",
+    "LayerControl.style_label_style",
+    "LayerControl.style_label_color",
+    "LayerControl.style_label_size",
     "LayerControl.style_label_field",
     "LayerControl.style_label_field_auto",
     "LayerControl.style_label_format",
@@ -466,7 +478,7 @@ class TestPartialCustomTable:
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
         # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Layer"
+        assert table["HeatmapControl.layer"] == "Aggregation Layer"
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""
@@ -513,7 +525,7 @@ class TestToFile:
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("HeatmapControl.title") == "网格聚合"
-            assert loaded.get("HeatmapControl.layer") == "图层"
+            assert loaded.get("HeatmapControl.layer") == "聚合图层"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))

@@ -35,9 +35,10 @@ interface RegisterLayerOpts {
   /** Canonical style setters. Both the component's own panel and the layer
    *  drawer call these — the component owns the only copy of the value. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer (e.g. the
-   *  heatmap's numeric source fields). Absent when the layer has no field. */
-  fieldOptions?: (() => string[]) | null;
+  /** Python CONF defaults for the delegated style fields. The drawer's Reset
+   *  button calls each styleSetter with the matching default — never the
+   *  localStorage-persisted value. Absent means the layer offers no Reset. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -73,8 +74,8 @@ interface LayerInfo {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer. */
-  fieldOptions?: (() => string[]) | null;
+  /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -132,7 +133,7 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
+  styleDefaults?: (() => Record<string, unknown>) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -151,7 +152,7 @@ interface CreateCanvasOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;

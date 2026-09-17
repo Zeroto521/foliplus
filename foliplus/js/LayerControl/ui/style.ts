@@ -12,7 +12,18 @@ import {
   resolveSelectedField,
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
-import { type NumberStyle } from "#common/format.js";
+import {
+  LABEL_COLOR_DEFAULT,
+  LABEL_SIZE,
+  bindLiveColor,
+  bindLiveNumber,
+  clampLabelSize,
+  colorInput as formColorInput,
+  numberInput as formNumberInput,
+  inlineControls,
+  normalizeHexColor,
+} from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import type { AnnotationConfig } from "../annotation/index.js";
 import * as CONST from "../const.js";
@@ -67,6 +78,26 @@ const persistStyleLabel = (ui: LayerUI): void => {
   );
 };
 
+/** Shared Reset footer — divider + button, same vocabulary for the annotation
+ *  and the delegated panel. */
+const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
+  content.append(
+    dom.el("hr", { class: "foliplus-section-divider" }),
+    dom.el(
+      "div",
+      { class: "foliplus-btn-row" },
+      dom.el(
+        "button",
+        {
+          type: "button",
+          class: "foliplus-panel-btn foliplus-style-reset-btn",
+        },
+        ui.T("style_reset"),
+      ),
+    ),
+  );
+};
+
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
  *  (config → labels → storage) lives in exactly one place. */
@@ -96,7 +127,15 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     ui.m.annotation.setConfig(id, {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
-      format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
+      color:
+        typeof cfg.color === "string"
+          ? normalizeHexColor(cfg.color)
+          : CONST.DEFAULT_ANNOTATION.color,
+      size:
+        typeof cfg.size === "number"
+          ? clampLabelSize(cfg.size)
+          : CONST.DEFAULT_ANNOTATION.size,
+      format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
       // Absent in configs stored before the switch existed: default to on.
       collide: cfg.collide !== false,
     });
@@ -120,11 +159,16 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
   row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
+/** One <option> per NUMBER_FORMAT entry — shared by the annotation and the
+ *  delegated panel so both dropdowns stay in lockstep with the type. */
+const numberFormatOptions = (fmtLabel: (f: string) => string): HTMLElement[] =>
+  Object.values(NUMBER_FORMAT).map(f => dom.el("option", { value: f }, fmtLabel(f)));
+
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
- *  component declared — no body collapse, no format row, no reset. Returns
- *  null when the layer has no delegation (falls through to the annotation
- *  panel). */
+ *  component declared. Reset is present only when the layer also supplies
+ *  styleDefaults (the Python CONF snapshot). Returns null when the layer has
+ *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
@@ -137,35 +181,85 @@ const renderDelegatedStylePanel = (
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
 
-  if (setters.field) {
-    const options = li.fieldOptions?.() ?? [];
-    const fieldSelect = dom.el(
-      "select",
-      {
-        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-        "aria-label": ui.T("style_label_field"),
-      },
-      // Always show the Auto entry as a disabled placeholder — same pattern as
-      // the annotation panel and the heatmap's own field select. Selecting a
-      // real field calls the setter, which clears fieldAuto.
-      dom.el(
-        "option",
-        { value: AUTO_FIELD, disabled: true },
-        ui.T("style_label_field_auto"),
-      ),
-      ...options.map(o =>
-        dom.el("option", { value: o, selected: o === values.field ? "" : null }, o),
-      ),
-    );
-    if (typeof values.field === "string") {
-      (fieldSelect as HTMLSelectElement).value = values.field;
+  // Color + size share one row (same recipe as the heatmap border row).
+  // Order under the toggle: appearance, then number format, then collide.
+  if (setters.labelColor || setters.labelSize) {
+    const colorInput = setters.labelColor
+      ? formColorInput({
+          value:
+            typeof values.labelColor === "string"
+              ? values.labelColor
+              : LABEL_COLOR_DEFAULT,
+          className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+          ariaLabel: ui.T("style_label_color"),
+        })
+      : null;
+    const sizeInput = setters.labelSize
+      ? formNumberInput({
+          value:
+            typeof values.labelSize === "number"
+              ? values.labelSize
+              : LABEL_SIZE.SIZE_DEFAULT,
+          min: LABEL_SIZE.SIZE_MIN,
+          max: LABEL_SIZE.SIZE_MAX,
+          step: LABEL_SIZE.SIZE_STEP,
+          className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+          ariaLabel: ui.T("style_label_size"),
+        })
+      : null;
+    // Live on input, clamp on commit — same bindLive* recipe as the
+    // heatmap panel so out-of-range sizes rewrite the field to the bound.
+    if (colorInput) {
+      bindLiveColor(colorInput as HTMLInputElement, value => {
+        setters.labelColor?.(value);
+      });
     }
+    if (sizeInput) {
+      bindLiveNumber(sizeInput as HTMLInputElement, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => setters.labelSize?.(value),
+      });
+    }
+    const inline = inlineControls(
+      ...(colorInput ? [colorInput] : []),
+      ...(sizeInput ? [sizeInput] : []),
+    );
     bodyRows.push(
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+      ),
+    );
+  }
+
+  // Number format lives under the label toggle — same collapse rule as the
+  // annotation panel's format row (hidden when labels are off).
+  if (setters.labelFormat) {
+    const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+    const formatSelect = dom.el(
+      "select",
+      {
+        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+        "aria-label": ui.T("style_label_format"),
+      },
+      ...numberFormatOptions(fmtLabel),
+    );
+    (formatSelect as HTMLSelectElement).value =
+      typeof values.labelFormat === "string" ? values.labelFormat : NUMBER_FORMAT.AUTO;
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.FORM_LABEL },
+          ui.T("style_label_format"),
+        ),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
       ),
     );
   }
@@ -228,7 +322,7 @@ const renderDelegatedStylePanel = (
     );
   }
 
-  // Body: field + avoid-overlap, collapsed when the label toggle is off —
+  // Body: avoid-overlap, collapsed when the label toggle is off —
   // same "switch off → hide body" rule the annotation panel uses.
   if (bodyRows.length) {
     const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...bodyRows);
@@ -246,6 +340,9 @@ const renderDelegatedStylePanel = (
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   content.append(...rows);
+
+  // Reset only when the component published its Python CONF defaults.
+  if (li.styleDefaults) appendResetFooter(ui, content);
   return panel;
 };
 
@@ -306,12 +403,22 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
-  const formatOpts = [
-    CONST.FORMAT.AUTO,
-    CONST.FORMAT.INT,
-    CONST.FORMAT.COMMA,
-    CONST.FORMAT.PERCENT,
-  ].map(f => dom.el("option", { value: f }, fmtLabel(f)));
+  // Appearance row — same chrome as the heatmap border / delegated drawer.
+  const colorInput = formColorInput({
+    value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
+    className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+    ariaLabel: ui.T("style_label_color"),
+  }) as HTMLInputElement;
+  const sizeInput = formNumberInput({
+    value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
+    min: LABEL_SIZE.SIZE_MIN,
+    max: LABEL_SIZE.SIZE_MAX,
+    step: LABEL_SIZE.SIZE_STEP,
+    className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+    ariaLabel: ui.T("style_label_size"),
+  }) as HTMLInputElement;
+
+  const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
   // not the browser default — without it, a tab stop on a switch looks
@@ -339,7 +446,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     },
     ...formatOpts,
   );
-  (formatSelect as HTMLSelectElement).value = cfg.format || CONST.FORMAT.AUTO;
+  (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a
   // number — comma/percent/int all render the same as auto in that case.
@@ -359,6 +466,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // on. Listens to the toggle so flipping it reveals the field/format rows
   // and auto-picks a field if none was selected yet (the "warm start" from
   // the heatmap's rule: open the gate, the first thing shows up).
+  // Body order is shared with the delegated drawer: data → appearance →
+  // format → behavior. Field first (annotation-only), then color/size,
+  // then number format, then avoid-overlap.
   const body = dom.el(
     "div",
     { class: CONST.CLASSES.STYLE_BODY },
@@ -367,6 +477,16 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       { class: CONST.CLASSES.FORM_ROW },
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+    ),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_CONTROL },
+        inlineControls(colorInput, sizeInput),
+      ),
     ),
     formatRow,
     dom.el(
@@ -416,22 +536,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
-    // The same shared divider the heatmap puts above its footer action, so the
-    // two panels' footers read identically (common/panel.css sets its inset).
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el(
-      "div",
-      { class: "foliplus-btn-row" },
-      dom.el(
-        "button",
-        {
-          type: "button",
-          class: "foliplus-panel-btn foliplus-style-reset-btn",
-        },
-        ui.T("style_reset"),
-      ),
-    ),
   );
+  appendResetFooter(ui, content);
   return panel;
 };
 
@@ -463,10 +569,34 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
+  const delegated = layerHasStyleDelegation(ui, layerId);
+  // Annotation color/size commit live, same bindLive* recipe as the
+  // heatmap panel and the delegated drawer.
+  if (!delegated) {
+    const colorEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (colorEl) {
+      bindLiveColor(colorEl, value => {
+        applyPatch(ui, layerId, { color: normalizeHexColor(value) });
+      });
+    }
+    const sizeEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (sizeEl) {
+      bindLiveNumber(sizeEl, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => applyPatch(ui, layerId, { size: value }),
+      });
+    }
+  }
+
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
-  const delegated = layerHasStyleDelegation(ui, layerId);
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     if (delegated) {
@@ -491,11 +621,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) {
         setters.labelCollide(t.checked);
       } else if (
+        // Color/size are bound live via input listeners at render time —
+        // the change event would double-commit.
         t instanceof HTMLSelectElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT) &&
-        setters.field
+        t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
+        setters.labelFormat
       ) {
-        setters.field(t.value);
+        setters.labelFormat(t.value);
       } else {
         return;
       }
@@ -569,9 +701,24 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
-      // Through applyPatch, so the reset writes config, re-renders and persists
-      // in the same order as every other control on this panel.
-      applyPatch(ui, layerId, { ...CONST.DEFAULT_ANNOTATION });
+      if (delegated) {
+        // Call each setter with its Python CONF default. The components own
+        // the values — never write localStorage or annotation config here.
+        const li = ui.m.layerRegistry.get(layerId);
+        const setters = li?.styleSetters;
+        const defaults = li?.styleDefaults?.() ?? {};
+        if (setters) {
+          for (const [key, setter] of Object.entries(setters)) {
+            if (key in defaults) setter(defaults[key]);
+          }
+        }
+      } else {
+        // Through applyPatch, so the reset writes config, re-renders and persists
+        // in the same order as every other control on this panel. defaultConfig
+        // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
+        // collide switch untouched.
+        applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
+      }
       closeStylePanel(ui, true);
       return;
     }
@@ -626,11 +773,30 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
       }
-      const fieldSel = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+      const colorInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (colorInput && document.activeElement !== colorInput) {
+        if (typeof values.labelColor === "string") {
+          colorInput.value = values.labelColor;
+        }
+      }
+      const sizeInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (sizeInput && document.activeElement !== sizeInput) {
+        if (typeof values.labelSize === "number") {
+          sizeInput.value = String(values.labelSize);
+        }
+      }
+      const formatSelect = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
       ) as HTMLSelectElement | null;
-      if (fieldSel && document.activeElement !== fieldSel) {
-        fieldSel.value = String(values.field ?? "");
+      if (formatSelect && document.activeElement !== formatSelect) {
+        formatSelect.value =
+          typeof values.labelFormat === "string"
+            ? values.labelFormat
+            : NUMBER_FORMAT.AUTO;
       }
     }) as never);
   }

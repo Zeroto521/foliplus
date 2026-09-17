@@ -1306,6 +1306,26 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(opts.styleProvider().labelCollide).toBe(true);
   });
 
+  it("styleDefaults returns the Python CONF snapshot, not live toggles", () => {
+    const { manager, map } = makeLabelManager({
+      label_show: true,
+      label_collide: false,
+    });
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaults).toBe("function");
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true, labelCollide: false });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    manager.setLabelsVisible(false);
+    manager.setLabelCollide(true);
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true, labelCollide: false });
+  });
+
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
     const emitSpy = vi.spyOn(manager.events, "emit");
@@ -1458,5 +1478,76 @@ describe("MeasureManager — label cleanup", () => {
 
     expect(() => manager.destroy()).not.toThrow();
     expect(map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+  });
+
+  it("styleSetters.labelShow calls setLabelsVisible", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelsVisible");
+
+    opts.styleSetters.labelShow!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("styleSetters.labelCollide calls setLabelCollide", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelCollide");
+
+    opts.styleSetters.labelCollide!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("labelsVisible getter returns the live labelShow value", () => {
+    const { manager } = makeLabelManager();
+    expect(manager.labelsVisible).toBe(true);
+
+    manager.setLabelsVisible(false);
+    expect(manager.labelsVisible).toBe(false);
+  });
+
+  it("setLabelsVisible tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager();
+    // A marker with no DOM element — labelChipOf returns null.
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+    manager.registerLabel(bareMarker as unknown as L.Marker, 60);
+
+    expect(() => manager.setLabelsVisible(false)).not.toThrow();
+  });
+
+  it("registerLabel with label_show=false tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager({ label_show: false });
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+
+    expect(() =>
+      manager.registerLabel(bareMarker as unknown as L.Marker, 60),
+    ).not.toThrow();
+  });
+
+  it("destroy calls offModeChange and offLayerRemoved when set", () => {
+    const { manager, map } = makeLabelManager();
+    const offModeChange = vi.fn();
+    const offLayerRemoved = vi.fn();
+    (manager as unknown as { offModeChange: () => void }).offModeChange = offModeChange;
+    (manager as unknown as { offLayerRemoved: () => void }).offLayerRemoved =
+      offLayerRemoved;
+
+    manager.destroy();
+
+    expect(offModeChange).toHaveBeenCalled();
+    expect(offLayerRemoved).toHaveBeenCalled();
+    expect(map.off).toHaveBeenCalledWith("unload", expect.any(Function));
   });
 });
