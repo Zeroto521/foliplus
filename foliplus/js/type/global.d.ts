@@ -47,14 +47,11 @@ type Turf = {
   ) => GeoJSON.Feature<GeoJSON.Polygon>;
 };
 
-/** gcoord (CDN). */
+/** gcoord (CDN). Only the subset used by foliplus. */
 type Gcoord = {
   transform: (coords: number[], from: number, to: number) => number[];
-  WGS: number;
   WGS84: number;
-  GCJ: number;
   GCJ02: number;
-  BD: number;
   BD09: number;
 };
 
@@ -149,6 +146,8 @@ declare global {
     show_bearing?: boolean;
     label_show?: boolean;
     label_collide?: boolean;
+    show_zoom?: boolean;
+    show_live_coords?: boolean;
     agg?: string;
     method?: string;
     n_classes?: number;
@@ -161,7 +160,6 @@ declare global {
     label_color?: string;
     label_size?: number;
     label_format?: NumberStyle;
-    label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
     max_pixels?: number;
@@ -176,34 +174,35 @@ declare global {
     [key: string]: unknown;
   }
 
-  /** Runtime helpers injected by the foliplus Python wrapper. */
+  /** Runtime helpers injected by the foliplus Python wrapper.
+   * `runtime/index.ts` is the single builder of this object — members added
+   * there must land here or they silently type as `unknown`.
+   *
+   * Hint methods deliberately do NOT appear on this interface: `showHint` /
+   * `hideHint` / `registerHintIcon` are per-map and live only on
+   * `map.foliplus` (see {@link MapFoliplus}). The hint *module* factory
+   * `ensureHint` is what reaches the per-map namespace. */
   interface Foliplus {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
-    registerHintIcon: (key: string, iconSvg: string) => void;
-    showHint: (
-      name: string,
-      msg: string,
-      duration: number,
-      append?: boolean,
-      subkey?: string,
-      withLoadingIcon?: boolean,
-    ) => void;
-    hideHint: (name: string, subkey?: string) => void;
+    /** Hint module: per-map manager factory + shared icon registry. */
+    hint: Record<string, unknown>;
+    /** Leaflet `BaseControl` base class shared by every component. */
+    BaseControl: Record<string, unknown>;
     reverseGeocode: (
       map: Leaflet.Map,
       lng: number | string,
       lat: number | string,
       code?: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => Promise<string>;
     geocode: (
       map: Leaflet.Map,
       address: string,
       code?: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => Promise<{ lng: number; lat: number; display_name: string } | null>;
     cacheSuggestion: (
@@ -212,7 +211,7 @@ declare global {
       lng: number,
       lat: number,
       displayName: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => void;
     _TABLES: Record<string, Record<string, string>>;
@@ -235,30 +234,21 @@ declare global {
     type LayerEvent = Leaflet.LayerEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
-    type Point = Leaflet.Point;
-    type PointExpression = Leaflet.PointExpression;
     type LatLngExpression = Leaflet.LatLngExpression;
     type LatLng = Leaflet.LatLng;
     type LatLngBounds = Leaflet.LatLngBounds;
     type CircleMarker = Leaflet.CircleMarker;
     type DivIcon = Leaflet.DivIcon;
-    type Icon = Leaflet.Icon;
     type Polyline = Leaflet.Polyline;
     type Polygon = Leaflet.Polygon;
     type Circle = Leaflet.Circle;
-    type MarkerOptions = Leaflet.MarkerOptions;
-    type IconOptions = Leaflet.IconOptions;
-    type DivIconOptions = Leaflet.DivIconOptions;
     type LayerOptions = Leaflet.LayerOptions;
     type Path = Leaflet.Path;
     type PathOptions = Leaflet.PathOptions;
-    type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
-    type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
     type GridLayer = Leaflet.GridLayer;
     type GridLayerOptions = Leaflet.GridLayerOptions;
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
-    type ImageOverlay = Leaflet.ImageOverlay;
     type CRS = Leaflet.CRS;
   }
 
@@ -340,7 +330,6 @@ declare global {
   const map: Leaflet.Map;
   const foliplus: Foliplus;
   const CONF: ComponentConfig;
-  const CONFIG: ComponentConfig;
   /** Build-time constant: `git describe` inlined by esbuild define. */
   const __FOLIPLUS_VERSION__: string;
 
@@ -358,7 +347,6 @@ declare global {
   interface Window {
     foliplus: Foliplus;
     CONF: ComponentConfig;
-    CONFIG?: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
   }
