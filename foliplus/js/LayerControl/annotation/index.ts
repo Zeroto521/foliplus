@@ -166,13 +166,13 @@ class AnnotationManager {
    *  Both string and numeric fields are returned (annotations are not limited
    *  to numeric columns); the type only drives the number-format row. The
    *  returned names are the bare property names (no "properties." prefix) so
-   *  callers store and compare them uniformly.
+   *  callers store and compare them uniformly — the same contract HeatmapControl
+   *  uses for its aggregation field picker.
    *
    *  The *walk* runs through core/labelField's collector; what stays local is
-   *  the leaf traversal, and the heatmap deliberately keeps its own collection
-   *  too — its field contract is a different one (numeric only, `properties.`
-   *  prefixed, fed from extractPoints) while the shared rules it does use are
-   *  the auto pick and the numeric test. */
+   *  the leaf traversal. HeatmapControl keeps its own collection (fed from
+   *  extractPoints, numeric only) but shares the bare-name field contract,
+   *  the auto pick, and `bareFieldName` for legacy configs. */
   collectFields(id: string): LabelField[] {
     const layer = this.layerFind(id);
     if (!layer) return [];

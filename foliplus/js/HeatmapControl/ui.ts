@@ -370,11 +370,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   );
 
   fields.forEach(f => {
-    dom.el(
-      "option",
-      { value: f, parent: ctrl.fieldSelect },
-      f.startsWith("properties.") ? f.substring(11) : f,
-    );
+    dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
 
   ctrl.m.fieldAuto = !fields.includes(ctrl.m.currentField);

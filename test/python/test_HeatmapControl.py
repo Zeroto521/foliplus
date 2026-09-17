@@ -1162,21 +1162,14 @@ class TestHeatmapAutoFieldBrowser:
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.population" in field_opts, (
-                f"Missing 'properties.population': {field_opts}"
-            )
-            assert "properties.density" in field_opts, (
-                f"Missing 'properties.density': {field_opts}"
-            )
+            assert "population" in field_opts, f"Missing 'population': {field_opts}"
+            assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
             # enumeration order — the important thing is deterministic choice.
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key and auto_key.startswith("properties."), (
-                f"Expected a 'properties.*' key, got '{auto_key}'"
-            )
-            assert auto_key in ("properties.population", "properties.density"), (
+            assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
             )
 
@@ -1225,16 +1218,12 @@ class TestHeatmapAutoFieldBrowser:
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key == "properties.elevation", (
-                f"Expected 'properties.elevation', got '{auto_key}'"
-            )
+            assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.elevation" in field_opts, (
-                f"Missing 'properties.elevation': {field_opts}"
-            )
+            assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
 
             assert not errors, f"JS errors: {errors}"
