@@ -1364,9 +1364,9 @@ class TestLayerControlBrowser:
             assert result["markerCount"] > 0, f"no markers in the layer: {result}"
             # Each child is a leaf that only offers setOpacity — a group-level
             # setStyle therefore cannot be what moved them.
-            assert all(a["setOpacity"] and not a["setStyle"] for a in result["markerApis"]), (
-                result
-            )
+            assert all(
+                a["setOpacity"] and not a["setStyle"] for a in result["markerApis"]
+            ), result
             assert result["registryOpacity"] == 0.4, result
             assert all(v == 0.4 for v in result["markerOpacity"]), result
             assert all(v == "0.4" for v in result["iconOpacity"]), result
