@@ -200,17 +200,18 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // Label controls — rendered by the shared module, which dispatches changes
   // to the manager's own styleSetters (the same ones the layer drawer uses).
   // The shared module handles change delegation, body collapse, and refresh.
+  // The template always carries the section divider, so the controls slot in
+  // directly above it — after the style block, before Clear.
   const divider = ctrl.extraBody.querySelector(
     `.${CONST.CLASSES.SECTION_DIVIDER}`,
-  ) as HTMLElement | null;
+  ) as HTMLElement;
   const labelControls = renderLabelControls({
-    styleProvider: () => ctrl.m.styleProvider?.(),
-    getSetters: () => ctrl.m.styleSetters ?? {},
+    styleProvider: () => ctrl.m.styleProvider(),
+    getSetters: () => ctrl.m.styleSetters,
     T: ctrl._,
   });
   ctrl.labelRefresh = labelControls.refresh;
-  if (divider) divider.before(labelControls.root);
-  else ctrl.extraBody.appendChild(labelControls.root);
+  divider.before(labelControls.root);
 
   // Mirror remote changes (the layer drawer flipping a value while this panel
   // is open) — the shared refresh reads from styleProvider.

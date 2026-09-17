@@ -2041,6 +2041,39 @@ describe("LayerUI style panel", () => {
     expect(labelShowSetter).not.toHaveBeenCalled();
   });
 
+  it("dispatches into a layer re-registered while its drawer is open", () => {
+    const firstSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: firstSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    // Re-registering upserts a fresh LayerInfo object in place of the old one.
+    // The drawer must resolve through the registry rather than the entry it
+    // captured at render time — a captured entry would keep driving a layer
+    // that is no longer registered.
+    const secondSetter = vi.fn();
+    const current = manager.layerRegistry.get("heat1")!;
+    manager.layerRegistry.upsert({
+      ...current,
+      styleSetters: { labelShow: secondSetter },
+    } as never);
+
+    const toggle = panelOf(item)!.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(secondSetter).toHaveBeenCalledWith(false);
+    expect(firstSetter).not.toHaveBeenCalled();
+  });
+
   it("delegated format select falls back to auto for a non-string provider value", () => {
     manager.registerLayer({
       id: "heat1",

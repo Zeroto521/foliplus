@@ -3,6 +3,7 @@
 // (set by the fixture), never from the ambient window.CONF — these tests
 // therefore prove both the behavior and the per-instance CONF injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -705,5 +706,65 @@ describe("initScan — hints keyed by the injected conf", () => {
       expect.stringContaining("No point layers found"),
       HINT_DURATION.LONG,
     );
+  });
+});
+
+describe("bindControls — shared label controls", () => {
+  it("slots the shared controls above the divider, after the style block", () => {
+    const { ctrl, panel } = setup();
+    const divider = ctrl.extraBody.querySelector(
+      `.${CONST.CLASSES.SECTION_DIVIDER}`,
+    ) as HTMLElement;
+    // The controls are inserted immediately before the divider, so that is the
+    // shared root rather than a stray wrapper.
+    const root = divider.previousElementSibling as HTMLElement;
+
+    expect(root.contains(panel.querySelector(".foliplus-style-toggle-input"))).toBe(
+      true,
+    );
+    // Ordering matters: the label section reads after the style block (border
+    // row), not spliced into the middle of it.
+    expect(
+      ctrl.borderWeightInput.compareDocumentPosition(root) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("registers a LAYER_STYLE_CHANGE subscription for teardown", () => {
+    const { ctrl } = setup();
+    // destroy() calls this; without it a removed control keeps refreshing.
+    expect(ctrl.styleChangeCleanup).toBeTypeOf("function");
+  });
+
+  it("mirrors its own layer's LAYER_STYLE_CHANGE and ignores another layer's", () => {
+    const { ctrl, m, panel } = setup();
+    const toggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    const started = toggle.checked;
+
+    // A remote write for this layer — the drawer, or the manager's own setter
+    // emitting back — pulls the fresh value into the panel.
+    m.currentLabelShow = !started;
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: m.layerId });
+    expect(toggle.checked).toBe(!started);
+
+    // Another layer's change must leave this panel alone.
+    m.currentLabelShow = started;
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: "some-other-layer" });
+    expect(toggle.checked).toBe(!started);
+  });
+
+  it("reflects a change made through the manager's own setter", () => {
+    const { m, panel } = setup();
+    const format = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+
+    // The setter owns state and emits; the panel hears it and re-reads.
+    m.styleSetters.labelFormat("percent");
+
+    expect(format.value).toBe("percent");
+    expect(m.currentLabelFormat).toBe("percent");
   });
 });

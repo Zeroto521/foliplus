@@ -177,9 +177,14 @@ const renderDelegatedStylePanel = (
   const setters = li?.styleSetters;
   if (!setters || Object.keys(setters).length === 0) return null;
 
+  // Both hooks re-read the registry instead of closing over the entry fetched
+  // above: re-registering a layer swaps in a fresh LayerInfo object, so a
+  // drawer left open across that swap must follow the new entry — and no-op
+  // once its setters are gone.
+  const entry = () => ui.m.layerRegistry.get(layerId);
   const { root, refresh } = renderLabelControls({
-    styleProvider: () => li?.styleProvider?.() as LabelStyleValues | undefined,
-    getSetters: () => li?.styleSetters ?? {},
+    styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
+    getSetters: () => entry()?.styleSetters ?? {},
     T: ui._,
   });
   if (!root.children.length) return null;
