@@ -899,6 +899,102 @@ describe("LayerUI style panel", () => {
     expect(labelShowSetter).toHaveBeenCalledWith(true);
   });
 
+  it("seeds the row at 100% when nothing stored an opacity yet", () => {
+    // Neither the persisted map nor the registry entry carries a value — the
+    // fresh-open path must still paint a full slider rather than NaN/empty.
+    const li = manager.layerRegistry.get("overlay1")!;
+    delete (li as { opacity?: number }).opacity;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+    expect(range.value).toBe("100");
+    expect(number.value).toBe("100");
+    expect(range.style.getPropertyValue("--opacity-fill")).toBe("100%");
+  });
+
+  it("ignores an emptied number field while typing and restores it on commit", () => {
+    // Clearing the field to retype reads as "" mid-edit; applying that would
+    // parse as NaN and snap the layer transparent. Only the commit resolves it,
+    // and it resolves to fully opaque — the invalid-commit default.
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+
+    range.value = "45";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(li.opacity).toBe(0.45);
+
+    number.value = "";
+    number.dispatchEvent(new Event("input", { bubbles: true }));
+    // Live pass: the layer keeps its opacity instead of going transparent.
+    expect(li.opacity).toBe(0.45);
+    expect(setStyle).toHaveBeenCalledTimes(1);
+
+    number.dispatchEvent(new Event("change", { bubbles: true }));
+    // Commit: fall back to fully opaque and rewrite both inputs.
+    expect(li.opacity).toBe(1);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(number.value).toBe("100");
+    expect(range.value).toBe("100");
+    expect(range.style.getPropertyValue("--opacity-fill")).toBe("100%");
+  });
+
+  it("no-ops when the layer disappears between open and edit", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    // The row outlives its registry entry (a provider unregistered the layer).
+    vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
+    expect(() => {
+      range.value = "20";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+    }).not.toThrow();
+
+    expect(setStyle).not.toHaveBeenCalled();
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+  });
+
+  it("delegated panel renders the appearance row for labelSize alone", () => {
+    // The color/size row is shared: a component that declares only the size
+    // still gets it, with the swatch omitted.
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelSize: 14 }),
+      styleSetters: { labelShow: vi.fn(), labelSize: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(".foliplus-style-label-size-input")).not.toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
+  });
+
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");

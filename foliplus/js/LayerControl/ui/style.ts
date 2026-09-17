@@ -87,11 +87,11 @@ const sectionHeading = (text: string): HTMLElement =>
 const opacityToPct = (opacity: number | undefined): number =>
   Math.round(Math.max(0, Math.min(1, opacity ?? 1)) * 100);
 
-/** Clamp a raw UI percentage into [0, 100]. */
-const clampPct = (raw: number): number => {
-  if (!Number.isFinite(raw)) return 100;
-  return Math.max(0, Math.min(100, Math.round(raw)));
-};
+/** Clamp a raw percentage into [0, 100]. A non-numeric entry — an emptied
+ *  number field on commit — falls back to fully opaque, the same
+ *  invalid-commits-to-default rule the shared number field uses. */
+const clampPct = (raw: number, fallback = 100): number =>
+  Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
 /** Keep the range + number inputs in sync without fighting the focused one.
  *  Also repaints the slider's accent fill (`--opacity-fill`), which the track
@@ -141,9 +141,11 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     max: "100",
     step: "5",
     value: String(pct),
-    style: `--opacity-fill: ${pct}%`,
     "aria-label": ui.T("style_opacity"),
   });
+  // setProperty, not the `style` attribute: dom.el assigns a string through
+  // `cssText`, which would clobber any other inline style on the control.
+  range.style.setProperty("--opacity-fill", `${pct}%`);
   const number = formNumberInput({
     value: pct,
     min: 0,
@@ -706,8 +708,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
-  /** Shared opacity handler for both panel flavours (LayerControl-owned). */
-  const handleOpacityTarget = (t: EventTarget | null): boolean => {
+  /** Shared opacity handler for both panel flavours (LayerControl-owned).
+   *  `commit` separates the live pass from the blur/change pass: while the user
+   *  is retyping the number field it can read empty, and `parseFloat("")` is
+   *  NaN — applying that would snap the layer transparent mid-edit. The live
+   *  pass therefore skips an empty field and only the commit resolves it (to
+   *  fully opaque, via `clampPct`'s fallback). */
+  const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
     if (!(t instanceof HTMLInputElement)) return false;
     if (
       !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE) &&
@@ -715,19 +722,20 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ) {
       return false;
     }
-    commitOpacityPct(ui, layerId, panel, Number(t.value));
+    if (!commit && t.value === "") return true;
+    commitOpacityPct(ui, layerId, panel, parseFloat(t.value));
     return true;
   };
 
   panel.addEventListener("input", (event: Event) => {
     // Live slider updates while dragging; stop so the container's color
     // input handler never sees the range.
-    if (handleOpacityTarget(event.target)) event.stopPropagation();
+    if (handleOpacityTarget(event.target, false)) event.stopPropagation();
   });
 
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
-    if (handleOpacityTarget(t)) {
+    if (handleOpacityTarget(t, true)) {
       event.stopPropagation();
       return;
     }

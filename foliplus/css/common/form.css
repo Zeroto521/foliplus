@@ -244,6 +244,10 @@
   appearance: none;
 }
 
+/* The two track rules are identical on purpose: `::-webkit-...` and
+   `::-moz-...` cannot share one selector, because a browser that does not know
+   the other pseudo-element drops the whole rule and the track loses its
+   background entirely. */
 .foliplus-style-opacity-range::-webkit-slider-runnable-track {
   height: var(--opacity-track-height);
   border: var(--border-thin) solid var(--input-border);

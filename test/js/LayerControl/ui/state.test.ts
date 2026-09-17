@@ -5,8 +5,11 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
   applyOpacityStateOne,
+  applyUserState,
   applyVisibleStateOne,
+  reconcileHiddenIds,
   saveFoldState,
+  saveOpacityMap,
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
@@ -954,5 +957,85 @@ describe("event-driven row refresh", () => {
     expect(
       ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────── reconcile + opacity persistence ───────────────────
+
+describe("ui/state reconcileHiddenIds and opacity persistence", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("adopts a row whose checkbox is off but which is not in hiddenIds", () => {
+    // initLayerItem derives the checkbox from map.hasLayer(), so a stub map
+    // that still reports membership renders an unchecked row whose id never
+    // reached hiddenIds. Trusting the row is what keeps the saved set absolute.
+    const item = findItem(ui, "overlay1");
+    const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    checkbox.checked = false;
+    ui.hiddenIds = new Set();
+    ui.hiddenHasState = false;
+    const save = vi
+      .spyOn(manager.persistence, "saveHiddenIds")
+      .mockImplementation(() => {});
+
+    reconcileHiddenIds(ui);
+
+    expect(ui.hiddenIds.has("overlay1")).toBe(true);
+    expect(ui.hiddenHasState).toBe(true);
+    expect(save).toHaveBeenCalled();
+  });
+
+  it("reconcileHiddenIds writes nothing without a container or a checked-off row", () => {
+    const bare = { uiContainer: null, m: { layers: [] } } as unknown as LayerUI;
+    expect(() => reconcileHiddenIds(bare)).not.toThrow();
+
+    const save = vi
+      .spyOn(manager.persistence, "saveHiddenIds")
+      .mockImplementation(() => {});
+    ui.hiddenIds = new Set();
+    // Every fixture row reads as checked, so the sweep has nothing to adopt —
+    // and the load must stay read-only rather than rewrite saved state.
+    reconcileHiddenIds(ui);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("applyUserState(id) ignores an id with no registry entry", () => {
+    expect(() => ui.applyUserState("ghost")).not.toThrow();
+  });
+
+  it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
+    ui.hiddenIds = new Set(["overlay1"]);
+
+    ui.applyUserState("overlay1");
+
+    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("saveOpacityMap persists the live map through the debounced getter", () => {
+    const save = vi
+      .spyOn(manager.persistence, "saveOpacity")
+      .mockImplementation(() => {});
+    ui.opacityMap = { overlay1: 0.3 };
+
+    saveOpacityMap(ui);
+
+    // The write is debounced, so the getter must read the map at flush time —
+    // a later edit has to win over the snapshot at call time.
+    const getter = save.mock.calls[0][0] as () => Record<string, number>;
+    ui.opacityMap = { overlay1: 0.7 };
+    expect(getter()).toEqual({ overlay1: 0.7 });
   });
 });

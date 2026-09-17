@@ -91,7 +91,6 @@ import {
   saveFoldState,
   saveHiddenIds,
   saveNamesState,
-  saveOpacityMap,
   syncHiddenId,
 } from "./state.js";
 import {
@@ -639,9 +638,6 @@ class LayerUI {
   }
   saveNamesState() {
     return saveNamesState(this);
-  }
-  saveOpacityMap() {
-    return saveOpacityMap(this);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
