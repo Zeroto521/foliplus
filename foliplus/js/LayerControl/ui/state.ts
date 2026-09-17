@@ -140,6 +140,15 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     ui.hiddenHasState = true;
     saveHiddenIds(ui);
   }
+  // Opacity is the same absolute-map shape as names: a stale id that no
+  // longer resolves to a layer must not accumulate. Unlike hidden ids there
+  // is no "absent key" semantics to preserve — a missing entry simply means
+  // fully opaque — so pruning on every sweep is safe.
+  const goneOpacity = Object.keys(ui.opacityMap).filter(id => !stillPresent(id));
+  if (goneOpacity.length > 0) {
+    for (const id of goneOpacity) delete ui.opacityMap[id];
+    saveOpacityMap(ui);
+  }
 };
 
 /**

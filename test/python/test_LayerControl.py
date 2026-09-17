@@ -739,6 +739,38 @@ class TestLayerControlRendering:
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
+    def test_shared_section_heading_in_form_css(self):
+        """Shared section heading lives in form.css (Heatmap + style panel)."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in css
+        assert "text-transform: uppercase" in css
+        assert "letter-spacing: var(--letter-spacing-tight)" in css
+
+    def test_opacity_control_css(self):
+        """Opacity control: checkerboard track, accent thumb, compact number."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-style-opacity-control" in css
+        assert ".foliplus-style-opacity-range" in css
+        assert ".foliplus-style-opacity-number" in css
+        # Checkerboard via repeating-conic-gradient on both track prefixes.
+        assert "repeating-conic-gradient" in css
+        assert "::-webkit-slider-runnable-track" in css
+        assert "::-moz-range-track" in css
+        # Thumb uses the accent primary token, not a hard-coded red.
+        assert "background: var(--accent-primary)" in css
+        assert "::-webkit-slider-thumb" in css
+        assert "::-moz-range-thumb" in css
+        # Focus ring on the range, matching every other foliplus control.
+        assert ".foliplus-style-opacity-range:focus-visible" in css
+        assert "box-shadow: var(--focus-ring)" in css
+
+    def test_style_panel_locale_keys_present(self):
+        """Opacity / section keys are injected into the LayerControl bundle."""
+        html = render_control(LayerControl())
+        assert "LayerControl.section_label" in html
+        assert "LayerControl.section_layer" in html
+        assert "LayerControl.style_opacity" in html
+
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
         css = read_css("foliplus/css/LayerControl/index.css")

@@ -4,6 +4,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
+  applyOpacityStateOne,
   applyVisibleStateOne,
   saveFoldState,
 } from "#foliplus/LayerControl/ui/state.js";
@@ -707,6 +708,176 @@ describe("ui/state saveFoldState", () => {
     } as unknown as LayerUI;
     saveFoldState(ui);
     expect(save).toHaveBeenCalledWith(ui.foldedGroups);
+  });
+});
+
+// ─────────────────── opacity apply / restore / prune ───────────────────
+
+describe("applyOpacityStateOne", () => {
+  it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
+    const setStyle = vi.fn();
+    const canvas = document.createElement("canvas");
+    const li = {
+      id: "heat",
+      canvas,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.35);
+
+    expect(canvas.style.opacity).toBe("0.35");
+    expect(li.opacity).toBe(0.35);
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("calls setStyle({opacity, fillOpacity}) on Path-like layers", () => {
+    const setStyle = vi.fn();
+    const li = {
+      id: "poly",
+      canvas: null,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.5);
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+    expect(li.opacity).toBe(0.5);
+  });
+
+  it("recurses through LayerGroup children (no setStyle on the group)", () => {
+    const childSetStyle = vi.fn();
+    const group = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => {
+        fn({ options: {}, setStyle: childSetStyle });
+      }),
+    };
+    const li = {
+      id: "group",
+      canvas: null,
+      layer: group as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.2);
+
+    expect(group.eachLayer).toHaveBeenCalled();
+    expect(childSetStyle).toHaveBeenCalledWith({ opacity: 0.2, fillOpacity: 0.2 });
+  });
+
+  it("falls back to setOpacity for Markers", () => {
+    const setOpacity = vi.fn();
+    const li = {
+      id: "marker",
+      canvas: null,
+      layer: { options: {}, setOpacity } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.8);
+
+    expect(setOpacity).toHaveBeenCalledWith(0.8);
+  });
+
+  it("no-ops safely when the layer is null", () => {
+    const li = { id: "x", canvas: null, layer: null, opacity: 1 } as unknown as LayerInfo;
+    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.4)).not.toThrow();
+    expect(li.opacity).toBe(0.4);
+  });
+});
+
+describe("LayerUI opacity restore / prune", () => {
+  const makeMap = () => {
+    const setStyle = vi.fn();
+    const layer = { options: {}, setStyle } as unknown as L.Layer;
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      hasLayer: vi.fn(() => true),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const el = document.createElement("div");
+        el.id = "map";
+        return el;
+      }),
+      getPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      createPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    };
+    return { map, layer, setStyle };
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("applyUserState restores a stored opacity onto Path layers", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.45 };
+
+    u.applyUserState();
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.45, fillOpacity: 0.45 });
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(0.45);
+  });
+
+  it("applyUserState(id) applies opacity for a late-registered canvas layer", () => {
+    const { map } = makeMap();
+    const canvas = document.createElement("canvas");
+    const m = new LayerManager(map, [
+      { id: "heat", name: "Heat", canvas, layer: null, onToggle: vi.fn() },
+    ]);
+    const u = new LayerUI(m);
+    u.opacityMap = { heat: 0.25 };
+
+    u.applyUserState("heat");
+
+    expect(canvas.style.opacity).toBe("0.25");
+    expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
+  });
+
+  it("prunes opacity entries whose layers are gone", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.4, ghost: 0.1 };
+
+    u.applyUserState();
+
+    expect(u.opacityMap).toEqual({ overlay1: 0.4 });
+    // Still applied the live entry before pruning the ghost.
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
+  });
+
+  it("leaves a live layer alone when no opacity is stored", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = {};
+
+    u.applyUserState();
+
+    expect(setStyle).not.toHaveBeenCalled();
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(1);
   });
 });
 

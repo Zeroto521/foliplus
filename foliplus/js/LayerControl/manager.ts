@@ -403,6 +403,10 @@ class LayerManager implements LayerAPI {
         // Invalidating re-renders as well, keeping the labels on the map in step
         // with what the picker offers.
         this.ui.invalidateFields(opts.id);
+        // A re-registration may replace the live layer/canvas object. Opacity
+        // is stored per-id, so re-apply it onto the fresh element (no-op when
+        // the user never changed it).
+        this.ui.applyUserState(opts.id);
       }
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).

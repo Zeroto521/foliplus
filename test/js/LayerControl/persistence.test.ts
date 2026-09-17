@@ -286,6 +286,28 @@ describe("LayerPersistence", () => {
     });
   });
 
+  describe("saveOpacity", () => {
+    it("debounces rapid calls into one write of the last map", () => {
+      vi.useFakeTimers();
+      const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);
+      const p = makePersistence(["a", "b"]);
+      p.saveOpacity(() => ({ a: 0.5 }));
+      p.saveOpacity(() => ({ a: 0.25, b: 0.75 }));
+      expect(save).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save).toHaveBeenCalledWith(
+        CONST.STORAGE.OPACITY_KEY,
+        { a: 0.25, b: 0.75 },
+        "LayerControl",
+      );
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+  });
+
   describe("saveFoldedGroups", () => {
     it("saves synchronously", () => {
       const save = vi.spyOn(Storage, "save").mockImplementation(() => undefined);

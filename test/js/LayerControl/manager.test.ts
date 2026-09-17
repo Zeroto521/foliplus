@@ -7,6 +7,7 @@ import {
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
+import { applyUserState } from "#foliplus/LayerControl/ui/state.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   FALLBACK_PANE_PREFIX,
@@ -854,6 +855,7 @@ describe("LayerManager", () => {
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),
       invalidateFields: vi.fn(),
+      applyUserState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(manager.ui.updateLayerItem).toHaveBeenCalled();
@@ -861,6 +863,42 @@ describe("LayerManager", () => {
     // A re-registration is how the API says the layer's content changed, so the
     // cached field list — and the auto field resolved from it — must be dropped.
     expect(manager.ui.invalidateFields).toHaveBeenCalledWith("overlay1");
+    // Opacity is stored per-id; re-registration may swap the live layer/canvas.
+    expect(manager.ui.applyUserState).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("re-registration re-applies stored opacity onto a replaced canvas", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.uiContainer = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    manager.registerLayer({ id: "heat", name: "Heat", canvas });
+    manager.ui = {
+      updateLayerItem: vi.fn(),
+      initLayerItem: vi.fn(),
+      syncToggleAll: vi.fn(),
+      insertLayerItem: vi.fn(),
+      invalidateFields: vi.fn(),
+      applyUserState: (id: string) =>
+        applyUserState(
+          {
+            m: manager,
+            uiContainer: manager.uiContainer,
+            hiddenIds: new Set(),
+            renamedNames: {},
+            opacityMap: { heat: 0.4 },
+          } as any,
+          id,
+        ),
+      opacityMap: { heat: 0.4 },
+      hiddenIds: new Set(),
+    } as any;
+
+    // Swap the canvas on re-registration — the new element starts opaque.
+    const fresh = document.createElement("canvas");
+    manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
+
+    expect(fresh.style.opacity).toBe("0.4");
+    expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 
   it("unregisterLayer removes the UI row and reindexes", () => {

@@ -14,6 +14,7 @@ from conftest import (
     assert_locale,
     heatmap_ready,
     make_browser_page,
+    read_css,
     read_css_dir,
     render_control,
     use_page,
@@ -287,6 +288,17 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "HeatmapControl.section_data" in html
         assert "HeatmapControl.section_style" in html
+
+    def test_uses_shared_section_heading_class(self):
+        """Section headings use the shared form.css class, not a heatmap-local one."""
+        html = render_control(HeatmapControl())
+        assert "foliplus-section-heading" in html
+        assert "foliplus-heatmap-section-heading" not in html
+        css = read_css("foliplus/css/HeatmapControl.css")
+        assert ".foliplus-heatmap-section-heading" not in css
+        shared = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in shared
+        assert "letter-spacing: var(--letter-spacing-tight)" in shared
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""

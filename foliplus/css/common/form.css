@@ -156,7 +156,9 @@
   gap: var(--space-sm);
 }
 
-/* Opacity control: checkerboard track + accent thumb + compact number. */
+/* Opacity control: checkerboard track + accent thumb + compact number.
+   The checkerboard is the standard transparency grid (8px cells) so the
+   slider reads as "how opaque" rather than "how far". */
 .foliplus-style-opacity-control {
   display: flex;
   align-items: center;
@@ -221,6 +223,7 @@
 }
 
 .foliplus-style-opacity-number {
+  /* Fits "100" at --font-size-xs without competing with the slider. */
   width: 36px;
   flex-shrink: 0;
   height: var(--size-20);

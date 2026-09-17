@@ -697,6 +697,100 @@ describe("LayerUI style panel", () => {
     expect(ui.opacityMap.overlay1).toBeUndefined();
   });
 
+  it("reopening the panel seeds the opacity inputs from opacityMap", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const range = panelOf(item)!.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    range.value = "25";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    ui.closeStylePanel(false);
+
+    ui.openStylePanel("overlay1");
+    const reopened = panelOf(item)!;
+    expect(
+      (reopened.querySelector(".foliplus-style-opacity-range") as HTMLInputElement).value,
+    ).toBe("25");
+    expect(
+      (reopened.querySelector(".foliplus-style-opacity-number") as HTMLInputElement)
+        .value,
+    ).toBe("25");
+  });
+
+  it("opacity 0 is kept in the map (only 1 is treated as default)", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const range = panelOf(item)!.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "0";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0, fillOpacity: 0 });
+    expect(ui.opacityMap.overlay1).toBe(0);
+    expect(li.opacity).toBe(0);
+  });
+
+  it("a valid number change syncs the range slider", () => {
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as { setStyle: unknown }).setStyle = setStyle;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+
+    number.value = "35";
+    number.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(range.value).toBe("35");
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.35, fillOpacity: 0.35 });
+    expect(li.opacity).toBe(0.35);
+  });
+
+  it("delegated Reset also restores LayerControl-owned opacity", () => {
+    const labelShowSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: labelShowSetter },
+      styleDefaults: () => ({ labelShow: true }),
+    });
+    const li = manager.layerRegistry.get("heat1")!;
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    range.value = "15";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(li.opacity).toBe(0.15);
+
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(li.opacity).toBe(1);
+    expect(li.canvas!.style.opacity).toBe("1");
+    expect(ui.opacityMap.heat1).toBeUndefined();
+    expect(labelShowSetter).toHaveBeenCalledWith(true);
+  });
+
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
