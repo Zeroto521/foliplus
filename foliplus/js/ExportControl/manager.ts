@@ -85,9 +85,6 @@ interface GeoBounds {
 interface DragState {
   dragging: boolean;
   dragType: string | null;
-  startX: number;
-  startY: number;
-  startRect: Rect | null;
   lastX: number;
   lastY: number;
 }
@@ -189,9 +186,6 @@ class ExportManager {
     this.dragState = {
       dragging: false,
       dragType: null,
-      startX: 0,
-      startY: 0,
-      startRect: null,
       lastX: 0,
       lastY: 0,
     };
@@ -267,72 +261,107 @@ class ExportManager {
     });
   }
 
-  onMouseDown(event: MouseEvent) {
+  onPointerDown(event: PointerEvent) {
     const st = this.cropState;
     if (!st || st.locked) return;
-    event.preventDefault();
-    event.stopPropagation();
     const target = event.target as HTMLElement;
+    let type: string | null = null;
     if (target.classList.contains(CONST.CLASSES.HANDLE)) {
-      this.dragState.dragType = target.dataset.pos ?? null;
+      type = target.dataset.pos ?? null;
     } else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
     ) {
-      this.dragState.dragType = "move";
+      type = "move";
     } else return;
 
+    // Claim the press. This must come after the target check: the handler also
+    // runs for presses on the map outside the box, and preventing those would
+    // swallow native behaviour (map drag, tile click, focus move) for every
+    // pointerdown on the page while a crop box is open.
+    //
+    // stopImmediatePropagation, not stopPropagation: the pointerdown wrapper in
+    // core/interaction.ts has already preventDefault+stopPropagation'd the event
+    // *before* calling this handler, so stopPropagation here is a no-op and a
+    // second listener on the same box element would still run. The mouse
+    // compatibility event the browser queues for this pointerdown is a separate
+    // event entirely — what actually keeps LayerControl's document-level
+    // mousedown (drop-the-cursor-on-outside-press) from firing mid-drag is
+    // preventDefault above: mouse* compatibility events are only dispatched
+    // when the pointerdown was not prevented.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    // Claim the pointer: every later pointermove/pointerup for this pointer
+    // arrives at `target` and bubbles to the document drag listener even when
+    // the cursor is over another element. Mouse events have no capture
+    // contract, so a single move event routed to a different target
+    // (crossing the Leaflet controls above the crop overlay, or a tile
+    // boundary) is silently dropped and the box lands short of the cursor.
+    if (event.pointerId !== null && target.setPointerCapture) {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // best-effort — some browsers reject capture during the same
+        // gesture that started it; the incremental-delta fallback below
+        // still works, just without the anti-drop guarantee.
+      }
+    }
+
     this.dragState.dragging = true;
+    this.dragState.dragType = type;
     // Disable the box transition during drag so it tracks the cursor
-    // instantly (the 0.15s lag made the box feel "behind" the mouse and
-    // caused accidental drags). Re-enabled in onMouseUp.
+    // instantly (the 0.15s lag made the box feel "behind" the cursor and
+    // caused accidental drags). Re-enabled in onPointerUp.
     st.box.classList.add(CONST.CLASSES.DRAGGING);
-    // Track the last mouse position for incremental deltas (avoids
-    // sudden jumps from cumulative errors or stale startRect).
+    // Anchor the first delta to the pointer position at press time so the
+    // box doesn't lurch by the distance already travelled before
+    // registerDrag's document listeners fire.
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
-    this.dragState.startRect = Object.assign({}, st.rect);
     this.dragCleanup = registerDrag(this);
   }
 
-  onMouseMove(event: MouseEvent) {
-    if (!this.dragState.dragging) return;
-    // Incremental delta from the last mouse position. Applying this to the
-    // *current* rect (not the startRect) avoids sudden jumps from cumulative
-    // error and keeps the box glued to the cursor.
+  onPointerMove(event: PointerEvent) {
+    const st = this.cropState;
+    if (!st || !this.dragState.dragging) return;
+    // Resolve the box before consuming the anchor: an event arriving after
+    // the crop box was removed must not advance lastX/lastY, or the next
+    // drag's first move would measure from a stale point.
+    const type = this.dragState.dragType;
+    // Incremental delta from the last pointer position, applied to the
+    // *current* rect. The deltas telescope into the total displacement, so
+    // clamping one frame never accumulates into a jump on the next.
     const dx = event.clientX - this.dragState.lastX;
     const dy = event.clientY - this.dragState.lastY;
     this.dragState.lastX = event.clientX;
     this.dragState.lastY = event.clientY;
     const mapRect = this.mapContainer.getBoundingClientRect();
-    const st = this.cropState;
-    if (!st) return;
     const cur = st.rect;
     const r = Object.assign({}, cur);
-    const type = this.dragState.dragType;
     if (type === "move") {
       r.left = Math.max(0, Math.min(mapRect.width - r.width, cur.left + dx));
       r.top = Math.max(0, Math.min(mapRect.height - r.height, cur.top + dy));
-    } else {
-      if (["tl", "l", "bl"].includes(type!)) {
+    } else if (type) {
+      if (["tl", "l", "bl"].includes(type)) {
         const maxDx = cur.width - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.left, Math.min(dx, maxDx));
         r.left = cur.left + a;
         r.width = cur.width - a;
       }
-      if (["tr", "r", "br"].includes(type!)) {
+      if (["tr", "r", "br"].includes(type)) {
         const maxDx = mapRect.width - (cur.left + cur.width);
         const minDx = CONST.CROP.MIN_SIZE - cur.width;
         const a = Math.max(minDx, Math.min(dx, maxDx));
         r.width = cur.width + a;
       }
-      if (["tl", "t", "tr"].includes(type!)) {
+      if (["tl", "t", "tr"].includes(type)) {
         const maxDy = cur.height - CONST.CROP.MIN_SIZE;
         const a = Math.max(-cur.top, Math.min(dy, maxDy));
         r.top = cur.top + a;
         r.height = cur.height - a;
       }
-      if (["bl", "b", "br"].includes(type!)) {
+      if (["bl", "b", "br"].includes(type)) {
         const maxDy = mapRect.height - (cur.top + cur.height);
         const minDy = CONST.CROP.MIN_SIZE - cur.height;
         const a = Math.max(minDy, Math.min(dy, maxDy));
@@ -345,15 +374,41 @@ class ExportManager {
     if (type !== "move") this.showHintWithInfo(r, T("hint_unlocked"));
   }
 
-  onMouseUp() {
+  onPointerUp(event: PointerEvent) {
+    const wasDragging = this.dragState.dragging;
     this.dragState.dragging = false;
     this.dragState.dragType = null;
-    // mousemove/mouseup auto-cleaned by dragCleanup
-    // Re-enable transition so the box animates smoothly to its final position
-    // on the next non-drag style update (e.g. after unlock).
-    if (this.cropState?.box) {
+    // Give the pointer back. Skip it when the gesture never started — a
+    // synthetic pointerup with no matching down must not strip the .dragging
+    // class off a box that is mid-drag by another pointer.
+    if (wasDragging && event.pointerId !== null) {
+      // event.target can be document or any non-element (jsdom, synthetic
+      // events) — only Elements have hasPointerCapture. Browsers also
+      // release capture automatically on pointerup, so this is belt and
+      // braces for pointercancel, which has no such guarantee.
+      const target = event.target;
+      if (target instanceof Element && target.hasPointerCapture?.(event.pointerId)) {
+        try {
+          target.releasePointerCapture(event.pointerId);
+        } catch {
+          // capture already gone
+        }
+      }
+    }
+    // Re-enable transition so the box animates smoothly to its final
+    // position on the next non-drag style update (e.g. after unlock).
+    if (wasDragging && this.cropState?.box) {
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
     }
+  }
+
+  onPointerCancel(event: PointerEvent) {
+    // Fires when the browser takes the pointer away (touch pinch, an OS
+    // drag, a browser gesture) and never delivers a matching pointerup.
+    // Without this the gesture would leave `dragging` set and the listeners
+    // registered, so the next drag inherited the stale lastX/lastY anchor
+    // and its first move jumped.
+    this.onPointerUp(event);
   }
 
   registerShortcuts(): void {
