@@ -49,6 +49,8 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "count")
         assert_config_value(html, "border_weight", 1.5)
         assert_config_value(html, "label_show", True)
+        assert_config_value(html, "label_color", "#fff")
+        assert_config_value(html, "label_size", 11)
         assert_config_value(html, "label_format", "auto")
 
     def test_custom_params(self):
@@ -231,21 +233,17 @@ class TestHeatmapControlRendering:
             assert method in html
 
     def test_border_control_renders(self):
-        """Border weight slider and color input are rendered."""
+        """Border weight number input and color swatch use the shared form chrome."""
         html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
+        assert "form-number-input" in html
+        assert "form-color-input" in html
 
     def test_border_weight_input_has_min_max(self):
-        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
+        """Border weight number input carries min/max from BORDER bounds."""
         html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
-        assert "weight-input" in html
-        # oninput for live preview (only fires when value is in range)
-        assert "weight-input" in html
-        # onchange for final clamp
-        assert "color-input" in html
+        assert "form-number-input" in html
+        assert "BORDER.WEIGHT_MIN" in html
+        assert "BORDER.WEIGHT_MAX" in html
 
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""
@@ -256,18 +254,18 @@ class TestHeatmapControlRendering:
         assert 'disabled: "disabled"' not in html
 
     def test_border_weight_breathing_focus(self):
-        """weight-input is included in the shared breathing-focus rule."""
+        """Shared number-input is included in the breathing-focus rule."""
         from pathlib import Path
 
         css = read_css_dir("foliplus/css/common", "reset.css")
-        assert "foliplus-heatmap-weight-input" in css
+        assert "foliplus-form-number-input" in css
         assert "input-breathe" in css
 
     def test_focus_breathe_selector_single_definition(self):
         """The breathing-focus selector list is defined once (no animation/reduced-motion duplication)."""
         css = read_css_dir("foliplus/css/common", "reset.css")
-        # `foliplus-heatmap-weight-input` appears once inside the shared :is(...) list.
-        assert css.count("foliplus-heatmap-weight-input") == 1
+        # `foliplus-form-number-input` appears once inside the shared :is(...) list.
+        assert css.count("foliplus-form-number-input") == 1
         # The animation is driven by a custom property so reduced-motion only
         # overrides the value, not the selector list.
         assert "var(--input-breathe-anim)" in css
@@ -296,11 +294,13 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.section_style" in html
 
     def test_section_label_renders(self):
-        """Labels section heading and number-format select are rendered."""
+        """Labels section heading and style/format controls are rendered."""
         html = render_control(HeatmapControl())
         assert "HeatmapControl.section_label" in html
+        assert "HeatmapControl.label_style" in html
+        assert "data-heatmap-label-color" in html
+        assert "data-heatmap-label-size" in html
         assert "data-heatmap-label-format" in html
-        assert "HeatmapControl.label_format" in html
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -866,7 +866,7 @@ class TestHeatmapControlBrowser:
             after = page.evaluate(
                 """() => ({
                     m: window.__heatmapCtrl.manager.borderWeight,
-                    input: document.querySelector('.foliplus-heatmap-weight-input').value,
+                    input: document.querySelector('.foliplus-form-number-input').value,
                 })"""
             )
             assert after["m"] == 3.5, (

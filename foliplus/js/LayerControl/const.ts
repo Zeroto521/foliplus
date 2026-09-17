@@ -116,6 +116,8 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
+  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
+  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",

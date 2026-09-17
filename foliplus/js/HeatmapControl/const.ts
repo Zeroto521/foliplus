@@ -2,6 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -68,6 +69,13 @@ const BORDER = {
   WEIGHT_DEFAULT: 1,
 };
 
+/** Hex-label typography — shared bounds from common/form.js so the layer
+ *  style drawer never redeclares 6/32/11. */
+const LABEL = {
+  ...LABEL_SIZE,
+  COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
+};
+
 const CLASSES = {
   HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
@@ -89,10 +97,10 @@ const CLASSES = {
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",
-  BORDER_WEIGHT_INPUT: "foliplus-heatmap-weight-input",
+  BORDER_COLOR_INPUT: "foliplus-form-color-input",
+  BORDER_WEIGHT_INPUT: "foliplus-form-number-input",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
-  FORM_CONTROL_INLINE: "foliplus-heatmap-form-inline",
+  FORM_CONTROL_INLINE: "foliplus-form-inline",
   SECTION_DIVIDER: "foliplus-section-divider",
   CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
   HEATMAP_CTRL: "foliplus-heatmap-ctrl",
@@ -121,6 +129,8 @@ const DATA_ATTR = {
   BORDER_COLOR: "data-heatmap-border-color",
   BORDER_WEIGHT: "data-heatmap-border-weight",
   LABEL_CHK: "data-heatmap-label-chk",
+  LABEL_COLOR: "data-heatmap-label-color",
+  LABEL_SIZE: "data-heatmap-label-size",
   LABEL_FORMAT: "data-heatmap-label-format",
   BTN_CLEAR: "data-heatmap-btn-clear",
 };
@@ -134,6 +144,7 @@ export {
   GRAY,
   H3,
   ID,
+  LABEL,
   METHOD,
   SEL,
   STORAGE,

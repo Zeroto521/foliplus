@@ -51,7 +51,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
     <div class="foliplus-heatmap-section-block">
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("class_method")}</label>
-        <div class="foliplus-form-control foliplus-heatmap-form-inline">
+        <div class="foliplus-form-control foliplus-form-inline">
           <select class="foliplus-form-select" ${CONST.DATA_ATTR.METHOD}>
             <option value="${CONST.METHOD.JENKS}">${T("jenks")}</option>
             <option value="${CONST.METHOD.QUANTILE}">${T("quantile")}</option>
@@ -83,9 +83,9 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("border")}</label>
-        <div class="foliplus-form-control foliplus-heatmap-form-inline">
-          <input class="foliplus-heatmap-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
-          <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
+        <div class="foliplus-form-control foliplus-form-inline">
+          <input class="foliplus-form-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
+          <input class="foliplus-form-number-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
         </div>
       </div>
 
@@ -103,6 +103,14 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
             <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
             <span class="foliplus-toggle-slider"></span>
           </label>
+        </div>
+      </div>
+
+      <div class="foliplus-form-row">
+        <label class="foliplus-form-label">${T("label_style")}</label>
+        <div class="foliplus-form-control foliplus-form-inline">
+          <input class="foliplus-form-color-input" type="color" ${CONST.DATA_ATTR.LABEL_COLOR}>
+          <input class="foliplus-form-number-input" type="number" min="${CONST.LABEL.SIZE_MIN}" max="${CONST.LABEL.SIZE_MAX}" step="${CONST.LABEL.SIZE_STEP}" ${CONST.DATA_ATTR.LABEL_SIZE}>
         </div>
       </div>
 

@@ -27,6 +27,7 @@ describe("panelContentHTML", () => {
       scheme: "Color",
       border: "Border",
       label: "Label",
+      label_style: "Color / Font Size",
       label_format: "Number Format",
       label_format_auto: "Auto",
       label_format_int: "Integer",
@@ -70,6 +71,8 @@ describe("panelContentHTML", () => {
       "data-heatmap-border-color",
       "data-heatmap-border-weight",
       "data-heatmap-label-chk",
+      "data-heatmap-label-color",
+      "data-heatmap-label-size",
       "data-heatmap-label-format",
       "data-heatmap-btn-clear",
     ];
@@ -159,26 +162,25 @@ describe("panelContentHTML", () => {
     expect(html).toContain('type="checkbox"');
   });
 
-  it("includes the label number-format select with all four options", () => {
+  it("includes the label style row (color + size) and number-format select", () => {
     const html = panelContentHTML(T);
+    expect(html).toContain("data-heatmap-label-color");
+    expect(html).toContain("data-heatmap-label-size");
     expect(html).toContain("data-heatmap-label-format");
-    expect(html).toContain('value="auto"');
-    expect(html).toContain('value="int"');
-    expect(html).toContain('value="comma"');
-    expect(html).toContain('value="percent"');
+    expect(html).toContain("Color / Font Size");
     expect(html).toContain("Number Format");
     expect(html).toContain("Thousands Separator");
   });
 
   it("includes border color picker", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-color-input");
+    expect(html).toContain("foliplus-form-color-input");
     expect(html).toContain('type="color"');
   });
 
   it("includes border weight input", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-weight-input");
+    expect(html).toContain("foliplus-form-number-input");
   });
 
   it("includes section divider", () => {

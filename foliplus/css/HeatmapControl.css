@@ -37,12 +37,8 @@
     padding: 0;
   }
 
-  /* Inline control group (two selects, or color + weight inputs) sharing
-     one form-control cell — a layout variant, not covered by form.css. */
-  .foliplus-heatmap-form-inline {
-    display: flex;
-    gap: var(--space-sm);
-  }
+  /* ── Inline control groups use shared form.css (.foliplus-form-inline /
+     .foliplus-form-color-input / .foliplus-form-number-input). ── */
 
   /* Class count small select — width override on the shared form-select. */
   .foliplus-heatmap-class-select {
@@ -160,50 +156,8 @@
     overflow: hidden;
   }
 
-  /* ── Border Inputs ── */
-  .foliplus-heatmap-color-input {
-    flex: 1;
-    height: var(--ctrl-size);
-    padding: var(--border-thin);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    background: none;
-    outline: none;
-    box-sizing: border-box;
-    transition: var(--transition-input);
-
-    &::-webkit-color-swatch-wrapper {
-      padding: var(--border-thin);
-    }
-    &::-webkit-color-swatch {
-      border: none;
-      border-radius: var(--radius-sm);
-    }
-  }
-  .foliplus-heatmap-weight-input {
-    width: var(--heatmap-inline-width);
-    height: var(--ctrl-size);
-    font-size: var(--font-size-sm);
-    padding: 0 var(--size-6);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    outline: none;
-    box-sizing: border-box;
-    text-align: center;
-    transition: var(--transition-input);
-
-    &::-webkit-outer-spin-button,
-    &::-webkit-inner-spin-button {
-      appearance: none;
-      margin: 0;
-    }
-    &[type="number"] {
-      appearance: textfield;
-    }
-  }
+  /* Color / number inputs live in common/form.css — one visual for the
+     heatmap panel and the layer style drawer. */
 
   /* ── Bottom Buttons ──
      The Clear action and its row come from the shared panel-button recipe

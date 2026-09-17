@@ -12,6 +12,15 @@ import {
   resolveSelectedField,
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
+import {
+  LABEL_COLOR_DEFAULT,
+  LABEL_SIZE,
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput as formColorInput,
+  numberInput as formNumberInput,
+  inlineControls,
+} from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import type { AnnotationConfig } from "../annotation/index.js";
@@ -161,6 +170,61 @@ const renderDelegatedStylePanel = (
   const values = li.styleProvider?.() ?? {};
   const showChecked = !!values.labelShow;
   const bodyRows: HTMLElement[] = [];
+
+  // Color + size share one row (same recipe as the heatmap border row).
+  // Order under the toggle: appearance, then number format, then collide.
+  if (setters.labelColor || setters.labelSize) {
+    const colorInput = setters.labelColor
+      ? formColorInput({
+          value:
+            typeof values.labelColor === "string"
+              ? values.labelColor
+              : LABEL_COLOR_DEFAULT,
+          className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+          ariaLabel: ui.T("style_label_color"),
+        })
+      : null;
+    const sizeInput = setters.labelSize
+      ? formNumberInput({
+          value:
+            typeof values.labelSize === "number"
+              ? values.labelSize
+              : LABEL_SIZE.SIZE_DEFAULT,
+          min: LABEL_SIZE.SIZE_MIN,
+          max: LABEL_SIZE.SIZE_MAX,
+          step: LABEL_SIZE.SIZE_STEP,
+          className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+          ariaLabel: ui.T("style_label_size"),
+        })
+      : null;
+    // Live on input, clamp on commit — same bindLive* recipe as the
+    // heatmap panel so out-of-range sizes rewrite the field to the bound.
+    if (colorInput) {
+      bindLiveColor(colorInput as HTMLInputElement, value => {
+        setters.labelColor?.(value);
+      });
+    }
+    if (sizeInput) {
+      bindLiveNumber(sizeInput as HTMLInputElement, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => setters.labelSize?.(value),
+      });
+    }
+    const inline = inlineControls(
+      ...(colorInput ? [colorInput] : []),
+      ...(sizeInput ? [sizeInput] : []),
+    );
+    bodyRows.push(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+      ),
+    );
+  }
 
   // Number format lives under the label toggle — same collapse rule as the
   // annotation panel's format row (hidden when labels are off).
@@ -495,6 +559,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) {
         setters.labelCollide(t.checked);
       } else if (
+        // Color/size are bound live via input listeners at render time —
+        // the change event would double-commit.
         t instanceof HTMLSelectElement &&
         t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
         setters.labelFormat
@@ -644,6 +710,22 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLInputElement | null;
       if (collideInput && document.activeElement !== collideInput) {
         collideInput.checked = values.labelCollide !== false;
+      }
+      const colorInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (colorInput && document.activeElement !== colorInput) {
+        if (typeof values.labelColor === "string") {
+          colorInput.value = values.labelColor;
+        }
+      }
+      const sizeInput = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+      ) as HTMLInputElement | null;
+      if (sizeInput && document.activeElement !== sizeInput) {
+        if (typeof values.labelSize === "number") {
+          sizeInput.value = String(values.labelSize);
+        }
       }
       const formatSelect = panel.querySelector(
         `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
