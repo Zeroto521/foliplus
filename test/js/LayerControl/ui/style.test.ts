@@ -993,6 +993,31 @@ describe("LayerUI style panel", () => {
     expect(labelSizeSetter).toHaveBeenCalledWith(18);
   });
 
+  it("delegated size input clamps out-of-range values on commit, like the heatmap panel", () => {
+    const labelSizeSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelSize: 11 }),
+      styleSetters: { labelShow: vi.fn(), labelSize: labelSizeSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const size = panelOf(item)!.querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+
+    size.value = "99";
+    size.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(labelSizeSetter).not.toHaveBeenCalled();
+
+    size.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(size.value).toBe("32");
+    expect(labelSizeSetter).toHaveBeenCalledWith(32);
+  });
+
   it("delegated panel renders only the color input when size setter is absent", () => {
     manager.registerLayer({
       id: "heat1",

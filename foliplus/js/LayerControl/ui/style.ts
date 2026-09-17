@@ -15,6 +15,8 @@ import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
   LABEL_SIZE,
+  bindLiveColor,
+  bindLiveNumber,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
@@ -195,13 +197,21 @@ const renderDelegatedStylePanel = (
           ariaLabel: ui.T("style_label_size"),
         })
       : null;
-    // Live on input — same as the heatmap panel's size/color handlers.
-    colorInput?.addEventListener("input", () => {
-      setters.labelColor?.((colorInput as HTMLInputElement).value);
-    });
-    sizeInput?.addEventListener("input", () => {
-      setters.labelSize?.(Number((sizeInput as HTMLInputElement).value));
-    });
+    // Live on input, clamp on commit — same bindLive* recipe as the
+    // heatmap panel so out-of-range sizes rewrite the field to the bound.
+    if (colorInput) {
+      bindLiveColor(colorInput as HTMLInputElement, value => {
+        setters.labelColor?.(value);
+      });
+    }
+    if (sizeInput) {
+      bindLiveNumber(sizeInput as HTMLInputElement, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => setters.labelSize?.(value),
+      });
+    }
     const inline = inlineControls(
       ...(colorInput ? [colorInput] : []),
       ...(sizeInput ? [sizeInput] : []),
