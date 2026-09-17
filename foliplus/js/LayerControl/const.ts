@@ -1,3 +1,4 @@
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
@@ -166,6 +167,8 @@ const GROUP = { OVERLAY: "overlay", BASE: "base" };
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
+  color: LABEL_COLOR_DEFAULT,
+  size: LABEL_SIZE.SIZE_DEFAULT,
   format: NUMBER_FORMAT.AUTO,
 } as const;
 

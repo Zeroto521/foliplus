@@ -41,8 +41,9 @@ class AnnotationCanvas {
     this.updatePosition();
   }
 
-  /** Paint this layer's slice of the plan; replaces the previous frame. */
-  paint(planned: readonly PlacedLabel[]): void {
+  /** Paint this layer's slice of the plan; replaces the previous frame.
+   *  `style` overlays runtime color/size on the shared --label-* tokens. */
+  paint(planned: readonly PlacedLabel[], style?: CanvasLabelStyle): void {
     this.resize();
     this.updatePosition();
 
@@ -52,15 +53,16 @@ class AnnotationCanvas {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const style = (this.cachedStyle ??= resolveCanvasLabelStyle(this.container));
-    prepareCanvasLabel(ctx, style);
+    const paint =
+      style ?? (this.cachedStyle ??= resolveCanvasLabelStyle(this.container));
+    prepareCanvasLabel(ctx, paint);
     for (const label of planned) {
       drawCanvasLabel(
         ctx,
         label.text,
         label.box.x + label.box.w / 2,
         label.box.y + label.box.h / 2,
-        style,
+        paint,
       );
     }
   }

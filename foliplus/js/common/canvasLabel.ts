@@ -38,6 +38,21 @@ const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
   };
 };
 
+/** Overlay runtime color/size on a resolved style. Shared by HeatmapControl
+ *  and LayerControl annotation so both recompute `font` the same way. */
+const withLabelPaint = (
+  base: CanvasLabelStyle,
+  opts: { color?: string; size?: number },
+): CanvasLabelStyle => {
+  const fontSize = opts.size ?? base.fontSize;
+  return {
+    ...base,
+    fontSize,
+    font: `${base.fontWeight} ${fontSize}px ${base.fontFamily}`,
+    color: opts.color ?? base.color,
+  };
+};
+
 /** Apply the shared font and metrics to a context once per frame. The font is
  *  assigned only when it changed: a canvas context re-parses the font string on
  *  every assignment, and the heatmap runs this once per hexagon per frame. */
@@ -70,5 +85,6 @@ export {
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
+  withLabelPaint,
   type CanvasLabelStyle,
 };

@@ -99,6 +99,8 @@ _JS_USED_KEYS = {
     "HeatmapControl.section_label",
     "HeatmapControl.label",
     "HeatmapControl.label_style",
+    "HeatmapControl.label_color",
+    "HeatmapControl.label_size",
     "HeatmapControl.label_format",
     "HeatmapControl.label_format_auto",
     "HeatmapControl.label_format_int",

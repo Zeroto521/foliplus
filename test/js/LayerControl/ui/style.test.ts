@@ -283,6 +283,71 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").collide).toBe(false);
   });
 
+  it("annotation body order is field → color/size → format → collide", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const rows = [
+      ...panelOf(item).querySelectorAll(".foliplus-style-body .foliplus-form-row"),
+    ];
+    const labels = rows.map(
+      r => r.querySelector(".foliplus-form-label")?.textContent ?? "",
+    );
+    expect(labels).toEqual([
+      "LayerControl.style_label_field",
+      "LayerControl.style_label_style",
+      "LayerControl.style_label_format",
+      "LayerControl.style_label_collide",
+    ]);
+  });
+
+  it("annotation color and size inputs are live and clamp on commit", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    const color = panelOf(item).querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const size = panelOf(item).querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+
+    color.value = "#00ff00";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").color).toBe("#00ff00");
+    expect(renderLabels).toHaveBeenCalled();
+
+    size.value = "18";
+    size.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").size).toBe(18);
+
+    size.value = "99";
+    size.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").size).toBe(32);
+    expect(size.value).toBe("32");
+  });
+
+  it("annotation panel falls back when config color/size are empty", () => {
+    manager.annotation.setConfig("overlay1", {
+      ...CONST.DEFAULT_ANNOTATION,
+      show: true,
+      color: "",
+      size: 0,
+    });
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const color = panelOf(item).querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    const size = panelOf(item).querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    expect(color.value).toBe("#ffffff");
+    expect(size.value).toBe("11");
+  });
+
   it("applyStyleLabelState restores the avoid-overlap switch from config", () => {
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -747,10 +812,58 @@ describe("LayerUI style panel", () => {
     expect(setConfig).toHaveBeenCalledWith("overlay1", {
       show: true,
       field: "count",
+      color: CONST.DEFAULT_ANNOTATION.color,
+      size: CONST.DEFAULT_ANNOTATION.size,
       format: NUMBER_FORMAT.AUTO,
       collide: true,
     });
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("applyStyleLabelState falls back for non-typed stored color/size", () => {
+    ui.labelConfigs = {
+      overlay1: {
+        show: true,
+        field: "count",
+        color: 42 as unknown as string,
+        size: "big" as unknown as number,
+        format: NUMBER_FORMAT.AUTO,
+      },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).toHaveBeenCalledWith(
+      "overlay1",
+      expect.objectContaining({
+        color: CONST.DEFAULT_ANNOTATION.color,
+        size: CONST.DEFAULT_ANNOTATION.size,
+      }),
+    );
+  });
+
+  it("applyStyleLabelState normalizes a stored short hex color and clamps size", () => {
+    ui.labelConfigs = {
+      overlay1: {
+        show: true,
+        field: "count",
+        color: "#abc",
+        size: 99,
+        format: NUMBER_FORMAT.AUTO,
+      },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).toHaveBeenCalledWith(
+      "overlay1",
+      expect.objectContaining({
+        color: "#aabbcc",
+        size: 32,
+      }),
+    );
   });
 
   it("applyStyleLabelState leaves an already-configured layer alone", () => {
@@ -916,6 +1029,8 @@ describe("LayerUI style panel", () => {
         overlay1: {
           show: true,
           field: "count",
+          color: CONST.DEFAULT_ANNOTATION.color,
+          size: CONST.DEFAULT_ANNOTATION.size,
           format: NUMBER_FORMAT.AUTO,
           collide: true,
         },
@@ -925,7 +1040,73 @@ describe("LayerUI style panel", () => {
     }
   });
 
+  it("annotation format labels fall back to the raw key when T returns empty", () => {
+    const item = findItem(ui, "overlay1");
+    const realT = ui.T;
+    ui.T = (key: string) => (key.startsWith("style_label_format_") ? "" : realT(key));
+
+    ui.openStylePanel("overlay1");
+
+    const opts = panelOf(item)!.querySelectorAll(
+      ".foliplus-style-format-select option",
+    );
+    expect([...opts].map(o => o.textContent)).toEqual([
+      "auto",
+      "int",
+      "comma",
+      "percent",
+    ]);
+
+    ui.T = realT;
+  });
+
   // ─────────────────── delegated style panel (third-party) ───────────────────
+
+  it("delegated panel with only labelShow + labelFormat omits color/size row", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-size-input")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-format-select")).not.toBeNull();
+  });
+
+  it("delegated format labels fall back to the raw key when T returns empty", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    const realT = ui.T;
+    ui.T = (key: string) => (key.startsWith("style_label_format_") ? "" : realT(key));
+
+    ui.openStylePanel("heat1");
+
+    // The || f fallback made the option text the raw format key.
+    const opts = panelOf(item)!.querySelectorAll(
+      ".foliplus-style-format-select option",
+    );
+    expect([...opts].map(o => o.textContent)).toEqual([
+      "auto",
+      "int",
+      "comma",
+      "percent",
+    ]);
+
+    ui.T = realT;
+  });
 
   it("delegated panel renders a format select when labelFormat setter is present", () => {
     const labelFormatSetter = vi.fn();

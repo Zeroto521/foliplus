@@ -17,9 +17,11 @@ import {
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
+  clampLabelSize,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
+  normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
@@ -125,6 +127,14 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     ui.m.annotation.setConfig(id, {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
+      color:
+        typeof cfg.color === "string"
+          ? normalizeHexColor(cfg.color)
+          : CONST.DEFAULT_ANNOTATION.color,
+      size:
+        typeof cfg.size === "number"
+          ? clampLabelSize(cfg.size)
+          : CONST.DEFAULT_ANNOTATION.size,
       format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
       // Absent in configs stored before the switch existed: default to on.
       collide: cfg.collide !== false,
@@ -393,6 +403,21 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
+  // Appearance row — same chrome as the heatmap border / delegated drawer.
+  const colorInput = formColorInput({
+    value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
+    className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+    ariaLabel: ui.T("style_label_color"),
+  }) as HTMLInputElement;
+  const sizeInput = formNumberInput({
+    value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
+    min: LABEL_SIZE.SIZE_MIN,
+    max: LABEL_SIZE.SIZE_MAX,
+    step: LABEL_SIZE.SIZE_STEP,
+    className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+    ariaLabel: ui.T("style_label_size"),
+  }) as HTMLInputElement;
+
   const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
@@ -441,6 +466,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // on. Listens to the toggle so flipping it reveals the field/format rows
   // and auto-picks a field if none was selected yet (the "warm start" from
   // the heatmap's rule: open the gate, the first thing shows up).
+  // Body order is shared with the delegated drawer: data → appearance →
+  // format → behavior. Field first (annotation-only), then color/size,
+  // then number format, then avoid-overlap.
   const body = dom.el(
     "div",
     { class: CONST.CLASSES.STYLE_BODY },
@@ -449,6 +477,16 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       { class: CONST.CLASSES.FORM_ROW },
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+    ),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_CONTROL },
+        inlineControls(colorInput, sizeInput),
+      ),
     ),
     formatRow,
     dom.el(
@@ -531,10 +569,34 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
+  const delegated = layerHasStyleDelegation(ui, layerId);
+  // Annotation color/size commit live, same bindLive* recipe as the
+  // heatmap panel and the delegated drawer.
+  if (!delegated) {
+    const colorEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (colorEl) {
+      bindLiveColor(colorEl, value => {
+        applyPatch(ui, layerId, { color: normalizeHexColor(value) });
+      });
+    }
+    const sizeEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (sizeEl) {
+      bindLiveNumber(sizeEl, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => applyPatch(ui, layerId, { size: value }),
+      });
+    }
+  }
+
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
-  const delegated = layerHasStyleDelegation(ui, layerId);
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     if (delegated) {
