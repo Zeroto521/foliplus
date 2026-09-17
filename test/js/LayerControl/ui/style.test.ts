@@ -713,7 +713,8 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const reopened = panelOf(item)!;
     expect(
-      (reopened.querySelector(".foliplus-style-opacity-range") as HTMLInputElement).value,
+      (reopened.querySelector(".foliplus-style-opacity-range") as HTMLInputElement)
+        .value,
     ).toBe("25");
     expect(
       (reopened.querySelector(".foliplus-style-opacity-number") as HTMLInputElement)

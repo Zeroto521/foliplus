@@ -782,7 +782,12 @@ describe("applyOpacityStateOne", () => {
   });
 
   it("no-ops safely when the layer is null", () => {
-    const li = { id: "x", canvas: null, layer: null, opacity: 1 } as unknown as LayerInfo;
+    const li = {
+      id: "x",
+      canvas: null,
+      layer: null,
+      opacity: 1,
+    } as unknown as LayerInfo;
     expect(() => applyOpacityStateOne({} as LayerUI, li, 0.4)).not.toThrow();
     expect(li.opacity).toBe(0.4);
   });

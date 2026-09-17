@@ -7,8 +7,8 @@ import {
   unpatchBringToFront,
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
-import { applyUserState } from "#foliplus/LayerControl/ui/state.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { applyUserState } from "#foliplus/LayerControl/ui/state.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
