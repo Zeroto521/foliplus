@@ -70,7 +70,7 @@ const BORDER = {
 };
 
 /** Hex-label typography — shared bounds from common/form.js so the layer
- *  style drawer never re-declares 6/32/11. */
+ *  style drawer never redeclares 6/32/11. */
 const LABEL = {
   ...LABEL_SIZE,
   COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
