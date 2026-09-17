@@ -9,6 +9,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import { normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -20,15 +21,6 @@ import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
-
-/** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
-const normalizeHexColor = (value: string): string => {
-  if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-    const [r, g, b] = value.slice(1);
-    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
-  }
-  return value;
-};
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
 type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
@@ -900,4 +892,4 @@ class HeatmapManager {
   }
 }
 
-export { HeatmapManager, normalizeHexColor };
+export { HeatmapManager };

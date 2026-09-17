@@ -3,12 +3,12 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
-import { bindLiveColor, bindLiveNumber } from "#common/form.js";
+import { bindLiveColor, bindLiveNumber, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
-import { HeatmapManager, normalizeHexColor } from "./manager.js";
+import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */

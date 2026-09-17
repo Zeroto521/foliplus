@@ -541,18 +541,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) {
         setters.labelCollide(t.checked);
       } else if (
-        t instanceof HTMLInputElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_LABEL_COLOR_INPUT) &&
-        setters.labelColor
-      ) {
-        setters.labelColor(t.value);
-      } else if (
-        t instanceof HTMLInputElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_LABEL_SIZE_INPUT) &&
-        setters.labelSize
-      ) {
-        setters.labelSize(Number(t.value));
-      } else if (
+        // Color/size are bound live via input listeners at render time —
+        // the change event would double-commit.
         t instanceof HTMLSelectElement &&
         t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
         setters.labelFormat

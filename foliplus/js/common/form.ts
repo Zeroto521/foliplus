@@ -4,6 +4,15 @@
 // from drifting.
 import { dom } from "./dom.js";
 
+/** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
+const normalizeHexColor = (value: string): string => {
+  if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+    const [r, g, b] = value.slice(1);
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return value;
+};
+
 /** `<input type=color>` on the shared form-color-input chrome. */
 const colorInput = (opts: {
   value?: string;
@@ -13,7 +22,7 @@ const colorInput = (opts: {
   dom.el("input", {
     type: "color",
     class: `foliplus-form-color-input${opts.className ? ` ${opts.className}` : ""}`,
-    value: opts.value ?? "#ffffff",
+    value: normalizeHexColor(opts.value ?? "#ffffff"),
     "aria-label": opts.ariaLabel,
   });
 
@@ -74,4 +83,11 @@ const bindLiveColor = (
   input.oninput = () => onCommit(input.value);
 };
 
-export { bindLiveColor, bindLiveNumber, colorInput, inlineControls, numberInput };
+export {
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput,
+  inlineControls,
+  normalizeHexColor,
+  numberInput,
+};

@@ -125,7 +125,6 @@ const CLASSES = {
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",
   FORM_CONTROL: "foliplus-form-control",
-  FORM_INLINE: "foliplus-form-inline",
   TOGGLE_SWITCH: "foliplus-toggle-switch",
   TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
