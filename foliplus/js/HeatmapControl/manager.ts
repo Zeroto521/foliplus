@@ -111,7 +111,8 @@ class HeatmapManager {
   borderWeight: number;
   borderColor: string;
   currentLabelShow: boolean;
-  /** Runtime label number format — the drawer owns this; Python CONF seeds it. */
+  /** Runtime label number format — heatmap panel and layer drawer both write
+   *  this; Python CONF only seeds the initial value. */
   currentLabelFormat: NumberStyle;
   valueFallbackWarned: boolean;
   /**
@@ -236,7 +237,9 @@ class HeatmapManager {
           this.saveConfig();
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) this.ui.labelFormatSelect.value = this.currentLabelFormat;
+          if (this.ui?.labelFormatSelect) {
+            this.ui.labelFormatSelect.value = this.currentLabelFormat;
+          }
         },
       },
       // Snapshot taken at construction — Reset restores this, never the

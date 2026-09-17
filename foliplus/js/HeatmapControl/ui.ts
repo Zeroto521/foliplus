@@ -267,6 +267,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     // Drop the published source rows — the canvas unregisters on clear, but the
     // shared meta object outlives it and would repopulate stale values on re-register.
     ctrl.m.syncSourceMeta();
+    // An open layer style drawer mirrors these values — refresh it too.
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);

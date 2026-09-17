@@ -12,6 +12,7 @@ import {
   rebuildLayerDropdown,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
@@ -307,7 +308,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
     expect(m.currentLabelShow).toBe(conf.label_show);
-    expect(m.currentLabelFormat).toBe(conf.label_format ?? "auto");
+    expect(m.currentLabelFormat).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(m.borderWeight).toBe(conf.border_weight);
     expect(m.borderColor).toBe(conf.border_color);
     expect(clearSaved).toHaveBeenCalled();
@@ -320,7 +321,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
     expect(ctrl.methodSelect.value).toBe(conf.method);
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
-    expect(ctrl.labelFormatSelect.value).toBe(conf.label_format ?? "auto");
+    expect(ctrl.labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(ctrl.borderWeightInput.value).toBe(String(conf.border_weight));
     expect(ctrl.borderColorInput.value).toBe(conf.border_color);
   });
