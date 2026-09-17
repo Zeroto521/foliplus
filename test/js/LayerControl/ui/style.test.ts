@@ -843,6 +843,29 @@ describe("LayerUI style panel", () => {
     );
   });
 
+  it("applyStyleLabelState normalizes a stored short hex color and clamps size", () => {
+    ui.labelConfigs = {
+      overlay1: {
+        show: true,
+        field: "count",
+        color: "#abc",
+        size: 99,
+        format: NUMBER_FORMAT.AUTO,
+      },
+    };
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).toHaveBeenCalledWith(
+      "overlay1",
+      expect.objectContaining({
+        color: "#aabbcc",
+        size: 32,
+      }),
+    );
+  });
+
   it("applyStyleLabelState leaves an already-configured layer alone", () => {
     // The persisted table is a seed, not a restore. Re-entering (a runtime
     // addControl re-fires CONTROL_ATTACHED) used to re-apply the load-time
@@ -1018,6 +1041,24 @@ describe("LayerUI style panel", () => {
   });
 
   // ─────────────────── delegated style panel (third-party) ───────────────────
+
+  it("delegated panel with only labelShow + labelFormat omits color/size row", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
+      styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-size-input")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-format-select")).not.toBeNull();
+  });
 
   it("delegated panel renders a format select when labelFormat setter is present", () => {
     const labelFormatSetter = vi.fn();
