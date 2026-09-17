@@ -55,23 +55,23 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-form-select");
   });
 
-  it("includes all data-hm-* query targets", () => {
+  it("includes all data-heatmap-* query targets", () => {
     const html = panelContentHTML(T);
     const expectedAttrs = [
-      "data-hm-layer",
-      "data-hm-extra-body",
-      "data-hm-agg",
-      "data-hm-field",
-      "data-hm-field-select",
-      "data-hm-method",
-      "data-hm-class-count",
-      "data-hm-scheme-ctrl",
-      "data-hm-scheme-hidden",
-      "data-hm-border-color",
-      "data-hm-border-weight",
-      "data-hm-label-chk",
-      "data-hm-label-format",
-      "data-hm-btn-clear",
+      "data-heatmap-layer",
+      "data-heatmap-extra-body",
+      "data-heatmap-agg",
+      "data-heatmap-field",
+      "data-heatmap-field-select",
+      "data-heatmap-method",
+      "data-heatmap-class-count",
+      "data-heatmap-scheme-ctrl",
+      "data-heatmap-scheme-hidden",
+      "data-heatmap-border-color",
+      "data-heatmap-border-weight",
+      "data-heatmap-label-chk",
+      "data-heatmap-label-format",
+      "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
@@ -161,7 +161,7 @@ describe("panelContentHTML", () => {
 
   it("includes the label number-format select with all four options", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("data-hm-label-format");
+    expect(html).toContain("data-heatmap-label-format");
     expect(html).toContain('value="auto"');
     expect(html).toContain('value="int"');
     expect(html).toContain('value="comma"');
@@ -191,12 +191,12 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
     expect(html).not.toContain("foliplus-heatmap-btn-confirm");
-    expect(html).not.toContain("data-hm-btn-confirm");
+    expect(html).not.toContain("data-heatmap-btn-confirm");
   });
 
   it("extra body uses shared foliplus-hidden class by default", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("data-hm-extra-body>");
+    expect(html).toContain("data-heatmap-extra-body>");
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+foliplus-hidden/);
   });
 

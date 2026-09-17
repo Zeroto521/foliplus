@@ -101,8 +101,9 @@ class HeatmapControl(BaseControl):
           locale.
         - ``"int"``: plain integer with no grouping (``6000``).
         - ``"comma"``: thousands separator (``6,000``).
+        - ``"percent"``: fraction × 100 with a ``%`` suffix (``0.35`` → ``35%``).
 
-        ``"int"`` and ``"comma"`` are locale-agnostic.
+        ``"int"``, ``"comma"``, and ``"percent"`` are locale-agnostic.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.

@@ -4,6 +4,16 @@ import { intlLocale } from "#common/locale.js";
 
 type NumberStyle = "auto" | "comma" | "int" | "percent";
 
+/** Label number-format presets shared by annotation and delegated style panels.
+ *  Named rather than raw string literals so locale keys and dropdown options
+ *  stay aligned with `NumberStyle`. */
+const NUMBER_FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const satisfies Record<"AUTO" | "INT" | "COMMA" | "PERCENT", NumberStyle>;
+
 /**
  * Format a number for display.
  * @param val Value to format
@@ -130,6 +140,7 @@ const formatTimestamp = (value: number | string, locale: string = "en"): string 
 
 export {
   type NumberStyle,
+  NUMBER_FORMAT,
   formatNumber,
   formatTimestamp,
   LAT_LNG_PRECISION,

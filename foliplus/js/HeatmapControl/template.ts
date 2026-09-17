@@ -1,7 +1,7 @@
 // HeatmapControl DOM template — isolated from logic for maintainability.
 // Static HTML is built via innerHTML; dynamic/conditional rendering uses dom.el.
 //
-// Key elements use `data-hm-*` attributes so ui.ts can find them via querySelector.
+// Key elements use `data-heatmap-*` attributes so ui.ts can find them via querySelector.
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
