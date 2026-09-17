@@ -128,10 +128,6 @@ const DATA_ATTR = {
   SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
   BORDER_COLOR: "data-heatmap-border-color",
   BORDER_WEIGHT: "data-heatmap-border-weight",
-  LABEL_CHK: "data-heatmap-label-chk",
-  LABEL_COLOR: "data-heatmap-label-color",
-  LABEL_SIZE: "data-heatmap-label-size",
-  LABEL_FORMAT: "data-heatmap-label-format",
   BTN_CLEAR: "data-heatmap-btn-clear",
 };
 

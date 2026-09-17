@@ -294,13 +294,9 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.section_style" in html
 
     def test_section_label_renders(self):
-        """Labels section heading and style/format controls are rendered."""
+        """Labels section heading is rendered; label controls render dynamically."""
         html = render_control(HeatmapControl())
         assert "HeatmapControl.section_label" in html
-        assert "HeatmapControl.label_style" in html
-        assert "data-heatmap-label-color" in html
-        assert "data-heatmap-label-size" in html
-        assert "data-heatmap-label-format" in html
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -803,9 +799,10 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle
+            # label toggle — rendered by the shared label-controls module, so
+            # it is queried from the panel DOM rather than a control field.
             page.evaluate(
-                "window.__heatmapCtrl.labelChk.checked = false; window.__heatmapCtrl.labelChk.dispatchEvent(new Event('change'))"
+                "() => { const t = document.querySelector('.foliplus-heatmap-ctrl .foliplus-style-toggle-input'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); }"
             )
             page.wait_for_timeout(300)
             assert stored()["labelShow"] is False, "label toggle must persist"

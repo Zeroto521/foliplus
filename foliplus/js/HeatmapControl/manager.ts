@@ -120,6 +120,14 @@ class HeatmapManager {
   /** Runtime label number format — heatmap panel and layer drawer both write
    *  this; Python CONF only seeds the initial value. */
   currentLabelFormat: NumberStyle;
+  /** Style provider — shared by the layer drawer and the heatmap panel's
+   *  label controls (core/labelControl). Reads live state; the drawer refreshes on
+   *  LAYER_STYLE_CHANGE. */
+  styleProvider: () => Record<string, unknown>;
+  /** Style setters — shared by the layer drawer and the heatmap panel's
+   *  label controls. Each setter updates state, renders, persists, and emits
+   *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
+  styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
   /**
    * Whether LayerControl currently shows this heatmap layer. Mirrors the
@@ -206,11 +214,57 @@ class HeatmapManager {
     const defaultLabelColor = this.currentLabelColor;
     const defaultLabelSize = this.currentLabelSize;
     const defaultLabelFormat = this.currentLabelFormat;
-    // Create a managed canvas via LayerControl API.
-    // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
-    // position offset that cancels the mapPane CSS transform. Drawn with
-    // latLngToContainerPoint. LayerControl handles visibility (checkbox) and
-    // z-order (drag-reorder) through the pane model.
+    // Style delegation for the layer style drawer and the heatmap panel's
+    // shared label controls. The drawer only mirrors presentation styles;
+    // aggregation field stays data config on the heatmap panel. Stored on the
+    // manager so core/labelControl can dispatch changes through the same setters
+    // and refresh from the same provider.
+    this.styleProvider = () => ({
+      labelShow: this.currentLabelShow,
+      labelColor: this.currentLabelColor,
+      labelSize: this.currentLabelSize,
+      labelFormat: this.currentLabelFormat,
+    });
+    this.styleSetters = {
+      labelShow: v => {
+        this.currentLabelShow = v === true;
+        this.renderHexagons();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      // Size/color only rewrite label paint — drop the cached style and
+      // redraw from the feature cache.
+      labelColor: v => {
+        this.currentLabelColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.currentLabelColor;
+        this.cachedLabelStyle = null;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      labelSize: v => {
+        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
+        this.currentLabelSize = clampLabelSize(n);
+        this.cachedLabelStyle = null;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      // Format only rewrites the label text — redraw from cache, skip the
+      // H3 re-aggregation that labelShow triggers.
+      labelFormat: v => {
+        this.currentLabelFormat = (
+          typeof v === "string" ? v : NUMBER_FORMAT.AUTO
+        ) as NumberStyle;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+    };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
       name: this.T("title"),
@@ -224,66 +278,8 @@ class HeatmapManager {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
-      // Style delegation for the layer style drawer. The drawer only mirrors
-      // presentation styles; aggregation field stays data config on the
-      // heatmap panel. The drawer pulls fresh values from the provider.
-      styleProvider: () => ({
-        labelShow: this.currentLabelShow,
-        labelColor: this.currentLabelColor,
-        labelSize: this.currentLabelSize,
-        labelFormat: this.currentLabelFormat,
-      }),
-      styleSetters: {
-        labelShow: v => {
-          this.currentLabelShow = v === true;
-          this.renderHexagons();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
-        },
-        // Size/color only rewrite label paint — drop the cached style and
-        // redraw from the feature cache.
-        labelColor: v => {
-          this.currentLabelColor =
-            typeof v === "string" ? normalizeHexColor(v) : this.currentLabelColor;
-          this.cachedLabelStyle = null;
-          this.redrawHeatmap();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui?.labelColorInput) {
-            this.ui.labelColorInput.value = this.currentLabelColor;
-          }
-        },
-        labelSize: v => {
-          const n =
-            typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
-          this.currentLabelSize = clampLabelSize(n);
-          this.cachedLabelStyle = null;
-          this.redrawHeatmap();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui?.labelSizeInput) {
-            this.ui.labelSizeInput.value = String(this.currentLabelSize);
-          }
-        },
-        // Format only rewrites the label text — redraw from cache, skip the
-        // H3 re-aggregation that labelShow triggers.
-        labelFormat: v => {
-          this.currentLabelFormat = (
-            typeof v === "string" ? v : NUMBER_FORMAT.AUTO
-          ) as NumberStyle;
-          this.redrawHeatmap();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui?.labelFormatSelect) {
-            this.ui.labelFormatSelect.value = this.currentLabelFormat;
-          }
-        },
-      },
+      styleProvider: this.styleProvider,
+      styleSetters: this.styleSetters,
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaults: () => ({
