@@ -178,10 +178,16 @@ class HeatmapManager {
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
-    this.currentLabelShow = CONF.label_show ?? false;
+    // Python default is True; only an explicit false turns labels off — same
+    // `!== false` rule MeasureControl uses for label_show / label_collide.
+    this.currentLabelShow = CONF.label_show !== false;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
+    // Snapshot the Python CONF style defaults before any runtime toggle so
+    // Reset restores exactly what construction started from (never localStorage).
+    const defaultLabelShow = this.currentLabelShow;
+    const defaultField = this.currentField;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -205,12 +211,15 @@ class HeatmapManager {
       // pulls fresh values from the provider (the event carries only the id).
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
-        // Strip the "properties." prefix for display — the drawer and the
-        // annotation panel both show bare field names. An empty string is the
-        // AUTO_FIELD sentinel: the drawer's Auto placeholder is then selected.
-        field: this.currentField.startsWith("properties.")
-          ? this.currentField.slice("properties.".length)
-          : this.currentField,
+        // Empty string is the AUTO sentinel — when fieldAuto is on, the drawer
+        // must show Auto (the same rule as the heatmap's own field select).
+        // Otherwise strip the "properties." prefix so the drawer and the
+        // annotation panel both show bare field names.
+        field: this.fieldAuto
+          ? ""
+          : this.currentField.startsWith("properties.")
+            ? this.currentField.slice("properties.".length)
+            : this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -222,16 +231,28 @@ class HeatmapManager {
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
         field: v => {
-          // The drawer shows bare field names (no "properties." prefix, same
-          // as the annotation panel); the internal contract keeps the prefix.
+          // Empty string is the AUTO sentinel (the drawer's disabled Auto
+          // placeholder, and what Reset writes). Restore the Python-configured
+          // field and re-enable auto resolution — construction / clear state.
           const raw = String(v ?? "");
-          this.currentField = raw.startsWith("properties.") ? raw : `properties.${raw}`;
-          this.fieldAuto = false;
+          if (!raw) {
+            this.currentField = defaultField;
+            this.fieldAuto = true;
+          } else {
+            // The drawer shows bare field names (no "properties." prefix, same
+            // as the annotation panel); the internal contract keeps the prefix.
+            this.currentField = raw.startsWith("properties.")
+              ? raw
+              : `properties.${raw}`;
+            this.fieldAuto = false;
+          }
           this.renderHexagons();
           this.saveConfig();
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) this.ui.fieldSelect.value = this.currentField;
+          if (this.ui) {
+            this.ui.fieldSelect.value = this.fieldAuto ? "" : this.currentField;
+          }
         },
       },
       fieldOptions: () =>
@@ -240,6 +261,13 @@ class HeatmapManager {
               f.startsWith("properties.") ? f.slice("properties.".length) : f,
             )
           : [],
+      // Snapshot taken at construction — Reset restores these, never the
+      // live toggles or the localStorage-persisted config. Empty field is
+      // the AUTO sentinel (the field setter restores defaultField).
+      styleDefaults: () => ({
+        labelShow: defaultLabelShow,
+        field: "",
+      }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes

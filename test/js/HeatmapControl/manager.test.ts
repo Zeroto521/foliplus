@@ -1320,13 +1320,26 @@ describe("HeatmapManager — style delegation", () => {
   it("styleProvider returns the live labelShow and field values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
+    // fieldAuto starts true → empty string is the AUTO sentinel.
     expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
 
     m.currentLabelShow = false;
     m.currentField = "properties.count";
+    m.fieldAuto = false;
     // The provider strips the "properties." prefix for display consistency
     // with the annotation panel.
     expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
+  });
+
+  it("styleProvider reports empty field while fieldAuto is on", () => {
+    // Construction / Reset leave fieldAuto on; the drawer must show Auto even
+    // when currentField still carries the Python-configured name.
+    const m = makeManager();
+    m.fieldAuto = true;
+    m.currentField = "properties.count";
+    const opts = getCanvasOpts();
+
+    expect(opts.styleProvider!().field).toBe("");
   });
 
   it("labelShow setter flips state, re-renders and persists", () => {
@@ -1374,6 +1387,50 @@ describe("HeatmapManager — style delegation", () => {
     expect(m.fieldAuto).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("field setter with empty string restores auto (Python CONF field)", () => {
+    // Empty is the AUTO sentinel — Reset writes it. The setter must restore
+    // the construction-time CONF.field snapshot and re-enable auto resolution,
+    // not prefix the empty string.
+    const m = makeManager({ field: "value" });
+    m.fieldAuto = false;
+    m.currentField = "properties.count";
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.field!("");
+
+    expect(m.currentField).toBe("value");
+    expect(m.fieldAuto).toBe(true);
+    expect(m.ui?.fieldSelect.value ?? "").toBe("");
+  });
+
+  it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaults).toBe("function");
+    // label_show=true in the fixture CONF; empty field is the AUTO sentinel.
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true, field: "" });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    m.currentLabelShow = false;
+    m.currentField = "properties.sum";
+    m.fieldAuto = false;
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true, field: "" });
+  });
+
+  it("labelShow defaults to true when CONF omits label_show", () => {
+    // Python serializes label_show=True by default; a missing key must not
+    // silently flip labels off — the same `!== false` rule MeasureControl uses.
+    const m = makeManager({ label_show: undefined });
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+
+    expect(m.currentLabelShow).toBe(true);
+    expect(opts.styleDefaults!().labelShow).toBe(true);
   });
 
   it("fieldOptions returns the numeric fields of the selected source layer", () => {

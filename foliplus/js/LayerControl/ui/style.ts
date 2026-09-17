@@ -67,6 +67,26 @@ const persistStyleLabel = (ui: LayerUI): void => {
   );
 };
 
+/** Shared Reset footer — divider + button, same vocabulary for the annotation
+ *  and the delegated panel. */
+const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
+  content.append(
+    dom.el("hr", { class: "foliplus-section-divider" }),
+    dom.el(
+      "div",
+      { class: "foliplus-btn-row" },
+      dom.el(
+        "button",
+        {
+          type: "button",
+          class: "foliplus-panel-btn foliplus-style-reset-btn",
+        },
+        ui.T("style_reset"),
+      ),
+    ),
+  );
+};
+
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
  *  (config → labels → storage) lives in exactly one place. */
@@ -122,9 +142,9 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
 
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
- *  component declared — no body collapse, no format row, no reset. Returns
- *  null when the layer has no delegation (falls through to the annotation
- *  panel). */
+ *  component declared — no format row. Reset is present only when the layer
+ *  also supplies styleDefaults (the Python CONF snapshot). Returns null when
+ *  the layer has no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
@@ -246,6 +266,9 @@ const renderDelegatedStylePanel = (
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   content.append(...rows);
+
+  // Reset only when the component published its Python CONF defaults.
+  if (li.styleDefaults) appendResetFooter(ui, content);
   return panel;
 };
 
@@ -416,22 +439,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
-    // The same shared divider the heatmap puts above its footer action, so the
-    // two panels' footers read identically (common/panel.css sets its inset).
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el(
-      "div",
-      { class: "foliplus-btn-row" },
-      dom.el(
-        "button",
-        {
-          type: "button",
-          class: "foliplus-panel-btn foliplus-style-reset-btn",
-        },
-        ui.T("style_reset"),
-      ),
-    ),
   );
+  appendResetFooter(ui, content);
   return panel;
 };
 
@@ -569,9 +578,24 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
-      // Through applyPatch, so the reset writes config, re-renders and persists
-      // in the same order as every other control on this panel.
-      applyPatch(ui, layerId, { ...CONST.DEFAULT_ANNOTATION });
+      if (delegated) {
+        // Call each setter with its Python CONF default. The components own
+        // the values — never write localStorage or annotation config here.
+        const li = ui.m.layerRegistry.get(layerId);
+        const setters = li?.styleSetters;
+        const defaults = li?.styleDefaults?.() ?? {};
+        if (setters) {
+          for (const [key, setter] of Object.entries(setters)) {
+            if (key in defaults) setter(defaults[key]);
+          }
+        }
+      } else {
+        // Through applyPatch, so the reset writes config, re-renders and persists
+        // in the same order as every other control on this panel. defaultConfig
+        // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
+        // collide switch untouched.
+        applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
+      }
       closeStylePanel(ui, true);
       return;
     }

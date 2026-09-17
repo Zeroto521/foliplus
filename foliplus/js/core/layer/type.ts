@@ -38,6 +38,10 @@ interface RegisterLayerOpts {
   /** Options for a `field`-keyed select in the style drawer (e.g. the
    *  heatmap's numeric source fields). Absent when the layer has no field. */
   fieldOptions?: (() => string[]) | null;
+  /** Python CONF defaults for the delegated style fields. The drawer's Reset
+   *  button calls each styleSetter with the matching default — never the
+   *  localStorage-persisted value. Absent means the layer offers no Reset. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -75,6 +79,8 @@ interface LayerInfo {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** Options for a `field`-keyed select in the style drawer. */
   fieldOptions?: (() => string[]) | null;
+  /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -133,6 +139,8 @@ interface CreateLayersOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
   fieldOptions?: (() => string[]) | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -152,6 +160,8 @@ interface CreateCanvasOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
   fieldOptions?: (() => string[]) | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;

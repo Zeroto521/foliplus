@@ -149,6 +149,13 @@ describe("AnnotationManager — config", () => {
       format: "auto",
       collide: true,
     });
+    // Reset target — same shape, independent of any stored user choice.
+    expect(mgr.defaultConfig()).toEqual({
+      show: false,
+      field: "",
+      format: "auto",
+      collide: true,
+    });
 
     const cfg = { show: true, field: "name", format: "auto", collide: false };
     mgr.setConfig("l1", cfg);
