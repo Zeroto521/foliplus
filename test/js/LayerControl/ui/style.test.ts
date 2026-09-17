@@ -943,29 +943,24 @@ describe("LayerUI style panel", () => {
     // labelShow true → checked; labelCollide false → unchecked.
     expect(showToggle.checked).toBe(true);
     expect(collideToggle.checked).toBe(false);
-    // No field setter declared → no field select.
+    // Aggregation field is data config on the component's own panel — never
+    // delegated into the drawer.
     expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
   });
 
-  it("delegated panel renders a field select when fieldOptions is present", () => {
+  it("delegated panel omits the field select even when field setter is present", () => {
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: true, field: "count", fieldAuto: false }),
+      styleProvider: () => ({ labelShow: true, field: "count" }),
       styleSetters: { labelShow: vi.fn(), field: vi.fn() },
-      fieldOptions: () => ["count", "sum"],
     });
     const item = findItem(ui, "heat1");
 
     ui.openStylePanel("heat1");
 
-    const fieldSelect = panelOf(item)!.querySelector(
-      ".foliplus-style-field-select",
-    ) as HTMLSelectElement;
-    // Auto placeholder + 2 real options.
-    expect(fieldSelect.options.length).toBe(3);
-    expect(fieldSelect.value).toBe("count");
+    expect(panelOf(item)!.querySelector(".foliplus-style-field-select")).toBeNull();
   });
 
   it("delegated change dispatches to styleSetters", () => {
@@ -1084,9 +1079,8 @@ describe("LayerUI style panel", () => {
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: false, field: "count" }),
-      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
-      fieldOptions: () => ["count"],
+      styleProvider: () => ({ labelShow: false, labelCollide: true }),
+      styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -1101,9 +1095,8 @@ describe("LayerUI style panel", () => {
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: false, field: "count" }),
-      styleSetters: { labelShow: labelShowSetter, field: vi.fn() },
-      fieldOptions: () => ["count"],
+      styleProvider: () => ({ labelShow: false, labelCollide: true }),
+      styleSetters: { labelShow: labelShowSetter, labelCollide: vi.fn() },
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -1140,28 +1133,6 @@ describe("LayerUI style panel", () => {
     expect(labelCollideSetter).toHaveBeenCalledWith(false);
   });
 
-  it("delegated change dispatches field to styleSetters", () => {
-    const fieldSetter = vi.fn();
-    manager.registerLayer({
-      id: "heat1",
-      name: "Heat",
-      canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: true, field: "count" }),
-      styleSetters: { labelShow: vi.fn(), field: fieldSetter },
-      fieldOptions: () => ["count", "sum"],
-    });
-    const item = findItem(ui, "heat1");
-    ui.openStylePanel("heat1");
-
-    const fieldSelect = panelOf(item)!.querySelector(
-      ".foliplus-style-field-select",
-    ) as HTMLSelectElement;
-    fieldSelect.value = "sum";
-    fieldSelect.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(fieldSetter).toHaveBeenCalledWith("sum");
-  });
-
   it("LAYER_STYLE_CHANGE updates the collide toggle from the provider", () => {
     let currentCollide = true;
     manager.registerLayer({
@@ -1188,33 +1159,6 @@ describe("LayerUI style panel", () => {
     expect(collideToggle.checked).toBe(false);
   });
 
-  it("LAYER_STYLE_CHANGE updates the field select from the provider", () => {
-    let currentField = "count";
-    manager.registerLayer({
-      id: "heat1",
-      name: "Heat",
-      canvas: document.createElement("canvas"),
-      styleProvider: () => ({ labelShow: true, field: currentField }),
-      styleSetters: { labelShow: vi.fn(), field: vi.fn() },
-      fieldOptions: () => ["count", "sum"],
-    });
-    const item = findItem(ui, "heat1");
-    ui.openStylePanel("heat1");
-
-    const fieldSelect = panelOf(item)!.querySelector(
-      ".foliplus-style-field-select",
-    ) as HTMLSelectElement;
-    expect(fieldSelect.value).toBe("count");
-
-    currentField = "sum";
-    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
-      "foliplus:layer:style-change",
-      { id: "heat1" },
-    );
-
-    expect(fieldSelect.value).toBe("sum");
-  });
-
   it("delegated change handler ignores unrecognized controls", () => {
     const labelShowSetter = vi.fn();
     manager.registerLayer({
@@ -1234,5 +1178,29 @@ describe("LayerUI style panel", () => {
     bogus.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(labelShowSetter).not.toHaveBeenCalled();
+  });
+
+  it("delegated change handler ignores a stray field select", () => {
+    const labelShowSetter = vi.fn();
+    const fieldSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, field: "count" }),
+      styleSetters: { labelShow: labelShowSetter, field: fieldSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    // The drawer no longer renders a field select, but a third-party layer
+    // could still register `field`. A stray change must not reach the setter.
+    const stray = document.createElement("select");
+    stray.className = "foliplus-form-select foliplus-style-field-select";
+    panelOf(item)!.appendChild(stray);
+    stray.value = "sum";
+    stray.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(fieldSetter).not.toHaveBeenCalled();
   });
 });

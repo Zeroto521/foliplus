@@ -10,14 +10,14 @@ describe("panelContentHTML", () => {
     const map: Record<string, string> = {
       section_data: "Data",
       section_style: "Style",
-      layer: "Layer",
-      agg_method: "Aggregation",
+      layer: "Aggregation Layer",
+      agg_method: "Aggregation Method",
       agg_count: "Count",
       agg_sum: "Sum",
       agg_avg: "Average",
       agg_min: "Min",
       agg_max: "Max",
-      field: "Field",
+      field: "Aggregation Field",
       class_method: "Classify",
       jenks: "Jenks",
       quantile: "Quantile",
@@ -79,9 +79,9 @@ describe("panelContentHTML", () => {
 
   it("includes translated form labels", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("Layer");
-    expect(html).toContain("Aggregation");
-    expect(html).toContain("Field");
+    expect(html).toContain("Aggregation Layer");
+    expect(html).toContain("Aggregation Method");
+    expect(html).toContain("Aggregation Field");
     expect(html).toContain("Classify");
     expect(html).toContain("Color");
     expect(html).toContain("Border");

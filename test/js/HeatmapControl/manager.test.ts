@@ -1320,23 +1320,23 @@ describe("HeatmapManager — style delegation", () => {
     };
   }
 
-  it("createCanvas receives styleProvider, styleSetters and fieldOptions", () => {
+  it("createCanvas receives styleProvider and styleSetters (no field)", () => {
     makeManager();
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
-    expect(typeof opts.styleSetters?.field).toBe("function");
-    expect(typeof opts.fieldOptions).toBe("function");
+    // Aggregation field is data config — not delegated into the style drawer.
+    expect(opts.styleSetters?.field).toBeUndefined();
+    expect(opts.fieldOptions).toBeUndefined();
   });
 
-  it("styleProvider returns the live labelShow and field values", () => {
+  it("styleProvider returns the live labelShow value", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleProvider!()).toEqual({ labelShow: true });
 
     m.currentLabelShow = false;
-    m.currentField = "count";
-    expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
+    expect(opts.styleProvider!()).toEqual({ labelShow: false });
   });
 
   it("constructs with empty field when CONF.field is absent", () => {
@@ -1358,103 +1358,24 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("field setter stores the bare field name", () => {
+  it("labelShow setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
     const m = makeManager();
+    // makeManager builds a bare map stub; the setter reaches LayerAPI through
+    // this.map.foliplus (makeCtrl wires the same object).
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelChk = { checked: false };
+    m.ui = { labelChk } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("count");
+    opts.styleSetters!.labelShow!(true);
 
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
-  });
-
-  it("field setter strips a legacy properties. prefix", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("properties.count");
-
-    expect(m.currentField).toBe("count");
-  });
-
-  it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
-    const m = makeManager();
-    m.fieldAuto = true;
-    const renderSpy = vi.spyOn(m, "renderHexagons");
-    const saveSpy = vi.spyOn(m, "saveConfig");
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("count");
-
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
-    expect(renderSpy).toHaveBeenCalled();
-    expect(saveSpy).toHaveBeenCalled();
-  });
-
-  it("labelShow setter syncs ui.labelChk when the panel is attached", () => {
-    const m = makeManager();
-    const labelChk = document.createElement("input");
-    labelChk.type = "checkbox";
-    labelChk.checked = true;
-    (m as unknown as { ui: { labelChk: HTMLInputElement } }).ui = { labelChk };
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.labelShow!(false);
-
-    expect(labelChk.checked).toBe(false);
-  });
-
-  it("field setter syncs ui.fieldSelect when the panel is attached", () => {
-    const m = makeManager();
-    const fieldSelect = document.createElement("select");
-    const opt = document.createElement("option");
-    opt.value = "sales";
-    fieldSelect.appendChild(opt);
-    (m as unknown as { ui: { fieldSelect: HTMLSelectElement } }).ui = {
-      fieldSelect,
-    };
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("sales");
-
-    expect(fieldSelect.value).toBe("sales");
-  });
-
-  it("field setter treats null/undefined as an empty auto-field sentinel", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!(null);
-
-    expect(m.currentField).toBe("");
-    expect(m.fieldAuto).toBe(false);
-  });
-
-  it("fieldOptions returns the numeric fields of the selected source layer", () => {
-    const m = makeManager();
-    m.selectedLayerId = "src1";
-    const extractPoints = (
-      window.map.foliplus!.LayerAPI as unknown as {
-        extractPoints: ReturnType<typeof vi.fn>;
-      }
-    ).extractPoints;
-    extractPoints.mockReturnValue([
-      {
-        marker: {
-          feature: { properties: { count: 5, name: "abc" } },
-        },
-      },
-    ]);
-    const opts = getCanvasOpts();
-    // Bare field names — the "properties." prefix is stripped for display.
-    expect(opts.fieldOptions!()).toEqual(["count"]);
-  });
-
-  it("fieldOptions returns empty when no source layer is selected", () => {
-    makeManager();
-    const opts = getCanvasOpts();
-    expect(opts.fieldOptions!()).toEqual([]);
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelChk.checked).toBe(true);
   });
 });
 

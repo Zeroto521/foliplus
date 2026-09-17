@@ -200,14 +200,11 @@ class HeatmapManager {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
-      // Style delegation for the layer style drawer — single source: both the
-      // heatmap panel and the drawer call the same setters, and the drawer
-      // pulls fresh values from the provider (the event carries only the id).
+      // Style delegation for the layer style drawer. The drawer only mirrors
+      // presentation styles; aggregation field stays data config on the
+      // heatmap panel. The drawer pulls fresh values from the provider.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
-        // Bare field name (same contract as the annotation panel). Empty
-        // string is the AUTO_FIELD sentinel.
-        field: this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -218,18 +215,7 @@ class HeatmapManager {
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
-        field: v => {
-          this.currentField = bareFieldName(String(v ?? ""));
-          this.fieldAuto = false;
-          this.renderHexagons();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) this.ui.fieldSelect.value = this.currentField;
-        },
       },
-      fieldOptions: () =>
-        this.selectedLayerId ? this.collectFields([{ id: this.selectedLayerId }]) : [],
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
