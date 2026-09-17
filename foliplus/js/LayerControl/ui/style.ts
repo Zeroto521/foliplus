@@ -15,7 +15,7 @@ import {
   type LabelStyleValues,
   numberFormatOptions,
   renderLabelControls,
-} from "#core/style/index.js";
+} from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
@@ -180,7 +180,7 @@ const renderDelegatedStylePanel = (
   const { root, refresh } = renderLabelControls({
     styleProvider: () => li?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => li?.styleSetters ?? {},
-    T: ui.T,
+    T: ui._,
   });
   if (!root.children.length) return null;
   ui.styleRefresh = refresh;
@@ -211,7 +211,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!fields.length) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
-  const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+  const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
@@ -260,7 +260,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const colorInput = formColorInput({
     value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
-    ariaLabel: ui.T("style_label_color"),
+    ariaLabel: ui._("foliplus.label_color"),
   }) as HTMLInputElement;
   const sizeInput = formNumberInput({
     value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
@@ -268,7 +268,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     max: LABEL_SIZE.SIZE_MAX,
     step: LABEL_SIZE.SIZE_STEP,
     className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-    ariaLabel: ui.T("style_label_size"),
+    ariaLabel: ui._("foliplus.label_size"),
   }) as HTMLInputElement;
 
   const formatOpts = numberFormatOptions(fmtLabel);
@@ -280,7 +280,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
     checked: showChecked ? "" : null,
-    "aria-label": ui.T("style_label_tooltip"),
+    "aria-label": ui._("foliplus.label_tooltip"),
   });
   // "Avoid overlap": thins this layer's own labels where they collide. Labels
   // from *different* layers never avoid each other — the layers are stacked, so
@@ -289,13 +289,13 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
     checked: cfg.collide ? "" : null,
-    "aria-label": ui.T("style_label_collide_tooltip"),
+    "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
     "select",
     {
       class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      "aria-label": ui.T("style_label_format"),
+      "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,
   );
@@ -306,7 +306,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const formatRow = dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_format")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
   );
   syncFormatRow(
@@ -334,7 +334,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_style")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -345,7 +345,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_collide")),
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_collide")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -374,7 +374,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label")),
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -576,12 +576,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (delegated) {
     const bus = ui.m.events;
     const refresh = ui.styleRefresh;
-    ui.styleUnsubscribe = bus.on(EVENTS.LAYER_STYLE_CHANGE, ((payload: {
-      id: string;
-    }) => {
-      if (payload.id !== layerId) return;
-      refresh?.();
-    }) as never);
+    ui.styleUnsubscribe = bus.on(
+      EVENTS.LAYER_STYLE_CHANGE,
+      (payload: { id: string }) => {
+        if (payload.id !== layerId) return;
+        refresh?.();
+      },
+    );
   }
 
   ui.stylePanelLayerId = layerId;

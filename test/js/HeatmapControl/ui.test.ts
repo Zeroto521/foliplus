@@ -69,10 +69,10 @@ describe("bindControls — template render and initial values", () => {
     const { ctrl, m, panel } = setup();
     expect(ctrl.borderColorInput.value).toBe(m.borderColor);
     expect(ctrl.borderWeightInput.value).toBe(String(m.borderWeight));
-    const labelChk = panel.querySelector(
+    const labelToggle = panel.querySelector(
       ".foliplus-style-toggle-input",
     ) as HTMLInputElement;
-    expect(labelChk.checked).toBe(m.currentLabelShow);
+    expect(labelToggle.checked).toBe(m.currentLabelShow);
     const labelFormat = panel.querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
@@ -90,6 +90,25 @@ describe("bindControls — template render and initial values", () => {
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
     expect(ctrl.classSelect.value).toBe(String(CONST.CLASS_COUNT.MAX));
+  });
+
+  it("translates the shared label vocabulary from the common table", () => {
+    // This panel's own keys are component-scoped (HeatmapControl.*), but the
+    // label controls it shares with LayerControl's drawer resolve from
+    // window.foliplus._TABLES through the unscoped ctrl._. Feeding the scoped
+    // ctrl.T here is what used to render raw keys in the heatmap panel.
+    (window.foliplus as { _TABLES?: unknown })._TABLES = {
+      en: { "locale.code": "en", "foliplus.label": "Shared labels" },
+    };
+    try {
+      const { panel } = setup();
+      const labels = [...panel.querySelectorAll(".foliplus-form-label")].map(
+        n => n.textContent,
+      );
+      expect(labels).toContain("Shared labels");
+    } finally {
+      delete (window.foliplus as { _TABLES?: unknown })._TABLES;
+    }
   });
 
   it("populates scheme options from conf.schemes and renders the bar", () => {
@@ -233,11 +252,11 @@ describe("bindControls — change handlers", () => {
     const { ctrl, m, panel } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    const labelChk = panel.querySelector(
+    const labelToggle = panel.querySelector(
       ".foliplus-style-toggle-input",
     ) as HTMLInputElement;
-    labelChk.checked = false;
-    fire(labelChk, "change");
+    labelToggle.checked = false;
+    fire(labelToggle, "change");
     expect(m.currentLabelShow).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -246,11 +265,11 @@ describe("bindControls — change handlers", () => {
   it("label toggle emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { m, panel } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");
-    const labelChk = panel.querySelector(
+    const labelToggle = panel.querySelector(
       ".foliplus-style-toggle-input",
     ) as HTMLInputElement;
-    labelChk.checked = false;
-    fire(labelChk, "change");
+    labelToggle.checked = false;
+    fire(labelToggle, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
     });

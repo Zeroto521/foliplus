@@ -5,7 +5,7 @@
 import { vi } from "vitest";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#foliplus/HeatmapControl/ui.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 /** A CONF with the heatmap fields the UI functions read, in English. */
 const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
@@ -129,6 +129,7 @@ function makeCtrl(
     m,
     conf,
     T: createScopedTranslator(conf),
+    _: createTranslator(conf),
     ctrl: document.createElement("div"),
     schemeDropdown: null,
     expandHookDone: false,

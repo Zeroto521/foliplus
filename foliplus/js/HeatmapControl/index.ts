@@ -1,7 +1,7 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -10,6 +10,7 @@ import { bindControls, initScan, setupObserver } from "./ui.js";
 
 createControlEnv(CONF, SVGs.HEXAGON);
 const T = createScopedTranslator(CONF);
+const _ = createTranslator(CONF);
 ensureLayerAPI(map);
 
 // ==================== View & Control: HeatmapControl ====================
@@ -17,6 +18,7 @@ class HeatmapControl extends BaseControl {
   manager: HeatmapManager | null = null;
   declare conf: ComponentConfig;
   declare T: (key: string) => string;
+  declare _: (key: string) => string;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -48,6 +50,7 @@ class HeatmapControl extends BaseControl {
     super(options);
     this.conf = CONF;
     this.T = T;
+    this._ = _;
     this.schemeDropdown = null;
     this.expandHookDone = false;
     this.schemeBarCleanup = null;

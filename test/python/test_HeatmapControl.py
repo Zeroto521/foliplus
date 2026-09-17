@@ -799,9 +799,10 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle
+            # label toggle — rendered by the shared label-controls module, so
+            # it is queried from the panel DOM rather than a control field.
             page.evaluate(
-                "window.__heatmapCtrl.labelChk.checked = false; window.__heatmapCtrl.labelChk.dispatchEvent(new Event('change'))"
+                "() => { const t = document.querySelector('.foliplus-heatmap-ctrl .foliplus-style-toggle-input'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); }"
             )
             page.wait_for_timeout(300)
             assert stored()["labelShow"] is False, "label toggle must persist"

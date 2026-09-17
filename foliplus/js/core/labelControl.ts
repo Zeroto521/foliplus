@@ -3,6 +3,11 @@
 // toggle + color/size + format + collide vocabulary, dispatch changes to the
 // same styleSetters, and refresh from the same styleProvider on
 // LAYER_STYLE_CHANGE; this module is the single home for that logic.
+//
+// Its wording is shared too: every string resolves from the common table
+// (`foliplus.label*`), which is why `T` here must be an *unscoped* translator
+// (createTranslator) — both callers pass their own `_` rather than their
+// component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
@@ -99,7 +104,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
               ? values.labelColor
               : LABEL_COLOR_DEFAULT,
           className: CLS.STYLE_LABEL_COLOR_INPUT,
-          ariaLabel: T("style_label_color"),
+          ariaLabel: T("foliplus.label_color"),
         })
       : null;
     const sizeInput = styleSetters.labelSize
@@ -112,7 +117,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
           max: LABEL_SIZE.SIZE_MAX,
           step: LABEL_SIZE.SIZE_STEP,
           className: CLS.STYLE_LABEL_SIZE_INPUT,
-          ariaLabel: T("style_label_size"),
+          ariaLabel: T("foliplus.label_size"),
         })
       : null;
     // Live on input, clamp on commit — same bindLive* recipe as the
@@ -138,7 +143,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       dom.el(
         "div",
         { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("style_label_style")),
+        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_style")),
         dom.el("div", { class: CLS.FORM_CONTROL }, inline),
       ),
     );
@@ -146,12 +151,12 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
 
   // Number format lives under the label toggle — collapses with the body.
   if (styleSetters.labelFormat) {
-    const fmtLabel = (f: string) => T(`style_label_format_${f}`) || f;
+    const fmtLabel = (f: string) => T(`foliplus.label_format_${f}`) || f;
     const formatSelect = dom.el(
       "select",
       {
         class: `foliplus-form-select ${CLS.STYLE_FORMAT_SELECT}`,
-        "aria-label": T("style_label_format"),
+        "aria-label": T("foliplus.label_format"),
       },
       ...numberFormatOptions(fmtLabel),
     );
@@ -161,7 +166,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       dom.el(
         "div",
         { class: `${CLS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("style_label_format")),
+        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_format")),
         dom.el("div", { class: CLS.FORM_CONTROL }, formatSelect),
       ),
     );
@@ -172,13 +177,13 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       type: "checkbox",
       class: CLS.STYLE_COLLIDE_INPUT,
       checked: values.labelCollide !== false ? "" : null,
-      "aria-label": T("style_label_collide_tooltip"),
+      "aria-label": T("foliplus.label_collide_tooltip"),
     });
     bodyRows.push(
       dom.el(
         "div",
         { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("style_label_collide")),
+        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_collide")),
         dom.el(
           "div",
           { class: CLS.FORM_CONTROL },
@@ -201,13 +206,13 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       type: "checkbox",
       class: CLS.STYLE_TOGGLE_INPUT,
       checked: showChecked ? "" : null,
-      "aria-label": T("style_label_tooltip"),
+      "aria-label": T("foliplus.label_tooltip"),
     });
     rows.push(
       dom.el(
         "div",
         { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("style_label")),
+        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label")),
         dom.el(
           "div",
           { class: CLS.FORM_CONTROL },

@@ -5,7 +5,7 @@ import type { LabelField } from "#core/labelField.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import {
@@ -120,6 +120,10 @@ class LayerUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once in the constructor. */
   T: (key: string) => string;
+  /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
+   *  controls the style panel shares with HeatmapControl). Kept beside `T` so
+   *  a test can inject either independently. */
+  _: (key: string) => string;
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
@@ -217,6 +221,7 @@ class LayerUI {
     this.events = ensureEvents(this.m.map);
     this.conf = CONF;
     this.T = createScopedTranslator(CONF);
+    this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
     this.hiddenHasState = false;

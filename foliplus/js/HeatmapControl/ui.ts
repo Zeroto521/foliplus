@@ -2,7 +2,7 @@
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { renderLabelControls } from "#core/style/index.js";
+import { renderLabelControls } from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -25,6 +25,9 @@ interface HeatmapControlUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once by the control / test fixture. */
   T: (key: string) => string;
+  /** Unscoped translator for the shared `foliplus.*` vocabulary — the label
+   *  controls this panel shares with LayerControl's style drawer. */
+  _: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
@@ -203,7 +206,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   const labelControls = renderLabelControls({
     styleProvider: () => ctrl.m.styleProvider?.(),
     getSetters: () => ctrl.m.styleSetters ?? {},
-    T: ctrl.T,
+    T: ctrl._,
   });
   ctrl.labelRefresh = labelControls.refresh;
   if (divider) divider.before(labelControls.root);
@@ -218,7 +221,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       if (payload.id !== ctrl.m.layerId) return;
       ctrl.labelRefresh?.();
     },
-  ) as unknown as () => void;
+  );
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (

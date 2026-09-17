@@ -121,7 +121,7 @@ class HeatmapManager {
    *  this; Python CONF only seeds the initial value. */
   currentLabelFormat: NumberStyle;
   /** Style provider — shared by the layer drawer and the heatmap panel's
-   *  label controls (core/style). Reads live state; the drawer refreshes on
+   *  label controls (core/labelControl). Reads live state; the drawer refreshes on
    *  LAYER_STYLE_CHANGE. */
   styleProvider: () => Record<string, unknown>;
   /** Style setters — shared by the layer drawer and the heatmap panel's
@@ -217,7 +217,7 @@ class HeatmapManager {
     // Style delegation for the layer style drawer and the heatmap panel's
     // shared label controls. The drawer only mirrors presentation styles;
     // aggregation field stays data config on the heatmap panel. Stored on the
-    // manager so core/style can dispatch changes through the same setters
+    // manager so core/labelControl can dispatch changes through the same setters
     // and refresh from the same provider.
     this.styleProvider = () => ({
       labelShow: this.currentLabelShow,
