@@ -187,7 +187,6 @@ class HeatmapManager {
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
-    const defaultField = this.currentField;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -206,15 +205,11 @@ class HeatmapManager {
         this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
-      // Style delegation for the layer style drawer — single source: both the
-      // heatmap panel and the drawer call the same setters, and the drawer
-      // pulls fresh values from the provider (the event carries only the id).
+      // Style delegation for the layer style drawer. The drawer only mirrors
+      // presentation styles; aggregation field stays data config on the
+      // heatmap panel. The drawer pulls fresh values from the provider.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
-        // Empty string is the AUTO sentinel — when fieldAuto is on, the drawer
-        // must show Auto (same rule as the heatmap's own field select). The
-        // bare field name is the same contract as the annotation panel.
-        field: this.fieldAuto ? "" : this.currentField,
       }),
       styleSetters: {
         labelShow: v => {
@@ -225,35 +220,11 @@ class HeatmapManager {
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
-        field: v => {
-          // Empty string is the AUTO sentinel (the drawer's disabled Auto
-          // placeholder, and what Reset writes). Restore the Python-configured
-          // field and re-enable auto resolution — construction / clear state.
-          const raw = bareFieldName(String(v ?? ""));
-          if (!raw) {
-            this.currentField = defaultField;
-            this.fieldAuto = true;
-          } else {
-            this.currentField = raw;
-            this.fieldAuto = false;
-          }
-          this.renderHexagons();
-          this.saveConfig();
-          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
-          if (this.ui) {
-            this.ui.fieldSelect.value = this.fieldAuto ? "" : this.currentField;
-          }
-        },
       },
-      fieldOptions: () =>
-        this.selectedLayerId ? this.collectFields([{ id: this.selectedLayerId }]) : [],
-      // Snapshot taken at construction — Reset restores these, never the
-      // live toggles or the localStorage-persisted config. Empty field is
-      // the AUTO sentinel (the field setter restores defaultField).
+      // Snapshot taken at construction — Reset restores this, never the
+      // live toggle or the localStorage-persisted config.
       styleDefaults: () => ({
         labelShow: defaultLabelShow,
-        field: "",
       }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution

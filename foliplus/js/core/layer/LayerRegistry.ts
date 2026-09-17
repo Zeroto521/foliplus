@@ -99,7 +99,6 @@ class LayerRegistry {
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
-      fieldOptions: opts.fieldOptions ?? existingLi?.fieldOptions ?? null,
       styleDefaults: opts.styleDefaults ?? existingLi?.styleDefaults ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
       // Static caller-supplied metadata for the attributes panel. `??` (not

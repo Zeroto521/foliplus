@@ -1316,40 +1316,27 @@ describe("HeatmapManager — style delegation", () => {
     return createCanvas.mock.calls[0][0] as {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
-      fieldOptions?: () => string[];
+      styleDefaults?: () => Record<string, unknown>;
     };
   }
 
-  it("createCanvas receives styleProvider, styleSetters and fieldOptions", () => {
+  it("createCanvas receives styleProvider and styleSetters (no field)", () => {
     makeManager();
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
-    expect(typeof opts.styleSetters?.field).toBe("function");
-    expect(typeof opts.fieldOptions).toBe("function");
+    // Aggregation field is data config — not delegated into the style drawer.
+    expect(opts.styleSetters?.field).toBeUndefined();
+    expect(opts.fieldOptions).toBeUndefined();
   });
 
-  it("styleProvider returns the live labelShow and field values", () => {
+  it("styleProvider returns the live labelShow value", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    // fieldAuto starts true → empty string is the AUTO sentinel.
-    expect(opts.styleProvider!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleProvider!()).toEqual({ labelShow: true });
 
     m.currentLabelShow = false;
-    m.fieldAuto = false;
-    m.currentField = "count";
-    expect(opts.styleProvider!()).toEqual({ labelShow: false, field: "count" });
-  });
-
-  it("styleProvider reports empty field while fieldAuto is on", () => {
-    // Construction / Reset leave fieldAuto on; the drawer must show Auto even
-    // when currentField still carries the Python-configured name.
-    const m = makeManager();
-    m.fieldAuto = true;
-    m.currentField = "count";
-    const opts = getCanvasOpts();
-
-    expect(opts.styleProvider!().field).toBe("");
+    expect(opts.styleProvider!()).toEqual({ labelShow: false });
   });
 
   it("constructs with empty field when CONF.field is absent", () => {
@@ -1371,54 +1358,24 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("field setter stores the bare field name", () => {
+  it("labelShow setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
     const m = makeManager();
+    // makeManager builds a bare map stub; the setter reaches LayerAPI through
+    // this.map.foliplus (makeCtrl wires the same object).
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelChk = { checked: false };
+    m.ui = { labelChk } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
 
-    opts.styleSetters!.field!("count");
+    opts.styleSetters!.labelShow!(true);
 
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
-  });
-
-  it("field setter strips a legacy properties. prefix", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("properties.count");
-
-    expect(m.currentField).toBe("count");
-  });
-
-  it("field setter flips state, clears fieldAuto, re-renders and persists", () => {
-    const m = makeManager();
-    m.fieldAuto = true;
-    const renderSpy = vi.spyOn(m, "renderHexagons");
-    const saveSpy = vi.spyOn(m, "saveConfig");
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("count");
-
-    expect(m.currentField).toBe("count");
-    expect(m.fieldAuto).toBe(false);
-    expect(renderSpy).toHaveBeenCalled();
-    expect(saveSpy).toHaveBeenCalled();
-  });
-
-  it("field setter with empty string restores auto (Python CONF field)", () => {
-    // Empty is the AUTO sentinel — Reset writes it. The setter must restore
-    // the construction-time CONF.field snapshot and re-enable auto resolution,
-    // not treat it as "clear the field and leave auto off".
-    const m = makeManager({ field: "value" });
-    m.fieldAuto = false;
-    m.currentField = "count";
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("");
-
-    expect(m.currentField).toBe("value");
-    expect(m.fieldAuto).toBe(true);
-    expect(m.ui?.fieldSelect.value ?? "").toBe("");
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelChk.checked).toBe(true);
   });
 
   it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
@@ -1427,14 +1384,11 @@ describe("HeatmapManager — style delegation", () => {
       styleDefaults?: () => Record<string, unknown>;
     };
     expect(typeof opts.styleDefaults).toBe("function");
-    // label_show=true in the fixture CONF; empty field is the AUTO sentinel.
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
 
     // Runtime toggles must not leak into the Reset snapshot.
     m.currentLabelShow = false;
-    m.currentField = "sum";
-    m.fieldAuto = false;
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true, field: "" });
+    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
   });
 
   it("labelShow defaults to true when CONF omits label_show", () => {
@@ -1447,73 +1401,6 @@ describe("HeatmapManager — style delegation", () => {
 
     expect(m.currentLabelShow).toBe(true);
     expect(opts.styleDefaults!().labelShow).toBe(true);
-  });
-
-  it("labelShow setter syncs ui.labelChk when the panel is attached", () => {
-    const m = makeManager();
-    const labelChk = document.createElement("input");
-    labelChk.type = "checkbox";
-    labelChk.checked = true;
-    (m as unknown as { ui: { labelChk: HTMLInputElement } }).ui = { labelChk };
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.labelShow!(false);
-
-    expect(labelChk.checked).toBe(false);
-  });
-
-  it("field setter syncs ui.fieldSelect when the panel is attached", () => {
-    const m = makeManager();
-    const fieldSelect = document.createElement("select");
-    const opt = document.createElement("option");
-    opt.value = "sales";
-    fieldSelect.appendChild(opt);
-    (m as unknown as { ui: { fieldSelect: HTMLSelectElement } }).ui = {
-      fieldSelect,
-    };
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!("sales");
-
-    expect(fieldSelect.value).toBe("sales");
-  });
-
-  it("field setter treats null/undefined as an empty auto-field sentinel", () => {
-    const m = makeManager();
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.field!(null);
-
-    // Empty restores the construction-time field and turns auto back on —
-    // the path Reset uses.
-    expect(m.currentField).toBe("");
-    expect(m.fieldAuto).toBe(true);
-  });
-
-  it("fieldOptions returns the numeric fields of the selected source layer", () => {
-    const m = makeManager();
-    m.selectedLayerId = "src1";
-    const extractPoints = (
-      window.map.foliplus!.LayerAPI as unknown as {
-        extractPoints: ReturnType<typeof vi.fn>;
-      }
-    ).extractPoints;
-    extractPoints.mockReturnValue([
-      {
-        marker: {
-          feature: { properties: { count: 5, name: "abc" } },
-        },
-      },
-    ]);
-    const opts = getCanvasOpts();
-    // Bare field names — the "properties." prefix is stripped for display.
-    expect(opts.fieldOptions!()).toEqual(["count"]);
-  });
-
-  it("fieldOptions returns empty when no source layer is selected", () => {
-    makeManager();
-    const opts = getCanvasOpts();
-    expect(opts.fieldOptions!()).toEqual([]);
   });
 });
 

@@ -115,7 +115,6 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
-      fieldOptions: opts.fieldOptions ?? null,
       styleDefaults: opts.styleDefaults ?? null,
     };
     // Register sub-panes eagerly so ensurePane can assign provisional
@@ -351,7 +350,6 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
-      fieldOptions: opts.fieldOptions ?? null,
       styleDefaults: opts.styleDefaults ?? null,
       getBounds: opts.getBounds ?? null,
       source: opts.source ?? null,

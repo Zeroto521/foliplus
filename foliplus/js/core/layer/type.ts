@@ -35,9 +35,6 @@ interface RegisterLayerOpts {
   /** Canonical style setters. Both the component's own panel and the layer
    *  drawer call these — the component owns the only copy of the value. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer (e.g. the
-   *  heatmap's numeric source fields). Absent when the layer has no field. */
-  fieldOptions?: (() => string[]) | null;
   /** Python CONF defaults for the delegated style fields. The drawer's Reset
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
@@ -77,8 +74,6 @@ interface LayerInfo {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Options for a `field`-keyed select in the style drawer. */
-  fieldOptions?: (() => string[]) | null;
   /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
   styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
@@ -138,8 +133,6 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
-  /** See RegisterLayerOpts. */
   styleDefaults?: (() => Record<string, unknown>) | null;
 }
 
@@ -158,8 +151,6 @@ interface CreateCanvasOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** See RegisterLayerOpts. */
-  fieldOptions?: (() => string[]) | null;
   /** See RegisterLayerOpts. */
   styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
