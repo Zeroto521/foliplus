@@ -66,11 +66,17 @@ describe("bindControls — template render and initial values", () => {
   });
 
   it("initialises controls from the manager state", () => {
-    const { ctrl, m } = setup();
+    const { ctrl, m, panel } = setup();
     expect(ctrl.borderColorInput.value).toBe(m.borderColor);
     expect(ctrl.borderWeightInput.value).toBe(String(m.borderWeight));
-    expect(ctrl.labelChk.checked).toBe(m.currentLabelShow);
-    expect(ctrl.labelFormatSelect.value).toBe(m.currentLabelFormat);
+    const labelChk = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(labelChk.checked).toBe(m.currentLabelShow);
+    const labelFormat = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(labelFormat.value).toBe(m.currentLabelFormat);
     expect(ctrl.methodSelect.value).toBe(m.currentMethod);
     expect(ctrl.aggSelect.value).toBe(m.currentAgg);
     expect(ctrl.classSelect.value).toBe(String(m.numClasses));
@@ -224,33 +230,42 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label toggle updates the manager and persists", () => {
-    const { ctrl, m } = setup();
+    const { ctrl, m, panel } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.labelChk.checked = false;
-    fire(ctrl.labelChk, "change");
+    const labelChk = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    labelChk.checked = false;
+    fire(labelChk, "change");
     expect(m.currentLabelShow).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
 
   it("label toggle emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelChk.checked = false;
-    fire(ctrl.labelChk, "change");
+    const labelChk = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    labelChk.checked = false;
+    fire(labelChk, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
     });
   });
 
   it("label format select updates the manager, redraws labels and persists", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const redraw = vi.spyOn(m, "redrawHeatmap");
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelFormatSelect.value = "comma";
-    fire(ctrl.labelFormatSelect, "change");
+    const labelFormatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    labelFormatSelect.value = "comma";
+    fire(labelFormatSelect, "change");
     expect(m.currentLabelFormat).toBe("comma");
     expect(redraw).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -260,11 +275,14 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label color input is live and notifies the layer drawer", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const redraw = vi.spyOn(m, "redrawHeatmap");
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelColorInput.value = "#00ff00";
-    fire(ctrl.labelColorInput, "input");
+    const labelColorInput = panel.querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    labelColorInput.value = "#00ff00";
+    fire(labelColorInput, "input");
     expect(m.currentLabelColor).toBe("#00ff00");
     expect(m.cachedLabelStyle).toBeNull();
     expect(redraw).toHaveBeenCalled();
@@ -274,17 +292,20 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label size input is live and clamps on commit", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const redraw = vi.spyOn(m, "redrawHeatmap");
-    ctrl.labelSizeInput.value = "18";
-    fire(ctrl.labelSizeInput, "input");
+    const labelSizeInput = panel.querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    labelSizeInput.value = "18";
+    fire(labelSizeInput, "input");
     expect(m.currentLabelSize).toBe(18);
     expect(redraw).toHaveBeenCalled();
 
-    ctrl.labelSizeInput.value = "99";
-    fire(ctrl.labelSizeInput, "change");
+    labelSizeInput.value = "99";
+    fire(labelSizeInput, "change");
     expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
-    expect(ctrl.labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
+    expect(labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
   });
 
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
@@ -350,7 +371,10 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
     expect(ctrl.methodSelect.value).toBe(conf.method);
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
-    expect(ctrl.labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
+    const labelFormatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(ctrl.borderWeightInput.value).toBe(String(conf.border_weight));
     expect(ctrl.borderColorInput.value).toBe(conf.border_color);
   });

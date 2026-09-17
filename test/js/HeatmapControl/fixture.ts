@@ -150,10 +150,8 @@ function makeCtrl(
     schemeSelectHidden: document.createElement("select"),
     borderColorInput: document.createElement("input"),
     borderWeightInput: document.createElement("input"),
-    labelChk: document.createElement("input"),
-    labelColorInput: document.createElement("input"),
-    labelSizeInput: document.createElement("input"),
-    labelFormatSelect: document.createElement("select"),
+    labelRefresh: null,
+    styleChangeCleanup: null,
     closeSchemeDropdown: () => undefined,
     toggleSchemeDropdown: () => undefined,
   };

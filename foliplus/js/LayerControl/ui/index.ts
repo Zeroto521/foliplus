@@ -185,6 +185,8 @@ class LayerUI {
   styleOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
   styleUnsubscribe: (() => void) | null;
+  /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
+  styleRefresh: (() => void) | null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
@@ -237,6 +239,7 @@ class LayerUI {
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
     this.styleUnsubscribe = null;
+    this.styleRefresh = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
     this.pressInPanel = false;

@@ -5,7 +5,6 @@
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
-import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "./const.js";
 
 /** Build the panel-content HTML string (data section + style section). */
@@ -93,38 +92,6 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 
     <div class="foliplus-heatmap-section-heading">
       ${T("section_label")}
-    </div>
-
-    <div class="foliplus-heatmap-section-block">
-      <div class="foliplus-form-row">
-        <label class="foliplus-form-label">${T("label")}</label>
-        <div class="foliplus-form-control">
-          <label class="foliplus-toggle-switch">
-            <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
-            <span class="foliplus-toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="foliplus-form-row">
-        <label class="foliplus-form-label">${T("label_style")}</label>
-        <div class="foliplus-form-control foliplus-form-inline">
-          <input class="foliplus-form-color-input" type="color" aria-label="${T("label_color")}" ${CONST.DATA_ATTR.LABEL_COLOR}>
-          <input class="foliplus-form-number-input" type="number" min="${CONST.LABEL.SIZE_MIN}" max="${CONST.LABEL.SIZE_MAX}" step="${CONST.LABEL.SIZE_STEP}" aria-label="${T("label_size")}" ${CONST.DATA_ATTR.LABEL_SIZE}>
-        </div>
-      </div>
-
-      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
-        <label class="foliplus-form-label">${T("label_format")}</label>
-        <div class="foliplus-form-control">
-          <select class="foliplus-form-select" ${CONST.DATA_ATTR.LABEL_FORMAT}>
-            <option value="${NUMBER_FORMAT.AUTO}">${T("label_format_auto")}</option>
-            <option value="${NUMBER_FORMAT.INT}">${T("label_format_int")}</option>
-            <option value="${NUMBER_FORMAT.COMMA}">${T("label_format_comma")}</option>
-            <option value="${NUMBER_FORMAT.PERCENT}">${T("label_format_percent")}</option>
-          </select>
-        </div>
-      </div>
     </div>
 
     <hr class="foliplus-section-divider">

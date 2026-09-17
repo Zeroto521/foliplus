@@ -76,7 +76,7 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-140KB)", () => {
+  it("common JS has reasonable size (20-155KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path). The common bundle is tree-shaken from the
@@ -87,9 +87,12 @@ describe("build artifacts", () => {
     // in the same bundle because the runtime registers it on foliplus.core,
     // and the per-layer style panel (#236) shipped labelField + the shared
     // form primitives through the same shell; so do the shared label
-    // contracts (field collection, collision geometry). 140KB is the agreed
-    // ceiling — #332 raised it first, the larger value wins on merge.
-    expect(size).toBeLessThan(140000);
+    // contracts (field collection, collision geometry) and the label-control
+    // renderer (#365) — one module for the heatmap panel and the layer style
+    // drawer, replacing two copies. 155KB is the agreed ceiling — #332 raised
+    // it first, then the shared renderer needed the next step; the larger
+    // value wins on merge.
+    expect(size).toBeLessThan(155000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
