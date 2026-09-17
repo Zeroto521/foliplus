@@ -175,14 +175,16 @@ const renderDelegatedStylePanel = (
       ].map(f => dom.el("option", { value: f }, fmtLabel(f))),
     );
     (formatSelect as HTMLSelectElement).value =
-      typeof values.labelFormat === "string"
-        ? values.labelFormat
-        : CONST.FORMAT.AUTO;
+      typeof values.labelFormat === "string" ? values.labelFormat : CONST.FORMAT.AUTO;
     bodyRows.push(
       dom.el(
         "div",
         { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_format")),
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.FORM_LABEL },
+          ui.T("style_label_format"),
+        ),
         dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
       ),
     );

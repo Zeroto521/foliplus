@@ -229,9 +229,7 @@ class HeatmapManager {
         // Format only rewrites the label text — redraw from cache, skip the
         // H3 re-aggregation that labelShow triggers.
         labelFormat: v => {
-          this.currentLabelFormat = (typeof v === "string"
-            ? v
-            : "auto") as NumberStyle;
+          this.currentLabelFormat = (typeof v === "string" ? v : "auto") as NumberStyle;
           this.redrawHeatmap();
           this.saveConfig();
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);

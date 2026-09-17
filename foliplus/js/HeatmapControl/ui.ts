@@ -2,8 +2,8 @@
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { type NumberStyle } from "#common/format.js";
 import { dom } from "#common/dom.js";
+import { type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
