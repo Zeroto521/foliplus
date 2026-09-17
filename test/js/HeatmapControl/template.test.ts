@@ -10,6 +10,7 @@ describe("panelContentHTML", () => {
     const map: Record<string, string> = {
       section_data: "Data",
       section_style: "Style",
+      section_label: "Label Section",
       layer: "Aggregation Layer",
       agg_method: "Aggregation Method",
       agg_count: "Count",
@@ -26,6 +27,11 @@ describe("panelContentHTML", () => {
       scheme: "Color",
       border: "Border",
       label: "Label",
+      label_format: "Number Format",
+      label_format_auto: "Auto",
+      label_format_int: "Integer",
+      label_format_comma: "Thousands Separator",
+      label_format_percent: "Percent",
       clear: "Clear",
     };
     return map[key] ?? key;
@@ -64,6 +70,7 @@ describe("panelContentHTML", () => {
       "data-hm-border-color",
       "data-hm-border-weight",
       "data-hm-label-chk",
+      "data-hm-label-format",
       "data-hm-btn-clear",
     ];
     for (const attr of expectedAttrs) {
@@ -75,6 +82,7 @@ describe("panelContentHTML", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Data");
     expect(html).toContain("Style");
+    expect(html).toContain("Label Section");
   });
 
   it("includes translated form labels", () => {
@@ -149,6 +157,17 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-toggle-switch");
     expect(html).toContain("foliplus-toggle-slider");
     expect(html).toContain('type="checkbox"');
+  });
+
+  it("includes the label number-format select with all four options", () => {
+    const html = panelContentHTML(T);
+    expect(html).toContain("data-hm-label-format");
+    expect(html).toContain('value="auto"');
+    expect(html).toContain('value="int"');
+    expect(html).toContain('value="comma"');
+    expect(html).toContain('value="percent"');
+    expect(html).toContain("Number Format");
+    expect(html).toContain("Thousands Separator");
   });
 
   it("includes border color picker", () => {

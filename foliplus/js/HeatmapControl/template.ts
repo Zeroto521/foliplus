@@ -88,7 +88,22 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
-      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
+      <div class="foliplus-form-row">
+        <label class="foliplus-form-label">${T("border")}</label>
+        <div class="foliplus-form-control foliplus-heatmap-form-inline">
+          <input class="foliplus-heatmap-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
+          <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="foliplus-heatmap-section-heading">
+      ${T("section_label")}
+    </div>
+
+    <div class="foliplus-heatmap-section-block">
+      <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("label")}</label>
         <div class="foliplus-form-control">
           <label class="foliplus-toggle-switch">
@@ -98,6 +113,17 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
+      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
+        <label class="foliplus-form-label">${T("label_format")}</label>
+        <div class="foliplus-form-control">
+          <select class="foliplus-form-select" ${CONST.DATA_ATTR.LABEL_FORMAT}>
+            <option value="${CONST.FORMAT.AUTO}">${T("label_format_auto")}</option>
+            <option value="${CONST.FORMAT.INT}">${T("label_format_int")}</option>
+            <option value="${CONST.FORMAT.COMMA}">${T("label_format_comma")}</option>
+            <option value="${CONST.FORMAT.PERCENT}">${T("label_format_percent")}</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <hr class="foliplus-section-divider">

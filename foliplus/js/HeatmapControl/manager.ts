@@ -236,6 +236,7 @@ class HeatmapManager {
           this.saveConfig();
           this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui) this.ui.labelFormatSelect.value = this.currentLabelFormat;
         },
       },
       // Snapshot taken at construction — Reset restores this, never the

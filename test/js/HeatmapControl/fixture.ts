@@ -149,6 +149,7 @@ function makeCtrl(
     borderColorInput: document.createElement("input"),
     borderWeightInput: document.createElement("input"),
     labelChk: document.createElement("input"),
+    labelFormatSelect: document.createElement("select"),
     closeSchemeDropdown: () => undefined,
     toggleSchemeDropdown: () => undefined,
   };

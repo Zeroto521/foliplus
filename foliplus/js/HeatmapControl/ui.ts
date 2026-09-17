@@ -40,6 +40,7 @@ interface HeatmapControlUI {
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
   labelChk: HTMLInputElement;
+  labelFormatSelect: HTMLSelectElement;
   closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
 }
@@ -102,11 +103,15 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.labelChk = panelContent.querySelector(
     `[${CONST.DATA_ATTR.LABEL_CHK}]`,
   ) as HTMLInputElement;
+  ctrl.labelFormatSelect = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.LABEL_FORMAT}]`,
+  ) as HTMLSelectElement;
 
   // Set initial values from manager defaults
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
   ctrl.labelChk.checked = ctrl.m.currentLabelShow;
+  ctrl.labelFormatSelect.value = ctrl.m.currentLabelFormat;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -209,6 +214,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
+  ctrl.labelFormatSelect.onchange = () => {
+    ctrl.m.currentLabelFormat = ctrl.labelFormatSelect.value as NumberStyle;
+    ctrl.m.redrawHeatmap();
+    persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  };
+
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
       ctrl.schemeDropdown &&
@@ -244,6 +256,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
     ctrl.labelChk.checked = ctrl.conf.label_show !== false;
+    ctrl.labelFormatSelect.value = (ctrl.conf.label_format ?? "auto") as NumberStyle;
     ctrl.borderWeightInput.value = String(
       ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );

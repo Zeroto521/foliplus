@@ -114,12 +114,22 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
     expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
     expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
+    expect(CONST.DATA_ATTR.LABEL_FORMAT).toBe("data-hm-label-format");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
   });
 
-  it("has 13 data-hm attribute keys (no confirm button)", () => {
+  it("has 14 data-hm attribute keys (no confirm button)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(13);
+    expect(keys.length).toBe(14);
+  });
+});
+
+describe("FORMAT", () => {
+  it("matches the annotation panel's number-format vocabulary", () => {
+    expect(CONST.FORMAT.AUTO).toBe("auto");
+    expect(CONST.FORMAT.INT).toBe("int");
+    expect(CONST.FORMAT.COMMA).toBe("comma");
+    expect(CONST.FORMAT.PERCENT).toBe("percent");
   });
 });
 

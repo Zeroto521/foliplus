@@ -121,8 +121,17 @@ const DATA_ATTR = {
   BORDER_COLOR: "data-hm-border-color",
   BORDER_WEIGHT: "data-hm-border-weight",
   LABEL_CHK: "data-hm-label-chk",
+  LABEL_FORMAT: "data-hm-label-format",
   BTN_CLEAR: "data-hm-btn-clear",
 };
+
+/** Label number-format keys — same vocabulary as LayerControl's annotation panel. */
+const FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const;
 
 export {
   AGG,
@@ -130,6 +139,7 @@ export {
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,
+  FORMAT,
   GRAY,
   H3,
   ID,

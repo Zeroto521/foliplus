@@ -1390,6 +1390,24 @@ describe("HeatmapManager — style delegation", () => {
     expect(labelChk.checked).toBe(true);
   });
 
+  it("labelFormat setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelFormatSelect = { value: "auto" } as HTMLSelectElement;
+    m.ui = { labelFormatSelect } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelFormatSelect.value).toBe("comma");
+  });
+
   it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
     const m = makeManager();
     const opts = getCanvasOpts() as {
