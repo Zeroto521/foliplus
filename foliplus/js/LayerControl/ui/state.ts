@@ -236,7 +236,13 @@ const applyOpacityStateOne = (_ui: LayerUI, layerInfo: LayerInfo, opacity: numbe
   applyLeafletOpacity(layerInfo.layer, opacity);
 };
 
-/** Recursive path/markers opacity application. */
+/** Recursive opacity application over a Leaflet layer tree.
+ *
+ *  Groups are walked first, then leaves: a `L.GeoJSON` exposes `setStyle`, but
+ *  Leaflet's implementation only forwards it to `Path` children, silently
+ *  skipping `Marker`s — which is why a point layer (folium's marker / divIcon
+ *  layers) ignored the opacity control. Descending through `eachLayer` reaches
+ *  every leaf, and a leaf then gets whichever API it actually has. */
 const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
   if (!layer) return;
   type OpacityCapable = L.Layer & {
@@ -245,12 +251,12 @@ const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
     setOpacity?: (v: number) => void;
   };
   const target = layer as OpacityCapable;
-  if (typeof target.setStyle === "function") {
-    target.setStyle({ opacity, fillOpacity: opacity });
-    return;
-  }
   if (typeof target.eachLayer === "function") {
     target.eachLayer(child => applyLeafletOpacity(child, opacity));
+    return;
+  }
+  if (typeof target.setStyle === "function") {
+    target.setStyle({ opacity, fillOpacity: opacity });
     return;
   }
   if (typeof target.setOpacity === "function") {

@@ -767,6 +767,34 @@ describe("applyOpacityStateOne", () => {
     expect(childSetStyle).toHaveBeenCalledWith({ opacity: 0.2, fillOpacity: 0.2 });
   });
 
+  it("reaches Markers inside a GeoJSON instead of using its setStyle", () => {
+    // Leaflet's GeoJSON.setStyle forwards only to Path children, so a point
+    // layer built from markers (folium's default) ignored the opacity control
+    // entirely. Walking eachLayer reaches the markers, which take setOpacity.
+    const groupSetStyle = vi.fn();
+    const markerSetOpacity = vi.fn();
+    const geoJson = {
+      options: {},
+      setStyle: groupSetStyle,
+      eachLayer: vi.fn((fn: (l: unknown) => void) => {
+        fn({ options: {}, setOpacity: markerSetOpacity });
+      }),
+    };
+    const li = {
+      id: "points",
+      canvas: null,
+      layer: geoJson as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.3);
+
+    expect(markerSetOpacity).toHaveBeenCalledWith(0.3);
+    // The group-level setStyle would have silently skipped the markers.
+    expect(groupSetStyle).not.toHaveBeenCalled();
+    expect(li.opacity).toBe(0.3);
+  });
+
   it("falls back to setOpacity for Markers", () => {
     const setOpacity = vi.fn();
     const li = {

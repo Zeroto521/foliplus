@@ -12,6 +12,7 @@ import {
   rebuildLayerDropdown,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
@@ -69,6 +70,7 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.borderColorInput.value).toBe(m.borderColor);
     expect(ctrl.borderWeightInput.value).toBe(String(m.borderWeight));
     expect(ctrl.labelChk.checked).toBe(m.currentLabelShow);
+    expect(ctrl.labelFormatSelect.value).toBe(m.currentLabelFormat);
     expect(ctrl.methodSelect.value).toBe(m.currentMethod);
     expect(ctrl.aggSelect.value).toBe(m.currentAgg);
     expect(ctrl.classSelect.value).toBe(String(m.numClasses));
@@ -188,14 +190,15 @@ describe("bindControls — change handlers", () => {
     expect(render).toHaveBeenCalled();
   });
 
-  it("border color change persists without re-rendering", () => {
+  it("border color input is live: applies and persists on every pick", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.borderColorInput.value = "#000000";
-    fire(ctrl.borderColorInput, "change");
+    fire(ctrl.borderColorInput, "input");
+    expect(m.borderColor).toBe("#000000");
     expect(save).toHaveBeenCalled();
-    expect(render).not.toHaveBeenCalled();
+    expect(render).toHaveBeenCalled();
   });
 
   it("border weight change clamps out-of-range values back into range", () => {
@@ -241,6 +244,49 @@ describe("bindControls — change handlers", () => {
     });
   });
 
+  it("label format select updates the manager, redraws labels and persists", () => {
+    const { ctrl, m } = setup();
+    const save = vi.spyOn(m, "saveConfig");
+    const redraw = vi.spyOn(m, "redrawHeatmap");
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.labelFormatSelect.value = "comma";
+    fire(ctrl.labelFormatSelect, "change");
+    expect(m.currentLabelFormat).toBe("comma");
+    expect(redraw).toHaveBeenCalled();
+    expect(save).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
+  });
+
+  it("label color input is live and notifies the layer drawer", () => {
+    const { ctrl, m } = setup();
+    const redraw = vi.spyOn(m, "redrawHeatmap");
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.labelColorInput.value = "#00ff00";
+    fire(ctrl.labelColorInput, "input");
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.cachedLabelStyle).toBeNull();
+    expect(redraw).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
+  });
+
+  it("label size input is live and clamps on commit", () => {
+    const { ctrl, m } = setup();
+    const redraw = vi.spyOn(m, "redrawHeatmap");
+    ctrl.labelSizeInput.value = "18";
+    fire(ctrl.labelSizeInput, "input");
+    expect(m.currentLabelSize).toBe(18);
+    expect(redraw).toHaveBeenCalled();
+
+    ctrl.labelSizeInput.value = "99";
+    fire(ctrl.labelSizeInput, "change");
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+    expect(ctrl.labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
+  });
+
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");
@@ -259,6 +305,7 @@ describe("bindControls — clear (reset) button", () => {
       n_classes: 4,
       method: "equal",
       label_show: false,
+      label_format: "int",
       border_weight: 3,
       border_color: "#abcdef",
       field: "value",
@@ -273,6 +320,7 @@ describe("bindControls — clear (reset) button", () => {
     m.numClasses = 8;
     m.currentMethod = "quantile";
     m.currentLabelShow = true;
+    m.currentLabelFormat = "comma";
     m.borderWeight = 5;
     m.borderColor = "#111111";
 
@@ -289,6 +337,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
     expect(m.currentLabelShow).toBe(conf.label_show);
+    expect(m.currentLabelFormat).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(m.borderWeight).toBe(conf.border_weight);
     expect(m.borderColor).toBe(conf.border_color);
     expect(clearSaved).toHaveBeenCalled();
@@ -301,6 +350,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
     expect(ctrl.methodSelect.value).toBe(conf.method);
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(ctrl.borderWeightInput.value).toBe(String(conf.border_weight));
     expect(ctrl.borderColorInput.value).toBe(conf.border_color);
   });

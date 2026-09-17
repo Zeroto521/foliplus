@@ -747,22 +747,38 @@ class TestLayerControlRendering:
         assert "letter-spacing: var(--letter-spacing-tight)" in css
 
     def test_opacity_control_css(self):
-        """Opacity control: checkerboard track, accent thumb, compact number."""
+        """Opacity control: checkerboard + accent fill track, ringed thumb."""
         css = read_css("foliplus/css/common/form.css")
         assert ".foliplus-style-opacity-control" in css
         assert ".foliplus-style-opacity-range" in css
-        assert ".foliplus-style-opacity-number" in css
-        # Checkerboard via repeating-conic-gradient on both track prefixes.
+        # The number field reuses the shared chrome instead of its own recipe,
+        # so the row matches the heatmap border row exactly.
+        assert ".foliplus-style-opacity-number" not in css
+        assert ".foliplus-form-number-input" in css
+        # Checkerboard + accent fill on both engine track prefixes.
         assert "repeating-conic-gradient" in css
+        assert "var(--opacity-fill" in css
         assert "::-webkit-slider-runnable-track" in css
         assert "::-moz-range-track" in css
-        # Thumb uses the accent primary token, not a hard-coded red.
-        assert "background: var(--accent-primary)" in css
+        # Bar and thumb geometry are declared once and derived from each other:
+        # the bar is slimmer than the --ctrl-size row so it reads as a level,
+        # the thumb is proud of it so it reads as a handle, and the webkit
+        # centring margin is computed from the two rather than hand-tuned.
+        assert "--opacity-track-height: 14px" in css
+        assert "--opacity-thumb-size: 20px" in css
+        assert "height: var(--opacity-track-height)" in css
+        assert "width: var(--opacity-thumb-size)" in css
+        assert "margin-top: calc(" in css
+        # Thumb: accent ring on a white core.
+        assert "border: var(--border-thick) solid var(--accent-primary)" in css
+        assert "background: var(--neutral-0)" in css
         assert "::-webkit-slider-thumb" in css
         assert "::-moz-range-thumb" in css
         # Focus ring on the range, matching every other foliplus control.
         assert ".foliplus-style-opacity-range:focus-visible" in css
         assert "box-shadow: var(--focus-ring)" in css
+        # The slider shares the shared inline cell, next to the number field.
+        assert ".foliplus-style-opacity-control .foliplus-style-opacity-range" in css
 
     def test_style_panel_locale_keys_present(self):
         """Opacity / section keys are injected into the LayerControl bundle."""
@@ -1327,6 +1343,35 @@ class TestLayerControlBrowser:
             # The focus filter plans the spotlighted layer only.
             assert result["opaqueA"] > 0, result
             assert result["opaqueB"] == 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_opacity_control_reaches_markers(self, browser, tmp_path):
+        """A point layer built from markers must honour the opacity control.
+
+        Regression: Leaflet's `GeoJSON.setStyle` forwards only to `Path`
+        children, so applying the layer opacity through the group left every
+        marker untouched — the control looked dead on point layers. The layer
+        is built in-page so the test does not depend on how folium links a
+        generated GeoJSON layer into the registry.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/opacity_applies_to_markers"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            # The group exposes setStyle — the call that used to swallow it.
+            assert result["groupHasSetStyle"] is True, result
+            assert result["markerCount"] > 0, f"no markers in the layer: {result}"
+            # Each child is a leaf that only offers setOpacity — a group-level
+            # setStyle therefore cannot be what moved them.
+            assert all(a["setOpacity"] and not a["setStyle"] for a in result["markerApis"]), (
+                result
+            )
+            assert result["registryOpacity"] == 0.4, result
+            assert all(v == 0.4 for v in result["markerOpacity"]), result
+            assert all(v == "0.4" for v in result["iconOpacity"]), result
+            assert result["numberValue"] == "40", result
+            assert result["fillVar"] == "40%", result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

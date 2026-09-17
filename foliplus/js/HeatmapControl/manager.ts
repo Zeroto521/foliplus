@@ -9,7 +9,8 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { formatLabelNumber } from "#common/format.js";
+import { clampLabelSize, normalizeHexColor } from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
@@ -85,6 +86,9 @@ interface SavedConfig {
   borderWeight?: number;
   borderColor?: string;
   labelShow?: boolean;
+  labelColor?: string;
+  labelSize?: number;
+  labelFormat?: NumberStyle;
   field?: string;
   fieldAuto?: boolean;
 }
@@ -110,6 +114,12 @@ class HeatmapManager {
   borderWeight: number;
   borderColor: string;
   currentLabelShow: boolean;
+  /** Runtime label color/size — heatmap panel and layer drawer both write these. */
+  currentLabelColor: string;
+  currentLabelSize: number;
+  /** Runtime label number format — heatmap panel and layer drawer both write
+   *  this; Python CONF only seeds the initial value. */
+  currentLabelFormat: NumberStyle;
   valueFallbackWarned: boolean;
   /**
    * Whether LayerControl currently shows this heatmap layer. Mirrors the
@@ -181,12 +191,21 @@ class HeatmapManager {
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.currentLabelShow = CONF.label_show !== false;
+    // Color inputs require #rrggbb — normalize the short #fff Python default.
+    this.currentLabelColor = normalizeHexColor(
+      CONF.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+    );
+    this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
+    this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
+    const defaultLabelColor = this.currentLabelColor;
+    const defaultLabelSize = this.currentLabelSize;
+    const defaultLabelFormat = this.currentLabelFormat;
     // Create a managed canvas via LayerControl API.
     // Canvas lives in its own Leaflet pane (`foliplus-canvas-<id>`) with a
     // position offset that cancels the mapPane CSS transform. Drawn with
@@ -210,6 +229,9 @@ class HeatmapManager {
       // heatmap panel. The drawer pulls fresh values from the provider.
       styleProvider: () => ({
         labelShow: this.currentLabelShow,
+        labelColor: this.currentLabelColor,
+        labelSize: this.currentLabelSize,
+        labelFormat: this.currentLabelFormat,
       }),
       styleSetters: {
         labelShow: v => {
@@ -220,11 +242,55 @@ class HeatmapManager {
           this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
           if (this.ui) this.ui.labelChk.checked = this.currentLabelShow;
         },
+        // Size/color only rewrite label paint — drop the cached style and
+        // redraw from the feature cache.
+        labelColor: v => {
+          this.currentLabelColor =
+            typeof v === "string" ? normalizeHexColor(v) : this.currentLabelColor;
+          this.cachedLabelStyle = null;
+          this.redrawHeatmap();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui?.labelColorInput) {
+            this.ui.labelColorInput.value = this.currentLabelColor;
+          }
+        },
+        labelSize: v => {
+          const n =
+            typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
+          this.currentLabelSize = clampLabelSize(n);
+          this.cachedLabelStyle = null;
+          this.redrawHeatmap();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui?.labelSizeInput) {
+            this.ui.labelSizeInput.value = String(this.currentLabelSize);
+          }
+        },
+        // Format only rewrites the label text — redraw from cache, skip the
+        // H3 re-aggregation that labelShow triggers.
+        labelFormat: v => {
+          this.currentLabelFormat = (
+            typeof v === "string" ? v : NUMBER_FORMAT.AUTO
+          ) as NumberStyle;
+          this.redrawHeatmap();
+          this.saveConfig();
+          this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+          this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+          if (this.ui?.labelFormatSelect) {
+            this.ui.labelFormatSelect.value = this.currentLabelFormat;
+          }
+        },
       },
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaults: () => ({
         labelShow: defaultLabelShow,
+        labelColor: defaultLabelColor,
+        labelSize: defaultLabelSize,
+        labelFormat: defaultLabelFormat,
       }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
@@ -361,7 +427,15 @@ class HeatmapManager {
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
-    this.cachedLabelStyle = resolveCanvasLabelStyle(this.ui!.ctrl);
+    // Runtime size/color win over the shared --label-* tokens so the panel
+    // and drawer can restyle hex labels without a CSS override.
+    const base = resolveCanvasLabelStyle(this.ui!.ctrl);
+    this.cachedLabelStyle = {
+      ...base,
+      fontSize: this.currentLabelSize,
+      font: `${base.fontWeight} ${this.currentLabelSize}px ${base.fontFamily}`,
+      color: this.currentLabelColor,
+    };
     return this.cachedLabelStyle;
   }
 
@@ -376,7 +450,7 @@ class HeatmapManager {
     const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
     const text = formatLabelNumber(
       feat.properties.value ?? 0,
-      CONF.label_format,
+      this.currentLabelFormat,
       CONF.locale_code,
     );
     prepareCanvasLabel(ctx, style);
@@ -730,6 +804,9 @@ class HeatmapManager {
         borderWeight: this.borderWeight,
         borderColor: this.borderColor,
         labelShow: this.currentLabelShow,
+        labelColor: this.currentLabelColor,
+        labelSize: this.currentLabelSize,
+        labelFormat: this.currentLabelFormat,
         field: this.currentField,
         fieldAuto: this.fieldAuto,
       } satisfies SavedConfig,
@@ -795,6 +872,11 @@ class HeatmapManager {
     }
     if (saved.borderColor) this.borderColor = saved.borderColor;
     if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
+    if (saved.labelColor) this.currentLabelColor = saved.labelColor;
+    if (saved.labelSize !== undefined) {
+      this.currentLabelSize = clampLabelSize(saved.labelSize);
+    }
+    if (saved.labelFormat) this.currentLabelFormat = saved.labelFormat;
     if (saved.field) this.currentField = bareFieldName(saved.field);
     if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
     this.selectedLayerId = saved.layerId ?? null;

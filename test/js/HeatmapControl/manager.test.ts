@@ -797,6 +797,7 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
+      m.currentLabelFormat = "comma";
       m.currentField = "price";
       m.fieldAuto = false;
 
@@ -811,6 +812,7 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
+      expect(stored.labelFormat).toBe("comma");
       expect(stored.field).toBe("price");
       expect(stored.fieldAuto).toBe(false);
     });
@@ -894,6 +896,7 @@ describe("HeatmapManager — persistence", () => {
         borderWeight: 3,
         borderColor: "#00ff00",
         labelShow: true,
+        labelFormat: "percent",
         field: "properties.qty",
         fieldAuto: false,
       });
@@ -905,6 +908,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
+      expect(m.currentLabelFormat).toBe("percent");
       // Legacy "properties." prefix is stripped on load.
       expect(m.currentField).toBe("qty");
       expect(m.fieldAuto).toBe(false);
@@ -1273,10 +1277,20 @@ describe("hex label rendering (shared canvas recipe)", () => {
       vi.fn(() => ({ x: 10, y: 20 }));
   });
 
-  it("resolveLabelStyle reads the shared --label-* tokens and caches them", () => {
+  it("resolveLabelStyle overlays runtime size/color on the shared tokens", () => {
     const style = m.resolveLabelStyle();
-    expect(style.font).toContain("12px");
+    // Runtime size (CONF 11) wins over the --label-* token default (12).
+    expect(style.fontSize).toBe(11);
+    expect(style.font).toContain("11px");
+    expect(style.color).toBe("#ffffff");
     expect(m.resolveLabelStyle()).toBe(style);
+  });
+
+  it("resolveLabelStyle picks up a runtime size change after cache clear", () => {
+    m.resolveLabelStyle();
+    m.currentLabelSize = 18;
+    m.cachedLabelStyle = null;
+    expect(m.resolveLabelStyle().font).toContain("18px");
   });
 
   it("drawHexLabel strokes the halo then fills the value at the centroid", () => {
@@ -1325,18 +1339,34 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
     expect(typeof opts.styleProvider).toBe("function");
     expect(typeof opts.styleSetters?.labelShow).toBe("function");
+    expect(typeof opts.styleSetters?.labelColor).toBe("function");
+    expect(typeof opts.styleSetters?.labelSize).toBe("function");
+    expect(typeof opts.styleSetters?.labelFormat).toBe("function");
     // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
     expect(opts.fieldOptions).toBeUndefined();
   });
 
-  it("styleProvider returns the live labelShow value", () => {
+  it("styleProvider returns the live labelShow, color, size and format values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();
-    expect(opts.styleProvider!()).toEqual({ labelShow: true });
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
 
     m.currentLabelShow = false;
-    expect(opts.styleProvider!()).toEqual({ labelShow: false });
+    m.currentLabelColor = "#ff0000";
+    m.currentLabelSize = 16;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: false,
+      labelColor: "#ff0000",
+      labelSize: 16,
+      labelFormat: "comma",
+    });
   });
 
   it("constructs with empty field when CONF.field is absent", () => {
@@ -1378,17 +1408,154 @@ describe("HeatmapManager — style delegation", () => {
     expect(labelChk.checked).toBe(true);
   });
 
+  it("labelFormat setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const labelFormatSelect = { value: "auto" } as HTMLSelectElement;
+    m.ui = { labelFormatSelect } as unknown as HeatmapManager["ui"];
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+    expect(labelFormatSelect.value).toBe("comma");
+  });
+
   it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
     const m = makeManager();
     const opts = getCanvasOpts() as {
       styleDefaults?: () => Record<string, unknown>;
     };
     expect(typeof opts.styleDefaults).toBe("function");
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
 
     // Runtime toggles must not leak into the Reset snapshot.
     m.currentLabelShow = false;
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true });
+    m.currentLabelColor = "#00ff00";
+    m.currentLabelSize = 20;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+  });
+
+  it("labelColor and labelSize setters update state, clear the style cache and persist", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!("#00ff00");
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.cachedLabelStyle).toBeNull();
+
+    opts.styleSetters!.labelSize!(18);
+    expect(m.currentLabelSize).toBe(18);
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelSize setter clamps out-of-range values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(99);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+
+    opts.styleSetters!.labelSize!(1);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MIN);
+  });
+
+  it("labelColor setter ignores non-string values and normalizes #rgb", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!(42);
+    expect(m.currentLabelColor).toBe("#ffffff");
+
+    opts.styleSetters!.labelColor!("#abc");
+    expect(m.currentLabelColor).toBe("#aabbcc");
+  });
+
+  it("labelSize setter ignores NaN and non-number values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(Number.NaN);
+    expect(m.currentLabelSize).toBe(11);
+
+    opts.styleSetters!.labelSize!("18" as unknown as number);
+    expect(m.currentLabelSize).toBe(11);
+  });
+
+  it("labelColor and labelSize setters no-op the UI sync when not bound", () => {
+    const m = makeManager();
+    // ui is null — the optional chaining must not throw.
+    expect(() => {
+      getCanvasOpts().styleSetters!.labelColor!("#00ff00");
+      getCanvasOpts().styleSetters!.labelSize!(20);
+    }).not.toThrow();
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.currentLabelSize).toBe(20);
+  });
+
+  it("labelColor and labelSize setters sync the bound panel inputs", () => {
+    const m = makeManager();
+    const labelColorInput = { value: "#ffffff" } as HTMLInputElement;
+    const labelSizeInput = { value: "11" } as HTMLInputElement;
+    m.ui = { labelColorInput, labelSizeInput } as unknown as HeatmapManager["ui"];
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!("#00ff00");
+    opts.styleSetters!.labelSize!(16);
+
+    expect(labelColorInput.value).toBe("#00ff00");
+    expect(labelSizeInput.value).toBe("16");
+  });
+
+  it("labelFormat setter updates state, redraws labels and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(m.currentLabelFormat).toBe("comma");
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelFormat setter falls back to auto for non-string values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!(42);
+
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("currentLabelFormat seeds from CONF.label_format", () => {
+    const m = makeManager({ label_format: "percent" });
+    expect(m.currentLabelFormat).toBe("percent");
+  });
+
+  it("labelFormat defaults to auto when CONF omits label_format", () => {
+    const m = makeManager({ label_format: undefined });
+    expect(m.currentLabelFormat).toBe("auto");
   });
 
   it("labelShow defaults to true when CONF omits label_show", () => {

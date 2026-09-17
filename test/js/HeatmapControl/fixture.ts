@@ -51,6 +51,8 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
       border_weight: 1.5,
       border_opacity: 0.9,
       label_show: true,
+      label_color: "#fff",
+      label_size: 11,
       label_format: "auto",
     },
     confOverrides,
@@ -149,6 +151,9 @@ function makeCtrl(
     borderColorInput: document.createElement("input"),
     borderWeightInput: document.createElement("input"),
     labelChk: document.createElement("input"),
+    labelColorInput: document.createElement("input"),
+    labelSizeInput: document.createElement("input"),
+    labelFormatSelect: document.createElement("select"),
     closeSchemeDropdown: () => undefined,
     toggleSchemeDropdown: () => undefined,
   };
