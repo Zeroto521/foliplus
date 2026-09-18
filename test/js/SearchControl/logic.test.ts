@@ -1650,6 +1650,86 @@ describe("fetchSuggestions: render behavior", () => {
     expect(ctrl.panelWrap).toBe(el);
   });
 
+  it("still clears the panel when the catch handler itself throws", async () => {
+    // The chain is fire-and-forget, so a handler that threw instead of settling
+    // escaped as an unhandled rejection. Assert on the observable side effect of
+    // the finally, not on the log, and use a rejection that lands here
+    // (malformed body) — the AbortError early return never reaches the handler.
+    // buildSearchUrl reaches toWgs84 before the fetch, and ensureGcoord warns
+    // on the gcoord fallback, so the warn mock must absorb that first call and
+    // only throw on the handler's own — otherwise it trips on the URL build.
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((message: string) => {
+        if (typeof message === "string" && message.includes("suggestion fetch")) {
+          throw new Error("console failed");
+        }
+      });
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.reject(new SyntaxError("bad json")) }),
+    ) as unknown as typeof fetch;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    // The panel still closed despite the log throwing, which proves the reject
+    // settled through the finally rather than out the chain.
+    expect(ctrl.panelWrap).toBeNull();
+    expect(document.body.contains(el)).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("suggestion fetch failed"),
+      expect.anything(),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("warns on a malformed suggestion payload instead of dropping it", async () => {
+    // Malformed body: r.json() rejects. The panel must still close so the
+    // search input is not left looking live on a dead request.
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.reject(new SyntaxError("bad json")) }),
+    ) as unknown as typeof fetch;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      mode: "addr",
+      cachedSuggestions: new Cache<string, object>(50),
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: -1,
+      lastSuggestFetch: 0,
+      suggestSeq: 0,
+      suggestAbortController: null,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("suggestion fetch failed"),
+      expect.anything(),
+    );
+    expect(ctrl.panelWrap).toBeNull();
+    warnSpy.mockRestore();
+  });
+
   it("clears panelWrap when results are empty", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.resolve([]) }),
