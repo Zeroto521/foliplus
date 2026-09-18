@@ -33,6 +33,46 @@ beforeEach(() => {
   markRequest("nominatim", 0);
 });
 
+// A stub that records the URL of every fetch and holds each response until
+// the test releases it — lets a test interleave a user edit between the
+// request going out and it settling.
+const createDeferredFetch = () => {
+  const calls: unknown[] = [];
+  const inflight: Array<() => void> = [];
+  globalThis.fetch = vi.fn((url: unknown) => {
+    calls.push(url);
+    return new Promise<unknown>(resolve => {
+      inflight.push(() =>
+        resolve({
+          json: () => Promise.resolve([{ lat: "30", lon: "120", display_name: "A" }]),
+        }),
+      );
+    });
+  }) as unknown as typeof fetch;
+  const fetches = { calls, inflight };
+  return fetches;
+};
+
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+// The shape fetchSuggestions needs. Fields the tests do not exercise stay at
+// the same defaults as the other fixtures in this file.
+const makeFixture = (extra: Record<string, unknown> = {}) =>
+  ({
+    mode: MODE.ADDR,
+    cachedSuggestions: new Cache<string, object>(50),
+    panelWrap: null,
+    throttleTimer: null,
+    selectedIdx: -1,
+    lastSuggestFetch: 0,
+    suggestSeq: 0,
+    suggestAbortController: null,
+    ctrl: {
+      getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+    },
+    ...extra,
+  }) as any;
+
 describe("removePanel", () => {
   it("removes panelWrap and resets state", () => {
     const el = document.createElement("div");
@@ -1202,6 +1242,103 @@ describe("fetchSuggestions: throttle and abort", () => {
     ctrl.suggestSeq += 1;
     ctrl.inp.value = "xyz";
     expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("does not render or cache a response for a query the input no longer reads", async () => {
+    // A request dispatched for "abc" can still be settling after the input
+    // reads "def": with the debounce pending, no second request is issued and
+    // suggestSeq never increments, so the seq guard alone cannot catch it.
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({ inp: { value: "abc" } });
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.inflight).toHaveLength(1);
+    // The user edits while the request was in flight: the debounce swallowed
+    // the keystrokes, so no second request and no seq bump.
+    ctrl.inp.value = "def";
+    fetches.inflight[0]();
+    await tick();
+    // The stale response must not have opened a panel...
+    expect(ctrl.panelWrap).toBeNull();
+    // ...nor seeded the cache for a query the input no longer reads —
+    // otherwise a later fetchSuggestions(ctrl, "abc") would render "abc"
+    // results straight from cache without going to the network.
+    expect(ctrl.cachedSuggestions.get("abc")).toBeUndefined();
+    // The network was hit exactly once: no re-issue from the drop path.
+    expect(fetches.calls).toHaveLength(1);
+  });
+
+  it("does not reopen a panel from a cache entry the input no longer reads", async () => {
+    // The seq guard cannot catch a quiet user either: typing "abc" then
+    // clearing the box never issues a second request, so nothing increments
+    // suggestSeq. The cache is the only surviving copy of that response.
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({
+      searchHistory: [],
+      inp: { value: "abc" },
+    });
+    fetchSuggestions(ctrl, "abc");
+    fetches.inflight[0]();
+    await tick();
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.cachedSuggestions.get("abc")).toBeDefined();
+    // User clears the input: no request, no seq bump.
+    ctrl.inp.value = "";
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.panelWrap).toBeNull();
+    // Re-typing "abc" hits the cache. The entry must not resurrect the
+    // panel for a context it no longer belongs to.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.panelWrap).toBeNull();
+    // A cache hit is a no-network path, so nothing was re-issued here.
+    expect(fetches.calls).toHaveLength(1);
+  });
+
+  it("retries the live input value, not the queued one", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({ inp: { value: "abc" } });
+    // First call passes the window and marks both clocks.
+    fetchSuggestions(ctrl, "abc");
+    // Second call lands inside the throttle window and schedules a retry.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.throttleTimer).toBeDefined();
+    // The user keeps typing while the retry is pending.
+    ctrl.inp.value = "defg";
+    await vi.advanceTimersByTimeAsync(1000);
+    // The retry must target what is actually in the box, not the value the
+    // keystroke that queued it carried.
+    expect(fetches.calls).toHaveLength(2);
+    expect(String(fetches.calls[1])).toContain("defg");
+    expect(String(fetches.calls[1])).not.toContain("abc");
+    vi.useRealTimers();
+  });
+
+  it("refetches a cached suggestion once its TTL has lapsed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const fetches = createDeferredFetch();
+    // A TTL-bearing cache, as SearchControl builds it from the consts. An
+    // entry is only as good as the map view that produced it, so a stale one
+    // must expire rather than paint suggestions for a bias the user has panned
+    // away from.
+    const ctrl: any = makeFixture({
+      inp: { value: "abc" },
+      cachedSuggestions: new Cache<string, object>(
+        AUTOCOMPLETE.CACHE_MAX,
+        AUTOCOMPLETE.CACHE_TTL_MS,
+      ),
+    });
+    ctrl.cachedSuggestions.set("abc", [{ lat: "30", lng: "120", display_name: "A" }]);
+    // Inside the TTL the entry still serves: no request, panel painted.
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(0);
+    expect(ctrl.panelWrap).not.toBeNull();
+    // Past the TTL the entry is retired on access, so the keystroke refetches.
+    vi.setSystemTime(new Date(Date.now() + AUTOCOMPLETE.CACHE_TTL_MS + 60_000));
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(1);
+    vi.useRealTimers();
   });
 });
 
