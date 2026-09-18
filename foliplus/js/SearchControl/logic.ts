@@ -654,10 +654,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   }
   const cached = ctrl.cachedSuggestions.get(query);
   // The cache survives removePanel() (index.ts clears it only on destroy), so
-  // it can outlive the request that produced it. Only a request may retire an
-  // entry — renderSuggestions overwrites on a hit.
-  if (cached && compareWithInput(ctrl, query)) {
-    renderSuggestions(ctrl, cached, query);
+  // it can outlive the request that produced it. A hit only renders when the
+  // input still reads the query: a stale caller must neither paint the panel
+  // nor fall through to a refetch of a string nobody is looking at. Only a
+  // request may retire an entry — renderSuggestions overwrites on a hit.
+  if (cached) {
+    if (compareWithInput(ctrl, query)) renderSuggestions(ctrl, cached, query);
     return;
   }
 
@@ -668,6 +670,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
+    // Re-read the input at fire time, not the `query` this call was handed:
+    // the retry outlives the keystroke that queued it, so the user may have
+    // typed on. Capturing `query` here would target a string no longer in
+    // the box, and a cache hit on it would paint the wrong results.
     ctrl.throttleTimer = setTimeout(
       () => {
         fetchSuggestions(ctrl, ctrl.inp.value.trim());

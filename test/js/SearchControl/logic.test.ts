@@ -1313,6 +1313,33 @@ describe("fetchSuggestions: throttle and abort", () => {
     expect(String(fetches.calls[1])).not.toContain("abc");
     vi.useRealTimers();
   });
+
+  it("refetches a cached suggestion once its TTL has lapsed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const fetches = createDeferredFetch();
+    // A TTL-bearing cache, as SearchControl builds it from the consts. An
+    // entry is only as good as the map view that produced it, so a stale one
+    // must expire rather than paint suggestions for a bias the user has panned
+    // away from.
+    const ctrl: any = makeFixture({
+      inp: { value: "abc" },
+      cachedSuggestions: new Cache<string, object>(
+        AUTOCOMPLETE.CACHE_MAX,
+        AUTOCOMPLETE.CACHE_TTL_MS,
+      ),
+    });
+    ctrl.cachedSuggestions.set("abc", [{ lat: "30", lng: "120", display_name: "A" }]);
+    // Inside the TTL the entry still serves: no request, panel painted.
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(0);
+    expect(ctrl.panelWrap).not.toBeNull();
+    // Past the TTL the entry is retired on access, so the keystroke refetches.
+    vi.setSystemTime(new Date(Date.now() + AUTOCOMPLETE.CACHE_TTL_MS + 60_000));
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(1);
+    vi.useRealTimers();
+  });
 });
 
 describe("fetchSuggestions: empty query shows history", () => {
