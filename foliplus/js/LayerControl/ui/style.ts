@@ -131,10 +131,15 @@ const commitOpacityPct = (
   const opacity = pct / 100;
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  applyOpacityStateOne(ui, li, opacity);
-  if (opacity === 1) delete ui.opacityMap[layerId];
-  else ui.opacityMap[layerId] = opacity;
-  saveOpacityMap(ui);
+  // Only touch the layer when the value actually moved: a drag revisits steps
+  // (and the commit re-sends the live value), and for a plain layer each pass
+  // is a sweep over every feature.
+  if (li.opacity !== opacity) {
+    applyOpacityStateOne(ui, li, opacity);
+    if (opacity === 1) delete ui.opacityMap[layerId];
+    else ui.opacityMap[layerId] = opacity;
+    saveOpacityMap(ui);
+  }
   syncOpacityInputs(panel, pct, commit);
 };
 

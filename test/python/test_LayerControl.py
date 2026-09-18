@@ -1363,33 +1363,42 @@ class TestLayerControlBrowser:
             assert result["opaqueB"] == 0, result
             assert not errors, f"JS errors: {errors}"
 
-    def test_opacity_control_reaches_markers(self, browser, tmp_path):
-        """A point layer built from markers must honour the opacity control.
+    def test_opacity_pane_versus_features(self, browser, tmp_path):
+        """One pane write per layer, and never onto a pane that is shared.
 
-        Regression: Leaflet's `GeoJSON.setStyle` forwards only to `Path`
-        children, so applying the layer opacity through the group left every
-        marker untouched — the control looked dead on point layers. The layer
-        is built in-page so the test does not depend on how folium links a
-        generated GeoJSON layer into the registry.
+        After the ordering pass every overlay layer — a plain folium one
+        included — owns a pane and has its content migrated into it, so the
+        opacity is a single style write instead of a sweep over the features.
+        The neighbour is the control: it is a different layer in a different
+        pane and must be untouched.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/opacity_applies_to_markers"))
+            result = page.evaluate(_js("LayerControl/opacity_pane_isolation"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
-            # The group exposes setStyle — the call that used to swallow it.
-            assert result["groupHasSetStyle"] is True, result
-            assert result["markerCount"] > 0, f"no markers in the layer: {result}"
-            # Each child is a leaf that only offers setOpacity — a group-level
-            # setStyle therefore cannot be what moved them.
-            assert all(
-                a["setOpacity"] and not a["setStyle"] for a in result["markerApis"]
-            ), result
-            assert result["registryOpacity"] == 0.4, result
-            assert all(v == 0.4 for v in result["markerOpacity"]), result
-            assert all(v == "0.4" for v in result["iconOpacity"]), result
-            assert result["numberValue"] == "40", result
-            assert result["fillVar"] == "40%", result
+
+            # Plain layer: its own pane carries the opacity...
+            assert result["plainOpened"] is True, result
+            assert result["plainPaneShared"] is False, result
+            assert result["plainPaneBefore"] in ("", "1"), result
+            assert result["plainPaneAfter"] == "0.4", result
+            assert result["plainRegistryOpacity"] == 0.4, result
+            # ...and the features keep their own style (no per-feature sweep).
+            assert result["plainLeafOpacity"], result
+            assert all(v == 1 for v in result["plainLeafOpacity"]), result
+            # The neighbour is a different layer in a different pane.
+            assert result["plainNeighbourSamePane"] is False, result
+            assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
+            assert result["plainNeighbourLeafOpacity"], result
+            assert all(v == 1 for v in result["plainNeighbourLeafOpacity"]), result
+
+            # Managed layer: its declared panes carry it, one write each.
+            assert result["managedOpened"] is True, result
+            assert result["managedGraphPaneShared"] is False, result
+            assert result["managedGraphPaneOpacity"] == "0.4", result
+            assert result["managedNodePaneOpacity"] == "0.4", result
+            assert result["managedPolylineOpacity"] == 1, result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

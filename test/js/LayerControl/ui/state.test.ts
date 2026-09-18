@@ -717,6 +717,13 @@ describe("ui/state saveFoldState", () => {
 // ─────────────────── opacity apply / restore / prune ───────────────────
 
 describe("applyOpacityStateOne", () => {
+  /** A UI whose layer owns no pane, so the call falls back to the
+   *  per-feature walk. */
+  const noPrivatePane = () =>
+    ({
+      m: { panes: { fallbackPaneOf: () => null } },
+    }) as unknown as LayerUI;
+
   it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
     const setStyle = vi.fn();
     const canvas = document.createElement("canvas");
@@ -727,7 +734,7 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne({} as LayerUI, li, 0.35);
+    applyOpacityStateOne(noPrivatePane(), li, 0.35);
 
     expect(canvas.style.opacity).toBe("0.35");
     expect(li.opacity).toBe(0.35);
@@ -743,7 +750,7 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne({} as LayerUI, li, 0.5);
+    applyOpacityStateOne(noPrivatePane(), li, 0.5);
 
     expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
     expect(li.opacity).toBe(0.5);
@@ -764,7 +771,7 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne({} as LayerUI, li, 0.2);
+    applyOpacityStateOne(noPrivatePane(), li, 0.2);
 
     expect(group.eachLayer).toHaveBeenCalled();
     expect(childSetStyle).toHaveBeenCalledWith({ opacity: 0.2, fillOpacity: 0.2 });
@@ -790,7 +797,7 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne({} as LayerUI, li, 0.3);
+    applyOpacityStateOne(noPrivatePane(), li, 0.3);
 
     expect(markerSetOpacity).toHaveBeenCalledWith(0.3);
     // The group-level setStyle would have silently skipped the markers.
@@ -807,7 +814,7 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne({} as LayerUI, li, 0.8);
+    applyOpacityStateOne(noPrivatePane(), li, 0.8);
 
     expect(setOpacity).toHaveBeenCalledWith(0.8);
   });
@@ -819,7 +826,7 @@ describe("applyOpacityStateOne", () => {
       layer: null,
       opacity: 1,
     } as unknown as LayerInfo;
-    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.4)).not.toThrow();
+    expect(() => applyOpacityStateOne(noPrivatePane(), li, 0.4)).not.toThrow();
     expect(li.opacity).toBe(0.4);
   });
 
@@ -832,10 +839,237 @@ describe("applyOpacityStateOne", () => {
       canvas: null,
       layer: { options: {} } as unknown as L.Layer,
       opacity: 1,
+      subPanes: [],
     } as unknown as LayerInfo;
 
-    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.6)).not.toThrow();
+    expect(() => applyOpacityStateOne(noPrivatePane(), li, 0.6)).not.toThrow();
     expect(li.opacity).toBe(0.6);
+  });
+
+  it("multiplies each feature's own opacity instead of overwriting it", () => {
+    // A hollow polygon carries fillOpacity: 0. Writing the layer opacity
+    // straight in would make its fill appear (0.4) instead of staying hollow;
+    // the walk writes base × layer, and reads the base once so a second pass
+    // does not compound.
+    const setStyle = vi.fn();
+    const li = {
+      id: "hollow",
+      canvas: null,
+      layer: {
+        options: { opacity: 1, fillOpacity: 0 },
+        setStyle,
+      } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(noPrivatePane(), li, 0.5);
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.5, fillOpacity: 0 });
+
+    applyOpacityStateOne(noPrivatePane(), li, 0.25);
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.25, fillOpacity: 0 });
+
+    // Reset restores the feature's own values, hollow fill included.
+    applyOpacityStateOne(noPrivatePane(), li, 1);
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0 });
+  });
+
+  it("multiplies a Marker's own opacity too", () => {
+    const setOpacity = vi.fn();
+    const li = {
+      id: "faded-marker",
+      canvas: null,
+      layer: {
+        options: { opacity: 0.8 },
+        setOpacity,
+      } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(noPrivatePane(), li, 0.5);
+
+    expect(setOpacity).toHaveBeenCalledWith(0.4);
+  });
+
+  it("fades a plain layer through its own fallback pane, not a walk", () => {
+    // enforceOrder names a per-layer pane after the layer's stamp and migrates
+    // the content into it, so the layer is faded with a single style write
+    // instead of a sweep — the cost no longer grows with the feature count.
+    const pane = document.createElement("div");
+    const setStyle = vi.fn();
+    const ui = {
+      m: {
+        panes: { fallbackPaneOf: () => "foliplus-pane-7" },
+        map: { getPane: (n: string) => (n === "foliplus-pane-7" ? pane : null) },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(pane.style.opacity).toBe("0.4");
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("walks the features before the layer has a pane of its own", () => {
+    // Registered but not yet ordered: the content is still in Leaflet's shared
+    // markerPane / overlayPane, so there is no pane of its own to fade.
+    // Touching that shared pane would fade every other overlay layer, so the
+    // walk carries the opacity instead and no pane is touched at all.
+    const getPane = vi.fn();
+    const setStyle = vi.fn();
+    const ui = {
+      m: { panes: { fallbackPaneOf: () => null }, map: { getPane } },
+    } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(getPane).not.toHaveBeenCalled();
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
+  });
+
+  it("does not stack the walk and the pane when a layer acquires its own pane", () => {
+    // enforceOrder migrates the content on a debounce, so a layer can be
+    // walked first and resolve to its own pane afterwards. The walk's write
+    // must be undone, or the two would multiply: asked for 0.4 twice over, the
+    // layer would render at 0.16.
+    const setStyle = vi.fn();
+    const pane = document.createElement("div");
+    const layer = {
+      options: { opacity: 1, fillOpacity: 1 },
+      setStyle,
+    } as unknown as L.Layer;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    const unordered = {
+      m: { panes: { fallbackPaneOf: () => null } },
+    } as unknown as LayerUI;
+    applyOpacityStateOne(unordered, li, 0.4);
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
+
+    const ordered = {
+      m: {
+        panes: { fallbackPaneOf: () => "foliplus-pane-9" },
+        map: { getPane: (n: string) => (n === "foliplus-pane-9" ? pane : null) },
+      },
+    } as unknown as LayerUI;
+    applyOpacityStateOne(ordered, li, 0.4);
+
+    // The feature is handed back its own value, and the pane carries 0.4 once.
+    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
+    expect(pane.style.opacity).toBe("0.4");
+  });
+
+  it("tolerates a missing pane element (released mid-session)", () => {
+    // A fallback pane is released on unregister; if the layer is still around
+    // but its pane is gone, the apply must not throw — it just has nowhere to
+    // write.
+    const getPane = vi.fn(() => null);
+    const ui = {
+      m: {
+        panes: { fallbackPaneOf: () => "foliplus-pane-3" },
+        map: { getPane },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    expect(() => applyOpacityStateOne(ui, li, 0.4)).not.toThrow();
+    expect(getPane).toHaveBeenCalledWith("foliplus-pane-3");
+  });
+
+  it("tolerates a leaf created without options", () => {
+    // A feature with no options object has nothing to multiply a base against;
+    // the walk treats it as fully opaque and moves on.
+    const setStyle = vi.fn();
+    const ui = { m: { panes: { fallbackPaneOf: () => null } } } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.5);
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+  });
+
+  it("sets CSS opacity on each pane element for managed layers (subPanes)", () => {
+    // Managed layers (createLayers: MeasureControl) own their panes. Setting
+    // opacity on the pane element is multiplicative and covers every feature
+    // type uniformly — paths, markers, divIcons — without clobbering the
+    // individual style a feature carries (e.g. a hollow polygon's
+    // fillOpacity: 0 must stay 0, not become 0.4).
+    const graphPane = document.createElement("div");
+    const nodePane = document.createElement("div");
+    const labelPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["node", nodePane],
+      ["label", labelPane],
+    ]);
+    const ui = {
+      m: {
+        panes: { fallbackPaneOf: () => null },
+        map: { getPane: (n: string) => panes.get(n) ?? null },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      subPanes: ["graph", "node", "label"],
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(nodePane.style.opacity).toBe("0.4");
+    expect(labelPane.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("pane opacity at 1 clears the pane (reset)", () => {
+    const pane = document.createElement("div");
+    pane.style.opacity = "0.4";
+    const ui = {
+      m: {
+        panes: { fallbackPaneOf: () => null },
+        map: { getPane: () => pane },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      subPanes: ["graph"],
+      opacity: 0.4,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 1);
+
+    expect(pane.style.opacity).toBe("1");
   });
 });
 
@@ -963,6 +1197,25 @@ describe("event-driven row refresh", () => {
     expect(item.querySelector(CONST.SEL.COUNT_COL)?.textContent).toContain("42");
     // The type icon column re-detects geometry for an iconSvg-less layer.
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)).not.toBeNull();
+  });
+
+  it("onLayerItemCountChange re-applies the layer opacity to finalized geometry", () => {
+    // A measurement finalized at store.add fires LAYER_ITEM_COUNT_CHANGE. The
+    // panes were painted at full opacity while the preview was live; this is
+    // when the opacity "snaps in" to the real geometry.
+    const events = ensureEvents(ui.m.map);
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.subPanes = ["__test_opacity_pane__"];
+    ui.opacityMap = { overlay1: 0.4 };
+    li.opacity = 0.4;
+
+    const paneEl = document.createElement("div");
+    vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
+
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    expect(paneEl.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
   });
 
   it("subscribeControlAttached reruns init when another control attaches", () => {
