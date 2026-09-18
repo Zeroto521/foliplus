@@ -52,6 +52,22 @@ describe("getMapCrsType", () => {
     }
   });
 
+  it("returns GCJ02 from crs.code when no tile URL matches", () => {
+    const map = {
+      options: { crs: { code: "EPSG:3857 GCJ02" } },
+      _layers: { 1: { _url: "https://tile.openstreetmap.org" } },
+    };
+    expect(getMapCrsType(map)).toBe("GCJ02");
+  });
+
+  it("tolerates tile layers without a URL", () => {
+    const map = {
+      options: { crs: { code: "EPSG:3857" } },
+      _layers: { 1: {} },
+    };
+    expect(getMapCrsType(map)).toBe("WGS84");
+  });
+
   it("returns WGS84 for foreign map", () => {
     expect(getMapCrsType(foreignMap)).toBe("WGS84");
   });
@@ -62,6 +78,18 @@ describe("getMapCrsType", () => {
 });
 
 describe("CRS probe error reporting", () => {
+  // A map whose crs.code throws on read — forces the code-path probe failure.
+  const throwingCodeMap = () => ({
+    options: {
+      crs: {
+        get code() {
+          throw new Error("proxy");
+        },
+      },
+    },
+    _layers: foreignMap._layers,
+  });
+
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -85,17 +113,7 @@ describe("CRS probe error reporting", () => {
   });
 
   it("warns when crs.code is an unreadable property", () => {
-    const map = {
-      options: {
-        crs: {
-          get code() {
-            throw new Error("proxy");
-          },
-        },
-      },
-      _layers: foreignMap._layers,
-    };
-    expect(getMapCrsType(map)).toBe("WGS84");
+    expect(getMapCrsType(throwingCodeMap())).toBe("WGS84");
     expect(console.warn).toHaveBeenCalledWith(
       "[foliplus] map CRS code unreadable (CRS fallback to WGS84):",
       expect.any(Error),
@@ -124,17 +142,7 @@ describe("CRS probe error reporting", () => {
   it("warns at most once per call site when one probe fails", () => {
     // probeMap reads each fact once, so one failing read must not multiply into
     // repeated noise — getMapCrsType asks three questions per call.
-    const map = {
-      options: {
-        crs: {
-          get code() {
-            throw new Error("proxy");
-          },
-        },
-      },
-      _layers: foreignMap._layers,
-    };
-    getMapCrsType(map);
+    getMapCrsType(throwingCodeMap());
     const messages = console.warn.mock.calls.map(call => call[0]);
     expect(messages).toEqual([
       "[foliplus] map CRS code unreadable (CRS fallback to WGS84):",
@@ -173,6 +181,13 @@ describe("ensureGcoord (via toWgs84)", () => {
   it("returns coords unchanged and warns when gcoord is missing", () => {
     delete globalThis.gcoord;
     const result = toWgs84(foreignMap, 120, 30);
+    expect(result).toEqual([120, 30]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("gcoord"));
+  });
+
+  it("returns coords unchanged and warns when gcoord is missing (fromWgs84)", () => {
+    delete globalThis.gcoord;
+    const result = fromWgs84(foreignMap, 120, 30);
     expect(result).toEqual([120, 30]);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("gcoord"));
   });
