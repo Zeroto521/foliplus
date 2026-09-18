@@ -768,11 +768,30 @@ class TestLayerControlRendering:
         assert "height: var(--opacity-track-height)" in css
         assert "width: var(--opacity-thumb-size)" in css
         assert "margin-top: calc(" in css
-        # Thumb: accent ring on a white core.
+        # The two geometry tokens live on the range rule itself, not on the
+        # wrapper: a declaration that consumes them for a missing custom
+        # property is dropped at computed-value time, so a slider used without
+        # the wrapper would quietly fall back to a hairline track.
+        range_block = css[
+            css.index(".foliplus-style-opacity-range {") : css.index(
+                "}", css.index(".foliplus-style-opacity-range {")
+            )
+        ]
+        assert "--opacity-track-height" in range_block
+        assert "--opacity-thumb-size" in range_block
+        # Thumb: accent ring on a white core, lifted like the panel's toggle
+        # knob so both hand-held controls in a row read alike.
         assert "border: var(--border-thick) solid var(--accent-primary)" in css
         assert "background: var(--neutral-0)" in css
+        assert "box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30))" in css
         assert "::-webkit-slider-thumb" in css
         assert "::-moz-range-thumb" in css
+        # Grab affordance and the hover lift, on both engines.
+        assert "cursor: grab" in css
+        assert "cursor: grabbing" in css
+        assert ".foliplus-style-opacity-range:hover::-webkit-slider-thumb" in css
+        assert ".foliplus-style-opacity-range:hover::-moz-range-thumb" in css
+        assert "transform: scale(var(--scale-hover))" in css
         # Focus ring on the range, matching every other foliplus control.
         assert ".foliplus-style-opacity-range:focus-visible" in css
         assert "box-shadow: var(--focus-ring)" in css

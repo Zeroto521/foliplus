@@ -219,23 +219,17 @@
    slider itself is bespoke: a transparency checkerboard with an accent fill up
    to the thumb (`--opacity-fill`, written by JS on every change) so the bar
    reads as "how opaque", not "how far". */
-/* Slider geometry, declared once.
-   The control's *element* is --ctrl-size tall so the row lines up with the
-   number field beside it, but the visible bar is deliberately slimmer: a 30px
-   bar reads as a filled slab, and the fill over the checkerboard would look
-   like a colour swatch rather than a level. The thumb is proud of the bar so it
-   reads as a handle. Retune these two and the derived thumb margin follows. */
-.foliplus-style-opacity-control {
+/* Slider and thumb geometry, declared on the control itself rather than on the
+   wrapper: these two variables are consumed by the track and thumb rules below,
+   and a missing wrapper class would silently drop both declarations (the
+   invalid-at-computed-value-time rule), leaving a hairline track. */
+.foliplus-style-opacity-range {
   --opacity-track-height: 14px;
   --opacity-thumb-size: 20px;
-}
-
-.foliplus-style-opacity-control .foliplus-style-opacity-range {
-  flex: 1;
-  min-width: 0;
-}
-
-.foliplus-style-opacity-range {
+  /* The element is --ctrl-size tall so the row lines up with the number field
+     beside it, while the visible bar stays slimmer: a 30px bar reads as a
+     filled slab, and the fill over the checkerboard would look like a colour
+     swatch rather than a level. */
   height: var(--ctrl-size);
   margin: 0;
   background: transparent;
@@ -244,7 +238,13 @@
   appearance: none;
 }
 
-/* The two track rules are identical on purpose: `::-webkit-...` and
+/* The slider takes the free space; the number field keeps its shared width. */
+.foliplus-style-opacity-control .foliplus-style-opacity-range {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The two track rules below are identical on purpose: `::-webkit-...` and
    `::-moz-...` cannot share one selector, because a browser that does not know
    the other pseudo-element drops the whole rule and the track loses its
    background entirely. */
@@ -289,7 +289,9 @@
 }
 
 /* WebKit top-aligns the thumb to the track box, so it needs the
-   half-difference margin to sit concentric. Firefox centres it on its own. */
+   half-difference margin to sit concentric. Firefox centres it on its own.
+   The shadow and the hover lift are the panel toggle knob's treatment, so the
+   two hand-held controls in a row read alike. */
 .foliplus-style-opacity-range::-webkit-slider-thumb {
   appearance: none;
   width: var(--opacity-thumb-size);
@@ -299,7 +301,20 @@
   border-radius: var(--radius-round);
   background: var(--neutral-0);
   box-sizing: border-box;
-  cursor: pointer;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.foliplus-style-opacity-range:hover::-webkit-slider-thumb {
+  transform: scale(var(--scale-hover));
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+
+.foliplus-style-opacity-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
 }
 
 .foliplus-style-opacity-range::-moz-range-thumb {
@@ -309,7 +324,20 @@
   border-radius: var(--radius-round);
   background: var(--neutral-0);
   box-sizing: border-box;
-  cursor: pointer;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.foliplus-style-opacity-range:hover::-moz-range-thumb {
+  transform: scale(var(--scale-hover));
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+
+.foliplus-style-opacity-range:active::-moz-range-thumb {
+  cursor: grabbing;
 }
 
 .foliplus-style-opacity-range:focus-visible {
