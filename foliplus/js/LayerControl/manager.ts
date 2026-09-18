@@ -18,6 +18,8 @@ import {
   findLayer,
   forEachLeaf,
   getGeometryType,
+  hasAttachedPath,
+  isGroupLike,
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -44,7 +46,7 @@ const patchBringToFront = () => {
   bringToFrontPatchRefs++;
   if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
-    if (this._path && this._path.parentNode) origBringToFront.call(this);
+    if (hasAttachedPath(this)) origBringToFront.call(this);
     return this;
   };
 };
@@ -297,10 +299,7 @@ class LayerManager implements LayerAPI {
 
   /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
   private isFeatureContainer(layer: L.Layer): boolean {
-    return (
-      typeof (layer as L.LayerGroup).eachLayer === "function" ||
-      Boolean((layer as L.LayerGroup)._layers)
-    );
+    return isGroupLike(layer);
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {

@@ -14,7 +14,13 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { forEachLeaf } from "#core/layer/index.js";
+import {
+  createPane,
+  destroyPane,
+  forEachLeaf,
+  mapPaneOf,
+  paneOf,
+} from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -404,7 +410,7 @@ class AnnotationManager {
     // Remember where the mapPane sat while planning — the pan fast path
     // translates by the delta from here (same source latLngToContainerPoint
     // uses, so the translate matches a re-plan exactly).
-    const mapPane = this.map.getPanes().mapPane;
+    const mapPane = mapPaneOf(this.map);
     this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
@@ -437,7 +443,7 @@ class AnnotationManager {
    *  O(n log n) per frame). */
   private refreshPan(): void {
     if (this.canvases.size === 0) return;
-    const mapPane = this.map.getPanes().mapPane;
+    const mapPane = mapPaneOf(this.map);
     const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
     if (!this.planOrigin || !pos) {
       this.refresh();
@@ -530,7 +536,7 @@ class AnnotationManager {
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
     const name = CONST.ANNOTATION_PANE_PREFIX + id;
-    const pane = this.map.getPane(name) ?? this.map.createPane(name);
+    const pane = paneOf(this.map, name) ?? createPane(this.map, name);
     pane.classList.add("foliplus-annotation-pane");
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));
@@ -543,13 +549,7 @@ class AnnotationManager {
     this.canvases.delete(id);
     const pane = this.panes.get(id);
     if (!pane) return;
-    pane.remove();
-    const registry = this.map as unknown as {
-      _panes?: Record<string, HTMLElement>;
-    };
-    if (registry._panes) {
-      delete registry._panes[CONST.ANNOTATION_PANE_PREFIX + id];
-    }
+    destroyPane(this.map, CONST.ANNOTATION_PANE_PREFIX + id);
     this.panes.delete(id);
   }
 }
