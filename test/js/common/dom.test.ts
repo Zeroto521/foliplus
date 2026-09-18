@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildPopupHtml,
+  buildPopupEl,
+  cancelMapPaneTranslate,
   createIconButton,
+  createInlineEditInput,
   createLocationMarker,
   dom,
-  escapeHTML,
+  removeInlineEditInput,
   stopEvent,
+  updateItemLabel,
 } from "#common/dom.js";
 
 describe("dom.el", () => {
@@ -58,6 +61,11 @@ describe("dom.el", () => {
     expect(el.textContent).toBe("ABC");
   });
 
+  it("appends a numeric child as text", () => {
+    const el = dom.el("div", null, 42);
+    expect(el.textContent).toBe("42");
+  });
+
   it("inserts HTML via { html: ... }", () => {
     const el = dom.el("div", null, { html: "<span>inner</span>" });
     expect(el.querySelector("span")).not.toBeNull();
@@ -93,9 +101,9 @@ describe("dom.el", () => {
   });
 });
 
-describe("buildPopupHtml", () => {
-  it("builds popup HTML with all fields", () => {
-    const html = buildPopupHtml(
+describe("buildPopupEl", () => {
+  it("builds a popup element with all fields", () => {
+    const el = buildPopupEl(
       120.5,
       30.2,
       "Some Address",
@@ -104,16 +112,46 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("foliplus-popup-content");
-    expect(html).toContain("Location");
-    expect(html).toContain("120.5,30.2");
-    expect(html).toContain("Some Address");
-    expect(html).toContain("Lng,Lat:");
-    expect(html).toContain("Address:");
+    expect(el.classList.contains("foliplus-popup-content")).toBe(true);
+    expect(el.textContent).toContain("Location");
+    expect(el.textContent).toContain("120.500000, 30.200000");
+    expect(el.textContent).toContain("Some Address");
+    expect(el.textContent).toContain("Lng,Lat:");
+    expect(el.textContent).toContain("Address:");
+  });
+
+  it("pins coordinates to the shared readout precision instead of echoing the raw value", () => {
+    // A history entry saved from "121.47" holds 121.47, not 121.470000 — the
+    // popup must still show six decimals so it matches the search panel and the
+    // live readout.
+    const el = buildPopupEl(
+      121.47,
+      31.23,
+      null,
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.textContent).toContain("121.470000, 31.230000");
+    expect(el.textContent).not.toContain("121.47,");
+  });
+
+  it("groups long coordinates with the same comma style as the other readouts", () => {
+    const el = buildPopupEl(
+      123.456789,
+      -33.123456,
+      null,
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.textContent).toContain("123.456789, -33.123456");
   });
 
   it("shows loading indicator when addr is null", () => {
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       120,
       30,
       null,
@@ -122,11 +160,12 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("Loading...");
+    expect(el.textContent).toContain("Loading...");
+    expect(el.querySelector("svg")).not.toBeNull();
   });
 
   it("shows loading indicator when addr contains LOADING", () => {
-    const html = buildPopupHtml(
+    const el = buildPopupEl(
       120,
       30,
       "LOADING",
@@ -135,7 +174,23 @@ describe("buildPopupHtml", () => {
       "Lng,Lat:",
       "Address:",
     );
-    expect(html).toContain("Loading...");
+    expect(el.textContent).toContain("Loading...");
+  });
+
+  it("renders a poisoned address as text, never as markup", () => {
+    // `addr` is a Nominatim reverse-geocode result — the one sink in the
+    // codebase fed by a third-party API the page does not control.
+    const el = buildPopupEl(
+      120,
+      30,
+      "<img src=x onerror=alert(1)>1 Some Place",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.querySelectorAll("img")).toHaveLength(0);
+    expect(el.textContent).toContain("<img src=x onerror=alert(1)>1 Some Place");
   });
 });
 
@@ -298,6 +353,46 @@ describe("createLocationMarker", () => {
       ),
     ).not.toThrow();
   });
+
+  it("leaves the loading placeholder when the popup is closed by the time the lookup resolves", async () => {
+    // A slow lookup resolving after the user closed the marker would otherwise
+    // overwrite the closed marker's content with the resolved address. The
+    // popup must stay closed and keep its loading placeholder.
+    const openPopup = vi.fn().mockReturnThis();
+    const setPopupContent = vi.fn();
+    let open = true;
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup,
+      setPopupContent,
+      getPopup: () => ({
+        _closeButton: null,
+        isOpen: () => open,
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    const deferred = new Promise<string>(resolve => {
+      open = false;
+      setTimeout(() => resolve("Resolved Address"), 0);
+    });
+    window.foliplus.reverseGeocode = vi.fn(() => deferred);
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+    );
+
+    await new Promise(r => setTimeout(r, 10));
+    expect(setPopupContent).not.toHaveBeenCalled();
+    expect(openPopup).toHaveBeenCalled();
+  });
 });
 
 describe("createIconButton", () => {
@@ -374,12 +469,292 @@ describe("stopEvent", () => {
   });
 });
 
-describe("escapeHTML", () => {
-  it("escapes HTML special characters", () => {
-    expect(escapeHTML(`<a href="x">&'`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
+describe("cancelMapPaneTranslate", () => {
+  it("offsets the canvas by the negated mapPane position", () => {
+    const canvas = document.createElement("canvas");
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => ({ x: 12, y: -5 }),
+    };
+    const map = {
+      getPanes: () => ({ mapPane: document.createElement("div") }),
+    } as unknown as L.Map;
+
+    cancelMapPaneTranslate(canvas, map);
+
+    expect(canvas.style.left).toBe("-12px");
+    expect(canvas.style.top).toBe("5px");
   });
 
-  it("coerces non-strings", () => {
-    expect(escapeHTML(5)).toBe("5");
+  it("tolerates a map without a mapPane", () => {
+    const canvas = document.createElement("canvas");
+    const map = { getPanes: () => ({}) } as unknown as L.Map;
+
+    expect(() => cancelMapPaneTranslate(canvas, map)).not.toThrow();
+    expect(canvas.style.left).toBe("");
+  });
+});
+
+describe("updateItemLabel", () => {
+  it("updates the label text and the checkbox aria-label only", () => {
+    const item = dom.el("div", { "data-layer-id": "a" });
+    item.appendChild(dom.el("label", null, "Old"));
+    const checkbox = dom.el("input", { type: "checkbox" }) as HTMLInputElement;
+    const colorInput = dom.el("input", { type: "color" }) as HTMLInputElement;
+    item.appendChild(checkbox);
+    item.appendChild(colorInput);
+    document.body.appendChild(item);
+
+    const label = updateItemLabel(item, "New");
+    expect(label?.textContent).toBe("New");
+    expect(checkbox.getAttribute("aria-label")).toBe("New");
+    // The tooltip slot stays the Select/Deselect label — a layer name in
+    // there reads as a tooltip for the wrong control.
+    expect(checkbox.title).toBe("");
+    // A row with both toggles keeps the color input as a separate control.
+    expect(colorInput.getAttribute("aria-label")).toBeNull();
+    expect(colorInput.title).toBe("");
+  });
+
+  it("updates the color input's aria-label when the row has no checkbox", () => {
+    // The color basemap row's only toggle is the swatch, so it must be the
+    // one that announces the rename — otherwise assistive tech keeps reading
+    // the locale default after a rename.
+    const item = dom.el("div", { "data-layer-id": "color" });
+    item.appendChild(dom.el("label", null, "Old"));
+    const colorInput = dom.el("input", { type: "color" }) as HTMLInputElement;
+    colorInput.setAttribute("aria-label", "Old");
+    item.appendChild(colorInput);
+    document.body.appendChild(item);
+
+    updateItemLabel(item, "New");
+
+    expect(colorInput.getAttribute("aria-label")).toBe("New");
+    // `title` is the tooltip slot, not the name — a rename must not move
+    // into it.
+    expect(colorInput.title).toBe("");
+  });
+
+  it("updates just the label when the item has no checkbox", () => {
+    const item = dom.el("div", null);
+    item.appendChild(dom.el("label", null, "OnlyLabel"));
+    const label = updateItemLabel(item, "Renamed");
+    expect(label?.textContent).toBe("Renamed");
+  });
+
+  it("returns null for a null item or a label-less item", () => {
+    expect(updateItemLabel(null, "x")).toBeNull();
+    expect(updateItemLabel(dom.el("div"), "x")).toBeNull();
+  });
+
+  it("returns null when the label itself is absent", () => {
+    const item = dom.el("div", { "data-layer-id": "b" });
+    item.appendChild(dom.el("input", { type: "checkbox" }));
+    expect(updateItemLabel(item, "x")).toBeNull();
+  });
+});
+
+describe("removeInlineEditInput", () => {
+  it("removes the first input from a label", () => {
+    const label = dom.el("label");
+    const input = dom.el("input", { type: "text" });
+    label.appendChild(input);
+    label.appendChild(dom.el("span", null, "trailing"));
+
+    const removed = removeInlineEditInput(label as HTMLLabelElement);
+    expect(removed).toBe(input);
+    expect(label.querySelector("input")).toBeNull();
+    // trailing content preserved
+    expect(label.textContent).toBe("trailing");
+  });
+
+  it("returns null for a null label", () => {
+    expect(removeInlineEditInput(null)).toBeNull();
+  });
+});
+
+describe("createInlineEditInput", () => {
+  it("creates a focused, selected input seeded with the initial value", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "Start",
+      className: "editing",
+      ariaLabel: "Rename",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    });
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect(input.value).toBe("Start");
+    expect(input.className).toContain("editing");
+    expect(input.getAttribute("aria-label")).toBe("Rename");
+    expect(label.querySelector("input")).toBe(input);
+  });
+
+  it("commits a trimmed non-empty value on Enter", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "  Trimmed  ";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCommit).toHaveBeenCalledWith("Trimmed");
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it("cancels on Escape without committing", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "abandon";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("shows the cancel path for an empty/whitespace Enter", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+    input.value = "   ";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCancel).toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits on blur with the current value", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+    });
+    input.value = "BlurValue";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).toHaveBeenCalledWith("BlurValue");
+  });
+
+  it("skips blur-commit while isActive returns false (double-commit guard)", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+      isActive: () => false, // e.g. Enter/Escape already tore the input down
+    });
+    input.value = "stale";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits on blur when isActive returns true", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel: vi.fn(),
+      isActive: () => true,
+    });
+    input.value = "StillActive";
+    input.dispatchEvent(new Event("blur"));
+    expect(onCommit).toHaveBeenCalledWith("StillActive");
+  });
+
+  it("clears the label text and appends the input", () => {
+    const label = dom.el("label");
+    label.appendChild(document.createTextNode("Original"));
+    document.body.appendChild(label);
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "",
+      className: "",
+      ariaLabel: "",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    });
+    const labelText = label.textContent;
+    expect(labelText).toBe("");
+    expect(label.contains(input)).toBe(true);
+  });
+
+  it("stops every key from bubbling so arrow keys keep the caret", () => {
+    const label = dom.el("label");
+    document.body.appendChild(label);
+    const onCommit = vi.fn();
+    const onCancel = vi.fn();
+    const input = createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "SomeName",
+      className: "",
+      ariaLabel: "",
+      onCommit,
+      onCancel,
+    });
+
+    // A document-level listener stands in for the InteractionManager; it must
+    // NOT receive the ArrowLeft keydown, otherwise it would preventDefault and
+    // swallow the caret move.
+    const docListener = vi.fn();
+    document.addEventListener("keydown", docListener);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    document.removeEventListener("keydown", docListener);
+
+    expect(docListener).not.toHaveBeenCalled();
+    // Arrow keys must not commit or cancel — only Enter/Escape do.
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
   });
 });

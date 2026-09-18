@@ -4,17 +4,24 @@
 // icons live in each component's own `{Name}.icon.js` file instead.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const LOADING = `
+// Paint is set on the icon itself rather than inherited from the host button.
+// LOADING is shared by four consumers; the ones in Leaflet popups (LocateControl,
+// SearchControl) sit outside any `svg { fill: none }` rule, so with no local paint
+// the arc — a closed path — fell back to fill: black and rendered as a solid pie
+// slice with a notch instead of an open ring. Inline presentation attributes have
+// the lowest CSS priority, so a component can still recolour it from CSS.
+const LOADING = `
   <svg class="foliplus-spin" viewBox="0 0 24 24">
-    <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+    <path fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" d="M21 12a9 9 0 1 1-6.2-8.6"/>
   </svg>`;
 
-export const CLOSE = `
+const CLOSE = `
   <svg viewBox="0 0 24 24">
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>`;
 
-export const PIN_ICON = `
+const PIN_ICON = `
   <div class="foliplus-pin">
     <svg width="24" height="36" viewBox="0 0 24 36">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
@@ -23,22 +30,37 @@ export const PIN_ICON = `
     </svg>
   </div>`;
 
-export const LOCATE = `
+const LOCATE = `
   <svg viewBox="0 0 24 24">
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
     <circle cx="12" cy="9" r="2.5"/>
   </svg>`;
 
-export const GLOBE = `
+const GLOBE = `
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="10"/>
     <ellipse cx="12" cy="12" rx="4" ry="10"/>
     <line x1="2" y1="12" x2="22" y2="12"/>
   </svg>`;
 
-export const DOWNLOAD = `
+const EDIT = `
+  <svg viewBox="0 0 24 24">
+    <path d="M12 20h9"/>
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>`;
+
+const DOWNLOAD = `
   <svg viewBox="0 0 24 24" stroke-width="2">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="7 10 12 15 17 10"/>
     <line x1="12" y1="15" x2="12" y2="3"/>
   </svg>`;
+
+const INFO = `
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="11" x2="12" y2="16.5"/>
+    <circle cx="12" cy="7.4" r="1.15" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+export { CLOSE, DOWNLOAD, EDIT, GLOBE, INFO, LOADING, LOCATE, PIN_ICON };

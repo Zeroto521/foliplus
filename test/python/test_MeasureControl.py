@@ -43,6 +43,29 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
+    def test_default_label_show(self):
+        assert MeasureControl().label_show is True
+
+    def test_custom_label_show(self):
+        assert MeasureControl(label_show=False).label_show is False
+
+    def test_label_show_in_export_fields(self):
+        assert "label_show" in MeasureControl._export_fields
+
+    def test_label_show_false_renders_false(self):
+        """label_show=False renders false so the JS side hides labels on load."""
+        html = render_control(MeasureControl(label_show=False))
+        assert_config_value(html, "label_show", False)
+
+    def test_default_label_collide(self):
+        assert MeasureControl().label_collide is True
+
+    def test_custom_label_collide(self):
+        assert MeasureControl(label_collide=False).label_collide is False
+
+    def test_label_collide_in_export_fields(self):
+        assert "label_collide" in MeasureControl._export_fields
+
     def test_default_export_format(self):
         assert MeasureControl().export_format == "geojson"
 
@@ -88,6 +111,16 @@ class TestMeasureControlRendering:
         """show_bearing=False renders false and disables bearing labels."""
         html = render_control(MeasureControl(show_bearing=False))
         assert_config_value(html, "show_bearing", False)
+
+    def test_label_collide_default_true(self):
+        """label_collide defaults to true and renders as a JS boolean."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "label_collide", True)
+
+    def test_label_collide_false(self):
+        """label_collide=False renders false and disables collision detection."""
+        html = render_control(MeasureControl(label_collide=False))
+        assert_config_value(html, "label_collide", False)
 
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))
@@ -208,16 +241,16 @@ class TestMeasureControlBrowser:
         MeasureControl(show_bearing=show_bearing).add_to(m)
 
         html = m.get_root().render()
-        # Inject test hooks right after the manager is created. The dev build
-        # (esbuild) may emit `const` or `var`, and flattens `import * as CONST`
-        # so the storage key is accessible as `STORAGE.KEY` (not CONST.STORAGE.KEY).
+        # Inject test hooks at the control-entry line. The manager is created
+        # lazily by the control's getter during addTo, so expose the control
+        # first and read back its manager via `m` (dev build keeps these names).
         html, n = re.subn(
-            r"(const|var) measureManager = new MeasureManager\(map\);",
-            r"\1 measureManager = new MeasureManager(map); window.__measureManager = measureManager; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
+            r"(new MeasureControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
             html,
             count=1,
         )
-        assert n == 1, "measureManager instantiation not found in rendered HTML"
+        assert n == 1, "MeasureControl instantiation not found in rendered HTML"
         # Remove blocking CDN <script> tags (gcoord and turf added by default_js)
         html = html.replace(
             '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
@@ -259,6 +292,15 @@ class TestMeasureControlBrowser:
                 "document.querySelector('.foliplus-tool-btn:not([data-mode])')?.click()"
             )
             page.wait_for_timeout(500)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_remove_readd_rebuilds_manager(self, browser, tmp_path):
+        """removeControl + addControl re-creates the manager and re-binds tools."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/destroy_readd"))
+            assert state["removed"] is True
+            assert state["hasManager"] is True
+            assert state["btnCount"] >= 6
             assert not errors, f"JS errors: {errors}"
 
     def test_distance_labels_show_bearing(self, browser, tmp_path):
@@ -399,7 +441,134 @@ class TestMeasureControlBrowser:
             assert state["x1"] is not None, "preview node not rendered"
             assert state["x2"] is not None
             moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
-            assert moved, "circle preview node did not follow the mouse"
+            assert moved, f"circle preview node did not follow the mouse: {state}"
+            s = state["stack"]
+            # 3-pane layout: nodes live in the node pane, geometry in the
+            # graph pane. Paint order is guaranteed by pane z-index, not
+            # SVG sibling order.
+            assert s["nodePane"] == "node", f"radius node not in node pane: {s}"
+            assert s["centerPane"] == "node", f"center node not in node pane: {s}"
+            assert s["node"] > s["circle"], f"node pane z below graph pane: {s}"
+            assert s["center"] > s["circle"], (
+                f"node pane z below graph pane (center): {s}"
+            )
+            # After a third move the pane z-index ordering must hold.
+            s3 = state["stackAfterThirdMove"]
+            assert s3["node"] > s3["circle"], (
+                f"node pane z dropped below graph after repeated moves: {s3}"
+            )
+            assert s3["center"] > s3["circle"], (
+                f"center pane z dropped below graph after repeated moves: {s3}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_circle_preview_label_in_label_pane(self, browser, tmp_path):
+        """The circle preview radius label must land in the label pane.
+
+        `PreviewMode.addPreview` used to forward no pane name, so the label
+        silently defaulted to the graph pane alongside the circle fill, the
+        radius line and both nodes. There the label competes for SVG paint
+        order with the geometry, so at a short radius the dots cover it.
+        Distance and polygon always routed their preview labels through
+        CONST.PANES.LABEL, which is why only circle mode showed this.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.wait_for_timeout(300)
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_pane"))
+            panes = {p["name"]: int(p["z"]) for p in state["allPanes"]}
+            # 3-pane layout: graph (k=0), node (k=1), label (k=2)
+            assert panes.get("graph") == 600, f"graph pane z wrong: {state}"
+            assert panes.get("label") == 602, (
+                f"label pane z wrong (expected graph+2): {state}"
+            )
+            for phase in ("near", "far"):
+                assert "foliplus-measure-label-pane" in state[phase]["pane"], (
+                    f"circle preview label is in {state[phase]['pane']} at {phase} radius"
+                )
+                assert int(state[phase]["z"]) == panes["label"], (
+                    f"label pane z={state[phase]['z']} not {panes['label']}"
+                )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_distance_preview_cursor_node_follows_mouse(self, browser, tmp_path):
+        """Distance preview shows a cursor dot that follows the mouse, paints
+        above the preview line, and is removed when the measurement finishes.
+
+        Mirrors the circle mode's radius-endpoint node so all three preview
+        shapes share one cursor affordance. The dot is created lazily on the
+        first move — entering the mode with no points placed shows nothing.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(
+                _js("MeasureControl/draw_distance_preview_cursor_node")
+            )
+            assert state["idle"], "cursor node floated with no points placed"
+            assert state["x1"] is not None, "cursor node not rendered"
+            assert state["x2"] is not None
+            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
+            assert moved, f"distance cursor node did not follow the mouse: {state}"
+            s = state["stack"]
+            # The node must come after both preview paths in DOM order, which is
+            # Leaflet SVG paint order (later siblings paint above).
+            assert s["node"] > s["preview"], f"node below preview line: {s}"
+            assert s["node"] > s["dashed"], f"node below dashed line: {s}"
+            # After a third move the recreated node must still be above both
+            # lines — the old in-place `setLatLng` path let the live line
+            # climb over it (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview line after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["dashed"], (
+                f"node climbed below dashed line after repeated moves: {s2}"
+            )
+            assert state["removedAfterFinish"], "cursor node not removed on finish"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_polygon_preview_cursor_node_follows_mouse(self, browser, tmp_path):
+        """Polygon preview shows a cursor dot that follows the mouse, paints
+        above the preview polygon, and is removed when the measurement ends.
+
+        Mirrors the circle mode's radius-endpoint node so all three preview
+        shapes share one cursor affordance. The dot is created lazily on the
+        first move — entering the mode with no points placed shows nothing.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(
+                _js("MeasureControl/draw_polygon_preview_cursor_node")
+            )
+            assert state["idle"], "cursor node floated with no points placed"
+            assert state["created"], "cursor node not rendered on the first move"
+            moved = (state["x1"], state["y1"]) != (state["x2"], state["y2"])
+            assert moved, f"polygon cursor node did not follow the mouse: {state}"
+            # Recreated each frame, so there must be exactly one dot at all
+            # times — the old path's DOM node identity is not a valid check.
+            assert state["dotsAfterTwo"] == 1, (
+                f"expected exactly one cursor dot after two moves, "
+                f"got {state['dotsAfterTwo']}"
+            )
+            assert state["dotsAfterThree"] == 1, (
+                f"expected exactly one cursor dot after three moves, "
+                f"got {state['dotsAfterThree']}"
+            )
+            s = state["stack"]
+            # The node must come after both preview paths and the fill in DOM
+            # order, which is Leaflet SVG paint order (later siblings paint above).
+            assert s["node"] > s["preview"], f"node below preview outline: {s}"
+            assert s["node"] > s["dashed"], f"node below dashed path: {s}"
+            assert s["node"] > s["fill"], f"node below the shape fill: {s}"
+            # After a third move, the recreated node must still be above the
+            # fill — the old in-place `setLatLng` path let the fill climb over
+            # it because `setLatLngs` re-sorts the SVG root but `setLatLng`
+            # does not (regression: PR #252).
+            s2 = state["stackAfterThirdMove"]
+            assert s2["node"] > s2["fill"], (
+                f"node climbed below the shape fill after repeated moves: {s2}"
+            )
+            assert s2["node"] > s2["preview"], (
+                f"node climbed below preview outline after repeated moves: {s2}"
+            )
+            assert state["removedAfterFinish"], "cursor node not removed on finish"
             assert not errors, f"JS errors: {errors}"
 
     # ── Persistence (browser) ──────────────────────────────────────
@@ -507,19 +676,17 @@ class TestMeasureControlBrowser:
     def test_marker_saved_before_geocode(self):
         """Marker measurement is persisted immediately, before geocode resolves."""
         html = render_control(MeasureControl())
-        # In the new-marker flow, saveMeasurements() must be called BEFORE
-        # createLocationMarker() (which triggers the async geocode), so a
-        # reload mid-lookup does not lose the marker. Search for the
-        # save-then-create pattern within a small window (not the global
-        # first occurrence, which may be in a different mode's restore()).
+        # In the new-marker flow, the measurement is persisted via
+        # store.add() BEFORE createLocationMarker() (which triggers the async
+        # geocode), so a reload mid-lookup does not lose the marker. Search for
+        # the save-then-create pattern within a small window (not the global
+        # first occurrence, which may be in restore()).
         create_pos = html.find("createLocationMarker(")
         assert create_pos != -1, "createLocationMarker should exist"
-        # Search for saveMeasurements() within 200 chars BEFORE createLocationMarker
+        # Search for store.add within 200 chars BEFORE createLocationMarker
         search_start = max(0, create_pos - 200)
-        save_pos = html.find("this.m.saveMeasurements();", search_start)
-        assert save_pos != -1, (
-            "saveMeasurements() should exist before createLocationMarker"
-        )
+        save_pos = html.find("this.m.store.add(", search_start)
+        assert save_pos != -1, "store.add() should exist before createLocationMarker"
         gap = create_pos - save_pos
         assert gap < 200, (
             "measurement must be saved right before triggering geocode so a "
@@ -554,6 +721,17 @@ class TestMeasureControlBrowser:
     def test_restore_marker_address_backfilled(self, browser, tmp_path):
         """Regression: marker restored with address:null resolves and persists address."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Intercept Nominatim so the reverse geocode resolves deterministically
+            # with a known address instead of hitting the network (CORS-blocked in
+            # headless, flaky on slow CI networks).
+            page.route(
+                "**/nominatim.openstreetmap.org/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"display_name":"Resolved Address, Test City"}',
+                ),
+            )
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
             page.reload()
             page.wait_for_timeout(3000)
@@ -743,6 +921,80 @@ class TestMeasureControlBrowser:
             assert count == 0, f"expected 0 measurements after delete, got {count}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_polygon_centroid_dot_above_fill(self, browser, tmp_path):
+        """The centroid dot must be visible (not covered by the fill).
+
+        Regression: when the dot was a div-icon marker in the graph pane it
+        competed with the SVG renderer's container z-index. After a zoom,
+        sortLayers reassigns each marker's z-index to its screen Y, which can
+        drop the dot below the SVG container and let the semi-transparent fill
+        paint over the dot.
+
+        Fix: the dot is now an SVG CircleMarker (same renderer as the fill),
+        so DOM order within the SVG guarantees the dot paints above the fill.
+        This test verifies the fill is NOT the topmost element at the dot's
+        center.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            info = page.evaluate("""() => {
+                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                if (!dot) return { error: 'no centroid dot path found' };
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                const paneName = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    if (!pane) return null;
+                    const m = pane.className.match(/foliplus-measure-(\\w+)-pane/);
+                    return m ? m[1] : null;
+                };
+                const dotZ = paneZ(dot);
+                const fillZ = paneZ(fill);
+                return {
+                    dotIsPath: dot.tagName === 'path',
+                    dotPane: paneName(dot),
+                    fillPane: paneName(fill),
+                    dotZ,
+                    fillZ,
+                    dotAboveFill: dotZ > fillZ,
+                };
+            }""")
+            assert not info.get("error"), f"probe error: {info.get('error')}"
+            assert not errors, f"JS errors: {errors}"
+            assert info["dotIsPath"], "centroid dot should be an SVG path"
+            assert info["dotPane"] == "node", f"dot not in node pane: {info}"
+            assert info["fillPane"] == "graph", f"fill not in graph pane: {info}"
+            assert info["dotAboveFill"], f"node pane z below graph pane: {info}"
+
+            # After zoom, sortLayers re-sorts by Y. Since the dot is an SVG
+            # path (not a div-icon marker), it's unaffected by z-index re-sort.
+            page.evaluate("window.__map.setZoom(13)")
+            page.wait_for_timeout(500)
+            page.evaluate("window.__map.setZoom(11)")
+            page.wait_for_timeout(500)
+
+            info2 = page.evaluate("""() => {
+                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                if (!dot) return { error: 'no centroid dot path found' };
+                const fill = document.querySelector('.foliplus-measure-shape-fill');
+                if (!fill) return { error: 'no fill path found' };
+                const paneZ = el => {
+                    const pane = el.closest('.leaflet-pane');
+                    return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                };
+                return { dotAboveFill: paneZ(dot) > paneZ(fill) };
+            }""")
+            assert not info2.get("error"), (
+                f"post-zoom probe error: {info2.get('error')}"
+            )
+            assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
+
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -817,6 +1069,28 @@ class TestMeasureControlBrowser:
                 assert abs(off["dy"] - ref["dy"]) <= 2, (
                     f"{name}: dy {off['dy']} != ref {ref['dy']}"
                 )
+
+    def test_circle_preview_label_reattached_every_frame(self, browser, tmp_path):
+        """While the circle preview is live the radius label chip stays the
+        last marker child of the label pane.
+
+        The label was moved in place with `setLatLng`, which keeps the sibling
+        position from creation time. Once a finalised circle's label had
+        entered the pane after the preview started, the preview chip stayed
+        ahead of it and was painted under — the moving preview label visually
+        disappeared below the earlier measurement's label.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("MeasureControl/circle_preview_label_reattached"))
+            # The planted chip plus the preview chip should both be present.
+            assert state["frames"], "no preview frames captured"
+            assert all(f["total"] == 2 for f in state["frames"]), (
+                f"expected planted + preview label: {state['frames']}"
+            )
+            assert state["alwaysLast"], (
+                f"preview label was not the last label-pane child on every frame: {state['frames']}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_works_without_layercontrol(self, browser, tmp_path):
         """MeasureControl initializes without LayerControl (degradation)."""

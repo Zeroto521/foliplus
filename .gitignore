@@ -37,6 +37,7 @@ htmlcov/
 html/
 .tox/
 .cache
+.vitest/
 .hypothesis/
 .pytest_cache/
 
@@ -61,6 +62,7 @@ tmp/
 # Tooling
 .mypy_cache/
 .ruff_cache/
+.pytest_cache/
 .playwright-mcp
 
 # Node / npm

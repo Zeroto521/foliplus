@@ -1,0 +1,106 @@
+@import "token.css";
+
+/* ════════════════════════════════════════════════════════════
+  CSS Reset & Leaflet Overrides
+  Baseline animations and hidden state, the foliplus-input breathing glow,
+  and the Leaflet-owned chrome we override (leaflet-bar z-index,
+  attribution, scale wrapper).
+  ════════════════════════════════════════════════════════════ */
+
+/* Raise the entire leaflet-bar container when a fold/panel is expanded,
+  so it stays above geopandas legends and other sibling controls.
+  Leaflet's .leaflet-control has z-index:800, override with !important. */
+.leaflet-bar:has(.expanded) {
+  z-index: var(--z-index-floating);
+}
+
+/* ── Animations ── */
+@keyframes foliplus-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.foliplus-spin {
+  /* Size lives here, paint lives on the icon itself (fill/stroke in Icons.LOADING):
+     the two rules answer different questions, and size must stay in CSS because
+     every consumer needs the same 1em regardless of host.
+
+     Icons.LOADING declares a viewBox but no width/height, so it has no intrinsic
+     size. Inline it is fine — the font metrics of the line keep it small — but a
+     flex parent (the location popup) sizes it from a flex base size of 0 and it
+     grows to fill the popup. Pin it to the font size so every consumer is
+     bounded; `flex-shrink: 0` stops a flex parent squashing it instead. */
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  animation: foliplus-spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Shared hidden state ──
+  Used by ExportControl (hide controls during render) and FullscreenControl
+  (hide sibling controls when entering fullscreen). Components that need to
+  hide elements during transient states should reuse this class instead of
+  defining their own. */
+.foliplus-hidden {
+  display: none !important;
+}
+
+@keyframes foliplus-input-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 var(--border-thick) var(--accent-soft-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--size-4) var(--accent-soft-shadow);
+  }
+}
+
+/* Breathing animation value, single-sourced so the reduced-motion override
+   below only flips the variable instead of repeating the selector list. */
+:root {
+  --input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
+}
+
+/* ── Focus: breathing glow ──
+  Only non-checkbox inputs get the breathing animation, using :focus so it
+  triggers on both mouse click and keyboard Tab — important for color inputs
+  and scheme bars which have no visible cursor.
+  Checkbox intentionally excluded: its :focus would persist after mouse click,
+  causing the animation to run indefinitely.
+  `.foliplus-input` is the shared text-input class (SearchControl + LayerControl
+  rename); heatmap controls keep their own classes. Add any new focusable text
+  input / scheme bar to this single selector list. */
+:is(
+  .foliplus-input,
+  .foliplus-heatmap-ctrl select,
+  .foliplus-form-color-input,
+  .foliplus-form-number-input,
+  .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
+):focus,
+.foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
+  animation: var(--input-breathe-anim);
+}
+
+/* Respect reduced motion: disable breathing animation by clearing the value */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --input-breathe-anim: none;
+  }
+}
+
+/* ── Leaflet attribution & foliplus scale wrapper styling ──
+  Shared rounded, translucent look for the bottom-corner controls. */
+.leaflet-control.foliplus-scale-wrap,
+.leaflet-control-attribution {
+  line-height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ctrl-bg-translucent);
+  border: var(--border-thin) solid var(--divider-color);
+  box-shadow: var(--shadow-xs);
+}

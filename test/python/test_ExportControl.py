@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import folium
@@ -9,6 +10,7 @@ import pytest
 from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
 
 from foliplus import ExportControl
+from foliplus.locale import _load_tables
 
 
 class TestExportControlPython:
@@ -68,6 +70,42 @@ class TestExportControlPython:
     def test_timeout_zero(self):
         assert ExportControl(timeout=0).timeout == 0
 
+    def test_invalid_position_raises(self):
+        """Position is validated by BaseControl, so every control inherits it."""
+        with pytest.raises(ValueError, match="position must be one of"):
+            ExportControl(position="center")
+
+    def test_quality_above_range_raises(self):
+        with pytest.raises(
+            ValueError, match="quality must be a number between 0.0 and 1.0"
+        ):
+            ExportControl(quality=1.5)
+
+    def test_quality_below_range_raises(self):
+        with pytest.raises(
+            ValueError, match="quality must be a number between 0.0 and 1.0"
+        ):
+            ExportControl(quality=-0.1)
+
+    def test_scale_must_be_positive(self):
+        with pytest.raises(ValueError, match="scale must be a positive number"):
+            ExportControl(scale=0)
+
+    def test_negative_timeout_raises(self):
+        with pytest.raises(ValueError, match=r"timeout must be an int >= 0"):
+            ExportControl(timeout=-1)
+
+    def test_zero_max_pixels_raises(self):
+        with pytest.raises(ValueError, match="max_pixels must be a positive int"):
+            ExportControl(max_pixels=0)
+
+    def test_numpy_scalars_are_accepted(self):
+        """numpy scalars are not int/float subclasses, yet they must pass."""
+        numpy = pytest.importorskip("numpy")
+        ctrl = ExportControl(quality=numpy.float64(0.5), timeout=numpy.int64(100))
+        assert ctrl.quality == 0.5
+        assert ctrl.timeout == 100
+
     def test_format_default(self):
         assert ExportControl().format == "png"
 
@@ -99,12 +137,24 @@ class TestExportControlPython:
     def test_max_pixels_custom(self):
         assert ExportControl(max_pixels=1000000).max_pixels == 1000000
 
-    def test_locale_config(self):
+    def test_locale_config_bare_has_no_custom_strings(self):
+        """A bare LocaleConfig records the code but ships no custom table.
+
+        The code is sent to JS, which ships the built-in tables and lets the
+        browser pick the language — so this asserts the *absence* of a custom
+        table rather than that translation took effect.
+        """
         from foliplus.locale import LocaleConfig
 
         cfg = LocaleConfig(language="zh")
         ctrl = ExportControl(locale=cfg)
         assert ctrl._locale_code == "zh"
+        conf = json.loads(ctrl._config_block)
+        assert conf["locale_code"] == "zh"
+        table = conf["locale_tables"]["zh"]
+        # Built-in table is present, unmodified — no custom override layered on.
+        builtin = _load_tables("ExportControl.*.json")["zh"]
+        assert table == builtin
 
 
 class TestExportControlRendering:
@@ -148,6 +198,15 @@ class TestExportControlRendering:
         html = render_control(ExportControl())
         assert "z-export-base" in html
         assert "calc(" in html
+
+    def test_css_top_z_index_tokenized(self):
+        """The 100000 'above everything' z-index is a token, not a magic number in a rule."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "var(--z-index-top)" in css
+        # The rule uses the token; the literal may only appear in a comment.
+        assert "z-index: 100000" not in css
 
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))
@@ -211,17 +270,37 @@ class TestExportControlBrowser:
         for layer in layers:
             layer.add_to(m)
         html = TestExportControlBrowser._stub_html(m.get_root().render())
-        # Inject test hooks right after the manager is created (dev bundle).
+        # Inject test hooks at the control-entry line: a synchronous rafLoop
+        # scheduler (read by the lazily-created manager), then the control and
+        # its manager read back via `m` (dev build keeps these names). The
+        # LayerControl instance is exposed too, so export tests can drive
+        # annotation labels.
         html, n = re.subn(
-            r"var exportManager = new ExportManager\(map\);",
-            r"var exportManager = new ExportManager(map); window.__map = map; window.__exportManager = exportManager;",
+            r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
             html,
             count=1,
         )
-        assert n == 1, "exportManager instantiation not found in rendered HTML"
+        assert n == 1, "ExportControl instantiation not found in rendered HTML"
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
+
+    def test_remove_readd_rebuilds_manager(self, browser, tmp_path):
+        """removeControl + addControl re-attaches export UI on a fresh manager."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            state = page.evaluate(_js("ExportControl/destroy_readd"))
+            assert state["removed"] is True
+            assert state["hasManager"] is True
+            assert state["attached"] is True
+            assert not errors, f"JS errors: {errors}"
 
     def test_toggle_button_present(self, browser, tmp_path):
         """Export toggle button is rendered and clickable."""
@@ -328,6 +407,146 @@ class TestExportControlBrowser:
                 timeout=5000,
             )
             assert page.locator(".foliplus-export-box.locked").is_visible()
+
+    def test_arrow_keys_nudge_crop_box(self, browser, tmp_path):
+        """Arrow keys nudge the unlocked crop box by NUDGE_STEP without panning."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            # The arrow shortcuts are container-bound — focus the map container.
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            rect0 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center0 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            rect1 = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top }; }"
+            )
+            center1 = page.evaluate(
+                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
+            )
+            # Box moved by NUDGE_STEP in both axes; the map must NOT pan
+            # (Leaflet's built-in arrow-key handler is disabled while editing).
+            assert rect1["l"] == pytest.approx(rect0["l"] + 3)
+            assert rect1["t"] == pytest.approx(rect0["t"] + 3)
+            assert center1 == center0
+
+    def test_nudge_tracks_key_without_reanimating_hint(self, browser, tmp_path):
+        """Holding an arrow key tracks each press and leaves the size hint alone."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Tag the size-hint element so we can detect if it gets rebuilt.
+            page.evaluate(
+                "() => { document.querySelector('.foliplus-hint-ExportControl-size')"
+                ".setAttribute('data-mark', '1'); }"
+            )
+            before = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+
+            # Simulate a held key: one keydown starts the smooth-nudge loop,
+            # then OS auto-repeat fires repeated keydowns for the same key.
+            # With the loop running the repeats are intentionally ignored, so
+            # a held key nudges exactly once (the loop's sync frame) plus the
+            # continuous stream handled by the loop — here the test injects a
+            # no-op scheduler so the loop only ever runs its sync frame, i.e.
+            # one NUDGE_STEP regardless of how many repeats follow.
+            page.keyboard.down("ArrowRight")
+            for _ in range(4):
+                page.evaluate(
+                    "() => document.dispatchEvent(new KeyboardEvent('keydown', "
+                    "{ key: 'ArrowRight', bubbles: true }))"
+                )
+
+            # The box suppresses its transition while nudging, so it tracks the
+            # keystrokes instead of chasing them (a transition would make the
+            # box lag behind and only settle after the key is released).
+            box = page.locator(".foliplus-export-box")
+            assert box.get_attribute("class").endswith("dragging")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, w: r.width, h: r.height }; }"
+            )
+            # Repeats are ignored while the loop runs -> exactly one NUDGE_STEP.
+            assert after["l"] == pytest.approx(before["l"] + 3)
+            assert after["w"] == pytest.approx(before["w"])
+            assert after["h"] == pytest.approx(before["h"])
+
+            # A pure move keeps the size constant, so the hint is never refreshed —
+            # refreshing would rebuild the element and replay its entry animation.
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')"
+                    ".getAttribute('data-mark')"
+                )
+                == "1"
+            )
+
+            # Releasing the key restores the transition.
+            page.keyboard.up("ArrowRight")
+            page.wait_for_timeout(50)
+            assert not box.get_attribute("class").endswith("dragging")
+
+            # R changes the size, so the hint must be refreshed (and rebuilt).
+            page.keyboard.press("r")
+            page.wait_for_timeout(150)
+            assert (
+                page.evaluate(
+                    "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
+                    ".getAttribute('data-mark')"
+                )
+                != "1"
+            )
+
+    def test_r_resets_crop_box(self, browser, tmp_path):
+        """R resets the unlocked crop box to the default centered size."""
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            default = page.evaluate(
+                "() => { const r = window.__exportManager.defaultRect(); "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            page.evaluate(
+                "() => { const c = window.__map.getContainer(); "
+                "c.setAttribute('tabindex', '-1'); c.focus(); }"
+            )
+            # Nudge away from default so a reset is observable.
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowRight")
+            page.keyboard.press("ArrowDown")
+            moved = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert moved != default, "expected box to move before reset"
+            page.keyboard.press("r")
+            after = page.evaluate(
+                "() => { const r = window.__exportManager.cropState.rect; "
+                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
+            )
+            assert after == pytest.approx(default)
 
     def test_export_mode_class(self, browser, tmp_path):
         """foliplus-export-mode class is added to body and map container."""
@@ -651,6 +870,57 @@ class TestExportControlBrowser:
             # Cleanup canvas layer
             page.evaluate(_js("ExportControl/remove_test_canvas"))
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
+
+    def test_export_with_annotation_labels(self, browser, tmp_path):
+        """Export with LayerControl annotation labels keeps them drawn, no errors."""
+        with use_page(self._make_page, browser, tmp_path, slug="export_annotation") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Create an annotation layer and confirm its labels are painted.
+            state = page.evaluate(_js("ExportControl/annotation_canvas_in_export"))
+            assert state is not None and state["canvas"] is True, state
+            assert state["opaqueBefore"] > 0, state
+
+            # Full export flow: open, lock, export.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(500)
+
+            # The export's synchronous redraw must not have destroyed the labels.
+            after = page.evaluate(
+                """() => {
+                    const canvas = window.map
+                        .getPane("foliplus-annotation-__export_ann__")
+                        ?.querySelector("canvas");
+                    if (!canvas) return 0;
+                    const data = canvas
+                        .getContext("2d")
+                        .getImageData(0, 0, canvas.width, canvas.height).data;
+                    let n = 0;
+                    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
+                    return n;
+                }"""
+            )
+            assert after > 0, f"annotation labels lost after export: {after}"
+            assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Drag bottom-right handle to resize the crop box."""

@@ -1,8 +1,9 @@
 """
 Localization support for foliplus UI components.
 
-Provides language-specific string tables for all frontend UI text and a helper to inject
-the correct locale into Jinja2 templates.
+Provides language-specific string tables for all frontend UI text. Controls select a
+table by passing ``locale=`` to their constructor — the resolved config is serialised
+into the JS ``CONF`` by :class:`foliplus.BaseControl`.
 
 Usage
 -----
@@ -103,23 +104,31 @@ def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleC
 class LocaleConfig:
     """Locale configuration for a control instance.
 
-    Stores the selected language code and provides string lookup.
+    Stores a language code and a custom string table. The ``language`` argument only
+    records the code — it does **not** load the built-in string table, so a bare
+    ``LocaleConfig("zh")`` carries no strings. At render time a stringless config means
+    "auto-detect at runtime": the control ships the built-in tables and lets the browser
+    pick the language. Pass a ``str`` code (``HeatmapControl(locale="zh")``) for a
+    built-in language, or :meth:`from_json` for a custom one — only then do translated
+    strings actually reach the page.
+
+    A custom table need not be complete: keys it omits fall back to the built-in
+    translation for that language (English when the language itself is new), so
+    ``{"locale.code": "ja", "HeatmapControl.title": "こんにちは"}`` overrides one label
+    while the other 27 keep their built-in strings.
 
     Parameters
     ----------
     language : str, default "en"
-        Language code, e.g. ``"en"``, ``"zh"``. Falls back to English if the code is not
-        in :data:`_LOCALES_TABLES`.
-
-    table : dict or None
-        Optional custom string table (key → localized text).
-        If provided, *language* is only used to set ``locale.code``.
+        Language code, e.g. ``"en"``, ``"zh"``. Custom codes such as ``"fr"`` are
+        accepted as-is; without strings from :meth:`from_json` they select no table,
+        so the control falls back to the browser's language at runtime.
 
     Examples
     --------
-    >>> LocaleConfig("zh")
-    >>> LocaleConfig("en")
-    >>> LocaleConfig(table={"locale.code": "ja", "hello": "こんにちは"})
+    >>> from foliplus import HeatmapControl
+    >>> HeatmapControl(locale="zh")
+    >>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
     """
 
     language: str = "en"
@@ -132,6 +141,11 @@ class LocaleConfig:
         The file must contain a flat dictionary of ``key: "translated text"`` entries,
         plus a ``locale.code`` key that identifies the language.
 
+        A missing ``locale.code`` raises rather than defaulting to ``"en"``, because
+        shipping translated strings under an English code is the same defect class as
+        the silent-fallback bug this module exists to fix. Non-string values are
+        rejected for the same reason: :meth:`get` promises ``str``.
+
         Parameters
         ----------
         path : str or Path
@@ -141,6 +155,12 @@ class LocaleConfig:
         -------
         LocaleConfig
 
+        Raises
+        ------
+        ValueError
+            If the file is not ``.json``, its root is not an object, it has no
+            ``locale.code``, or any value is not a string.
+
         Examples
         --------
         >>> LocaleConfig.from_json("locales/ja.json")
@@ -149,22 +169,56 @@ class LocaleConfig:
             raise ValueError(
                 f"only .json locale files are supported, got '{path.suffix}'"
             )
-        raw: dict[str, Any] = loads(path.read_text(encoding="utf-8"))
-        code: str = raw.get("locale.code", "en")
-        obj = cls(language=code)
-        obj._strings = raw  # type: ignore[assignment]
+        raw: Any = loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"locale file must contain a JSON object, got "
+                f"{type(raw).__name__!s}: {path}"
+            )
+        if not isinstance(raw.get("locale.code"), str):
+            raise ValueError(
+                f"locale file must contain a 'locale.code' string, got "
+                f"{raw.get('locale.code')!r}: {path}"
+            )
+        bad = {k: v for k, v in raw.items() if not isinstance(v, str)}
+        if bad:
+            raise ValueError(
+                f"locale values must all be strings, got non-string entries: "
+                f"{sorted(bad)}: {path}"
+            )
+        obj = cls(language=raw["locale.code"])
+        obj._strings = dict(raw)
         return obj
 
     def to_json(self, path: str | Path) -> None:
-        """Export the current string table to a JSON file."""
+        """Export the current string table to a JSON file.
+
+        Always writes ``locale.code`` so the file round-trips through
+        :meth:`from_json`. A bare ``LocaleConfig("zh")`` has no strings and therefore
+        no table to export; raising here keeps that from writing a ``{}`` that would
+        reload as English.
+        """
+        if not self._strings:
+            raise ValueError(
+                f"{type(self).__name__!s} has no strings to export — resolve_locale() "
+                f"or from_json() returns a table, the constructor does not"
+            )
+        out = dict(self._strings)
+        out["locale.code"] = self.code
         Path(path).write_text(
-            dumps(self._strings, ensure_ascii=False, indent=2),
+            dumps(out, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
     def get(self, key: str, default: str | None = None) -> str:
-        """Look up a localized string by key."""
-        return self._strings.get(key, default or key)
+        """Look up a localized string by key, falling back to the key itself.
+
+        An explicit ``default=""`` is honoured (an empty translation is valid),
+        so the key fallback only applies when ``default`` is ``None``.
+        """
+        if default is not None:
+            return self._strings.get(key, default)
+        return self._strings.get(key, key)
 
     @property
     def code(self) -> str:

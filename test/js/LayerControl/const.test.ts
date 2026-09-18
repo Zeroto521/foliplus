@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { GEOM_TYPE, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
 
-describe("INIT_DELAY_MS", () => {
-  it("is a positive number", () => {
-    expect(CONST.INIT_DELAY_MS).toBe(300);
+describe("init ready signal", () => {
+  it("no longer exposes the removed INIT_DELAY_MS timer", () => {
+    expect((CONST as Record<string, unknown>).INIT_DELAY_MS).toBeUndefined();
   });
 });
 
@@ -26,6 +26,7 @@ describe("STORAGE", () => {
     expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
     expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
     expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
+    expect(CONST.STORAGE.OPACITY_KEY).toContain("foliplus_layer_opacity_");
   });
 });
 
@@ -66,8 +67,10 @@ describe("CLASSES", () => {
   it("defines color and utility classes", () => {
     expect(CONST.CLASSES.COLOR_INPUT).toBe("foliplus-color-layer-input");
     expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
-    expect(CONST.CLASSES.HIDDEN).toBe("hidden");
     expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
+    // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
+    // removal, and the recipe CSS keys only on FOCUSED + :hover.
+    expect((CONST.CLASSES as Record<string, string>).FOCUS_SUPPRESSED).toBeUndefined();
   });
 });
 
@@ -87,6 +90,7 @@ describe("SEL", () => {
     expect(CONST.SEL.COLOR_INPUT).toBe(".foliplus-color-layer-input");
     expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
     expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
+    expect(CONST.SEL.ROW).toBe(".foliplus-layer-item, .foliplus-layer-toggle-all");
   });
 });
 
@@ -140,6 +144,18 @@ describe("FOCUS", () => {
 describe("CLASSES.FOCUSING", () => {
   it("defines the focusing row class", () => {
     expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+  });
+});
+
+describe("CLASSES.SECTION_HEADING / opacity controls", () => {
+  it("uses the shared form.css section heading", () => {
+    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
+  });
+
+  it("defines the opacity control classes", () => {
+    expect(CONST.CLASSES.STYLE_OPACITY_CONTROL).toBe("foliplus-style-opacity-control");
+    expect(CONST.CLASSES.STYLE_OPACITY_RANGE).toBe("foliplus-style-opacity-range");
+    expect(CONST.CLASSES.STYLE_OPACITY_NUMBER).toBe("foliplus-style-opacity-number");
   });
 });
 

@@ -1,0 +1,60 @@
+.foliplus-layer-ctrl {
+  /* ── Attributes panel ──
+     Read-only metadata for one layer row. The surface is the shared row panel
+     (`foliplus-row-panel`, built by createRowPanel): anchoring, width, height
+     cap, card chrome come from there and from common/panel.css — this block
+     carries what is specific to this panel: copyable text, the type logo
+     size, and a two-column grid so every value shares one left edge. */
+  .foliplus-layer-attrs-panel {
+    /* Read-only metadata must stay copyable; the parent row is user-select:none
+       and the shared row-panel recipe keeps that. */
+    user-select: text;
+  }
+  /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
+     inside the shared .foliplus-header-icon box. */
+  .foliplus-layer-attrs-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* One grid for the whole list, pinned to the shared --form-label-width so
+     the attrs panel's control column sits on the same vertical line as the
+     heatmap and style panels. Horizontal inset lives here because
+     `display: contents` rows have no padding box. */
+  .foliplus-layer-attrs-panel dl {
+    display: grid;
+    grid-template-columns: var(--form-label-width) 1fr;
+    column-gap: var(--space-md);
+    align-items: center;
+    padding: 0 var(--space-lg);
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-row {
+    display: contents;
+  }
+  /* Shared label typography from common/form.css — same language as the
+     heatmap form labels. Height/centering replace the flex-row min-height
+     that `display: contents` drops. */
+  .foliplus-layer-attrs-panel .foliplus-form-label {
+    min-height: var(--toggle-size);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .foliplus-layer-attrs-panel .foliplus-form-control {
+    /* Read-only text: left-aligned, wrapping, tabular figures so counts and
+       timestamps line up. sm (not md) so a medium+short timestamp stays on
+       one line inside the fixed label-column layout. `margin: 0` because a
+       <dd> carries a UA block margin the heatmap's <div> does not. */
+    margin: 0;
+    min-height: var(--toggle-size);
+    display: flex;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  /* A long value (a URL source) drops under the label and takes the
+     full width of both columns. */
+  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
+    grid-column: 1 / -1;
+  }
+}

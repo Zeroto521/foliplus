@@ -1,0 +1,168 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Shared Panel — panel-based controls
+  Base styles for the controls that open a side panel (LayerControl,
+  HeatmapControl); each component overrides only its differentiated parts.
+  Reads only the shared tokens, no ctrl-fold rule - so it is independent of
+  ctrl-fold.css and could sit anywhere after token.css.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Row panel (a row's own floating surface) ──
+   What a layer row opens from its ⋮ menu: the attributes panel and the
+   per-layer style panel. It IS a `.foliplus-panel` — same header/content
+   vocabulary as the fold panels — but anchored under its row rather than
+   folded into the control, so the caller mounts it on the row.
+
+   `.foliplus-panel` is a *horizontal* fold container (`align-items:
+   flex-start`), which for a column panel leaves the header and the content at
+   their own text width inside a full-width card. `stretch` is what makes the
+   surface read as one card, and was the reason the style panel's header came
+   out narrow while the attributes panel's filled the row.
+
+   Width, height cap, radius and shadow all read the shared tokens, so a row
+   panel cannot drift into a lookalike; a component adds only its own hooks. */
+.foliplus-panel.foliplus-row-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: var(--panel-width);
+  max-height: var(--panel-max-height);
+  padding: 0;
+  overflow-x: hidden;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: default;
+
+  /* Detail rows carry the shared label/control geometry; the panel only adds
+     its own horizontal inset. */
+  .foliplus-form-row {
+    padding: 0 var(--space-lg);
+  }
+}
+
+/* ── Container ── */
+.foliplus-panel {
+  display: flex;
+  align-items: flex-start;
+  overflow: visible;
+  pointer-events: auto;
+  user-select: none;
+
+  /* The hairline above a panel's footer action. Equidistant by construction:
+     the same inset on both sides, and the same gap above it as below it and as
+     the footer row keeps under its button — one value, --space-md, for all three
+     vertical distances (see the button-row recipe in common/button.css). */
+  .foliplus-section-divider {
+    margin: var(--space-md) var(--space-lg);
+  }
+
+  /* ── Panel Wrapper (visible when expanded) ── */
+  .foliplus-panel-wrap {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* ── Panel Header ── */
+  .foliplus-panel-header {
+    display: flex;
+    align-items: center;
+    height: var(--ctrl-size);
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0 var(--panel-header-padding-right) 0 var(--panel-header-padding-left);
+    border-bottom: var(--border-thin) solid var(--divider-color);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    background: var(--panel-header-bg);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    box-shadow: var(--shadow-xs);
+    position: relative;
+
+    &:hover {
+      background: var(--panel-header-hover);
+    }
+    .foliplus-header-icon {
+      width: var(--icon-size-md);
+      height: var(--icon-size-md);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: var(--space-sm);
+    }
+    .foliplus-header-title {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Close affordance ──
+       The × sits in the header but stays invisible until the header is
+       hovered: the header click itself is the primary dismiss, so a
+       permanent × is visual noise on every expanded panel. One rule here
+       covers all panels (heatmap, layer list, attrs, style). */
+    .foliplus-close-btn {
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    &:hover .foliplus-close-btn {
+      opacity: 1;
+    }
+    /* …and stays visible while it holds focus. `opacity: 0` hides the element
+       *and* its focus ring, so a keyboard user who tabs onto it would land on a
+       control they cannot see; `:focus-within` on the header is how a parent
+       reacts to a child's focus without `:has()`. */
+    &:focus-within .foliplus-close-btn {
+      opacity: 1;
+    }
+  }
+
+  /* ── Panel Content ── */
+  .foliplus-panel-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* ── Expanded State ── */
+  &.expanded {
+    width: var(--panel-width);
+    flex-direction: column;
+    border-radius: var(--radius-card);
+    overflow: hidden;
+
+    /* Hide toggle when expanded */
+    .foliplus-toggle-btn {
+      display: none;
+    }
+
+    /* ── Accent color for expanded icon (all panel components) ── */
+    .foliplus-header-icon,
+    .foliplus-header-icon svg {
+      color: var(--accent-primary);
+    }
+
+    .foliplus-panel-wrap {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+  }
+}

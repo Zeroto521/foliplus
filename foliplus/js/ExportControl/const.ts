@@ -1,31 +1,45 @@
+// ============================================================================
+// Static configuration.
+//
+// All declarations are private here and re-exported together from the single
+// `export` block at the end of the file. Everything about an export format
+// (mime type, file extension, codec class, pipeline routing) reads from one
+// `FORMAT` record — add a format by adding one row there.
+// ============================================================================
+
 /** Crop-box constraints. */
-export const CROP = {
+const CROP = {
   MIN_SIZE: 40,
   PADDING_RATIO: 0.25,
   CONTAINER_PADDING: 200,
+  /** Pixels the crop box moves per arrow-key nudge on a single tap. */
+  NUDGE_STEP: 3,
+  /** Pixels/second while a key is held. Applied as a fractional per-frame
+   * increment at 60fps so motion is frame-aligned and smooth; a tap yields
+   * exactly NUDGE_STEP (the sync frame) before the stream begins. */
+  NUDGE_SPEED: 200,
+  /** Milliseconds a key must be held before the continuous stream kicks in.
+   * A tap shorter than this yields exactly NUDGE_STEP and stops; only a hold
+   * that passes this gate (or a real OS repeat event) starts the per-frame flow.
+   * This keeps "tap once" predictable (= one step) even on slow links or when
+   * the user releases quickly, while long holds still feel smooth. */
+  NUDGE_HOLD_DELAY: 300,
 };
 
+/** Arrow keys that nudge the crop box position (unlocked state). */
+const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+
 /** Persistent storage key for the last crop rectangle. */
-export const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
+const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
-export const TIMING = {
-  URL_REVOKE_DELAY: 10000,
+const TIMING = {
   TIMEOUT: CONF.timeout,
   RESTORE_DELAY: 200,
 };
 
-// MIME type lookup (format → toBlob mime, toDataURL mime)
-export const MIME = {
-  DEFAULT: "image/png", // Default MIME when CONF.format is not in MIME
-  png: "image/png",
-  jpeg: "image/jpeg",
-  webp: "image/webp",
-  tif: "image/tiff",
-};
-
 /** CSS class names used during render. */
-export const CLASSES = {
+const CLASSES = {
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   TOOL_BTN: "foliplus-tool-btn",
@@ -43,11 +57,34 @@ export const CLASSES = {
   DRAGGING: "dragging",
 };
 
-export const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** Leaflet pane-name prefix for LayerControl's per-layer annotation labels.
+ *  The renderer walks each layer's label pane right after its content, so the
+ *  exported stack order matches the map's (a layer above covers the labels). */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** DOM selectors used during render. */
-export const SEL = {
-  CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+const SEL = {
+  /**
+   * Canvas overlays inside a layer's own content panes. Registered canvas
+   * layers (HeatmapControl via `createCanvas`) are rendered by
+   * `renderCanvasElement` from `li.canvas`, not this selector; this one
+   * exists for canvas elements a third-party layer mounts directly in its
+   * pane. Keep it generic — the pane walk already scopes the search.
+   * **A new canvas overlay must be added here or to
+   * {@link SEL.ANNOTATION_CANVAS}** — `collectLayerMarkers` deliberately skips
+   * CANVAS elements (a dedicated pass owns them), so a canvas that is in
+   * neither list vanishes from the export without any error.
+   */
+  CANVAS: "canvas",
+  /**
+   * LayerControl's annotation labels: each layer's labels draw on a canvas in
+   * that layer's *own* annotation pane, which the manager creates with
+   * `map.createPane` — a sibling of the layer's content panes, so the
+   * per-layer walk never reaches it and it needs its own pass.
+   */
+  ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
@@ -75,6 +112,19 @@ export const SEL = {
 // ============================================================================
 
 const DEFAULT_CONCURRENCY = 6; // HTTP/1.x-era per-origin default
+
+/**
+ * The subset of the Network Information API that detectConcurrency reads.
+ * Kept here rather than augmented onto `Navigator` because the interface is a
+ * draft: it lives at `navigator.connection` in Chrome and behind the
+ * moz/webkit prefixes elsewhere, so it cannot be declared as a plain member.
+ * `downlink`/`effectiveType` are read defensively at the call site because the
+ * properties can also be absent per-agent.
+ */
+type NetworkInformation = {
+  downlink?: number;
+  effectiveType?: string;
+};
 
 const CONN_CONCURRENCY: Record<string, number> = {
   "slow-2g": 2,
@@ -107,11 +157,12 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  * Vendor-prefixed accessors (moz/webkit) are consulted so Firefox and older
  * Safari work.  Standard `navigator.connection` wins when present.
  */
-export const detectConcurrency = (): number => {
-  const conn =
-    (navigator as any).connection ||
-    (navigator as any).mozConnection ||
-    (navigator as any).webkitConnection;
+const detectConcurrency = (): number => {
+  const conn: NetworkInformation | undefined =
+    (navigator as Navigator & { connection?: NetworkInformation }).connection ||
+    (navigator as Navigator & { mozConnection?: NetworkInformation }).mozConnection ||
+    (navigator as Navigator & { webkitConnection?: NetworkInformation })
+      .webkitConnection;
   if (!conn) return DEFAULT_CONCURRENCY;
 
   const down = typeof conn.downlink === "number" ? conn.downlink : 0;
@@ -127,8 +178,71 @@ export const detectConcurrency = (): number => {
   return CONN_CONCURRENCY[et] ?? DEFAULT_CONN_CONCURRENCY[et] ?? DEFAULT_CONCURRENCY;
 };
 
-/**
- * Maximum concurrent tile fetches during render.  Auto-detected at module
- * load — no user-configurable override.
- */
-export const TILE_CONCURRENCY: number = detectConcurrency();
+/** Maximum concurrent tile fetches during render. Auto-detected at module load. */
+const TILE_CONCURRENCY: number = detectConcurrency();
+
+// ============================================================================
+// Export formats — single source for everything format-specific.
+// ============================================================================
+
+/** Export format key — mirrors Python's `ExportControl.FORMAT` literal. */
+type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
+
+/** Per-format descriptor. */
+interface FormatSpec {
+  /** `toBlob()` / `toDataURL()` mime type. */
+  mime: string;
+  /** File extension (no dot). */
+  ext: string;
+  /** Lossy codec — the single compress pass happens at write time. */
+  lossy: boolean;
+  /** Routed through `downloadGeoTiff` instead of a plain blob download. */
+  geotiff: boolean;
+}
+
+const FORMAT: Record<ExportFormat, FormatSpec> = {
+  png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
+  // `ext` is the historical user-visible name — `jpeg`, not `jpg`.
+  jpeg: { mime: "image/jpeg", ext: "jpeg", lossy: true, geotiff: false },
+  webp: { mime: "image/webp", ext: "webp", lossy: true, geotiff: false },
+  geotiff: { mime: "image/tiff", ext: "tif", lossy: false, geotiff: true },
+};
+
+/** Lossless mime for intermediate `toDataURL()` snapshots inside the renderer.
+ * Composing passes must stay lossless — encoding to the requested format is
+ * applied once, at download time. */
+const MIME_LOSSLESS = FORMAT.png.mime;
+
+/** Resolve a runtime `CONF.format` to a table key. Python's `ExportControl`
+ * rejects anything outside `FORMAT`, so this only guards misconfiguration. */
+const resolveFormat = (raw: unknown): ExportFormat =>
+  typeof raw === "string" && Object.prototype.hasOwnProperty.call(FORMAT, raw)
+    ? (raw as ExportFormat)
+    : "png";
+
+/** The record for `CONF.format` — no cast, no DEFAULT fallback. */
+const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
+
+// ============================================================================
+// Public API — every consumer reads CONST.<name>; add nothing to this block
+// without declaring it above. Types come first, then values.
+// ============================================================================
+
+export type { ExportFormat, FormatSpec };
+
+export {
+  CROP,
+  NUDGE_KEYS,
+  STORAGE,
+  TIMING,
+  CLASSES,
+  SVG_NS,
+  ANNOTATION_PANE_PREFIX,
+  SEL,
+  detectConcurrency,
+  TILE_CONCURRENCY,
+  FORMAT,
+  MIME_LOSSLESS,
+  resolveFormat,
+  currentFormat,
+};

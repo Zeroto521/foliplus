@@ -17,7 +17,7 @@ import { PreviewMode } from "./base.js";
 const T = createScopedTranslator(CONF);
 
 interface CirclePreviews {
-  center: L.Marker | null;
+  center: L.CircleMarker | null;
   circle: L.Circle | null;
   line: L.Polyline | null;
   node: L.CircleMarker | null;
@@ -32,7 +32,7 @@ class CircleMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_circle";
 
   /** Rebuild a persisted circle measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);
@@ -54,21 +54,15 @@ class CircleMode extends PreviewMode {
     ) as L.Polyline;
     const radiusNode = manager.layers.addLayer(
       Util.makeNode(targetLatLng),
+      CONST.PANES.NODE,
     ) as L.CircleMarker;
     const centerFinal = manager.layers.addLayer(
-      L.marker(centerLatLng, {
-        icon: L.divIcon({
-          className: CONST.CENTER_DOT.CLASS,
-          html: "",
-          iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-          iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-        }),
-        zIndexOffset: CONST.Z_INDEX.OFFSET,
-        interactive: true,
-      }),
-    ) as L.Marker;
+      Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      CONST.PANES.NODE,
+    ) as L.CircleMarker;
     const delMarker = manager.layers.addLayer(
       makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+      CONST.PANES.NODE,
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -81,7 +75,7 @@ class CircleMode extends PreviewMode {
         ),
         interactive: false,
       }),
-      true,
+      CONST.PANES.LABEL,
     ) as L.Marker;
 
     attachCircleUI(manager, {
@@ -92,9 +86,17 @@ class CircleMode extends PreviewMode {
       centerFinal,
       delMarker,
       radiusLabel,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
+      onEnd: () => {
+        const center = circle.getLatLng();
+        const target = radiusNode!.getLatLng();
+        const r = circle.getRadius();
+        data.center = { lng: center.lng, lat: center.lat };
+        data.target = { lng: target.lng, lat: target.lat };
+        data.radius = r;
+        data.area = Math.PI * r * r;
+        manager.store.persist();
       },
     });
   }
@@ -126,8 +128,9 @@ class CircleMode extends PreviewMode {
         isFinalizing ||
         this.m.currentMode !== this.type ||
         (phase !== 0 && phase !== 1)
-      )
+      ) {
         return;
+      }
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(event);
@@ -137,16 +140,8 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          L.marker(center, {
-            icon: L.divIcon({
-              className: CONST.CENTER_DOT.CLASS,
-              html: "",
-              iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-              iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-            }),
-            zIndexOffset: CONST.Z_INDEX.OFFSET,
-            interactive: false,
-          }),
+          Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          CONST.PANES.NODE,
         );
         phase = 1;
         map.foliplus!.showHint(
@@ -195,33 +190,23 @@ class CircleMode extends PreviewMode {
         );
       } else previews.line.setLatLngs([center, event.latlng]);
 
-      if (!previews.node) {
-        previews.node = this.addPreview(
-          L.circleMarker(event.latlng, {
-            radius: CONST.MARKER.RADIUS,
-            className: CONST.CLASSES.NODE_HOLLOW,
-            interactive: false,
-          }),
-        );
-        previews.node.bringToFront();
-        // Keep the radius node glued to the cursor while drawing.
-      } else previews.node.setLatLng(event.latlng);
+      // Both endpoints live in the node pane, which sits above the graph
+      // pane (circle + radius line) by z-order — no per-frame re-ordering
+      // needed. The radius endpoint re-creates through moveCursorNode.
+      previews.node = this.moveCursorNode(event.latlng);
 
       const mid = Util.midpoint(center, event.latlng);
-      if (!previews.label) {
-        const previewLabel = L.marker(mid, {
-          icon: Util.makeLabelDivIcon(
-            Util.formatDistance(r),
+      previews.label = this.updateOrCreateLabel(
+        previews.label,
+        mid,
+        Util.formatDistance(r),
+        t =>
+          Util.makeLabelDivIcon(
+            t,
             CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
           ),
-          interactive: false,
-        });
-        previews.label = this.addPreview(previewLabel);
-      } else {
-        previews.label.setLatLng(mid);
-        Util.setLabelText(previews.label, Util.formatDistance(r));
-      }
+      );
     };
 
     const onContext = (event: L.LeafletMouseEvent) => {
@@ -267,23 +252,19 @@ class CircleMode extends PreviewMode {
           interactive: true,
         }),
       );
-      const radiusNode = this.layers.addLayer(Util.makeNode(finalTargetLatLng));
+      const radiusNode = this.layers.addLayer(
+        Util.makeNode(finalTargetLatLng),
+        CONST.PANES.NODE,
+      );
 
       const centerFinal = this.layers.addLayer(
-        L.marker(centerLatLng, {
-          icon: L.divIcon({
-            className: CONST.CENTER_DOT.CLASS,
-            html: "",
-            iconSize: CONST.CENTER_DOT.SIZE as [number, number],
-            iconAnchor: CONST.CENTER_DOT.ANCHOR as [number, number],
-          }),
-          zIndexOffset: CONST.Z_INDEX.OFFSET,
-          interactive: true,
-        }),
+        Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        CONST.PANES.NODE,
       );
 
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
+        CONST.PANES.NODE,
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
@@ -296,11 +277,11 @@ class CircleMode extends PreviewMode {
           ),
           interactive: false,
         }),
-        true,
+        CONST.PANES.LABEL,
       );
 
       const circleId = this.nextMeasurementId();
-      this.m.measurements.push({
+      this.m.store.add({
         id: circleId,
         type: this.type,
         center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
@@ -308,19 +289,32 @@ class CircleMode extends PreviewMode {
         radius: r,
         area: Math.PI * r * r,
       });
-      this.m.saveMeasurements();
 
       attachCircleUI(this.m, {
         layers: this.layers,
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
         radiusNode: radiusNode as L.CircleMarker,
-        centerFinal: centerFinal as L.Marker,
+        centerFinal: centerFinal as L.CircleMarker,
         delMarker: delMarker as L.Marker,
         radiusLabel: radiusLabel as L.Marker,
+        id: circleId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== circleId);
-          this.m.saveMeasurements();
+          this.m.store.remove(circleId);
+        },
+        onEnd: () => {
+          const m = this.m.store.all().find(x => x.id === circleId);
+          if (!m) return;
+          const c = circle as L.Circle;
+          const n = radiusNode as L.CircleMarker;
+          const center = c.getLatLng();
+          const target = n.getLatLng();
+          const r = c.getRadius();
+          m.center = { lng: center.lng, lat: center.lat };
+          m.target = { lng: target.lng, lat: target.lat };
+          m.radius = r;
+          m.area = Math.PI * r * r;
+          this.m.store.persist();
         },
       });
     };
@@ -335,6 +329,7 @@ class CircleMode extends PreviewMode {
 
     this._cleanup = () => {
       unbindMapEvents(this.map, circleEvents);
+      this.clearCursorNode();
       resetPreviews();
       map.foliplus!.hideHint(CONF.name);
     };

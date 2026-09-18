@@ -6,7 +6,7 @@
  * delays invocation until `delayMs` ms after the last call.
  * The returned function has a `.cancel()` method to clear pending timers.
  */
-export type Debounced = ((...args: unknown[]) => void) & {
+type Debounced = ((...args: unknown[]) => void) & {
   cancel: () => void;
   flush: () => void;
 };
@@ -34,4 +34,4 @@ const debounce = (func: (...args: unknown[]) => void, delayMs: number): Debounce
   return debounced;
 };
 
-export { debounce };
+export { type Debounced, debounce };

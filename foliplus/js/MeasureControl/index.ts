@@ -1,7 +1,7 @@
+import { createControlEnv } from "#core/controlEnv.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import {
@@ -17,20 +17,19 @@ createControlEnv(CONF, SVGs.RULER);
 const T = createScopedTranslator(CONF);
 ensureLayerAPI(map);
 
-const measureManager = new MeasureManager(map);
+const createMeasureManager = (): MeasureManager => new MeasureManager(map);
 
 /** Leaflet control wrapper for the MeasureManager. Handles DOM creation and tool button events. */
 class MeasureControl extends BaseControl {
-  declare manager: MeasureManager;
+  manager: MeasureManager | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.manager = measureManager;
   }
 
-  /** Shorthand for manager */
-  get m() {
-    return this.manager;
+  /** Shorthand for manager (creates it on first access). */
+  get m(): MeasureManager {
+    return (this.manager ??= createMeasureManager());
   }
 
   buildDOM() {
@@ -48,7 +47,7 @@ class MeasureControl extends BaseControl {
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
       { title: T("tool_export"), svg: Icons.DOWNLOAD },
-      { mode: CONST.MODE.EDIT, title: T("tool_edit"), svg: SVGs.EDIT },
+      { mode: CONST.MODE.EDIT, title: T("tool_edit"), svg: Icons.EDIT },
       { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
     ];
     let exportBtn: HTMLElement | null = null;
@@ -85,8 +84,10 @@ class MeasureControl extends BaseControl {
     return container;
   }
 
+  /** Never touch `this.m` here: destroy() must not re-create the manager. */
   destroy() {
-    this.m.destroy();
+    this.manager?.destroy();
+    this.manager = null;
   }
 }
 

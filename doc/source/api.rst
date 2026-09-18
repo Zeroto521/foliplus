@@ -1,5 +1,5 @@
-API
-===
+API Reference
+============
 
 .. automodule:: foliplus
    :no-members:
@@ -13,6 +13,7 @@ API
    FullscreenControl
    HeatmapControl
    LayerControl
+   LocateControl
    MeasureControl
    ScaleControl
    SearchControl

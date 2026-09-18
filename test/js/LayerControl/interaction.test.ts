@@ -44,9 +44,13 @@ function makeUI(): any {
     uiContainer: container,
     m: { map },
     handleKeyDown: vi.fn(),
+    handleOutsideMousedown: vi.fn(),
     openMoreMenu: vi.fn(),
     focusLayer: vi.fn(),
     closeMoreMenu: vi.fn(),
+    renameLayer: vi.fn(),
+    openStylePanel: vi.fn(),
+    openAttrsPanel: vi.fn(),
     activeIdx: null,
     activeMenu: null,
   };
@@ -86,28 +90,31 @@ describe("LayerControl registerInteractions", () => {
     );
   });
 
-  it("all shortcuts share the uiContainer as their container", () => {
+  it("all keyboard shortcuts share the uiContainer as their container", () => {
     const ui = makeUI();
     registerInteractions(ui);
 
-    const defs = getRegisterSpy().mock.calls[0][1];
-    for (const d of defs) {
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const keyDefs = defs.filter(d => d.container);
+    expect(keyDefs).toHaveLength(7);
+    for (const d of keyDefs) {
       expect(d.container).toBe(ui.uiContainer);
     }
   });
 
-  it("each shortcut handler forwards its event to ui.handleKeyDown", () => {
+  it("each keyboard shortcut handler forwards its event to ui.handleKeyDown", () => {
     const ui = makeUI();
     registerInteractions(ui);
 
-    const defs = getRegisterSpy().mock.calls[0][1];
-    for (const d of defs) {
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const keyDefs = defs.filter(d => d.container);
+    for (const d of keyDefs) {
       const event = { key: d.key } as unknown as KeyboardEvent;
       d.handler(event);
     }
 
     // Every handler is a pass-through to ui.handleKeyDown — one call per key.
-    expect(ui.handleKeyDown).toHaveBeenCalledTimes(defs.length);
+    expect(ui.handleKeyDown).toHaveBeenCalledTimes(keyDefs.length);
     // Spot-check that the event (and thus its key) is forwarded as-is.
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "ArrowUp" }),
@@ -115,6 +122,24 @@ describe("LayerControl registerInteractions", () => {
     expect(ui.handleKeyDown).toHaveBeenCalledWith(
       expect.objectContaining({ key: "Escape" }),
     );
+  });
+
+  it("registers the outside-mousedown dismissal as an observed (non-swallowed) event", () => {
+    const ui = makeUI();
+    registerInteractions(ui);
+
+    const defs = getRegisterSpy().mock.calls[0][1] as any[];
+    const mouseDefs = defs.filter(d => d.event === "mousedown");
+    expect(mouseDefs).toHaveLength(1);
+    // The press must keep its native behavior (focus move, map drag), so the
+    // manager must not match-and-cancel it — and it has no container binding:
+    // "outside" is a class-level test on the event target, not a focus check.
+    expect(mouseDefs[0].preventDefault).toBe(false);
+    expect(mouseDefs[0].container).toBeUndefined();
+    expect(mouseDefs[0].key).toBeUndefined();
+
+    mouseDefs[0].handler({ type: "mousedown" });
+    expect(ui.handleOutsideMousedown).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -208,6 +233,44 @@ describe("LayerControl handleMoreMenuClick", () => {
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
+  it("dispatches rename-layer action → renames inline and keeps focus in the row", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "rename-layer";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.renameLayer).toHaveBeenCalledWith("layer1");
+    // The inline rename input must keep focus: returning it to the row would
+    // blur-commit the pre-edit value.
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(false);
+  });
+
+  it("dispatches style-layer action → opens the style panel by layer id", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "style-layer";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.openStylePanel).toHaveBeenCalledWith("layer1");
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
+  it("dispatches attrs action → anchors the attributes panel to the menu's row", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "layer-attributes";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.activeMenu.item);
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
   it("skips focusLayer when the menu item is disabled (hidden layer)", () => {
     const { ui, li } = buildMenu(true);
 
@@ -229,6 +292,32 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
+  });
+
+  it("closes the menu when clicking outside it (panel / map)", () => {
+    const { ui } = buildMenu();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: outside });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(false);
+    outside.remove();
+  });
+
+  it("is a no-op for an outside click when no menu is open", () => {
+    const ui = makeUI();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: outside });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.closeMoreMenu).not.toHaveBeenCalled();
+    outside.remove();
   });
 
   it("does not call focusLayer for an unknown action", () => {
@@ -289,5 +378,28 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     expect(ui.focusLayer).toHaveBeenCalledWith("");
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
+  it("rename/style/attrs actions with no active menu fall back safely", () => {
+    const ui = makeUI(); // activeMenu stays null
+    const menu = document.createElement("ul");
+    menu.className = "foliplus-layer-more-menu";
+    const li = document.createElement("li");
+    menu.appendChild(li);
+    document.body.appendChild(menu);
+
+    // rename/style fall back to an empty id; attrs anchors to the li itself.
+    const cases = [
+      ["rename-layer", ui.renameLayer, ""],
+      ["style-layer", ui.openStylePanel, ""],
+      ["layer-attributes", ui.openAttrsPanel, li],
+    ] as const;
+    for (const [action, spy, expected] of cases) {
+      li.dataset.action = action;
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: li });
+      handleMoreMenuClick(ui, event);
+      expect(spy).toHaveBeenCalledWith(expected);
+    }
   });
 });

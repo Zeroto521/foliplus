@@ -1,0 +1,21 @@
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation style panel
+  Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
+  the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
+  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
+  width, card chrome and header come from one place. This block only sizes the
+  label glyph and states the two controls form.css does not cover.
+  ══════════════════════════════════════════════════════════════════════ */
+.foliplus-layer-ctrl {
+  /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
+     size inside the shared .foliplus-header-icon box (attrs panel recipe). */
+  .foliplus-layer-style-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The switch is a flex row so the slider and its ring share one box. */
+  .foliplus-layer-style-panel .foliplus-toggle-switch {
+    display: flex;
+  }
+}

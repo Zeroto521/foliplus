@@ -1,0 +1,76 @@
+@import "token.css";
+
+/* ════════════════════════════════════════════════════════════
+  Dividers & Floating Delete Icon
+  Two shared icon primitives: the inline section divider used in panel
+  section rows, and the floating delete icon used by MeasureControl and
+  LocateControl, built by the shared del-icon helper in the common JS module.
+  Button host recipes (hover/focus/active) live in button.css for controls and
+  menu.css for the panel header close action — the single owner of each.
+  ════════════════════════════════════════════════════════════ */
+
+/* ── Section Divider ──
+   One hairline recipe for every divider foliplus draws between sections: the
+   panel footers (heatmap, layer, attributes, style) and the layer-group
+   separators in the layer list. Soft at both ends so it reads as a separator
+   rather than a border; callers own their margins. The paint is deliberately
+   unchanged from the long-standing recipe — a harder middle looked worse on the
+   narrow group divider. */
+.foliplus-section-divider {
+  height: var(--border-thin);
+  background: linear-gradient(to right, transparent, var(--divider-color), transparent);
+  border: none;
+}
+
+/* ── Floating Delete Icon (shared by MeasureControl / LocateControl) ──
+   Must stay `absolute` (Leaflet's marker-icon default): a `relative` marker
+   icon would have its translate3d position measured from its in-flow slot in
+   the pane, so a del icon could render far from its anchor depending on pane
+   content / render order. */
+.foliplus-del-icon {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.foliplus-del-icon [data-del-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  background: var(--accent-primary);
+  border: var(--border-thick) solid var(--ctrl-bg);
+  border-radius: var(--radius-round);
+  color: var(--ctrl-bg);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: none;
+  opacity: 0;
+  visibility: hidden;
+  top: -18px;
+  left: var(--size-2);
+  right: auto;
+  margin: 0;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+    display: flex;
+  }
+  &:hover {
+    background: rgba(var(--red-rgb), var(--alpha-95));
+    box-shadow: var(--shadow-xs);
+    transform: scale(var(--scale-hover));
+  }
+  &:active {
+    transform: scale(var(--scale-press));
+  }
+}

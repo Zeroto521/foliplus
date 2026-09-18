@@ -17,11 +17,18 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
-  // Tests are .ts and run via vitest (esbuild transpile), but are staged out
-  // of the strict typecheck program for now — they are heavily mock-based and
-  // would need hundreds of `any` annotations. Add test/js back when tightening.
+  // This program covers only production sources. `test/js` has its own program
+  // (test/js/tsconfig.json) which also runs `strict: true` — see that file for
+  // the measured error count, and `npm run typecheck:tests` to reproduce it.
+  // test/js is not part of `npm run typecheck` yet; the suite needs typing
+  // work before it can gate CI.
+  // List the ambient declaration explicitly instead of globbing `**/*.d.ts`:
+  // the glob sweeps any `.d.ts` that lands under foliplus/js into the program
+  // with no review gate. `type/global.d.ts` cannot be imported to anchor it —
+  // its `import type` header makes it a module, and importing it downgrades it
+  // from a declaration file and surfaces TS2451/TS2300/TS2552 of its own.
   "include": [
     "foliplus/js/**/*.ts",
-    "foliplus/js/**/*.d.ts"
+    "foliplus/js/type/global.d.ts"
   ]
 }

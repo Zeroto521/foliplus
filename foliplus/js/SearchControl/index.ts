@@ -1,9 +1,11 @@
+import { createControlEnv } from "#core/controlEnv.js";
+import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { createControlEnv } from "#common/guard.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
@@ -11,14 +13,14 @@ import { CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
-import type { AddressResult, NominatimItem, SearchHistoryEntry } from "./type.js";
+import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 // ==================== Control Definition ====================
-export class SearchControl extends BaseControl {
+class SearchControl extends BaseControl {
   declare container: HTMLElement;
   declare ctrl: HTMLElement;
   declare toggleBtn: HTMLElement;
@@ -27,7 +29,7 @@ export class SearchControl extends BaseControl {
   declare inp: HTMLInputElement;
   declare clearBtn: HTMLElement;
   declare debouncedFetch: Debounced;
-  declare cachedSuggestions: Cache<string, NominatimItem[]>;
+  declare cachedSuggestions: Cache<string, SuggestItem[]>;
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
@@ -42,6 +44,7 @@ export class SearchControl extends BaseControl {
   declare lastSuggestFetch: number;
   declare throttleTimer: ReturnType<typeof setTimeout> | null;
   declare suggestSeq: number;
+  declare currentItems: ResultItem[];
 
   buildDOM() {
     this.createDOM();
@@ -91,6 +94,7 @@ export class SearchControl extends BaseControl {
     });
     const inp = dom.el("input", {
       type: "text",
+      class: "foliplus-input",
       placeholder: T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = createIconButton({
@@ -109,16 +113,23 @@ export class SearchControl extends BaseControl {
   initState() {
     this.marker = null;
     this.delIcon = null;
+    // Register this control's provider as the map default so indirect
+    // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
+    // follows the same provider — cache keys and rate limits stay consistent.
+    // Route through the shared seed so the namespace's typing stays sound.
+    const api = ensureMapFoliplus(map);
+    api.geocodeProvider = CONF.provider ?? "nominatim";
     this.mode =
       CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
-    this.cachedSuggestions = new Cache<string, NominatimItem[]>(50);
+    this.cachedSuggestions = new Cache<string, SuggestItem[]>(50);
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;
+    this.currentItems = [];
 
     this.setMode(this.mode);
     this.modeBtn.onclick = (event: MouseEvent) => {

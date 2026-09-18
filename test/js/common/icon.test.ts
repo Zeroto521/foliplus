@@ -6,6 +6,20 @@ describe("LOADING", () => {
     expect(ICON.LOADING).toContain("<svg");
     expect(ICON.LOADING).toContain("foliplus-spin");
   });
+
+  it("carries its own paint instead of inheriting from the host button", () => {
+    // The arc is a closed path. Consumers that sit outside an
+    // `svg { fill: none }` rule (the LocateControl and SearchControl popups)
+    // get SVG's fill: black default, so without local paint the ring renders as
+    // a solid pie slice with a notch. Presentation attributes keep this
+    // working everywhere, and being lowest-priority CSS still lets a component
+    // recolour the spinner.
+    const path = ICON.LOADING.match(/<path[^>]*>/)?.[0] ?? "";
+    expect(path).toContain('fill="none"');
+    expect(path).toContain('stroke="currentColor"');
+    expect(path).toContain("stroke-width=");
+    expect(path).toContain("stroke-linecap=");
+  });
 });
 
 describe("CLOSE", () => {
@@ -33,5 +47,12 @@ describe("GLOBE", () => {
   it("is an SVG string", () => {
     expect(ICON.GLOBE).toContain("<svg");
     expect(ICON.GLOBE).toContain("circle");
+  });
+});
+
+describe("EDIT", () => {
+  it("is an SVG string", () => {
+    expect(ICON.EDIT).toContain("<svg");
+    expect(ICON.EDIT).toContain("</svg>");
   });
 });

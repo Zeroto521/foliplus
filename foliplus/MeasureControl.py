@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Literal
 
 from ._cdn_loader import load_cdn
 from ._typing import Position
+from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -12,7 +13,7 @@ ExportFormat = Literal["geojson", "csv"]
 
 class MeasureControl(BaseControl):
     """
-    Measure distances, areas, circles, and geocoded markers, then edit them by
+    Measure distances, areas, and circles; place geocoded markers; then edit by
     dragging nodes.
 
     - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
@@ -29,6 +30,11 @@ class MeasureControl(BaseControl):
       area centroid to translate the whole shape, the circle radius node to resize, or
       a marker to move it (its address is re-resolved on drop).
     - 🗑️ **Clear**: remove all measurement layers at once.
+    - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
+      centroid, or radius) and are never nudged. When dense, the collision
+      detector hides the least-important overlapping chips so labels remain
+      readable — see ``label_collide`` for the exact hiding rule and
+      priority order.
 
     **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
     clicking a measurement does not reveal its × handles. Edit mode and the drawing
@@ -55,6 +61,39 @@ class MeasureControl(BaseControl):
         Whether to show the bearing (azimuth, 0°–360° clockwise from north) alongside
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
         mode; area and circle modes always show plain distance.
+
+    label_show : bool, default True
+        Whether to show the measurement labels. Hidden labels stay registered
+        (collision and placement state is untouched) — switching back on
+        restores them on their anchors. Overridable at runtime from the layer
+        style drawer.
+
+    label_collide : bool, default True
+        Whether to run the label collision detector. When enabled, a label is
+        hidden only when two chips **intersect on the y-axis AND** overlap at
+        least 75% of the narrower chip's width on the x-axis, so chips that
+        share a screen column but are stacked vertically (e.g. labels on two
+        near-vertical polygon edges at very different y) stay visible and a
+        light edge graze is left alone. Hiding sweeps labels from strongest
+        to weakest — centroid and radius, then the distance mode's final
+        total, then plain segments; a tie goes to the wider chip — so the
+        most important label always keeps its anchor. When disabled, every
+        label stays visible on its anchor regardless of overlap. Only affects
+        on-screen layout, never exports (CSV / GeoJSON always read persisted
+        measurements).
+
+    show_live_coords : bool, default True
+        Whether to show a live longitude/latitude readout. While any drawing mode
+        is armed — and again while edit mode is on — a small chip trails the cursor
+        for the whole time, including before the first click, so the coordinate about
+        to be placed or dragged is visible instead of only the ones already placed.
+        It hangs due south of the pointer, the same way the area label sits south of
+        the centroid dot, and is flipped above the pointer near the bottom edge of
+        the map. It disappears as soon as the measurement is finalized: a finished
+        measurement is described by its shape and segment labels, not by a coordinate
+        under the pointer. No coordinate-system conversion is applied — the chip
+        reports the map's own coordinates as they are, so it stays put under the
+        cursor on GCJ02 / BD09 tile sets.
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
@@ -102,26 +141,35 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _export_fields = ("show_bearing", "filename", "export_format")
+    _export_fields = (
+        "show_bearing",
+        "label_show",
+        "label_collide",
+        "show_live_coords",
+        "filename",
+        "export_format",
+    )
 
     default_js = load_cdn("MeasureControl")
 
+    @validate
     def __init__(
         self,
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
+        label_show: bool = True,
+        label_collide: bool = True,
+        show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         locale: str | LocaleConfig | None = None,
     ):
-        if export_format not in get_args(ExportFormat):
-            raise ValueError(
-                f"export_format must be one of {get_args(ExportFormat)}, "
-                f"got {export_format!r}"
-            )
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
+        self.label_show = label_show
+        self.label_collide = label_collide
+        self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format
         self._template = self._get_template()

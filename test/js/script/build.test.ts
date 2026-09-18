@@ -1,33 +1,22 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const __dirname = resolve(fileURLToPath(import.meta.url), "../../../..");
-const distDir = resolve(__dirname, "foliplus/dist");
+// Vitest runs with the repo root as cwd, same convention bundle-size-check
+// relies on — so dist/ resolves without a parent-directory walk.
+const distDir = resolve(process.cwd(), "foliplus/dist");
 
-const JS_ARTIFACTS = [
-  "foliplus-common.min.js",
-  "foliplus-ExportControl.min.js",
-  "foliplus-FullscreenControl.min.js",
-  "foliplus-HeatmapControl.min.js",
-  "foliplus-LayerControl.min.js",
-  "foliplus-LocateControl.min.js",
-  "foliplus-MeasureControl.min.js",
-  "foliplus-ScaleControl.min.js",
-  "foliplus-SearchControl.min.js",
-];
+// Artifact names come from dist/artifacts.json, which `script/build.mjs`
+// writes on every real build — the same list `test/python/test_asset.py`
+// asserts wheel membership against. A new component therefore shows up in
+// both stacks without either test hardcoding its name.
+const names = JSON.parse(
+  readFileSync(resolve(distDir, "artifacts.json"), "utf-8"),
+).artifacts;
+const artifactsFor = ext => names.map(name => `foliplus-${name}.min.${ext}`);
 
-const CSS_ARTIFACTS = [
-  "foliplus-common.min.css",
-  "foliplus-ExportControl.min.css",
-  "foliplus-FullscreenControl.min.css",
-  "foliplus-HeatmapControl.min.css",
-  "foliplus-LayerControl.min.css",
-  "foliplus-MeasureControl.min.css",
-  "foliplus-ScaleControl.min.css",
-  "foliplus-SearchControl.min.css",
-];
+const JS_ARTIFACTS = artifactsFor("js");
+const CSS_ARTIFACTS = artifactsFor("css");
 
 describe("build artifacts", () => {
   it("all JS artifacts exist", () => {
@@ -58,6 +47,11 @@ describe("build artifacts", () => {
     expect(content).toMatch(/\/\*!/);
   });
 
+  it("common JS exposes foliplus.version", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    expect(content).toContain("foliplus.version");
+  });
+
   it("component JS externalizes BaseControl", () => {
     const content = readFileSync(
       resolve(distDir, "foliplus-ScaleControl.min.js"),
@@ -82,17 +76,48 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-50KB)", () => {
+  it("common JS has reasonable size (20-155KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    expect(size).toBeLessThan(100000);
+    // Unminified dev build (CI path). The common bundle is tree-shaken from the
+    // component imports scanned into _shared-registry.ts, so this is a real
+    // budget: ListCursor pushed it past 100KB, the createLayers panes
+    // generalisation (#280) added the per-pane routing, the pluggable
+    // geocode provider layer (Nominatim/Photon/Pelias + custom adapter) rides
+    // in the same bundle because the runtime registers it on foliplus.core,
+    // and the per-layer style panel (#236) shipped labelField + the shared
+    // form primitives through the same shell; so do the shared label
+    // contracts (field collection, collision geometry) and the label-control
+    // renderer (#365) — one module for the heatmap panel and the layer style
+    // drawer, replacing two copies. 155KB is the agreed ceiling — #332 raised
+    // it first, then the shared renderer needed the next step; the larger
+    // value wins on merge.
+    expect(size).toBeLessThan(155000);
   });
 
+  // Per-component upper bounds. These are sanity checks against accidental
+  // bloat (e.g. an inline'd shared module or duplicated logic), not hard
+  // budgets — the lower bound of >500 B guards against an empty bundle.
+  // NOTE: CI runs make test -> npm run build:dev, which writes UNMINIFIED
+  // output to the .min.js artifacts (the production minified build overwrites
+  // them later). So these caps must accommodate the unminified dev size, not
+  // the minified size — each carries ~20% headroom for future growth.
+  const MAX_COMPONENT_SIZE = {
+    // MeasureControl bundles its own label-collision geometry (placeLabels)
+    // inline.
+    "foliplus-MeasureControl.min.js": 120000,
+    // LayerControl is otherwise the largest component (~136KB unminified on
+    // main; style-drawer delegation pushed the unminified dev bundle past
+    // 160KB — rename, focus, reorder, fold, the annotation style panel, the
+    // escape-cancel chain, and the five-dimension persistence).
+    "foliplus-LayerControl.min.js": 180000,
+  };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
       const size = readFileSync(resolve(distDir, artifact)).length;
       expect(size, artifact).toBeGreaterThan(500);
-      expect(size, artifact).toBeLessThan(100000);
+      const limit = MAX_COMPONENT_SIZE[artifact] ?? 100000;
+      expect(size, artifact).toBeLessThan(limit);
     }
   });
 
@@ -103,6 +128,14 @@ describe("build artifacts", () => {
     }
   });
 
+  it("merged common CSS carries no @import statements", () => {
+    // mergeCommonCss resolves the css/common/ import graph at build time and
+    // strips the statements; a leftover @import would make the bundle fetch
+    // modules at runtime (or fail to resolve) instead of shipping flat.
+    const css = readFileSync(resolve(distDir, "foliplus-common.min.css"), "utf-8");
+    expect(css).not.toMatch(/@import/);
+  });
+
   it("has correct number of JS artifacts", () => {
     const jsFiles = readdirSync(distDir).filter(f => f.endsWith(".min.js"));
     expect(jsFiles.length).toBeGreaterThanOrEqual(JS_ARTIFACTS.length);
@@ -111,5 +144,14 @@ describe("build artifacts", () => {
   it("has correct number of CSS artifacts", () => {
     const cssFiles = readdirSync(distDir).filter(f => f.endsWith(".min.css"));
     expect(cssFiles.length).toBeGreaterThanOrEqual(CSS_ARTIFACTS.length);
+  });
+
+  it("manifest covers both halves of every component", () => {
+    for (const name of names) {
+      expect(JS_ARTIFACTS).toContain(`foliplus-${name}.min.js`);
+      expect(CSS_ARTIFACTS).toContain(`foliplus-${name}.min.css`);
+    }
+    expect(names).toContain("common");
+    expect(names).not.toContain("runtime");
   });
 });

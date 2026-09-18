@@ -14,7 +14,7 @@ const getTypeSVG = (layer: L.Layer, type?: string | null): string => {
   else if (gtype === GEOM_TYPE.LINE) return SVGs.LINE;
   else if (gtype === GEOM_TYPE.POLYGON) return SVGs.POLYGON;
   else if (gtype === GEOM_TYPE.EMPTY) return SVGs.EMPTY;
-  else return SVGs.UNKNOWN;
+  return SVGs.UNKNOWN;
 };
 
 export { getTypeSVG };

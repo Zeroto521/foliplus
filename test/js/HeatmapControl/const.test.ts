@@ -6,7 +6,14 @@ describe("TIMING", () => {
   it("has expected debounce values", () => {
     expect(CONST.TIMING.ZOOM_DEBOUNCE).toBe(200);
     expect(CONST.TIMING.LAYER_SCAN_DEBOUNCE).toBe(200);
-    expect(CONST.TIMING.LOAD_SCRIPT_RETRIES).toBe(2);
+    // The init-scan and script-load constants were removed: the scan is
+    // signal-driven and script loading is handled elsewhere.
+    expect(
+      (CONST.TIMING as Record<string, unknown>).INIT_SCAN_TIMEOUT_MS,
+    ).toBeUndefined();
+    expect(
+      (CONST.TIMING as Record<string, unknown>).LOAD_SCRIPT_RETRIES,
+    ).toBeUndefined();
   });
 });
 
@@ -35,16 +42,23 @@ describe("AGG", () => {
 
 describe("CLASSES", () => {
   it("has expected CSS class constants", () => {
-    expect(CONST.CLASSES.FORM_ROW).toBe("foliplus-heatmap-form-row");
-    expect(CONST.CLASSES.BTN_CONFIRM).toBe("foliplus-heatmap-btn-confirm");
+    // form-row/label/control/select and the toggle live in common/form.css
+    // as shared foliplus-form-* classes — not component constants.
+    // The confirm button is gone: every control re-renders live.
+    expect((CONST.CLASSES as Record<string, unknown>).BTN_CONFIRM).toBeUndefined();
     expect(CONST.CLASSES.HEATMAP_CTRL).toBe("foliplus-heatmap-ctrl");
+  });
+
+  it("HIDDEN is the shared foliplus-hidden class", () => {
+    // Extra body / field toggling reuses the shared hidden class instead of
+    // a component-local `.hidden` (which collided with Bootstrap's .hidden).
+    expect(CONST.CLASSES.HIDDEN).toBe("foliplus-hidden");
   });
 });
 
 describe("SEL", () => {
   it("has expected selectors", () => {
     expect(CONST.SEL.SCHEME_BAR).toBe(".foliplus-heatmap-scheme-bar");
-    expect(CONST.SEL.FORM_SELECT).toBe(".foliplus-heatmap-form-select");
   });
 });
 
@@ -87,26 +101,34 @@ describe("BORDER", () => {
 });
 
 describe("DATA_ATTR", () => {
-  it("defines all data-hm-* attribute names", () => {
-    expect(CONST.DATA_ATTR.LAYER).toBe("data-hm-layer");
-    expect(CONST.DATA_ATTR.EXTRA_BODY).toBe("data-hm-extra-body");
-    expect(CONST.DATA_ATTR.AGG).toBe("data-hm-agg");
-    expect(CONST.DATA_ATTR.FIELD).toBe("data-hm-field");
-    expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-hm-field-select");
-    expect(CONST.DATA_ATTR.METHOD).toBe("data-hm-method");
-    expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-hm-class-count");
-    expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-hm-scheme-ctrl");
-    expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-hm-scheme-hidden");
-    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
-    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
-    expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
-    expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
-    expect(CONST.DATA_ATTR.BTN_CONFIRM).toBe("data-hm-btn-confirm");
+  it("defines all data-heatmap-* attribute names", () => {
+    expect(CONST.DATA_ATTR.LAYER).toBe("data-heatmap-layer");
+    expect(CONST.DATA_ATTR.EXTRA_BODY).toBe("data-heatmap-extra-body");
+    expect(CONST.DATA_ATTR.AGG).toBe("data-heatmap-agg");
+    expect(CONST.DATA_ATTR.FIELD).toBe("data-heatmap-field");
+    expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-heatmap-field-select");
+    expect(CONST.DATA_ATTR.METHOD).toBe("data-heatmap-method");
+    expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-heatmap-class-count");
+    expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-heatmap-scheme-ctrl");
+    expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-heatmap-scheme-hidden");
+    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-heatmap-border-color");
+    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-heatmap-border-weight");
+    expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 14 data-hm attribute keys", () => {
+  it("has 12 data-heatmap attribute keys (no confirm button, no label attrs)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(14);
+    expect(keys.length).toBe(12);
+  });
+});
+
+describe("LABEL", () => {
+  it("shares the common form.js size bounds and color default", () => {
+    expect(CONST.LABEL.SIZE_MIN).toBe(6);
+    expect(CONST.LABEL.SIZE_MAX).toBe(32);
+    expect(CONST.LABEL.SIZE_STEP).toBe(1);
+    expect(CONST.LABEL.SIZE_DEFAULT).toBe(11);
+    expect(CONST.LABEL.COLOR_DEFAULT).toBe("#ffffff");
   });
 });
 

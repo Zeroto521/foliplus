@@ -14,9 +14,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Node jobs ──
+  # Format, lint, and typecheck are independent of the Python matrix, so they
+  # run as their own jobs rather than as steps inside `test`: they share no
+  # dependency with it, they are the slow ones, and `make lint` is a
+  # pre-commit run, which CI does not have. Each maps to one signal:
+  #   format     — prettier reports a diff (never writes in CI)
+  #   lint       — eslint pass 1, non-type-aware (the quality rules)
+  #   typecheck  — tsc plus the type-aware Promise rules (both read tsconfig)
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+      - run: npm run format:check
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+      - run: npm run lint
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+      - run: npm run typecheck
+
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
+    needs: [format, lint, typecheck]
     strategy:
       fail-fast: false
       matrix:
@@ -37,9 +88,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: "package.json"
-
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
       - run: npm install
-      - run: npm run typecheck
 
       - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}

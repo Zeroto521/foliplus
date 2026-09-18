@@ -1,13 +1,20 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS, generateId } from "#core/component.js";
-import { EVENTS, type EventHandler, ensureEvents } from "#core/event/index.js";
+import {
+  EVENTS,
+  type EventBus,
+  type EventHandler,
+  ensureEvents,
+} from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
+import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import * as Storage from "#common/storage.js";
+import { throttleRaf } from "#common/throttle.js";
+import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
@@ -17,6 +24,7 @@ import {
   registerInteractions,
 } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import { MeasureStore } from "./store.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -25,12 +33,49 @@ const T = createScopedTranslator(CONF);
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
-const skipMeasureLayers = isLayerInPanes([CONST.PANES.GRAPH, CONST.PANES.LABEL]);
+const skipMeasureLayers = isLayerInPanes([
+  CONST.PANES.GRAPH,
+  CONST.PANES.NODE,
+  CONST.PANES.LABEL,
+]);
+
+/** Group key for edit registrations that carry no measurement id (tests,
+ *  one-off call sites) — each such handle stays isolated. A string literal is
+ *  valid as a Map key, unlike a Symbol. */
+const ANON_HANDLE = " anon-edit-handle";
+
+/** Per-measurement edit-mode resource bundle: the three things a finalized
+ *  measurement registers with the manager — its dispose (unbinds drag binds,
+ *  edit overlay and the drag toggle), the ✕ overlay close callback, and the
+ *  node-drag toggle. Keyed by measurement id so delete drops one handle and
+ *  setEditMode/clearAll/destroy each walk one collection. */
+interface EditHandle {
+  dispose: () => void;
+  closeOverlay: () => void;
+  toggleDrag: (enabled: boolean) => void;
+}
+
+/** Map events that change pixel geometry and therefore invalidate placements. */
+const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
+  "moveend",
+  "zoomend",
+  "resize",
+];
 
 // ==================== Core Manager ====================
 /** Central manager for all measurements. */
 class MeasureManager {
   map: L.Map;
+  /** Per-map mode manager / event bus — bound once in the constructor
+   *  (ensure-style getters return the cached instance, so hold them like the
+   *  logger instead of re-ensuring at each call site). */
+  modes: ModeManager;
+  events: EventBus;
+  /** Component config — carried on the manager instead of a module-level
+   *  free variable, so the UI functions are unit-testable with their own CONF. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once by the manager. */
+  T: (key: string) => string;
   private interactionCleanup?: () => void;
   private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
@@ -38,27 +83,37 @@ class MeasureManager {
   currentMode: string | null;
   modeInstance: MeasureMode | null;
   toolBtns: HTMLElement[];
-  /** Per-measurement dispose functions, registered via registerFinalized —
-   *   each unbinds its drag binds, edit overlay, and edit-drag toggle. */
-  finalizedClickHandlers: Array<() => void>;
-  /** Close callbacks for each measurement's edit overlay, so exiting edit mode
-   *   hides any open ✕ handles. */
-  private editOverlayClosers: Array<() => void> = [];
-  /** Toggles for each measurement's node drag binds, so entering/leaving edit
-   *   mode enables/disables dragging directly (no click-first required). */
-  private editDragToggles: Array<(enabled: boolean) => void> = [];
-  measurements: MeasureData[];
-  measurementIdCounter: number;
+  /** Per-measurement edit handles, keyed by measurement id (see EditHandle).
+   *  registerFinalized / registerEditOverlayCloser / registerEditDragToggle all
+   *  merge into the one handle for their id. */
+  private editHandles: Map<string, EditHandle> = new Map();
+  /** Central store for measurement data + persistence + count emission. */
+  readonly store: MeasureStore;
+  /** Every rendered label chip, so collision detection plans all measurements
+   *   together instead of one measurement at a time. */
+  private collidableLabels: CollidableLabel[] = [];
+  /** Deferred re-plan; coalesces bursts of label updates into one pass. */
+  private readonly scheduleLabelPlan = throttleRaf(() => this.planLabels());
+  /** Bound map-move/zoom/resize listener that invalidates label placements. */
+  private onLabelMapMove: (() => void) | null = null;
+  /** Cursor-following coordinate readout, live for the manager's lifetime.
+   *  null when `show_live_coords` is off. */
+  private coordReadoutEl: HTMLElement | null = null;
+  /** The readout is only created while a mode is armed (setMode), so its
+   *  map listeners are only ever live inside that window. */
+  private coordReadoutEvents: [string, L.LeafletEventHandlerFn][] = [];
   ctrl: HTMLElement | null;
   /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
-  offLayerRemoved!: () => void;
-  onMapClick!: (event: L.LeafletMouseEvent) => void;
+  private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
+  private offModeChange!: () => void;
+  private onMapClick!: (event: L.LeafletMouseEvent) => void;
   onKeyDown!: (event: KeyboardEvent) => void;
-  onUnload!: () => void;
+  private onUnload!: () => void;
 
   /** Handle export button click — delegates to the export module. */
   onExportClick(event: Event) {
@@ -78,69 +133,106 @@ class MeasureManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.conf = CONF;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
+    this.store = new MeasureStore(this.map, this.layerId);
+    // Class fields already hold the Python CONF defaults at this point —
+    // snapshot them before any runtime toggle so Reset cannot drift.
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelCollide = this.labelCollide;
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
-      graphPane: CONST.PANES.GRAPH,
-      labelPane: CONST.PANES.LABEL,
+      panes: [
+        { name: CONST.PANES.GRAPH },
+        { name: CONST.PANES.NODE },
+        { name: CONST.PANES.LABEL, isLabel: true },
+      ],
       iconSvg: SVGs.RULER,
-      featureCountProvider: () => this.measurements.length,
+      featureCountProvider: () => this.store.count(),
+      // The layer style drawer renders these two switches; the component owns
+      // the values (single source — both UIs call the same setters).
+      styleProvider: () => ({
+        labelShow: this.labelShow,
+        labelCollide: this.labelCollide,
+      }),
+      styleSetters: {
+        labelShow: v => this.setLabelsVisible(v === true),
+        labelCollide: v => this.setLabelCollide(v === true),
+      },
+      // Snapshot taken at construction — Reset restores these, never the
+      // live runtime toggles.
+      styleDefaults: () => ({
+        labelShow: defaultLabelShow,
+        labelCollide: defaultLabelCollide,
+      }),
     });
     this.currentMode = null;
     this.modeInstance = null;
+    this.modes = ensureModes(this.map);
+    this.events = ensureEvents(this.map);
     // When ExportControl enters crop interaction or export, interrupt the
     // active measurement so map clicks are not captured while exporting.
-    ensureEvents(this.map).on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
+    this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         map.foliplus?.showHint?.(CONF.name, T("export_paused"), HINT_DURATION.SHORT);
       }
     });
     this.toolBtns = [];
-    this.finalizedClickHandlers = [];
-    this.measurements = [];
-    this.measurementIdCounter = 0;
     this.ctrl = null;
     this.isEditMode = false;
+
+    this.coordReadoutEl =
+      CONF.show_live_coords !== false ? this.buildCoordReadout() : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
     this.bindLayerRemoved();
   }
 
-  // ── Persistence ──
+  // ── Persistence (compatibility shell over MeasureStore) ──
+  // Browser tests and legacy call sites read `manager.measurements` /
+  // call `saveMeasurements()` directly; new code should use `manager.store`.
+
+  /** Live measurements array. Reads return the store's backing array; writes
+   *  hydrate the store in place (used by tests + legacy seed paths). Mutating
+   *  the returned array directly does NOT persist — use store.add/remove/update. */
+  get measurements(): MeasureData[] {
+    return this.store.all();
+  }
+  set measurements(data: MeasureData[]) {
+    this.store.hydrate(data);
+  }
 
   /** Persist all measurements to localStorage and refresh the count column. */
   saveMeasurements() {
-    Storage.save(CONST.STORAGE.KEY, this.measurements, CONF.name);
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
-  }
-
-  /** Load measurements from localStorage.
-   *  @returns {Array} Restored measurements array. */
-  loadMeasurements() {
-    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
-    return Array.isArray(data) ? data : [];
+    this.store.persist();
+    // Runtime content changed — refresh the attributes panel timestamp.
+    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
    * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
-    this.measurementIdCounter += 1;
-    return `${CONST.ID}_${type}_${Date.now()}_${this.measurementIdCounter}`;
+    return this.store.nextId(type);
   }
 
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
-    this.measurements = this.loadMeasurements();
-    this.measurements.forEach(m => {
+    this.store.hydrate(this.store.load());
+    // Older persisted measurements may lack an `id`. Assign one before rebuild
+    // so later onUpdate / onDelete paths (which match by id) resolve to the right
+    // measurement and exports carry a stable id.
+    if (this.store.assignMissingIds()) this.store.persist();
+    this.store.all().forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
     // Notify LayerControl to refresh the count column now that the
     // persisted measurements are back, so the count is correct on page load
     // rather than only after the next user action.
-    ensureEvents(this.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.store.emitCount();
   }
 
   /** Bind global map click, keydown, and unload events. */
@@ -171,8 +263,7 @@ class MeasureManager {
       (this.onUnload = () => {
         this.clearActiveMode();
         this.layers.clearLayers();
-        this.finalizedClickHandlers.forEach(h => h());
-        this.finalizedClickHandlers = [];
+        this.disposeAllHandles();
       });
     this.map.on("unload", this.onUnload);
   }
@@ -193,7 +284,7 @@ class MeasureManager {
       if (this.currentMode) this.clearActiveMode();
       // Nothing to edit yet — keep out of edit mode and explain instead of
       // entering a dead state with no clickable measurements.
-      if (this.measurements.length === 0) {
+      if (this.store.count() === 0) {
         this.map.foliplus!.showHint(
           CONF.name,
           T("hint_edit_empty"),
@@ -222,8 +313,9 @@ class MeasureManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
 
     this.layers.register();
 
@@ -232,13 +324,17 @@ class MeasureManager {
     // Registering a mode in the ModeManager also suspends map-layer interaction
     // while measuring (see core/mode syncInteractionLock), so clicks fall
     // through to the map for node placement instead of firing layer handlers.
-    ensureModes(this.map).setMode(CONF.name, mode);
+    this.modes.setMode(CONF.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
     );
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
+    // The readout tracks the cursor for as long as a mode is armed, including
+    // before the first click: the operator wants the coordinate they are about
+    // to place, not only the ones already placed.
+    this.showCoordReadout();
 
     // Register a high-priority Escape so it wins over all container-bound
     // shortcuts (LayerControl/ExportControl) while a measurement is in
@@ -261,43 +357,235 @@ class MeasureManager {
     this.modeInstance?.start();
   }
 
+  /** Get-or-create the EditHandle for a measurement id. Three registrations for
+   *  the same id (dispose + overlay close + drag toggle) merge into one handle,
+   *  so delete drops one entry and clearAll/destroy walk one collection. */
+  private handleFor(id: string): EditHandle {
+    let handle = this.editHandles.get(id);
+    if (!handle) {
+      handle = {
+        dispose: () => {},
+        closeOverlay: () => {},
+        toggleDrag: () => {},
+      };
+      this.editHandles.set(id, handle);
+    }
+    return handle;
+  }
+
+  /** Run every handle's dispose, then clear the map. Iterating a snapshot keeps
+   *  handles that dispose() detaches from mid-walk from leaking. */
+  private disposeAllHandles() {
+    [...this.editHandles.values()].forEach(h => h.dispose());
+    this.editHandles.clear();
+  }
+
   /** Register an overlay close callback so setEditMode(false) can hide ✕.
+   *  `id` groups the closer with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
-  registerEditOverlayCloser = (close: () => void): (() => void) => {
-    this.editOverlayClosers.push(close);
-    return () => {
-      this.editOverlayClosers = this.editOverlayClosers.filter(c => c !== close);
-    };
+  registerEditOverlayCloser = (close: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).closeOverlay = close;
+    return () => this.editHandles.delete(key);
   };
 
-  /** Close every open edit overlay except the given one, so selecting a new
-   *  measurement hides the previously selected one's ✕ handles. */
-  closeOtherEditOverlays = (except: () => void) => {
-    this.editOverlayClosers.forEach(c => {
-      if (c !== except) c();
+  /** Build the cursor-following readout chip, appended to the map container.
+   *  It lives outside the Leaflet panes, so panning and zooming never move it.
+   *  Hidden until a drawing mode is armed — nothing is measured while idle. */
+  private buildCoordReadout(): HTMLElement {
+    const container = document.createElement("div");
+    container.className = CONST.READOUT.CLASS_PREFIX;
+    container.setAttribute("role", "status");
+    container.setAttribute("aria-live", "off");
+    container.hidden = true;
+    this.map.getContainer().appendChild(container);
+    return container;
+  }
+
+  /** Start tracking the pointer. Only called from setMode, so the listeners
+   *  are live exactly while a drawing mode is armed. The handler reads only
+   *  `event.latlng` — it is the one field present on both browser-driven and
+   *  programmatically dispatched mousemove events. */
+  private showCoordReadout(): void {
+    if (!this.coordReadoutEl || this.coordReadoutEvents.length) return;
+    const container = this.coordReadoutEl;
+    const move = (event: L.LeafletMouseEvent): void => {
+      // Derive the pixel point from `latlng` rather than reading
+      // `event.containerPoint`: Leaflet fills that only for browser-driven
+      // events, while tests (and the mode's own mousemove handlers) dispatch
+      // a bare `{ latlng }`. `latlng` is the contract both share.
+      const { x, y } = this.map.latLngToContainerPoint(event.latlng);
+      const size = this.map.getSize();
+      const gap = CONST.READOUT.ANCHOR_GAP;
+      // The chip is centered on the cursor and dropped `gap` px below it —
+      // due south of it, the same way the area label sits south of the centroid
+      // dot. When that would push it past the bottom edge, the flip re-anchors
+      // it above the cursor instead.
+      const h = container.offsetHeight;
+      const cx = Math.max(
+        container.offsetWidth / 2,
+        Math.min(size.x - container.offsetWidth / 2, x),
+      );
+      container.style.left = `${cx}px`;
+      container.style.top = `${y}px`;
+      container.classList.toggle(
+        CONST.READOUT.CLASS_FLIP,
+        y + h + gap > size.y && y >= h,
+      );
+      container.textContent = Util.coordText(this.map, event.latlng);
+      // Reveal only once it has a real position. Showing it before the first
+      // mousemove would leave it at the container's default spot (by the hint)
+      // with no inline left/top.
+      container.hidden = false;
+    };
+    const handlers: [string, L.LeafletEventHandlerFn][] = [
+      ["mousemove", event => move(event as L.LeafletMouseEvent)],
+      ["mouseout", () => (container.hidden = true)],
+    ];
+    bindMapEvents(this.map, handlers);
+    this.coordReadoutEvents = handlers;
+  }
+
+  /** Stop tracking. Called by clearActiveMode, so a finalized measurement
+   *  reports nothing — the chip only ever describes a coordinate under the
+   *  cursor. */
+  private hideCoordReadout(): void {
+    if (!this.coordReadoutEl) return;
+    if (this.coordReadoutEvents.length) {
+      unbindMapEvents(this.map, this.coordReadoutEvents);
+      this.coordReadoutEvents = [];
+    }
+    this.coordReadoutEl.hidden = true;
+  }
+
+  /** Close every open edit overlay except the one keyed by `exceptId`, so
+   *  selecting a new measurement hides the previously selected one's ✕. */
+  closeOtherEditOverlays = (exceptId: string) => {
+    this.editHandles.forEach((h, id) => {
+      if (id !== exceptId) h.closeOverlay();
     });
   };
 
   /** Register a node-drag toggle so setEditMode toggles dragging directly.
+   *  `id` groups the toggle with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
-  registerEditDragToggle = (toggle: (enabled: boolean) => void): (() => void) => {
-    this.editDragToggles.push(toggle);
-    return () => {
-      this.editDragToggles = this.editDragToggles.filter(t => t !== toggle);
-    };
+  registerEditDragToggle = (
+    toggle: (enabled: boolean) => void,
+    id?: string,
+  ): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).toggleDrag = toggle;
+    return () => this.editHandles.delete(key);
   };
 
   /** Register a finalized measurement's dispose so clearAll/destroy run it.
-   *  Returns an unregister function so deleting one measurement drops its entry
-   *  (mirrors registerEditOverlayCloser / registerEditDragToggle). */
-  registerFinalized = (cleanup: () => void): (() => void) => {
-    this.finalizedClickHandlers.push(cleanup);
+   *  `id` groups the dispose with the measurement's other edit registrations.
+   *  Returns an unregister function so deleting one measurement drops its entry. */
+  registerFinalized = (cleanup: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).dispose = cleanup;
+    return () => this.editHandles.delete(key);
+  };
+
+  // ── Label collision detection ─────────────────────────────────
+
+  /** True unless collision detection was switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelCollide = CONF.label_collide !== false;
+  /** True unless the labels were switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelShow = CONF.label_show !== false;
+
+  get labelsCollide(): boolean {
+    return this.labelCollide;
+  }
+
+  get labelsVisible(): boolean {
+    return this.labelShow;
+  }
+
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
+   *  every chip via the same `visibility` mechanism collision uses, so the two
+   *  never fight over the element. */
+  setLabelsVisible = (visible: boolean): void => {
+    this.labelShow = visible;
+    for (const { marker } of this.collidableLabels) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = visible ? "" : "hidden";
+    }
+    if (visible) this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
+  setLabelCollide = (on: boolean): void => {
+    this.labelCollide = on;
+    this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /**
+   * Register a label chip for collision detection. `priority` says how much
+   * this label matters: the lowest values drop out first when two chips
+   * overlap heavily. The chip is re-read on every plan, so a `setIcon` during
+   * a drag cannot leave a stale element reference.
+   *
+   * Returns an unregister function; measurements call it when a label is
+   * removed from the map.
+   */
+  registerLabel = (marker: L.Marker, priority: number): (() => void) => {
+    const label: CollidableLabel = { marker, priority };
+    this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
+    this.bindLabelMapEvents();
+    this.scheduleLabelPlan();
+
     return () => {
-      this.finalizedClickHandlers = this.finalizedClickHandlers.filter(
-        h => h !== cleanup,
-      );
+      this.collidableLabels = this.collidableLabels.filter(l => l !== label);
+      if (this.collidableLabels.length) {
+        // A surviving label lost a competitor, so re-plan to possibly restore
+        // a chip that was hidden because of this one.
+        this.scheduleLabelPlan();
+      } else {
+        this.unbindLabelMapEvents();
+      }
     };
   };
+
+  /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
+   *  last plan stale. Bound lazily on the first label, released when the
+   *  last one is removed. */
+  private bindLabelMapEvents(): void {
+    if (this.onLabelMapMove) return;
+    const handler = () => this.scheduleLabelPlan();
+    this.onLabelMapMove = handler;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.on(ev, handler));
+  }
+
+  private unbindLabelMapEvents(): void {
+    if (!this.onLabelMapMove) return;
+    const handler = this.onLabelMapMove;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.off(ev, handler));
+    this.onLabelMapMove = null;
+  }
+
+  /** Re-plan every label placement. With collision off every chip simply
+   *  returns to its anchor; labels themselves are hidden by the container
+   *  class, which also keeps them out of PNG exports. */
+  private planLabels(): void {
+    if (this.collidableLabels.length === 0) return;
+    placeLabels(
+      this.collidableLabels,
+      mapProjector(this.map),
+      this.labelsCollide,
+      Util.labelChipOf,
+    );
+  }
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
@@ -306,27 +594,33 @@ class MeasureManager {
     // Edit mode owns the map like a drawing mode, but it edits the measurement
     // layers themselves — register it with a skip predicate so data layers are
     // suspended while the measure panes stay interactive.
-    ensureModes(this.map).setMode(
+    this.modes.setMode(
       CONF.name,
       on ? CONST.MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT)
+      if (btn.dataset.mode === CONST.MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      }
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
     // nodes directly draggable, leaving disables them.
-    this.editDragToggles.forEach(t => t(on));
+    this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
       this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
+      // The readout is live in edit mode too: the operator drags nodes to
+      // reshape a measurement and wants to see the coordinate under the cursor
+      // while doing it.
+      this.showCoordReadout();
     } else {
       this.map.foliplus!.hideHint(CONF.name);
+      this.hideCoordReadout();
       // Close any open overlays so ✕ handles don't linger after leaving edit
-      // mode. Keep the closers registered so a later edit session can close
+      // mode. Keep the handles registered so a later edit session can close
       // them again; each overlay unregisters itself on delete.
-      this.editOverlayClosers.forEach(c => c());
+      this.editHandles.forEach(h => h.closeOverlay());
     }
   }
 
@@ -335,7 +629,7 @@ class MeasureManager {
     if (this.isEditMode) this.setEditMode(false);
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
-    ensureModes(this.map).setMode(CONF.name, null);
+    this.modes.setMode(CONF.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
     this.map.foliplus!.hideHint(CONF.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
@@ -344,6 +638,9 @@ class MeasureManager {
     // (LayerControl/ExportControl) can respond again.
     this.measureEscapeCleanup?.();
     this.measureEscapeCleanup = undefined;
+    // A finalized measurement reports nothing: the chip only ever describes
+    // the coordinate under the cursor, which is the transient quantity.
+    this.hideCoordReadout();
     // NOTE: the low-priority Escape (interactionCleanup) stays registered for
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
@@ -354,15 +651,17 @@ class MeasureManager {
   /** Clear all measurements, layers, and persisted data. */
   clearAll() {
     this.layers.clearLayers();
-    this.measurements = [];
-    this.saveMeasurements();
+    this.store.clear();
     this.clearActiveMode();
-    // Run each overlay's cleanup to unbind its map-click listener; clearLayers
+    // Run each handle's dispose to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.
-    this.finalizedClickHandlers.forEach(h => h());
-    this.finalizedClickHandlers = [];
-    this.editOverlayClosers = [];
-    this.editDragToggles = [];
+    this.disposeAllHandles();
+    // Safety net: each measurement's dispose (run above) drains its labels
+    // through the unregister, but clearing the array here is O(1) insurance
+    // against a measurement that skips its dispose, and unbinding the map
+    // events guarantees no plan fires after clearAll.
+    this.collidableLabels = [];
+    this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements
     if (this.ctrl) {
       this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
@@ -373,16 +672,19 @@ class MeasureManager {
 
   /** Full cleanup including global events. Called on control removal. */
   destroy() {
+    if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
+    this.scheduleLabelPlan.cancel();
     this.clearAll();
+    this.hideCoordReadout();
+    this.coordReadoutEl?.remove();
+    this.coordReadoutEl = null;
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-    this.finalizedClickHandlers.forEach(h => h());
-    this.finalizedClickHandlers = [];
-    this.editOverlayClosers = [];
-    this.editDragToggles = [];
+    this.unbindLabelMapEvents();
+    this.collidableLabels = [];
   }
 
   /**
@@ -392,7 +694,7 @@ class MeasureManager {
    * "measuring" CSS class would remain stuck in an inconsistent state.
    */
   bindLayerRemoved() {
-    this.offLayerRemoved = ensureEvents(this.map).on(EVENTS.LAYER_REMOVED, ((payload: {
+    this.offLayerRemoved = this.events.on(EVENTS.LAYER_REMOVED, ((payload: {
       id?: string;
     }) => {
       if (payload?.id === this.layerId) {

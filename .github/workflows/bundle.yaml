@@ -25,26 +25,52 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
 
       - run: npm install
       - run: npm run build:sonda
 
       # Build the base branch in a detached worktree and capture its sizes, then
       # diff the PR build against them.
+      #
+      # The two builds share the PR checkout's node_modules: the base checkout is
+      # a clean tree with no lockfile, so its own `npm install` would resolve
+      # devDependencies against the live registry and drift from the PR's build.
+      # Copying node_modules keeps the toolchain identical in both directions.
+      # `-a` (not `-R`): it preserves symlinks and modes across the handoff —
+      # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
+          cp -a node_modules /tmp/base/node_modules
           (
             cd /tmp/base
-            npm install
-            npm run build
+            make build-js
           )
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
-      - name: Compare with base
-        run: node script/bundle-size-check.mjs --baseline=base-sizes.json --report=bundle-report.md || true
+      # The report must land on the PR no matter what the verdict is, so it is
+      # always published before the gate is evaluated. `check` exits 0 on a
+      # threshold breach by design — the table has to reach the PR first — so
+      # this step cannot abort the job; `--enforce` in the gate step is what
+      # decides.
+      - name: Report
+        run: |
+          # Neither `github.base_sha` nor `HEAD` is the SHA to show. The checkout
+          # is detached at the merge commit `merge(main, PR)`, so `HEAD` is a SHA
+          # the author never pushed, and `github.base_sha` arrives empty here.
+          # Both sides resolve to their remote branch refs, which `checkout`
+          # fetched with `+refs/heads/*:refs/remotes/origin/*`: `origin/<base_ref>`
+          # is the tree sampled above, `origin/<head_ref>` is the PR branch tip.
+          node script/bundle-size-check.mjs \
+            --baseline=base-sizes.json \
+            --base="$(git rev-parse "origin/${{ github.base_ref }}")" \
+            --head="$(git rev-parse "origin/${{ github.head_ref }}")" \
+            --report=bundle-report.md
 
       - uses: actions/upload-artifact@v7
         id: upload
@@ -58,7 +84,7 @@ jobs:
             echo ""
             echo "[<kbd>&nbsp;📊&nbsp;View treemap report&nbsp;</kbd>](${{ steps.upload.outputs.artifact-url }})"
             echo ""
-            echo "_Table above = brotli-compressed sizes; treemap = uncompressed._"
+            echo "_Table = brotli-compressed, banner excluded; treemap = uncompressed._"
           } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2
@@ -66,3 +92,17 @@ jobs:
         with:
           header: bundle-report
           path: bundle-report.md
+
+      # Gate last: the table above already names the offenders, so the failure
+      # here adds nothing to the PR and must never keep it from appearing. The
+      # verdict is the one the Report step recorded against the same baseline,
+      # so this is a re-read of the same numbers, not a re-measure.
+      - name: Enforce threshold
+        # The gate lives on pull_request only, so a branch push does not see a
+        # base-sizes.json from a Capture step that ran against the PR's own
+        # `head_ref`. The if is defensive, not reachable from the workflow's
+        # current triggers: it keeps the step skipped rather than failing on a
+        # missing file if a push trigger is added later.
+        if: ${{ github.event.pull_request }}
+        run: |
+          node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce

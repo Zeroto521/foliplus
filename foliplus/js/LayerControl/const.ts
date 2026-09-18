@@ -1,24 +1,35 @@
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+
 /** Timing / delay constants. */
-export const INIT_DELAY_MS = 300;
-export const ENFORCE_ORDER_DEBOUNCE_MS = 50;
-export const SAVE_ORDER_DEBOUNCE_MS = 100;
+const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+const SAVE_ORDER_DEBOUNCE_MS = 100;
 
 /** Drag hint cooldown. */
-export const DRAG = { HINT_COOLDOWN_MS: 800 };
+const DRAG = { HINT_COOLDOWN_MS: 800 };
 
 /** Persistent storage keys. */
-export const STORAGE = {
+const STORAGE = {
   ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
   FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
-  /** Set of layer ids currently hidden by the user (checked-off). */
+  /** Set of layer ids currently off the map. Absolute, not relative: it is
+   *  what is hidden, not merely what the user toggled to hide. A relative set
+   *  could never express "show a layer the author declared show=False", because
+   *  that id was never added to begin with. */
   VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
+  /** Map of layer id → user-assigned display name. */
+  NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
+  /** Map of layer id → annotation config (show/field/format). */
+  ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
+  /** Map of layer id → opacity (0-1). Only non-default values are stored. */
+  OPACITY_KEY: `foliplus_layer_opacity_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
-export const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
+const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
 /** Focus-on-layer behaviour. */
-export const FOCUS = {
+const FOCUS = {
   /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
   /** fitBounds animation duration. */
@@ -45,10 +56,21 @@ export const FOCUS = {
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
-export const FOCUS_PANE = "foliplus-focus-overlay";
+const FOCUS_PANE = "foliplus-focus-overlay";
+
+/** Leaflet pane name prefix for a layer's annotation labels: one pane per
+ *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+
+/** Z offset of a layer's annotation pane above its layer. Layers sit
+ *  `Z_INDEX.STEP` (10) apart, so +1 keeps the labels above their own layer
+ *  while the next layer up still covers them — the same gap the focus ladder
+ *  reuses when it raises a layer. */
+const ANNOTATION_Z_OFFSET = 1;
 
 /** CSS class names. */
-export const CLASSES = {
+const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
   ACTIVE: "active",
   CHECKBOX: "foliplus-checkbox",
@@ -57,7 +79,9 @@ export const CLASSES = {
   COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
-  HIDDEN: "hidden",
+  /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
+   *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
+   *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-layer-focused",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
@@ -81,24 +105,95 @@ export const CLASSES = {
   /** Added to the focused layer's element(s) so its accent drop-shadow glow
    *  fades in (CSS animation) — a single element, not a per-layer loop. */
   FOCUS_GLOW: "foliplus-focus-glow",
+  /** Inline rename input shown inside a layer label. */
+  RENAME_INPUT: "foliplus-layer-rename-input",
+  /** Set on a layer row while its inline rename input is open. */
+  RENAMING: "foliplus-layer-renaming",
+  /** Floating style panel opened from the layer overflow menu. */
+  STYLE_PANEL: "foliplus-layer-style-panel",
+  /** The style panel's controls. Each is named by the builder *and* looked up
+   *  again by the change handlers that read the panel back, so the names live
+   *  here instead of being typed twice and drifting. */
+  STYLE_FIELD_SELECT: "foliplus-style-field-select",
+  STYLE_FORMAT_ROW: "foliplus-style-format-row",
+  STYLE_FORMAT_SELECT: "foliplus-style-format-select",
+  STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
+  STYLE_BODY: "foliplus-style-body",
+  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
+  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  /** The "avoid overlap" switch — its own class, because the panel's change
+   *  delegation keys on the class to tell the two switches apart. */
+  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Shared section heading (form.css). */
+  SECTION_HEADING: "foliplus-section-heading",
+  /** Opacity control: range slider + paired number input. */
+  STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
+  STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
+  STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
+  /** Shared form-row layout classes (also used by HeatmapControl template). */
+  FORM_ROW: "foliplus-form-row",
+  FORM_LABEL: "foliplus-form-label",
+  FORM_CONTROL: "foliplus-form-control",
+  TOGGLE_SWITCH: "foliplus-toggle-switch",
+  TOGGLE_SLIDER: "foliplus-toggle-slider",
+  ATTRS_PANEL: "foliplus-layer-attrs-panel",
+  ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
 
 /** Data attribute names. */
-export const DATA = {
+const DATA = {
   INDEX: "data-index",
   LAYER_ID: "data-layer-id",
   COUNT: "data-item-count",
   TITLE: "data-item-title",
 };
 
+/** Overflow-menu action values (data-action). */
+const ACTION = {
+  FOCUS_LAYER: "focus-layer",
+  RENAME_LAYER: "rename-layer",
+  STYLE_LAYER: "style-layer",
+  ATTRS_LAYER: "layer-attributes",
+};
+
 /** DOM selectors. */
-export const SEL = {
+const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   COLOR_ITEM: ".foliplus-color-layer-item",
   COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
+  /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
+   *  control focus (checkbox / more / fold) attributes to this via closest(). */
+  ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
 };
 
 /** Group names. */
-export const GROUP = { OVERLAY: "overlay", BASE: "base" };
+const GROUP = { OVERLAY: "overlay", BASE: "base" };
+
+/** Default annotation config for a layer (disabled). */
+const DEFAULT_ANNOTATION = {
+  show: false,
+  field: "",
+  color: LABEL_COLOR_DEFAULT,
+  size: LABEL_SIZE.SIZE_DEFAULT,
+  format: NUMBER_FORMAT.AUTO,
+} as const;
+
+export {
+  ACTION,
+  ANNOTATION_PANE_PREFIX,
+  ANNOTATION_Z_OFFSET,
+  CLASSES,
+  COLOR,
+  DATA,
+  DEFAULT_ANNOTATION,
+  DRAG,
+  ENFORCE_ORDER_DEBOUNCE_MS,
+  FOCUS,
+  FOCUS_PANE,
+  GROUP,
+  SAVE_ORDER_DEBOUNCE_MS,
+  SEL,
+  STORAGE,
+};

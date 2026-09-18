@@ -20,7 +20,7 @@ class PolygonMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_polygon";
 
   /** Rebuild a persisted polygon measurement.
-   *  @param {Object} manager - MeasureManager instance.
+   *  @param {MeasureManager} manager - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
@@ -33,7 +33,10 @@ class PolygonMode extends PreviewMode {
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
-      const node = manager.layers.addLayer(Util.makeNode(pt)) as L.CircleMarker;
+      const node = manager.layers.addLayer(
+        Util.makeNode(pt),
+        CONST.PANES.NODE,
+      ) as L.CircleMarker;
       node.bringToFront();
       nodeMarkers.push(node);
     });
@@ -49,7 +52,7 @@ class PolygonMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       });
@@ -60,12 +63,10 @@ class PolygonMode extends PreviewMode {
       finalPoly,
       nodeMarkers,
       segLabels,
-      points: points,
+      points,
       area: data.area ?? 0,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);
@@ -75,12 +76,13 @@ class PolygonMode extends PreviewMode {
           distance: Util.distance(points[points.length - 1], points[0]),
           bearing: Util.bearing(points[points.length - 1], points[0]),
         });
-        data.points = points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.area = newArea;
         const centroid = Util.centroid(points);
-        data.center = { lng: centroid.lng, lat: centroid.lat };
-        manager.saveMeasurements();
+        manager.store.update(data.id!, {
+          points: points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          area: newArea,
+          center: { lng: centroid.lng, lat: centroid.lat },
+        });
       },
     });
   }
@@ -99,6 +101,10 @@ class PolygonMode extends PreviewMode {
         interactive: false,
       }),
     );
+    // The cursor dot is the same hollow node as the circle mode's radius
+    // endpoint — it has no meaning before the first point. Created via
+    // `moveCursorNode`, which recreates it every frame so attach order keeps
+    // the node newest (see PreviewMode.moveCursorNode).
     const nodeMarkers: L.CircleMarker[] = [];
     const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
@@ -115,6 +121,7 @@ class PolygonMode extends PreviewMode {
       this.layers.removeLayer(poly);
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(finalPoly);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -157,7 +164,7 @@ class PolygonMode extends PreviewMode {
       };
       segments.push(lastSeg);
       const centroid = Util.centroid(points);
-      this.m.measurements.push({
+      this.m.store.add({
         id: polyId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
@@ -165,7 +172,6 @@ class PolygonMode extends PreviewMode {
         area,
         center: { lng: centroid.lng, lat: centroid.lat },
       });
-      this.m.saveMeasurements();
 
       // Add closing segment label
       const lastPt = points[points.length - 1];
@@ -175,7 +181,7 @@ class PolygonMode extends PreviewMode {
         L.marker([closeMid.lat, closeMid.lng], {
           icon: Util.makeMidLabelDivIcon(Util.formatDistance(lastSeg.distance)),
         }),
-        true,
+        CONST.PANES.LABEL,
       );
       segLabels.push(closeLabel as L.Marker);
 
@@ -197,13 +203,11 @@ class PolygonMode extends PreviewMode {
         segLabels,
         points,
         area,
+        id: polyId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== polyId);
-          this.m.saveMeasurements();
+          this.m.store.remove(polyId);
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === polyId);
-          if (!m) return;
           const { segments } = Util.recalculateSegments(points);
           // Add closing segment
           const n = points.length;
@@ -213,12 +217,13 @@ class PolygonMode extends PreviewMode {
             distance: Util.distance(points[n - 1], points[0]),
             bearing: Util.bearing(points[n - 1], points[0]),
           });
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.area = Util.area(points);
           const centroid = Util.centroid(points);
-          m.center = { lng: centroid.lng, lat: centroid.lat };
-          this.m.saveMeasurements();
+          this.m.store.update(polyId, {
+            points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+            segments,
+            area: Util.area(points),
+            center: { lng: centroid.lng, lat: centroid.lat },
+          });
         },
       });
       // Replace the drawing-phase cleanup with a no-op (it would remove the
@@ -230,6 +235,7 @@ class PolygonMode extends PreviewMode {
       this.layers.removeLayer(previewPoly);
       this.layers.removeLayer(confirmedPoly);
       this.layers.removeLayer(poly);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -241,24 +247,19 @@ class PolygonMode extends PreviewMode {
       if (points.length === 0) return;
       const allPts = [...points, event.latlng];
       previewPoly.setLatLngs(allPts);
+      this.moveCursorNode(event.latlng);
       confirmedPoly.setLatLngs(points);
       poly.setLatLngs([points[points.length - 1], event.latlng]);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
       const labelText = Util.formatDistance(seg);
-      if (!previewDistLabel) {
-        previewDistLabel = this.layers.addLayer(
-          L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(labelText),
-            interactive: false,
-          }),
-          true,
-        ) as L.Marker;
-      } else {
-        previewDistLabel.setLatLng([mid.lat, mid.lng]);
-        Util.setLabelText(previewDistLabel, labelText);
-      }
+      previewDistLabel = this.updateOrCreateLabel(
+        previewDistLabel,
+        mid,
+        labelText,
+        Util.makeMidLabelDivIcon,
+      );
     };
 
     const onPolyClick = (event: L.LeafletMouseEvent) => {
@@ -267,8 +268,9 @@ class PolygonMode extends PreviewMode {
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
-      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng))
+      if (points.some(p => p.lat === event.latlng.lat && p.lng === event.latlng.lng)) {
         return;
+      }
       // Stop Leaflet propagation so clicking a data layer while drawing does
       // not also trigger the data layer's own click handler.
       L.DomEvent.stopPropagation(event);
@@ -283,6 +285,7 @@ class PolygonMode extends PreviewMode {
 
       const marker = this.layers.addLayer(
         Util.makeNode(event.latlng),
+        CONST.PANES.NODE,
       ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);
@@ -296,8 +299,12 @@ class PolygonMode extends PreviewMode {
         L.DomEvent.stopPropagation(event);
         if (points.length < 3) return;
         // Click first or last point → finish
-        if (marker === nodeMarkers[0] || marker === nodeMarkers[nodeMarkers.length - 1])
+        if (
+          marker === nodeMarkers[0] ||
+          marker === nodeMarkers[nodeMarkers.length - 1]
+        ) {
           finishPoly();
+        }
       });
 
       if (points.length > 1) {
@@ -317,7 +324,7 @@ class PolygonMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg)),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       }

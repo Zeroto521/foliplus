@@ -4,6 +4,40 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 // ===========================================================================
 // Static exported constants (value-only tests, no mocking needed).
 // ===========================================================================
+
+describe("export canvas whitelists", () => {
+  it("reach every canvas overlay that paints map content", () => {
+    // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
+    // so a canvas in neither list vanishes from the export without any error.
+    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the labels,
+    // whose pane the manager creates with map.createPane — a sibling of the
+    // layer's content panes, unreachable from the per-layer walk.
+    const mapPane = document.createElement("div");
+    mapPane.className = "leaflet-map-pane";
+    const layerPane = document.createElement("div");
+    layerPane.className = "foliplus-layer-pane";
+    const vendorCanvas = document.createElement("canvas");
+    vendorCanvas.className = "vendor-overlay";
+    const annotationPane = document.createElement("div");
+    annotationPane.className = "foliplus-annotation-pane";
+    const annotation = document.createElement("canvas");
+    annotation.className = "foliplus-annotation-canvas";
+    layerPane.append(vendorCanvas);
+    annotationPane.append(annotation);
+    mapPane.append(layerPane, annotationPane);
+    document.body.appendChild(mapPane);
+
+    // Pane walk: any canvas a vendor layer mounts in its own pane.
+    expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
+      vendorCanvas,
+    ]);
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
+      annotation,
+    ]);
+    mapPane.remove();
+  });
+});
+
 describe("STORAGE", () => {
   it("derives key from map container id", () => {
     expect(CONST.STORAGE.KEY).toContain("foliplus_export_rect_");
@@ -21,17 +55,106 @@ describe("CROP", () => {
 
 describe("TIMING", () => {
   it("defines timing constants", () => {
-    expect(CONST.TIMING.URL_REVOKE_DELAY).toBeGreaterThan(0);
     expect(CONST.TIMING.RESTORE_DELAY).toBeGreaterThan(0);
   });
 });
 
-describe("MIME", () => {
-  it("maps format to mime type", () => {
-    expect(CONST.MIME.png).toBe("image/png");
-    expect(CONST.MIME.jpeg).toBe("image/jpeg");
-    expect(CONST.MIME.webp).toBe("image/webp");
-    expect(CONST.MIME.DEFAULT).toBe("image/png");
+describe("FORMAT", () => {
+  it("has one record per exportable format", () => {
+    expect(Object.keys(CONST.FORMAT).sort()).toEqual([
+      "geotiff",
+      "jpeg",
+      "png",
+      "webp",
+    ]);
+  });
+
+  it("maps format to mime type, extension, and pipeline flags", () => {
+    expect(CONST.FORMAT.png).toEqual({
+      mime: "image/png",
+      ext: "png",
+      lossy: false,
+      geotiff: false,
+    });
+    expect(CONST.FORMAT.jpeg).toEqual({
+      mime: "image/jpeg",
+      ext: "jpeg",
+      lossy: true,
+      geotiff: false,
+    });
+    expect(CONST.FORMAT.webp).toEqual({
+      mime: "image/webp",
+      ext: "webp",
+      lossy: true,
+      geotiff: false,
+    });
+    expect(CONST.FORMAT.geotiff).toEqual({
+      mime: "image/tiff",
+      ext: "tif",
+      lossy: false,
+      geotiff: true,
+    });
+  });
+
+  it("keeps only lossless formats free of the lossy flag", () => {
+    expect(CONST.FORMAT.png.lossy).toBe(false);
+    expect(CONST.FORMAT.geotiff.lossy).toBe(false);
+    expect(CONST.FORMAT.jpeg.lossy).toBe(true);
+    expect(CONST.FORMAT.webp.lossy).toBe(true);
+  });
+
+  it("has no DEFAULT or tif fallback key", () => {
+    expect(Object.prototype.hasOwnProperty.call(CONST.FORMAT, "DEFAULT")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(CONST.FORMAT, "tif")).toBe(false);
+  });
+});
+
+describe("resolveFormat", () => {
+  it("returns the key for every known format", () => {
+    for (const fmt of Object.keys(CONST.FORMAT)) {
+      expect(CONST.resolveFormat(fmt)).toBe(fmt);
+    }
+  });
+
+  it("falls back to png for unknown or missing values", () => {
+    expect(CONST.resolveFormat("tif")).toBe("png");
+    expect(CONST.resolveFormat("jpeg2000")).toBe("png");
+    expect(CONST.resolveFormat(undefined)).toBe("png");
+    expect(CONST.resolveFormat()).toBe("png");
+  });
+
+  it("rejects inherited property names", () => {
+    expect(CONST.resolveFormat("constructor")).toBe("png");
+  });
+});
+
+describe("currentFormat", () => {
+  it("returns the record for CONF.format", () => {
+    window.CONF = { ...window.CONF, format: "jpeg" };
+    expect(CONST.currentFormat()).toBe(CONST.FORMAT.jpeg);
+  });
+
+  it("resolves geotiff through the table, not a hardcoded branch", () => {
+    window.CONF = { ...window.CONF, format: "geotiff" };
+    expect(CONST.currentFormat().geotiff).toBe(true);
+    expect(CONST.currentFormat().ext).toBe("tif");
+  });
+
+  it("falls back to png when CONF.format is absent", () => {
+    const saved = window.CONF;
+    delete (window.CONF as Record<string, unknown>).format;
+    try {
+      expect(CONST.currentFormat()).toBe(CONST.FORMAT.png);
+    } finally {
+      window.CONF = saved;
+    }
+  });
+});
+
+describe("MIME_LOSSLESS", () => {
+  it("is the png mime for intermediate snapshots", () => {
+    expect(CONST.MIME_LOSSLESS).toBe(CONST.FORMAT.png.mime);
+    expect(CONST.MIME_LOSSLESS).toBe("image/png");
   });
 });
 

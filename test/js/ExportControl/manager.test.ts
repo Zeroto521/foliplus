@@ -1,7 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
+import { ensureHint } from "#core/hint.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import { ExportRenderer } from "#foliplus/ExportControl/renderer.js";
+import * as downloadMod from "#common/download.js";
 import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
@@ -10,6 +13,24 @@ import * as Storage from "#common/storage.js";
 const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
+
+// T is module-level and frozen at import — CONF there is an esbuild
+// compile-time literal, not window.CONF, so no per-test locale_tables can
+// change it.  Substitute the two progress strings and pass everything else
+// through unchanged (CONF.name is "SearchControl" here, from setup.ts).
+vi.mock("#common/locale.js", async () => {
+  const real = await vi.importActual("#common/locale.js");
+  const TABLES: Record<string, string> = {
+    status_exporting: "Exporting map...",
+    status_progress: "Exporting map... ({pct}%)",
+    status_success: "Export successful",
+  };
+  return {
+    ...real,
+    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+      TABLES[key] ?? key,
+  };
+});
 
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
@@ -28,6 +49,8 @@ vi.mock("geotiff", () => ({
 vi.mock("pako", async () => vi.importActual("pako"));
 
 // Minimal map mock satisfying ExportManager constructor requirements.
+// showHint/hideHint on foliplus mirror setup.ts's window.map mock — ExportManager
+// talks to them via the public map.foliplus! API rather than ensureHint().
 function makeMapMock() {
   const container = document.createElement("div");
   return {
@@ -45,6 +68,7 @@ function makeMapMock() {
     boxZoom: { disable: vi.fn(), enable: vi.fn() },
     keyboard: { disable: vi.fn(), enable: vi.fn() },
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),
@@ -95,6 +119,243 @@ describe("ExportManager — onKeyDown", () => {
     manager.onKeyDown({ key: "Enter" });
     expect(manager.lockCropBox).toHaveBeenCalled();
   });
+
+  it("Enter with locked crop box calls doExport", () => {
+    manager.cropState.locked = true;
+    manager.doExport = vi.fn();
+    manager.onKeyDown({ key: "Enter" });
+    expect(manager.doExport).toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — shortcut routing (R + arrows)", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.resetCropBox = vi.fn();
+    manager.nudgeCropBox = vi.fn();
+  });
+
+  it("R routes to resetCropBox when unlocked", () => {
+    manager.onKeyDown({ key: "r" });
+    expect(manager.resetCropBox).toHaveBeenCalledTimes(1);
+    manager.onKeyDown({ key: "R" });
+    expect(manager.resetCropBox).toHaveBeenCalledTimes(2);
+    expect(manager.nudgeCropBox).not.toHaveBeenCalled();
+  });
+
+  it("R is ignored when locked", () => {
+    manager.cropState.locked = true;
+    manager.onKeyDown({ key: "r" });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+  });
+
+  it("arrow keys route to the smooth-nudge loop when unlocked", () => {
+    // Arrow keydown starts a rafLoop-based smooth-nudge (nudgeStart), not a
+    // one-off nudgeCropBox call. Each press stop()s any previous loop and
+    // starts a new one for the new direction, so nudgeLoop ends up defined
+    // after the last press and a new loop was created on each of the four.
+    // Inject a no-op scheduler so the loop only runs its sync first frame
+    // and nudgeLoop can be inspected deterministically.
+    const m2 = makeManager();
+    setCropState(m2);
+    // Patch the rafLoop handle so each keydown is observable: nudgeLoop is
+    // created fresh on each press (nudgeStop clears the previous one first).
+    m2.onKeyDown({ key: "ArrowLeft" });
+    expect((m2 as any).nudgeLoop).toBeDefined();
+    // Each subsequent press stop()s the prior loop then starts a new one;
+    // the box receives a nudge on the sync first frame of each.
+    m2.onKeyDown({ key: "ArrowRight" });
+    m2.onKeyDown({ key: "ArrowUp" });
+    m2.onKeyDown({ key: "ArrowDown" });
+    expect((m2 as any).nudgeLoop).toBeDefined();
+  });
+
+  it("arrow keys are ignored when locked", () => {
+    manager.cropState.locked = true;
+    manager.onKeyDown({ key: "ArrowLeft" });
+    expect((manager as any).nudgeLoop).toBeUndefined();
+  });
+
+  it("R and arrows are no-ops without a crop box", () => {
+    manager.cropState = null;
+    manager.onKeyDown({ key: "r" });
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+    expect((manager as any).nudgeLoop).toBeUndefined();
+  });
+
+  it("unrecognized keys are ignored", () => {
+    manager.onKeyDown({ key: "a" });
+    manager.onKeyDown({ key: " " });
+    expect(manager.resetCropBox).not.toHaveBeenCalled();
+    expect((manager as any).nudgeLoop).toBeUndefined();
+  });
+
+  it("R stops a running nudge loop and resets the box", () => {
+    const m3 = makeManager();
+    setCropState(m3);
+    const resetSpy = vi.fn();
+    m3.resetCropBox = resetSpy;
+    m3.onKeyDown({ key: "ArrowRight" });
+    expect((m3 as any).nudgeLoop).toBeDefined();
+    // Press R while the loop is still running. The loop must be killed so
+    // the box stays at the reset position instead of being shoved off by a
+    // still-ticking rafLoop.
+    m3.onKeyDown({ key: "R" });
+    expect((m3 as any).nudgeLoop).toBeUndefined();
+    expect(resetSpy).toHaveBeenCalled();
+  });
+});
+
+describe("ExportManager — resetCropBox / nudgeCropBox", () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.mapContainer.getBoundingClientRect = () => ({
+      width: 500,
+      height: 400,
+    });
+  });
+
+  it("resetCropBox restores the default centered box", () => {
+    manager.cropState.rect = { left: 10, top: 10, width: 100, height: 100 };
+    manager.resetCropBox();
+    // defaultRect with a 500x400 map and PADDING_RATIO 0.25
+    expect(manager.cropState.rect).toEqual({
+      left: 125,
+      top: 100,
+      width: 250,
+      height: 200,
+    });
+    expect(manager.updateBoxStyle).toHaveBeenCalled();
+    expect(manager.showHintWithInfo).toHaveBeenCalled();
+  });
+
+  it("resetCropBox is a no-op when locked", () => {
+    manager.cropState.locked = true;
+    manager.cropState.rect = { left: 10, top: 10, width: 100, height: 100 };
+    manager.resetCropBox();
+    expect(manager.cropState.rect).toEqual({
+      left: 10,
+      top: 10,
+      width: 100,
+      height: 100,
+    });
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox moves right by NUDGE_STEP", () => {
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+    expect(manager.updateBoxStyle).toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox moves left by NUDGE_STEP", () => {
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowLeft");
+    expect(manager.cropState.rect.left).toBe(100 - CONST.CROP.NUDGE_STEP);
+  });
+
+  it("applyRect is a no-op without a crop box", () => {
+    manager.cropState = null;
+    // applyRect guards against a missing crop box; call it directly (private).
+    (manager as any).applyRect({ left: 0, top: 0, width: 50, height: 50 });
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+    expect(manager.showHintWithInfo).not.toHaveBeenCalled();
+  });
+
+  it("nudgeCropBox suppresses the box transition and does not refresh the hint", () => {
+    // Keyboard auto-repeat fires several keydowns per second; the box's default
+    // transition would make each nudge chase the input instead of tracking it,
+    // so nudge adds the .dragging class (same suppression as mouse dragging).
+    // And since the size never changes, the hint text is unchanged — refreshing
+    // it would rebuild the element and re-run its entry animation every press.
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(manager.showHintWithInfo).not.toHaveBeenCalled();
+  });
+
+  it("onKeyUp restores the box transition suppressed by nudging", () => {
+    manager.nudgeCropBox("ArrowDown");
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+
+    manager.onKeyUp({ key: "ArrowDown" } as KeyboardEvent);
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      false,
+    );
+  });
+
+  it("onKeyUp for an arrow key stops the smooth-nudge loop", () => {
+    // keyup is the release signal that must stop the rafLoop — without it the
+    // loop keeps ticking at ~60Hz and the box drifts forever after a single
+    // press. The loop is stored on manager.nudgeLoop (via the private
+    // nudgeStart/nudgeStop pair) so we can assert it's cleared after keyup.
+    manager.nudgeCropBox("ArrowRight");
+
+    // Simulate the loop the manager would create on a real keydown.
+    const loopStop = vi.fn();
+    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop };
+
+    manager.onKeyUp({ key: "ArrowRight" } as KeyboardEvent);
+    expect(loopStop).toHaveBeenCalledTimes(1);
+    expect((manager as any).nudgeLoop).toBeUndefined();
+  });
+
+  it("onKeyUp ignores non-arrow keys and a missing crop box", () => {
+    manager.onKeyUp({ key: "Enter" } as KeyboardEvent);
+    expect(manager.cropState.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      false,
+    );
+
+    manager.cropState = null;
+    manager.onKeyUp({ key: "ArrowLeft" } as KeyboardEvent);
+  });
+
+  it("nudgeCropBox moves up and clamps at the map top edge", () => {
+    manager.cropState.rect = {
+      left: 100,
+      top: 2,
+      width: 100,
+      height: 100,
+    };
+    manager.nudgeCropBox("ArrowUp");
+    expect(manager.cropState.rect.top).toBe(0);
+  });
+
+  it("nudgeCropBox clamps right edge to the map width", () => {
+    manager.cropState.rect = { left: 490, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(400); // 500 - 100
+  });
+
+  it("nudgeCropBox is a no-op when locked", () => {
+    manager.cropState.locked = true;
+    manager.cropState.rect = { left: 100, top: 100, width: 100, height: 100 };
+    manager.nudgeCropBox("ArrowRight");
+    expect(manager.cropState.rect.left).toBe(100);
+    expect(manager.updateBoxStyle).not.toHaveBeenCalled();
+  });
+
+  it("nudgeStop does not throw when the box is removed mid-nudge", () => {
+    // Regression: the rafLoop tick's auto-stop branch runs when isEditing()
+    // returns false (box locked or removed). If the box was removed
+    // (cropState = null) while an arrow key was held, the tick must clean up
+    // without dereferencing a null box. nudgeStop() shares this cleanup path,
+    // so exercising it here guards the pattern.
+    const loopStop = vi.fn();
+    (manager as any).nudgeLoop = { start: vi.fn(), stop: loopStop };
+    manager.cropState.box.classList.add(CONST.CLASSES.DRAGGING);
+    manager.cropState = null;
+
+    expect(() => (manager as any).nudgeStop()).not.toThrow();
+    expect(loopStop).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ExportManager — shortcut lifecycle", () => {
@@ -123,6 +384,14 @@ describe("ExportManager — shortcut lifecycle", () => {
   });
 
   it("starts with no interactionCleanup", () => {
+    expect(manager.interactionCleanup).toBeUndefined();
+  });
+
+  it("unregisterShortcuts is a no-op when no shortcuts were registered", () => {
+    // Covers the `this.interactionCleanup?.()` branch where interactionCleanup
+    // is undefined — calling unregister without a prior register must not throw.
+    expect(manager.interactionCleanup).toBeUndefined();
+    expect(() => manager.unregisterShortcuts()).not.toThrow();
     expect(manager.interactionCleanup).toBeUndefined();
   });
 
@@ -221,6 +490,83 @@ describe("ExportManager — shortcut lifecycle", () => {
 
     manager.unregisterShortcuts();
     expect(manager.interactionCleanup).toBeUndefined();
+  });
+});
+
+describe("ExportManager — hint lifecycle", () => {
+  // The crop-box size/limit hints are PERSIST (duration 0 sets no timer), so
+  // nothing clears them on its own. Before this, they stayed on screen through
+  // the whole export and outlived it — a stale "100 × 100 px" label under the
+  // "exporting…" spinner.
+  let manager;
+
+  beforeEach(() => {
+    manager = makeManager();
+    setCropState(manager);
+    manager.showGlobalHint = vi.fn();
+  });
+
+  it("doExport clears the crop-box hints before exporting", () => {
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
+
+    try {
+      manager.doExport();
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "size");
+      expect(hideHint).toHaveBeenCalledWith(CONF.name, "limit");
+      expect(hideHint).not.toHaveBeenCalledWith(CONF.name);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      hideHint.mockRestore();
+    }
+  });
+
+  it("clears the crop-box hints when the pixel limit aborts the export", () => {
+    // Install the per-map HintManager first: ensureHint() is what puts
+    // showHint/hideHint on map.foliplus, so reading it before that is undefined.
+    ensureHint(manager.map);
+    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
+    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    // CONF.max_pixels is captured by const.ts at import time, so it cannot be
+    // set per-test here — set the flag checkPixelLimit() normally produces.
+    manager.pixelOverLimit = true;
+
+    try {
+      manager.doExport();
+      // An aborted export must not wedge the button, and must clear the whole
+      // component's hints rather than just the two subkeys.
+      expect(manager.isExporting).toBe(false);
+      expect(hideHint).toHaveBeenCalledWith(CONF.name);
+    } finally {
+      manager.pixelOverLimit = false;
+      hideHint.mockRestore();
+    }
+  });
+
+  it("unlocks the map when the pixel limit aborts the export", () => {
+    // doExport() calls lockMap() before the pixel-limit check, so an abort
+    // that only ends the export state would leave dragging/zoom disabled with
+    // the overlay long gone — the map looks broken and doesn't tell you why.
+    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    manager.pixelOverLimit = true;
+    const unlockMap = vi.spyOn(manager, "unlockMap");
+
+    try {
+      manager.doExport();
+      expect(unlockMap).toHaveBeenCalledTimes(1);
+    } finally {
+      manager.pixelOverLimit = false;
+      unlockMap.mockRestore();
+    }
   });
 });
 
@@ -502,6 +848,14 @@ describe("ExportManager — download paths", () => {
         expect.any(String),
         expect.any(Number),
       );
+      // The success hint must not live in `finally` — `finally` also runs
+      // after this early return, so it would tell the user the export worked
+      // when it produced nothing. The state is still released though.
+      expect(manager.showGlobalHint).not.toHaveBeenCalledWith(
+        expect.stringContaining("status_success"),
+        expect.any(Number),
+      );
+      expect(manager.isExporting).toBe(false);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
     }
@@ -527,6 +881,46 @@ describe("ExportManager — download paths", () => {
       spy.mockRestore();
     }
   });
+
+  it.each([
+    ["png", "image/png", "test-map.png"],
+    ["jpeg", "image/jpeg", "test-map.jpeg"],
+    ["webp", "image/webp", "test-map.webp"],
+  ])(
+    "onRenderSuccess with format=%s encodes and names the file from the FORMAT table",
+    async (format, mime, filename) => {
+      window.CONF = { ...window.CONF, format };
+      const toBlobCalls: unknown[][] = [];
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (
+        cb: (b: Blob | null) => void,
+        ...rest: unknown[]
+      ) {
+        toBlobCalls.push([this, ...rest]);
+        cb(new Blob(["fake"], { type: mime }));
+      };
+      // The spies must exist before `onRenderSuccess` runs — spying afterwards
+      // would never catch a call that already happened.
+      const geoSpy = vi.spyOn(manager, "downloadGeoTiff");
+      const downloadSpy = vi.spyOn(downloadMod, "download");
+
+      try {
+        manager.onRenderSuccess(document.createElement("canvas"), []);
+        await new Promise(r => setTimeout(r, 0));
+        // `toBlob` must be fed the mime from the FORMAT record — no `as "png"` cast,
+        // no DEFAULT fallback — and the filename must come from the record's `ext`.
+        expect(toBlobCalls.length).toBe(1);
+        expect(toBlobCalls[0][1]).toBe(mime);
+        expect(downloadSpy).toHaveBeenCalledTimes(1);
+        expect(downloadSpy.mock.calls[0][1]).toBe(filename);
+        // The geotiff pipeline must not be taken for a plain image format.
+        expect(geoSpy).not.toHaveBeenCalled();
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = origToBlob;
+        vi.restoreAllMocks();
+      }
+    },
+  );
 
   it("downloadGeoTiff produces .tif download with valid geo bounds", async () => {
     manager.cropState!.geoBounds = {
@@ -763,10 +1157,6 @@ describe("ExportManager — download paths", () => {
       HTMLCanvasElement.prototype.toBlob = function (cb) {
         cb(new Blob(["fake"]));
       };
-      const origToDataUrl = HTMLCanvasElement.prototype.toDataURL;
-      HTMLCanvasElement.prototype.toDataURL = vi
-        .fn()
-        .mockReturnValue("data:image/png,");
 
       const img = document.createElement("img") as HTMLImageElement & {
         _removeCalled: boolean;
@@ -789,17 +1179,442 @@ describe("ExportManager — download paths", () => {
       });
 
       manager.onRenderSuccess(document.createElement("canvas"), []);
+      // canvasToBlob resolves via a promise chain, so flush microtasks before
+      // the SHORT timer becomes eligible.
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(false);
 
+      // Advance to SHORT and fire the preview dismissal. Only flush timers —
+      // a bare runOnlyPendingTimers() would also trip the revoke timer
+      // scheduled in the same tick.
       vi.advanceTimersByTime(1200);
       vi.runOnlyPendingTimers();
+      await vi.advanceTimersByTimeAsync(0);
       expect(img._removeCalled).toBe(true);
 
       HTMLCanvasElement.prototype.toBlob = origToBlob;
-      HTMLCanvasElement.prototype.toDataURL = origToDataUrl;
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
     }
+  });
+
+  it("onRenderSuccess does not base64-encode the canvas for the preview", async () => {
+    // Preview and download must share one encoding. toDataURL() used to copy
+    // the whole raster into a base64 string just for the preview, and toBlob()
+    // then encoded the same pixels a second time — the dominant chunk of the
+    // click-to-download delay on HD exports.
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(new Blob(["fake"]));
+    };
+    const toDataURL = vi.fn();
+    HTMLCanvasElement.prototype.toDataURL = toDataURL;
+    vi.stubGlobal("createImageBitmap", undefined);
+
+    const img = document.createElement("img") as HTMLImageElement;
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(tag => {
+      if (tag.toLowerCase() === "img") return img;
+      return origCreate(tag);
+    });
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await new Promise(r => setTimeout(r, 0));
+
+      expect(toDataURL).not.toHaveBeenCalled();
+      expect(img.src).not.toBe("");
+      expect(img.src.startsWith("blob:")).toBe(true);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      HTMLCanvasElement.prototype.toDataURL = origToDataURL;
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("canvasToBlob passes the format through to toBlob and surfaces null", async () => {
+    const canvas = document.createElement("canvas");
+    const toBlob = vi.fn(cb => cb(new Blob(["png"])));
+    canvas.toBlob = toBlob;
+
+    expect(await canvasToBlob(canvas, "image/jpeg", 0.8)).toBeInstanceOf(Blob);
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.8);
+
+    // `toBlob` signalling failure (callback with null) must resolve to null so
+    // onRenderSuccess reports the failure instead of throwing past endExport().
+    canvas.toBlob = vi.fn(cb => cb(null));
+    expect(await canvasToBlob(canvas, "image/png")).toBeNull();
+  });
+});
+
+describe("ExportManager — nudge continuous stream", () => {
+  // These tests exercise the branch of nudgeStart that the no-op scheduler
+  // injection can't reach: the performance.now() elapsed gate and the
+  // fractional accumulator. To do that we inject a real setTimeout-based
+  // scheduler and control both timers AND performance.now() via
+  // vi.useFakeTimers() + vi.setSystemTime().
+  //
+  // NUDGE_SPEED=200 px/s -> perFrame = 200/60 = 3.33 px/frame at 16ms cadence.
+  // NUDGE_HOLD_DELAY=300 ms, so the gate passes after ~19 frames.
+
+  let manager;
+  let container;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    // Start from a known clock so performance.now() is deterministic.
+    vi.setSystemTime(new Date(2000, 0, 1));
+
+    manager = new ExportManager(makeMapMock(), setTimeout);
+    manager.showCropBox = vi.fn();
+    manager.lockCropBox = vi.fn();
+    manager.unlockCropBox = vi.fn();
+    manager.removeCropBox = vi.fn();
+    manager.updateBoxStyle = vi.fn();
+    manager.showHintWithInfo = vi.fn();
+    manager.showGlobalHint = vi.fn();
+
+    container = manager.map.getContainer();
+    document.body.appendChild(container);
+    container.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 500,
+      height: 400,
+    });
+    setCropState(manager, { left: 100, top: 100, width: 100, height: 100 });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  });
+
+  it("tap yields exactly one sync step, no continuous stream", async () => {
+    // A quick press-and-release (< NUDGE_HOLD_DELAY) must produce exactly
+    // one +NUDGE_STEP motion and never cross the hold gate into continuous.
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+    const deltaCalls = (manager as any).nudgeCropBoxDelta.mock
+      ? (manager as any).nudgeCropBoxDelta.mock.calls.length
+      : 0;
+
+    // Hold well past the delay WITHOUT releasing — the loop should be ticking
+    // but we haven't called keyup yet. Advance past the gate.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    await vi.advanceTimersByTimeAsync(300);
+
+    // Still exactly the sync step — per-frame deltas only apply AFTER the gate.
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Release. No further motion should happen.
+    manager.onKeyUp({ key: "ArrowRight" } as KeyboardEvent);
+    const finalLeft = manager.cropState.rect.left;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(manager.cropState.rect.left).toBe(finalLeft);
+  });
+
+  it("hold past NUDGE_HOLD_DELAY triggers continuous fractional motion", async () => {
+    // Hold ArrowRight long enough to cross the gate. The fractional accumulator
+    // must produce multiple per-frame deltas (floor(perFrame) each, remainder
+    // carried). With perFrame=3.33 px and 60fps, floor gives 3 px/frame.
+    // Wrap the private nudgeCropBoxDelta to spy on how many times it fires
+    // while still applying the real motion.
+    const realDelta = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Advance frame-by-frame past the 300ms hold delay. The gate passes at
+    // frame ~19; from frame 20 onward per-frame motion begins.
+    const startLeft = manager.cropState.rect.left;
+    for (let i = 0; i < 30; i++) {
+      vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 16 + i * 16));
+      await vi.advanceTimersByTimeAsync(16);
+    }
+
+    // After crossing the gate the box must have moved beyond the single sync
+    // step — continuous stream is active.
+    expect(manager.cropState.rect.left).toBeGreaterThan(startLeft);
+    // nudgeCropBoxDelta called multiple times (sync frame + continuous frames)
+    expect((manager as any).nudgeCropBoxDelta.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("crop box removal mid-loop stops the loop without throwing", async () => {
+    // doExport() calls removeCropBox() (cropState = null) while an arrow key
+    // might still be held. The rafLoop tick's auto-stop branch must detect
+    // isEditing()===false and return true, cleaning up the DRAGGING class
+    // without dereferencing a null box.
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Simulate doExport clearing the crop state while the loop is running.
+    manager.cropState = null;
+
+    // Advance frames — the tick must stop itself on the first post-null frame
+    // and not throw. After the auto-stop, further timer advances produce no
+    // additional nudgeCropBoxDelta calls (the loop is internally stopped even
+    // though manager.nudgeLoop still holds the RafLoop handle — only an
+    // explicit nudgeStop() clears that reference).
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    expect(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    }).not.toThrow();
+
+    // Any leftover scheduled callbacks must be no-ops now (the loop stopped).
+    // Re-advance to confirm nothing further fires.
+    await vi.advanceTimersByTimeAsync(500);
+  });
+
+  it("direction switch stops the stale Right loop and starts a fresh Up loop", async () => {
+    // Holding Right then pressing Up must kill the stale Rightward loop (so it
+    // doesn't nudge right for ~500ms after the switch) and start an Upward
+    // loop whose first sync step is exactly -NUDGE_STEP on top.
+    const realDelta2 = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta2(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+    expect(manager.cropState.rect.top).toBe(100);
+
+    // Advance a couple frames so the Right loop is clearly running, then switch.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 50));
+    await vi.advanceTimersByTimeAsync(32);
+
+    manager.onKeyDown({ key: "ArrowUp" });
+    // Sync first frame of the Up loop: top moves by -NUDGE_STEP, left unchanged.
+    expect(manager.cropState.rect.top).toBe(100 - CONST.CROP.NUDGE_STEP);
+    expect(manager.cropState.rect.left).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // The stale Right loop is stopped: advancing more frames must not push
+    // `left` further right, only `top` should continue moving up.
+    const leftAtSwitch = manager.cropState.rect.left;
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350));
+    for (let i = 0; i < 25; i++) {
+      vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 350 + i * 16));
+      await vi.advanceTimersByTimeAsync(16);
+    }
+    expect(manager.cropState.rect.left).toBe(leftAtSwitch);
+    expect(manager.cropState.rect.top).toBeLessThan(100 - CONST.CROP.NUDGE_STEP);
+  });
+
+  it("Nudge_HOLD_DELAY boundary: at 299ms no stream, at 301ms stream begins", async () => {
+    // Exact boundary check: a hold of 299ms must NOT have crossed the gate
+    // (only the sync step applied); a hold of 301ms must have. This guards
+    // against off-by-one in the elapsed comparison.
+    const realDelta3 = (manager as any).nudgeCropBoxDelta.bind(manager);
+    (manager as any).nudgeCropBoxDelta = vi.fn((dx: number, dy: number) =>
+      realDelta3(dx, dy),
+    );
+
+    manager.onKeyDown({ key: "ArrowRight" });
+    const afterSync = manager.cropState.rect.left;
+    expect(afterSync).toBe(100 + CONST.CROP.NUDGE_STEP);
+
+    // Advance to just before the gate (299ms).
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 299));
+    await vi.advanceTimersByTimeAsync(299);
+    expect(manager.cropState.rect.left).toBe(afterSync); // no continuous yet
+
+    // One more frame crossing the boundary.
+    vi.setSystemTime(new Date(2000, 0, 1, 0, 0, 0, 315));
+    await vi.advanceTimersByTimeAsync(16);
+    // Now the gate has passed and per-frame motion has applied.
+    expect(manager.cropState.rect.left).toBeGreaterThan(afterSync);
+  });
+});
+
+describe("ExportManager — export progress", () => {
+  let manager;
+
+  beforeEach(() => {
+    // The {pct} string comes from the locale mock at the top of this file.
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      timeout: 7500,
+    };
+    manager = new ExportManager(makeMapMock());
+    manager.showCropBox = vi.fn();
+    manager.lockCropBox = vi.fn();
+    manager.unlockCropBox = vi.fn();
+    manager.removeCropBox = vi.fn();
+    manager.updateBoxStyle = vi.fn();
+    manager.showHintWithInfo = vi.fn();
+    manager.showGlobalHint = vi.fn();
+    setCropState(manager);
+    manager.pixelOverLimit = false;
+    // jsdom's clientWidth/clientHeight are accessors on HTMLElement — a plain
+    // assignment would throw.  doExport only reads them for needsBigger, so
+    // define the values directly.
+    Object.defineProperty(manager.mapContainer, "clientWidth", { value: 800 });
+    Object.defineProperty(manager.mapContainer, "clientHeight", { value: 600 });
+  });
+
+  it("doExport forwards an onProgress callback to doRender", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    const args = manager.doRender.mock.calls[0];
+    expect(args.length).toBe(5);
+    expect(args[0]).toEqual(manager.cropState.rect);
+    expect(args[4]).toBeTypeOf("function");
+  });
+
+  it("onProgress re-renders the persistent hint with the percentage", () => {
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    manager.doRender.mock.calls[0][4](42);
+
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("42%"),
+      0, // HINT_DURATION.PERSIST
+      true,
+    );
+  });
+
+  it("onProgress works through enlargeAndRender for over-size crops", () => {
+    manager.cropState.rect = { left: 1000, top: 1000, width: 500, height: 500 };
+    manager.cropState.geoBounds = {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    };
+    manager.enlargeAndRender = vi.fn();
+    manager.doRender = vi.fn(() => Promise.resolve());
+
+    manager.doExport();
+
+    expect(manager.enlargeAndRender).toHaveBeenCalledTimes(1);
+    const args = manager.enlargeAndRender.mock.calls[0];
+    expect(args.slice(4)).toEqual([800, 600, expect.any(Function)]);
+    args[6](77);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(
+      expect.stringContaining("77%"),
+      0,
+      true,
+    );
+  });
+
+  it("enlargeAndRender defers the render past a frame and restores the map after", async () => {
+    // The container is resized and the view is re-centred before the render,
+    // but the render itself has to wait a frame so the browser applies the new
+    // layout first — otherwise it measures the old size.  The callback also
+    // owns the restore, so a failed render still puts the map back.
+    const rafQueue: Array<() => void> = [];
+    const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
+      rafQueue.push(cb);
+      return 1;
+    });
+    const origLatLngBounds = (window.L as any).latLngBounds;
+    (window.L as any).latLngBounds = () => ({ getCenter: () => ({ lat: 0, lng: 0 }) });
+    const setView = vi.fn();
+    const invalidateSize = vi.fn();
+    manager.map.getCenter = () => ({ lat: 26.08, lng: 119.3 });
+    manager.map.getZoom = () => 2;
+    manager.map.options = { zoomAnimation: true };
+    manager.map.invalidateSize = invalidateSize;
+    manager.map.setView = setView;
+    const doRender = vi.fn(() => Promise.resolve());
+    manager.doRender = doRender as any;
+
+    manager.enlargeAndRender(
+      { left: 1000, top: 1000, width: 500, height: 500 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      800,
+      600,
+      percent => manager.showGlobalHint(percent),
+    );
+
+    // Resize and re-centre happen synchronously; the render does not.
+    expect(invalidateSize).toHaveBeenCalledWith(false);
+    expect(setView).toHaveBeenCalledWith(expect.anything(), 2, { animate: false });
+    expect(doRender).not.toHaveBeenCalled();
+    expect(rafQueue).toHaveLength(1);
+
+    rafQueue[0]();
+    await vi.waitFor(() => expect(doRender).toHaveBeenCalledTimes(1));
+
+    const args = doRender.mock.calls[0];
+    expect(args[0]).toEqual({ left: 1000, top: 1000, width: 500, height: 500 });
+    expect(args[4]).toBeTypeOf("function");
+    args[4](88);
+    expect(manager.showGlobalHint).toHaveBeenCalledWith(88);
+    // The frame callback finished, so the map state is back where it started.
+    expect(manager.map.options.zoomAnimation).toBe(true);
+    expect(invalidateSize.mock.calls.filter(call => call[0] === false)).toHaveLength(2);
+    (window.L as any).latLngBounds = origLatLngBounds;
+    rafSpy.mockRestore();
+  });
+
+  it("onRenderSuccess neither claims 100 nor relabels: the render hint stays", async () => {
+    // render() stops at 90 on purpose and the hint it left on screen is
+    // PERSIST, so it is still up during the encode.  Nothing here has to
+    // replace it — a relabel would only swap "loading at 90%" for a
+    // message that says nothing more.
+    manager.finishExport = vi.fn(async () => {});
+
+    manager.onRenderSuccess(document.createElement("canvas"), []);
+
+    expect(manager.showGlobalHint).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
+  });
+
+  it("claims 100 at the download, after the canvas is encoded", async () => {
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = cb =>
+      cb(new Blob(["fake"], { type: "image/png" }));
+    const downloadSpy = vi.spyOn(downloadMod, "download");
+
+    try {
+      manager.onRenderSuccess(document.createElement("canvas"), []);
+      await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+      // The 100 lands right before the download and nothing claims it
+      // earlier: the encode used to sit behind a full bar with nothing to
+      // show for it.
+      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      expect(hints).toEqual(["Exporting map... (100%)", "Export successful"]);
+    } finally {
+      HTMLCanvasElement.prototype.toBlob = origToBlob;
+      downloadSpy.mockRestore();
+    }
+  });
+
+  it("doRender re-computes the rect from geoBounds before rendering", () => {
+    // The rect the user dragged is superseded by the projected geo bounds:
+    // render() receives the projected one, so the export matches the saved
+    // geography rather than whatever the cursor happened to do.
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockResolvedValue(document.createElement("canvas"));
+    manager.onRenderSuccess = vi.fn();
+
+    const rect = { left: 999, top: 888, width: 50, height: 50 };
+    const p = manager.doRender(rect, 1, undefined, {
+      nw: { lat: 26.1, lng: 119.2 },
+      se: { lat: 26.0, lng: 119.4 },
+    });
+
+    // latLngToContainerPoint maps (lat, lng) to (x, y), so the projected rect
+    // is computed from those values rather than the dragged one.
+    expect(renderSpy.mock.calls[0][0].left).toBe(119.2);
+    expect(renderSpy.mock.calls[0][0].top).toBe(26.0);
+    expect(renderSpy.mock.calls[0][0].width).toBeCloseTo(0.2);
+    expect(renderSpy.mock.calls[0][0].height).toBeCloseTo(0.1);
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    return p;
   });
 });

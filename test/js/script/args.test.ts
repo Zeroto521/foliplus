@@ -6,6 +6,7 @@ const SPEC = {
   check: { type: "bool" },
   root: { type: "string", default: "." },
   names: { type: "array" },
+  limit: { type: "number", default: 10 },
 };
 
 describe("parseArgs", () => {
@@ -42,6 +43,44 @@ describe("parseArgs", () => {
 
     it("uses default value when absent", () => {
       expect(parseArgs([], SPEC).root).toBe(".");
+    });
+  });
+
+  describe("number values", () => {
+    it("coerces --limit=25 to a number", () => {
+      const r = parseArgs(["--limit=25"], SPEC);
+      expect(r.limit).toBe(25);
+      expect(typeof r.limit).toBe("number");
+    });
+
+    it("keeps a fractional value", () => {
+      // Truncating would silently widen a threshold band, so `--limit 15.5`
+      // must arrive as 15.5 rather than 15.
+      expect(parseArgs(["--limit=15.5"], SPEC).limit).toBe(15.5);
+    });
+
+    it("parses a positional value", () => {
+      expect(parseArgs(["--limit", "20"], SPEC).limit).toBe(20);
+    });
+
+    it("reports a non-numeric value and keeps the default", () => {
+      // Silently keeping the default would run the tool at a threshold the
+      // user never asked for, so this is an error instead.
+      const r = parseArgs(["--limit=abc"], SPEC);
+      expect(r.limit).toBe(10);
+      expect(r.errors).toContain("--limit must be a number: abc");
+    });
+
+    it("treats a blank value as an omission", () => {
+      // `Number("")` is 0, which would masquerade as an explicit zero rather
+      // than a mistake.
+      const r = parseArgs(["--limit="], SPEC);
+      expect(r.limit).toBe(10);
+      expect(r.errors).toContain("--limit requires a value");
+    });
+
+    it("uses the default when the flag is absent", () => {
+      expect(parseArgs([], SPEC).limit).toBe(10);
     });
   });
 
@@ -106,6 +145,7 @@ describe("parseArgs", () => {
       expect(r.dev).toBe(false);
       expect(r.check).toBe(false);
       expect(r.root).toBe(".");
+      expect(r.limit).toBe(10);
       expect(r.names).toEqual([]);
     });
   });
@@ -130,6 +170,10 @@ describe("help", () => {
 
   it("shows type hint for string", () => {
     expect(help(SPEC)).toContain("<path>");
+  });
+
+  it("shows type hint for number", () => {
+    expect(help(SPEC)).toContain("--limit <n>");
   });
 
   it("shows [repeated] for array", () => {

@@ -5,36 +5,65 @@
 // global names.
 
 /** Options for registerLayer / createLayerInfo. */
-export interface RegisterLayerOpts {
+interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
   isBase?: boolean;
   paneName?: string | null;
-  labelPane?: string | null;
+  /**
+   * Sub-panes for this layer, ordered by z ascending. The k-th name gets
+   * `CHILD_PANE_STEP` offset in `PaneManager.bumpPanes`. Empty or absent
+   * means the layer has a single flat pane (its `paneName`).
+   *
+   * Was `labelPane?: string | null` — that name was MeasureControl-specific
+   * and couldn't express a second, third, or fourth sub-pane. Measuring a
+   * circle now puts nodes in a middle pane between paths and labels; this
+   * field names that third slot without renaming core.
+   */
+  subPanes?: string[];
   iconSvg?: string | null;
   visible?: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values this layer exposes to the style drawer — pulled on demand,
+   *  never cached on the registry (same contract as featureCountProvider). */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters. Both the component's own panel and the layer
+   *  drawer call these — the component owns the only copy of the value. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Python CONF defaults for the delegated style fields. The drawer's Reset
+   *  button calls each styleSetter with the matching default — never the
+   *  localStorage-persisted value. Absent means the layer offers no Reset. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
-  [key: string]: unknown;
+  /** Data provenance shown in the layer attributes panel (a URL or filename). */
+  source?: string | null;
+  /** Last-update timestamp; epoch ms or any value `new Date()` can parse. */
+  updatedAt?: string | number | null;
+  /** Third-party label/value pairs appended to the attributes panel. */
+  meta?: Record<string, string | number> | null;
 }
 
 /** A layer entry in the ordered registry (read-only view). */
-export interface LayerInfo {
+interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
   visible: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   isBase: boolean;
   paneName: string | null;
-  labelPane?: string | null;
+  /** Sub-panes (see `RegisterLayerOpts.subPanes`). Ordered by z ascending. */
+  subPanes: string[];
   iconSvg: string | null;
   type: string | null;
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
@@ -43,17 +72,28 @@ export interface LayerInfo {
   isLabel?: boolean;
   /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
   onToggle?: ((visible: boolean) => void) | null;
-  /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values exposed to the drawer — pull on demand, never cached. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters shared by the component panel and the drawer. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
-  [key: string]: unknown;
+  /** Static caller-supplied provenance / freshness for the attributes panel.
+   *  These survive a provider re-registration (merged with `??`). */
+  source?: string | null;
+  updatedAt?: string | number | null;
+  meta?: Record<string, string | number> | null;
+  /** Epoch ms of the layer's first registration. Set by the registry itself —
+   *  never by the provider — so a re-registration keeps the original value. */
+  registeredAt?: number;
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
-export interface LabelAwareLayer extends L.Layer {
+interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
   options: L.LayerOptions & {
     renderer?: L.Renderer;
@@ -63,37 +103,74 @@ export interface LabelAwareLayer extends L.Layer {
 }
 
 /** Options for `LayerAPI.createLayers`. */
-export interface CreateLayersOpts {
+interface CreateLayersOpts {
   id: string;
   name?: string;
-  graphPane?: string;
-  labelPane?: string;
+  /**
+   * Sub-panes this layer's content may live in, ordered by z ascending.
+   *
+   * The first entry's `name` is the layer's base pane and doubles as
+   * `RegisterLayerOpts.paneName`. Every name is used as the z-target for
+   * `PaneManager.bumpPanes` at the layer's base z; entries past the first
+   * get successive offsets via `CHILD_PANE_STEP`.
+   *
+   * Entries with `isLabel: true` mark their leaves with the `isLabel` flag,
+   * which `countFeatureGeometry` / `util.getGeometryType` use to exclude
+   * label leaves from feature-geometry counts.
+   *
+   * Was `{ graphPane?: string; labelPane?: string }` — the pair hard-coded
+   * a two-pane shape (paths under labels) that couldn't express a node
+   * pane between them, and it made core aware of measure-specific roles.
+   * An ordered entry list lets the caller name any N panes in any order;
+   * core only knows they exist and paints them above the base by index.
+   *
+   * When empty or absent, the layer is a single flat layer with no sub-panes.
+   */
+  panes?: Array<{ name: string; isLabel?: boolean }>;
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default
    *  countFeatureGeometry (which walks all leaf geometries). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
-export interface CreateCanvasOpts {
+interface CreateCanvasOpts {
   id: string;
   name?: string;
   className?: string;
   iconSvg?: string;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Data provenance shown in the layer attributes panel (a URL or filename). */
+  source?: string | null;
+  /** Last-update timestamp; epoch ms or any value `new Date()` can parse. */
+  updatedAt?: string | number | null;
+  /** Third-party label/value pairs appended to the attributes panel
+   *  (e.g. HeatmapControl's source layer + aggregation field). */
+  meta?: Record<string, string | number> | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
-export interface CreateCanvasAPI {
+interface CreateCanvasAPI {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;
@@ -109,9 +186,25 @@ export interface CreateCanvasAPI {
 }
 
 /** Return type of `LayerAPI.createLayers`. */
-export interface CreateLayersAPI {
+interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
-  addLayer: (layer: L.Layer, isLabel?: boolean) => L.Layer;
+  /**
+   * Add a layer into this layer's tree, pinned to the given sub-pane.
+   *
+   * `paneName` must be one of the pane names passed via `createLayers`'s
+   * `opts.panes` (component-defined — `MeasureControl/const.ts:PANES`
+   * supplies the values, so callers never write pane-name string literals).
+   * Passing a name not in that list routes to the base layerGroup and
+   * silently ignores the pin; that is the same behavior as an empty
+   * `opts.panes` — the layer goes in as-is.
+   *
+   * Was `(layer, isLabel?: boolean) => L.Layer`, which was a single boolean
+   * dispatch between graph and label. `isNode` had to be added to that
+   * dispatch for MeasureControl to keep nodes above paths — each new role
+   * meant another boolean. `paneName` accepts a component-owned string and
+   * scales to any number of roles without another parameter.
+   */
+  addLayer: (layer: L.Layer, paneName?: string) => L.Layer;
   removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
   clearLayers: () => void;
   register: () => void;
@@ -127,7 +220,7 @@ export interface CreateLayersAPI {
  *   - ensureLayerAPI's lightweight default (createLayers/createCanvas only;
  *     registry/query methods are no-ops returning empty results)
  */
-export interface LayerAPI {
+interface LayerAPI {
   /** Diagnostic marker (true = LayerManager, false = lightweight stub).
    * Not authoritative for dependency checks — use isRealLayerControl, which
    * asserts the registry-delegating `layers` getter that only LayerManager
@@ -142,6 +235,21 @@ export interface LayerAPI {
   unregisterLayer: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
+  /**
+   * Programmatically set a layer's visibility — the same transition the panel
+   * checkbox performs: the Leaflet layer is added to or removed from the map,
+   * callback-only (canvas) layers get `onToggle`, the panel row's checkbox and
+   * toggle-all control follow, and the persisted hidden set is updated so the
+   * choice survives a reload.
+   *
+   * This closes the write side of the visibility contract. `LayerInfo.visible`,
+   * `onToggle`, and the persisted hidden set all existed already, but only the
+   * panel's checkbox wrote them, so a host page that wanted to hide layers by
+   * id had to synthesize a DOM event against a row it does not own.
+   *
+   * @returns true if the layer was found and its visibility was set.
+   */
+  setVisible: (id: string, visible: boolean) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (
@@ -154,4 +262,25 @@ export interface LayerAPI {
   /** Return the number of geometric features in a registered layer.
    *  Null when the layer cannot be counted (e.g. Canvas without provider). */
   getFeatureCount?: (id: string) => number | null;
+  /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
+  touchLayer?: (id: string) => boolean;
+  /** Move a layer one position toward index 0, respecting group boundaries.
+   *  False if already at the top, at a group boundary, or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerUp?: (id: string) => boolean;
+  /** Move a layer one position away from index 0, respecting group boundaries.
+   *  False if already at the bottom of its group or unknown.
+   *  Only LayerManager implements this — the lightweight stub has no registry. */
+  moveLayerDown?: (id: string) => boolean;
 }
+
+export type {
+  CreateCanvasAPI,
+  CreateCanvasOpts,
+  CreateLayersAPI,
+  CreateLayersOpts,
+  LabelAwareLayer,
+  LayerAPI,
+  LayerInfo,
+  RegisterLayerOpts,
+};

@@ -1,0 +1,474 @@
+/* ── Layer Control ── */
+.foliplus-layer-ctrl {
+  /* ── Drag & Drop Variables ──
+     Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
+  --drag-border-width: var(--border-thick);
+
+  /* Drop-position glow (top/bottom) */
+  --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
+    var(--accent-primary);
+  --drag-bottom-shadow: 0 var(--size-2) var(--size-6) calc(-1 * var(--size-2))
+    var(--accent-primary);
+
+  /* Pulse animation timing */
+  --drag-pulse-duration: 0.8s;
+  --drag-pulse-count: 3;
+
+  /* Pulse border: start (from) and end (to) colors during the pulse */
+  --drag-border-from: var(--accent-primary);
+  --drag-border-to: var(--accent-hover);
+  /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
+  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin))
+    var(--accent-primary);
+  --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
+
+  /* ── Layout ── */
+  --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
+
+  /* ── Shared 6-column track for all layer rows ──
+    Each row is an independent grid container that reuses this track.
+    Using a single CSS variable keeps column widths in sync across
+    layer-item / toggle-all / color-item rows without subgrid.
+    All track dimensions are named so the count / more columns stay
+    synchronised in --grid-layer-cols and each element's own width.
+    Track width includes the count column's 4px right padding, so usable
+    content is ~34px — about 3 digits at font-size-xs. Counts at or above
+    1000 are rendered compact by formatNumber("auto") (12K, 1.2万), so
+    overflow/ellipsis below is a last-resort guard for locales whose
+    compact unit is wider (de 10.000). */
+  --count-track-width: 38px;
+  --more-btn-width: 7px;
+  --grid-layer-gap: 3px;
+  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-track-width)
+    var(--space-xl) var(--more-btn-width);
+
+  /* ── Row min-height ──
+     Data rows are taller than group headers only because a data label spans
+     1fr at font-size-md (≈19px line box) while a header has no more-btn col.
+     Pin both to one height so the checkbox/label columns sit on the same
+     baseline across every row type. Rows set box-sizing: border-box and this
+     value is the TOTAL box height, so it is independent of the outer context. */
+  --layer-row-min-height: calc(
+    var(--space-md) * 2 + var(--font-size-md) * var(--line-height-hint)
+  );
+
+  /* ── Panel Content Overrides ── */
+  .foliplus-panel-content {
+    padding: var(--space-sm) 0;
+    max-height: var(--panel-max-height);
+  }
+  /* ── LAYERS icon: stacked diamond opacity ── */
+  .foliplus-toggle-btn svg polygon:nth-child(2),
+  .foliplus-header-icon svg polygon:nth-child(2) {
+    opacity: var(--alpha-70);
+  }
+  .foliplus-toggle-btn svg polygon:nth-child(3),
+  .foliplus-header-icon svg polygon:nth-child(3) {
+    opacity: var(--alpha-30);
+  }
+  .foliplus-type-icon-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-xl);
+    height: var(--space-xl);
+    color: var(--text-muted);
+
+    /* Four-tier role hierarchy: identity icons recede at rest and wake to
+       black (primary) on hover/active. Accent stays reserved for status
+       (checkbox + left border) and actions (more), so the type icon reads as
+       focus, not as a call-to-action. */
+
+    svg {
+      /* Uniform visual size: every type icon fills its cell. Each viewBox is
+         inset by a small margin so the 1.8px stroke sits fully inside the box
+         (nothing clipped) and the visible icon stays consistent and legible. */
+      width: 100%;
+      height: 100%;
+      display: block;
+
+      /* Shared dashed style for EMPTY / UNKNOWN icons.
+         Matches --stroke-icon (1.8) so the whole type-icon family renders
+         at a single consistent weight. */
+      .dashed {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: var(--stroke-icon);
+        stroke-dasharray: 4 3;
+      }
+    }
+  }
+  /* ── Section label (rendered only inside toggle-all rows) ── */
+  .foliplus-layer-sep-label {
+    grid-area: label;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-tight);
+    white-space: nowrap;
+  }
+
+  /* ── Shared grid placements (each row is an independent grid container,
+       so these global rules apply inside all of them via grid-context evaluation). */
+  .foliplus-drag-cell {
+    grid-area: drag;
+    /* Always black. The grip is a static affordance, not a control that joins
+       the hover/active color dance, so it never tints accent. */
+    color: var(--text-primary);
+  }
+  .foliplus-checkbox {
+    grid-area: check;
+  }
+  .foliplus-layer-label {
+    grid-area: label;
+  }
+  .foliplus-layer-count {
+    grid-area: count;
+  }
+  .foliplus-type-icon-col {
+    grid-area: icon;
+  }
+  .foliplus-layer-more-btn {
+    grid-area: more;
+  }
+
+  /* ── Toggle-all item (section header row) ──
+    Right padding tighter than regular items to align the left border with
+    items, since toggle-all has no checkbox column. */
+  .foliplus-layer-sep.foliplus-layer-toggle-all {
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    /* Drag/check/label are named slots (placed via item-level grid-area
+       shared with layer-item rows). Divider is 3 anonymous slots —
+       positioned by grid-column: 4 / -1 on the item, not a named area.
+       This avoids the dual-declaration coupling (template-areas + item
+       grid-area) that only the divider originally had. */
+    grid-template-areas: "drag check label . . .";
+    column-gap: var(--grid-layer-gap);
+    align-items: center;
+    /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
+       and a data row measure out to the same total box height: padding +
+       --layer-row-min-height. A group header without an explicit right padding
+       would fall back to the browser default (~8px), making it visibly taller
+       and misaligning its left border with the data rows below it. */
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    box-sizing: border-box;
+    min-height: var(--layer-row-min-height);
+    border-left: var(--border-thick) solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: none;
+    /* border-color and background-color intentionally NOT animated: the
+       toggle-all row is destroyed and re-created on every list rebuild, and
+       its folded state (border-left-color: var(--accent-primary)) is re-applied
+       on rebuild, so a transition on either would flash on each rebuild. */
+
+    .foliplus-section-divider {
+      grid-column: 4 / -1;
+    }
+  }
+  /* Section label: primary color + semibold so it reads as a real header */
+  .foliplus-layer-toggle-all .foliplus-layer-sep-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+  }
+  /* Folded: accent left border + accent fold-btn; divider fades out */
+  .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
+    border-left-color: var(--accent-primary);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-section-divider {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  /* ── Fold toggle button ── */
+  .foliplus-layer-fold-btn {
+    grid-area: drag;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: var(--space-xl);
+    height: var(--space-xl);
+    flex-shrink: 0;
+    color: var(--text-primary);
+    transition:
+      color var(--transition-fast),
+      transform var(--transition-fast);
+
+    svg {
+      display: block;
+      width: var(--space-xl);
+      height: var(--space-xl);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: var(--stroke-icon);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform var(--transition-fast);
+    }
+    &:hover {
+      color: var(--accent-primary);
+
+      svg {
+        transform: scale(var(--scale-hover));
+      }
+    }
+    /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
+       can't take the row cursor's border/glow without looking oversized. The
+       colour + scale preview already say "expand this group" (see the state
+       preview rules below), so the soft glow is enough to mark it focused. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
+    &:active {
+      transform: scale(var(--scale-press));
+
+      svg {
+        transform: scale(var(--scale-press));
+      }
+    }
+  }
+  /* ── Fold button interaction: bidirectional state preview ──
+    Folded → interaction: red → black (preview expanded state)
+    Expanded → interaction: black → red (preview folded state)
+    Keyed on :is(:hover, .foliplus-layer-focused) so the fold icon wakes the
+    same way the row does. Tab focus is not a CSS trigger: the focusin
+    delegate maps `:focus-visible` onto the row's JS class, which is already
+    in this selector. */
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn svg {
+    transform: rotate(180deg);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
+    color: var(--accent-primary);
+  }
+  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
+      :hover,
+      .foliplus-layer-focused
+    )
+    .foliplus-layer-fold-btn {
+    color: var(--accent-primary);
+  }
+  .foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover, .foliplus-layer-focused)
+    .foliplus-layer-fold-btn {
+    color: var(--text-primary);
+  }
+
+  /* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
+  .foliplus-layer-item.foliplus-layer-group-folded {
+    display: none;
+  }
+
+  /* ── Drag handle ──
+    Shared size for all drag handles in layer rows.
+    Shown on hover for draggable items; hidden for color rows. */
+  .drag-handle {
+    display: block;
+    width: var(--space-xl);
+    height: var(--space-xl);
+  }
+  .foliplus-layer-item .drag-handle {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  /* The visible state comes from the Row-cursor recipe below; color rows are
+     never draggable, so their handle stays hidden regardless of the cursor. */
+  .foliplus-color-layer-item .drag-handle {
+    visibility: hidden;
+  }
+
+  /* ── Row cursor ──
+     ONE recipe for a row that is the interaction target: mouse hover and the
+     JS cursor class (.foliplus-layer-focused). They share the recipe, so the
+     white surface, glow, drag grip, type icon and more button read identically
+     whichever way the user arrives at the row. The fold (toggle-all) row joins
+     the same selector group, so it cannot drift back into its own hover style.
+
+     :focus-visible is deliberately NOT a CSS trigger. Tab focus is sampled
+     once in the container's focusin delegate (`el.matches(':focus-visible')`)
+     and mapped onto the row class via closest(ROW); Escape is therefore a
+     single class removal with no residual selector to outrank. A checked row
+     carries .active, a persistent checkbox state rather than a cursor, so it
+     keeps the wash and the left bar under the glow and never shows the grip.
+     transition: none is kept on the rows because they are destroyed and
+     re-created on every list rebuild; a border-color or background transition
+     would flash the already-checked rows on each rebuild. */
+  .foliplus-layer-item,
+  .foliplus-layer-sep.foliplus-layer-toggle-all {
+    /* Rows always paint an explicit surface — never transparent — so a
+       resting unchecked row and an interaction target cannot disagree
+       (one "white via the container", one "painted white"). Checked rows
+       override with the wash below; hover / Tab / arrow paint white on top. */
+    background: var(--neutral-0);
+
+    /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
+       default dark outline is never the focus signal here — the red glow is —
+       so it is suppressed on every focus state, not only while the recipe is
+       lit. Otherwise Escape would lift the class and leave a black frame on
+       the still-focused row. */
+    &:focus,
+    &:focus-visible {
+      outline: none;
+    }
+
+    &.active {
+      border-left-color: var(--accent-primary);
+      background: var(--accent-light);
+    }
+    /* Declared after .active so the interaction target wins over the wash
+       at equal specificity: a checked row turns white when hover / Tab /
+       arrow arrives, and the wash returns when it leaves. */
+    &:is(:hover, .foliplus-layer-focused) {
+      /* Outboard box-shadow (the bottom glow) would be covered by the next
+         row's opaque surface — rows are never transparent (#277). Raise the
+         interaction target so both glow edges paint above its neighbors. */
+      position: relative;
+      z-index: 1;
+      /* The left accent bar is deliberately NOT set here: it is a persistent
+         "layer visible" (checked) indicator, so it only turns red on .active /
+         a folded group, never on a transient hover/keyboard cursor. */
+      /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
+         vertical (no left/right bleed). */
+      box-shadow:
+        0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
+        0 var(--size-2) var(--size-4) var(--accent-primary);
+      background: var(--neutral-0);
+
+      .foliplus-drag-cell .drag-handle {
+        opacity: 1;
+      }
+      .foliplus-type-icon-col {
+        color: var(--text-primary);
+      }
+      .foliplus-layer-more-btn {
+        color: var(--accent-primary);
+      }
+    }
+  }
+
+  /* ── Open overlay: the owner row lifts above its siblings ──
+     While the ⋮ menu or a row panel (attrs / style) is open, sibling rows
+     keep their normal hover wake — that is their own state display. The one
+     thing that must hold is the overlay staying visible. Its fixed z-index
+     (9990 menu / 10 row panel) is NOT enough on its own: opening a menu
+     focuses its first item, so the container's focusin delegate marks the
+     OWNER row `.foliplus-layer-focused` — the recipe then gives it z-index
+     1, confining the overlay inside a stacking context where a LATER lit
+     sibling (z-index 1, later in DOM) paints over it (measured, not
+     guessed). Lifting the owner row itself to the floating index carries
+     the open overlay with it and settles every combination. */
+  &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
+    .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
+      z-index: var(--z-index-floating);
+    }
+  }
+
+  /* ── Base basemap / color picker rows stay quiet ──
+     No cursor glow or white wash on hover / keyboard focus: these are
+     stack slots, not data layers you navigate to. The row itself stays
+     clickable (checkbox) — only the focus-layer action is disabled (see
+     the ⋮ menu). Checked `.active` wash still applies for visibility. */
+  .foliplus-layer-item[data-layer-type="base"],
+  .foliplus-color-layer-item {
+    &:is(:hover, .foliplus-layer-focused) {
+      box-shadow: none;
+      background: transparent;
+      cursor: default;
+    }
+  }
+  .foliplus-layer-item[data-layer-type="base"].active:is(
+      :hover,
+      .foliplus-layer-focused
+    ),
+  .foliplus-color-layer-item.active:is(:hover, .foliplus-layer-focused) {
+    background: var(--accent-light);
+  }
+
+  /* ── Layer item ── */
+  .foliplus-layer-item {
+    display: grid;
+    grid-template-columns: var(--grid-layer-cols);
+    grid-template-areas: "drag check label count icon more";
+    column-gap: var(--grid-layer-gap);
+    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    align-items: center;
+    box-sizing: border-box;
+    min-height: var(--layer-row-min-height);
+    cursor: default;
+    user-select: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    border-left: var(--border-thick) solid transparent;
+    transition: none;
+    /* border-color and background-color intentionally NOT animated on this
+       row: the item is destroyed and re-created on every list rebuild
+       (fold click -> renderInitialList), so a transition on either would
+       cause .active rows (checked layers) to flash on each rebuild. */
+
+    .foliplus-layer-label {
+      cursor: inherit;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
+    /* ── Feature count column ──
+      Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
+      so the 38px track fits the value; ellipsis is a last-resort guard for
+      locales whose compact unit is wider (de 10.000).
+      Stays muted gray in every state: the count is annotation, not a control,
+      so it intentionally does not join the hover/active color dance. */
+    .foliplus-layer-count {
+      font-variant-numeric: tabular-nums;
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: var(--line-height-hint);
+      padding: 0 0 0 var(--space-xs);
+    }
+
+    &[draggable="true"] {
+      cursor: move;
+    }
+    /* .active surface/border live with the Row-cursor recipe above so the
+       interaction white (later, equal specificity) can out-rank the wash.
+       This block only carries the type-icon wake. */
+    /* Identity: gray at rest, wakes to black on hover and when the row is
+       active. Accent stays reserved for actions (more) and status (border),
+       so the type icon reads as focus, not as a call-to-action. */
+    &:hover .foliplus-type-icon-col,
+    &.active .foliplus-type-icon-col {
+      color: var(--text-primary);
+    }
+    &.foliplus-layer-dragging {
+      background: var(--accent-light);
+      opacity: var(--alpha-70);
+    }
+    &.foliplus-layer-drag-over-top {
+      border-top: var(--drag-border-width) solid var(--accent-primary);
+      background: var(--accent-soft-bg);
+      box-shadow: var(--drag-top-shadow);
+      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+        var(--drag-pulse-count);
+    }
+    &.foliplus-layer-drag-over-bottom {
+      border-bottom: var(--drag-border-width) solid var(--accent-primary);
+      background: var(--accent-soft-bg);
+      box-shadow: var(--drag-bottom-shadow);
+      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
+        var(--drag-pulse-count);
+    }
+  }
+}

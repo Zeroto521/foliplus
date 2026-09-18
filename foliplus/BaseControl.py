@@ -3,10 +3,10 @@
 Every foliplus component (FullscreenControl, HeatmapControl, LayerControl, ...)
 inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
-* **Shared assets** — ``common.css`` (with ``panel.css`` merged in), ``runtime.js``
-  (with ``runtime/*.js`` bundled) and the common locale tables are emitted **once per
-  map** into ``<head>`` by :meth:`BaseControl.render`, deduplicated by
-  :data:`_SHARED_ASSETS_NAME`.
+* **Shared assets** — the merged shared stylesheet (``css/common/*.css``),
+  ``runtime.js`` (with ``runtime/*.js`` bundled) and the common locale tables are
+  emitted **once per map** into ``<head>`` by :meth:`BaseControl.render`,
+  deduplicated by :data:`_SHARED_ASSETS_NAME`.
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
@@ -17,8 +17,8 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 from __future__ import annotations
 
+import json
 from functools import cache
-from json import dumps
 from pathlib import Path
 from textwrap import dedent
 
@@ -26,17 +26,50 @@ from branca.element import Element, Figure
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
+from jinja2.utils import htmlsafe_json_dumps
 
 from ._typing import Position
+from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
-js_dir = src_dir / "js"
-css_dir = src_dir / "css"
 dist_dir = src_dir / "dist"
 
+# `script/build.mjs` writes this on every real build, listing what actually
+# landed in `dist/`. Both test suites read it instead of re-deriving the
+# artifact names from prose, so a new component can't be forgotten on one
+# side and pass on the other.
+ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
+
+# JS line terminators. Legal JSON, but emitted literally they would end the
+# containing ``<script>`` statement early — folium's ``|tojson`` drops them,
+# so this pass matches what folium already guarantees for the same payload.
+_LINE_TERMINATORS = {chr(0x2028): "\\u2028", chr(0x2029): "\\u2029"}
+
+
+def _safe_json(value: object) -> str:
+    """Serialize ``value`` for injection into a classic ``<script>`` tag.
+
+    Wraps Jinja's :func:`htmlsafe_json_dumps` — the same routine behind
+    folium's own ``|tojson`` filter — so a ``<``, ``>``, ``&``, or ``'`` in a
+    model-supplied string can never close the script tag.
+
+    Adds one thing folium does not: U+2028/U+2029 are emitted as ``\\u2028``
+    escapes instead of literal characters.
+
+    ``ensure_ascii=False`` is deliberate — layer names are usually CJK, and
+    ``\\uXXXX`` escapes would roughly double the size of the shared locale
+    tables injected once per map.
+    """
+    text = str(htmlsafe_json_dumps(value, ensure_ascii=False))
+    for raw, escape in _LINE_TERMINATORS.items():
+        text = text.replace(raw, escape)
+    return text
+
+
 # Stable child name used to deduplicate the shared asset bundle in a figure's
-# header, so runtime.js / common.css / locale tables are emitted only once per map.
+# header, so runtime.js / the merged shared stylesheet / locale tables are
+# emitted only once per map.
 _SHARED_ASSETS_NAME = "foliplus_shared"
 
 
@@ -44,10 +77,21 @@ _SHARED_ASSETS_NAME = "foliplus_shared"
 def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
-    Contains common.css (with panel.css merged in), runtime.js (with runtime/*.js
-    bundled in), and the common locale tables (shared by all components).
+    Contains the merged shared stylesheet (all of css/common/), runtime.js
+    (with runtime/*.js bundled in), and the common locale tables (shared by
+    all components).
     Built once and cached at module level.
     """
+    missing = [
+        a
+        for a in (
+            dist_dir / "foliplus-common.min.css",
+            dist_dir / "foliplus-common.min.js",
+        )
+        if not a.is_file()
+    ]
+    if missing:
+        raise MissingAssetsError(missing)
     css = (dist_dir / "foliplus-common.min.css").read_text(encoding="utf-8")
     js = (dist_dir / "foliplus-common.min.js").read_text(encoding="utf-8")
 
@@ -58,26 +102,51 @@ def _build_shared_header() -> str:
         "<script>\n"
         f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
-        f"window.foliplus._TABLES = {dumps(_load_tables('common.*.json'), ensure_ascii=False)};\n"
+        f"window.foliplus._TABLES = {_safe_json(_load_tables('common.*.json'))};\n"
         "</script>"
     )
 
 
 def _load_asset(artifact: Path) -> str:
-    """Read an asset, preferring the minified artifact.
+    """Read one component artifact from ``dist/``.
 
-    Resolution order:
-    1. Prefer the minified artifact from ``dist/`` if it exists.
-    2. Fall back to the source file.
-
-    Components that use ES module ``import`` (migrated ones) **must** be read from the
-    bundled artifact, which is always present after a ``make build-js`` run.
-
-    Returns ``""`` when neither the source nor the artifact exists (a component simply
-    may not ship a given CSS/JS asset).
+    Raises :class:`MissingAssetsError` when the artifact is absent, so a package
+    built without the JS build fails loudly instead of rendering an empty
+    component.
     """
 
-    return artifact.read_text(encoding="utf-8") if artifact.is_file() else ""
+    if not artifact.is_file():
+        raise MissingAssetsError([artifact])
+    return artifact.read_text(encoding="utf-8")
+
+
+def control_assets(name: str) -> tuple[Path, Path]:
+    """Return the ``dist/`` pair for one control: ``(js, css)``.
+
+    The single place that knows how a control name maps to artifacts, so a
+    control cannot ship one half without the other.
+    """
+
+    return (
+        dist_dir / f"foliplus-{name}.min.js",
+        dist_dir / f"foliplus-{name}.min.css",
+    )
+
+
+def expected_artifacts() -> list[str]:
+    """Every ``dist/`` filename a complete build emits, as bare names.
+
+    Read from the manifest the build writes, not re-derived: ``test_asset.py``
+    asserts wheel membership against this list and ``build.test.ts`` asserts
+    artifact presence, so a component added on one side fails both stacks.
+
+    Filenames come through :func:`control_assets`, the one place that knows how
+    a component name maps to artifacts — re-deriving them here would let a
+    rename land on one side and miss the other.
+    """
+
+    names = json.loads(ARTIFACTS_MANIFEST.read_text(encoding="utf-8"))["artifacts"]
+    return [p.name for name in names for p in control_assets(name)]
 
 
 @cache
@@ -88,8 +157,9 @@ def _build_component_template(name: str) -> Template:
     render-time CONF / map name differ, both resolved at render time), so it
     is built a single time per component name instead of on every render.
     """
-    js = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.js"))
-    css = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.css"))
+    js_artifact, css_artifact = control_assets(name)
+    js = _load_asset(js_artifact)
+    css = _load_asset(css_artifact)
 
     return Template(
         dedent(f"""\
@@ -107,6 +177,33 @@ def _build_component_template(name: str) -> Template:
         }})();
         {{% endmacro %}}""")
     )
+
+
+class MissingAssetsError(RuntimeError):
+    """Raised when a bundled asset is absent from ``dist/``.
+
+    A control's JS/CSS and the shared runtime bundle ship as compiled artifacts
+    in ``foliplus/dist/`` (see :data:`dist_dir`), which is not under version
+    control. A package without them is unusable, so rendering fails fast with
+    the build step named instead of emitting an empty ``<script>`` tag that dies
+    with no clue in the browser console.
+    """
+
+    def __init__(self, missing: list[Path]) -> None:
+        # A missing path outside the source tree (a test pointing `dist_dir`
+        # at a throwaway copy) cannot be made repo-relative; the message must
+        # not itself raise, so fall back to the absolute path.
+        names = ", ".join(
+            str(p.relative_to(src_dir.parent))
+            if p.is_relative_to(src_dir.parent)
+            else str(p)
+            for p in missing
+        )
+        super().__init__(
+            f"foliplus bundled assets missing: {names}. "
+            "Run `make build-js` in the source checkout, then rebuild the "
+            "package with `uv build` (`make dist` does both)."
+        )
 
 
 class BaseControl(JSCSSMixin, MacroElement):
@@ -141,6 +238,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: than failing later as a bare ``AttributeError``.
     _export_fields: tuple[str, ...] = ()
 
+    @validate
     def __init__(
         self,
         *,
@@ -157,7 +255,11 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _locale_code(self) -> str:
-        """Legacy property — returns the locale code for tests."""
+        """The resolved locale code, or ``""`` when unset (auto-detect at runtime).
+
+        A lightweight assertion point: it exposes the resolved code without
+        rendering, which would otherwise require the full Jinja2 + dist pipeline.
+        """
         return self._locale.code if self._locale else ""
 
     @property
@@ -174,12 +276,30 @@ class BaseControl(JSCSSMixin, MacroElement):
 
         Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
         inline ``<script>`` injection.
+
+        The JSON is escaped through :func:`_safe_json` rather than plain
+        ``json.dumps``: config values can carry model-supplied strings (layer
+        names, export filenames, ...), and a literal ``</script>`` inside them
+        would otherwise close the inline script tag and let the rest of the
+        string execute as script.
         """
         config = dict(self._build_config())
-        config["locale_tables"] = _load_tables(f"{self._name}.*.json")
-        config["locale_code"] = self._locale.code if self._locale else ""
+        # A LocaleConfig carrying its own strings (from_json / resolve_locale) layers
+        # those over a built-in per-component table, so a partial custom table only
+        # overrides the keys it declares and leaves the rest translated. A code that
+        # has no built-in table (a genuinely new language from from_json) falls back
+        # to English, which carries every key. Empty strings mean "auto-detect at
+        # runtime", so ship the built-in tables with no overlay.
+        code = self._locale.code if self._locale else ""
+        strings = self._locale._strings if self._locale else {}
+        builtins = _load_tables(f"{self._name}.*.json")
+        base = dict(builtins.get(code, builtins.get("en", {})))
+        config["locale_tables"] = {
+            code or "en": {**base, **strings} if strings else base
+        }
+        config["locale_code"] = code
         # config always contains at least name/position — never empty.
-        return dumps(config)
+        return _safe_json(config)
 
     def _extra_config(self) -> dict:
         """Return render-time config injected into the JS ``CONF`` object.
@@ -241,8 +361,8 @@ class BaseControl(JSCSSMixin, MacroElement):
     def _get_template(self) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
 
-        Shared assets (``common.css`` with ``panel.css`` merged in, ``runtime.js``, and
-        the locale tables) are injected once per map by :meth:`render`, so this template
+        Shared assets (the merged ``css/common/`` stylesheet, ``runtime.js``, and the
+        locale tables) are injected once per map by :meth:`render`, so this template
         only carries the component-specific CSS/JS plus a small call to resolve the
         locale from the shared ``window.foliplus._TABLES``.
 

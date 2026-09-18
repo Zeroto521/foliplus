@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from typing import Annotated, Literal
 
 from ._cdn_loader import load_cdn
-from ._typing import Position
+from ._typing import Fraction, Position, PositiveInt
+from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
-LABEL_FORMAT = Literal["auto", "int", "comma"]
+LABEL_FORMAT = Literal["auto", "int", "comma", "percent"]
 
 
 class HeatmapControl(BaseControl):
@@ -72,27 +73,27 @@ class HeatmapControl(BaseControl):
         that numeric property.
 
     border_weight : float, default 1.5
-        Hexagon border width in canvas units.
+        Hexagon border width in canvas units. Must not be negative.
 
     border_color : str, default "#333333"
         Hexagon border color.
 
     fill_opacity : float, default 0.7
-        Hexagon fill opacity.
+        Hexagon fill opacity, between 0.0 and 1.0.
 
     border_opacity : float, default 0.9
-        Hexagon border opacity.
+        Hexagon border opacity, between 0.0 and 1.0.
 
     label_show : bool, default True
         Whether to show the aggregated value as a label at each hex center.
 
-    label_size : int, default 11
-        Label font size (px).
-
     label_color : str, default "#fff"
         Label text color.
 
-    label_format : Literal["auto", "int", "comma"], default "auto"
+    label_size : int, default 11
+        Label font size (px). Must be positive.
+
+    label_format : Literal["auto", "int", "comma", "percent"], default "auto"
         Number format for hexagon value labels:
 
         - ``"auto"``: locale-native compact notation (en ``10K``, zh ``1.2万``);
@@ -100,8 +101,9 @@ class HeatmapControl(BaseControl):
           locale.
         - ``"int"``: plain integer with no grouping (``6000``).
         - ``"comma"``: thousands separator (``6,000``).
+        - ``"percent"``: fraction × 100 with a ``%`` suffix (``0.35`` → ``35%``).
 
-        ``"int"`` and ``"comma"`` are locale-agnostic.
+        ``"int"``, ``"comma"``, and ``"percent"`` are locale-agnostic.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -130,46 +132,32 @@ class HeatmapControl(BaseControl):
         "fill_opacity",
         "border_opacity",
         "label_show",
-        "label_size",
         "label_color",
+        "label_size",
         "label_format",
     )
 
+    @validate
     def __init__(
         self,
         *,
         position: Position = "topleft",
         color_scheme: str = "Reds",
         method: METHOD = "jenks",
-        n_classes: int = 6,
+        n_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
         schemes: list[str] | None = None,
         field: str | None = None,
-        border_weight: float = 1.5,
+        border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_color: str = "#333333",
-        fill_opacity: float = 0.7,
-        border_opacity: float = 0.9,
+        fill_opacity: Fraction = 0.7,
+        border_opacity: Fraction = 0.9,
         label_show: bool = True,
-        label_size: int = 11,
         label_color: str = "#fff",
+        label_size: PositiveInt = 11,
         label_format: LABEL_FORMAT = "auto",
         locale: str | LocaleConfig | None = None,
     ):
-        if method not in get_args(METHOD):
-            raise ValueError(
-                f"method must be one of {get_args(METHOD)}, got {method!r}"
-            )
-        if not isinstance(n_classes, int) or n_classes < 2 or n_classes > 9:
-            raise ValueError(
-                f"n_classes must be an int between 2 and 9, got {n_classes!r}"
-            )
-        if agg not in get_args(AGG):
-            raise ValueError(f"agg must be one of {get_args(AGG)}, got {agg!r}")
-        if label_format not in get_args(LABEL_FORMAT):
-            raise ValueError(
-                f"label_format must be one of {get_args(LABEL_FORMAT)}, got {label_format!r}"
-            )
-
         super().__init__(position=position, locale=locale)
         self.field = field
         self.color_scheme = color_scheme
@@ -190,7 +178,7 @@ class HeatmapControl(BaseControl):
         self.fill_opacity = fill_opacity
         self.border_opacity = border_opacity
         self.label_show = label_show
-        self.label_size = label_size
         self.label_color = label_color
+        self.label_size = label_size
         self.label_format = label_format
         self._template = self._get_template()

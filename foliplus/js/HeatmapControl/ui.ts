@@ -1,26 +1,40 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { renderLabelControls } from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
+import {
+  bindLiveColor,
+  bindLiveNumber,
+  clampLabelSize,
+  normalizeHexColor,
+} from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
-const T = createScopedTranslator(CONF);
-
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
-export interface HeatmapControlUI {
+interface HeatmapControlUI {
   m: HeatmapManager;
+  /** Component config — carried on the state object instead of a module-level
+   *  free variable, so every UI function is unit-testable with its own CONF. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once by the control / test fixture. */
+  T: (key: string) => string;
+  /** Unscoped translator for the shared `foliplus.*` vocabulary — the label
+   *  controls this panel shares with LayerControl's style drawer. */
+  _: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
-  schemeBarCleanup?: () => void;
-  dropdownCleanup?: () => void;
-  toggleDropdown?: () => void;
-  selectScheme?: (idx: number) => void;
+  schemeBarCleanup: (() => void) | null;
+  dropdownCleanup: (() => void) | null;
+  toggleDropdown: (() => void) | null;
+  selectScheme: ((idx: number) => void) | null;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
@@ -35,16 +49,22 @@ export interface HeatmapControlUI {
   schemeSelectHidden: HTMLSelectElement;
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
-  labelChk: HTMLInputElement;
+  labelRefresh: (() => void) | null;
+  styleChangeCleanup: (() => void) | null;
   closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
 }
 
 /** Save the current config after any user-initiated change. */
-const persist = (ctrl: HeatmapControlUI) => ctrl.m.saveConfig();
+const persist = (ctrl: HeatmapControlUI) => {
+  ctrl.m.saveConfig();
+  // Field/layer changes rewrite the canvas — mirror source layer + field into
+  // the attrs panel and stamp Updated so the panel tracks the latest render.
+  ctrl.m.syncSourceMeta();
+};
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
-  panelContent.innerHTML = panelContentHTML(T);
+  panelContent.innerHTML = panelContentHTML(ctrl.T);
 
   // Restore saved configuration before setting initial values.
   const saved = ctrl.m.loadSavedConfig();
@@ -90,14 +110,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.borderWeightInput = panelContent.querySelector(
     `[${CONST.DATA_ATTR.BORDER_WEIGHT}]`,
   ) as HTMLInputElement;
-  ctrl.labelChk = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_CHK}]`,
-  ) as HTMLInputElement;
 
   // Set initial values from manager defaults
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-  ctrl.labelChk.checked = ctrl.m.currentLabelShow;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -105,7 +121,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.value = ctrl.m.currentAgg;
 
   // Populate scheme options and set current value
-  (CONF.schemes ?? []).forEach(name => {
+  (ctrl.conf.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
@@ -123,6 +139,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.m.renderHexagons();
     persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
   ctrl.methodSelect.onchange = () => {
@@ -149,10 +166,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     event.stopPropagation();
     toggleSchemeDropdown(ctrl);
   };
-  ctrl.schemeBarCleanup = registerSchemeBarEvents(map, ctrl);
+  ctrl.schemeBarCleanup = registerSchemeBarEvents(ctrl.m.map, ctrl);
   ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
   ctrl.selectScheme = (idx: number) => {
-    const name = (CONF.schemes ?? [])[idx];
+    const name = (ctrl.conf.schemes ?? [])[idx];
     if (name) selectScheme(ctrl, name);
   };
 
@@ -163,40 +180,49 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
-  ctrl.borderColorInput.oninput = () => {
-    ctrl.m.borderColor = ctrl.borderColorInput.value;
+  bindLiveColor(ctrl.borderColorInput, value => {
+    ctrl.m.borderColor = value;
     ctrl.m.renderHexagons();
     persist(ctrl);
-  };
-  ctrl.borderColorInput.onchange = () => {
-    persist(ctrl);
-  };
+  });
 
-  ctrl.borderWeightInput.oninput = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
-      ctrl.m.borderWeight = v;
+  bindLiveNumber(ctrl.borderWeightInput, {
+    min: CONST.BORDER.WEIGHT_MIN,
+    max: CONST.BORDER.WEIGHT_MAX,
+    fallback: CONST.BORDER.WEIGHT_DEFAULT,
+    onCommit: value => {
+      ctrl.m.borderWeight = value;
       ctrl.m.renderHexagons();
-      // Persist during input (not only onchange) so an uncommitted edit
-      // still survives a reload instead of snapping back to the default.
       persist(ctrl);
-    }
-  };
-  ctrl.borderWeightInput.onchange = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    ctrl.m.borderWeight = isNaN(v)
-      ? CONST.BORDER.WEIGHT_DEFAULT
-      : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
-    ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
+    },
+  });
 
-  ctrl.labelChk.onchange = () => {
-    ctrl.m.currentLabelShow = ctrl.labelChk.checked;
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
+  // Label controls — rendered by the shared module, which dispatches changes
+  // to the manager's own styleSetters (the same ones the layer drawer uses).
+  // The shared module handles change delegation, body collapse, and refresh.
+  // The template always carries the section divider, so the controls slot in
+  // directly above it — after the style block, before Clear.
+  const divider = ctrl.extraBody.querySelector(
+    `.${CONST.CLASSES.SECTION_DIVIDER}`,
+  ) as HTMLElement;
+  const labelControls = renderLabelControls({
+    styleProvider: () => ctrl.m.styleProvider(),
+    getSetters: () => ctrl.m.styleSetters,
+    T: ctrl._,
+  });
+  ctrl.labelRefresh = labelControls.refresh;
+  divider.before(labelControls.root);
+
+  // Mirror remote changes (the layer drawer flipping a value while this panel
+  // is open) — the shared refresh reads from styleProvider.
+  const events = ensureEvents(ctrl.m.map);
+  ctrl.styleChangeCleanup = events.on(
+    EVENTS.LAYER_STYLE_CHANGE,
+    (payload: { id: string }) => {
+      if (payload.id !== ctrl.m.layerId) return;
+      ctrl.labelRefresh?.();
+    },
+  );
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
@@ -212,8 +238,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
-    if (ctrl.schemeDropdown)
+    if (ctrl.schemeDropdown) {
       document.addEventListener("click", ctrl.closeSchemeDropdown);
+    }
   };
 
   const clearBtn = panelContent.querySelector(
@@ -227,28 +254,23 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(
       ctrl,
       ctrl.classSelect,
-      String(CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+      String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
     );
-    syncSelect(ctrl, ctrl.methodSelect, CONF.method ?? CONST.METHOD.JENKS);
-    ctrl.schemeSelectHidden.value = CONF.color_scheme ?? "Reds";
-    ctrl.labelChk.checked = CONF.label_show ?? false;
+    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
+    ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
+    ctrl.labelRefresh?.();
     ctrl.borderWeightInput.value = String(
-      CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
+      ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );
-    ctrl.borderColorInput.value = CONF.border_color ?? CONST.GRAY;
+    ctrl.borderColorInput.value = ctrl.conf.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
+    // Drop the published source rows — the canvas unregisters on clear, but the
+    // shared meta object outlives it and would repopulate stale values on re-register.
+    ctrl.m.syncSourceMeta();
+    // An open layer style drawer mirrors these values — refresh it too.
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
-    adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-  };
-
-  const confirmBtn = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.BTN_CONFIRM}]`,
-  ) as HTMLButtonElement;
-  confirmBtn.onclick = () => {
-    ctrl.m.renderHexagons();
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
@@ -263,8 +285,9 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED))
+    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+    }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
 };
@@ -281,28 +304,46 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
       parent: sel,
       selected: !ctrl.m.selectedLayerId ? "" : undefined,
     },
-    T("layer_placeholder"),
+    ctrl.T("layer_placeholder"),
   );
 
   ctrl.m.pointLayers.forEach(info => {
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
-  if (ctrl.m.pointLayers.length === 1 && !ctrl.m.selectedLayerId) {
+  // Auto-select a single point layer only on the very first scan, so the
+  // initial map load shows its heatmap without user input.  Rebuilds
+  // triggered later (zoomend, layeradd/layerremove, map reload) must not
+  // re-fire this — otherwise a user's manual clear keeps being overridden.
+  if (
+    !ctrl.m.hasScanned &&
+    ctrl.m.pointLayers.length === 1 &&
+    !ctrl.m.selectedLayerId
+  ) {
     ctrl.m.selectedLayerId = ctrl.m.pointLayers[0].id;
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.m.selectedLayerId);
     updateFieldSelector(ctrl);
     ctrl.m.renderHexagons();
+  } else if (ctrl.m.selectedLayerId) {
+    // Restored selection (localStorage / rebuild): resolve the field list
+    // first so autoFieldKey is fresh — syncSourceMeta reads it under fieldAuto.
+    updateFieldSelector(ctrl);
   }
+
+  // Selection (auto, restored, or user) and field resolution are settled here —
+  // publish source-layer / agg-field so the attrs panel is current without a
+  // further user edit.
+  ctrl.m.syncSourceMeta();
 
   if (ctrl.m.selectedLayerId) sel.value = ctrl.m.selectedLayerId;
   else sel.selectedIndex = 0;
 
   sel.onchange = () => {
     ctrl.m.selectedLayerId = sel.value || null;
-    if (ctrl.extraBody)
+    if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+    }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
     if (ctrl.m.selectedLayerId) ctrl.m.renderHexagons();
@@ -311,8 +352,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  if (ctrl.extraBody)
+  if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.m.selectedLayerId);
+  }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
@@ -342,15 +384,11 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
       class: CONST.CLASSES.PLACEHOLDER_OPTION,
       parent: ctrl.fieldSelect,
     },
-    T("field_auto"),
+    ctrl.T("field_auto"),
   );
 
   fields.forEach(f => {
-    dom.el(
-      "option",
-      { value: f, parent: ctrl.fieldSelect },
-      f.startsWith("properties.") ? f.substring(11) : f,
-    );
+    dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
 
   ctrl.m.fieldAuto = !fields.includes(ctrl.m.currentField);
@@ -409,7 +447,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
   });
 
   let focusIdx = -1;
-  (CONF.schemes ?? []).forEach((name: string, idx: number) => {
+  (ctrl.conf.schemes ?? []).forEach((name: string, idx: number) => {
     const item = dom.el("div", {
       class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
       role: "option",
@@ -443,7 +481,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
     else items[0].focus();
   }
 
-  ctrl.dropdownCleanup = registerDropdownEvents(map, ctrl, Array.from(items));
+  ctrl.dropdownCleanup = registerDropdownEvents(ctrl.m.map, ctrl, Array.from(items));
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
@@ -460,38 +498,78 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
   persist(ctrl);
 };
 
-const initScan = (ctrl: HeatmapControlUI, attempt: number) => {
-  try {
-    ctrl.m.scanMapLayers();
-  } catch {
-    // scanMapLayers may throw when LayerControl is missing (e.g.
-    // map.foliplus.LayerAPI is the lightweight stub that lacks the
-    // full registry methods).  The error is harmless — we just
-    // treat it as "no layers found" and continue to the hint logic.
-  }
-  if (ctrl.m.pointLayers.length === 0 && attempt > 0)
-    setTimeout(() => initScan(ctrl, attempt - 1), CONST.TIMING.INIT_SCAN_INTERVAL);
-  else if (ctrl.m.pointLayers.length === 0) {
-    // Distinguish the two "no point layers" causes so the hint points the
-    // user at the right fix:  isLayerControl===false means only the
-    // lightweight LayerAPI stub is installed (no LayerControl added),
-    // whereas true means LayerControl is present but has no point data.
-    const missingLayerControl = !map.foliplus?.LayerAPI?.isLayerControl;
-    map.foliplus!.showHint(
-      CONF.name,
-      T(missingLayerControl ? "no_layercontrol" : "no_layer"),
-      HINT_DURATION.LONG,
-    );
-  } else {
-    rebuildLayerDropdown(ctrl);
-    // Restore path: rebuild only syncs the dropdown value — refresh the
-    // field selector and draw the saved layer so a reload shows the saved
-    // configuration without waiting for user input.
-    if (ctrl.m.selectedLayerId) {
-      updateFieldSelector(ctrl);
-      if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+/**
+ * Scan the map for point layers. Driven by the ready signal instead of a
+ * retry loop: an immediate first pass, a re-scan on every CONTROL_ATTACHED
+ * (a control — usually LayerControl — finishing attach), and a final pass
+ * one macrotask later to settle the "no point layers" hint — every control
+ * attaches in the same synchronous script stack, so by then the layer set is
+ * final (dynamic layer changes after that flow through LAYER_CHANGE in the
+ * manager). Returns a cleanup that unsubscribes.
+ */
+const initScan = (ctrl: HeatmapControlUI): (() => void) => {
+  let done = false;
+
+  const scan = (final: boolean): void => {
+    if (done) return;
+    try {
+      ctrl.m.scanMapLayers();
+    } catch {
+      // scanMapLayers may throw when LayerControl is missing (e.g.
+      // map.foliplus.LayerAPI is the lightweight stub that lacks the
+      // full registry methods). The error is harmless — we just
+      // treat it as "no layers found" and continue to the hint logic.
     }
-  }
+    if (ctrl.m.pointLayers.length > 0) {
+      rebuildLayerDropdown(ctrl);
+      // Mark scanned only after the first rebuild completes, so the
+      // one-shot single-layer auto-select inside buildLayerListItems can
+      // still fire for the initial map load but never again afterwards.
+      ctrl.m.hasScanned = true;
+      // Restore path: rebuild only syncs the dropdown value — refresh the
+      // field selector and draw the saved layer so a reload shows the saved
+      // configuration without waiting for user input.
+      if (ctrl.m.selectedLayerId) {
+        updateFieldSelector(ctrl);
+        if (!ctrl.m.cachedFeatures) ctrl.m.renderHexagons();
+      }
+      ctrl.ctrl?.setAttribute("data-ready", "true");
+      done = true;
+      cleanup();
+    } else if (final) {
+      // Settle: no point layer showed up. Distinguish the two causes so the
+      // hint points the user at the right fix: isLayerControl===false means
+      // only the lightweight LayerAPI stub is installed (no LayerControl
+      // added), whereas true means LayerControl is present but has no data.
+      const missingLayerControl = !ctrl.m.map.foliplus?.LayerAPI?.isLayerControl;
+      ctrl.m.map.foliplus!.showHint(
+        ctrl.conf.name,
+        ctrl.T(missingLayerControl ? "no_layercontrol" : "no_layer"),
+        HINT_DURATION.LONG,
+      );
+      ctrl.m.hasScanned = true;
+      ctrl.ctrl?.setAttribute("data-ready", "true");
+      done = true;
+      cleanup();
+    }
+  };
+
+  const events = ensureEvents(ctrl.m.map);
+  const cleanup = events.on(EVENTS.CONTROL_ATTACHED, () => scan(false));
+
+  // Settle after the synchronous attach sequence: a control that attached
+  // before this subscription (e.g. LayerControl added before Heatmap) is
+  // covered by the immediate pass below; the final pass here ends the
+  // initial scan. No fixed delay — the attach stack is synchronous.
+  setTimeout(() => scan(true), 0);
+
+  scan(false);
+
+  return () => {
+    if (done) return;
+    done = true;
+    cleanup();
+  };
 };
 
 const resetAll = (ctrl: HeatmapControlUI) => {
@@ -499,13 +577,22 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.autoFieldKey = null;
   ctrl.m.fieldAuto = true;
   ctrl.m.currentAgg = CONST.AGG.COUNT;
-  ctrl.m.currentField = CONF.field ?? "";
-  ctrl.m.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-  ctrl.m.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
-  ctrl.m.currentScheme = CONF.color_scheme ?? "Reds";
-  ctrl.m.currentLabelShow = CONF.label_show ?? false;
-  ctrl.m.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
-  ctrl.m.borderColor = CONF.border_color ?? CONST.GRAY;
+  ctrl.m.currentField = ctrl.conf.field ?? "";
+  ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+  ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
+  ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
+  ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
+  ctrl.m.currentLabelColor = normalizeHexColor(
+    ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+  );
+  ctrl.m.currentLabelSize = clampLabelSize(
+    ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT,
+  );
+  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
+    NUMBER_FORMAT.AUTO) as NumberStyle;
+  ctrl.m.cachedLabelStyle = null;
+  ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+  ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();
 };
 
@@ -514,4 +601,10 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };
 
-export { bindControls, initScan, rebuildLayerDropdown, setupObserver };
+export {
+  type HeatmapControlUI,
+  bindControls,
+  initScan,
+  rebuildLayerDropdown,
+  setupObserver,
+};

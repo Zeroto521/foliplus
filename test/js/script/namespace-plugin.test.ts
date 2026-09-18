@@ -25,15 +25,25 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
   });
 
+  it("maps controlEnv.js to foliplus.core.controlEnv", () => {
+    expect(sharedGlobalNamespace("#core/controlEnv.js")).toBe(
+      "foliplus.core.controlEnv",
+    );
+  });
+
   it("maps core subdirectory to foliplus.core.sub", () => {
     expect(sharedGlobalNamespace("#core/layer/index.js")).toBe("foliplus.core.layer");
     expect(sharedGlobalNamespace("#core/event/index.js")).toBe("foliplus.core.event");
+    expect(sharedGlobalNamespace("#core/geo/index.js")).toBe("foliplus.core.geo");
+    expect(sharedGlobalNamespace("#core/geocode/index.js")).toBe(
+      "foliplus.core.geocode",
+    );
   });
 
   it("maps common modules to foliplus.common.mod", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
     expect(sharedGlobalNamespace("#common/storage.js")).toBe("foliplus.common.storage");
-    expect(sharedGlobalNamespace("#common/coord.js")).toBe("foliplus.common.coord");
+    expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
   });
 });
 
@@ -225,7 +235,7 @@ describe("scanSharedImports", () => {
     );
     fs.writeFileSync(
       path.join(base, "helper.ts"),
-      'import { fromWgs84 } from "#common/coord.js";',
+      'import { fromWgs84 } from "#core/geo/index.js";',
       "utf-8",
     );
     try {
@@ -238,8 +248,8 @@ describe("scanSharedImports", () => {
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
       expect(used.has("#common/dom.js")).toBe(true);
       expect(used.get("#common/dom.js")).toEqual(new Set(["dom", "createIconButton"]));
-      expect(used.has("#common/coord.js")).toBe(true);
-      expect(used.get("#common/coord.js")).toEqual(new Set(["fromWgs84"]));
+      expect(used.has("#core/geo/index.js")).toBe(true);
+      expect(used.get("#core/geo/index.js")).toEqual(new Set(["fromWgs84"]));
       expect(used.has("#common/locale.js")).toBe(true);
       expect(used.get("#common/locale.js")).toEqual(new Set(["createTranslator"]));
       expect(starUsed.size).toBe(0);

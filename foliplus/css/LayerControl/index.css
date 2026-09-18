@@ -1,0 +1,21 @@
+/* LayerControl stylesheet, split by responsibility.
+   focus.css      map-level pane interaction + focus rect/mask/glow
+   row.css        layer rows: fold, drag, cursor, item, open-overlay
+   menu.css       more-button + overflow dropdown
+   attr.css       attributes panel
+   control.css    focusing pulse + checkbox + color picker
+   map-state.css  tile hidden, drag-pulse keyframes, container bg
+   rename.css     inline rename input
+   style.css      annotation style panel
+   Annotation labels have no module here: they are drawn on a canvas
+   (LayerControl/annotation/canvas.ts) from the shared --label-* tokens.
+   The entry's @import order IS the cascade order; esbuild and the
+   build's expandEntry keep it verbatim. */
+@import "./focus.css";
+@import "./row.css";
+@import "./menu.css";
+@import "./attr.css";
+@import "./control.css";
+@import "./map-state.css";
+@import "./rename.css";
+@import "./style.css";

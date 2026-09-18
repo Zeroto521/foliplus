@@ -2,6 +2,7 @@
 // ensureLayerAPI creates a lightweight stub when no LayerControl exists;
 // requireLayerAPI throws when LayerControl is required (Export/Heatmap).
 import { ensureHint } from "#core/hint.js";
+import { createLogger } from "#common/log.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI, LayerInfo } from "./type.js";
@@ -21,10 +22,14 @@ import type { LayerAPI, LayerInfo } from "./type.js";
  * @param map - Leaflet map instance.
  * @returns The LayerAPI instance (always a valid object).
  */
-const ensureLayerAPI = (map: L.Map): LayerAPI => {
+const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
   ensureHint(map);
-  if (map.foliplus!.LayerAPI) return map.foliplus!.LayerAPI;
+  const current = map.foliplus!.LayerAPI;
+  if (!force && current) return current;
+  // force (LayerManager.destroy) downgrades a live full LayerAPI to the stub;
+  // an existing stub is already the target state, so keep it — idempotent.
+  if (force && current && current.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
@@ -47,6 +52,8 @@ const ensureLayerAPI = (map: L.Map): LayerAPI => {
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
+    setVisible: () => false,
+    touchLayer: () => false,
     createLayers: opts => factory.createLayers(opts),
     createCanvas: opts => factory.createCanvas(opts),
     extractPoints: () => [],
@@ -75,7 +82,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   const own =
     Object.getOwnPropertyDescriptor(api, "layers") ||
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
-  return !!(own && own.get);
+  return Boolean(own && own.get);
 };
 
 /**
@@ -89,7 +96,9 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * asserts the registry-delegating `layers` getter that only LayerManager
  * has, so the guard only accepts a real LayerControl.
  *
- * @param componentName - CONF.name, used as hint key and error prefix.
+ * @param componentName - CONF.name, used as the hint key and log prefix.
+ *                         Bound inside the function — the name is a parameter,
+ *                         so a file-top `const log = createLogger(...)` is impossible.
  * @param T - Component-scoped translator (from createScopedTranslator).
  * @param map - Leaflet map instance (per-map LayerAPI namespace).
  * @returns The LayerAPI instance (throws if not a real LayerControl).
@@ -99,11 +108,12 @@ const requireLayerAPI = (
   T: (key: string) => string,
   map: L.Map,
 ): LayerAPI => {
+  const log = createLogger(componentName);
   const api = map.foliplus?.LayerAPI;
   if (!isRealLayerControl(api)) {
     const msg = T("no_layercontrol");
     if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
-    throw new Error(`[${componentName}] ${msg}`);
+    throw new Error(log.msg(msg));
   }
   // isRealLayerControl returned true, so `api` is non-null (a real
   // LayerManager).  Use the narrowed local to satisfy TS control-flow.

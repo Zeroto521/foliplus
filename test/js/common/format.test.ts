@@ -1,9 +1,65 @@
 import { describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 import { debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import {
+  LAT_LNG_PRECISION,
+  NUMBER_FORMAT,
+  formatCoord,
+  formatLabelNumber,
+  formatLatLng,
+  formatNumber,
+  formatTimestamp,
+} from "#common/format.js";
+
+describe("NUMBER_FORMAT", () => {
+  it("covers every NumberStyle key", () => {
+    expect(Object.values(NUMBER_FORMAT)).toEqual(["auto", "int", "comma", "percent"]);
+  });
+});
+
+describe("formatTimestamp", () => {
+  it("renders epoch ms and date strings", () => {
+    expect(formatTimestamp(Date.UTC(2026, 8, 12, 6, 5, 0))).toContain("2026");
+    expect(formatTimestamp("2026-09-12T06:05:00Z")).toContain("2026");
+  });
+
+  it("returns an empty string for unparsable input", () => {
+    expect(formatTimestamp("not-a-date")).toBe("");
+    expect(formatTimestamp(NaN)).toBe("");
+  });
+
+  it("uses the mapped locale for the short code, not the code itself", () => {
+    // zh maps to zh-CN (intlLocale), so the date renders in the zh-CN
+    // calendar with a digit day, and never degrades to the English month
+    // name. en stays en.
+    const ms = Date.UTC(2026, 8, 12, 6, 5, 0);
+    expect(formatTimestamp(ms, "zh")).toBe(
+      new Date(ms).toLocaleString("zh-CN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    );
+    expect(formatTimestamp(ms, "zh")).not.toMatch(/September/);
+    expect(formatTimestamp(ms, "en")).toBe(
+      new Date(ms).toLocaleString("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    );
+  });
+});
 
 describe("formatNumber", () => {
+  it("defaults to 'auto' style and 'en' locale", () => {
+    // Every real caller passes the style explicitly, so the default is only
+    // reached here.
+    expect(formatNumber(1234)).toBe("1.2K");
+    expect(formatNumber(6000)).toBe("6K");
+    expect(formatNumber(150)).toBe("150");
+  });
+
   it("formats small numbers as-is (auto style)", () => {
     expect(formatNumber(42)).toBe("42");
   });
@@ -17,8 +73,7 @@ describe("formatNumber", () => {
   });
 
   it("uses thousands separator for comma style", () => {
-    // Intl rounds to integer when abs >= 100 in comma style
-    expect(formatNumber(1234.5, "comma")).toBe("1,235");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
   });
 
   it("respects locale (auto style)", () => {
@@ -52,10 +107,11 @@ describe("formatNumber", () => {
     expect(formatNumber(12000, "auto", "en")).toBe("12K");
   });
 
-  it("comma style keeps grouping regardless of locale (6000 -> 6,000 in zh)", () => {
-    // comma is user-requested; the locale is not consulted for grouping.
-    expect(formatNumber(6000, "comma", "zh")).toBe("6,000");
-    expect(formatNumber(6000, "comma", "en")).toBe("6,000");
+  it("comma style groups regardless of locale and always uses en separators", () => {
+    // comma is language-agnostic: the locale code is not consulted at all, so
+    // zh renders with an en comma instead of 万-based 4-digit grouping.
+    expect(formatNumber(6000, "comma", "zh")).toBe("6,000.0");
+    expect(formatNumber(6000, "comma", "en")).toBe("6,000.0");
   });
 
   it("int style is a plain integer with no grouping (6000 in zh)", () => {
@@ -65,21 +121,77 @@ describe("formatNumber", () => {
     expect(formatNumber(6000, "int", "en")).toBe("6000");
   });
 
-  it("comma style keeps one decimal below 100", () => {
+  it("comma style groups and keeps one decimal by default", () => {
+    // Default is a fixed 1 fraction digit, so the decimal never gets trimmed.
     expect(formatNumber(42.7, "comma")).toBe("42.7");
     expect(formatNumber(99.9, "comma")).toBe("99.9");
+    expect(formatNumber(1234.5, "comma")).toBe("1,234.5");
+    expect(formatNumber(5, "comma")).toBe("5.0");
+  });
+
+  it("comma style takes a numeric fraction-digit count", () => {
+    // Both min and max are set, so decimals stay fixed (1.0, 2.50) rather
+    // than trailing-digit-trimmed. The locale is ignored here — grouping is
+    // pinned to en and language-agnostic.
+    expect(formatNumber(1.5, "comma", "en", 2)).toBe("1.50");
+    expect(formatNumber(10, "comma", "en", 2)).toBe("10.00");
+    expect(formatNumber(0.1, "comma", "en", 2)).toBe("0.10");
+    expect(formatNumber(1000, "comma", "en", 1)).toBe("1,000.0");
+    expect(formatNumber(6000, "comma", "en", 0)).toBe("6,000");
+    expect(formatNumber(6000, "comma", "en", 1)).toBe("6,000.0");
   });
 
   it("handles zero and negative values", () => {
     expect(formatNumber(0, "auto")).toBe("0");
     expect(formatNumber(-6000, "auto", "zh")).toBe("-6000");
-    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000");
+    expect(formatNumber(-6000, "comma", "en")).toBe("-6,000.0");
     expect(formatNumber(-1234.5, "int", "zh")).toBe("-1235");
   });
 
   it("auto rounds up across the grouping boundary (999.9 -> 1,000)", () => {
     expect(formatNumber(999.9, "auto", "en")).toBe("1,000");
     expect(formatNumber(999.5, "auto", "en")).toBe("1,000");
+  });
+
+  it("percent multiplies by 100 and trims trailing digits (default max 1)", () => {
+    expect(formatNumber(0.35, "percent", "en")).toBe("35%");
+    expect(formatNumber(0.3333, "percent", "en")).toBe("33.3%");
+  });
+
+  it("percent caps decimals via fractionDigits (0 gives whole percents)", () => {
+    expect(formatNumber(0.3333, "percent", "en", 0)).toBe("33%");
+    expect(formatNumber(0.3333, "percent", "en", 2)).toBe("33.33%");
+    // The annotation panel passes 0 for comma/int; percent now honours it too.
+    expect(formatNumber(0.35, "percent", "en", 0)).toBe("35%");
+  });
+});
+
+describe("formatCoord / formatLatLng", () => {
+  it("pins six decimals so a short stored value still reads at full precision", () => {
+    // A history entry saved from "121.47" stores 121.47, not 121.470000. The
+    // shared formatter is what keeps every readout at the same width.
+    expect(formatCoord(121.47)).toBe("121.470000");
+    expect(formatCoord(0)).toBe("0.000000");
+  });
+
+  it("groups the integer part with the en comma from 1000 up", () => {
+    // Intl en grouping needs 4+ integer digits — 999.5 rounds to "999.5",
+    // 1000.0 to "1,000.0". Since grouping is inherited from formatNumber's
+    // comma style, the measure chip's distances and these coordinates cannot
+    // disagree on the separator.
+    expect(formatCoord(121.123456)).toBe("121.123456");
+    expect(formatCoord(999.5)).toBe("999.500000");
+    expect(formatCoord(1000)).toBe("1,000.000000");
+    expect(formatLatLng(121.123456, 31.234567)).toBe("121.123456, 31.234567");
+  });
+
+  it("accepts an explicit precision", () => {
+    expect(formatCoord(1.5, 2)).toBe("1.50");
+    expect(formatLatLng(1.5, -2.25, 0)).toBe("2, -2");
+  });
+
+  it("exposes the precision so persistence and display cannot drift apart", () => {
+    expect(LAT_LNG_PRECISION).toBe(6);
   });
 });
 
@@ -123,6 +235,32 @@ describe("debounce", () => {
 
     expect(fn).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("formatLabelNumber", () => {
+  it("keeps a whole number whole under an explicit style", () => {
+    // A map label states a count or an id; the comma style's one-decimal
+    // default would put "6,000.0" on the map.
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(6000, "int")).toBe("6000");
+  });
+
+  it("leaves auto to trim its own decimals", () => {
+    expect(formatLabelNumber(6000, "auto")).toBe(formatNumber(6000, "auto"));
+    expect(formatLabelNumber(12.5, "auto")).toBe(formatNumber(12.5, "auto"));
+  });
+
+  it("defaults to auto, so a missing config still renders", () => {
+    expect(formatLabelNumber(42)).toBe(formatNumber(42, "auto"));
+  });
+
+  it("is the label contract, not the table contract", () => {
+    // The difference from formatNumber is the whole point: a table cell may
+    // carry 6,000.0, a label over the map may not.
+    expect(formatNumber(6000, "comma")).toBe("6,000.0");
+    expect(formatLabelNumber(6000, "comma")).toBe("6,000");
+    expect(formatLabelNumber(0.35, "percent")).toBe("35%");
   });
 });
 

@@ -1,5 +1,7 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
+import { ListCursor } from "#core/listCursor.js";
+import { guardBlocked } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
@@ -13,6 +15,68 @@ import {
 import type { SearchControl } from "./type.js";
 
 const T = createScopedTranslator(CONF);
+
+/**
+ * The value a keyboard-navigated result item puts into the input. History
+ * items carry their panel display in `data-query` (addrDisplay / coordDisplay);
+ * suggestions omit it and fall back to their display text.
+ */
+const resultItemValue = (item: Element): string =>
+  item.getAttribute("data-query") ??
+  item.querySelector(`.${CLASSES.RESULT_TEXT}`)?.textContent ??
+  "";
+
+/**
+ * Shared ListCursor for the results panel (combobox / active-descendant).
+ * selectedIdx stays the integer API for existing callers/tests; onMove keeps
+ * it in lockstep and echoes the landed item into the input.
+ */
+const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
+  if (!ctrl.panelWrap) return null;
+  if (!ctrl.listCursor) {
+    ctrl.listCursor = new ListCursor({
+      root: ctrl.panelWrap,
+      itemSelector: `.${CLASSES.RESULT_ITEM}`,
+      activeClass: CLASSES.ACTIVE,
+      mode: "active-descendant",
+      input: ctrl.inp,
+      onMove: (i, el) => {
+        ctrl.selectedIdx = i;
+        if (el) ctrl.inp.value = resultItemValue(el);
+      },
+    });
+  }
+  return ctrl.listCursor;
+};
+
+/**
+ * Move the keyboard cursor by one step. ListCursor owns the index walk and
+ * ARIA paint; selectedIdx mirrors it. Querying RESULT_ITEM also skips the
+ * non-selectable history group header.
+ *
+ * Invariant (defended by the assertion in renderResults):
+ *   ctrl.currentItems.length === DOM RESULT_ITEM count
+ *   ctrl.selectedIdx in [-1, currentItems.length - 1]
+ */
+const moveSelection = (ctrl: SearchControl, dir: number) => {
+  if (!ctrl.panelWrap) return;
+  if (ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length === 0) {
+    return;
+  }
+  // ArrowUp from "nothing" stays nothing (do not wrap to the last item).
+  if (ctrl.selectedIdx === -1 && dir < 0) return;
+  const cursor = ensureListCursor(ctrl);
+  if (!cursor) return;
+  // Tests / Enter may have written selectedIdx directly — adopt before move.
+  if (cursor.index !== ctrl.selectedIdx) cursor.set(ctrl.selectedIdx);
+  // ArrowUp from the first item clears the selection (combobox leave-list).
+  if (cursor.index === 0 && dir < 0) {
+    cursor.clear();
+    ctrl.selectedIdx = -1;
+    return;
+  }
+  cursor.move(dir);
+};
 
 /**
  * Bind all DOM events for the SearchControl.
@@ -57,7 +121,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     }
   });
 
-  ensureInteraction(map).register(CONF.name, [
+  const interaction = ensureInteraction(map);
+  interaction.register(CONF.name, [
     {
       key: "Escape",
       element: ctrl.inp,
@@ -75,43 +140,36 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     {
       key: "ArrowDown",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.min(ctrl.selectedIdx + 1, items.length - 1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        ctrl.inp.value =
-          items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-            ?.textContent ?? "";
-      },
+      handler: () => moveSelection(ctrl, 1),
     },
     {
       key: "ArrowUp",
       element: ctrl.inp,
-      handler: () => {
-        if (!ctrl.panelWrap) return;
-        const items = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`);
-        if (items.length === 0) return;
-        ctrl.selectedIdx = Math.max(ctrl.selectedIdx - 1, -1);
-        items.forEach((el: Element, i: number) =>
-          el.classList.toggle(CLASSES.ACTIVE, i === ctrl.selectedIdx),
-        );
-        if (ctrl.selectedIdx >= 0)
-          ctrl.inp.value =
-            items[ctrl.selectedIdx].querySelector(`.${CLASSES.RESULT_TEXT}`)
-              ?.textContent ?? "";
-      },
+      handler: () => moveSelection(ctrl, -1),
     },
     {
       key: "Enter",
       element: ctrl.inp,
       handler: () => {
+        // Adopt the keyboard-highlighted entry when one is selected: re-geocoding
+        // the display name can resolve to a different place on ambiguous queries.
+        const selected =
+          ctrl.selectedIdx >= 0 ? ctrl.currentItems[ctrl.selectedIdx] : undefined;
         const raw = ctrl.inp.value.trim();
+        if (!raw) {
+          removePanel(ctrl);
+          return;
+        }
+        if (selected) {
+          // Guarded in renderAddressResult — refuses to fly while another
+          // control holds a mode (showing the "blocked" hint). Only close
+          // the panel on success so a mode-lock refusal keeps it open with
+          // the hint visible, matching the mouse-click path.
+          if (selected.onClick()) removePanel(ctrl);
+          return;
+        }
+        if (guardBlocked(map, CONF.name, T("blocked"))) return;
         removePanel(ctrl);
-        if (!raw) return;
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
     },
@@ -142,7 +200,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
 
   return () => {
     collapseObserver.disconnect();
-    ensureInteraction(map).unregister(CONF.name);
+    const interaction = ensureInteraction(map);
+    interaction.unregister(CONF.name);
   };
 };
 

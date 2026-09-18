@@ -1,11 +1,13 @@
 {
   "name": "foliplus",
   "private": true,
+  "packageManager": "npm@11.13.0",
   "type": "module",
   "imports": {
     "#common/*": "./foliplus/js/common/*",
     "#core/*": "./foliplus/js/core/*",
-    "#foliplus/*": "./foliplus/js/*"
+    "#foliplus/*": "./foliplus/js/*",
+    "#script/*": "./script/*"
   },
   "engines": {
     "node": "24.x"
@@ -19,11 +21,15 @@
   "scripts": {
     "build": "node script/build.mjs",
     "build:dev": "node script/build.mjs --dev",
-    "build:check": "node script/build.mjs --check",
+    "build:verify": "node script/build.mjs --verify",
     "build:sonda": "node script/build.mjs --sonda",
+    "new-control": "node script/new-control.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && eslint -c eslint.config.js -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
+    "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
+    "lint": "eslint \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
+    "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
     "bundle-size:check": "node script/bundle-size-check.mjs"
   },
   "devDependencies": {
@@ -36,6 +42,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.5.4",
     "esbuild": "^0.24.0",
+    "eslint": "^9.39.5",
     "geotiff": "^3.0.5",
     "h3-js": "^4.5.0",
     "html-minifier-terser": "^7.2.0",
@@ -46,7 +53,8 @@
     "prettier": "^3.9.5",
     "sonda": "^0.14.0",
     "svgo": "^4.0.2",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.69.0",
     "vitest": "^4.1.10"
   }
 }

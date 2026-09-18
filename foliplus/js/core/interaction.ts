@@ -2,11 +2,18 @@
 // Provides a central document-level keydown listener that dispatches to
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
-export interface InteractionDef {
+/**
+ * A shortcut definition as accepted by `register()` (the caller-facing part).
+ * Entries held in `InteractionManager.shortcuts` additionally carry the
+ * bookkeeping fields that the manager itself writes (`elementHandler`,
+ * `elementType`, `order`) — see {@link InteractionEntry}.
+ */
+interface InteractionDef {
   /** Event type: "keydown" (default), "mousedown", "mousemove", "mouseup", etc. */
   event?: string;
-  /** Key to match (event.key), only for keydown. If omitted, matches any key. */
+  /** Key to match (event.key) for keydown/keyup. If omitted, matches any key. */
   key?: string;
   /** Require Ctrl (or Cmd on macOS) */
   ctrl?: boolean;
@@ -29,21 +36,42 @@ export interface InteractionDef {
   element?: HTMLElement;
   /** If true, the listener is automatically removed after the first trigger. */
   once?: boolean;
+  /** Whether a matched event is swallowed via preventDefault + stopPropagation
+   *  (default true, the shortcut semantics). Set false for observers that must
+   *  not disturb the event — e.g. a pointer handler that only watches for
+   *  presses outside a panel while the press keeps its native behavior
+   *  (focus move, drag start, text selection). */
+  preventDefault?: boolean;
   /** Component name for debugging */
   component?: string;
+}
+
+/**
+ * A stored shortcut: the caller-facing definition plus the bookkeeping the
+ * manager writes when it binds and orders the entry. Kept separate from
+ * {@link InteractionDef} so `register()`'s public signature does not expose
+ * manager internals — the fields are assigned internally only.
+ */
+interface InteractionEntry extends InteractionDef {
+  /** The listener attached to `element` (needs the exact closure to remove it). */
+  elementHandler?: (event: Event) => void;
+  /** Event type the element listener was registered under. */
+  elementType?: string;
+  /** Registration sequence; breaks ties between same-priority shortcuts. */
+  order: number;
 }
 
 // Per-map instance storage
 const instances = new WeakMap<L.Map, InteractionManager>();
 
 /** Ensure map.foliplus.interaction has a per-map InteractionManager. Idempotent. */
-export const ensureInteraction = (map: L.Map): InteractionManager => {
+const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
   if (existing) return existing;
   const km = new InteractionManager(map);
   instances.set(map, km);
-  if (!map.foliplus) (map as any).foliplus = {};
-  map.foliplus!.interaction = km;
+  const api = ensureMapFoliplus(map);
+  api.interaction = km;
   return km;
 };
 
@@ -54,9 +82,9 @@ export const ensureInteraction = (map: L.Map): InteractionManager => {
  * registered shortcuts by priority. Components register/unregister their
  * shortcuts on mount/unmount.
  */
-export class InteractionManager {
+class InteractionManager {
   private map: L.Map;
-  private shortcuts: InteractionDef[] = [];
+  private shortcuts: InteractionEntry[] = [];
   private order = 0;
   private docListeners: Map<string, (event: Event) => void> = new Map();
   private observer: MutationObserver | null = null;
@@ -64,7 +92,7 @@ export class InteractionManager {
 
   constructor(map: L.Map) {
     this.map = map;
-    map.on("unload" as any, () => this.clear());
+    map.on("unload", () => this.clear());
   }
 
   /** Start observing DOM for element/container removal to auto-cleanup. */
@@ -110,40 +138,40 @@ export class InteractionManager {
     container?: HTMLElement,
   ): () => void {
     for (const d of defs) {
-      const def = { ...d, component };
-      if (container && !def.container && !def.element) {
-        def.container = container;
+      const entry: InteractionEntry = { ...d, component, order: this.order++ };
+      if (container && !entry.container && !entry.element) {
+        entry.container = container;
       }
-      if (def.element) {
-        const eventType = def.event ?? "keydown";
+      if (entry.element) {
+        const eventType = entry.event ?? "keydown";
         const handler = (event: Event) => {
-          // Key matching only for keydown events
-          if (eventType === "keydown" && def.key) {
+          if ((eventType === "keydown" || eventType === "keyup") && entry.key) {
             const ke = event as KeyboardEvent;
-            if (def.key !== ke.key) return;
-            if (def.ctrl && !ke.ctrlKey && !ke.metaKey) return;
-            if (def.meta && !ke.metaKey) return;
-            if (def.shift && !ke.shiftKey) return;
-            if (def.alt && !ke.altKey) return;
+            if (entry.key !== ke.key) return;
+            if (entry.ctrl && !ke.ctrlKey && !ke.metaKey) return;
+            if (entry.meta && !ke.metaKey) return;
+            if (entry.shift && !ke.shiftKey) return;
+            if (entry.alt && !ke.altKey) return;
           }
-          event.preventDefault();
-          event.stopPropagation();
-          def.handler(event);
+          if (entry.preventDefault ?? true) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          entry.handler(event);
         };
-        def.element.addEventListener(
+        entry.element.addEventListener(
           eventType,
           handler,
-          def.once ? { once: true } : undefined,
+          entry.once ? { once: true } : undefined,
         );
-        (def as any).elementHandler = handler;
-        (def as any).elementType = eventType;
-        this.trackElement(def.element, component);
+        entry.elementHandler = handler;
+        entry.elementType = eventType;
+        this.trackElement(entry.element, component);
       }
-      if (def.container && !def.element) {
-        this.trackElement(def.container, component);
+      if (entry.container && !entry.element) {
+        this.trackElement(entry.container, component);
       }
-      (def as any).order = this.order++;
-      this.shortcuts.push(def);
+      this.shortcuts.push(entry);
     }
     this.ensureListener();
     // Return cleanup function
@@ -154,9 +182,9 @@ export class InteractionManager {
   unregister(component: string): void {
     const removed = this.shortcuts.filter(s => s.component === component);
     for (const s of removed) {
-      if (s.element && (s as any).elementHandler) {
-        const eventType = (s as any).elementType ?? "keydown";
-        s.element.removeEventListener(eventType, (s as any).elementHandler);
+      if (s.element && s.elementHandler) {
+        const eventType = s.elementType ?? "keydown";
+        s.element.removeEventListener(eventType, s.elementHandler);
       }
     }
     this.shortcuts = this.shortcuts.filter(s => s.component !== component);
@@ -166,9 +194,9 @@ export class InteractionManager {
   /** Clear all shortcuts. */
   clear(): void {
     for (const s of this.shortcuts) {
-      if (s.element && (s as any).elementHandler) {
-        const eventType = (s as any).elementType ?? "keydown";
-        s.element.removeEventListener(eventType, (s as any).elementHandler);
+      if (s.element && s.elementHandler) {
+        const eventType = s.elementType ?? "keydown";
+        s.element.removeEventListener(eventType, s.elementHandler);
       }
     }
     this.shortcuts = [];
@@ -210,7 +238,7 @@ export class InteractionManager {
     // contains activeElement should win when priorities are tied — matches
     // how native DOM focus/keyboard events work.
     const active = document.activeElement;
-    const sort = (a: InteractionDef, b: InteractionDef) => {
+    const sort = (a: InteractionEntry, b: InteractionEntry) => {
       const pDiff = (b.priority ?? 0) - (a.priority ?? 0);
       if (pDiff !== 0) return pDiff;
       // Container-bound shortcuts are more specific than pure document-
@@ -231,7 +259,7 @@ export class InteractionManager {
         return depth(a.container) - depth(b.container);
       }
       // Same priority + same container binding: later-registered wins
-      return (b as any).order - (a as any).order;
+      return b.order - a.order;
     };
     // Separate element-bound shortcuts (they use direct element listeners,
     // not document-level dispatch) from document-level ones.
@@ -241,8 +269,8 @@ export class InteractionManager {
         // Match event type
         const sType = s.event ?? "keydown";
         if (sType !== eventType) return false;
-        // Key matching only for keydown
-        if (sType === "keydown" && s.key) {
+        // Key matching for key events (keydown / keyup)
+        if ((sType === "keydown" || sType === "keyup") && s.key) {
           if (s.key !== ke.key) return false;
           if (s.ctrl && !ke.ctrlKey && !ke.metaKey) return false;
           if (s.meta && !ke.metaKey) return false;
@@ -258,8 +286,10 @@ export class InteractionManager {
     if (matches.length === 0) return;
 
     const best = matches[0];
-    event.preventDefault();
-    event.stopPropagation();
+    if (best.preventDefault ?? true) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     best.handler(event);
   }
 
@@ -268,3 +298,5 @@ export class InteractionManager {
     instances.delete(this.map);
   }
 }
+
+export { type InteractionDef, InteractionManager, ensureInteraction };

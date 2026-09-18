@@ -1,12 +1,16 @@
 // ExportControl manager — crop box state machine, export orchestration.
 import { COMPONENTS } from "#core/component.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { COORD_BOUNDS } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
-import { COORD_BOUNDS } from "#common/coord.js";
+import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { dom } from "#common/dom.js";
+import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
+import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as Storage from "#common/storage.js";
+import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
 import { ExportRenderer } from "./renderer.js";
@@ -22,9 +26,43 @@ import {
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
+const log = createLogger(CONF.name);
+
+/** Format a progress percentage with the locale text, for the persistent hint. */
+const formatProgress = (percent: number) => {
+  const pct = String(percent);
+  return T("status_progress").replace(/\{pct\}/g, pct);
+};
+
+/**
+ * Encode a rendered canvas to a Blob, resolving to `null` when encoding fails.
+ * `toBlob` already encodes the raster exactly once, so this is deliberately
+ * thin — the cost being removed was the `toDataURL` base64 round-trip that
+ * used to encode the same pixels again for the transient preview.
+ */
+const canvasToBlob = (
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality?: number,
+): Promise<Blob | null> =>
+  new Promise(resolve => {
+    canvas.toBlob(b => resolve(b), mimeType, quality);
+  });
+
+/** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
+const nudgeDirection = (key: string): { x: number; y: number } =>
+  key === "ArrowLeft"
+    ? { x: -1, y: 0 }
+    : key === "ArrowRight"
+      ? { x: 1, y: 0 }
+      : key === "ArrowUp"
+        ? { x: 0, y: -1 }
+        : key === "ArrowDown"
+          ? { x: 0, y: 1 }
+          : { x: 0, y: 0 };
 
 /** A screen-space rectangle. */
-export interface Rect {
+interface Rect {
   left: number;
   top: number;
   width: number;
@@ -75,6 +113,15 @@ interface SavedBounds {
 
 class ExportManager {
   map: L.Map;
+  /** Component config — carried on the instance so the UI modules read it
+   *  from `mgr.conf` instead of a module-level free variable. */
+  conf: ComponentConfig;
+  /** Translator bound to `conf`, created once in the constructor. */
+  T: (key: string) => string;
+  /** Per-map mode manager / event bus — bound once in the constructor
+   *  (ensure-style getters return the cached instance). */
+  modes: ModeManager;
+  events: EventBus;
   dragCleanup?: () => void;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
@@ -89,6 +136,16 @@ class ExportManager {
   lastScreenRect: Rect | null;
   savedBounds: SavedBounds | null;
   dragState: DragState;
+  nudgeLoop?: RafLoop;
+  private nudgeMapRect?: DOMRect;
+  private nudgeActiveKey?: string;
+  /**
+   * Overridable timer function for the smooth-nudge rafLoop. Defaults to
+   * setTimeout (production). Browser tests inject a no-op so each rafLoop
+   * runs exactly one synchronous tick, making the one-step-per-keydown
+   * behavior deterministic without touching global state.
+   */
+  private scheduler: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
   declare mapMoveCleanup: (() => void) | null;
 
   // Mounted UI helpers (assigned in constructor).
@@ -104,9 +161,20 @@ class ExportManager {
     withLoadingIcon?: boolean,
   ) => void;
 
-  constructor(mapInstance: L.Map) {
+  constructor(
+    mapInstance: L.Map,
+    scheduler: (
+      fn: () => void,
+      ms: number,
+    ) => ReturnType<typeof setTimeout> = setTimeout,
+  ) {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
+    this.scheduler = scheduler;
+    this.conf = CONF;
+    this.T = T;
+    this.modes = ensureModes(this.map);
+    this.events = ensureEvents(this.map);
 
     this.cropState = null;
     this.exportCtrl = null;
@@ -150,8 +218,8 @@ class ExportManager {
   loadSavedBounds() {
     const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
-    const nw = data.nw,
-      se = data.se;
+    const nw = data.nw;
+    const se = data.se;
     const validLat =
       nw.lat >= -COORD_BOUNDS.LAT &&
       nw.lat <= COORD_BOUNDS.LAT &&
@@ -187,7 +255,7 @@ class ExportManager {
   /** Restore and lock crop box from saved geo bounds. */
   restoreFromSavedBounds() {
     this.showCropBox();
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       if (!this.cropState || this.cropState.locked) return;
       if (!this.savedBounds) return;
       this.cropState.savedGeoBounds = {
@@ -205,14 +273,14 @@ class ExportManager {
     event.preventDefault();
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    if (target.classList.contains(CONST.CLASSES.HANDLE))
+    if (target.classList.contains(CONST.CLASSES.HANDLE)) {
       this.dragState.dragType = target.dataset.pos ?? null;
-    else if (
+    } else if (
       target.classList.contains(CONST.CLASSES.CENTER) ||
       target.classList.contains(CONST.CLASSES.BOX)
-    )
+    ) {
       this.dragState.dragType = "move";
-    else return;
+    } else return;
 
     this.dragState.dragging = true;
     // Disable the box transition during drag so it tracks the cursor
@@ -283,8 +351,9 @@ class ExportManager {
     // mousemove/mouseup auto-cleaned by dragCleanup
     // Re-enable transition so the box animates smoothly to its final position
     // on the next non-drag style update (e.g. after unlock).
-    if (this.cropState?.box)
+    if (this.cropState?.box) {
       this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
+    }
   }
 
   registerShortcuts(): void {
@@ -301,9 +370,168 @@ class ExportManager {
       if (this.cropState?.locked) this.unlockCropBox();
       else this.removeCropBox();
     } else if (event.key === "Enter") {
-      if (this.cropState && !this.cropState.locked) this.lockCropBox();
+      if (this.isEditing()) this.lockCropBox();
       else if (this.cropState?.locked) this.doExport();
+    } else if (event.key === "r" || event.key === "R") {
+      // R: reset the crop box to the default centered size. Stop any
+      // running nudge loop first so the box stays put after reset instead
+      // of being shoved off by an ongoing rafLoop.
+      this.nudgeStop();
+      if (this.isEditing()) this.resetCropBox();
+    } else if (CONST.NUDGE_KEYS.includes(event.key)) {
+      // Arrow keys: start continuous smooth nudging while the key is held.
+      // On initial press the loop nudges one step synchronously (so the box
+      // moves the moment the key is pressed), then keeps nudging at ~60Hz
+      // so holding the key feels continuous. Stop on keyup.
+      if (this.isEditing() && event.key !== this.nudgeActiveKey) {
+        this.nudgeStart(event.key);
+      }
     }
+  }
+
+  /** Start the smooth-nudge loop for a held arrow key. */
+  private nudgeStart(key: string) {
+    if (!this.isEditing()) return;
+    // Stop any loop running for a previous direction first, so holding Right
+    // then pressing Up doesn't leave a stale loop nudging right for ~500ms.
+    this.nudgeStop();
+    // Cache the map container rect once at loop start. The map can't move
+    // while the loop runs (map keyboard drag/zoom are disabled via
+    // ModeManager), so getBoundingClientRect() is stable — avoids calling it
+    // 60 times per second inside the rafLoop.
+    this.nudgeMapRect = this.mapContainer.getBoundingClientRect();
+    // Remember which arrow key this loop is for so a fresh press of a
+    // different direction re-starts, while OS auto-repeat of the same key is
+    // ignored (one tap = exactly one sync frame regardless of repeat rate).
+    this.nudgeActiveKey = key;
+    // Fractional accumulator so held-key motion is smooth at 60fps: each
+    // scheduled frame adds perFrame px, the floored integer is applied, and
+    // the remainder carries forward. Running at the loop's native 16ms cadence
+    // keeps updates on a steady beat. The sync first frame (the tap) is
+    // handled separately so a quick tap still yields exactly NUDGE_STEP.
+    const perFrame = CONST.CROP.NUDGE_SPEED / 60;
+    let accX = 0;
+    let accY = 0;
+    let syncFrame = true;
+    // Gate the continuous stream behind a hold delay: a quick tap must stop
+    // after the single sync step, even though the rafLoop keeps ticking until
+    // keyup. Only once the hold passes NUDGE_HOLD_DELAY does per-frame motion
+    // begin. This keeps "tap once" = exactly one NUDGE_STEP, independent of
+    // OS auto-repeat rate or how quickly the user releases.
+    // Capture press time once at entry; the elapsed check lives inside the
+    // rafLoop tick so we don't need a separate setTimeout call (which would
+    // require calling this.scheduler as a method and throw Illegal invocation
+    // in production).
+    const pressTime = performance.now();
+    this.nudgeLoop = rafLoop(
+      (k?: string) => {
+        const d = nudgeDirection(k ?? key);
+        if (syncFrame) {
+          syncFrame = false;
+          this.nudgeCropBoxDelta(
+            d.x * CONST.CROP.NUDGE_STEP,
+            d.y * CONST.CROP.NUDGE_STEP,
+          );
+        } else if (performance.now() - pressTime > CONST.CROP.NUDGE_HOLD_DELAY) {
+          this.nudgeCropBoxDelta(d.x * (accX + perFrame), d.y * (accY + perFrame));
+          accX = (accX + perFrame) % 1;
+          accY = (accY + perFrame) % 1;
+        }
+        // Holding but the gate has not yet passed -> stay put (no per-frame
+        // motion). A quick tap therefore yields exactly the single sync step.
+        // If the box was locked or removed (e.g. Enter, Escape) the nudge
+        // returns early, but it doesn't return true — detect it explicitly
+        // and stop the loop so we never write to a gone/locked box.
+        if (!this.isEditing()) {
+          // Clean up the suppressed-transition class on auto-stop. Explicit
+          // nudgeStop() (from keyup) also clears it, so this covers the Enter/
+          // Escape path where keyup never fires for the arrow key.
+          this.cropState?.box?.classList.remove(CONST.CLASSES.DRAGGING);
+          return true;
+        }
+        return false;
+      },
+      { scheduler: this.scheduler },
+    );
+    this.nudgeLoop.start(key);
+  }
+
+  /** Stop the smooth-nudge loop. Also clears the suppressed-transition
+   * class; when nudgeStart() re-creates a loop (direction switch) the very
+   * next sync tick re-adds it, so there is no visible flicker. */
+  private nudgeStop() {
+    const loop = this.nudgeLoop;
+    this.nudgeLoop = undefined;
+    this.nudgeMapRect = undefined;
+    this.nudgeActiveKey = undefined;
+    this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
+    loop?.stop();
+  }
+
+  /** True while the crop box is open and being edited (not locked). */
+  private isEditing(): boolean {
+    return !!this.cropState && !this.cropState.locked;
+  }
+
+  /** Apply a new rect: update state, box style, and (optionally) the size hint. */
+  private applyRect(r: Rect, withHint = true) {
+    if (!this.cropState) return;
+    this.cropState.rect = r;
+    this.updateBoxStyle(this.cropState.box, r);
+    if (withHint) this.showHintWithInfo(r, T("hint_unlocked"));
+  }
+
+  /** Reset the unlocked crop box to the default centered size. */
+  resetCropBox() {
+    if (!this.isEditing()) return;
+    this.applyRect(this.defaultRect());
+  }
+
+  /** Nudge the unlocked crop box by NUDGE_STEP px in an arrow direction. */
+  nudgeCropBox(key: string) {
+    if (!this.isEditing()) return;
+    const d = nudgeDirection(key);
+    this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
+  }
+
+  /** Apply an already-computed (possibly fractional) delta to the crop box.
+   * Used by the frame-aligned nudge loop: it floors the delta so the DOM
+   * position stays integral while the caller carries the decimal remainder in
+   * an accumulator — giving smooth continuous motion at a controlled speed.
+   * Clamps within the same map bounds as nudgeCropBox(). */
+  private nudgeCropBoxDelta(dx: number, dy: number) {
+    const st = this.cropState;
+    if (!st) return;
+    const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
+    const r = Object.assign({}, st.rect);
+    r.left = Math.max(0, Math.min(mapRect.width - r.width, r.left + Math.floor(dx)));
+    r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + Math.floor(dy)));
+    st.box.classList.add(CONST.CLASSES.DRAGGING);
+    this.applyRect(r, false);
+  }
+
+  /** Key release: restore the box transition suppressed during arrow-key nudging. */
+  onKeyUp(event: KeyboardEvent) {
+    if (CONST.NUDGE_KEYS.includes(event.key)) {
+      // Stop the smooth-nudge loop — keyup is the release signal. The rafLoop
+      // keeps ticking at ~60Hz until stopped, so without this the box would
+      // drift forever after a single press. nudgeStop() clears the
+      // suppressed-transition class, so there's nothing left to do here.
+      this.nudgeStop();
+    }
+  }
+
+  /** Default centered crop box (same as the no-history branch of showCropBox). */
+  defaultRect(): Rect {
+    const mapRect = this.mapContainer.getBoundingClientRect();
+    const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
+    const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
+    return {
+      left: padW,
+      top: padH,
+      width: mapRect.width - padW * 2,
+      height: mapRect.height - padH * 2,
+    };
   }
 
   onMapChange(skipHint?: boolean) {
@@ -345,11 +573,12 @@ class ExportManager {
         { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
         { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
       ])
-    )
+    ) {
       return;
+    }
     this.isExporting = true;
-    ensureModes(this.map).setMode(CONF.name, "exporting");
-    ensureEvents(this.map).emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
+    this.modes.setMode(CONF.name, "exporting");
+    this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
     const r = Object.assign({}, this.cropState.rect);
     const geoBounds = this.cropState.geoBounds;
     if (geoBounds) {
@@ -372,20 +601,39 @@ class ExportManager {
     this.lockMap();
 
     let scaleValue = CONF.scale;
-    if (typeof scaleValue !== "number" || isNaN(scaleValue))
+    if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
       scaleValue = window.devicePixelRatio || 1;
+    }
     const bg = CONF.background;
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
-      this.isExporting = false;
-      ensureModes(this.map).setMode(CONF.name, null);
-      ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-      this.removeExportOverlay();
+      // Clear all of this component's hints first. The crop-box size/limit
+      // hints are PERSIST (duration 0 sets no timer), so they would otherwise
+      // outlive the export and sit on top of whatever status appears next.
+      this.map.foliplus!.hideHint(CONF.name);
+      this.unlockMap();
+      this.endExport();
       return;
     }
 
+    // Clear the crop-box hints before showing the exporting status, so the
+    // status isn't announced on top of a stale "100 × 100 px" label. They are
+    // PERSIST (duration 0 sets no timer), so nothing else removes them once
+    // the box is gone — they'd outlive the export entirely, the same registry
+    // leak as the object-URL one.
+    this.map.foliplus!.hideHint(CONF.name, "size");
+    this.map.foliplus!.hideHint(CONF.name, "limit");
+
     this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
+
+    // Progress callback: format the percentage with locale text and refresh
+    // the persistent hint.  render() reports 0..90 over the drawing passes;
+    // this callback owns the final stretch, so 100 is reserved for the
+    // download having started rather than the tiles having finished.
+    const onProgress = (percent: number) => {
+      this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
+    };
 
     const vpW = this.mapContainer.clientWidth;
     const vpH = this.mapContainer.clientHeight;
@@ -397,9 +645,9 @@ class ExportManager {
       r.left + r.width > vpW * 1.02 ||
       r.top + r.height > vpH * 1.02;
 
-    if (needsBigger && geoBounds && geoBounds.nw)
-      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH);
-    else this.doRender(r, scaleValue, bg, geoBounds);
+    if (needsBigger && geoBounds && geoBounds.nw) {
+      this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
+    } else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
   }
 
   /** Render the crop area to a canvas and trigger download.  Returns the
@@ -410,12 +658,13 @@ class ExportManager {
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds | undefined,
+    onProgress?: (percent: number) => void,
   ) {
     const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
     hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
     // Force a synchronous layout so getBoundingClientRect() in the
     // render passes sees the final positions after hiding controls.
-    this.mapContainer.offsetHeight;
+    void this.mapContainer.offsetHeight;
 
     if (geoBounds && geoBounds.nw) {
       const nw = this.map.latLngToContainerPoint(
@@ -431,7 +680,7 @@ class ExportManager {
     }
 
     return new ExportRenderer(this.map)
-      .render(r, scaleValue, bg || undefined, geoBounds)
+      .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
       .then(canvas => {
         this.onRenderSuccess(canvas, hideEls);
       })
@@ -448,6 +697,7 @@ class ExportManager {
     geoBounds: GeoBounds,
     vpW: number,
     vpH: number,
+    onProgress?: (percent: number) => void,
   ) {
     const savedStyles: Record<string, string> = {};
     const style = this.mapContainer.style;
@@ -487,9 +737,11 @@ class ExportManager {
     // browser has applied the layout changes before we render.
     this.map.invalidateSize(false);
     this.map.setView(cropCenter, savedZoom, { animate: false });
-    requestAnimationFrame(() => {
-      this.mapContainer.offsetHeight; // Force synchronous reflow
-      this.doRender(r, scaleValue, bg, geoBounds).finally(restore);
+    nextFrame(() => {
+      void this.mapContainer.offsetHeight; // Force synchronous reflow
+      void this.doRender(r, scaleValue, bg, geoBounds, onProgress)
+        .finally(restore)
+        .catch(() => undefined);
     });
   }
 
@@ -498,52 +750,86 @@ class ExportManager {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
     this.removeExportOverlay();
     this.unlockMap();
-    const mimeType = CONST.MIME[CONF.format as "png"] || CONST.MIME.DEFAULT;
+    // The persistent hint already reads "Exporting map... (N%)" from the
+    // last render() report, and it never expires — so the encode phase
+    // between here and the download is not label-less, and it does not read
+    // as finished.  100 stays reserved for claimDownload, where the file
+    // actually goes out.
+    // Awaited inline so a rejection cannot escape as an unhandled promise
+    // rejection — endExport() has to run on every path or the map stays
+    // locked behind the blocker overlay.
+    void this.finishExport(canvas);
+  }
+
+  private async finishExport(canvas: HTMLCanvasElement) {
+    const name = CONF.filename || "map";
+    try {
+      // Encode once into a Blob shared by the preview and the download. The
+      // old canvas.toDataURL() encoded the full raster into a base64 string
+      // for the preview, and toBlob() then encoded the same pixels a second
+      // time — on an HD export that base64 round-trip is a multi-tens-of-MB
+      // string copy and was the dominant chunk of the click-to-download delay.
+      const format = CONST.currentFormat();
+      const blob = await canvasToBlob(canvas, format.mime, CONF.quality);
+      if (!blob) {
+        this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
+        return;
+      }
+      this.showPreview(blob);
+      // GeoTIFF needs embedded georeferencing, so it ships as its own
+      // container file; every other format is the encoded blob itself.
+      if (format.geotiff) await this.downloadGeoTiff(canvas, name);
+      else this.claimDownload(blob, `${name}.${format.ext}`);
+      this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
+    } catch (err) {
+      // Any step can throw (createObjectURL, encoding, download anchor). A
+      // leaked rejection would otherwise skip endExport below and leave the
+      // map locked with the blocker overlay on screen.
+      this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
+      log.warn("export failed:", err);
+    } finally {
+      this.endExport();
+    }
+  }
+
+  /**
+   * Start the download, claiming the 100 the user expects on the way in.
+   * render() stops at 90 because the canvas still has to be encoded before
+   * it can be saved — that encode is the delay the user sees with nothing
+   * happening.  Claiming the 100 here means a full bar means the file is
+   * actually going out, and the label shown in the meantime says what the
+   * browser is doing.
+   */
+  private claimDownload(blob: Blob, filename: string) {
+    this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
+    download(blob, filename);
+  }
+
+  /** Show the transient preview overlay for an encoded export artifact.
+   * Click to dismiss early, otherwise auto-dismiss after SHORT. */
+  private showPreview(blob: Blob) {
     const prevImg = document.createElement("img");
-    prevImg.src = canvas.toDataURL(mimeType);
+    prevImg.src = URL.createObjectURL(blob);
     prevImg.className = CONST.CLASSES.PREVIEW;
     document.body.appendChild(prevImg);
-    // Click to dismiss the preview early; otherwise auto-dismiss after SHORT.
-    const dismissPreview = () => prevImg.remove();
-    prevImg.addEventListener("click", dismissPreview);
-    setTimeout(() => {
+    const dismissPreview = () => {
       prevImg.removeEventListener("click", dismissPreview);
       prevImg.remove();
-    }, HINT_DURATION.SHORT);
-    canvas.toBlob(
-      async blob => {
-        if (!blob) {
-          this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
-          this.isExporting = false;
-          ensureModes(this.map).setMode(CONF.name, null);
-          ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-          this.removeExportOverlay();
-          return;
-        }
-        const name = CONF.filename || "map";
-        if (CONF.format === "geotiff") {
-          // Export as a single GeoTIFF file with embedded georeferencing.
-          await this.downloadGeoTiff(canvas, name);
-        } else {
-          const link = document.createElement("a");
-          const url = URL.createObjectURL(blob);
-          link.download = `${name}.${CONF.format}`;
-          link.href = url;
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
-        }
-        this.showGlobalHint(T("status_success"), HINT_DURATION.LONG);
-        this.isExporting = false;
-        ensureModes(this.map).setMode(CONF.name, null);
-        ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
-        this.removeExportOverlay();
-      },
-      mimeType,
-      CONF.quality,
-    );
+      URL.revokeObjectURL(prevImg.src);
+    };
+    prevImg.addEventListener("click", dismissPreview);
+    setTimeout(dismissPreview, HINT_DURATION.SHORT);
+  }
+
+  /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
+   *  the blocker overlay. Runs on both the success and failure paths —
+   *  forgetting it strands `isExporting === true` with map interaction
+   *  disabled and the overlay still on screen. */
+  endExport() {
+    this.isExporting = false;
+    this.modes.setMode(CONF.name, null);
+    this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.removeExportOverlay();
   }
 
   /**
@@ -552,7 +838,7 @@ class ExportManager {
    * and ModelPixelScale tags for WGS84 (EPSG:4326).
    * Falls back to a plain image download if geo bounds are unavailable.
    */
-  async downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
+  downloadGeoTiff(canvas: HTMLCanvasElement, name: string) {
     // doExport() clears cropState via removeCropBox() before the render
     // callback fires, so cropState.geoBounds is gone by the time we
     // reach downloadGeoTiff.  Use the geoBounds saved in doExport
@@ -618,25 +904,17 @@ class ExportManager {
     });
 
     const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${name}.tif`;
-    link.href = url;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), CONST.TIMING.URL_REVOKE_DELAY);
+    this.claimDownload(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
   }
 
   /** Handle render failure. */
   onRenderError(err: Error, hideEls: NodeListOf<Element>) {
     hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
-    ensureModes(this.map).setMode(CONF.name, null);
-    ensureEvents(this.map).emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+    this.modes.setMode(CONF.name, null);
+    this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
     this.removeExportOverlay();
     this.unlockMap();
-    console.error(`[${CONF.name}] ${T("err_render")}:`, err);
+    log.error(`${T("err_render")}:`, err);
     this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
     this.isExporting = false;
   }
@@ -674,4 +952,4 @@ class ExportManager {
   }
 }
 
-export { ExportManager };
+export { type Rect, ExportManager, canvasToBlob };

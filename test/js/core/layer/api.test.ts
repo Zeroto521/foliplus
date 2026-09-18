@@ -1,7 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import apiSource from "#core/layer/api?raw";
+import typeSource from "#core/layer/type?raw";
 import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
+// Pinned deliberately: this `as unknown as` is the only one in the file and it
+// is a real cast, not a bypass. An empty tuple literal is `readonly []` and
+// cannot be assigned to LayerInfo[] directly (readonly arrays are not
+// assignable to mutable ones), so one double-step through unknown is the
+// cheapest true claim. If a cheaper route appears, take it and delete the pin.
+
 const mockShowHint = vi.fn();
+
+describe("source pins", () => {
+  it("layer/api.ts: one `as unknown as`, in the layers field", () => {
+    expect(apiSource.match(/as unknown as/g)).toHaveLength(1);
+    expect(apiSource).toContain("layers: Object.freeze([]) as unknown as LayerInfo[]");
+  });
+});
 
 describe("ensureLayerAPI", () => {
   let map: any;
@@ -59,7 +74,24 @@ describe("ensureLayerAPI", () => {
     expect(api).toBe(existing);
   });
 
-  it("is idempotent — repeated calls return the same instance", () => {
+  it("force=true replaces an existing LayerAPI with a fresh lightweight stub", () => {
+    const existing = { layers: [{ id: "a" }] } as any;
+    map.foliplus = { LayerAPI: existing };
+    const api = ensureLayerAPI(map, true);
+    expect(api).not.toBe(existing);
+    expect(api.isLayerControl).toBe(false);
+  });
+
+  it("force=true repeated calls stay idempotent after the first replacement", () => {
+    const existing = { layers: [{ id: "a" }] } as any;
+    map.foliplus = { LayerAPI: existing };
+    const first = ensureLayerAPI(map, true);
+    const second = ensureLayerAPI(map, true);
+    expect(second).toBe(first);
+    expect(map.foliplus.LayerAPI).toBe(first);
+  });
+
+  it("is idempotent —repeated calls return the same instance", () => {
     const api1 = ensureLayerAPI(map);
     const api2 = ensureLayerAPI(map);
     expect(api2).toBe(api1);
@@ -81,7 +113,7 @@ describe("ensureLayerAPI", () => {
     expect(typeof canvas.destroy).toBe("function");
   });
 
-  it("lightweight registerLayer is a no-op — never touches the map", () => {
+  it("lightweight registerLayer is a no-op —never touches the map", () => {
     const addLayer = vi.fn();
     const fresh = {
       foliplus: null as any,
@@ -95,7 +127,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    // The lightweight stub does not register into the map — no-op by design.
+    // The lightweight stub does not register into the map —no-op by design.
     expect(api.registerLayer({ id: "x", layer: { options: {} } } as any)).toBeNull();
     expect(addLayer).not.toHaveBeenCalled();
     expect(fresh.hasLayer).not.toHaveBeenCalled();
@@ -116,7 +148,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    const layers = api.createLayers({ id: "g", name: "Group", graphPane: "g" });
+    const layers = api.createLayers({ id: "g", name: "Group", panes: [{ name: "g" }] });
     const layer = { options: {} } as any;
     layers.addLayer(layer);
     // factory's registerLayer adds the mainLayer to the map
@@ -127,15 +159,41 @@ describe("ensureLayerAPI", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
+    // false, not undefined: the stub is a real method, so callers can tell a
+    // no-LayerControl call apart from an unknown id on a live one.
+    expect(api.setVisible("x", false)).toBe(false);
     expect(api.extractPoints("x")).toEqual([]);
     expect(api.getLayerPanes({} as any)).toEqual([]);
     expect(api.getLayersByType("point")).toEqual([]);
+  });
+
+  it("does not expose moveLayerUp / moveLayerDown —only LayerManager reorders", () => {
+    // These are declared optional on LayerAPI precisely so the lightweight stub
+    // stays registry-free. A real no-op here would be a false contract: the
+    // stub has no registry to reorder, so the methods are omitted rather than
+    // returning a permanent `false`.
+    const api = ensureLayerAPI(map);
+    expect(api.moveLayerUp).toBeUndefined();
+    expect(api.moveLayerDown).toBeUndefined();
   });
 
   it("layers is a frozen empty array", () => {
     const api = ensureLayerAPI(map);
     expect(Object.isFrozen(api.layers)).toBe(true);
     expect(Array.isArray(api.layers)).toBe(true);
+  });
+});
+
+describe("LayerAPI contract", () => {
+  it("moveLayerUp / moveLayerDown are declared optional, matching the no-registry stub", () => {
+    // LayerManager implements the full LayerAPI (class `implements LayerAPI`),
+    // so a regression here — e.g. making either method required — would break
+    // the lightweight stub's `satisfies LayerAPI`. `tsc --noEmit` covers the
+    // implements side; this pins the optionality that keeps the stub
+    // registry-free instead of forcing two dead no-ops into it.
+    const layerApiBody = typeSource.slice(typeSource.indexOf("interface LayerAPI"));
+    expect(layerApiBody).toMatch(/moveLayerUp\?:\s*\(/);
+    expect(layerApiBody).toMatch(/moveLayerDown\?:\s*\(/);
   });
 });
 

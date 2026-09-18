@@ -6,6 +6,7 @@ import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { suspendMapInteractions } from "#core/layer/util.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 interface ModeChangePayload {
   component: string;
@@ -160,19 +161,19 @@ const ensureModes = (map: L.Map): ModeManager => {
   if (existing) return existing;
   const manager = new ModeManager(ensureEvents(map), map);
   instances.set(map, manager);
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
-  map.foliplus!.modes = manager;
+  const api = ensureMapFoliplus(map);
+  api.modes = manager;
   // On map unload, clear modes and release the interaction lock so manager
   // state and the disabled-layers closure do not outlive the map (mirrors the
   // per-map cleanup pattern used by core/interaction).
-  map.on("unload" as any, () => manager.clear());
+  map.on("unload", () => manager.clear());
   return manager;
 };
 
 /** Check whether a component is blocked by an active mode and show a hint.
  *  Caller provides the translated hint text (e.g. `T("blocked")`).
  *  Returns `true` when blocked (caller should return early). */
-export const guardBlocked = (
+const guardBlocked = (
   map: L.Map,
   name: string,
   hintFallback: string,
@@ -195,5 +196,4 @@ export const guardBlocked = (
   return true;
 };
 
-export type { ModeChangePayload };
-export { ModeManager, ensureModes };
+export { type ModeChangePayload, ModeManager, ensureModes, guardBlocked };

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from folium.elements import Element
 from folium.map import Layer
 
 from ._typing import Position
@@ -10,13 +11,14 @@ from .locale import LocaleConfig
 
 
 class LayerControl(BaseControl):
-    """Drag-and-drop layer ordering with geometry icons, color picker, and panes.
+    """Layer panel to organize, inspect, and zoom to map layers.
 
     - 📐 Geometry-type icons for quick layer identification.
     - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
     - ✅ Multi-select checkboxes with z-index stacking.
     - 🎨 Color picker to replace base maps with a solid background color.
-    - ⌨️ Keyboard navigation for layer panel (see Shortcuts below).
+    - ⌨️ Keyboard navigation (see Shortcuts below).
+    - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
     Shortcuts
     ---------
@@ -45,13 +47,29 @@ class LayerControl(BaseControl):
          - Move focused layer one position down
        * - Escape
          - Clear focus
+       * - Double-click row
+         - Zoom the map to that layer's extent (dashed rect). Hidden layers
+           show a hint instead. Also from the ⋮ menu or Alt+Enter.
+       * - Alt+Enter
+         - Zoom to the focused layer (same as double-click)
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
+
+    Base basemap, color picker, and hidden rows stay quiet: no cursor glow
+    on click or keyboard focus. Their ⋮ "Focus layer" item is disabled
+    (not-allowed cursor) — toggle visibility from the checkbox as usual.
 
     Parameters
     ----------
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
+
+    label_collide : bool, default True
+        Page-wide default for the per-layer "avoid overlap" setting: when
+        enabled, a layer's own labels thin themselves out where they overlap.
+        Labels from *different* layers never avoid each other — the layers are
+        stacked, so an upper layer simply covers the lower one's. The style
+        panel overrides this per layer.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
@@ -65,13 +83,17 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
+    _export_fields = ("label_collide",)
+
     def __init__(
         self,
         *,
         position: Position = "topleft",
+        label_collide: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
+        self.label_collide = label_collide
         self._template = self._get_template()
 
     def _extra_config(self) -> dict:
@@ -79,8 +101,12 @@ class LayerControl(BaseControl):
 
         This is the canonical example of a control that needs render-time data the
         constructor cannot know: the layer list only exists once the control is added
-        to a map. Traverses the parent map's ``_children`` and emits a serializable
-        list of ``{name, id, isBase}`` dicts.
+        to a map. Layers may be attached to the control itself (the usual case, since
+        ``.add_to(control)`` is how layers are grouped for display) or to the parent
+        map (the historical case). Candidates from both are unioned and deduplicated
+        by ``get_name()``, because folium's ``add_child`` stores elements in an
+        ``OrderedDict`` under that name — the same ``Layer`` reached twice collapses
+        to one key, distinct layers never collide.
 
         Returns
         -------
@@ -89,20 +115,27 @@ class LayerControl(BaseControl):
             into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
+        seen: set[str] = set()
+        candidates: list[Element] = [*self._children.values()]
         if (parent := self._parent) is not None:
-            for item in parent._children.values():
-                # isinstance first — the control itself is a child but not a Layer
-                # (and has no `.control` attribute).
-                if not isinstance(item, Layer) or not item.control:
-                    continue
+            candidates += [*parent._children.values()]
 
-                data.append(
-                    {
-                        "name": item.layer_name,
-                        "id": item.get_name(),
-                        "isBase": not item.overlay,
-                    }
-                )
+        for item in candidates:
+            # isinstance first — the control itself is a child but not a Layer
+            # (and has no `.control` attribute).
+            if not isinstance(item, Layer) or not item.control:
+                continue
+            if (name := item.get_name()) in seen:
+                continue
+            seen.add(name)
+
+            data.append(
+                {
+                    "name": item.layer_name,
+                    "id": name,
+                    "isBase": not item.overlay,
+                }
+            )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: cast(bool, d["isBase"]))

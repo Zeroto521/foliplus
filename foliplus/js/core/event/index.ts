@@ -1,4 +1,5 @@
 // core/event — cross-component event bus (per-map, singular dir).
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { EventBus } from "./EventBus.js";
 
 // Per-map instance storage (WeakMap so destroyed maps are GC'd) — mirrors the
@@ -6,16 +7,17 @@ import { EventBus } from "./EventBus.js";
 const instances = new WeakMap<L.Map, EventBus>();
 
 /** Ensure `map.foliplus.events` has a per-map EventBus. Idempotent. */
-export const ensureEvents = (map: L.Map): EventBus => {
+const ensureEvents = (map: L.Map): EventBus => {
   const existing = instances.get(map);
   if (existing) return existing;
   const bus = new EventBus();
   instances.set(map, bus);
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
-  map.foliplus!.events = bus;
+  const api = ensureMapFoliplus(map);
+  api.events = bus;
   return bus;
 };
 
-export { EVENT_REGISTRY, EVENTS } from "./const.js";
+export { ensureEvents };
+export { EVENTS, EVENT_REGISTRY } from "./const.js";
 export type { EventMeta, EventPayloadMap } from "./const.js";
-export { EventBus, type EventHandler } from "./EventBus.js";
+export { type EventHandler, EventBus } from "./EventBus.js";

@@ -12,6 +12,7 @@ from conftest import (
     assert_locale,
     make_browser_page,
     read_css,
+    read_css_dir,
     render_control,
     use_page,
 )
@@ -80,9 +81,9 @@ class TestLocateControlRendering:
         assert "pointer-events: none" in css
 
     def test_does_not_redefine_transform(self):
-        """The hover/active icon scale stays with common.css alone.
+        """The hover/active icon scale stays with the shared stylesheet alone.
 
-        common.css' ":hover svg" rule is a descendant selector, so it already
+        css/common/button.css' ":hover svg" rule is a descendant selector, so it already
         scales the SVG nested inside the wrapper spans. A transform on the
         wrapper would compound with it — the icon scaled three times on hover.
         """
@@ -102,9 +103,11 @@ class TestLocateControlRendering:
 
     def test_spins_with_shared_keyframes(self):
         """The loading state reuses the shared foliplus spinner, no local animation."""
-        # The animation lives in common.css; LocateControl.css only toggles
+        # The animation lives in reset.css; LocateControl.css only toggles
         # which icon shows.
-        assert "@keyframes foliplus-spin" in read_css("foliplus/css/common.css")
+        assert "@keyframes foliplus-spin" in read_css_dir(
+            "foliplus/css/common", "reset.css"
+        )
         assert "@keyframes" not in read_css("foliplus/css/LocateControl.css")
 
     def test_contains_gcoord_dependency(self):
@@ -164,9 +167,29 @@ class TestLocateControlBrowser:
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
             # The marker's popup should show the located coordinates.
             popup = page.evaluate(_js("LocateControl/read_popup"))
-            assert popup and "119.3" in popup and "26.08" in popup, (
+            assert popup and "119.3" in popup["text"] and "26.08" in popup["text"], (
                 f"Expected located coords in popup, got: {popup!r}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_popup_spinner_stays_bounded(self, browser, tmp_path):
+        """The reverse-geocode loading spinner renders at icon size, not full width.
+
+        ``Icons.LOADING`` declares a ``viewBox`` but no ``width``/``height``, so it
+        has no intrinsic size. Its flex parent — the popup — then sizes it from a
+        flex base size of 0 and it grows to fill the popup (measured 213px wide in
+        a 213px popup, 301px in a full-viewport one). ``.foliplus-spin`` in
+        common.css pins it to ``1em``; with that rule removed this test measures
+        the spinner as wide as the popup.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LocateControl/click_success"))
+            page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
+            popup = page.evaluate(_js("LocateControl/read_popup"))
+            spin = popup["spinner"]
+            assert spin, f"no loading spinner found in the popup: {popup!r}"
+            assert spin["width"] <= 40, f"spinner too wide: {spin!r}"
+            assert spin["height"] <= 40, f"spinner too tall: {spin!r}"
             assert not errors, f"JS errors: {errors}"
 
     def test_button_spins_while_locating(self, browser, tmp_path):
@@ -202,4 +225,71 @@ class TestLocateControlBrowser:
             assert not state["spinnerVisibleAfter"], (
                 f"spinner stuck after reject: {state!r}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_hint_icon_is_sanitised_in_the_dom(self, browser, tmp_path):
+        """A registered hint icon is gated before it reaches the DOM.
+
+        ``registerHintIcon`` is a public runtime API, so a hostile icon string
+        lands in an innerHTML sink on every hint carrying that key. The gate
+        runs at registration and the browser re-parses whatever it serialises
+        — jsdom's DOMParser and insertion model disagree with a real browser's,
+        so only a browser shows what actually lands and whether any of it is
+        still live.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            r = page.evaluate(_js("LocateControl/hint_icon_sanitized"))
+
+            # Hostile payload: every active construct is stripped or emptied,
+            # and no handler in it fired.
+            h = r["hostile"]
+            assert h["hint"] is True
+            assert h["scripts"] == 0
+            assert h["imgs"] == 0
+            # <foreignObject> is the SVG's only HTML-namespace escape hatch, so
+            # the wrapper itself must go — an empty wrapper left behind would
+            # still be an injection point for later DOM mutation.
+            assert h["foreign"] == 0
+            assert not h["onload"]
+            assert not h["onmouseover"]
+            assert not any(r["leaked"]), f"handler leaked: {r['leaked']}"
+
+            # foreignObject is the blacklist entry that carries the most weight:
+            # it is where the browser is permitted to host foreign markup. With
+            # only SVG children inside it the wrapper would otherwise look like
+            # harmless layout, so this pins that the tag rule — not the HTML
+            # namespace check — is what strips it.
+            f = r["foreignSvg"]
+            assert f["hint"] is True
+            assert f["foreign"] == 0
+            assert f["rectInsideForeign"] == 0
+            assert f["text"] == "fsvg"
+
+            # Benign payload: the allowlist keeps presentation attributes and
+            # their CSS hooks, so the icon still matches its stylesheet rule.
+            b = r["benign"]
+            assert b["hint"] is True
+            assert b["iconSpan"] is True
+            assert b["svg"] is True
+            assert b["rootClass"] == "foliplus-spin"
+            assert b["rootMatches"] is True
+            assert b["rectClass"] == "foliplus-spin"
+            assert b["rectMatches"] is True
+            assert b["fill"] == "currentColor"
+            assert b["stroke"] == "currentColor"
+            assert b["text"] == "locating"
+
+            # A second round trip through innerHTML keeps the same shape.
+            assert r["roundTrip"]["svg"] is True
+            assert r["roundTrip"]["matches"] is True
+            assert r["roundTrip"]["rectMatches"] is True
+
+            # The hint text stayed a TextNode: a rogue locale value cannot
+            # become markup.
+            assert h["text"] == r["poisonText"]
+
+            # An icon whose whole tree is active content is dropped, with the
+            # text still shown.
+            assert r["dropped"]["iconSpan"] is False
+            assert r["dropped"]["text"] == "dead"
             assert not errors, f"JS errors: {errors}"

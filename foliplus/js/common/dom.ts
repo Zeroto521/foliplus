@@ -4,6 +4,7 @@
 // it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
+import { formatCoord } from "./format.js";
 import * as SVGs from "./icon.js";
 
 // ── DOM constants ───────────────────────────────────────────────
@@ -114,9 +115,9 @@ const dom = {
         typeof child === "object" &&
         "html" in child &&
         (child as { html: string }).html
-      )
+      ) {
         el.insertAdjacentHTML("beforeend", (child as { html: string }).html);
-      else if (typeof child === "number") el.append(String(child));
+      } else if (typeof child === "number") el.append(String(child));
       else el.append(child as string | HTMLElement);
     }
     return el;
@@ -164,22 +165,32 @@ const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   )?.preventDefault?.();
 };
 
-/** Escape HTML special characters in a string. */
-const escapeHTML = (str: string | number | boolean | null | undefined): string => {
-  const map: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return String(str).replace(/[&<>"']/g, m => map[m]);
+/** Cancel Leaflet's mapPane pan translation on an overlay canvas, so the
+ *  canvas stays put in the container while its contents are drawn in
+ *  container coordinates. The heatmap's and the annotation labels' canvases
+ *  both ride inside mapPane (directly or via a child pane) and need this
+ *  on every paint. */
+const cancelMapPaneTranslate = (canvas: HTMLCanvasElement, map: L.Map): void => {
+  const mapPane = map.getPanes().mapPane;
+  if (!mapPane) return;
+  const pos = L.DomUtil.getPosition(mapPane);
+  canvas.style.left = `${-pos.x}px`;
+  canvas.style.top = `${-pos.y}px`;
 };
 
 /**
- * Build a popup HTML string for a location marker.
+ * Build the popup body for a location marker. Coordinates are pinned to the
+ * shared readout precision, so a popup never echoes the raw stored value — a
+ * history entry saved from "121.47" used to render "121.47,31.23" instead of
+ * the six decimals every other location readout shows.
+ *
+ * Returns an element, not a string: `bindPopup`/`setPopupContent` would
+ * otherwise re-parse `addr`, which for a location marker is a Nominatim
+ * reverse-geocode result — the one sink in the codebase fed by a third-party
+ * API that the page never controls. Passing an element makes Leaflet append
+ * it as-is, so a poisoned POI name can only ever be a TextNode.
  */
-const buildPopupHtml = (
+const buildPopupEl = (
   lng: number,
   lat: number,
   addr: string | null,
@@ -187,22 +198,24 @@ const buildPopupHtml = (
   loadingText: string,
   locLabelText: string,
   addrLabelText: string,
-): string => {
-  const addrHtml =
-    addr && addr.includes("LOADING")
-      ? { html: `${SVGs.LOADING} ${loadingText}` }
-      : addr || loadingText;
-
+): HTMLElement => {
+  const loading = addr ? addr.includes("LOADING") : true;
+  // In the loading state the spinner and the label are built as separate
+  // nodes so the spinner (trusted) and the label (locale JSON) never share
+  // one HTML string.
+  const addrNodes: Child[] = loading
+    ? [{ html: SVGs.LOADING }, dom.el("span", null, loadingText)]
+    : [addr || loadingText];
   return dom.el(
     "div",
     { class: "foliplus-popup-content" },
     dom.el("b", null, titleText),
     { html: "<br>" },
-    `${locLabelText}${lng},${lat}`,
+    `${locLabelText}${formatCoord(lng)}, ${formatCoord(lat)}`,
     { html: "<br>" },
     addrLabelText,
-    addrHtml as Child,
-  ).outerHTML;
+    ...addrNodes,
+  );
 };
 
 /**
@@ -238,7 +251,7 @@ const createLocationMarker = (
   });
   target.addLayer(marker);
   marker.bindPopup(
-    buildPopupHtml(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
+    buildPopupEl(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
     { maxWidth: POPUP_MAX_WIDTH },
   );
   if (openPopup) marker.openPopup();
@@ -253,32 +266,154 @@ const createLocationMarker = (
     // Lazy access to the runtime singleton geocoder (kept out of this bundle).
     const foliplus = window.foliplus;
     if (foliplus?.reverseGeocode) {
-      foliplus.reverseGeocode(map, lng, lat, code).then((resolved: string) => {
-        if (onAddress) onAddress(resolved);
-        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-          marker.setPopupContent(
-            buildPopupHtml(
-              lng,
-              lat,
-              resolved,
-              titleText,
-              loadingText,
-              locLabelText,
-              addrLabelText,
-            ),
-          );
-        }
-      });
+      void foliplus
+        .reverseGeocode(map, lng, lat, code)
+        .then((resolved: string) => {
+          if (onAddress) onAddress(resolved);
+          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
+            marker.setPopupContent(
+              buildPopupEl(
+                lng,
+                lat,
+                resolved,
+                titleText,
+                loadingText,
+                locLabelText,
+                addrLabelText,
+              ),
+            );
+          }
+        })
+        .catch(() => undefined);
     }
   }
   return marker;
 };
 
+/**
+ * Update a layer item's label and its toggle input's aria-label with a new
+ * display name.
+ *
+ * Only the toggle input is touched: it is the one toggle control on a row,
+ * so the name must reach assistive tech — but via aria-label, never via
+ * `title`, because `title` is the Select/Deselect tooltip slot (Select/Deselect
+ * for a data row, the type label for the color basemap row).
+ *
+ * @param item Parent item element with `data-layer-id` (optional).
+ * @param name New display name to apply.
+ * @returns The updated label element, or null if not found.
+ */
+const updateItemLabel = (
+  item: HTMLElement | null,
+  name: string,
+): HTMLLabelElement | null => {
+  if (!item) return null;
+  const label = item.querySelector("label") as HTMLLabelElement | null;
+  if (!label) return null;
+  label.textContent = name;
+  // The row's toggle input announces the same name as the label cell. A data
+  // row's toggle is its checkbox; the color basemap row's is the color swatch,
+  // and it has no checkbox — without this the basemap swatch would keep
+  // announcing the locale default after a rename.
+  const toggle = item.querySelector(
+    'input[type="checkbox"], input[type="color"]',
+  ) as HTMLInputElement | null;
+  if (toggle && toggle.getAttribute("aria-label") !== name) {
+    toggle.setAttribute("aria-label", name);
+  }
+  return label;
+};
+
+/**
+ * Remove an inline edit input from its label element. Used to tear down a
+ * rename input after commit/cancel. The caller owns restoring the label text
+ * (via updateItemLabel) — this only detaches the input.
+ *
+ * @param label The label element containing the inline edit input.
+ * @returns The removed input element, or null if not found.
+ */
+const removeInlineEditInput = (
+  label: HTMLLabelElement | null,
+): HTMLInputElement | null => {
+  if (!label) return null;
+  const input = label.querySelector("input") as HTMLInputElement | null;
+  if (input) label.removeChild(input);
+  return input;
+};
+
+/**
+ * Replace a label's text content with an inline text input for editing.
+ *
+ * Handles Enter (commit), Escape (cancel), and blur (commit if non-empty).
+ * The input is appended into the label element; the caller owns removing it
+ * and restoring the label text after the edit completes.
+ *
+ * Returns the created input element (already focused and selected).
+ */
+const createInlineEditInput = (opts: {
+  label: HTMLLabelElement;
+  initialValue: string;
+  className: string;
+  ariaLabel: string;
+  onCommit: (value: string) => void;
+  /** Called when the edit ends without committing — Escape (reason "escape")
+   *  or an empty/whitespace Enter (reason "empty"). Callers can distinguish
+   *  silent abandon from a rejected empty value (e.g. to show a hint). */
+  onCancel: (reason: "escape" | "empty") => void;
+  /** Gate blur-commit: only true while the edit is still the active one.
+   *  Guards against a double-commit when Enter/Escape tear the input down
+   *  (removing the focused element fires blur, which would re-commit stale
+   *  value). Defaults to "always active". */
+  isActive?: () => boolean;
+}): HTMLInputElement => {
+  const input = dom.el("input", {
+    type: "text",
+    value: opts.initialValue,
+    class: opts.className,
+    "aria-label": opts.ariaLabel,
+  }) as HTMLInputElement;
+
+  const commit = (value: string) => {
+    if (opts.isActive && !opts.isActive()) return;
+    const trimmed = value.trim();
+    if (trimmed.length > 0) opts.onCommit(trimmed);
+    else opts.onCancel("empty");
+  };
+
+  input.addEventListener("keydown", (event: KeyboardEvent) => {
+    // Stop every key from reaching the document-level InteractionManager —
+    // otherwise ArrowLeft/Right (registered as layer shortcuts) preventDefault
+    // and swallow the caret move, and Ctrl+Arrow would reorder the layer while
+    // the user edits the name. The browser keeps its default caret/typing.
+    // Escape is left to bubble: the panel's delegated handler finishes the
+    // rename and lifts the row cursor, so the input must not swallow it.
+    if (event.key !== "Escape") event.stopPropagation();
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit(input.value);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      opts.onCancel("escape");
+    }
+  });
+  input.addEventListener("blur", () => commit(input.value));
+
+  opts.label.textContent = "";
+  opts.label.appendChild(input);
+  input.focus();
+  input.select();
+  return input;
+};
+
 export {
-  buildPopupHtml,
+  buildPopupEl,
+  cancelMapPaneTranslate,
   createIconButton,
+  createInlineEditInput,
   createLocationMarker,
   dom,
-  escapeHTML,
+  removeInlineEditInput,
   stopEvent,
+  updateItemLabel,
 };

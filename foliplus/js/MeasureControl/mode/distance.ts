@@ -29,6 +29,7 @@ class DistanceMode extends PreviewMode {
     points.forEach((pt: L.LatLng, i: number) => {
       const node = manager.layers.addLayer(
         Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
+        CONST.PANES.NODE,
       ) as L.CircleMarker;
       node.bringToFront();
       nodeMarkers.push(node);
@@ -49,7 +50,7 @@ class DistanceMode extends PreviewMode {
               Util.formatSegmentLabel(prev, cur, accTotal),
             ),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       });
@@ -60,17 +61,16 @@ class DistanceMode extends PreviewMode {
       finalPoly,
       nodeMarkers,
       segLabels,
-      points: points,
-      onDelete: () => {
-        manager.measurements = manager.measurements.filter(x => x.id !== data.id);
-        manager.saveMeasurements();
-      },
+      points,
+      id: data.id!,
+      onDelete: () => manager.store.remove(data.id!),
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
-        data.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-        data.segments = segments;
-        data.totalDistance = totalDistance;
-        manager.saveMeasurements();
+        manager.store.update(data.id!, {
+          points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+          segments,
+          totalDistance,
+        });
       },
     });
   }
@@ -86,6 +86,10 @@ class DistanceMode extends PreviewMode {
     const previewLine = this.addPreview(
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
+    // The cursor dot is the same hollow node as the circle mode's radius
+    // endpoint — it has no meaning before the first point is placed. Created
+    // via `moveCursorNode`, which recreates the node on every frame so the
+    // attach order keeps the node newest (see PreviewMode.moveCursorNode).
     const finalPoly = this.layers.addLayer(
       L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
@@ -94,6 +98,7 @@ class DistanceMode extends PreviewMode {
     this._cleanup = () => {
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -125,14 +130,13 @@ class DistanceMode extends PreviewMode {
         distance: Util.distance(points[i], points[i + 1]),
         bearing: Util.bearing(points[i], points[i + 1]),
       }));
-      this.m.measurements.push({
+      this.m.store.add({
         id: distId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
         segments,
         totalDistance: total,
       });
-      this.m.saveMeasurements();
 
       // Format last label
       if (segLabels.length > 0) {
@@ -152,19 +156,18 @@ class DistanceMode extends PreviewMode {
         finalPoly,
         nodeMarkers,
         segLabels,
-        points: points,
+        points,
+        id: distId,
         onDelete: () => {
-          this.m.measurements = this.m.measurements.filter(x => x.id !== distId);
-          this.m.saveMeasurements();
+          this.m.store.remove(distId);
         },
         onUpdate: () => {
-          const m = this.m.measurements.find(x => x.id === distId);
-          if (!m) return;
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          m.points = points.map(p => ({ lng: p.lng, lat: p.lat }));
-          m.segments = segments;
-          m.totalDistance = totalDistance;
-          this.m.saveMeasurements();
+          this.m.store.update(distId, {
+            points: points.map(p => ({ lng: p.lng, lat: p.lat })),
+            segments,
+            totalDistance,
+          });
         },
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized
@@ -174,6 +177,7 @@ class DistanceMode extends PreviewMode {
       // Cleanup drawing mode
       unbindMapEvents(this.map, distEvents);
       this.layers.removeLayer(previewLine);
+      this.clearCursorNode();
       if (previewDistLabel) {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
@@ -184,23 +188,18 @@ class DistanceMode extends PreviewMode {
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
       previewLine.setLatLngs([points[points.length - 1], event.latlng]);
+      this.moveCursorNode(event.latlng);
       const seg = Util.distance(points[points.length - 1], event.latlng);
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
       const labelText = Util.formatSegmentLabel(lastPt, event.latlng, showDist);
-      if (!previewDistLabel) {
-        previewDistLabel = this.layers.addLayer(
-          L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(labelText),
-            interactive: false,
-          }),
-          true,
-        ) as L.Marker;
-      } else {
-        previewDistLabel!.setLatLng([mid.lat, mid.lng]);
-        Util.setLabelText(previewDistLabel, labelText);
-      }
+      previewDistLabel = this.updateOrCreateLabel(
+        previewDistLabel,
+        mid,
+        labelText,
+        Util.makeMidLabelDivIcon,
+      );
     };
 
     const onDistClick = (event: L.LeafletMouseEvent) => {
@@ -209,8 +208,9 @@ class DistanceMode extends PreviewMode {
         points.some(
           (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
         )
-      )
+      ) {
         return;
+      }
       L.DomEvent.stopPropagation(event);
       points.push(event.latlng);
       if (previewDistLabel) {
@@ -224,6 +224,7 @@ class DistanceMode extends PreviewMode {
           event.latlng,
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
+        CONST.PANES.NODE,
       ) as L.CircleMarker;
       marker.bringToFront();
       nodeMarkers.push(marker);
@@ -267,7 +268,7 @@ class DistanceMode extends PreviewMode {
               ),
             ),
           }),
-          true,
+          CONST.PANES.LABEL,
         ) as L.Marker;
         segLabels.push(label);
       }

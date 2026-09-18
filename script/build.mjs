@@ -4,15 +4,17 @@
  *
  * Pipeline:
  *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/compress.mjs``)
- *   2. Merge ``common.css`` + ``panel.css`` → ``dist/foliplus-common.min.css``
+ *   2. Merge the shared stylesheet modules -> ``dist/foliplus-common.min.css``
  *
- *   Source transforms run at bundle time via esbuild onLoad — no .build/ mirror needed.
+ *   Source transforms run at bundle time via esbuild onLoad — no .build/ source
+ *   mirror. Two scratch dirs remain: .build/js for the generated shared registry
+ *   and .build/css for the merged stylesheet, which esbuild must read off disk.
  *
  * Usage:
  *   node script/build.mjs              # build all (minified)
  *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
- *   node script/build.mjs --check      # build and verify all artifacts exist
  *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
+ *   node script/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
 import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
@@ -30,9 +32,10 @@ import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { transformSource } from "./compress.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
-import { FAIL, OK } from "./glyphs.mjs";
+import { FAIL, OK } from "./glyph.mjs";
+import { expandEntry, mergeCss } from "./merge-css.mjs";
+import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
@@ -57,7 +60,7 @@ const SHARED_ENTRY = "runtime";
 const BUILD_SPEC = {
   root: { type: "string", default: ".", desc: "Project root directory" },
   dev: { type: "bool", desc: "Unminified, keepNames" },
-  check: { type: "bool", desc: "Verify all artifacts exist" },
+  verify: { type: "bool", desc: "Don't build; assert the existing dist/ is complete" },
   sonda: { type: "bool", desc: "Generate sonda bundle report (HTML treemap)" },
 };
 const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
@@ -76,9 +79,12 @@ CFG.root = resolve(CFG.root);
 const srcDir = resolve(CFG.root, "foliplus/js");
 const cssDir = resolve(CFG.root, "foliplus/css");
 const distDir = resolve(CFG.root, "foliplus/dist");
+// Two scratch dirs, both gitignored: .build/js holds the generated shared
+// registry (scan-registry.mjs writes it, resolveSharedRegistryPlugin reads it
+// back), and .build/css holds the merged stylesheet, which must be a real
+// file for esbuild to compile it (see buildEntries).
 const buildJs = resolve(CFG.root, "foliplus/.build/js");
 const buildCss = resolve(CFG.root, "foliplus/.build/css");
-const MERGED_CSS_NAME = "_common_merged.css";
 
 // ── Version banner ────────────────────────────────────────────────────────────
 // `git describe` (tag + distance + commit) — identical in local dev and CI,
@@ -105,19 +111,9 @@ const postcssPlugin = {
   },
 };
 
-/** esbuild onLoad plugin that applies SVG/HTML source transforms
- *  to foliplus source files — no .build/ mirror needed. */
-const sourceTransformPlugin = {
-  name: "source-transform",
-  setup(build) {
-    build.onLoad({ filter: /\.(ts|js)$/ }, async args => {
-      if (!args.path.startsWith(srcDir + "/")) return null;
-      if (args.path.endsWith(".d.ts")) return null;
-      const source = readFileSync(args.path, "utf-8");
-      return { contents: transformSource(source), loader: "ts" };
-    });
-  },
-};
+// The SVG/HTML source-transform plugin lives in its own module so its path
+// guard is unit-testable; here it is bound to the configured source dir.
+const sourceTransformPlugin = createSourceTransformPlugin(srcDir);
 
 /** esbuild onResolve plugin that redirects _shared-registry.js import
  *  (from runtime/index.ts) to the generated file in .build/js/. */
@@ -137,10 +133,6 @@ const esbuildCfg = {
   bundle: true,
   format: "iife",
   minify: !CFG.dev,
-  // Tree Shaking: drop unused exports from shared modules.
-  // Disabled for shared entry (it produces the shared code); enabled
-  // for component bundles (they consume it via externalization).
-  treeShaking: true,
   // Sourcemaps are only useful when debugging the minified bundle in a browser.
   // Since foliplus bundles are embedded in Python-generated HTML and shipped
   // to end users, production sourcemaps have no consumer — skip them.
@@ -152,31 +144,38 @@ const esbuildCfg = {
     "#core": srcDir + "/core",
     "#foliplus": srcDir,
   },
+  // Same `git describe` value as the artifact banner, inlined for the
+  // runtime console log (`[foliplus] foliplus@…`).
+  define: {
+    __FOLIPLUS_VERSION__: JSON.stringify(BUILD_VERSION),
+  },
   plugins: [postcssPlugin, sourceTransformPlugin],
 };
 
-const artifact = (entryPoints, outfile, name) => ({
-  entryPoints,
-  outfile,
-  ...esbuildCfg,
-  // Tree Shaking: disabled for shared entry (produces shared code),
-  // enabled for component bundles (drop unused shared exports).
-  treeShaking: name === SHARED_ENTRY ? false : true,
-  // P5: shared modules (#core/#common/#foliplus/BaseControl) are externalized
-  // in component bundles and read from the global namespace; the shared entry
-  // itself bundles them (no externalization).
-  plugins:
-    name === SHARED_ENTRY
-      ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
-      : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)],
-  banner: {
-    js: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-    css: `/*! foliplus@${BUILD_VERSION} · ${name} */\n`,
-  },
-});
+/** esbuild options for one artifact. Two things vary per artifact: tree
+ *  shaking and the plugin list, both keyed on whether this is the shared
+ *  entry. Component bundles read shared modules from the global namespace
+ *  (so they tree-shake unused exports); the shared entry bundles them,
+ *  which makes tree shaking meaningless and adds the registry plugin. */
+const artifact = (entryPoints, outfile, name) => {
+  const shared = name === SHARED_ENTRY;
+  // Identical for JS and CSS, but esbuild requires banner to be an object.
+  const bannerText = `/*! foliplus@${BUILD_VERSION} · ${name} */\n`;
+  const plugins = shared
+    ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
+    : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)];
+  return {
+    entryPoints,
+    outfile,
+    ...esbuildCfg,
+    treeShaking: !shared,
+    plugins,
+    banner: { js: bannerText, css: bannerText },
+  };
+};
 
 /** Return the first path that exists, else null. */
-const resolveEntry = candidates => candidates.find(existsSync) ?? null;
+const resolveEntry = candidates => candidates.find(existsSync);
 
 /** Discover component entries (dirs with a matching `{Name}.{ts|js}`) under .build/. */
 const findComponents = () => {
@@ -190,9 +189,15 @@ const findComponents = () => {
       resolve(srcDir, name, "index.ts"),
       resolve(srcDir, name, "index.js"),
     ]);
-    const cssFile = resolve(cssDir, `${name}.css`);
-    if (jsFile)
-      components.push({ name, js: jsFile, css: existsSync(cssFile) ? cssFile : null });
+    // A component entry may live at `css/{Name}.css` (single file) or, when
+    // the stylesheet is split across modules, at `css/{Name}/index.css`.
+    const cssFile = resolveEntry([
+      resolve(cssDir, name, "index.css"),
+      resolve(cssDir, `${name}.css`),
+    ]);
+    if (jsFile) {
+      components.push({ name, js: jsFile, css: cssFile });
+    }
   }
   return components;
 };
@@ -200,40 +205,155 @@ const findComponents = () => {
 /** Shorthand for a path under dist/. */
 const out = name => resolve(distDir, name);
 
+/** Read every `*.css` module in a stylesheet directory as a sources map
+ *  (filename → source text), sorted by filename for a deterministic merge. */
+const readCssDir = dir =>
+  new Map(
+    readdirSync(dir)
+      .filter(f => f.endsWith(".css"))
+      .sort()
+      .map(f => [f, readFileSync(resolve(dir, f), "utf-8")]),
+  );
+
+/** The shared stylesheet modules, concatenated in @import-declared
+ *  dependency order.
+
+Every module in `css/common/` is picked up automatically — no maintained
+manifest. Order and drift guards live in `script/merge-css.mjs` (pure,
+unit-tested): a module that reads tokens declares `@import "token.css";`
+first, the build resolves the graph topologically, and an import that
+cannot resolve (or a cycle) fails the build loudly.
+*/
+const mergeCommonCss = () => {
+  const dir = resolve(cssDir, "common");
+  if (!existsSync(dir)) return null;
+  return mergeCss(readCssDir(dir), "common");
+};
+
+/** A component's split stylesheet (`css/{Name}/index.css`), concatenated in
+ *  the entry's declared @import order — the cascade order, not a dependency
+ *  graph. Falls back to null for a flat `css/{Name}.css` (no entry to expand),
+ *  in which case the caller feeds the single file straight to esbuild. */
+const mergeComponentCss = name => {
+  const dir = resolve(cssDir, name);
+  const entryFile = resolve(dir, "index.css");
+  if (!existsSync(entryFile)) return null;
+  return expandEntry(readCssDir(dir), "index.css", name);
+};
+
+/** Every artifact `BaseControl._build_component_template` reads for a control.
+ *  That reader takes both halves unconditionally — it has no fallback path —
+ *  so the gate must expect both too, or a control missing its stylesheet slips
+ *  through here and blows up at attach time. */
+const controlArtifacts = name => [
+  `foliplus-${name}.min.js`,
+  `foliplus-${name}.min.css`,
+];
+
+/** Assert the dist/ tree holds every artifact a complete build would emit.
+ *
+ * The expected list comes from the manifest the build wrote, not from
+ * `findComponents()`: re-deriving it here would mean the gate can disagree with
+ * the build it is checking, and a component the build forgot to write would
+ * silently satisfy both. `test/python/test_asset.py` and `build.test.ts`
+ * read the same file, so all three consumers share one source of truth.
+ *
+ * The manifest only exists after a real build, so its absence is reported as
+ * "not built" rather than an unreadable manifest — this runs on a checkout that
+ * may have no `dist/` at all.
+ */
+const verifyDist = () => {
+  let names;
+  try {
+    names = readArtifactManifest();
+  } catch {
+    console.error("No dist/artifacts.json — run `npm run build` first");
+    process.exit(1);
+  }
+  const expected = names.flatMap(controlArtifacts);
+  const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
+  if (missing.length) {
+    console.error(
+      `Missing artifacts: ${missing.join(", ")} — run \`npm run build\` first`,
+    );
+    process.exit(1);
+  }
+  console.log(`${OK} ${expected.length} artifacts present in dist/`);
+};
+
 /** Build the full list of esbuild artifacts (components + merged common CSS).
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
 const buildEntries = (components, withSonda) => {
-  const entries = [];
+  // `metafile: true` is what feeds the sonda treemap; it is per-artifact,
+  // so set it once here rather than after every artifact() call.
+  const enable = entry => (withSonda ? { ...entry, metafile: true } : entry);
+
+  const artifacts = [];
   for (const { name, js, css } of components) {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
-    const jsEntry = artifact([js], out(`foliplus-${outName}.min.js`), name);
-    if (withSonda) jsEntry.metafile = true;
-    entries.push(jsEntry);
-    if (css) {
-      const cssEntry = artifact([css], out(`foliplus-${outName}.min.css`), name);
-      if (withSonda) cssEntry.metafile = true;
-      entries.push(cssEntry);
+    artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
+    // A split component stylesheet (`css/{Name}/index.css`) is merged below
+    // from its modules; only flat `css/{Name}.css` entries feed esbuild
+    // directly here.
+    if (css && !css.endsWith("index.css")) {
+      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
-  // Merge common.css + panel.css into a single artifact
-  const commonCss = resolve(cssDir, "common.css");
-  const panelCss = resolve(cssDir, "panel.css");
-  if (existsSync(commonCss)) {
-    let css = readFileSync(commonCss, "utf-8");
-    if (existsSync(panelCss)) css += "\n" + readFileSync(panelCss, "utf-8");
-    mkdirSync(buildCss, { recursive: true });
-    const tmpCss = resolve(buildCss, MERGED_CSS_NAME);
-    writeFileSync(tmpCss, css, "utf-8");
-    const commonCssEntry = artifact([tmpCss], out("foliplus-common.min.css"), "common");
-    if (withSonda) commonCssEntry.metafile = true;
-    entries.push(commonCssEntry);
+  // A merged stylesheet has to be a real file on disk. esbuild's css loader
+  // runs the postcss onLoad (which flattens the nested selectors) before
+  // minifying, and a merged stylesheet is a concatenation of modules, so the
+  // nested rules have to survive that pass. Feeding the merged source through
+  // a plugin's onLoad instead produced uncompiled nesting straight into dist
+  // -- the .collapsed / .expanded rules silently vanished.
+  const merged = [
+    // Shared stylesheet: dependency-ordered modules under css/common/.
+    ["common.css", mergeCommonCss()],
+    // Split component stylesheets: css/{Name}/index.css expanded in entry
+    // order (cascade order).
+    ...components
+      .filter(({ css }) => css?.endsWith("index.css"))
+      .map(({ name }) => [`${name}.css`, mergeComponentCss(name)]),
+  ];
+  for (const [file, body] of merged) {
+    if (!body) continue;
+    const tmpCss = resolve(buildCss, file);
+    writeFileSync(tmpCss, body, "utf-8");
+    const outName = file === "common.css" ? "common" : file.replace(/\.css$/, "");
+    artifacts.push(
+      enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName)),
+    );
   }
-  return entries;
+  return artifacts;
 };
+
+/** Record every component name that got artifacts emitted to dist/.
+
+Values are bare names (`LayerControl`, `common`) — every artifact filename
+is `foliplus-<name>.min.<ext>`, so a reader builds both halves without
+knowing which entry is the shared runtime.
+
+Tested from both stacks: `test/python/test_asset.py` asserts wheel
+membership, `test/js/script/build.test.ts` asserts artifact presence.
+Deriving each from `findComponents` in prose gave three drifting copies;
+this is the one they read. Written only on a real build — `--verify` runs
+on a checkout that may not have `dist/` at all, and it must not touch it.
+*/
+const writeArtifactManifest = filenames => {
+  const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
+  writeFileSync(
+    resolve(distDir, "artifacts.json"),
+    `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
+  );
+};
+
+/** Component names from the manifest the build wrote, as artifact names.
+ *  Throws when the manifest is absent or unreadable. */
+const readArtifactManifest = () =>
+  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")).artifacts;
 
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
  *  across builds (each build emits one artifact), so a shallow merge suffices. */
@@ -260,10 +380,16 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 const main = async () => {
+  if (CFG.verify) {
+    verifyDist();
+    return;
+  }
   console.time("build");
   // ── Step 1: Create output dirs (no source mirror needed)
   // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
   mkdirSync(buildJs, { recursive: true });
+  // CSS scratch is wiped before every build so a stale merged stylesheet from
+  // a prior run can never be the one esbuild reads.
   rmSync(buildCss, { recursive: true, force: true });
   mkdirSync(buildCss, { recursive: true });
 
@@ -274,22 +400,24 @@ const main = async () => {
   // ── Step 3: Discover components & build entries ───────────────
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda)
+  if (sonda) {
     console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
-  const entries = buildEntries(components, CFG.sonda);
+  }
+  const artifacts = buildEntries(components, CFG.sonda);
   console.log(
-    `Building ${entries.length} artifacts for ${components.length} components...`,
+    `Building ${artifacts.length} artifacts for ${components.length} components...`,
   );
 
   // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(entries.map(opts => build(opts)));
+  const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
   const failed = results.filter(r => r.status === "rejected").length;
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
-    if (r.status === "fulfilled")
-      console.log(`  ${OK} ${basename(entries[i].outfile)}`);
-    else
-      console.error(`  ${FAIL} ${basename(entries[i].outfile)}: ${r.reason.message}`);
+    if (r.status === "fulfilled") {
+      console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
+    } else {
+      console.error(`  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`);
+    }
   }
 
   // ── Step 4.5: Combined sonda report (--sonda) ──
@@ -314,20 +442,13 @@ const main = async () => {
     await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
   }
 
-  // ── Step 5: Verification (--check) ────────────────────────────
-  if (CFG.check) {
-    const missing = entries.map(e => e.outfile).filter(f => !existsSync(f));
-    if (missing.length) {
-      console.error(`Missing artifacts: ${missing.join(", ")}`);
-      process.exit(1);
-    }
-    console.log(`All ${entries.length} artifacts present.`);
-  }
+  writeArtifactManifest(components.map(c => c.name));
+
   if (failed) process.exit(1);
   console.timeEnd("build");
 };
 
-// CLI entry point: `node script/build.mjs [--dev|--check|--sonda]`.
+// CLI entry point: `node script/build.mjs [--dev|--verify|--sonda]`.
 // Guarded so importing this module has no side effects.
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch(e => {

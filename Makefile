@@ -15,6 +15,8 @@ help:
 	@echo "'build-js'     - minify JS/CSS with esbuild to foliplus/dist/"
 	@echo "'build-js-dev' - build JS/CSS without minification (for tests)"
 	@echo "'build-python' - build sdist + wheel only"
+	@echo "               NOTE: use 'make dist' for releases — never a bare"
+	@echo "               'python -m build', which skips the JS build gate"
 	@echo "'test'         - run all tests with coverage"
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
@@ -64,6 +66,10 @@ bundle-size-check: build-js
 	npm run bundle-size:check
 
 build-python:
+	# `foliplus/dist` is not under version control, so without this gate
+	# `uv build` happily ships a wheel with zero bundled JS/CSS — it installs,
+	# imports, and renders maps with no controls. Fail here instead.
+	npm run build:verify
 	uv build
 	uvx twine check --strict dist/*
 	ls -l dist
@@ -72,15 +78,18 @@ build-python:
 JOBS ?= auto
 
 test: build-js-dev test-js
+	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-python: build-js-dev
+	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-browser: build-js-dev
+	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python
 
-test-js:
+test-js: build-js-dev
 	npm test
 
 html:
@@ -95,7 +104,25 @@ info:
 
 env:
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/getting-started/installation"; exit 1; }
+	@command -v git >/dev/null 2>&1 || { echo "git not found"; exit 1; }
 	uv venv
 	uv sync --group dev
+	@echo ""
 	@echo "Done. Then: source .venv/bin/activate"
 	@echo "For browser tests also run: playwright install chromium"
+	@echo ""
+	@echo "== line endings =="
+	@eol=$$(git config --get core.eolInput 2>/dev/null); \
+		if [ "$$eol" != "false" ]; then \
+			git config core.eolIndex true; \
+			git config core.eolInput false; \
+			echo "  set core.eolIndex=true + core.eolInput=false"; \
+			echo "  new/changed files are LF from now on"; \
+		fi; \
+		bad=$$(git ls-files --eol | awk '$$2 != "w/lf" && $$2 != "w/none" && $$2 != "w/-text" {n++} END{print n+0}'); \
+		if [ "$$bad" -gt 0 ]; then \
+			echo "  $$bad tracked file(s) still CRLF in the working tree. To settle:"; \
+			echo "    git add --renormalize . && git commit"; \
+		else \
+			echo "  clean: index and working tree are both LF"; \
+		fi

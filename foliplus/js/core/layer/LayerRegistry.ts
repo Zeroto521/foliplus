@@ -1,7 +1,12 @@
 // core/LayerRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
+import { createLogger } from "#common/log.js";
+import { safeSVG } from "#common/sanitize.js";
 import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
+
+// Mutating methods blocked on the read-only view.
+const log = createLogger("LayerRegistry");
 
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
@@ -50,11 +55,11 @@ class LayerRegistry {
   /**
    * Create a layer info object with all fields populated.
    *
-   * @param {Object} opts - Raw options from registerLayer().
-   * @param {Object} [existingLi] - Existing layer info for re-registration.
-   * @param {Object} [map] - Leaflet map. If provided, resolves `layer` from
+   * @param {RegisterLayerOpts} opts - Raw options from registerLayer().
+   * @param {LayerInfo} [existingLi] - Existing layer info for re-registration.
+   * @param {L.Map} [map] - Leaflet map. If provided, resolves `layer` from
    *   the map/window globals when `opts.layer` is absent.
-   * @returns {Object} A complete layerInfo object.
+   * @returns {LayerInfo} A complete layerInfo object.
    */
   createLayerInfo(
     opts: RegisterLayerOpts,
@@ -62,13 +67,27 @@ class LayerRegistry {
     map?: L.Map,
   ): LayerInfo {
     return {
-      name: opts.name ?? existingLi?.name ?? opts.id,
+      // A re-registration's caller name is the provider's own metadata, which
+      // resets `name` and would clobber a user rename on the next render or
+      // reload. The caller's explicit name only applies to a fresh id; an
+      // existing layer keeps its current name (it is the registry's single
+      // source of truth for what the user last saw).
+      name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       visible: opts.visible ?? existingLi?.visible ?? true,
+      opacity: opts.opacity ?? existingLi?.opacity ?? 1,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
-      labelPane: opts.labelPane ?? existingLi?.labelPane ?? null,
-      iconSvg: opts.iconSvg ?? existingLi?.iconSvg ?? null,
+      subPanes: opts.subPanes ?? existingLi?.subPanes ?? [],
+      // The only externally supplied HTML in the layer model: callers of
+      // LayerAPI.registerLayer / createLayers may pass arbitrary markup, and
+      // it lands in an innerHTML sink on the type-icon column. Clean it once,
+      // here, so all three sinks share one value and a re-registration cannot
+      // re-inject a payload the first pass rejected.
+      iconSvg:
+        opts.iconSvg != null
+          ? safeSVG(opts.iconSvg) || null
+          : (existingLi?.iconSvg ?? null),
       type: null,
       layer:
         opts.layer ||
@@ -77,16 +96,28 @@ class LayerRegistry {
         null,
       canvas: opts.canvas ?? existingLi?.canvas ?? null,
       onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
-      onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
+      styleDefaults: opts.styleDefaults ?? existingLi?.styleDefaults ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
+      // Static caller-supplied metadata for the attributes panel. `??` (not
+      // a spread) so a re-registration leaves the previous values in place —
+      // the provider does not necessarily resend provenance on every call,
+      // and clearing it on a silent refresh would lose it.
+      source: opts.source ?? existingLi?.source ?? null,
+      updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
+      meta: opts.meta ?? existingLi?.meta ?? null,
+      // Registration time: set once on first registration, never rewritten by a
+      // provider re-registration.
+      registeredAt: existingLi?.registeredAt ?? Date.now(),
     };
   }
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => !!l.isBase);
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.isBase));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -98,27 +129,19 @@ class LayerRegistry {
   createReadonlyView() {
     return new Proxy(this.items, {
       set() {
-        throw new TypeError(
-          "[foliplus] LayerRegistry: layers is read-only, mutate via API",
-        );
+        throw new TypeError(log.msg("layers is read-only, mutate via API"));
       },
       deleteProperty() {
-        throw new TypeError("[foliplus] LayerRegistry: cannot delete layers directly");
+        throw new TypeError(log.msg("cannot delete layers directly"));
       },
       defineProperty() {
         // Without this trap, Object.defineProperty(view, '0', {...}) forwarded
         // to the internal mutable array and bypassed the read-only guarantee.
-        throw new TypeError(
-          "[foliplus] LayerRegistry: cannot define properties on layers",
-        );
+        throw new TypeError(log.msg("cannot define properties on layers"));
       },
       get(target, prop, receiver) {
         if (typeof prop === "string" && MUTATING_METHODS.has(prop)) {
-          return () => {
-            throw new TypeError(
-              `[foliplus] LayerRegistry: read-only method "${String(prop)}" is blocked`,
-            );
-          };
+          throw new TypeError(log.msg(`read-only method "${String(prop)}" is blocked`));
         }
         return Reflect.get(target, prop, receiver);
       },
@@ -140,6 +163,15 @@ class LayerRegistry {
 
   get(id: string) {
     return this.byId.get(id);
+  }
+
+  /** Stamp `updatedAt` to now — runtime mutations (heatmap field, measure
+   *  edits) that do not re-register the layer still refresh the attrs panel. */
+  touch(id: string): boolean {
+    const li = this.byId.get(id);
+    if (!li) return false;
+    li.updatedAt = Date.now();
+    return true;
   }
 
   has(id: string) {
@@ -248,7 +280,7 @@ class LayerRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (!!from.isBase !== !!to.isBase) return false;
+    if (Boolean(from.isBase) !== Boolean(to.isBase)) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;

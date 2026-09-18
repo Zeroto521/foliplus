@@ -2,20 +2,17 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
-export const TIMING = {
+const TIMING = {
   ZOOM_DEBOUNCE: 200,
   LAYER_SCAN_DEBOUNCE: 200,
-  INIT_SCAN_ATTEMPTS: 8,
-  INIT_SCAN_INTERVAL: 300,
   SCHEME_DROPDOWN_BLUR_DELAY: 150,
-  LOAD_SCRIPT_RETRIES: 2,
-  LOAD_SCRIPT_INTERVAL: 3000,
 };
 
-export const GRAY = "#999";
+const GRAY = "#999";
 
-export const H3 = {
+const H3 = {
   RES_MAP: [
     [2, 0],
     [3, 1],
@@ -40,9 +37,9 @@ export const H3 = {
   RES_FALLBACK: 12,
 };
 
-export const ID = "foliplus_heatmap";
+const ID = "foliplus_heatmap";
 
-export const AGG = {
+const AGG = {
   DEFAULT: CONF.agg,
   COUNT: "count",
   SUM: "sum",
@@ -51,7 +48,7 @@ export const AGG = {
   MAX: "max",
 };
 
-export const METHOD = {
+const METHOD = {
   DEFAULT: CONF.method ?? "jenks",
   JENKS: "jenks",
   QUANTILE: "quantile",
@@ -59,31 +56,34 @@ export const METHOD = {
   HEADS: "heads",
 };
 
-export const CLASS_COUNT = {
+const CLASS_COUNT = {
   MIN: 2,
   MAX: 9,
   DEFAULT: 6,
 };
 
-export const BORDER = {
+const BORDER = {
   WEIGHT_MIN: 0,
   WEIGHT_MAX: 10,
   WEIGHT_STEP: 0.5,
   WEIGHT_DEFAULT: 1,
 };
 
-export const CLASSES = {
-  FORM_ROW: "foliplus-heatmap-form-row",
-  FORM_LABEL: "foliplus-heatmap-form-label",
-  FORM_CONTROL: "foliplus-heatmap-form-control",
-  FORM_SELECT: "foliplus-heatmap-form-select",
-  HIDDEN: "hidden",
+/** Hex-label typography — shared bounds from common/form.js so the layer
+ *  style drawer never redeclares 6/32/11. */
+const LABEL = {
+  ...LABEL_SIZE,
+  COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
+};
+
+const CLASSES = {
+  HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
   EXPANDED: "expanded",
   ACTIVE: "active",
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
-  SECTION_HEADING: "foliplus-heatmap-section-heading",
+  SECTION_HEADING: "foliplus-section-heading",
   SECTION_BLOCK: "foliplus-heatmap-section-block",
   SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
   CONFIG_BODY: "foliplus-heatmap-config-body",
@@ -95,46 +95,54 @@ export const CLASSES = {
   SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
   SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
-  BTN: "foliplus-heatmap-btn",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BTN_CONFIRM: "foliplus-heatmap-btn-confirm",
-  TOGGLE_SWITCH: "foliplus-heatmap-toggle-switch",
-  TOGGLE_SLIDER: "foliplus-heatmap-toggle-slider",
-  BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",
-  BORDER_WEIGHT_INPUT: "foliplus-heatmap-weight-input",
+  BORDER_COLOR_INPUT: "foliplus-form-color-input",
+  BORDER_WEIGHT_INPUT: "foliplus-form-number-input",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
-  FORM_CONTROL_INLINE: "foliplus-heatmap-form-inline",
+  FORM_CONTROL_INLINE: "foliplus-form-inline",
   SECTION_DIVIDER: "foliplus-section-divider",
   CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
   HEATMAP_CTRL: "foliplus-heatmap-ctrl",
 };
 
-export const SEL = {
+const SEL = {
   SCHEME_DROPDOWN_ITEM: ".foliplus-heatmap-scheme-dropdown-item",
   SCHEME_DROPDOWN_BAR: ".foliplus-heatmap-scheme-dropdown-bar",
   SCHEME_BAR: ".foliplus-heatmap-scheme-bar",
   SCHEME_BAR_INNER: ".foliplus-heatmap-scheme-bar-inner",
-  FORM_SELECT: ".foliplus-heatmap-form-select",
-  FORM_LABEL: ".foliplus-heatmap-form-label",
 };
 
 /** Persistent storage key for heatmap configuration. */
-export const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
+const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
 
-export const DATA_ATTR = {
-  LAYER: "data-hm-layer",
-  EXTRA_BODY: "data-hm-extra-body",
-  AGG: "data-hm-agg",
-  FIELD: "data-hm-field",
-  FIELD_SELECT: "data-hm-field-select",
-  METHOD: "data-hm-method",
-  CLASS_COUNT: "data-hm-class-count",
-  SCHEME_CTRL: "data-hm-scheme-ctrl",
-  SCHEME_HIDDEN: "data-hm-scheme-hidden",
-  BORDER_COLOR: "data-hm-border-color",
-  BORDER_WEIGHT: "data-hm-border-weight",
-  LABEL_CHK: "data-hm-label-chk",
-  BTN_CLEAR: "data-hm-btn-clear",
-  BTN_CONFIRM: "data-hm-btn-confirm",
+const DATA_ATTR = {
+  LAYER: "data-heatmap-layer",
+  EXTRA_BODY: "data-heatmap-extra-body",
+  AGG: "data-heatmap-agg",
+  FIELD: "data-heatmap-field",
+  FIELD_SELECT: "data-heatmap-field-select",
+  METHOD: "data-heatmap-method",
+  CLASS_COUNT: "data-heatmap-class-count",
+  SCHEME_CTRL: "data-heatmap-scheme-ctrl",
+  SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
+  BORDER_COLOR: "data-heatmap-border-color",
+  BORDER_WEIGHT: "data-heatmap-border-weight",
+  BTN_CLEAR: "data-heatmap-btn-clear",
+};
+
+export {
+  AGG,
+  BORDER,
+  CLASS_COUNT,
+  CLASSES,
+  DATA_ATTR,
+  GRAY,
+  H3,
+  ID,
+  LABEL,
+  METHOD,
+  SEL,
+  STORAGE,
+  TIMING,
 };
