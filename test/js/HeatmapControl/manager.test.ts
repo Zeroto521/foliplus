@@ -1388,13 +1388,11 @@ describe("HeatmapManager — style delegation", () => {
     expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("labelShow setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
+  it("labelShow setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
     const m = makeManager();
     // makeManager builds a bare map stub; the setter reaches LayerAPI through
     // this.map.foliplus (makeCtrl wires the same object).
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
-    const labelChk = { checked: false };
-    m.ui = { labelChk } as unknown as HeatmapManager["ui"];
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
     const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
@@ -1405,14 +1403,11 @@ describe("HeatmapManager — style delegation", () => {
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
       id: m.layerId,
     });
-    expect(labelChk.checked).toBe(true);
   });
 
-  it("labelFormat setter touches the layer, emits LAYER_STYLE_CHANGE and syncs the panel", () => {
+  it("labelFormat setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
-    const labelFormatSelect = { value: "auto" } as HTMLSelectElement;
-    m.ui = { labelFormatSelect } as unknown as HeatmapManager["ui"];
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
     const emitSpy = vi.spyOn(m.events, "emit");
     const opts = getCanvasOpts();
@@ -1423,7 +1418,6 @@ describe("HeatmapManager — style delegation", () => {
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
       id: m.layerId,
     });
-    expect(labelFormatSelect.value).toBe("comma");
   });
 
   it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
@@ -1501,29 +1495,16 @@ describe("HeatmapManager — style delegation", () => {
     expect(m.currentLabelSize).toBe(11);
   });
 
-  it("labelColor and labelSize setters no-op the UI sync when not bound", () => {
+  it("labelColor and labelSize setters work without a bound panel", () => {
     const m = makeManager();
-    // ui is null — the optional chaining must not throw.
+    // ui is null — the setters own state only; panels refresh via
+    // LAYER_STYLE_CHANGE, so no panel sync happens here.
     expect(() => {
       getCanvasOpts().styleSetters!.labelColor!("#00ff00");
       getCanvasOpts().styleSetters!.labelSize!(20);
     }).not.toThrow();
     expect(m.currentLabelColor).toBe("#00ff00");
     expect(m.currentLabelSize).toBe(20);
-  });
-
-  it("labelColor and labelSize setters sync the bound panel inputs", () => {
-    const m = makeManager();
-    const labelColorInput = { value: "#ffffff" } as HTMLInputElement;
-    const labelSizeInput = { value: "11" } as HTMLInputElement;
-    m.ui = { labelColorInput, labelSizeInput } as unknown as HeatmapManager["ui"];
-    const opts = getCanvasOpts();
-
-    opts.styleSetters!.labelColor!("#00ff00");
-    opts.styleSetters!.labelSize!(16);
-
-    expect(labelColorInput.value).toBe("#00ff00");
-    expect(labelSizeInput.value).toBe("16");
   });
 
   it("labelFormat setter updates state, redraws labels and persists", () => {

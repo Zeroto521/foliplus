@@ -2,6 +2,7 @@
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { renderLabelControls } from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -24,6 +25,9 @@ interface HeatmapControlUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once by the control / test fixture. */
   T: (key: string) => string;
+  /** Unscoped translator for the shared `foliplus.*` vocabulary — the label
+   *  controls this panel shares with LayerControl's style drawer. */
+  _: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
@@ -45,10 +49,8 @@ interface HeatmapControlUI {
   schemeSelectHidden: HTMLSelectElement;
   borderColorInput: HTMLInputElement;
   borderWeightInput: HTMLInputElement;
-  labelChk: HTMLInputElement;
-  labelColorInput: HTMLInputElement;
-  labelSizeInput: HTMLInputElement;
-  labelFormatSelect: HTMLSelectElement;
+  labelRefresh: (() => void) | null;
+  styleChangeCleanup: (() => void) | null;
   closeSchemeDropdown: (event: MouseEvent) => void;
   toggleSchemeDropdown: () => void;
 }
@@ -108,26 +110,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.borderWeightInput = panelContent.querySelector(
     `[${CONST.DATA_ATTR.BORDER_WEIGHT}]`,
   ) as HTMLInputElement;
-  ctrl.labelChk = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_CHK}]`,
-  ) as HTMLInputElement;
-  ctrl.labelColorInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_COLOR}]`,
-  ) as HTMLInputElement;
-  ctrl.labelSizeInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_SIZE}]`,
-  ) as HTMLInputElement;
-  ctrl.labelFormatSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_FORMAT}]`,
-  ) as HTMLSelectElement;
 
   // Set initial values from manager defaults
   ctrl.borderColorInput.value = ctrl.m.borderColor;
   ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-  ctrl.labelChk.checked = ctrl.m.currentLabelShow;
-  ctrl.labelColorInput.value = ctrl.m.currentLabelColor;
-  ctrl.labelSizeInput.value = String(ctrl.m.currentLabelSize);
-  ctrl.labelFormatSelect.value = ctrl.m.currentLabelFormat;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -211,40 +197,32 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   });
 
-  ctrl.labelChk.onchange = () => {
-    ctrl.m.currentLabelShow = ctrl.labelChk.checked;
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
-  };
-
-  ctrl.labelFormatSelect.onchange = () => {
-    ctrl.m.currentLabelFormat = ctrl.labelFormatSelect.value as NumberStyle;
-    ctrl.m.redrawHeatmap();
-    persist(ctrl);
-    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
-  };
-
-  bindLiveColor(ctrl.labelColorInput, value => {
-    ctrl.m.currentLabelColor = value;
-    ctrl.m.cachedLabelStyle = null;
-    ctrl.m.redrawHeatmap();
-    persist(ctrl);
-    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  // Label controls — rendered by the shared module, which dispatches changes
+  // to the manager's own styleSetters (the same ones the layer drawer uses).
+  // The shared module handles change delegation, body collapse, and refresh.
+  // The template always carries the section divider, so the controls slot in
+  // directly above it — after the style block, before Clear.
+  const divider = ctrl.extraBody.querySelector(
+    `.${CONST.CLASSES.SECTION_DIVIDER}`,
+  ) as HTMLElement;
+  const labelControls = renderLabelControls({
+    styleProvider: () => ctrl.m.styleProvider(),
+    getSetters: () => ctrl.m.styleSetters,
+    T: ctrl._,
   });
+  ctrl.labelRefresh = labelControls.refresh;
+  divider.before(labelControls.root);
 
-  bindLiveNumber(ctrl.labelSizeInput, {
-    min: CONST.LABEL.SIZE_MIN,
-    max: CONST.LABEL.SIZE_MAX,
-    fallback: CONST.LABEL.SIZE_DEFAULT,
-    onCommit: value => {
-      ctrl.m.currentLabelSize = value;
-      ctrl.m.cachedLabelStyle = null;
-      ctrl.m.redrawHeatmap();
-      persist(ctrl);
-      ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
+  // Mirror remote changes (the layer drawer flipping a value while this panel
+  // is open) — the shared refresh reads from styleProvider.
+  const events = ensureEvents(ctrl.m.map);
+  ctrl.styleChangeCleanup = events.on(
+    EVENTS.LAYER_STYLE_CHANGE,
+    (payload: { id: string }) => {
+      if (payload.id !== ctrl.m.layerId) return;
+      ctrl.labelRefresh?.();
     },
-  });
+  );
 
   ctrl.closeSchemeDropdown = (event: MouseEvent) => {
     if (
@@ -280,15 +258,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     );
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
-    ctrl.labelChk.checked = ctrl.conf.label_show !== false;
-    ctrl.labelColorInput.value = normalizeHexColor(
-      ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
-    );
-    ctrl.labelSizeInput.value = String(
-      ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT,
-    );
-    ctrl.labelFormatSelect.value = (ctrl.conf.label_format ??
-      NUMBER_FORMAT.AUTO) as NumberStyle;
+    ctrl.labelRefresh?.();
     ctrl.borderWeightInput.value = String(
       ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
     );

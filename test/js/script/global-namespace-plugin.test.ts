@@ -60,6 +60,12 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#core/hint.js")).toBe("foliplus.hint");
   });
 
+  it("maps #core/labelControl.js to foliplus.core.labelControl", () => {
+    expect(sharedGlobalNamespace("#core/labelControl.js")).toBe(
+      "foliplus.core.labelControl",
+    );
+  });
+
   it("maps #foliplus/BaseControl.js to foliplus.BaseControl", () => {
     expect(sharedGlobalNamespace("#foliplus/BaseControl.js")).toBe(
       "foliplus.BaseControl",

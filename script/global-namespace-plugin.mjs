@@ -69,6 +69,7 @@ const sharedGlobalNamespace = spec => {
   if (spec === "#core/component.js") return "foliplus.core.component";
   if (spec === "#core/interaction.js") return "foliplus.core.interaction";
   if (spec === "#core/labelCollision.js") return "foliplus.core.labelCollision";
+  if (spec === "#core/labelControl.js") return "foliplus.core.labelControl";
   if (spec === "#core/labelField.js") return "foliplus.core.labelField";
   if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
   if (spec === "#core/mapApi.js") return "foliplus.core.mapApi";
