@@ -9,10 +9,8 @@
 //     ensurePane / ensureVector / bumpPanes / migrateLayers / reset / destroy
 //     releaseFallbackPane
 import * as CONST from "./const.js";
+import { destroyPane, getRendererContainer, markerShadow } from "./leafletAdapter.js";
 import { forEachLayer } from "./util.js";
-
-/** Marker with protected Leaflet internals (shadow element). */
-type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
@@ -87,19 +85,27 @@ class PaneManager {
     return { pane, renderer };
   }
 
+  /** Detach a pane's renderer and drop our record of it.
+   *
+   *  `map.removeLayer` is what unbinds the renderer's map event listeners
+   *  (zoom, moveend, viewreset, …) — that listener set is what grew per
+   *  add/remove cycle, and `Renderer.onRemove` is what detaches the SVG root.
+   *  Dropping our key is the other half: a pane re-created under the same name
+   *  would otherwise inherit a renderer the old pane still owns. */
+  private detachRenderer(paneName: string) {
+    const key = CONST.RENDERER_KEY + paneName;
+    const renderer = (this.map as L.Map & PaneRendererMap)[key];
+    if (!renderer) return;
+    if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
+    delete (this.map as L.Map & PaneRendererMap)[key];
+  }
+
   /** Remove a custom pane from the DOM and Leaflet's registry so `getPane`
    *  stops returning a detached node. Used by createCanvas.destroy and any
    *  component that owns a private pane (annotation labels). */
   removePane(paneName: string) {
-    const key = CONST.RENDERER_KEY + paneName;
-    const renderer = (this.map as L.Map & PaneRendererMap)[key];
-    if (renderer) {
-      if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
-      delete (this.map as L.Map & PaneRendererMap)[key];
-    }
-    delete this.map._paneRenderers?.[paneName];
-    this.map.getPane(paneName)?.remove();
-    if (this.map._panes) delete this.map._panes[paneName];
+    this.detachRenderer(paneName);
+    destroyPane(this.map, paneName);
     this.childPanes.delete(paneName);
     this.paneCache.clear();
   }
@@ -113,23 +119,10 @@ class PaneManager {
     if (stamp == null) return;
     const paneName = this.fallbackPaneMap.get(stamp);
     if (!paneName) return;
-    const key = CONST.RENDERER_KEY + paneName;
-    const renderer = (this.map as L.Map & PaneRendererMap)[key];
-    if (renderer) {
-      // map.removeLayer unbinds the renderer's map event listeners (zoom,
-      // moveend, viewreset, …) — that listener set is what grew per
-      // add/remove cycle; the DOM teardown below is the cheap half.
-      // Renderer.onRemove detaches the SVG root.
-      if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
-      delete (this.map as L.Map & PaneRendererMap)[key];
-    }
-    // Leaflet's own per-pane registry is separate: getRenderer() fills it
-    // lazily, so it can exist without our key. Clearing it keeps getRenderer()
-    // from re-adding a dead renderer to the removed pane.
-    delete this.map._paneRenderers[paneName];
-    this.map.getPane(paneName)?.remove();
-    // getPane() must not keep returning a detached node.
-    delete this.map._panes[paneName];
+    this.detachRenderer(paneName);
+    // Leaflet's own per-pane registry is separate from our key, and clearing it
+    // is what keeps getRenderer() from re-adding a dead renderer.
+    destroyPane(this.map, paneName);
     this.fallbackPaneMap.delete(stamp);
   }
 
@@ -186,8 +179,7 @@ class PaneManager {
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
-      const container = (renderer as (L.SVG & { _container?: HTMLElement }) | null)
-        ?._container;
+      const container = getRendererContainer(renderer);
       if (!container) {
         // No renderer container (e.g. tile layers with a paneName get
         // needRenderer=false). DOM migration is impossible, but the layer must
@@ -216,10 +208,10 @@ class PaneManager {
           groups.get(container)!.push(pathEl);
         }
         if (l instanceof L.Marker && paneEl) {
-          const marker = l as MarkerWithShadow;
-          if (marker._shadow && marker._shadow.parentNode !== paneEl) {
+          const shadow = markerShadow(l);
+          if (shadow && shadow.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push(marker._shadow);
+            markerGroups.get(paneEl)!.push(shadow);
           }
           const iconEl = l.getElement();
           if (iconEl && iconEl.parentNode !== paneEl) {

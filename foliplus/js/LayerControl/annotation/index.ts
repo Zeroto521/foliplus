@@ -14,7 +14,7 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { forEachLeaf } from "#core/layer/index.js";
+import { destroyPane, forEachLeaf } from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -543,13 +543,7 @@ class AnnotationManager {
     this.canvases.delete(id);
     const pane = this.panes.get(id);
     if (!pane) return;
-    pane.remove();
-    const registry = this.map as unknown as {
-      _panes?: Record<string, HTMLElement>;
-    };
-    if (registry._panes) {
-      delete registry._panes[CONST.ANNOTATION_PANE_PREFIX + id];
-    }
+    destroyPane(this.map, CONST.ANNOTATION_PANE_PREFIX + id);
     this.panes.delete(id);
   }
 }

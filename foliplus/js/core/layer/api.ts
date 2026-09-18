@@ -48,7 +48,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
 
   map.foliplus!.LayerAPI = {
     isLayerControl: false,
-    layers: Object.freeze([]) as unknown as LayerInfo[],
+    layers: Object.freeze([]),
     registerLayer: () => null,
     unregisterLayer: () => false,
     bringLayerToFront: () => {},
