@@ -222,31 +222,102 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   layerInfo.visible = true;
 };
 
+/** The panes this layer alone renders into, or `[]` when it has none yet.
+ *
+ *  Ownership, not a list of Leaflet's shared pane names: a declared
+ *  `subPanes` entry is component-owned, and the fallback pane `enforceOrder`
+ *  assigns is named after the layer's stamp, so it holds that layer alone.
+ *  A blocklist could not tell that apart from a pane a host deliberately
+ *  shares between two layers, which must not be faded.
+ *
+ *  `enforceOrder` both assigns the fallback pane and migrates the content into
+ *  it (`PaneManager.migrateLayers` moves path elements and marker icons), so
+ *  an assignment is the content's real home. Until that pass has run the layer
+ *  is in `markerPane` / `overlayPane` and this returns `[]`, which is the
+ *  window the per-feature walk covers. */
+const privatePanesOf = (ui: LayerUI, layerInfo: LayerInfo): string[] => {
+  if (layerInfo.subPanes?.length > 0) return layerInfo.subPanes;
+  const layer = layerInfo.layer;
+  if (!layer) return [];
+  const own = ui.m.panes.fallbackPaneOf(layer);
+  return own ? [own] : [];
+};
+
+/** Layers the per-feature walk has written to. The walk and the pane carrier
+ *  are alternatives, never layers of one another: `enforceOrder` migrates a
+ *  layer's content into its own pane on a debounce, so a layer can start on
+ *  the walk (content still in a shared pane) and later resolve to a pane. */
+const walkedLayers = new WeakSet<L.Layer>();
+
 /**
- * Apply one layer's opacity to the registry entry and the live layer.
- * Canvas layers paint through `style.opacity`; Leaflet paths go through
- * `setStyle({ opacity, fillOpacity })`; nested groups recurse.
+ * Apply one layer's opacity to the registry entry and to the live rendering.
+ *
+ * The pane is the preferred carrier for every kind of layer: one style write
+ * regardless of how many features the layer holds (a many-thousand-point
+ * GeoJSON must not be swept on every slider step), CSS opacity multiplies with
+ * each feature's own style instead of overwriting it, and it reaches paths,
+ * markers and divIcons alike.
+ *
+ * `createCanvas` layers paint on a single element, which is the same deal.
+ * Only a layer whose content is still in a pane it does not own falls back to
+ * the per-feature walk — the window before `enforceOrder` has migrated it.
  */
 const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
   layerInfo.opacity = opacity;
-  // Managed layers (createLayers: MeasureControl, etc.) own their panes. Set
-  // CSS opacity on each pane element — multiplicative with every feature's
-  // own style and covers all types uniformly (paths, markers, divIcons). A
-  // per-feature setStyle walk would clobber a hollow polygon's fillOpacity
-  // (making it newly visible instead of transparent) and skip divIcon labels
-  // that Leaflet's setStyle never reaches.
-  if (layerInfo.subPanes?.length > 0) {
-    for (const name of layerInfo.subPanes) {
+  if (layerInfo.canvas) {
+    layerInfo.canvas.style.opacity = String(opacity);
+    return;
+  }
+  const layer = layerInfo.layer;
+  const panes = privatePanesOf(ui, layerInfo);
+  if (panes.length > 0) {
+    // Undo any earlier walk before handing over to the pane, or the two would
+    // stack: the walk's per-feature value times the pane's, so a layer asked
+    // for 0.4 twice would render at 0.16.
+    if (layer && walkedLayers.has(layer)) {
+      applyLeafletOpacity(layer, 1);
+      walkedLayers.delete(layer);
+    }
+    for (const name of panes) {
       const pane = ui.m.map.getPane(name);
       if (pane) pane.style.opacity = String(opacity);
     }
     return;
   }
-  if (layerInfo.canvas) {
-    layerInfo.canvas.style.opacity = String(opacity);
-    return;
+  if (layer) walkedLayers.add(layer);
+  applyLeafletOpacity(layer, opacity);
+};
+
+/** Each feature's own opacity, captured the first time it is touched.
+ *
+ *  Leaflet's `setStyle` / `setOpacity` are absolute, so writing the layer
+ *  opacity straight in would destroy the feature's own value — a hollow
+ *  polygon's `fillOpacity: 0` became 0.4 and its fill appeared instead of
+ *  staying hollow. Storing the base once and always writing
+ *  `base × layerOpacity` keeps the feature's own style intact and makes
+ *  repeated passes idempotent (the base is read once, never from the value we
+ *  just wrote). */
+const baseOpacity = new WeakMap<L.Layer, { opacity: number; fillOpacity: number }>();
+
+/** A leaf that can carry an opacity, plus the options the base is read from. */
+type OpacityCapable = L.Layer & {
+  options?: { opacity?: number; fillOpacity?: number };
+  setStyle?: (style: { opacity: number; fillOpacity: number }) => void;
+  eachLayer?: (fn: (l: L.Layer) => void) => void;
+  setOpacity?: (v: number) => void;
+};
+
+const baseOpacityOf = (layer: OpacityCapable, fill: boolean) => {
+  let base = baseOpacity.get(layer);
+  if (!base) {
+    const opts = layer.options ?? {};
+    base = {
+      opacity: typeof opts.opacity === "number" ? opts.opacity : 1,
+      fillOpacity: fill && typeof opts.fillOpacity === "number" ? opts.fillOpacity : 1,
+    };
+    baseOpacity.set(layer, base);
   }
-  applyLeafletOpacity(layerInfo.layer, opacity);
+  return base;
 };
 
 /** Recursive opacity application over a Leaflet layer tree.
@@ -258,22 +329,24 @@ const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number
  *  every leaf, and a leaf then gets whichever API it actually has. */
 const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
   if (!layer) return;
-  type OpacityCapable = L.Layer & {
-    setStyle?: (style: { opacity: number; fillOpacity: number }) => void;
-    eachLayer?: (fn: (l: L.Layer) => void) => void;
-    setOpacity?: (v: number) => void;
-  };
   const target = layer as OpacityCapable;
   if (typeof target.eachLayer === "function") {
     target.eachLayer(child => applyLeafletOpacity(child, opacity));
     return;
   }
   if (typeof target.setStyle === "function") {
-    target.setStyle({ opacity, fillOpacity: opacity });
+    const base = baseOpacityOf(target, true);
+    target.setStyle({
+      opacity: base.opacity * opacity,
+      fillOpacity: base.fillOpacity * opacity,
+    });
     return;
   }
   if (typeof target.setOpacity === "function") {
-    target.setOpacity(opacity);
+    // Marker / ImageOverlay: opacity is a CSS value on their element, so it
+    // multiplies with whatever the icon already carries.
+    const base = baseOpacityOf(target, false);
+    target.setOpacity(base.opacity * opacity);
   }
 };
 

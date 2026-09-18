@@ -349,6 +349,17 @@ class PaneManager {
     if (fbName) return [fbName];
     return ["overlayPane", "markerPane"];
   }
+
+  /** The per-layer pane `enforceOrder` assigned this layer, or null.
+   *
+   *  Ownership, not a blocklist of Leaflet's shared panes: this pane is named
+   *  after the layer's stamp, so it holds that layer alone. A layer with none
+   *  is rendering into a pane it shares (Leaflet's `overlayPane` / `markerPane`,
+   *  or a pane a host deliberately shares between layers), and callers that
+   *  want to affect one layer only must not touch it. */
+  fallbackPaneOf(layer: L.Layer): string | null {
+    return this.fallbackPaneMap.get(L.stamp(layer)) ?? null;
+  }
 }
 
 export { PaneManager };
