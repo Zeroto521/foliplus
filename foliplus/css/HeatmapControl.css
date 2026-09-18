@@ -25,7 +25,7 @@
   --heatmap-inline-height: var(--icon-size-md);
   --heatmap-inline-width: 52px;
   --heatmap-accent-arrow-offset: var(--size-6);
-  --heatmap-heading-letter-spacing: var(--letter-spacing-tight);
+
   /* Label typography is not redeclared here: the canvas renderer
      (common/canvasLabel, shared with LayerControl's annotation labels) reads the
      shared map-label tokens — --label-font-family / -size / -weight / -color /
@@ -169,18 +169,7 @@
      (common/panel.css), so the heatmap's footer and the per-layer style
      panel's footer are inset and spaced identically. Nothing to add here. */
 
-  /* ── Section Headings ── */
-  .foliplus-heatmap-section-heading {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: var(--heatmap-heading-letter-spacing);
-    padding: var(--space-md) var(--space-xl) var(--space-sm);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
+  /* Section headings come from shared form.css (`.foliplus-section-heading`). */
 }
 
 /* ── createCanvas overlay (inside its own pane, offset by -panX/-panY) ──

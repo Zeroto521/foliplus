@@ -56,5 +56,8 @@
   "LayerControl.style_label_no_data": "No labelable fields on this layer",
   "LayerControl.style_label_field": "Label Field",
   "LayerControl.style_label_field_auto": "Auto Detect",
-  "LayerControl.style_reset": "Reset"
+  "LayerControl.style_reset": "Reset",
+  "LayerControl.section_label": "Label",
+  "LayerControl.section_layer": "Layer",
+  "LayerControl.style_opacity": "Opacity"
 }

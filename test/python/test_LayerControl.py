@@ -738,6 +738,73 @@ class TestLayerControlRendering:
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
+    def test_shared_section_heading_in_form_css(self):
+        """Shared section heading lives in form.css (Heatmap + style panel)."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in css
+        assert "text-transform: uppercase" in css
+        assert "letter-spacing: var(--letter-spacing-tight)" in css
+
+    def test_opacity_control_css(self):
+        """Opacity control: checkerboard + accent fill track, ringed thumb."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-style-opacity-control" in css
+        assert ".foliplus-style-opacity-range" in css
+        # The number field reuses the shared chrome instead of its own recipe,
+        # so the row matches the heatmap border row exactly.
+        assert ".foliplus-style-opacity-number" not in css
+        assert ".foliplus-form-number-input" in css
+        # Checkerboard + accent fill on both engine track prefixes.
+        assert "repeating-conic-gradient" in css
+        assert "var(--opacity-fill" in css
+        assert "::-webkit-slider-runnable-track" in css
+        assert "::-moz-range-track" in css
+        # Bar and thumb geometry are declared once and derived from each other:
+        # the bar is slimmer than the --ctrl-size row so it reads as a level,
+        # the thumb is proud of it so it reads as a handle, and the webkit
+        # centring margin is computed from the two rather than hand-tuned.
+        assert "--opacity-track-height: 14px" in css
+        assert "--opacity-thumb-size: 20px" in css
+        assert "height: var(--opacity-track-height)" in css
+        assert "width: var(--opacity-thumb-size)" in css
+        assert "margin-top: calc(" in css
+        # The two geometry tokens live on the range rule itself, not on the
+        # wrapper: a declaration that consumes them for a missing custom
+        # property is dropped at computed-value time, so a slider used without
+        # the wrapper would quietly fall back to a hairline track.
+        range_block = css[
+            css.index(".foliplus-style-opacity-range {") : css.index(
+                "}", css.index(".foliplus-style-opacity-range {")
+            )
+        ]
+        assert "--opacity-track-height" in range_block
+        assert "--opacity-thumb-size" in range_block
+        # Thumb: accent ring on a white core, lifted like the panel's toggle
+        # knob so both hand-held controls in a row read alike.
+        assert "border: var(--border-thick) solid var(--accent-primary)" in css
+        assert "background: var(--neutral-0)" in css
+        assert "box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30))" in css
+        assert "::-webkit-slider-thumb" in css
+        assert "::-moz-range-thumb" in css
+        # Grab affordance and the hover lift, on both engines.
+        assert "cursor: grab" in css
+        assert "cursor: grabbing" in css
+        assert ".foliplus-style-opacity-range:hover::-webkit-slider-thumb" in css
+        assert ".foliplus-style-opacity-range:hover::-moz-range-thumb" in css
+        assert "transform: scale(var(--scale-hover))" in css
+        # Focus ring on the range, matching every other foliplus control.
+        assert ".foliplus-style-opacity-range:focus-visible" in css
+        assert "box-shadow: var(--focus-ring)" in css
+        # The slider shares the shared inline cell, next to the number field.
+        assert ".foliplus-style-opacity-control .foliplus-style-opacity-range" in css
+
+    def test_style_panel_locale_keys_present(self):
+        """Opacity / section keys are injected into the LayerControl bundle."""
+        html = render_control(LayerControl())
+        assert "LayerControl.section_label" in html
+        assert "LayerControl.section_layer" in html
+        assert "LayerControl.style_opacity" in html
+
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
         css = read_css("foliplus/css/LayerControl/index.css")
@@ -1294,6 +1361,35 @@ class TestLayerControlBrowser:
             # The focus filter plans the spotlighted layer only.
             assert result["opaqueA"] > 0, result
             assert result["opaqueB"] == 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_opacity_control_reaches_markers(self, browser, tmp_path):
+        """A point layer built from markers must honour the opacity control.
+
+        Regression: Leaflet's `GeoJSON.setStyle` forwards only to `Path`
+        children, so applying the layer opacity through the group left every
+        marker untouched — the control looked dead on point layers. The layer
+        is built in-page so the test does not depend on how folium links a
+        generated GeoJSON layer into the registry.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/opacity_applies_to_markers"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            # The group exposes setStyle — the call that used to swallow it.
+            assert result["groupHasSetStyle"] is True, result
+            assert result["markerCount"] > 0, f"no markers in the layer: {result}"
+            # Each child is a leaf that only offers setOpacity — a group-level
+            # setStyle therefore cannot be what moved them.
+            assert all(
+                a["setOpacity"] and not a["setStyle"] for a in result["markerApis"]
+            ), result
+            assert result["registryOpacity"] == 0.4, result
+            assert all(v == 0.4 for v in result["markerOpacity"]), result
+            assert all(v == "0.4" for v in result["iconOpacity"]), result
+            assert result["numberValue"] == "40", result
+            assert result["fillVar"] == "40%", result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

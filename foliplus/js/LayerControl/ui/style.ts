@@ -35,6 +35,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
+import { applyOpacityStateOne, saveOpacityMap } from "./state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
@@ -81,6 +82,104 @@ const persistStyleLabel = (ui: LayerUI): void => {
   ui.m.persistence.saveAnnotations(() =>
     Object.fromEntries(ui.m.annotation.configEntries()),
   );
+};
+
+/** Shared section heading (common/form.css `.foliplus-section-heading`). */
+const sectionHeading = (text: string): HTMLElement =>
+  dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, text);
+
+/** UI percentage (0-100) for a stored opacity (0-1). */
+const opacityToPct = (opacity: number | undefined): number =>
+  Math.round(Math.max(0, Math.min(1, opacity ?? 1)) * 100);
+
+/** Clamp a raw percentage into [0, 100]. A non-numeric entry — an emptied
+ *  number field on commit — falls back to fully opaque, the same
+ *  invalid-commits-to-default rule the shared number field uses. */
+const clampPct = (raw: number, fallback = 100): number =>
+  Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
+
+/** Write one resolved percentage into the slider and its number field.
+ *
+ *  The slider always takes the value — its thumb has to follow whoever moved
+ *  the other control. The number field is left alone while the user is typing
+ *  in it, or the caret would jump to the end on every keystroke; `force` is the
+ *  commit pass, which rewrites it to the resolved value the same way the shared
+ *  number field does on blur. */
+const syncOpacityInputs = (panel: HTMLElement, pct: number, force = false): void => {
+  // Both controls are built together by buildOpacityRow, so a panel that
+  // reached here has them.
+  const range = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+  ) as HTMLInputElement;
+  const num = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
+  ) as HTMLInputElement;
+  range.value = String(pct);
+  range.style.setProperty("--opacity-fill", `${pct}%`);
+  if (force || document.activeElement !== num) num.value = String(pct);
+};
+
+/** Apply a UI percentage to the layer, persist it, and sync both inputs. */
+const commitOpacityPct = (
+  ui: LayerUI,
+  layerId: string,
+  panel: HTMLElement,
+  rawPct: number,
+  commit = false,
+): void => {
+  const pct = clampPct(rawPct);
+  const opacity = pct / 100;
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
+  applyOpacityStateOne(ui, li, opacity);
+  if (opacity === 1) delete ui.opacityMap[layerId];
+  else ui.opacityMap[layerId] = opacity;
+  saveOpacityMap(ui);
+  syncOpacityInputs(panel, pct, commit);
+};
+
+/** Build the opacity form row: range slider + shared number field, exactly the
+ *  chrome the heatmap's border row uses (`.foliplus-form-inline` +
+ *  `.foliplus-form-number-input`), so heights and radii cannot drift. */
+const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const range = dom.el("input", {
+    type: "range",
+    class: CONST.CLASSES.STYLE_OPACITY_RANGE,
+    min: "0",
+    max: "100",
+    step: "5",
+    value: String(pct),
+    "aria-label": ui.T("style_opacity"),
+  });
+  // setProperty, not the `style` attribute: dom.el assigns a string through
+  // `cssText`, which would clobber any other inline style on the control.
+  range.style.setProperty("--opacity-fill", `${pct}%`);
+  const number = formNumberInput({
+    value: pct,
+    min: 0,
+    max: 100,
+    step: 5,
+    className: CONST.CLASSES.STYLE_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_opacity"),
+  });
+  const inline = inlineControls(range, number);
+  inline.classList.add(CONST.CLASSES.STYLE_OPACITY_CONTROL);
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+  );
+};
+
+/** Reset one layer's opacity to fully opaque and drop its persisted entry. */
+const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (li) applyOpacityStateOne(ui, li, 1);
+  delete ui.opacityMap[layerId];
+  saveOpacityMap(ui);
 };
 
 /** Shared Reset footer — divider + button, same vocabulary for the annotation
@@ -187,8 +286,17 @@ const renderDelegatedStylePanel = (
     getSetters: () => entry()?.styleSetters ?? {},
     T: ui._,
   });
+  // No presentation control at all (a data-only setter such as the
+  // aggregation field) means no drawer: the Layer section below is
+  // LayerControl-owned, but it is not a reason to open one.
   if (!root.children.length) return null;
   ui.styleRefresh = refresh;
+
+  // The shared renderer emits controls only, no headings — the panel owns the
+  // section split, and the Layer section (opacity) belongs to LayerControl
+  // rather than to the component that delegates its label style.
+  root.prepend(sectionHeading(ui.T("section_label")));
+  root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
 
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
@@ -384,6 +492,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   content.append(
+    sectionHeading(ui.T("section_label")),
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
@@ -402,6 +511,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
+    sectionHeading(ui.T("section_layer")),
+    buildOpacityRow(ui, layerId),
   );
   appendResetFooter(ui, content);
   return panel;
@@ -463,8 +574,37 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
+  /** Shared opacity handler for both panel flavours (LayerControl-owned).
+   *  `commit` separates the live pass from the blur/change pass: an emptied or
+   *  out-of-range entry only resolves on commit — the same rule the shared
+   *  number field follows, so typing "1" toward "15" does not flash the layer
+   *  to 1% first. */
+  const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
+    if (!(t instanceof HTMLInputElement)) return false;
+    if (
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE) &&
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_NUMBER)
+    ) {
+      return false;
+    }
+    const raw = parseFloat(t.value);
+    if (!commit && !(raw >= 0 && raw <= 100)) return true;
+    commitOpacityPct(ui, layerId, panel, raw, commit);
+    return true;
+  };
+
+  panel.addEventListener("input", (event: Event) => {
+    // Live slider updates while dragging; stop so the container's color
+    // input handler never sees the range.
+    if (handleOpacityTarget(event.target, false)) event.stopPropagation();
+  });
+
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
+    if (handleOpacityTarget(t, true)) {
+      event.stopPropagation();
+      return;
+    }
     // Delegated label controls handle their own changes (stopPropagation on
     // the shared root). Only the annotation panel's changes reach here.
     if (delegated) return;
@@ -535,6 +675,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
+      // Opacity is LayerControl-owned in both flavours: always restore 1.
+      resetLayerOpacity(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.

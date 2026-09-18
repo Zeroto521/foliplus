@@ -4,8 +4,12 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
+  applyOpacityStateOne,
+  applyUserState,
   applyVisibleStateOne,
+  reconcileHiddenIds,
   saveFoldState,
+  saveOpacityMap,
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
@@ -710,6 +714,224 @@ describe("ui/state saveFoldState", () => {
   });
 });
 
+// ─────────────────── opacity apply / restore / prune ───────────────────
+
+describe("applyOpacityStateOne", () => {
+  it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
+    const setStyle = vi.fn();
+    const canvas = document.createElement("canvas");
+    const li = {
+      id: "heat",
+      canvas,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.35);
+
+    expect(canvas.style.opacity).toBe("0.35");
+    expect(li.opacity).toBe(0.35);
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("calls setStyle({opacity, fillOpacity}) on Path-like layers", () => {
+    const setStyle = vi.fn();
+    const li = {
+      id: "poly",
+      canvas: null,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.5);
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+    expect(li.opacity).toBe(0.5);
+  });
+
+  it("recurses through LayerGroup children (no setStyle on the group)", () => {
+    const childSetStyle = vi.fn();
+    const group = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => {
+        fn({ options: {}, setStyle: childSetStyle });
+      }),
+    };
+    const li = {
+      id: "group",
+      canvas: null,
+      layer: group as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.2);
+
+    expect(group.eachLayer).toHaveBeenCalled();
+    expect(childSetStyle).toHaveBeenCalledWith({ opacity: 0.2, fillOpacity: 0.2 });
+  });
+
+  it("reaches Markers inside a GeoJSON instead of using its setStyle", () => {
+    // Leaflet's GeoJSON.setStyle forwards only to Path children, so a point
+    // layer built from markers (folium's default) ignored the opacity control
+    // entirely. Walking eachLayer reaches the markers, which take setOpacity.
+    const groupSetStyle = vi.fn();
+    const markerSetOpacity = vi.fn();
+    const geoJson = {
+      options: {},
+      setStyle: groupSetStyle,
+      eachLayer: vi.fn((fn: (l: unknown) => void) => {
+        fn({ options: {}, setOpacity: markerSetOpacity });
+      }),
+    };
+    const li = {
+      id: "points",
+      canvas: null,
+      layer: geoJson as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.3);
+
+    expect(markerSetOpacity).toHaveBeenCalledWith(0.3);
+    // The group-level setStyle would have silently skipped the markers.
+    expect(groupSetStyle).not.toHaveBeenCalled();
+    expect(li.opacity).toBe(0.3);
+  });
+
+  it("falls back to setOpacity for Markers", () => {
+    const setOpacity = vi.fn();
+    const li = {
+      id: "marker",
+      canvas: null,
+      layer: { options: {}, setOpacity } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne({} as LayerUI, li, 0.8);
+
+    expect(setOpacity).toHaveBeenCalledWith(0.8);
+  });
+
+  it("no-ops safely when the layer is null", () => {
+    const li = {
+      id: "x",
+      canvas: null,
+      layer: null,
+      opacity: 1,
+    } as unknown as LayerInfo;
+    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.4)).not.toThrow();
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("no-ops on a layer with none of the three opacity APIs", () => {
+    // A layer type foliplus does not know (no eachLayer, no setStyle, no
+    // setOpacity) still records the value — the walk ends quietly instead of
+    // throwing on the next redraw.
+    const li = {
+      id: "opaque",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.6)).not.toThrow();
+    expect(li.opacity).toBe(0.6);
+  });
+});
+
+describe("LayerUI opacity restore / prune", () => {
+  const makeMap = () => {
+    const setStyle = vi.fn();
+    const layer = { options: {}, setStyle } as unknown as L.Layer;
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      hasLayer: vi.fn(() => true),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const el = document.createElement("div");
+        el.id = "map";
+        return el;
+      }),
+      getPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      createPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    };
+    return { map, layer, setStyle };
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("applyUserState restores a stored opacity onto Path layers", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.45 };
+
+    u.applyUserState();
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.45, fillOpacity: 0.45 });
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(0.45);
+  });
+
+  it("applyUserState(id) applies opacity for a late-registered canvas layer", () => {
+    const { map } = makeMap();
+    const canvas = document.createElement("canvas");
+    const m = new LayerManager(map, [
+      { id: "heat", name: "Heat", canvas, layer: null, onToggle: vi.fn() },
+    ]);
+    const u = new LayerUI(m);
+    u.opacityMap = { heat: 0.25 };
+
+    u.applyUserState("heat");
+
+    expect(canvas.style.opacity).toBe("0.25");
+    expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
+  });
+
+  it("prunes opacity entries whose layers are gone", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.4, ghost: 0.1 };
+
+    u.applyUserState();
+
+    expect(u.opacityMap).toEqual({ overlay1: 0.4 });
+    // Still applied the live entry before pruning the ghost.
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
+  });
+
+  it("leaves a live layer alone when no opacity is stored", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = {};
+
+    u.applyUserState();
+
+    expect(setStyle).not.toHaveBeenCalled();
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(1);
+  });
+});
+
 describe("event-driven row refresh", () => {
   let manager: LayerManager;
   let ui: LayerUI;
@@ -750,5 +972,85 @@ describe("event-driven row refresh", () => {
     expect(
       ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────── reconcile + opacity persistence ───────────────────
+
+describe("ui/state reconcileHiddenIds and opacity persistence", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("adopts a row whose checkbox is off but which is not in hiddenIds", () => {
+    // initLayerItem derives the checkbox from map.hasLayer(), so a stub map
+    // that still reports membership renders an unchecked row whose id never
+    // reached hiddenIds. Trusting the row is what keeps the saved set absolute.
+    const item = findItem(ui, "overlay1");
+    const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    checkbox.checked = false;
+    ui.hiddenIds = new Set();
+    ui.hiddenHasState = false;
+    const save = vi
+      .spyOn(manager.persistence, "saveHiddenIds")
+      .mockImplementation(() => {});
+
+    reconcileHiddenIds(ui);
+
+    expect(ui.hiddenIds.has("overlay1")).toBe(true);
+    expect(ui.hiddenHasState).toBe(true);
+    expect(save).toHaveBeenCalled();
+  });
+
+  it("reconcileHiddenIds writes nothing without a container or a checked-off row", () => {
+    const bare = { uiContainer: null, m: { layers: [] } } as unknown as LayerUI;
+    expect(() => reconcileHiddenIds(bare)).not.toThrow();
+
+    const save = vi
+      .spyOn(manager.persistence, "saveHiddenIds")
+      .mockImplementation(() => {});
+    ui.hiddenIds = new Set();
+    // Every fixture row reads as checked, so the sweep has nothing to adopt —
+    // and the load must stay read-only rather than rewrite saved state.
+    reconcileHiddenIds(ui);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("applyUserState(id) ignores an id with no registry entry", () => {
+    expect(() => ui.applyUserState("ghost")).not.toThrow();
+  });
+
+  it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
+    ui.hiddenIds = new Set(["overlay1"]);
+
+    ui.applyUserState("overlay1");
+
+    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("saveOpacityMap persists the live map through the debounced getter", () => {
+    const save = vi
+      .spyOn(manager.persistence, "saveOpacity")
+      .mockImplementation(() => {});
+    ui.opacityMap = { overlay1: 0.3 };
+
+    saveOpacityMap(ui);
+
+    // The write is debounced, so the getter must read the map at flush time —
+    // a later edit has to win over the snapshot at call time.
+    const getter = save.mock.calls[0][0] as () => Record<string, number>;
+    ui.opacityMap = { overlay1: 0.7 };
+    expect(getter()).toEqual({ overlay1: 0.7 });
   });
 });

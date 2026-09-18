@@ -56,5 +56,8 @@
   "LayerControl.style_label_no_data": "该图层无可标注字段",
   "LayerControl.style_label_field": "标注字段",
   "LayerControl.style_label_field_auto": "自动识别",
-  "LayerControl.style_reset": "重置"
+  "LayerControl.style_reset": "重置",
+  "LayerControl.section_label": "标注",
+  "LayerControl.section_layer": "图层",
+  "LayerControl.style_opacity": "透明度"
 }
