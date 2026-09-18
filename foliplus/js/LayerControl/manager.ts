@@ -273,7 +273,7 @@ class LayerManager implements LayerAPI {
     // 2. Fallback via forEachLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
     if (!layer) return null;
-    if (this.isFeatureContainer(layer)) return countFeatureGeometry(layer);
+    if (isGroupLike(layer)) return countFeatureGeometry(layer);
     // 3. Canvas or unknown non-container → no meaningful count.
     return null;
   }
@@ -295,11 +295,6 @@ class LayerManager implements LayerAPI {
     // added via createLayers) would otherwise keep its stale type icon.
     this.invalidateType(id);
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
-  }
-
-  /** Whether a layer is a feature container (LayerGroup-like) we can walk. */
-  private isFeatureContainer(layer: L.Layer): boolean {
-    return isGroupLike(layer);
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {

@@ -5,6 +5,7 @@ import {
   layerElements,
   layerIcon,
   layerMap,
+  reinitInteraction,
 } from "./leafletAdapter.js";
 import type { LabelAwareLayer } from "./type.js";
 
@@ -14,7 +15,7 @@ import type { LabelAwareLayer } from "./type.js";
  *  @returns {Object|null} Leaflet layer. */
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
   if (typeof window === "undefined") return null;
-  return (internalLayers<L.Layer>(map)?.[id] ||
+  return (internalLayers(map)?.[id] ||
     Reflect.get(window, id) ||
     null) as L.Layer | null;
 };
@@ -37,12 +38,12 @@ const traverse = (
   if (!leafOnly) fn(layer);
   if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
   else {
-    const children = internalLayers<L.Layer>(layer);
+    const children = internalLayers(layer);
     if (children) {
-      for (const k in children) {
-        if (Object.hasOwn(children, k)) {
-          traverse(children[k], fn, depth + 1, leafOnly);
-        }
+      // Object.keys, not for..in: a registry that inherits from a prototype
+      // would otherwise walk entries this layer tree does not own.
+      for (const k of Object.keys(children)) {
+        traverse(children[k], fn, depth + 1, leafOnly);
       }
     } else if (leafOnly) fn(layer);
   }
@@ -95,13 +96,12 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
 
   const els = layerElements(layer);
   const icon = layerIcon(layer);
-  const reinit = layer._initInteraction;
 
   if (interactive) {
     // Marker._initInteraction re-adds the icon class, hit target, and any
     // dragging hooks — prefer it for the icon. The explicit pass below covers
     // SVG paths and DivOverlay containers.
-    if (reinit) reinit.call(layer);
+    const reinit = reinitInteraction(layer);
     for (const el of els) {
       if (el === icon && reinit) continue;
       el.classList.add("leaflet-interactive");

@@ -1,91 +1,91 @@
 // core/layer/leafletAdapter — the only module that reaches into Leaflet's
-// private fields.
+// private surface.
 //
-// Leaflet keeps three things pane hosting needs off its public interface:
-//   - removing a pane from the registries `getPane` / `getRenderer` read back
-//     (`map._panes`, `map._paneRenderers`) — no public teardown exists;
-//   - a renderer's root element (`renderer._container`), which `L.Renderer`
-//     does not declare;
-//   - a layer's DOM nodes and map back-reference (`layer._icon` / `_path` /
-//     `_container` / `_map`), which are runtime state, not API.
+// Leaflet keeps everything pane hosting needs off its public interface:
+//   - pane teardown: `map._panes` / `map._paneRenderers` (no public API);
+//   - a renderer's root element: `renderer._container`;
+//   - a layer's DOM nodes and map back-reference: `layer._icon` / `_path` /
+//     `_container` / `_map` (runtime state, not API);
+//   - a marker's drop shadow: `marker._shadow`;
+//   - the hook that re-registers a marker's hit target and drag handles:
+//     `layer._initInteraction`.
 //
 // Every such reach in foliplus goes through this module and nowhere else, so a
 // Leaflet upgrade is a one-file problem instead of a grep across the tree.
-// test/js/core/layer/leafletAdapter.test.ts enforces that by scanning
-// core/layer and LayerControl for the field names.
+// test/js/core/layer/leafletAdapter.test.ts enforces both halves of that: no
+// other production module names one of the fields, and this one still does.
+//
+// Deliberately absent: anything that merely forwards a public call. `getPane`,
+// `createPane` and `getPanes` are Leaflet's own API, so callers use them
+// directly — a wrapper here would add a hop without removing a private reach.
 //
 // Every read is probed rather than assumed: a field a future Leaflet stops
 // setting yields null (or an empty list), so version drift degrades — a pane
 // left in the DOM, a layer that stops taking the interactive cursor — instead
 // of throwing out of the middle of a map operation.
 
-/** A pane element by name, or null when the map has no such pane. */
-const paneOf = (map: L.Map, name: string): HTMLElement | null =>
-  map.getPane(name) ?? null;
+/** The private fields this module reads that Leaflet's public types do carry,
+ *  once declared: `_icon` / `_path` / `_container` / `_initInteraction` come
+ *  from the `Layer` augmentation in type/global.d.ts. The probes take this
+ *  rather than `L.Layer`, so the signature says exactly what they touch and a
+ *  caller holding a stub can hand one over without an assertion. */
+type LeafInternals = {
+  _icon?: HTMLElement;
+  _path?: SVGElement;
+  _container?: HTMLElement;
+  _initInteraction?: () => void;
+};
 
-/** Register a new pane under `name` and return its element. Callers probe
- *  `paneOf` first — Leaflet's `createPane` overwrites an existing entry. */
-const createPane = (map: L.Map, name: string): HTMLElement => map.createPane(name);
+/** The two reaches that cannot be declared anywhere: `_map` is `protected` on
+ *  Leaflet's `Layer` and `_shadow` on `Marker`. Making either public in
+ *  type/global.d.ts stops `Marker` from being assignable to `Layer` — which
+ *  every `map.eachLayer` consumer in the tree depends on — so each probe below
+ *  narrows to the one field it reads instead. */
+type LayerWithMap = L.Layer & { _map?: L.Map | null };
+type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
 
-/** The map pane: the transformed container every overlay rides in. Read
- *  through `getPanes()` rather than the name literal so a caller that swaps
- *  the registry (tests, embeds) keeps working. */
-const mapPaneOf = (map: L.Map): HTMLElement | null => map.getPanes().mapPane ?? null;
+/** A layer-tree node. Leaflet's `Map` and `LayerGroup` key children by
+ *  `L.stamp` in `_layers` and enumerate them through `eachLayer`. A
+ *  non-Leaflet container — a window global, an ad-hoc registry wrapper — carries
+ *  `_layers` without being a LayerGroup at all, which is why this is structural
+ *  too. */
+type LayerTreeNode = {
+  _layers?: Record<string, L.Layer>;
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+};
+
+/** The child registry of a layer-tree node, when it has one. */
+const internalLayers = (node: LayerTreeNode): Record<string, L.Layer> | undefined =>
+  node._layers;
+
+/** Whether a node enumerates children — through Leaflet's `eachLayer`, or
+ *  through the `_layers` registry a wrapper exposes instead. */
+const isGroupLike = (node: LayerTreeNode): boolean =>
+  typeof node.eachLayer === "function" || Boolean(node._layers);
 
 /** Detach a pane and drop it from Leaflet's registries.
  *
  *  Both have to be cleared or the pane comes back: `getPane` would keep
  *  returning the detached node, and Leaflet's `getRenderer` re-adds any
- *  renderer it finds off the map, resurrecting a dead renderer into a pane
- *  that no longer belongs to it. */
+ *  renderer it finds off the map, resurrecting a dead renderer into a pane that
+ *  no longer belongs to it. */
 const destroyPane = (map: L.Map, name: string): void => {
   if (map._paneRenderers) delete map._paneRenderers[name];
-  paneOf(map, name)?.remove();
+  map.getPane(name)?.remove();
   if (map._panes) delete map._panes[name];
 };
 
-/** A renderer's root element — the `<svg>` / `<canvas>` holding its shapes.
- *  `_container` is Leaflet's own field, so reading it needs a narrow cast
- *  rather than a widening of the renderer to `any`. */
-const getRendererContainer = (renderer: L.Renderer | null): HTMLElement | null =>
-  (renderer as (L.SVG & { _container?: HTMLElement }) | null)?._container ?? null;
+/** A renderer's root element — the `<svg>` / `<canvas>` holding its shapes. */
+const getRendererContainer = (renderer: LeafInternals | null): HTMLElement | null =>
+  renderer?._container ?? null;
 
-/** The child registry of a layer-tree node. Leaflet's `Map` and `LayerGroup`
- *  both key children by `L.stamp` here; a non-Leaflet container (a window
- *  global or an ad-hoc registry wrapper) may carry one too, which is why this
- *  is a probe on `unknown` rather than a typed member access. */
-const internalLayers = <T>(container: unknown): Record<string, T> | undefined =>
-  (container as { _layers?: Record<string, T> } | null | undefined)?._layers;
-
-/** Whether `x` enumerates children — through Leaflet's `eachLayer`, or through
- *  the `_layers` registry a wrapper may expose instead. */
-const isGroupLike = (x: unknown): boolean => {
-  const group = x as L.LayerGroup | null | undefined;
-  return typeof group?.eachLayer === "function" || Boolean(internalLayers(x));
-};
-
-/** The map a layer is attached to, or null while it is off the map.
- *
- *  `_map` is `protected` on Leaflet's `Layer` class, so it has no public type
- *  at all and cannot be read through an `L.Layer` declaration. The double
- *  assertion narrows to the single field being probed rather than laundering
- *  the whole layer through `any` — see test/js/tsconfig.test.ts, which holds
- *  the tree's double-assertion count to this one site. */
-const layerMap = (layer: L.Layer): L.Map | null =>
-  (layer as unknown as { _map?: L.Map | null })._map ?? null;
+/** The map a layer is attached to, or null while it is off the map. */
+const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map ?? null;
 
 /** A marker's icon element, or null. Kept apart from `layerElements` because
- *  `setInteractive` re-runs the marker's own `_initInteraction` for this node
- *  and must skip it in the manual class / hit-target pass. */
-const layerIcon = (layer: L.Layer): HTMLElement | null => layer._icon ?? null;
-
-/** Whether a Path still has its element in the document.
- *
- *  `bringToFront` moves that element inside its parent, so it throws when the
- *  layer was detached between the caller's decision and the call — which the
- *  z-order pass does (it briefly removes layers from the map) and a concurrent
- *  mousemove can still reach. */
-const hasAttachedPath = (layer: L.Path): boolean => !!layer._path?.parentNode;
+ *  `setInteractive` re-runs the marker's own interaction setup for this node and
+ *  must skip it in the manual class / hit-target pass. */
+const layerIcon = (layer: LeafInternals): HTMLElement | null => layer._icon ?? null;
 
 /** The DOM nodes a leaf draws itself with — marker icon, SVG path, DivOverlay
  *  container. A given layer populates exactly one of them.
@@ -93,13 +93,38 @@ const hasAttachedPath = (layer: L.Path): boolean => !!layer._path?.parentNode;
  *  `_path` is an `SVGElement`, but every caller treats the result as a generic
  *  element (classList + Leaflet hit targets), which is what the predicate
  *  narrows to. */
-const layerElements = (layer: L.Layer): HTMLElement[] =>
+const layerElements = (layer: LeafInternals): HTMLElement[] =>
   [layerIcon(layer), layer._path, layer._container].filter(
     (el): el is HTMLElement => !!el,
   );
 
+/** Whether a Path still has its element in the document.
+ *
+ *  `bringToFront` moves that element inside its parent, so it throws when the
+ *  layer was detached between the caller's decision and the call — which the
+ *  z-order pass does (it briefly removes layers from the map) and a concurrent
+ *  mousemove can still reach. */
+const hasAttachedPath = (layer: LeafInternals): boolean => !!layer._path?.parentNode;
+
+/** A marker's shadow element, or null. Migrating a marker moves the shadow
+ *  alongside its icon, and `eachLayer` never surfaces it. */
+const markerShadow = (marker: L.Marker): HTMLElement | null =>
+  (marker as MarkerWithShadow)._shadow ?? null;
+
+/** Re-run a marker's own interaction setup: `Marker._initInteraction` re-adds
+ *  the icon class, the hit target and the dragging hooks, and early-returns when
+ *  the layer is being turned non-interactive.
+ *
+ *  @returns whether the layer has the hook, so the caller can skip its manual
+ *  pass on the icon instead of registering the same target twice. */
+const reinitInteraction = (layer: LeafInternals): boolean => {
+  const reinit = layer._initInteraction;
+  if (!reinit) return false;
+  reinit.call(layer);
+  return true;
+};
+
 export {
-  createPane,
   destroyPane,
   getRendererContainer,
   hasAttachedPath,
@@ -108,6 +133,6 @@ export {
   layerElements,
   layerIcon,
   layerMap,
-  mapPaneOf,
-  paneOf,
+  markerShadow,
+  reinitInteraction,
 };

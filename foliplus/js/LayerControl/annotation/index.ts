@@ -14,13 +14,7 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import {
-  createPane,
-  destroyPane,
-  forEachLeaf,
-  mapPaneOf,
-  paneOf,
-} from "#core/layer/index.js";
+import { destroyPane, forEachLeaf } from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -410,7 +404,7 @@ class AnnotationManager {
     // Remember where the mapPane sat while planning — the pan fast path
     // translates by the delta from here (same source latLngToContainerPoint
     // uses, so the translate matches a re-plan exactly).
-    const mapPane = mapPaneOf(this.map);
+    const mapPane = this.map.getPanes().mapPane;
     this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
@@ -443,7 +437,7 @@ class AnnotationManager {
    *  O(n log n) per frame). */
   private refreshPan(): void {
     if (this.canvases.size === 0) return;
-    const mapPane = mapPaneOf(this.map);
+    const mapPane = this.map.getPanes().mapPane;
     const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
     if (!this.planOrigin || !pos) {
       this.refresh();
@@ -536,7 +530,7 @@ class AnnotationManager {
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
     const name = CONST.ANNOTATION_PANE_PREFIX + id;
-    const pane = paneOf(this.map, name) ?? createPane(this.map, name);
+    const pane = this.map.getPane(name) ?? this.map.createPane(name);
     pane.classList.add("foliplus-annotation-pane");
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));

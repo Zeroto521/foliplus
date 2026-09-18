@@ -102,6 +102,17 @@ describe("core/layer util", () => {
       expect(visited).toEqual([a]);
     });
 
+    it("walks only a node's own registry entries, not inherited ones", () => {
+      // Leaflet's registries are plain objects, so a registry built on a
+      // prototype would expose its keys to `for..in`. Only entries the node
+      // actually owns are children of its tree.
+      const own = { own: true };
+      const registry = Object.assign(Object.create({ inherited: {} }), { own });
+      const visited: L.Layer[] = [];
+      forEachLeaf({ _layers: registry } as never, l => visited.push(l));
+      expect(visited).toEqual([own]);
+    });
+
     it("recurses into nested _layers (fallback branch)", () => {
       // The fallback is distinguished only by which node ends up leaf: the
       // _layers branch recurses without calling fn, so a container that
