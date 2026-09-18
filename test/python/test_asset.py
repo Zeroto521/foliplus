@@ -15,6 +15,7 @@ from __future__ import annotations
 import glob
 import importlib.util
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -25,6 +26,11 @@ from pathlib import Path
 import folium
 import pytest
 from conftest import read_css, render, render_control
+
+# `foliplus/__init__.py` re-binds the package attribute `foliplus.BaseControl`
+# to the *class*, so `import foliplus.BaseControl` would hand back the class
+# and `dist_dir` would be invisible. The real module is what owns `dist_dir`.
+BaseControlModule = importlib.import_module("foliplus.BaseControl")
 
 from foliplus.BaseControl import (
     MissingAssetsError,
@@ -45,6 +51,26 @@ EXPECTED = expected_artifacts()
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "script" / "smoke-wheel.py"
+
+
+@pytest.fixture
+def dist_copy(monkeypatch, tmp_path):
+    """A throwaway copy of dist/ for the missing-asset tests.
+
+    Those tests prove the loud-failure contract by unlink-ing a bundled
+    artifact and restoring it afterwards. Against the real dist/ that window
+    is visible to every other test reading dist/ concurrently under xdist —
+    the flaky pair was this module's mutators racing test_build.py's readers
+    with ``-n auto``. Against a private copy per test they touch nothing the
+    rest of the suite can see, so the race disappears rather than moving.
+    ``_build_shared_header`` / ``_build_component_template`` resolve
+    ``BaseControl.dist_dir`` at call time, so the monkeypatch redirects them
+    along with the unlink targets below.
+    """
+    copy = tmp_path / "dist"
+    shutil.copytree(dist_dir, copy)
+    monkeypatch.setattr(BaseControlModule, "dist_dir", copy)
+    return copy
 
 
 def _smoke_module() -> types.ModuleType:
@@ -91,10 +117,10 @@ def test_error_is_a_runtime_error():
     assert issubclass(MissingAssetsError, RuntimeError)
 
 
-def test_shared_header_names_both_files():
+def test_shared_header_names_both_files(dist_copy):
     """Both shared artifacts missing → one error naming both, not two failures."""
-    js = dist_dir / "foliplus-common.min.js"
-    css = dist_dir / "foliplus-common.min.css"
+    js = dist_copy / "foliplus-common.min.js"
+    css = dist_copy / "foliplus-common.min.css"
     t_j, t_c = js.read_text(encoding="utf-8"), css.read_text(encoding="utf-8")
     _clear()
     try:
@@ -111,9 +137,9 @@ def test_shared_header_names_both_files():
     assert "make dist" in message
 
 
-def test_shared_header_raises_with_one_present():
+def test_shared_header_raises_with_one_present(dist_copy):
     """A partially built dist/ is unusable — no silent half-render."""
-    js = dist_dir / "foliplus-common.min.js"
+    js = dist_copy / "foliplus-common.min.js"
     t_j = js.read_text(encoding="utf-8")
     _clear()
     try:
@@ -129,9 +155,9 @@ def test_shared_header_raises_with_one_present():
 
 
 @pytest.mark.parametrize("artifact", ("min.js", "min.css"))
-def test_component_render_raises(artifact: str):
+def test_component_render_raises(artifact: str, dist_copy):
     """A component missing either artifact fails at attach time, loudly."""
-    p = dist_dir / f"foliplus-SearchControl.{artifact}"
+    p = dist_copy / f"foliplus-SearchControl.{artifact}"
     t = p.read_text(encoding="utf-8")
     _clear()
     try:
@@ -143,9 +169,9 @@ def test_component_render_raises(artifact: str):
         _clear()
 
 
-def test_shared_header_via_control():
+def test_shared_header_via_control(dist_copy):
     """A control on the map makes render() reach the shared header."""
-    js = dist_dir / "foliplus-common.min.js"
+    js = dist_copy / "foliplus-common.min.js"
     t_j = js.read_text(encoding="utf-8")
     _clear()
     try:
