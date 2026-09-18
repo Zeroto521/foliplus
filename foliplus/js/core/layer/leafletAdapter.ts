@@ -119,7 +119,7 @@ const markerShadow = (marker: L.Marker): HTMLElement | null =>
  *  pass on the icon instead of registering the same target twice. */
 const reinitInteraction = (layer: LeafInternals): boolean => {
   const reinit = layer._initInteraction;
-  if (!reinit) return false;
+  if (typeof reinit !== "function") return false;
   reinit.call(layer);
   return true;
 };

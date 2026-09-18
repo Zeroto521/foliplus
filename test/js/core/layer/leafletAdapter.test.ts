@@ -16,49 +16,59 @@ import {
   reinitInteraction,
 } from "#foliplus/core/layer/leafletAdapter.js";
 
-// ── Static guard: the privileged surface ────────────────────────
+// ── Static guard: the named private surface ─────────────────────
 //
 // Leaflet exposes no API for pane teardown, for a renderer's root element, or
 // for a layer's DOM nodes — so those reaches cannot be eliminated, only
 // confined. Confining them to one module is what makes a Leaflet upgrade a
-// single-file problem, and this scan is what keeps them confined: no module of
-// the layer surface may name one of the fields itself.
+// single-file problem, and this scan is what keeps them confined.
 //
-// Both halves are asserted: the surface stays clean AND the adapter still holds
-// the fields, so a typo in the pattern cannot make this pass vacuously.
+// WHAT THIS COVERS — exactly these eleven field names, and nothing else:
+//   _panes, _paneRenderers              (pane registry: adapter-owned)
+//   _container, _icon, _initInteraction, _layers, _map, _path, _shadow
+//                                       (leaf + renderer internals: adapter-owned)
+//   _attributions, _update              (AttributionControl: counted exceptions)
+// It is not a claim about "every private reach". Fields outside this set —
+// `TileLayer._url` in core/geo/coord.ts, `Marker._latlng`, anything a future
+// Leaflet adds — are simply not watched. Widening the set is the way to widen
+// the guard.
 //
-// The scan runs on code with comments and string literals stripped:
-//   - comments may name the fields freely — that is where the why lives, and a
-//     guard that forbade it would push the explanation out of the file it
-//     belongs to;
-//   - string literals hold false friends the names would otherwise match
-//     (`"type_color_map"`, `${position}_container`).
-// A private field reached from inside a template substitution would be missed;
-// nothing in the tree does that, and the alternative is a TS parse here.
+// Anchoring: most names are matched only after a dot, because they are generic
+// enough that a bare word would false-positive (`_update`, `_path`, `_map`).
+// The two pane-registry names are distinctive enough to match without one, so
+// `map["_panes"]` and `const { _panes } = map` are caught as well. Not caught,
+// and worth knowing: a *string-keyed* read of a dot-anchored name — the shape
+// ScaleControl already uses for `_map` (`Reflect.set(scaleCtrl, "_map", …)`).
+//
+// Comments are stripped before matching, so the prose above and in the sources
+// may name the fields freely; that is where the why lives. String literals are
+// deliberately NOT stripped: the dot anchor already keeps `"type_color_map"`
+// and `${position}_container` from matching, and removing the literals would
+// hide the `["_panes"]` form the bare alternative exists to catch.
 const PRIVATE_FIELD_RE =
-  /\._(?:panes|paneRenderers|container|layers|icon|path|map|shadow|initInteraction)\b/g;
+  /\._(?:container|layers|icon|path|map|shadow|initInteraction|attributions|update)\b|\b_(?:panes|paneRenderers)\b/g;
 
-const STRIP_RE =
-  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
-const codeOnly = (src: string): string => src.replace(STRIP_RE, " ");
+const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 
-// Every production module is scanned, not just the layer surface: a reach into
-// `layer._icon` from some other control is exactly what this guard is for, and
-// a directory list would have to be widened by hand to notice one.
-//
-// Three reaches outside this module's charter are counted rather than ignored,
-// so a *new* one in any of those files still fails:
+// Reaches this module deliberately does not own, counted rather than ignored so
+// a *new* one in any of these files still fails:
 //   - core/geo/coord.ts reads a map's child registry to find the tile layers of
 //     the current basemap — CRS detection, a different concern that has no
 //     business importing a pane adapter;
 //   - BaseControl.ts and ScaleControl/index.ts use `this._map`, which is
 //     Leaflet's own field on the L.Control subclass they *are* (set by
-//     Control.addTo), not an inward reach into another object's internals.
+//     Control.addTo), not an inward reach into another object's internals;
+//   - LayerControl/manager.ts trims an AttributionControl's entries
+//     (`_attributions`, `_update`) — a control internal, not a layer one. Its
+//     three lines belong in an attribution helper of their own if a second
+//     consumer ever appears; see the PR body.
 const OUT_OF_CHARTER = [
   { f: "core/geo/coord.ts", n: 1 },
   { f: "BaseControl.ts", n: 3 },
   { f: "ScaleControl/index.ts", n: 3 },
+  { f: "LayerControl/manager.ts", n: 3 },
 ] as const;
 
 const ADAPTER = "foliplus/js/core/layer/leafletAdapter.ts";
@@ -84,12 +94,12 @@ const code = (p: string) => codeOnly(readFileSync(p, "utf-8"));
 const adapterPath = resolve(JS_ROOT, "core/layer/leafletAdapter.ts");
 const sources = walk(JS_ROOT);
 
-describe("leafletAdapter is the only module touching Leaflet privates", () => {
+describe("leafletAdapter is the only module touching the named Leaflet privates", () => {
   it("scans a non-trivial production tree", () => {
     expect(sources.length).toBeGreaterThanOrEqual(80);
   });
 
-  it("confines every private-field reach to the adapter", () => {
+  it("confines every named reach to the adapter or to a counted exception", () => {
     const allowances = new Map(
       OUT_OF_CHARTER.map(({ f, n }) => [`foliplus/js/${f}`, n]),
     );
@@ -118,8 +128,9 @@ describe("leafletAdapter is the only module touching Leaflet privates", () => {
   });
 
   it("the adapter really holds all of them, so the scan cannot pass vacuously", () => {
+    // A match is either `._icon` (dot-anchored) or `_panes` (bare alternative).
     const found = (code(adapterPath).match(PRIVATE_FIELD_RE) || []).map(m =>
-      m.slice(1),
+      m.replace(/^\./, ""),
     );
     // Sorted by code unit, which is why _paneRenderers precedes _panes.
     expect([...new Set(found)].sort()).toEqual([
@@ -133,6 +144,23 @@ describe("leafletAdapter is the only module touching Leaflet privates", () => {
       "_path",
       "_shadow",
     ]);
+  });
+
+  it("matches the pane registry through both anchors, and no false friend", () => {
+    const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
+    expect(matched("map._panes")).toEqual(["_panes"]);
+    expect(matched("map._paneRenderers")).toEqual(["_paneRenderers"]);
+    // The bare alternative is why a string key or a destructuring is caught.
+    expect(matched('map["_panes"]')).toEqual(["_panes"]);
+    expect(matched("const { _panes } = map")).toEqual(["_panes"]);
+    // False friends the dot anchor already keeps out — which is why stripping
+    // string literals would earn nothing.
+    expect(matched('"type_color_map"')).toEqual([]);
+    expect(matched("type_color_map")).toEqual([]);
+    expect(matched("${position}_container")).toEqual([]);
+    // The documented boundary: a string-keyed read of a dot-anchored name is
+    // not detected (ScaleControl reaches `_map` exactly this way).
+    expect(matched('Reflect.set(scaleCtrl, "_map", value)')).toEqual([]);
   });
 });
 
