@@ -14,6 +14,7 @@ from conftest import (
     assert_locale,
     heatmap_ready,
     make_browser_page,
+    read_css,
     read_css_dir,
     render_control,
     use_page,
@@ -49,6 +50,9 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "count")
         assert_config_value(html, "border_weight", 1.5)
         assert_config_value(html, "label_show", True)
+        assert_config_value(html, "label_color", "#fff")
+        assert_config_value(html, "label_size", 11)
+        assert_config_value(html, "label_format", "auto")
 
     def test_custom_params(self):
         """Custom params produce correct CONFIG JSON."""
@@ -61,6 +65,7 @@ class TestHeatmapControlPython:
                 schemes=["Reds", "Blues"],
                 border_weight=2.0,
                 label_show=False,
+                label_format="percent",
             )
         )
         assert_config_value(html, "color_scheme", "Reds")
@@ -69,6 +74,11 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "sum")
         assert_config_value(html, "border_weight", 2.0)
         assert_config_value(html, "label_show", False)
+        assert_config_value(html, "label_format", "percent")
+
+    def test_invalid_label_format_raises(self):
+        with pytest.raises(ValueError, match="label_format must be one of"):
+            HeatmapControl(label_format="invalid")
 
     def test_invalid_method_raises(self):
         """Invalid method raises ValueError."""
@@ -224,21 +234,17 @@ class TestHeatmapControlRendering:
             assert method in html
 
     def test_border_control_renders(self):
-        """Border weight slider and color input are rendered."""
+        """Border weight number input and color swatch use the shared form chrome."""
         html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
+        assert "form-number-input" in html
+        assert "form-color-input" in html
 
     def test_border_weight_input_has_min_max(self):
-        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
+        """Border weight number input carries min/max from BORDER bounds."""
         html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
-        assert "weight-input" in html
-        # oninput for live preview (only fires when value is in range)
-        assert "weight-input" in html
-        # onchange for final clamp
-        assert "color-input" in html
+        assert "form-number-input" in html
+        assert "BORDER.WEIGHT_MIN" in html
+        assert "BORDER.WEIGHT_MAX" in html
 
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""
@@ -249,18 +255,18 @@ class TestHeatmapControlRendering:
         assert 'disabled: "disabled"' not in html
 
     def test_border_weight_breathing_focus(self):
-        """weight-input is included in the shared breathing-focus rule."""
+        """Shared number-input is included in the breathing-focus rule."""
         from pathlib import Path
 
         css = read_css_dir("foliplus/css/common", "reset.css")
-        assert "foliplus-heatmap-weight-input" in css
+        assert "foliplus-form-number-input" in css
         assert "input-breathe" in css
 
     def test_focus_breathe_selector_single_definition(self):
         """The breathing-focus selector list is defined once (no animation/reduced-motion duplication)."""
         css = read_css_dir("foliplus/css/common", "reset.css")
-        # `foliplus-heatmap-weight-input` appears once inside the shared :is(...) list.
-        assert css.count("foliplus-heatmap-weight-input") == 1
+        # `foliplus-form-number-input` appears once inside the shared :is(...) list.
+        assert css.count("foliplus-form-number-input") == 1
         # The animation is driven by a custom property so reduced-motion only
         # overrides the value, not the selector list.
         assert "var(--input-breathe-anim)" in css
@@ -287,6 +293,22 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "HeatmapControl.section_data" in html
         assert "HeatmapControl.section_style" in html
+
+    def test_uses_shared_section_heading_class(self):
+        """Section headings use the shared form.css class, not a heatmap-local one."""
+        html = render_control(HeatmapControl())
+        assert "foliplus-section-heading" in html
+        assert "foliplus-heatmap-section-heading" not in html
+        css = read_css("foliplus/css/HeatmapControl.css")
+        assert ".foliplus-heatmap-section-heading" not in css
+        shared = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in shared
+        assert "letter-spacing: var(--letter-spacing-tight)" in shared
+
+    def test_section_label_renders(self):
+        """Labels section heading is rendered; label controls render dynamically."""
+        html = render_control(HeatmapControl())
+        assert "HeatmapControl.section_label" in html
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -789,9 +811,10 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle
+            # label toggle — rendered by the shared label-controls module, so
+            # it is queried from the panel DOM rather than a control field.
             page.evaluate(
-                "window.__heatmapCtrl.labelChk.checked = false; window.__heatmapCtrl.labelChk.dispatchEvent(new Event('change'))"
+                "() => { const t = document.querySelector('.foliplus-heatmap-ctrl .foliplus-style-toggle-input'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); }"
             )
             page.wait_for_timeout(300)
             assert stored()["labelShow"] is False, "label toggle must persist"
@@ -852,7 +875,7 @@ class TestHeatmapControlBrowser:
             after = page.evaluate(
                 """() => ({
                     m: window.__heatmapCtrl.manager.borderWeight,
-                    input: document.querySelector('.foliplus-heatmap-weight-input').value,
+                    input: document.querySelector('.foliplus-form-number-input').value,
                 })"""
             )
             assert after["m"] == 3.5, (
@@ -1162,21 +1185,14 @@ class TestHeatmapAutoFieldBrowser:
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.population" in field_opts, (
-                f"Missing 'properties.population': {field_opts}"
-            )
-            assert "properties.density" in field_opts, (
-                f"Missing 'properties.density': {field_opts}"
-            )
+            assert "population" in field_opts, f"Missing 'population': {field_opts}"
+            assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
             # enumeration order — the important thing is deterministic choice.
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key and auto_key.startswith("properties."), (
-                f"Expected a 'properties.*' key, got '{auto_key}'"
-            )
-            assert auto_key in ("properties.population", "properties.density"), (
+            assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
             )
 
@@ -1225,16 +1241,12 @@ class TestHeatmapAutoFieldBrowser:
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key == "properties.elevation", (
-                f"Expected 'properties.elevation', got '{auto_key}'"
-            )
+            assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.elevation" in field_opts, (
-                f"Missing 'properties.elevation': {field_opts}"
-            )
+            assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
 
             assert not errors, f"JS errors: {errors}"

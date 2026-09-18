@@ -14,6 +14,7 @@ const loadPersistedState = (ui: LayerUI) => {
   // Style (label) configs are stored on the UI shell and applied by
   // ui/style.ts once the layers resolve (deferred init passes).
   ui.labelConfigs = state.annotations;
+  ui.opacityMap = state.opacity;
 };
 
 /** Save fold state to localStorage. */
@@ -26,6 +27,11 @@ const saveFoldState = (ui: LayerUI) => {
 
 const saveHiddenIds = (ui: LayerUI) => {
   ui.m.persistence.saveHiddenIds(() => ui.hiddenIds);
+};
+
+/** Save per-layer opacity map to localStorage, coalescing rapid calls. */
+const saveOpacityMap = (ui: LayerUI) => {
+  ui.m.persistence.saveOpacity(() => ui.opacityMap);
 };
 
 /**
@@ -66,6 +72,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
+    if (id in ui.opacityMap) applyOpacityStateOne(ui, layerInfo, ui.opacityMap[id]);
     return;
   }
 
@@ -79,6 +86,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     ...ui.m.layers.map(li => li.id),
     ...ui.hiddenIds,
     ...Object.keys(ui.renamedNames),
+    ...Object.keys(ui.opacityMap),
   ]);
   for (const layerId of ids) {
     if (layerId in ui.renamedNames) {
@@ -105,6 +113,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     }
     const layerInfo = registry.get(layerId);
     if (!layerInfo) continue; // stale id —pruned by persistence on save
+    if (layerId in ui.opacityMap) {
+      applyOpacityStateOne(ui, layerInfo, ui.opacityMap[layerId]);
+    }
     if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
     else if (ui.hiddenHasState) applyVisibleStateOne(ui, layerInfo);
   }
@@ -128,6 +139,15 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => stillPresent(layerId)));
     ui.hiddenHasState = true;
     saveHiddenIds(ui);
+  }
+  // Opacity is the same absolute-map shape as names: a stale id that no
+  // longer resolves to a layer must not accumulate. Unlike hidden ids there
+  // is no "absent key" semantics to preserve — a missing entry simply means
+  // fully opaque — so pruning on every sweep is safe.
+  const goneOpacity = Object.keys(ui.opacityMap).filter(id => !stillPresent(id));
+  if (goneOpacity.length > 0) {
+    for (const id of goneOpacity) delete ui.opacityMap[id];
+    saveOpacityMap(ui);
   }
 };
 
@@ -200,6 +220,134 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   else if (layer && !ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
 
   layerInfo.visible = true;
+};
+
+/** The panes this layer alone renders into, or `[]` when it has none yet.
+ *
+ *  Ownership, not a list of Leaflet's shared pane names: a declared
+ *  `subPanes` entry is component-owned, and the fallback pane `enforceOrder`
+ *  assigns is named after the layer's stamp, so it holds that layer alone.
+ *  A blocklist could not tell that apart from a pane a host deliberately
+ *  shares between two layers, which must not be faded.
+ *
+ *  `enforceOrder` both assigns the fallback pane and migrates the content into
+ *  it (`PaneManager.migrateLayers` moves path elements and marker icons), so
+ *  an assignment is the content's real home. Until that pass has run the layer
+ *  is in `markerPane` / `overlayPane` and this returns `[]`, which is the
+ *  window the per-feature walk covers. */
+const privatePanesOf = (ui: LayerUI, layerInfo: LayerInfo): string[] => {
+  if (layerInfo.subPanes?.length > 0) return layerInfo.subPanes;
+  const layer = layerInfo.layer;
+  if (!layer) return [];
+  const own = ui.m.panes.fallbackPaneOf(layer);
+  return own ? [own] : [];
+};
+
+/** Layers the per-feature walk has written to. The walk and the pane carrier
+ *  are alternatives, never layers of one another: `enforceOrder` migrates a
+ *  layer's content into its own pane on a debounce, so a layer can start on
+ *  the walk (content still in a shared pane) and later resolve to a pane. */
+const walkedLayers = new WeakSet<L.Layer>();
+
+/**
+ * Apply one layer's opacity to the registry entry and to the live rendering.
+ *
+ * The pane is the preferred carrier for every kind of layer: one style write
+ * regardless of how many features the layer holds (a many-thousand-point
+ * GeoJSON must not be swept on every slider step), CSS opacity multiplies with
+ * each feature's own style instead of overwriting it, and it reaches paths,
+ * markers and divIcons alike.
+ *
+ * `createCanvas` layers paint on a single element, which is the same deal.
+ * Only a layer whose content is still in a pane it does not own falls back to
+ * the per-feature walk — the window before `enforceOrder` has migrated it.
+ */
+const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
+  layerInfo.opacity = opacity;
+  if (layerInfo.canvas) {
+    layerInfo.canvas.style.opacity = String(opacity);
+    return;
+  }
+  const layer = layerInfo.layer;
+  const panes = privatePanesOf(ui, layerInfo);
+  if (panes.length > 0) {
+    // Undo any earlier walk before handing over to the pane, or the two would
+    // stack: the walk's per-feature value times the pane's, so a layer asked
+    // for 0.4 twice would render at 0.16.
+    if (layer && walkedLayers.has(layer)) {
+      applyLeafletOpacity(layer, 1);
+      walkedLayers.delete(layer);
+    }
+    for (const name of panes) {
+      const pane = ui.m.map.getPane(name);
+      if (pane) pane.style.opacity = String(opacity);
+    }
+    return;
+  }
+  if (layer) walkedLayers.add(layer);
+  applyLeafletOpacity(layer, opacity);
+};
+
+/** Each feature's own opacity, captured the first time it is touched.
+ *
+ *  Leaflet's `setStyle` / `setOpacity` are absolute, so writing the layer
+ *  opacity straight in would destroy the feature's own value — a hollow
+ *  polygon's `fillOpacity: 0` became 0.4 and its fill appeared instead of
+ *  staying hollow. Storing the base once and always writing
+ *  `base × layerOpacity` keeps the feature's own style intact and makes
+ *  repeated passes idempotent (the base is read once, never from the value we
+ *  just wrote). */
+const baseOpacity = new WeakMap<L.Layer, { opacity: number; fillOpacity: number }>();
+
+/** A leaf that can carry an opacity, plus the options the base is read from. */
+type OpacityCapable = L.Layer & {
+  options?: { opacity?: number; fillOpacity?: number };
+  setStyle?: (style: { opacity: number; fillOpacity: number }) => void;
+  eachLayer?: (fn: (l: L.Layer) => void) => void;
+  setOpacity?: (v: number) => void;
+};
+
+const baseOpacityOf = (layer: OpacityCapable, fill: boolean) => {
+  let base = baseOpacity.get(layer);
+  if (!base) {
+    const opts = layer.options ?? {};
+    base = {
+      opacity: typeof opts.opacity === "number" ? opts.opacity : 1,
+      fillOpacity: fill && typeof opts.fillOpacity === "number" ? opts.fillOpacity : 1,
+    };
+    baseOpacity.set(layer, base);
+  }
+  return base;
+};
+
+/** Recursive opacity application over a Leaflet layer tree.
+ *
+ *  Groups are walked first, then leaves: a `L.GeoJSON` exposes `setStyle`, but
+ *  Leaflet's implementation only forwards it to `Path` children, silently
+ *  skipping `Marker`s — which is why a point layer (folium's marker / divIcon
+ *  layers) ignored the opacity control. Descending through `eachLayer` reaches
+ *  every leaf, and a leaf then gets whichever API it actually has. */
+const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
+  if (!layer) return;
+  const target = layer as OpacityCapable;
+  if (typeof target.eachLayer === "function") {
+    target.eachLayer(child => applyLeafletOpacity(child, opacity));
+    return;
+  }
+  if (typeof target.setStyle === "function") {
+    const base = baseOpacityOf(target, true);
+    target.setStyle({
+      opacity: base.opacity * opacity,
+      fillOpacity: base.fillOpacity * opacity,
+    });
+    return;
+  }
+  if (typeof target.setOpacity === "function") {
+    // Marker / ImageOverlay: opacity is a CSS value on their element, so it
+    // multiplies with whatever the icon already carries.
+    const base = baseOpacityOf(target, false);
+    target.setOpacity(base.opacity * opacity);
+  }
 };
 
 /**
@@ -301,9 +449,11 @@ export {
   loadPersistedState,
   saveFoldState,
   saveHiddenIds,
+  saveOpacityMap,
   applyUserState,
   applyHiddenOne,
   applyHiddenStateOne,
+  applyOpacityStateOne,
   applyVisibleStateOne,
   reconcileHiddenIds,
   saveNamesState,

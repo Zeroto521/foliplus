@@ -22,7 +22,7 @@ import {
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
-import { AnnotationManager } from "./annotation.js";
+import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
@@ -141,6 +141,8 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+    // The annotation manager plans each layer's labels on that layer's own
+    // pane; enforceOrder z-orders the panes along with their layers.
     this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -354,7 +356,8 @@ class LayerManager implements LayerAPI {
       } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
-    if (opts.paneName) this.panes.ensurePane(opts.paneName);
+    // Canvas layers (createCanvas) paint on a 2d canvas — no SVG renderer.
+    if (opts.paneName) this.panes.ensurePane(opts.paneName, !opts.canvas);
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer)) {
         this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
@@ -400,6 +403,10 @@ class LayerManager implements LayerAPI {
         // Invalidating re-renders as well, keeping the labels on the map in step
         // with what the picker offers.
         this.ui.invalidateFields(opts.id);
+        // A re-registration may replace the live layer/canvas object. Opacity
+        // is stored per-id, so re-apply it onto the fresh element (no-op when
+        // the user never changed it).
+        this.ui.applyUserState(opts.id);
       }
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
@@ -570,17 +577,35 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        const hasLayer = layer && this.map.hasLayer(layer);
         // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
         // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
         const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
         const z = this.computeZIndex(i, isGrid);
 
-        if (layerInfo.onZIndex) layerInfo.onZIndex(z);
-        if (!hasLayer) continue;
+        // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+        // they own a dedicated pane that must still take its place in the stack.
+        if (!layer) {
+          if (layerInfo.paneName) {
+            const { pane } = this.panes.ensurePane(layerInfo.paneName, false);
+            pane.style.zIndex = String(z);
+          }
+          continue;
+        }
+
+        if (!this.map.hasLayer(layer)) continue;
 
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
+
+        // The layer's label pane (created by AnnotationManager) rides just
+        // above it: labels cover that layer's own geometry, and the next layer
+        // up still covers the labels — the stack the panel shows.
+        const annotationPane = this.map.getPane(
+          CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+        );
+        if (annotationPane) {
+          annotationPane.style.zIndex = String(z + CONST.ANNOTATION_Z_OFFSET);
+        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit

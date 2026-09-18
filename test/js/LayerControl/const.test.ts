@@ -26,6 +26,7 @@ describe("STORAGE", () => {
     expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
     expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
     expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
+    expect(CONST.STORAGE.OPACITY_KEY).toContain("foliplus_layer_opacity_");
   });
 });
 
@@ -143,6 +144,18 @@ describe("FOCUS", () => {
 describe("CLASSES.FOCUSING", () => {
   it("defines the focusing row class", () => {
     expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+  });
+});
+
+describe("CLASSES.SECTION_HEADING / opacity controls", () => {
+  it("uses the shared form.css section heading", () => {
+    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
+  });
+
+  it("defines the opacity control classes", () => {
+    expect(CONST.CLASSES.STYLE_OPACITY_CONTROL).toBe("foliplus-style-opacity-control");
+    expect(CONST.CLASSES.STYLE_OPACITY_RANGE).toBe("foliplus-style-opacity-range");
+    expect(CONST.CLASSES.STYLE_OPACITY_NUMBER).toBe("foliplus-style-opacity-number");
   });
 });
 

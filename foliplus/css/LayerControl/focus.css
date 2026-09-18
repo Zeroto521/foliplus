@@ -54,10 +54,11 @@ path.foliplus-focus-mask {
    layer pane except the focused one (marked `.foliplus-focus-pane`) is hidden
    with a single CSS rule — no per-pane JS visibility loop. The basemap lives
    in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
-   and keeps the spatial context. Heatmap canvases live directly in mapPane,
-   so they need their own selector. */
+   and keeps the spatial context. Canvas layers (heatmap) live in their own
+   `.foliplus-layer-pane`, covered by the first selector; label panes are
+   per layer and need their own. */
 .foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane),
-.foliplus-focus-active .foliplus-heatmap-canvas:not(.foliplus-focus-pane) {
+.foliplus-focus-active .foliplus-annotation-pane:not(.foliplus-focus-pane) {
   visibility: hidden;
 }
 @keyframes foliplus-focus-march {

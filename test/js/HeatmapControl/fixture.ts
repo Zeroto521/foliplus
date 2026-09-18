@@ -5,7 +5,7 @@
 import { vi } from "vitest";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#foliplus/HeatmapControl/ui.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 /** A CONF with the heatmap fields the UI functions read, in English. */
 const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
@@ -31,22 +31,32 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 });
 
 /** Build a real HeatmapManager with all external deps stubbed out. */
-function makeManager() {
-  window.CONF = {
-    ...window.CONF,
-    name: "HeatmapControl",
-    color_scheme: "Reds",
-    method: "jenks",
-    n_classes: 6,
-    agg: "count",
-    field: null,
-    fill_opacity: 0.7,
-    border_color: "#333333",
-    border_weight: 1.5,
-    border_opacity: 0.9,
-    label_show: true,
-    label_format: "auto",
-  };
+function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
+  // Mutate in place — module-level `T = createScopedTranslator(CONF)` captured
+  // the setup-time object; replacing window.CONF would strand that reference
+  // on SearchControl and meta keys would resolve to the wrong prefix.
+  // `confOverrides` wins last so a test can omit/replace a key (including
+  // setting it to undefined to simulate a CONF that never sent it).
+  Object.assign(
+    window.CONF,
+    {
+      name: "HeatmapControl",
+      color_scheme: "Reds",
+      method: "jenks",
+      n_classes: 6,
+      agg: "count",
+      field: null,
+      fill_opacity: 0.7,
+      border_color: "#333333",
+      border_weight: 1.5,
+      border_opacity: 0.9,
+      label_show: true,
+      label_color: "#fff",
+      label_size: 11,
+      label_format: "auto",
+    },
+    confOverrides,
+  );
 
   globalThis.h3 = {
     latLngToCell: vi.fn(() => "abc123"),
@@ -75,6 +85,7 @@ function makeManager() {
     LayerAPI: {
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
+      touchLayer: vi.fn(() => true),
       createCanvas: vi.fn(() => ({
         register: vi.fn(),
         unregister: vi.fn(),
@@ -118,6 +129,7 @@ function makeCtrl(
     m,
     conf,
     T: createScopedTranslator(conf),
+    _: createTranslator(conf),
     ctrl: document.createElement("div"),
     schemeDropdown: null,
     expandHookDone: false,
@@ -139,7 +151,8 @@ function makeCtrl(
     schemeSelectHidden: document.createElement("select"),
     borderColorInput: document.createElement("input"),
     borderWeightInput: document.createElement("input"),
-    labelChk: document.createElement("input"),
+    labelRefresh: null,
+    styleChangeCleanup: null,
     closeSchemeDropdown: () => undefined,
     toggleSchemeDropdown: () => undefined,
   };

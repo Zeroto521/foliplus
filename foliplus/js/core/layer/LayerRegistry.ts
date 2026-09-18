@@ -75,6 +75,7 @@ class LayerRegistry {
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       visible: opts.visible ?? existingLi?.visible ?? true,
+      opacity: opts.opacity ?? existingLi?.opacity ?? 1,
       isBase: opts.isBase ?? existingLi?.isBase ?? false,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       subPanes: opts.subPanes ?? existingLi?.subPanes ?? [],
@@ -95,9 +96,11 @@ class LayerRegistry {
         null,
       canvas: opts.canvas ?? existingLi?.canvas ?? null,
       onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
-      onZIndex: opts.onZIndex ?? existingLi?.onZIndex ?? null,
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
+      styleDefaults: opts.styleDefaults ?? existingLi?.styleDefaults ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
       // Static caller-supplied metadata for the attributes panel. `??` (not
       // a spread) so a re-registration leaves the previous values in place —

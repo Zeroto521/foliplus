@@ -50,6 +50,23 @@ if (!hasLocalStorage) {
   });
 }
 
+// vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,
+// which plain `new Blob(["…"])` does not have — it throws TypeError in CI where
+// jsdom lacks a native implementation. Replace it with a minimal stub so
+// ExportControl tests that exercise showPreview / renderPaneSVG don't crash
+// before their real assertions. Tests that spy on createObjectURL re-stub it
+// themselves via vi.stubGlobal.
+Object.defineProperty(URL, "createObjectURL", {
+  value: vi.fn(() => "blob:mock"),
+  configurable: true,
+  writable: true,
+});
+Object.defineProperty(URL, "revokeObjectURL", {
+  value: vi.fn(),
+  configurable: true,
+  writable: true,
+});
+
 // Mock window.foliplus runtime (must be set before module imports that capture it)
 window.foliplus = {
   showHint: vi.fn(),

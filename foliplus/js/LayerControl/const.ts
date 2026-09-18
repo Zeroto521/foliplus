@@ -1,4 +1,5 @@
-import type { NumberStyle } from "#common/format.js";
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -20,6 +21,8 @@ const STORAGE = {
   NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
   /** Map of layer id → annotation config (show/field/format). */
   ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
+  /** Map of layer id → opacity (0-1). Only non-default values are stored. */
+  OPACITY_KEY: `foliplus_layer_opacity_${map.getContainer().id}`,
 };
 
 /** Color map layer. */
@@ -54,6 +57,17 @@ const FOCUS = {
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
 const FOCUS_PANE = "foliplus-focus-overlay";
+
+/** Leaflet pane name prefix for a layer's annotation labels: one pane per
+ *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+
+/** Z offset of a layer's annotation pane above its layer. Layers sit
+ *  `Z_INDEX.STEP` (10) apart, so +1 keeps the labels above their own layer
+ *  while the next layer up still covers them — the same gap the focus ladder
+ *  reuses when it raises a layer. */
+const ANNOTATION_Z_OFFSET = 1;
 
 /** CSS class names. */
 const CLASSES = {
@@ -97,13 +111,6 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
-  /** Marker wrapper element used to render an annotation label. */
-  ANNOTATION_LABEL: "foliplus-annotation-label",
-  /** Anchor kind of an annotation label: a feature's own point, or the centre
-   *  of its extents. Decides both the vertical offset and whether the chip is
-   *  centred on the anchor or hangs below it. */
-  ANNOTATION_LABEL_POINT: "foliplus-annotation-label-point",
-  ANNOTATION_LABEL_SHAPE: "foliplus-annotation-label-shape",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */
@@ -111,6 +118,24 @@ const CLASSES = {
   STYLE_FORMAT_ROW: "foliplus-style-format-row",
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
+  STYLE_BODY: "foliplus-style-body",
+  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
+  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  /** The "avoid overlap" switch — its own class, because the panel's change
+   *  delegation keys on the class to tell the two switches apart. */
+  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Shared section heading (form.css). */
+  SECTION_HEADING: "foliplus-section-heading",
+  /** Opacity control: range slider + paired number input. */
+  STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
+  STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
+  STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
+  /** Shared form-row layout classes (also used by HeatmapControl template). */
+  FORM_ROW: "foliplus-form-row",
+  FORM_LABEL: "foliplus-form-label",
+  FORM_CONTROL: "foliplus-form-control",
+  TOGGLE_SWITCH: "foliplus-toggle-switch",
+  TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
@@ -146,33 +171,25 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Annotation label number-format presets. Values mirror `NumberStyle`
- *  (common/format.ts) — the UI-facing constant map, so the locale keys and the
- *  format dropdown are named rather than typed. */
-type FormatKey = "AUTO" | "INT" | "COMMA" | "PERCENT";
-const FORMAT = {
-  AUTO: "auto",
-  INT: "int",
-  COMMA: "comma",
-  PERCENT: "percent",
-} as const satisfies Record<FormatKey, NumberStyle>;
-
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
-  format: FORMAT.AUTO,
+  color: LABEL_COLOR_DEFAULT,
+  size: LABEL_SIZE.SIZE_DEFAULT,
+  format: NUMBER_FORMAT.AUTO,
 } as const;
 
 export {
   ACTION,
+  ANNOTATION_PANE_PREFIX,
+  ANNOTATION_Z_OFFSET,
   CLASSES,
   COLOR,
   DATA,
   DEFAULT_ANNOTATION,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
-  FORMAT,
   FOCUS,
   FOCUS_PANE,
   GROUP,

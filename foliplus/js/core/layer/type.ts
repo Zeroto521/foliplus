@@ -24,12 +24,23 @@ interface RegisterLayerOpts {
   subPanes?: string[];
   iconSvg?: string | null;
   visible?: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   canvas?: HTMLCanvasElement | null;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values this layer exposes to the style drawer — pulled on demand,
+   *  never cached on the registry (same contract as featureCountProvider). */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters. Both the component's own panel and the layer
+   *  drawer call these — the component owns the only copy of the value. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Python CONF defaults for the delegated style fields. The drawer's Reset
+   *  button calls each styleSetter with the matching default — never the
+   *  localStorage-persisted value. Absent means the layer offers no Reset. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -47,6 +58,8 @@ interface LayerInfo {
   name: string;
   layer: L.Layer | null;
   visible: boolean;
+  /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
+  opacity?: number;
   isBase: boolean;
   paneName: string | null;
   /** Sub-panes (see `RegisterLayerOpts.subPanes`). Ordered by z ascending. */
@@ -59,10 +72,14 @@ interface LayerInfo {
   isLabel?: boolean;
   /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
   onToggle?: ((visible: boolean) => void) | null;
-  /** z-index callback fired by enforceOrder (e.g. heatmap canvas ordering). */
-  onZIndex?: ((z: number) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
+  /** Style values exposed to the drawer — pull on demand, never cached. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** Canonical style setters shared by the component panel and the drawer. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -115,6 +132,12 @@ interface CreateLayersOpts {
    *  When set, LayerControl's count column uses this instead of the default
    *  countFeatureGeometry (which walks all leaf geometries). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -124,14 +147,26 @@ interface CreateCanvasOpts {
   className?: string;
   iconSvg?: string;
   onToggle?: ((visible: boolean) => void) | null;
-  onZIndex?: ((z: number) => void) | null;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
   featureCountProvider?: (() => number) | null;
+  /** See RegisterLayerOpts. */
+  styleProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  /** See RegisterLayerOpts. */
+  styleDefaults?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Data provenance shown in the layer attributes panel (a URL or filename). */
+  source?: string | null;
+  /** Last-update timestamp; epoch ms or any value `new Date()` can parse. */
+  updatedAt?: string | number | null;
+  /** Third-party label/value pairs appended to the attributes panel
+   *  (e.g. HeatmapControl's source layer + aggregation field). */
+  meta?: Record<string, string | number> | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */

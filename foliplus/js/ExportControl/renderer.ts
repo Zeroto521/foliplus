@@ -301,6 +301,16 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, pane);
           }
 
+          // The layer's annotation labels sit one z-step above its content, in
+          // a pane the content walk never visits (created with map.createPane).
+          // Drawing them here — right after this layer, before the next layer
+          // up — keeps the export's stack order identical to the map's: a layer
+          // above covers this layer's labels.
+          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + li.id);
+          if (labelPane) {
+            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+          }
+
           // Markers and divIcons in this layer
           const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
@@ -506,10 +516,15 @@ class ExportRenderer {
     }
   }
 
-  /** Render canvas elements from a single pane. */
-  async renderPaneCanvas(rc: RenderCtx, pane: HTMLElement) {
+  /** Render canvas elements from a pane — or the container, for canvases that
+   *  live in a pane the per-layer walk never visits (annotation labels). */
+  async renderPaneCanvas(
+    rc: RenderCtx,
+    pane: HTMLElement,
+    selector: string = CONST.SEL.CANVAS,
+  ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of pane.querySelectorAll(CONST.SEL.CANVAS)) {
+    for (const ce of pane.querySelectorAll(selector)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;

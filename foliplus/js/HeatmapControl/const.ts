@@ -2,6 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -68,6 +69,13 @@ const BORDER = {
   WEIGHT_DEFAULT: 1,
 };
 
+/** Hex-label typography — shared bounds from common/form.js so the layer
+ *  style drawer never redeclares 6/32/11. */
+const LABEL = {
+  ...LABEL_SIZE,
+  COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
+};
+
 const CLASSES = {
   HIDDEN: "foliplus-hidden",
   COLLAPSED: "collapsed",
@@ -75,7 +83,7 @@ const CLASSES = {
   ACTIVE: "active",
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
-  SECTION_HEADING: "foliplus-heatmap-section-heading",
+  SECTION_HEADING: "foliplus-section-heading",
   SECTION_BLOCK: "foliplus-heatmap-section-block",
   SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
   CONFIG_BODY: "foliplus-heatmap-config-body",
@@ -89,10 +97,10 @@ const CLASSES = {
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BORDER_COLOR_INPUT: "foliplus-heatmap-color-input",
-  BORDER_WEIGHT_INPUT: "foliplus-heatmap-weight-input",
+  BORDER_COLOR_INPUT: "foliplus-form-color-input",
+  BORDER_WEIGHT_INPUT: "foliplus-form-number-input",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
-  FORM_CONTROL_INLINE: "foliplus-heatmap-form-inline",
+  FORM_CONTROL_INLINE: "foliplus-form-inline",
   SECTION_DIVIDER: "foliplus-section-divider",
   CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
   HEATMAP_CTRL: "foliplus-heatmap-ctrl",
@@ -109,19 +117,18 @@ const SEL = {
 const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
 
 const DATA_ATTR = {
-  LAYER: "data-hm-layer",
-  EXTRA_BODY: "data-hm-extra-body",
-  AGG: "data-hm-agg",
-  FIELD: "data-hm-field",
-  FIELD_SELECT: "data-hm-field-select",
-  METHOD: "data-hm-method",
-  CLASS_COUNT: "data-hm-class-count",
-  SCHEME_CTRL: "data-hm-scheme-ctrl",
-  SCHEME_HIDDEN: "data-hm-scheme-hidden",
-  BORDER_COLOR: "data-hm-border-color",
-  BORDER_WEIGHT: "data-hm-border-weight",
-  LABEL_CHK: "data-hm-label-chk",
-  BTN_CLEAR: "data-hm-btn-clear",
+  LAYER: "data-heatmap-layer",
+  EXTRA_BODY: "data-heatmap-extra-body",
+  AGG: "data-heatmap-agg",
+  FIELD: "data-heatmap-field",
+  FIELD_SELECT: "data-heatmap-field-select",
+  METHOD: "data-heatmap-method",
+  CLASS_COUNT: "data-heatmap-class-count",
+  SCHEME_CTRL: "data-heatmap-scheme-ctrl",
+  SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
+  BORDER_COLOR: "data-heatmap-border-color",
+  BORDER_WEIGHT: "data-heatmap-border-weight",
+  BTN_CLEAR: "data-heatmap-btn-clear",
 };
 
 export {
@@ -133,6 +140,7 @@ export {
   GRAY,
   H3,
   ID,
+  LABEL,
   METHOD,
   SEL,
   STORAGE,

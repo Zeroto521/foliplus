@@ -4,6 +4,12 @@
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
 // scroll, close affordance), exactly like the attributes panel — so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
+import { EVENTS } from "#core/event/index.js";
+import {
+  type LabelStyleValues,
+  numberFormatOptions,
+  renderLabelControls,
+} from "#core/labelControl.js";
 import {
   AUTO_FIELD,
   type LabelField,
@@ -11,13 +17,25 @@ import {
   resolveSelectedField,
 } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
-import { type NumberStyle } from "#common/format.js";
+import {
+  LABEL_COLOR_DEFAULT,
+  LABEL_SIZE,
+  bindLiveColor,
+  bindLiveNumber,
+  clampLabelSize,
+  colorInput as formColorInput,
+  numberInput as formNumberInput,
+  inlineControls,
+  normalizeHexColor,
+} from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
-import type { AnnotationConfig } from "../annotation.js";
+import type { AnnotationConfig } from "../annotation/index.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
+import { applyOpacityStateOne, saveOpacityMap } from "./state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
@@ -35,6 +53,14 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
  *  item keys off this. */
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
+
+/** Whether the layer delegates its style to the drawer via styleSetters
+ *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
+ *  also enables for these. */
+const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
+  const li = ui.m.layerRegistry.get(layerId);
+  return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
+};
 
 /** Drop a layer's cached field list and re-render if it is currently labelling.
  *  Called when a layer's features can change (runtime createLayers) or when the
@@ -55,6 +81,129 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
 const persistStyleLabel = (ui: LayerUI): void => {
   ui.m.persistence.saveAnnotations(() =>
     Object.fromEntries(ui.m.annotation.configEntries()),
+  );
+};
+
+/** Shared section heading (common/form.css `.foliplus-section-heading`). */
+const sectionHeading = (text: string): HTMLElement =>
+  dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, text);
+
+/** UI percentage (0-100) for a stored opacity (0-1). */
+const opacityToPct = (opacity: number | undefined): number =>
+  Math.round(Math.max(0, Math.min(1, opacity ?? 1)) * 100);
+
+/** Clamp a raw percentage into [0, 100]. A non-numeric entry — an emptied
+ *  number field on commit — falls back to fully opaque, the same
+ *  invalid-commits-to-default rule the shared number field uses. */
+const clampPct = (raw: number, fallback = 100): number =>
+  Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
+
+/** Write one resolved percentage into the slider and its number field.
+ *
+ *  The slider always takes the value — its thumb has to follow whoever moved
+ *  the other control. The number field is left alone while the user is typing
+ *  in it, or the caret would jump to the end on every keystroke; `force` is the
+ *  commit pass, which rewrites it to the resolved value the same way the shared
+ *  number field does on blur. */
+const syncOpacityInputs = (panel: HTMLElement, pct: number, force = false): void => {
+  // Both controls are built together by buildOpacityRow, so a panel that
+  // reached here has them.
+  const range = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+  ) as HTMLInputElement;
+  const num = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
+  ) as HTMLInputElement;
+  range.value = String(pct);
+  range.style.setProperty("--opacity-fill", `${pct}%`);
+  if (force || document.activeElement !== num) num.value = String(pct);
+};
+
+/** Apply a UI percentage to the layer, persist it, and sync both inputs. */
+const commitOpacityPct = (
+  ui: LayerUI,
+  layerId: string,
+  panel: HTMLElement,
+  rawPct: number,
+  commit = false,
+): void => {
+  const pct = clampPct(rawPct);
+  const opacity = pct / 100;
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
+  // Only touch the layer when the value actually moved: a drag revisits steps
+  // (and the commit re-sends the live value), and for a plain layer each pass
+  // is a sweep over every feature.
+  if (li.opacity !== opacity) {
+    applyOpacityStateOne(ui, li, opacity);
+    if (opacity === 1) delete ui.opacityMap[layerId];
+    else ui.opacityMap[layerId] = opacity;
+    saveOpacityMap(ui);
+  }
+  syncOpacityInputs(panel, pct, commit);
+};
+
+/** Build the opacity form row: range slider + shared number field, exactly the
+ *  chrome the heatmap's border row uses (`.foliplus-form-inline` +
+ *  `.foliplus-form-number-input`), so heights and radii cannot drift. */
+const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const range = dom.el("input", {
+    type: "range",
+    class: CONST.CLASSES.STYLE_OPACITY_RANGE,
+    min: "0",
+    max: "100",
+    step: "5",
+    value: String(pct),
+    "aria-label": ui.T("style_opacity"),
+  });
+  // setProperty, not the `style` attribute: dom.el assigns a string through
+  // `cssText`, which would clobber any other inline style on the control.
+  range.style.setProperty("--opacity-fill", `${pct}%`);
+  const number = formNumberInput({
+    value: pct,
+    min: 0,
+    max: 100,
+    step: 5,
+    className: CONST.CLASSES.STYLE_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_opacity"),
+  });
+  const inline = inlineControls(range, number);
+  inline.classList.add(CONST.CLASSES.STYLE_OPACITY_CONTROL);
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+  );
+};
+
+/** Reset one layer's opacity to fully opaque and drop its persisted entry. */
+const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (li) applyOpacityStateOne(ui, li, 1);
+  delete ui.opacityMap[layerId];
+  saveOpacityMap(ui);
+};
+
+/** Shared Reset footer — divider + button, same vocabulary for the annotation
+ *  and the delegated panel. */
+const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
+  content.append(
+    dom.el("hr", { class: "foliplus-section-divider" }),
+    dom.el(
+      "div",
+      { class: "foliplus-btn-row" },
+      dom.el(
+        "button",
+        {
+          type: "button",
+          class: "foliplus-panel-btn foliplus-style-reset-btn",
+        },
+        ui.T("style_reset"),
+      ),
+    ),
   );
 };
 
@@ -87,7 +236,17 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     ui.m.annotation.setConfig(id, {
       show: !!cfg.show,
       field: typeof cfg.field === "string" ? cfg.field : "",
-      format: typeof cfg.format === "string" ? cfg.format : CONST.FORMAT.AUTO,
+      color:
+        typeof cfg.color === "string"
+          ? normalizeHexColor(cfg.color)
+          : CONST.DEFAULT_ANNOTATION.color,
+      size:
+        typeof cfg.size === "number"
+          ? clampLabelSize(cfg.size)
+          : CONST.DEFAULT_ANNOTATION.size,
+      format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
+      // Absent in configs stored before the switch existed: default to on.
+      collide: cfg.collide !== false,
     });
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
@@ -109,14 +268,68 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
   row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
+/** Build the style panel DOM for a layer that delegates its style via
+ *  styleSetters (third-party canvas layers). Renders only the controls the
+ *  component declared. Reset is present only when the layer also supplies
+ *  styleDefaults (the Python CONF snapshot). Returns null when the layer has
+ *  no delegation (falls through to the annotation panel). */
+const renderDelegatedStylePanel = (
+  ui: LayerUI,
+  layerId: string,
+): HTMLElement | null => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const setters = li?.styleSetters;
+  if (!setters || Object.keys(setters).length === 0) return null;
+
+  // Both hooks re-read the registry instead of closing over the entry fetched
+  // above: re-registering a layer swaps in a fresh LayerInfo object, so a
+  // drawer left open across that swap must follow the new entry — and no-op
+  // once its setters are gone.
+  const entry = () => ui.m.layerRegistry.get(layerId);
+  const { root, refresh } = renderLabelControls({
+    styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
+    getSetters: () => entry()?.styleSetters ?? {},
+    T: ui._,
+  });
+  // No presentation control at all (a data-only setter such as the
+  // aggregation field) means no drawer: the Layer section below is
+  // LayerControl-owned, but it is not a reason to open one.
+  if (!root.children.length) return null;
+  ui.styleRefresh = refresh;
+
+  // The shared renderer emits controls only, no headings — the panel owns the
+  // section split, and the Layer section (opacity) belongs to LayerControl
+  // rather than to the component that delegates its label style.
+  root.prepend(sectionHeading(ui.T("section_label")));
+  root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+
+  const { panel, content } = createRowPanel({
+    cssClass: CONST.CLASSES.STYLE_PANEL,
+    title: ui.T("style_layer"),
+    iconSvg: SVGs.STYLE,
+    closeTitle: ui.T("close_title"),
+    iconClass: "foliplus-layer-style-icon foliplus-header-icon",
+  });
+  content.append(root);
+
+  // Reset only when the component published its Python CONF defaults.
+  if (li.styleDefaults) appendResetFooter(ui, content);
+  return panel;
+};
+
 /** Build the style panel DOM for a layer. Returns null when there are no
  *  labelable fields (defensive: the menu item should have been disabled). */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
+  // Third-party canvas layers (heatmap, measure) declare their own controls
+  // via styleSetters — render those instead of the annotation panel.
+  if (layerHasStyleDelegation(ui, layerId)) {
+    return renderDelegatedStylePanel(ui, layerId);
+  }
   const fields = layerFields(ui, layerId);
   if (!fields.length) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
-  const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+  const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
@@ -161,12 +374,22 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
-  const formatOpts = [
-    CONST.FORMAT.AUTO,
-    CONST.FORMAT.INT,
-    CONST.FORMAT.COMMA,
-    CONST.FORMAT.PERCENT,
-  ].map(f => dom.el("option", { value: f }, fmtLabel(f)));
+  // Appearance row — same chrome as the heatmap border / delegated drawer.
+  const colorInput = formColorInput({
+    value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
+    className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
+    ariaLabel: ui._("foliplus.label_color"),
+  }) as HTMLInputElement;
+  const sizeInput = formNumberInput({
+    value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
+    min: LABEL_SIZE.SIZE_MIN,
+    max: LABEL_SIZE.SIZE_MAX,
+    step: LABEL_SIZE.SIZE_STEP,
+    className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
+    ariaLabel: ui._("foliplus.label_size"),
+  }) as HTMLInputElement;
+
+  const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
   // not the browser default — without it, a tab stop on a switch looks
@@ -175,25 +398,34 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
     checked: showChecked ? "" : null,
-    "aria-label": ui.T("style_label_tooltip"),
+    "aria-label": ui._("foliplus.label_tooltip"),
+  });
+  // "Avoid overlap": thins this layer's own labels where they collide. Labels
+  // from *different* layers never avoid each other — the layers are stacked, so
+  // an upper layer simply covers the lower one's.
+  const collideToggle = dom.el("input", {
+    type: "checkbox",
+    class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
+    checked: cfg.collide ? "" : null,
+    "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
     "select",
     {
       class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      "aria-label": ui.T("style_label_format"),
+      "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,
   );
-  (formatSelect as HTMLSelectElement).value = cfg.format || CONST.FORMAT.AUTO;
+  (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a
   // number — comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
-    { class: "foliplus-form-row foliplus-style-format-row" },
-    dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_format")),
-    dom.el("div", { class: "foliplus-form-control" }, formatSelect),
+    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
   );
   syncFormatRow(
     fields,
@@ -205,16 +437,52 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // on. Listens to the toggle so flipping it reveals the field/format rows
   // and auto-picks a field if none was selected yet (the "warm start" from
   // the heatmap's rule: open the gate, the first thing shows up).
+  // Body order is shared with the delegated drawer: data → appearance →
+  // format → behavior. Field first (annotation-only), then color/size,
+  // then number format, then avoid-overlap.
   const body = dom.el(
     "div",
-    { class: "foliplus-style-body" },
+    { class: CONST.CLASSES.STYLE_BODY },
     dom.el(
       "div",
-      { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label_field")),
-      dom.el("div", { class: "foliplus-form-control" }, fieldSelect),
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
+      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+    ),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_style"),
+      ),
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_CONTROL },
+        inlineControls(colorInput, sizeInput),
+      ),
     ),
     formatRow,
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_collide"),
+      ),
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_CONTROL },
+        dom.el(
+          "label",
+          { class: CONST.CLASSES.TOGGLE_SWITCH },
+          collideToggle,
+          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+        ),
+      ),
+    ),
   );
   body.classList.toggle("foliplus-hidden", !showChecked);
 
@@ -229,40 +497,29 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   content.append(
+    sectionHeading(ui.T("section_label")),
     dom.el(
       "div",
-      { class: "foliplus-form-row" },
-      dom.el("label", { class: "foliplus-form-label" }, ui.T("style_label")),
+      { class: CONST.CLASSES.FORM_ROW },
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
-        { class: "foliplus-form-control" },
+        { class: CONST.CLASSES.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
         // label should all flip the checkbox — the switch is one <label>.
         dom.el(
           "label",
-          { class: "foliplus-toggle-switch" },
+          { class: CONST.CLASSES.TOGGLE_SWITCH },
           showToggle,
-          dom.el("span", { class: "foliplus-toggle-slider" }),
+          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
         ),
       ),
     ),
     body,
-    // The same shared divider the heatmap puts above its footer action, so the
-    // two panels' footers read identically (common/panel.css sets its inset).
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el(
-      "div",
-      { class: "foliplus-btn-row" },
-      dom.el(
-        "button",
-        {
-          type: "button",
-          class: "foliplus-panel-btn foliplus-style-reset-btn",
-        },
-        ui.T("style_reset"),
-      ),
-    ),
+    sectionHeading(ui.T("section_layer")),
+    buildOpacityRow(ui, layerId),
   );
+  appendResetFooter(ui, content);
   return panel;
 };
 
@@ -294,11 +551,68 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
+  const delegated = layerHasStyleDelegation(ui, layerId);
+  // Annotation color/size commit live, same bindLive* recipe as the
+  // heatmap panel and the delegated drawer.
+  if (!delegated) {
+    const colorEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (colorEl) {
+      bindLiveColor(colorEl, value => {
+        applyPatch(ui, layerId, { color: normalizeHexColor(value) });
+      });
+    }
+    const sizeEl = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
+    ) as HTMLInputElement | null;
+    if (sizeEl) {
+      bindLiveNumber(sizeEl, {
+        min: LABEL_SIZE.SIZE_MIN,
+        max: LABEL_SIZE.SIZE_MAX,
+        fallback: LABEL_SIZE.SIZE_DEFAULT,
+        onCommit: value => applyPatch(ui, layerId, { size: value }),
+      });
+    }
+  }
+
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
+  /** Shared opacity handler for both panel flavours (LayerControl-owned).
+   *  `commit` separates the live pass from the blur/change pass: an emptied or
+   *  out-of-range entry only resolves on commit — the same rule the shared
+   *  number field follows, so typing "1" toward "15" does not flash the layer
+   *  to 1% first. */
+  const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
+    if (!(t instanceof HTMLInputElement)) return false;
+    if (
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE) &&
+      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_NUMBER)
+    ) {
+      return false;
+    }
+    const raw = parseFloat(t.value);
+    if (!commit && !(raw >= 0 && raw <= 100)) return true;
+    commitOpacityPct(ui, layerId, panel, raw, commit);
+    return true;
+  };
+
+  panel.addEventListener("input", (event: Event) => {
+    // Live slider updates while dragging; stop so the container's color
+    // input handler never sees the range.
+    if (handleOpacityTarget(event.target, false)) event.stopPropagation();
+  });
+
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
+    if (handleOpacityTarget(t, true)) {
+      event.stopPropagation();
+      return;
+    }
+    // Delegated label controls handle their own changes (stopPropagation on
+    // the shared root). Only the annotation panel's changes reach here.
+    if (delegated) return;
     if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT)
@@ -307,7 +621,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Reveal / collapse the body under the toggle. No field is written here:
       // leaving it at the auto sentinel is what makes the picker read "Auto" and
       // what lets the layer keep labelling itself if its columns change.
-      const body = panel.querySelector(".foliplus-style-body") as HTMLElement | null;
+      const body = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_BODY}`,
+      ) as HTMLElement | null;
       if (body) body.classList.toggle("foliplus-hidden", !show);
       const fieldSel = panel.querySelector(
         ".foliplus-style-field-select",
@@ -322,6 +638,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
       applyPatch(ui, layerId, { show, field: chosen });
+    } else if (
+      t instanceof HTMLInputElement &&
+      t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
+    ) {
+      applyPatch(ui, layerId, { collide: t.checked });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT)
@@ -359,9 +680,26 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
-      // Through applyPatch, so the reset writes config, re-renders and persists
-      // in the same order as every other control on this panel.
-      applyPatch(ui, layerId, { ...CONST.DEFAULT_ANNOTATION });
+      // Opacity is LayerControl-owned in both flavours: always restore 1.
+      resetLayerOpacity(ui, layerId);
+      if (delegated) {
+        // Call each setter with its Python CONF default. The components own
+        // the values — never write localStorage or annotation config here.
+        const li = ui.m.layerRegistry.get(layerId);
+        const setters = li?.styleSetters;
+        const defaults = li?.styleDefaults?.() ?? {};
+        if (setters) {
+          for (const [key, setter] of Object.entries(setters)) {
+            if (key in defaults) setter(defaults[key]);
+          }
+        }
+      } else {
+        // Through applyPatch, so the reset writes config, re-renders and persists
+        // in the same order as every other control on this panel. defaultConfig
+        // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
+        // collide switch untouched.
+        applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
+      }
       closeStylePanel(ui, true);
       return;
     }
@@ -391,6 +729,22 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   };
   document.addEventListener("mousedown", ui.styleOutsideHandler, true);
 
+  // When the component's own panel changes a style value while this drawer is
+  // open, pull the fresh values and refresh the controls. The shared module's
+  // refresh reads from styleProvider and writes every control, skipping the
+  // one under activeElement.
+  if (delegated) {
+    const bus = ui.m.events;
+    const refresh = ui.styleRefresh;
+    ui.styleUnsubscribe = bus.on(
+      EVENTS.LAYER_STYLE_CHANGE,
+      (payload: { id: string }) => {
+        if (payload.id !== layerId) return;
+        refresh?.();
+      },
+    );
+  }
+
   ui.stylePanelLayerId = layerId;
 };
 
@@ -400,6 +754,9 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     document.removeEventListener("mousedown", ui.styleOutsideHandler, true);
     ui.styleOutsideHandler = null;
   }
+  ui.styleUnsubscribe?.();
+  ui.styleUnsubscribe = null;
+  ui.styleRefresh = null;
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
   const panel = ui.uiContainer.querySelector(
@@ -423,5 +780,6 @@ export {
   closeStylePanel,
   invalidateFields,
   layerHasLabelFields,
+  layerHasStyleDelegation,
   openStylePanel,
 };

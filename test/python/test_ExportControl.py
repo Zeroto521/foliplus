@@ -272,7 +272,9 @@ class TestExportControlBrowser:
         html = TestExportControlBrowser._stub_html(m.get_root().render())
         # Inject test hooks at the control-entry line: a synchronous rafLoop
         # scheduler (read by the lazily-created manager), then the control and
-        # its manager read back via `m` (dev build keeps these names).
+        # its manager read back via `m` (dev build keeps these names). The
+        # LayerControl instance is exposed too, so export tests can drive
+        # annotation labels.
         html, n = re.subn(
             r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
             r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
@@ -280,6 +282,13 @@ class TestExportControlBrowser:
             count=1,
         )
         assert n == 1, "ExportControl instantiation not found in rendered HTML"
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
@@ -861,6 +870,57 @@ class TestExportControlBrowser:
             # Cleanup canvas layer
             page.evaluate(_js("ExportControl/remove_test_canvas"))
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
+
+    def test_export_with_annotation_labels(self, browser, tmp_path):
+        """Export with LayerControl annotation labels keeps them drawn, no errors."""
+        with use_page(self._make_page, browser, tmp_path, slug="export_annotation") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Create an annotation layer and confirm its labels are painted.
+            state = page.evaluate(_js("ExportControl/annotation_canvas_in_export"))
+            assert state is not None and state["canvas"] is True, state
+            assert state["opaqueBefore"] > 0, state
+
+            # Full export flow: open, lock, export.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(500)
+
+            # The export's synchronous redraw must not have destroyed the labels.
+            after = page.evaluate(
+                """() => {
+                    const canvas = window.map
+                        .getPane("foliplus-annotation-__export_ann__")
+                        ?.querySelector("canvas");
+                    if (!canvas) return 0;
+                    const data = canvas
+                        .getContext("2d")
+                        .getImageData(0, 0, canvas.width, canvas.height).data;
+                    let n = 0;
+                    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
+                    return n;
+                }"""
+            )
+            assert after > 0, f"annotation labels lost after export: {after}"
+            assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Drag bottom-right handle to resize the crop box."""

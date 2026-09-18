@@ -9,6 +9,7 @@ from pathlib import Path
 import folium
 from conftest import (
     _js,
+    assert_config_value,
     assert_locale,
     make_browser_page,
     panel_ready,
@@ -38,6 +39,15 @@ class TestLayerControlPython:
 
     def test_default_locale(self):
         assert LayerControl()._locale_code == ""
+
+    def test_default_label_collide(self):
+        assert LayerControl().label_collide is True
+
+    def test_custom_label_collide(self):
+        assert LayerControl(label_collide=False).label_collide is False
+
+    def test_label_collide_in_export_fields(self):
+        assert "label_collide" in LayerControl._export_fields
 
     def test_custom_locale(self):
         assert LayerControl(locale="zh")._locale_code == "zh"
@@ -143,6 +153,16 @@ class TestLayerControlRendering:
         html = render_control(LayerControl(position="bottomright"))
         assert "bottomright" in html
 
+    def test_label_collide_default_true(self):
+        """label_collide defaults to true and renders as a JS boolean."""
+        html = render_control(LayerControl())
+        assert_config_value(html, "label_collide", True)
+
+    def test_label_collide_false(self):
+        """label_collide=False renders false and disables collision detection."""
+        html = render_control(LayerControl(label_collide=False))
+        assert_config_value(html, "label_collide", False)
+
     def test_multiple_base_layers(self):
         """Multiple base layers are all collected by render()."""
         m = folium.Map()
@@ -235,21 +255,20 @@ class TestLayerControlRendering:
     def test_annotation_locale_keys(self):
         """Style-panel locale keys exist in both en and zh.
 
-        The style panel is the container (``style_*``); the label (annotation)
-        dimension is its first child (``style_label_*``).
+        The container (``style_*``) and the annotation-only dimension
+        (``style_label_field`` / ``_no_data``) stay component-scoped. The shared
+        label vocabulary (color/size/format/collide) moved to the common table,
+        rendered by ``core/labelControl.ts`` for this drawer and the heatmap
+        panel alike — ``test_locale.py`` covers that cross-table key set.
         """
         root = Path(__file__).resolve().parent.parent.parent
         required = {
             "style_layer",
-            "style_label",
+            "style_layer_tooltip",
             "style_label_field",
             "style_label_field_auto",
-            "style_label_format",
-            "style_label_format_auto",
-            "style_label_format_int",
-            "style_label_format_comma",
-            "style_label_format_percent",
             "style_label_no_data",
+            "style_reset",
         }
         for lang in ("en", "zh"):
             data = json.loads(
@@ -719,6 +738,73 @@ class TestLayerControlRendering:
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
+    def test_shared_section_heading_in_form_css(self):
+        """Shared section heading lives in form.css (Heatmap + style panel)."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in css
+        assert "text-transform: uppercase" in css
+        assert "letter-spacing: var(--letter-spacing-tight)" in css
+
+    def test_opacity_control_css(self):
+        """Opacity control: checkerboard + accent fill track, ringed thumb."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-style-opacity-control" in css
+        assert ".foliplus-style-opacity-range" in css
+        # The number field reuses the shared chrome instead of its own recipe,
+        # so the row matches the heatmap border row exactly.
+        assert ".foliplus-style-opacity-number" not in css
+        assert ".foliplus-form-number-input" in css
+        # Checkerboard + accent fill on both engine track prefixes.
+        assert "repeating-conic-gradient" in css
+        assert "var(--opacity-fill" in css
+        assert "::-webkit-slider-runnable-track" in css
+        assert "::-moz-range-track" in css
+        # Bar and thumb geometry are declared once and derived from each other:
+        # the bar is slimmer than the --ctrl-size row so it reads as a level,
+        # the thumb is proud of it so it reads as a handle, and the webkit
+        # centring margin is computed from the two rather than hand-tuned.
+        assert "--opacity-track-height: 14px" in css
+        assert "--opacity-thumb-size: 20px" in css
+        assert "height: var(--opacity-track-height)" in css
+        assert "width: var(--opacity-thumb-size)" in css
+        assert "margin-top: calc(" in css
+        # The two geometry tokens live on the range rule itself, not on the
+        # wrapper: a declaration that consumes them for a missing custom
+        # property is dropped at computed-value time, so a slider used without
+        # the wrapper would quietly fall back to a hairline track.
+        range_block = css[
+            css.index(".foliplus-style-opacity-range {") : css.index(
+                "}", css.index(".foliplus-style-opacity-range {")
+            )
+        ]
+        assert "--opacity-track-height" in range_block
+        assert "--opacity-thumb-size" in range_block
+        # Thumb: accent ring on a white core, lifted like the panel's toggle
+        # knob so both hand-held controls in a row read alike.
+        assert "border: var(--border-thick) solid var(--accent-primary)" in css
+        assert "background: var(--neutral-0)" in css
+        assert "box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30))" in css
+        assert "::-webkit-slider-thumb" in css
+        assert "::-moz-range-thumb" in css
+        # Grab affordance and the hover lift, on both engines.
+        assert "cursor: grab" in css
+        assert "cursor: grabbing" in css
+        assert ".foliplus-style-opacity-range:hover::-webkit-slider-thumb" in css
+        assert ".foliplus-style-opacity-range:hover::-moz-range-thumb" in css
+        assert "transform: scale(var(--scale-hover))" in css
+        # Focus ring on the range, matching every other foliplus control.
+        assert ".foliplus-style-opacity-range:focus-visible" in css
+        assert "box-shadow: var(--focus-ring)" in css
+        # The slider shares the shared inline cell, next to the number field.
+        assert ".foliplus-style-opacity-control .foliplus-style-opacity-range" in css
+
+    def test_style_panel_locale_keys_present(self):
+        """Opacity / section keys are injected into the LayerControl bundle."""
+        html = render_control(LayerControl())
+        assert "LayerControl.section_label" in html
+        assert "LayerControl.section_layer" in html
+        assert "LayerControl.style_opacity" in html
+
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
         css = read_css("foliplus/css/LayerControl/index.css")
@@ -1186,6 +1272,135 @@ class TestLayerControlBrowser:
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
 
+    def test_annotation_canvas_draws(self, browser, tmp_path):
+        """Enabling labels draws text onto the shared annotation canvas."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["opaque"] > 0, "canvas has no drawn pixels"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_overlap_hides(self, browser, tmp_path):
+        """Two labels whose halo-inclusive boxes overlap collapse to the first."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_overlap_hides"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["aOpaque"] > 0, "first (kept) label was not drawn"
+            assert result["bOpaque"] == 0, "second (hidden) label was drawn"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_click_through(self, browser, tmp_path):
+        """The canvas ignores pointer events so clicks land on the map/feature."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            result = page.evaluate(_js("LayerControl/annotation_click_through"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["pointerEvents"] == "none", result
+            assert result["hitIsCanvas"] is False, (
+                "annotation canvas intercepted the click"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_stays_put_on_pan(self, browser, tmp_path):
+        """Panning must not drift the labels: the canvas cancels mapPane's move."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_pan_stable"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["beforeLeft"] == result["afterLeft"], result
+            assert result["beforeTop"] == result["afterTop"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_labels_follow_layer_visibility(self, browser, tmp_path):
+        """Hiding a layer drops its labels; showing it brings them back."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_hidden_layer"))
+            assert result is not None, result
+            assert result["before"] > 0, result
+            assert result["hidden"] == 0, result
+            assert result["shown"] > 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
+        """Each labelled layer gets its own canvas pane, z-ordered with its layer."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
+            assert result is not None and result["canvas"] is True, result
+            # One pane + one canvas per labelled layer — not a shared canvas.
+            assert result["canvasCount"] == 2, result
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] > 0, result
+            # Layer B is above layer A in the panel (createLayers prepends), so
+            # its z is higher.
+            assert result["layerB"] > result["layerA"], result
+            # Each label pane rides one z-step above its own layer, so the
+            # upper layer's labels cover the lower layer's — the stack order.
+            assert result["annB"] == result["layerB"] + 1, result
+            assert result["annA"] == result["layerA"] + 1, result
+            assert result["annB"] > result["annA"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_focus_lifts_label_pane(self, browser, tmp_path):
+        """Focusing a layer raises its label pane and draws only its labels."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_focus_lifts_pane"))
+            assert result is not None and result["row"] is True, result
+            # Focus lifts the focused layer's label pane to focusedZ + 1
+            # (FOCUS.PANE_Z 9000 − FOCUSED_Z_GAP 10 + 1).
+            assert result["after"]["annA"] == 8991, result
+            # The unfocused layer's pane stays where it was.
+            assert result["after"]["annB"] == result["before"]["annB"], result
+            # The focus filter plans the spotlighted layer only.
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] == 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_opacity_pane_versus_features(self, browser, tmp_path):
+        """One pane write per layer, and never onto a pane that is shared.
+
+        After the ordering pass every overlay layer — a plain folium one
+        included — owns a pane and has its content migrated into it, so the
+        opacity is a single style write instead of a sweep over the features.
+        The neighbour is the control: it is a different layer in a different
+        pane and must be untouched.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/opacity_pane_isolation"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            # Plain layer: its own pane carries the opacity...
+            assert result["plainOpened"] is True, result
+            assert result["plainPaneShared"] is False, result
+            assert result["plainPaneBefore"] in ("", "1"), result
+            assert result["plainPaneAfter"] == "0.4", result
+            assert result["plainRegistryOpacity"] == 0.4, result
+            # ...and the features keep their own style (no per-feature sweep).
+            assert result["plainLeafOpacity"], result
+            assert all(v == 1 for v in result["plainLeafOpacity"]), result
+            # The neighbour is a different layer in a different pane.
+            assert result["plainNeighbourSamePane"] is False, result
+            assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
+            assert result["plainNeighbourLeafOpacity"], result
+            assert all(v == 1 for v in result["plainNeighbourLeafOpacity"]), result
+
+            # Managed layer: its declared panes carry it, one write each.
+            assert result["managedOpened"] is True, result
+            assert result["managedGraphPaneShared"] is False, result
+            assert result["managedGraphPaneOpacity"] == "0.4", result
+            assert result["managedNodePaneOpacity"] == "0.4", result
+            assert result["managedPolylineOpacity"] == 1, result
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -1208,9 +1423,16 @@ class TestLayerControlBrowser:
             assert api["hasSetVisible"]
             assert api["hasGetSize"]
             assert api["canvasTag"] == "CANVAS"
+            assert api["canvasClass"], "canvas should carry foliplus-canvas-layer"
+            assert api["parentIsPane"], "canvas should live in a foliplus-layer-pane"
+            assert api["paneRegistered"], "canvas pane should be on the map"
 
     def test_canvas_register_unregister(self, browser, tmp_path):
-        """Canvas register() creates a layer item; unregister() removes it."""
+        """Canvas register() creates a layer item; unregister() removes it.
+
+        Also asserts the pane model: canvas mounts in its own pane, setZIndex
+        writes the pane, and only destroy() drops the pane from the map.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
             assert result is not None
@@ -1218,6 +1440,14 @@ class TestLayerControlBrowser:
             assert not result["hasItemAfter"], (
                 "Canvas layer item should be removed after unregister"
             )
+            assert result["inPane"], "canvas pane should have foliplus-layer-pane"
+            assert result["canvasParent"], "canvas parent should be the dedicated pane"
+            assert result["paneZ"] == "640", "setZIndex should write the pane style"
+            assert result["registeredPaneName"] == "foliplus-canvas-__test_canvas_reg__"
+            assert result["paneAfterUnregister"], (
+                "unregister keeps the pane for re-register"
+            )
+            assert not result["paneAfterDestroy"], "destroy drops the pane"
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """migrateLayers moves Markers to per-layer panes."""
@@ -2170,7 +2400,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
+        (layer/paneName/iconSvg/onToggle/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -2192,7 +2422,6 @@ class TestLayerControlBrowser:
                 # partial re-register.
                 assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
-                assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
@@ -2501,7 +2730,7 @@ class TestLayerControlBrowser:
         migrateLayers must skip container nodes when writing pane options.
         The container's own pane stays whatever registerLayer assigned
         (paneName), and must NOT be overwritten with a fallback
-        `foliplus_pane_*` name during migration.
+        `foliplus-pane-*` name during migration.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))

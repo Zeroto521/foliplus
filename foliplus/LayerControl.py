@@ -64,6 +64,13 @@ class LayerControl(BaseControl):
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
+    label_collide : bool, default True
+        Page-wide default for the per-layer "avoid overlap" setting: when
+        enabled, a layer's own labels thin themselves out where they overlap.
+        Labels from *different* layers never avoid each other — the layers are
+        stacked, so an upper layer simply covers the lower one's. The style
+        panel overrides this per layer.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -76,13 +83,17 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
+    _export_fields = ("label_collide",)
+
     def __init__(
         self,
         *,
         position: Position = "topleft",
+        label_collide: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
+        self.label_collide = label_collide
         self._template = self._get_template()
 
     def _extra_config(self) -> dict:

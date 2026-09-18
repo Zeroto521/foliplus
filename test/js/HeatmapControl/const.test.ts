@@ -101,25 +101,34 @@ describe("BORDER", () => {
 });
 
 describe("DATA_ATTR", () => {
-  it("defines all data-hm-* attribute names", () => {
-    expect(CONST.DATA_ATTR.LAYER).toBe("data-hm-layer");
-    expect(CONST.DATA_ATTR.EXTRA_BODY).toBe("data-hm-extra-body");
-    expect(CONST.DATA_ATTR.AGG).toBe("data-hm-agg");
-    expect(CONST.DATA_ATTR.FIELD).toBe("data-hm-field");
-    expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-hm-field-select");
-    expect(CONST.DATA_ATTR.METHOD).toBe("data-hm-method");
-    expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-hm-class-count");
-    expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-hm-scheme-ctrl");
-    expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-hm-scheme-hidden");
-    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-hm-border-color");
-    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-hm-border-weight");
-    expect(CONST.DATA_ATTR.LABEL_CHK).toBe("data-hm-label-chk");
-    expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-hm-btn-clear");
+  it("defines all data-heatmap-* attribute names", () => {
+    expect(CONST.DATA_ATTR.LAYER).toBe("data-heatmap-layer");
+    expect(CONST.DATA_ATTR.EXTRA_BODY).toBe("data-heatmap-extra-body");
+    expect(CONST.DATA_ATTR.AGG).toBe("data-heatmap-agg");
+    expect(CONST.DATA_ATTR.FIELD).toBe("data-heatmap-field");
+    expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-heatmap-field-select");
+    expect(CONST.DATA_ATTR.METHOD).toBe("data-heatmap-method");
+    expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-heatmap-class-count");
+    expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-heatmap-scheme-ctrl");
+    expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-heatmap-scheme-hidden");
+    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-heatmap-border-color");
+    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-heatmap-border-weight");
+    expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 13 data-hm attribute keys (no confirm button)", () => {
+  it("has 12 data-heatmap attribute keys (no confirm button, no label attrs)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(13);
+    expect(keys.length).toBe(12);
+  });
+});
+
+describe("LABEL", () => {
+  it("shares the common form.js size bounds and color default", () => {
+    expect(CONST.LABEL.SIZE_MIN).toBe(6);
+    expect(CONST.LABEL.SIZE_MAX).toBe(32);
+    expect(CONST.LABEL.SIZE_STEP).toBe(1);
+    expect(CONST.LABEL.SIZE_DEFAULT).toBe(11);
+    expect(CONST.LABEL.COLOR_DEFAULT).toBe("#ffffff");
   });
 });
 

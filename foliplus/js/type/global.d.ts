@@ -1,18 +1,20 @@
 /**
- * Ambient declarations for globals injected at runtime by the foliplus
- * Python↔JS bridge (Leaflet, the foliplus runtime, per-control config).
+ * Ambient declarations for globals that cannot be reached by a normal import.
  *
- * This file provides type information for globals that are NOT available
- * via normal imports — they are injected by the Jinja2 IIFE wrapper at
- * runtime (e.g. `L`, `map`, `CONF`, `foliplus`) or loaded from CDN
- * (e.g. `turf`, `chroma`, `h3`).
+ * Three origins:
+ * - The per-control IIFE wrapper (`BaseControl._compile_component_template`)
+ *   binds `map` and `CONF` as free variables.
+ * - The shared runtime (`runtime/index.ts`) bootstraps `window.foliplus`.
+ * - CDN scripts set their own globals — `L` (Leaflet), `turf`, `chroma`,
+ *   `h3`, `gcoord`, `ss`, `GeoTIFF`, `pako`.
  *
  * `L` is declared as both a `const` (value) and a `namespace` (type),
  * so code can write `L.Control` in type positions and `L.control()`
  * in value positions — matching the real Leaflet global.
  *
- * Third-party libraries with no available @types (turf v7, gcoord,
- * simple-statistics) have their used subset described inline.
+ * Libraries whose used subset has no usable typings (turf v7, gcoord,
+ * simple-statistics) are described inline; chroma, h3, geotiff and pako
+ * are typed from their packages.
  */
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
@@ -27,10 +29,9 @@ import type {
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
 import type { NumberStyle } from "#common/format.js";
+import type { LocaleTables } from "#common/locale.js";
 
-// ── Runtime helpers ────────────────────────────────────────────
-
-// ── CDN globals (no @types available) ──────────────────────────
+// ── Inline CDN typings (no usable @types) ───────────────────────
 
 /** Turf.js (CDN v7). Only the subset used by foliplus. */
 type Turf = {
@@ -47,14 +48,11 @@ type Turf = {
   ) => GeoJSON.Feature<GeoJSON.Polygon>;
 };
 
-/** gcoord (CDN). */
+/** gcoord (CDN). Only the subset used by foliplus. */
 type Gcoord = {
   transform: (coords: number[], from: number, to: number) => number[];
-  WGS: number;
   WGS84: number;
-  GCJ: number;
   GCJ02: number;
-  BD: number;
   BD09: number;
 };
 
@@ -81,7 +79,7 @@ declare module "leaflet" {
      *  must be cleared whenever its pane is removed. */
     _paneRenderers: Record<string, L.Renderer>;
     isFullscreen?: boolean;
-    /** Per-map foliplus API namespace, set by ensureHint/ensureLayerAPI/ensureEvents/ensureModes. */
+    /** Per-map foliplus API namespace, set piecemeal by the ensure* factories. */
     foliplus?: MapFoliplus;
   }
   interface Layer {
@@ -98,22 +96,12 @@ declare module "leaflet" {
   interface LayerOptions {
     paneSet?: boolean;
   }
-  interface Path {
-    _path: SVGElement;
-  }
   interface TileLayer {
     // Leaflet keeps the tile URL template in _url (no public accessor).
     _url: string;
   }
   interface AttributionControl {
     _attributions: Record<string, number>;
-  }
-  interface Renderer {
-    _container: HTMLElement;
-  }
-  interface SVG {
-    /** Get the renderer's container element. */
-    getContainer(): HTMLElement | null;
   }
   interface CRS {
     /** Geodesic destination (leaflet-geodesy plugin, CDN). */
@@ -139,6 +127,8 @@ declare global {
   /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
   interface ComponentConfig {
     name: string;
+    /** Locale tables written by `BaseControl._config_block` for every control. */
+    locale_tables?: LocaleTables;
     locale_code?: string;
     position?: Leaflet.ControlPosition;
     mode?: string;
@@ -147,7 +137,10 @@ declare global {
     provider_config?: Record<string, unknown> | null;
     data?: Array<{ name: string; id: string; isBase: boolean }>;
     show_bearing?: boolean;
-    collide_labels?: boolean;
+    label_show?: boolean;
+    label_collide?: boolean;
+    show_zoom?: boolean;
+    show_live_coords?: boolean;
     agg?: string;
     method?: string;
     n_classes?: number;
@@ -157,8 +150,9 @@ declare global {
     border_color?: string;
     border_opacity?: number;
     fill_opacity?: number;
+    label_color?: string;
+    label_size?: number;
     label_format?: NumberStyle;
-    label_show?: boolean;
     hide_self?: boolean;
     hide_others?: boolean;
     max_pixels?: number;
@@ -173,34 +167,35 @@ declare global {
     [key: string]: unknown;
   }
 
-  /** Runtime helpers injected by the foliplus Python wrapper. */
+  /** Runtime helpers injected by the foliplus Python wrapper.
+   * `runtime/index.ts` is the single builder of this object — members added
+   * there must land here or they silently type as `unknown`.
+   *
+   * Hint methods deliberately do NOT appear on this interface: `showHint` /
+   * `hideHint` / `registerHintIcon` are per-map and live only on
+   * `map.foliplus` (see {@link MapFoliplus}). The hint *module* factory
+   * `ensureHint` is what reaches the per-map namespace. */
   interface Foliplus {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
-    registerHintIcon: (key: string, iconSvg: string) => void;
-    showHint: (
-      name: string,
-      msg: string,
-      duration: number,
-      append?: boolean,
-      subkey?: string,
-      withLoadingIcon?: boolean,
-    ) => void;
-    hideHint: (name: string, subkey?: string) => void;
+    /** Hint module: per-map manager factory + shared icon registry. */
+    hint: Record<string, unknown>;
+    /** Leaflet `BaseControl` base class shared by every component. */
+    BaseControl: Record<string, unknown>;
     reverseGeocode: (
       map: Leaflet.Map,
       lng: number | string,
       lat: number | string,
       code?: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => Promise<string>;
     geocode: (
       map: Leaflet.Map,
       address: string,
       code?: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => Promise<{ lng: number; lat: number; display_name: string } | null>;
     cacheSuggestion: (
@@ -209,11 +204,12 @@ declare global {
       lng: number,
       lat: number,
       displayName: string,
-      provider?: string | CoreProviderConfig,
+      provider?: string | ProviderConfig,
       providerConfig?: Record<string, unknown> | null,
     ) => void;
-    _TABLES: Record<string, Record<string, string>>;
-    /** Shared core modules (layer, event, mode). Set by _shared-registry + runtime. */
+    _TABLES: LocaleTables;
+    /** Shared core modules, exposed by the generated `_shared-registry.ts`;
+     *  `runtime/index.ts` also writes `component` and `mode` directly. */
     core: Record<string, unknown>;
   }
 
@@ -229,33 +225,23 @@ declare global {
     type Renderer = Leaflet.Renderer;
     type SVG = Leaflet.SVG;
     type LeafletEvent = Leaflet.LeafletEvent;
-    type LayerEvent = Leaflet.LayerEvent;
     type LeafletMouseEvent = Leaflet.LeafletMouseEvent;
     type LeafletEventHandlerFn = Leaflet.LeafletEventHandlerFn;
-    type Point = Leaflet.Point;
-    type PointExpression = Leaflet.PointExpression;
     type LatLngExpression = Leaflet.LatLngExpression;
     type LatLng = Leaflet.LatLng;
     type LatLngBounds = Leaflet.LatLngBounds;
     type CircleMarker = Leaflet.CircleMarker;
     type DivIcon = Leaflet.DivIcon;
-    type Icon = Leaflet.Icon;
     type Polyline = Leaflet.Polyline;
     type Polygon = Leaflet.Polygon;
     type Circle = Leaflet.Circle;
-    type MarkerOptions = Leaflet.MarkerOptions;
-    type IconOptions = Leaflet.IconOptions;
-    type DivIconOptions = Leaflet.DivIconOptions;
     type LayerOptions = Leaflet.LayerOptions;
     type Path = Leaflet.Path;
     type PathOptions = Leaflet.PathOptions;
-    type LeafletMouseEventHandlerFn = Leaflet.LeafletMouseEventHandlerFn;
-    type LeafletKeyboardEvent = Leaflet.LeafletKeyboardEvent;
     type GridLayer = Leaflet.GridLayer;
     type GridLayerOptions = Leaflet.GridLayerOptions;
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
-    type ImageOverlay = Leaflet.ImageOverlay;
     type CRS = Leaflet.CRS;
   }
 
@@ -296,8 +282,9 @@ declare global {
    * reach a member through the factory, never assume the namespace is
    * complete. {@link ensureMapFoliplus} owns the `LayerAPI: null` seed; it is
    * the single place that lies about the interface, and it is load-bearing:
-   * `MapFoliplus` must stay a complete object or every `map.foliplus!.x()`
-   * call site across the component bundles becomes a TS2722. */
+   * the factories read their members off `map.foliplus!` unguarded, so
+   * `MapFoliplus` must stay a complete object or those call sites become
+   * TS2722. */
   interface MapFoliplus {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
@@ -337,7 +324,6 @@ declare global {
   const map: Leaflet.Map;
   const foliplus: Foliplus;
   const CONF: ComponentConfig;
-  const CONFIG: ComponentConfig;
   /** Build-time constant: `git describe` inlined by esbuild define. */
   const __FOLIPLUS_VERSION__: string;
 
@@ -355,7 +341,6 @@ declare global {
   interface Window {
     foliplus: Foliplus;
     CONF: ComponentConfig;
-    CONFIG?: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
   }

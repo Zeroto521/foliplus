@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attr.js";
-import { owningRow } from "./context.js";
+import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
   cancelFocus,
@@ -437,14 +437,16 @@ const focusLayerRow = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Double-click on a layer row →focus the map on that layer.
- *  Only dead space on the row counts. Every control on the row is a
- *  denylist hit: two quick toggles / menu clicks / rename edits must not
- *  zoom the map. */
+ *  Only dead space on the row counts: every row control is a denylist hit,
+ *  and presses inside floating panels (style / attributes) are the panel's
+ *  business — two quick toggles / menu clicks / rename edits / label-switch
+ *  flips must not zoom the map. */
 
 const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
+  if (inFloatingPanel(target)) return;
   if (
     target.closest(
       [

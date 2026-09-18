@@ -15,9 +15,9 @@ const LABEL = {
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
   // The centroid label shares the same latlng as the center dot. The dot is
-  // a CircleMarker (SVG path) in measure_node, so it paints above graph
-  // geometry by pane z-index. The label's pane is measure_label (z = graph
-  // + 2), so it always paints above the dot by pane ordering.
+  // a CircleMarker (SVG path) in foliplus-measure-node, so it paints above
+  // graph geometry by pane z-index. The label's pane is foliplus-measure-label
+  // (z = graph + 2), so it always paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
   // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
@@ -67,12 +67,12 @@ const FORMAT = {
   KM2_DECIMALS: 2,
 };
 
-/** IDs and pane names. */
+/** IDs and pane names. Hyphenated + foliplus-namespaced like annotation/canvas. */
 const ID = "foliplus_measure";
 const PANES = {
-  GRAPH: "measure_graph",
-  NODE: "measure_node",
-  LABEL: "measure_label",
+  GRAPH: "foliplus-measure-graph",
+  NODE: "foliplus-measure-node",
+  LABEL: "foliplus-measure-label",
 };
 
 /** CSS class names. */

@@ -33,7 +33,7 @@ class MeasureControl(BaseControl):
     - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
       centroid, or radius) and are never nudged. When dense, the collision
       detector hides the least-important overlapping chips so labels remain
-      readable — see ``collide_labels`` for the exact hiding rule and
+      readable — see ``label_collide`` for the exact hiding rule and
       priority order.
 
     **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
@@ -62,7 +62,13 @@ class MeasureControl(BaseControl):
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
         mode; area and circle modes always show plain distance.
 
-    collide_labels : bool, default True
+    label_show : bool, default True
+        Whether to show the measurement labels. Hidden labels stay registered
+        (collision and placement state is untouched) — switching back on
+        restores them on their anchors. Overridable at runtime from the layer
+        style drawer.
+
+    label_collide : bool, default True
         Whether to run the label collision detector. When enabled, a label is
         hidden only when two chips **intersect on the y-axis AND** overlap at
         least 75% of the narrower chip's width on the x-axis, so chips that
@@ -137,7 +143,8 @@ class MeasureControl(BaseControl):
 
     _export_fields = (
         "show_bearing",
-        "collide_labels",
+        "label_show",
+        "label_collide",
         "show_live_coords",
         "filename",
         "export_format",
@@ -151,7 +158,8 @@ class MeasureControl(BaseControl):
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
-        collide_labels: bool = True,
+        label_show: bool = True,
+        label_collide: bool = True,
         show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
@@ -159,7 +167,8 @@ class MeasureControl(BaseControl):
     ):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
-        self.collide_labels = collide_labels
+        self.label_show = label_show
+        self.label_collide = label_collide
         self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format

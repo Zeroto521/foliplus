@@ -165,6 +165,19 @@ const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   )?.preventDefault?.();
 };
 
+/** Cancel Leaflet's mapPane pan translation on an overlay canvas, so the
+ *  canvas stays put in the container while its contents are drawn in
+ *  container coordinates. The heatmap's and the annotation labels' canvases
+ *  both ride inside mapPane (directly or via a child pane) and need this
+ *  on every paint. */
+const cancelMapPaneTranslate = (canvas: HTMLCanvasElement, map: L.Map): void => {
+  const mapPane = map.getPanes().mapPane;
+  if (!mapPane) return;
+  const pos = L.DomUtil.getPosition(mapPane);
+  canvas.style.left = `${-pos.x}px`;
+  canvas.style.top = `${-pos.y}px`;
+};
+
 /**
  * Build the popup body for a location marker. Coordinates are pinned to the
  * shared readout precision, so a popup never echoes the raw stored value — a
@@ -395,6 +408,7 @@ const createInlineEditInput = (opts: {
 
 export {
   buildPopupEl,
+  cancelMapPaneTranslate,
   createIconButton,
   createInlineEditInput,
   createLocationMarker,
