@@ -37,6 +37,7 @@ htmlcov/
 html/
 .tox/
 .cache
+.vitest/
 .hypothesis/
 .pytest_cache/
 
