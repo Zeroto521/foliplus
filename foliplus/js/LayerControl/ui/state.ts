@@ -227,8 +227,21 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
  * Canvas layers paint through `style.opacity`; Leaflet paths go through
  * `setStyle({ opacity, fillOpacity })`; nested groups recurse.
  */
-const applyOpacityStateOne = (_ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
+const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
   layerInfo.opacity = opacity;
+  // Managed layers (createLayers: MeasureControl, etc.) own their panes. Set
+  // CSS opacity on each pane element — multiplicative with every feature's
+  // own style and covers all types uniformly (paths, markers, divIcons). A
+  // per-feature setStyle walk would clobber a hollow polygon's fillOpacity
+  // (making it newly visible instead of transparent) and skip divIcon labels
+  // that Leaflet's setStyle never reaches.
+  if (layerInfo.subPanes?.length > 0) {
+    for (const name of layerInfo.subPanes) {
+      const pane = ui.m.map.getPane(name);
+      if (pane) pane.style.opacity = String(opacity);
+    }
+    return;
+  }
   if (layerInfo.canvas) {
     layerInfo.canvas.style.opacity = String(opacity);
     return;

@@ -832,10 +832,63 @@ describe("applyOpacityStateOne", () => {
       canvas: null,
       layer: { options: {} } as unknown as L.Layer,
       opacity: 1,
+      subPanes: [],
     } as unknown as LayerInfo;
 
     expect(() => applyOpacityStateOne({} as LayerUI, li, 0.6)).not.toThrow();
     expect(li.opacity).toBe(0.6);
+  });
+
+  it("sets CSS opacity on each pane element for managed layers (subPanes)", () => {
+    // Managed layers (createLayers: MeasureControl) own their panes. Setting
+    // opacity on the pane element is multiplicative and covers every feature
+    // type uniformly — paths, markers, divIcons — without clobbering the
+    // individual style a feature carries (e.g. a hollow polygon's
+    // fillOpacity: 0 must stay 0, not become 0.4).
+    const graphPane = document.createElement("div");
+    const nodePane = document.createElement("div");
+    const labelPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["node", nodePane],
+      ["label", labelPane],
+    ]);
+    const ui = {
+      m: { map: { getPane: (n: string) => panes.get(n) ?? null } },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: null,
+      subPanes: ["graph", "node", "label"],
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(nodePane.style.opacity).toBe("0.4");
+    expect(labelPane.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("pane opacity at 1 clears the pane (reset)", () => {
+    const pane = document.createElement("div");
+    pane.style.opacity = "0.4";
+    const ui = {
+      m: { map: { getPane: () => pane } },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: null,
+      subPanes: ["graph"],
+      opacity: 0.4,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 1);
+
+    expect(pane.style.opacity).toBe("1");
   });
 });
 
@@ -963,6 +1016,25 @@ describe("event-driven row refresh", () => {
     expect(item.querySelector(CONST.SEL.COUNT_COL)?.textContent).toContain("42");
     // The type icon column re-detects geometry for an iconSvg-less layer.
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)).not.toBeNull();
+  });
+
+  it("onLayerItemCountChange re-applies the layer opacity to finalized geometry", () => {
+    // A measurement finalized at store.add fires LAYER_ITEM_COUNT_CHANGE. The
+    // panes were painted at full opacity while the preview was live; this is
+    // when the opacity "snaps in" to the real geometry.
+    const events = ensureEvents(ui.m.map);
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.subPanes = ["__test_opacity_pane__"];
+    ui.opacityMap = { overlay1: 0.4 };
+    li.opacity = 0.4;
+
+    const paneEl = document.createElement("div");
+    vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
+
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    expect(paneEl.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
   });
 
   it("subscribeControlAttached reruns init when another control attaches", () => {

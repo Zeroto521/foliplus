@@ -658,6 +658,16 @@ describe("LayerUI style panel", () => {
     expect(headings[1].textContent).toBe("LayerControl.section_layer");
   });
 
+  it("suppresses the row's hover tooltip on the panel body", () => {
+    // The panel is anchored inside the layer row, which carries a hover title
+    // ("6 point layer"). An empty title on the panel container suppresses the
+    // inherited tooltip so hovering the panel does not echo the row's text.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    expect(panel.getAttribute("title")).toBe("");
+  });
+
   it("renders a range + number opacity pair defaulting to 100", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");

@@ -84,6 +84,7 @@ import { finishRename, renameLayer } from "./rename.js";
 import {
   applyHiddenOne,
   applyHiddenStateOne,
+  applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
   loadPersistedState,
@@ -526,6 +527,13 @@ class LayerUI {
       count !== null
         ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
         : typeLabel;
+    // Re-apply the layer's current opacity to the newly-finalized geometry.
+    // The panes were painted at full opacity while the preview was live; the
+    // count-change event fires at store.add, which is the moment the real
+    // geometry lands — so this is when the opacity "snaps in".
+    if (layerInfo.opacity != null && layerInfo.opacity !== 1) {
+      applyOpacityStateOne(this, layerInfo, layerInfo.opacity);
+    }
   }
 
   /** Refresh count column for every overlay item (no title change). */
