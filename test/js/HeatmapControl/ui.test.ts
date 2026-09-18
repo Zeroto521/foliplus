@@ -3,6 +3,7 @@
 // (set by the fixture), never from the ambient window.CONF — these tests
 // therefore prove both the behavior and the per-instance CONF injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -66,11 +67,17 @@ describe("bindControls — template render and initial values", () => {
   });
 
   it("initialises controls from the manager state", () => {
-    const { ctrl, m } = setup();
+    const { ctrl, m, panel } = setup();
     expect(ctrl.borderColorInput.value).toBe(m.borderColor);
     expect(ctrl.borderWeightInput.value).toBe(String(m.borderWeight));
-    expect(ctrl.labelChk.checked).toBe(m.currentLabelShow);
-    expect(ctrl.labelFormatSelect.value).toBe(m.currentLabelFormat);
+    const labelToggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    expect(labelToggle.checked).toBe(m.currentLabelShow);
+    const labelFormat = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(labelFormat.value).toBe(m.currentLabelFormat);
     expect(ctrl.methodSelect.value).toBe(m.currentMethod);
     expect(ctrl.aggSelect.value).toBe(m.currentAgg);
     expect(ctrl.classSelect.value).toBe(String(m.numClasses));
@@ -84,6 +91,25 @@ describe("bindControls — template render and initial values", () => {
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
     expect(ctrl.classSelect.value).toBe(String(CONST.CLASS_COUNT.MAX));
+  });
+
+  it("translates the shared label vocabulary from the common table", () => {
+    // This panel's own keys are component-scoped (HeatmapControl.*), but the
+    // label controls it shares with LayerControl's drawer resolve from
+    // window.foliplus._TABLES through the unscoped ctrl._. Feeding the scoped
+    // ctrl.T here is what used to render raw keys in the heatmap panel.
+    (window.foliplus as { _TABLES?: unknown })._TABLES = {
+      en: { "locale.code": "en", "foliplus.label": "Shared labels" },
+    };
+    try {
+      const { panel } = setup();
+      const labels = [...panel.querySelectorAll(".foliplus-form-label")].map(
+        n => n.textContent,
+      );
+      expect(labels).toContain("Shared labels");
+    } finally {
+      delete (window.foliplus as { _TABLES?: unknown })._TABLES;
+    }
   });
 
   it("populates scheme options from conf.schemes and renders the bar", () => {
@@ -224,33 +250,42 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label toggle updates the manager and persists", () => {
-    const { ctrl, m } = setup();
+    const { ctrl, m, panel } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.labelChk.checked = false;
-    fire(ctrl.labelChk, "change");
+    const labelToggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    labelToggle.checked = false;
+    fire(labelToggle, "change");
     expect(m.currentLabelShow).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
 
   it("label toggle emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelChk.checked = false;
-    fire(ctrl.labelChk, "change");
+    const labelToggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    labelToggle.checked = false;
+    fire(labelToggle, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
     });
   });
 
   it("label format select updates the manager, redraws labels and persists", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const redraw = vi.spyOn(m, "redrawHeatmap");
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelFormatSelect.value = "comma";
-    fire(ctrl.labelFormatSelect, "change");
+    const labelFormatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    labelFormatSelect.value = "comma";
+    fire(labelFormatSelect, "change");
     expect(m.currentLabelFormat).toBe("comma");
     expect(redraw).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -260,11 +295,14 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label color input is live and notifies the layer drawer", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const redraw = vi.spyOn(m, "redrawHeatmap");
     const emitSpy = vi.spyOn(m.events, "emit");
-    ctrl.labelColorInput.value = "#00ff00";
-    fire(ctrl.labelColorInput, "input");
+    const labelColorInput = panel.querySelector(
+      ".foliplus-style-label-color-input",
+    ) as HTMLInputElement;
+    labelColorInput.value = "#00ff00";
+    fire(labelColorInput, "input");
     expect(m.currentLabelColor).toBe("#00ff00");
     expect(m.cachedLabelStyle).toBeNull();
     expect(redraw).toHaveBeenCalled();
@@ -274,17 +312,20 @@ describe("bindControls — change handlers", () => {
   });
 
   it("label size input is live and clamps on commit", () => {
-    const { ctrl, m } = setup();
+    const { m, panel } = setup();
     const redraw = vi.spyOn(m, "redrawHeatmap");
-    ctrl.labelSizeInput.value = "18";
-    fire(ctrl.labelSizeInput, "input");
+    const labelSizeInput = panel.querySelector(
+      ".foliplus-style-label-size-input",
+    ) as HTMLInputElement;
+    labelSizeInput.value = "18";
+    fire(labelSizeInput, "input");
     expect(m.currentLabelSize).toBe(18);
     expect(redraw).toHaveBeenCalled();
 
-    ctrl.labelSizeInput.value = "99";
-    fire(ctrl.labelSizeInput, "change");
+    labelSizeInput.value = "99";
+    fire(labelSizeInput, "change");
     expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
-    expect(ctrl.labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
+    expect(labelSizeInput.value).toBe(String(CONST.LABEL.SIZE_MAX));
   });
 
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
@@ -350,7 +391,10 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
     expect(ctrl.methodSelect.value).toBe(conf.method);
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
-    expect(ctrl.labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
+    const labelFormatSelect = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+    expect(labelFormatSelect.value).toBe(conf.label_format ?? NUMBER_FORMAT.AUTO);
     expect(ctrl.borderWeightInput.value).toBe(String(conf.border_weight));
     expect(ctrl.borderColorInput.value).toBe(conf.border_color);
   });
@@ -662,5 +706,65 @@ describe("initScan — hints keyed by the injected conf", () => {
       expect.stringContaining("No point layers found"),
       HINT_DURATION.LONG,
     );
+  });
+});
+
+describe("bindControls — shared label controls", () => {
+  it("slots the shared controls above the divider, after the style block", () => {
+    const { ctrl, panel } = setup();
+    const divider = ctrl.extraBody.querySelector(
+      `.${CONST.CLASSES.SECTION_DIVIDER}`,
+    ) as HTMLElement;
+    // The controls are inserted immediately before the divider, so that is the
+    // shared root rather than a stray wrapper.
+    const root = divider.previousElementSibling as HTMLElement;
+
+    expect(root.contains(panel.querySelector(".foliplus-style-toggle-input"))).toBe(
+      true,
+    );
+    // Ordering matters: the label section reads after the style block (border
+    // row), not spliced into the middle of it.
+    expect(
+      ctrl.borderWeightInput.compareDocumentPosition(root) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("registers a LAYER_STYLE_CHANGE subscription for teardown", () => {
+    const { ctrl } = setup();
+    // destroy() calls this; without it a removed control keeps refreshing.
+    expect(ctrl.styleChangeCleanup).toBeTypeOf("function");
+  });
+
+  it("mirrors its own layer's LAYER_STYLE_CHANGE and ignores another layer's", () => {
+    const { ctrl, m, panel } = setup();
+    const toggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    const started = toggle.checked;
+
+    // A remote write for this layer — the drawer, or the manager's own setter
+    // emitting back — pulls the fresh value into the panel.
+    m.currentLabelShow = !started;
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: m.layerId });
+    expect(toggle.checked).toBe(!started);
+
+    // Another layer's change must leave this panel alone.
+    m.currentLabelShow = started;
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: "some-other-layer" });
+    expect(toggle.checked).toBe(!started);
+  });
+
+  it("reflects a change made through the manager's own setter", () => {
+    const { m, panel } = setup();
+    const format = panel.querySelector(
+      ".foliplus-style-format-select",
+    ) as HTMLSelectElement;
+
+    // The setter owns state and emits; the panel hears it and re-reads.
+    m.styleSetters.labelFormat("percent");
+
+    expect(format.value).toBe("percent");
+    expect(m.currentLabelFormat).toBe("percent");
   });
 });

@@ -70,10 +70,6 @@ describe("panelContentHTML", () => {
       "data-heatmap-scheme-hidden",
       "data-heatmap-border-color",
       "data-heatmap-border-weight",
-      "data-heatmap-label-chk",
-      "data-heatmap-label-color",
-      "data-heatmap-label-size",
-      "data-heatmap-label-format",
       "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
@@ -96,7 +92,6 @@ describe("panelContentHTML", () => {
     expect(html).toContain("Classify");
     expect(html).toContain("Color");
     expect(html).toContain("Border");
-    expect(html).toContain("Label");
   });
 
   it("includes translated action button text", () => {
@@ -153,23 +148,6 @@ describe("panelContentHTML", () => {
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('role="combobox"');
     expect(html).toContain("foliplus-heatmap-scheme-bar-inner");
-  });
-
-  it("includes label toggle switch structure (shared form primitives)", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-toggle-switch");
-    expect(html).toContain("foliplus-toggle-slider");
-    expect(html).toContain('type="checkbox"');
-  });
-
-  it("includes the label style row (color + size) and number-format select", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("data-heatmap-label-color");
-    expect(html).toContain("data-heatmap-label-size");
-    expect(html).toContain("data-heatmap-label-format");
-    expect(html).toContain("Color / Font Size");
-    expect(html).toContain("Number Format");
-    expect(html).toContain("Thousands Separator");
   });
 
   it("includes border color picker", () => {

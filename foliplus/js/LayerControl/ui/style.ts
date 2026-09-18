@@ -6,6 +6,11 @@
 // no JS positioning and no scroll/resize bookkeeping to clean up.
 import { EVENTS } from "#core/event/index.js";
 import {
+  type LabelStyleValues,
+  numberFormatOptions,
+  renderLabelControls,
+} from "#core/labelControl.js";
+import {
   AUTO_FIELD,
   type LabelField,
   isNumericField,
@@ -253,11 +258,6 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
   row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
 };
 
-/** One <option> per NUMBER_FORMAT entry — shared by the annotation and the
- *  delegated panel so both dropdowns stay in lockstep with the type. */
-const numberFormatOptions = (fmtLabel: (f: string) => string): HTMLElement[] =>
-  Object.values(NUMBER_FORMAT).map(f => dom.el("option", { value: f }, fmtLabel(f)));
-
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
  *  component declared. Reset is present only when the layer also supplies
@@ -271,174 +271,27 @@ const renderDelegatedStylePanel = (
   const setters = li?.styleSetters;
   if (!setters || Object.keys(setters).length === 0) return null;
 
-  const values = li.styleProvider?.() ?? {};
-  const showChecked = !!values.labelShow;
-  const bodyRows: HTMLElement[] = [];
+  // Both hooks re-read the registry instead of closing over the entry fetched
+  // above: re-registering a layer swaps in a fresh LayerInfo object, so a
+  // drawer left open across that swap must follow the new entry — and no-op
+  // once its setters are gone.
+  const entry = () => ui.m.layerRegistry.get(layerId);
+  const { root, refresh } = renderLabelControls({
+    styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
+    getSetters: () => entry()?.styleSetters ?? {},
+    T: ui._,
+  });
+  // No presentation control at all (a data-only setter such as the
+  // aggregation field) means no drawer: the Layer section below is
+  // LayerControl-owned, but it is not a reason to open one.
+  if (!root.children.length) return null;
+  ui.styleRefresh = refresh;
 
-  // Color + size share one row (same recipe as the heatmap border row).
-  // Order under the toggle: appearance, then number format, then collide.
-  if (setters.labelColor || setters.labelSize) {
-    const colorInput = setters.labelColor
-      ? formColorInput({
-          value:
-            typeof values.labelColor === "string"
-              ? values.labelColor
-              : LABEL_COLOR_DEFAULT,
-          className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
-          ariaLabel: ui.T("style_label_color"),
-        })
-      : null;
-    const sizeInput = setters.labelSize
-      ? formNumberInput({
-          value:
-            typeof values.labelSize === "number"
-              ? values.labelSize
-              : LABEL_SIZE.SIZE_DEFAULT,
-          min: LABEL_SIZE.SIZE_MIN,
-          max: LABEL_SIZE.SIZE_MAX,
-          step: LABEL_SIZE.SIZE_STEP,
-          className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-          ariaLabel: ui.T("style_label_size"),
-        })
-      : null;
-    // Live on input, clamp on commit — same bindLive* recipe as the
-    // heatmap panel so out-of-range sizes rewrite the field to the bound.
-    if (colorInput) {
-      bindLiveColor(colorInput as HTMLInputElement, value => {
-        setters.labelColor?.(value);
-      });
-    }
-    if (sizeInput) {
-      bindLiveNumber(sizeInput as HTMLInputElement, {
-        min: LABEL_SIZE.SIZE_MIN,
-        max: LABEL_SIZE.SIZE_MAX,
-        fallback: LABEL_SIZE.SIZE_DEFAULT,
-        onCommit: value => setters.labelSize?.(value),
-      });
-    }
-    const inline = inlineControls(
-      ...(colorInput ? [colorInput] : []),
-      ...(sizeInput ? [sizeInput] : []),
-    );
-    bodyRows.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
-        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
-      ),
-    );
-  }
-
-  // Number format lives under the label toggle — same collapse rule as the
-  // annotation panel's format row (hidden when labels are off).
-  if (setters.labelFormat) {
-    const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
-    const formatSelect = dom.el(
-      "select",
-      {
-        class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-        "aria-label": ui.T("style_label_format"),
-      },
-      ...numberFormatOptions(fmtLabel),
-    );
-    (formatSelect as HTMLSelectElement).value =
-      typeof values.labelFormat === "string" ? values.labelFormat : NUMBER_FORMAT.AUTO;
-    bodyRows.push(
-      dom.el(
-        "div",
-        { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-        dom.el(
-          "label",
-          { class: CONST.CLASSES.FORM_LABEL },
-          ui.T("style_label_format"),
-        ),
-        dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
-      ),
-    );
-  }
-
-  if (setters.labelCollide) {
-    const toggle = dom.el("input", {
-      type: "checkbox",
-      class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
-      checked: values.labelCollide !== false ? "" : null,
-      "aria-label": ui.T("style_label_collide_tooltip"),
-    });
-    bodyRows.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el(
-          "label",
-          { class: CONST.CLASSES.FORM_LABEL },
-          ui.T("style_label_collide"),
-        ),
-        dom.el(
-          "div",
-          { class: CONST.CLASSES.FORM_CONTROL },
-          dom.el(
-            "label",
-            { class: CONST.CLASSES.TOGGLE_SWITCH },
-            toggle,
-            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  const labelSection: HTMLElement[] = [];
-
-  if (setters.labelShow) {
-    const toggle = dom.el("input", {
-      type: "checkbox",
-      class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
-      checked: showChecked ? "" : null,
-      "aria-label": ui.T("style_label_tooltip"),
-    });
-    labelSection.push(
-      sectionHeading(ui.T("section_label")),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label")),
-        dom.el(
-          "div",
-          { class: CONST.CLASSES.FORM_CONTROL },
-          dom.el(
-            "label",
-            { class: CONST.CLASSES.TOGGLE_SWITCH },
-            toggle,
-            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Body: avoid-overlap, collapsed when the label toggle is off —
-  // same "switch off → hide body" rule the annotation panel uses.
-  // A collide-only component still needs the heading above its body.
-  if (bodyRows.length) {
-    if (!setters.labelShow) labelSection.push(sectionHeading(ui.T("section_label")));
-    const body = dom.el("div", { class: CONST.CLASSES.STYLE_BODY }, ...bodyRows);
-    body.classList.toggle("foliplus-hidden", !showChecked);
-    labelSection.push(body);
-  }
-
-  // A layer that declares no presentation control at all (e.g. a data-only
-  // setter such as the aggregation field) gets no drawer — the opacity row
-  // below is LayerControl-owned but is not a reason to open one.
-  if (labelSection.length === 0) return null;
-
-  const rows: HTMLElement[] = [
-    ...labelSection,
-    // Layer section: opacity is LayerControl-owned, independent of the
-    // component's own styleSetters.
-    sectionHeading(ui.T("section_layer")),
-    buildOpacityRow(ui, layerId),
-  ];
+  // The shared renderer emits controls only, no headings — the panel owns the
+  // section split, and the Layer section (opacity) belongs to LayerControl
+  // rather than to the component that delegates its label style.
+  root.prepend(sectionHeading(ui.T("section_label")));
+  root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
 
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
@@ -447,7 +300,7 @@ const renderDelegatedStylePanel = (
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  content.append(...rows);
+  content.append(root);
 
   // Reset only when the component published its Python CONF defaults.
   if (li.styleDefaults) appendResetFooter(ui, content);
@@ -466,7 +319,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!fields.length) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
-  const fmtLabel = (f: string) => ui.T(`style_label_format_${f}`) || f;
+  const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
@@ -515,7 +368,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const colorInput = formColorInput({
     value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
-    ariaLabel: ui.T("style_label_color"),
+    ariaLabel: ui._("foliplus.label_color"),
   }) as HTMLInputElement;
   const sizeInput = formNumberInput({
     value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
@@ -523,7 +376,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     max: LABEL_SIZE.SIZE_MAX,
     step: LABEL_SIZE.SIZE_STEP,
     className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-    ariaLabel: ui.T("style_label_size"),
+    ariaLabel: ui._("foliplus.label_size"),
   }) as HTMLInputElement;
 
   const formatOpts = numberFormatOptions(fmtLabel);
@@ -535,7 +388,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
     checked: showChecked ? "" : null,
-    "aria-label": ui.T("style_label_tooltip"),
+    "aria-label": ui._("foliplus.label_tooltip"),
   });
   // "Avoid overlap": thins this layer's own labels where they collide. Labels
   // from *different* layers never avoid each other — the layers are stacked, so
@@ -544,13 +397,13 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
     checked: cfg.collide ? "" : null,
-    "aria-label": ui.T("style_label_collide_tooltip"),
+    "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
     "select",
     {
       class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      "aria-label": ui.T("style_label_format"),
+      "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,
   );
@@ -561,7 +414,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const formatRow = dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_format")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
   );
   syncFormatRow(
@@ -589,7 +442,11 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_style")),
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_style"),
+      ),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -600,7 +457,11 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_collide")),
+      dom.el(
+        "label",
+        { class: CONST.CLASSES.FORM_LABEL },
+        ui._("foliplus.label_collide"),
+      ),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -630,7 +491,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label")),
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
@@ -739,41 +600,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       event.stopPropagation();
       return;
     }
-    if (delegated) {
-      // Third-party layer: dispatch to the component's own setters.
-      const li = ui.m.layerRegistry.get(layerId);
-      const setters = li?.styleSetters;
-      if (!setters) return;
-      if (
-        t instanceof HTMLInputElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT) &&
-        setters.labelShow
-      ) {
-        const body = panel.querySelector(
-          `.${CONST.CLASSES.STYLE_BODY}`,
-        ) as HTMLElement | null;
-        if (body) body.classList.toggle("foliplus-hidden", !t.checked);
-        setters.labelShow(t.checked);
-      } else if (
-        t instanceof HTMLInputElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT) &&
-        setters.labelCollide
-      ) {
-        setters.labelCollide(t.checked);
-      } else if (
-        // Color/size are bound live via input listeners at render time —
-        // the change event would double-commit.
-        t instanceof HTMLSelectElement &&
-        t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT) &&
-        setters.labelFormat
-      ) {
-        setters.labelFormat(t.value);
-      } else {
-        return;
-      }
-      event.stopPropagation();
-      return;
-    }
+    // Delegated label controls handle their own changes (stopPropagation on
+    // the shared root). Only the annotation panel's changes reach here.
+    if (delegated) return;
     if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_TOGGLE_INPUT)
@@ -891,56 +720,19 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   document.addEventListener("mousedown", ui.styleOutsideHandler, true);
 
   // When the component's own panel changes a style value while this drawer is
-  // open, pull the fresh values and refresh the controls. The event carries
-  // only the id — the drawer reads from styleProvider. An input being edited
-  // is never overwritten (activeElement guard).
+  // open, pull the fresh values and refresh the controls. The shared module's
+  // refresh reads from styleProvider and writes every control, skipping the
+  // one under activeElement.
   if (delegated) {
     const bus = ui.m.events;
-    ui.styleUnsubscribe = bus.on(EVENTS.LAYER_STYLE_CHANGE, ((payload: {
-      id: string;
-    }) => {
-      if (payload.id !== layerId) return;
-      const li = ui.m.layerRegistry.get(layerId);
-      const values = li?.styleProvider?.();
-      if (!values) return;
-      const showInput = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`,
-      ) as HTMLInputElement | null;
-      if (showInput && document.activeElement !== showInput) {
-        showInput.checked = !!values.labelShow;
-      }
-      const collideInput = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
-      ) as HTMLInputElement | null;
-      if (collideInput && document.activeElement !== collideInput) {
-        collideInput.checked = values.labelCollide !== false;
-      }
-      const colorInput = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`,
-      ) as HTMLInputElement | null;
-      if (colorInput && document.activeElement !== colorInput) {
-        if (typeof values.labelColor === "string") {
-          colorInput.value = values.labelColor;
-        }
-      }
-      const sizeInput = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`,
-      ) as HTMLInputElement | null;
-      if (sizeInput && document.activeElement !== sizeInput) {
-        if (typeof values.labelSize === "number") {
-          sizeInput.value = String(values.labelSize);
-        }
-      }
-      const formatSelect = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      ) as HTMLSelectElement | null;
-      if (formatSelect && document.activeElement !== formatSelect) {
-        formatSelect.value =
-          typeof values.labelFormat === "string"
-            ? values.labelFormat
-            : NUMBER_FORMAT.AUTO;
-      }
-    }) as never);
+    const refresh = ui.styleRefresh;
+    ui.styleUnsubscribe = bus.on(
+      EVENTS.LAYER_STYLE_CHANGE,
+      (payload: { id: string }) => {
+        if (payload.id !== layerId) return;
+        refresh?.();
+      },
+    );
   }
 
   ui.stylePanelLayerId = layerId;
@@ -954,6 +746,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   }
   ui.styleUnsubscribe?.();
   ui.styleUnsubscribe = null;
+  ui.styleRefresh = null;
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
   const panel = ui.uiContainer.querySelector(
