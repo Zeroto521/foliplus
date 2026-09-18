@@ -77,6 +77,25 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
         "leaflet.awesome-markers.css",
         "text/css",
     ),
+    # Plugin assets referenced by folium 0.20 templates (MarkerCluster,
+    # HeatMap). Fragments are full paths so `MarkerCluster.css` cannot
+    # shadow `MarkerCluster.Default.css` (substring matching).
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/leaflet.markercluster.js": (
+        "leaflet.markercluster.js",
+        "application/javascript",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css": (
+        "MarkerCluster.Default.css",
+        "text/css",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.css": (
+        "MarkerCluster.css",
+        "text/css",
+    ),
+    "cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js": (
+        "leaflet_heat.min.js",
+        "application/javascript",
+    ),
 }
 
 
