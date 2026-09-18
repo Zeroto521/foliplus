@@ -822,6 +822,21 @@ describe("applyOpacityStateOne", () => {
     expect(() => applyOpacityStateOne({} as LayerUI, li, 0.4)).not.toThrow();
     expect(li.opacity).toBe(0.4);
   });
+
+  it("no-ops on a layer with none of the three opacity APIs", () => {
+    // A layer type foliplus does not know (no eachLayer, no setStyle, no
+    // setOpacity) still records the value — the walk ends quietly instead of
+    // throwing on the next redraw.
+    const li = {
+      id: "opaque",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    expect(() => applyOpacityStateOne({} as LayerUI, li, 0.6)).not.toThrow();
+    expect(li.opacity).toBe(0.6);
+  });
 });
 
 describe("LayerUI opacity restore / prune", () => {

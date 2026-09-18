@@ -98,21 +98,25 @@ const opacityToPct = (opacity: number | undefined): number =>
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
-/** Keep the range + number inputs in sync without fighting the focused one.
- *  Also repaints the slider's accent fill (`--opacity-fill`), which the track
- *  draws left of the thumb over the checkerboard. */
-const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
+/** Write one resolved percentage into the slider and its number field.
+ *
+ *  The slider always takes the value — its thumb has to follow whoever moved
+ *  the other control. The number field is left alone while the user is typing
+ *  in it, or the caret would jump to the end on every keystroke; `force` is the
+ *  commit pass, which rewrites it to the resolved value the same way the shared
+ *  number field does on blur. */
+const syncOpacityInputs = (panel: HTMLElement, pct: number, force = false): void => {
+  // Both controls are built together by buildOpacityRow, so a panel that
+  // reached here has them.
   const range = panel.querySelector(
     `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-  ) as HTMLInputElement | null;
+  ) as HTMLInputElement;
   const num = panel.querySelector(
     `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
-  ) as HTMLInputElement | null;
-  if (range) {
-    if (document.activeElement !== range) range.value = String(pct);
-    range.style.setProperty("--opacity-fill", `${pct}%`);
-  }
-  if (num && document.activeElement !== num) num.value = String(pct);
+  ) as HTMLInputElement;
+  range.value = String(pct);
+  range.style.setProperty("--opacity-fill", `${pct}%`);
+  if (force || document.activeElement !== num) num.value = String(pct);
 };
 
 /** Apply a UI percentage to the layer, persist it, and sync both inputs. */
@@ -121,6 +125,7 @@ const commitOpacityPct = (
   layerId: string,
   panel: HTMLElement,
   rawPct: number,
+  commit = false,
 ): void => {
   const pct = clampPct(rawPct);
   const opacity = pct / 100;
@@ -130,7 +135,7 @@ const commitOpacityPct = (
   if (opacity === 1) delete ui.opacityMap[layerId];
   else ui.opacityMap[layerId] = opacity;
   saveOpacityMap(ui);
-  syncOpacityInputs(panel, pct);
+  syncOpacityInputs(panel, pct, commit);
 };
 
 /** Build the opacity form row: range slider + shared number field, exactly the
@@ -570,11 +575,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
   /** Shared opacity handler for both panel flavours (LayerControl-owned).
-   *  `commit` separates the live pass from the blur/change pass: while the user
-   *  is retyping the number field it can read empty, and `parseFloat("")` is
-   *  NaN — applying that would snap the layer transparent mid-edit. The live
-   *  pass therefore skips an empty field and only the commit resolves it (to
-   *  fully opaque, via `clampPct`'s fallback). */
+   *  `commit` separates the live pass from the blur/change pass: an emptied or
+   *  out-of-range entry only resolves on commit — the same rule the shared
+   *  number field follows, so typing "1" toward "15" does not flash the layer
+   *  to 1% first. */
   const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
     if (!(t instanceof HTMLInputElement)) return false;
     if (
@@ -583,8 +587,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ) {
       return false;
     }
-    if (!commit && t.value === "") return true;
-    commitOpacityPct(ui, layerId, panel, parseFloat(t.value));
+    const raw = parseFloat(t.value);
+    if (!commit && !(raw >= 0 && raw <= 100)) return true;
+    commitOpacityPct(ui, layerId, panel, raw, commit);
     return true;
   };
 

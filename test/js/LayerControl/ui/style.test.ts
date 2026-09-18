@@ -997,6 +997,81 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(".foliplus-style-label-color-input")).toBeNull();
   });
 
+  it("deferred: an out-of-range entry applies only on commit, even with focus", () => {
+    // Typing "150" toward "15" must not jump the layer to full first: the live
+    // pass defers anything outside [0, 100] and the commit resolves it. The
+    // commit also rewrites the field the caret is in, like the shared number
+    // field does on blur.
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+
+    range.value = "45";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(li.opacity).toBe(0.45);
+
+    number.focus();
+    number.value = "150";
+    number.dispatchEvent(new Event("input", { bubbles: true }));
+    // Live pass: still 45%, the slider has not moved.
+    expect(li.opacity).toBe(0.45);
+    expect(range.value).toBe("45");
+
+    number.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(li.opacity).toBe(1);
+    expect(number.value).toBe("100");
+    expect(range.value).toBe("100");
+    number.blur();
+  });
+
+  it("moves the slider while leaving the caret's own text alone", () => {
+    // The field keeps what the user is typing (the slider rounds it), so the
+    // caret does not jump to the end on every keystroke.
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+    const number = panel.querySelector(
+      ".foliplus-style-opacity-number",
+    ) as HTMLInputElement;
+
+    number.focus();
+    number.value = "37.6";
+    number.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(li.opacity).toBe(0.38);
+    expect(range.value).toBe("38");
+    expect(range.style.getPropertyValue("--opacity-fill")).toBe("38%");
+    expect(number.value).toBe("37.6");
+    number.blur();
+  });
+
+  it("Reset survives a layer that vanished while the panel was open", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
+
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    expect(() =>
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })),
+    ).not.toThrow();
+  });
+
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
