@@ -1,6 +1,7 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
@@ -115,8 +116,9 @@ class SearchControl extends BaseControl {
     // Register this control's provider as the map default so indirect
     // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
     // follows the same provider — cache keys and rate limits stay consistent.
-    if (!map.foliplus) map.foliplus = {} as MapFoliplus;
-    map.foliplus.geocodeProvider = CONF.provider ?? "nominatim";
+    // Route through the shared seed so the namespace's typing stays sound.
+    const api = ensureMapFoliplus(map);
+    api.geocodeProvider = CONF.provider ?? "nominatim";
     this.mode =
       CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
     this.panelWrap = null;
