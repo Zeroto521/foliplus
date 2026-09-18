@@ -12,6 +12,16 @@ export {
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
 export { PaneManager } from "./PaneManager.js";
+// The Leaflet-private surface: components reach panes and layers through these
+// instead of the fields themselves (see the module header for why).
+export {
+  createPane,
+  destroyPane,
+  hasAttachedPath,
+  isGroupLike,
+  mapPaneOf,
+  paneOf,
+} from "./leafletAdapter.js";
 export {
   findLayer,
   forEachLayer,

@@ -9,6 +9,12 @@
 //     ensurePane / ensureVector / bumpPanes / migrateLayers / reset / destroy
 //     releaseFallbackPane
 import * as CONST from "./const.js";
+import {
+  createPane,
+  destroyPane,
+  getRendererContainer,
+  paneOf,
+} from "./leafletAdapter.js";
 import { forEachLayer } from "./util.js";
 
 /** Marker with protected Leaflet internals (shadow element). */
@@ -62,9 +68,9 @@ class PaneManager {
     paneName: string,
     needRenderer = true,
   ): { pane: HTMLElement; renderer: L.SVG | null } {
-    let pane = this.map.getPane(paneName);
+    let pane = paneOf(this.map, paneName);
     if (!pane) {
-      pane = this.map.createPane(paneName);
+      pane = createPane(this.map, paneName);
       pane.classList.add("foliplus-layer-pane");
       // Provisional z-index so sub-panes have the right relative order
       // before bumpPanes runs (it may never run if LayerControl is absent).
@@ -97,9 +103,7 @@ class PaneManager {
       if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
       delete (this.map as L.Map & PaneRendererMap)[key];
     }
-    delete this.map._paneRenderers?.[paneName];
-    this.map.getPane(paneName)?.remove();
-    if (this.map._panes) delete this.map._panes[paneName];
+    destroyPane(this.map, paneName);
     this.childPanes.delete(paneName);
     this.paneCache.clear();
   }
@@ -123,13 +127,9 @@ class PaneManager {
       if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
       delete (this.map as L.Map & PaneRendererMap)[key];
     }
-    // Leaflet's own per-pane registry is separate: getRenderer() fills it
-    // lazily, so it can exist without our key. Clearing it keeps getRenderer()
-    // from re-adding a dead renderer to the removed pane.
-    delete this.map._paneRenderers[paneName];
-    this.map.getPane(paneName)?.remove();
-    // getPane() must not keep returning a detached node.
-    delete this.map._panes[paneName];
+    // Leaflet's own per-pane registry is separate from our key, and clearing it
+    // is what keeps getRenderer() from re-adding a dead renderer.
+    destroyPane(this.map, paneName);
     this.fallbackPaneMap.delete(stamp);
   }
 
@@ -186,8 +186,7 @@ class PaneManager {
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
     for (const { layer, paneName, renderer } of layersToMove) {
       if (!paneName) continue;
-      const container = (renderer as (L.SVG & { _container?: HTMLElement }) | null)
-        ?._container;
+      const container = getRendererContainer(renderer);
       if (!container) {
         // No renderer container (e.g. tile layers with a paneName get
         // needRenderer=false). DOM migration is impossible, but the layer must
@@ -197,7 +196,7 @@ class PaneManager {
         layer.options.paneSet = true;
         continue;
       }
-      const paneEl = this.map.getPane(paneName);
+      const paneEl = paneOf(this.map, paneName);
       if (!groups.has(container)) groups.set(container, []);
       const collect = (l: L.Layer): void => {
         if (
