@@ -668,9 +668,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
-    ctrl.throttleTimer = setTimeout(() => {
-      fetchSuggestions(ctrl, ctrl.inp.value.trim());
-    }, provider.throttleMs - (now - since));
+    ctrl.throttleTimer = setTimeout(
+      () => {
+        fetchSuggestions(ctrl, ctrl.inp.value.trim());
+      },
+      provider.throttleMs - (now - since),
+    );
     return;
   }
   ctrl.lastSuggestFetch = Date.now();

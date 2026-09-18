@@ -44,8 +44,7 @@ const createDeferredFetch = () => {
     return new Promise<unknown>(resolve => {
       inflight.push(() =>
         resolve({
-          json: () =>
-            Promise.resolve([{ lat: "30", lon: "120", display_name: "A" }]),
+          json: () => Promise.resolve([{ lat: "30", lon: "120", display_name: "A" }]),
         }),
       );
     });
