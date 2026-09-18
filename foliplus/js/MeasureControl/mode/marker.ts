@@ -6,6 +6,7 @@ import {
 } from "#common/delicon.js";
 import { createLocationMarker } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -41,30 +42,23 @@ class MarkerMode extends MeasureMode {
     // before the previous geocode resolves, the stale result must not
     // overwrite the newer coordinates/address.
     let generation = 0;
-    let rafId: number | null = null;
+    // Throttle persists: live-update the coords but batch the write so
+    // each mousemove doesn't do its own localStorage round-trip. The
+    // measurement object is the store's backing entry (passed by ref),
+    // so a direct mutation + persist() is cheaper than store.update()
+    // (which would re-find + re-assign the same fields).
+    const persist = throttleRaf(() => manager.store.persist());
 
     const drag = bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
         measurement.lng = Util.roundCoord(latlng.lng);
         measurement.lat = Util.roundCoord(latlng.lat);
-        // Throttle persists: live-update the coords but batch the write so
-        // each mousemove doesn't do its own localStorage round-trip. The
-        // measurement object is the store's backing entry (passed by ref),
-        // so a direct mutation + persist() is cheaper than store.update()
-        // (which would re-find + re-assign the same fields).
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          manager.store.persist();
-        });
+        persist();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
+        persist.cancel();
         const gen = ++generation;
         measurement.lng = Util.roundCoord(latlng.lng);
         measurement.lat = Util.roundCoord(latlng.lat);
@@ -119,10 +113,7 @@ class MarkerMode extends MeasureMode {
     marker.on("click", onPinClick);
 
     return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      persist.cancel();
       generation += 1; // invalidate any in-flight geocode
       drag.cleanup();
       unregisterDragToggle();

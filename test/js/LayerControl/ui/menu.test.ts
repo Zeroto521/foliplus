@@ -60,6 +60,26 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("orders the entries focus, style, rename, attributes", () => {
+      // Deliberate ordering, not append order: the view action leads (the
+      // trigger-adjacent slot is the mis-click zone), then the style panel,
+      // then the one entry that writes to the layer, with the display-only
+      // attributes entry closing the list.
+      const item = findItem(ui, "overlay1");
+
+      ui.openMoreMenu(item);
+
+      const actions = Array.from(
+        item.querySelectorAll(".foliplus-layer-more-menu li"),
+      ).map(li => (li as HTMLElement).dataset.action);
+      expect(actions).toEqual([
+        CONST.ACTION.FOCUS_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
+      ]);
+    });
+
     it("creates a menu with the focus-layer action", () => {
       const item = findItem(ui, "overlay1");
 
@@ -138,6 +158,35 @@ describe("LayerUI menu", () => {
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
       expect(li?.getAttribute("tabindex")).toBe("0");
+    });
+
+    it("closes when Tab moves focus out of the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      item.querySelector(".foliplus-layer-more-menu")!.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: document.body,
+        }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+      expect(ui.activeMenu).toBeNull();
+    });
+
+    it("stays open while focus moves within the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+      const second = menu.querySelectorAll("li")[1]! as HTMLElement;
+
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: second }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(ui.activeMenu).not.toBeNull();
     });
   });
 

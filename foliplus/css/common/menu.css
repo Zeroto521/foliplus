@@ -1,17 +1,25 @@
+@import "token.css";
+
 /* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
   Floating menus in SearchControl (result panel), HeatmapControl (scheme
-  picker) and LayerControl (layer overflow menu, layer attributes panel)
-  share one visual recipe. Position, width, max-height and item layout stay
-  per-component; this block owns the shell + hover/active states.
+  picker) and LayerControl (layer overflow menu, and the row panels a layer
+  row opens) share one visual recipe. Position, width, max-height and item
+  layout stay per-component; this block owns the shell + hover/active states.
+
+  Row panels join by their shared `foliplus-row-panel` class rather than by
+  name, so a new one inherits the shell without editing the lists below.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Shell ── */
+/* ── Shell ──
+   The three plain dropdowns take the whole recipe. A row panel shares only what
+   it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
+   shadow and z-index, so restating those here was two sources for one decision
+   with the panel's copy silently winning. */
 :is(
   .foliplus-search-result-panel,
   .foliplus-heatmap-scheme-dropdown,
-  .foliplus-layer-more-menu,
-  .foliplus-layer-attrs-panel
+  .foliplus-layer-more-menu
 ) {
   box-sizing: border-box;
   margin-top: var(--space-xs);
@@ -22,6 +30,15 @@
   z-index: var(--z-index-floating);
   overflow-y: auto;
   /* Entrance: subtle fade + slide-down, plays once when the menu mounts. */
+  animation: foliplus-dropdown-in 0.15s ease-out;
+}
+
+.foliplus-row-panel {
+  box-sizing: border-box;
+  margin-top: var(--space-xs);
+  background: var(--input-bg);
+  border: var(--border-thin) solid var(--input-border);
+  overflow-y: auto;
   animation: foliplus-dropdown-in 0.15s ease-out;
 }
 
@@ -42,7 +59,7 @@
     .foliplus-search-result-panel,
     .foliplus-heatmap-scheme-dropdown,
     .foliplus-layer-more-menu,
-    .foliplus-layer-attrs-panel
+    .foliplus-row-panel
   ) {
     animation: none;
   }

@@ -1,7 +1,7 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -10,6 +10,7 @@ import { bindControls, initScan, setupObserver } from "./ui.js";
 
 createControlEnv(CONF, SVGs.HEXAGON);
 const T = createScopedTranslator(CONF);
+const _ = createTranslator(CONF);
 ensureLayerAPI(map);
 
 // ==================== View & Control: HeatmapControl ====================
@@ -17,6 +18,7 @@ class HeatmapControl extends BaseControl {
   manager: HeatmapManager | null = null;
   declare conf: ComponentConfig;
   declare T: (key: string) => string;
+  declare _: (key: string) => string;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -34,17 +36,27 @@ class HeatmapControl extends BaseControl {
   declare schemeSelectHidden: HTMLSelectElement;
   declare borderColorInput: HTMLInputElement;
   declare borderWeightInput: HTMLInputElement;
-  declare labelChk: HTMLInputElement;
+  declare labelRefresh: (() => void) | null;
+  declare styleChangeCleanup: (() => void) | null;
   declare closeSchemeDropdown: (event: MouseEvent) => void;
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
+  schemeBarCleanup: (() => void) | null = null;
+  dropdownCleanup: (() => void) | null = null;
+  toggleDropdown: (() => void) | null = null;
+  selectScheme: ((idx: number) => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
     this.conf = CONF;
     this.T = T;
+    this._ = _;
     this.schemeDropdown = null;
     this.expandHookDone = false;
+    this.schemeBarCleanup = null;
+    this.dropdownCleanup = null;
+    this.toggleDropdown = null;
+    this.selectScheme = null;
   }
 
   /** Alias for convenience (creates the manager on first access). */
@@ -72,7 +84,9 @@ class HeatmapControl extends BaseControl {
   }
 
   /** (Re)start the initial layer scan. Runs on every add, so the control
-   *  recovers after removeControl + addControl (destroy cancels the old scan). */
+   *  recovers after removeControl + addControl (destroy cancels the old scan).
+   *  The scheme-bar handler is only ever (re)bound by bindControls, which
+   *  itself guards the double-registration case. */
   startScan() {
     this.initScanCleanup?.();
     this.initScanCleanup = initScan(this);
@@ -83,6 +97,18 @@ class HeatmapControl extends BaseControl {
     // Clean up map event listeners
     this.initScanCleanup?.();
     this.initScanCleanup = null;
+    this.schemeBarCleanup?.();
+    this.schemeBarCleanup = null;
+    this.styleChangeCleanup?.();
+    this.styleChangeCleanup = null;
+    // The shared renderer's refresh closes over the panel DOM; drop it with the
+    // subscription so nothing writes into a detached panel.
+    this.labelRefresh = null;
+    // dropdownCleanup is optional: only the dropdown open/close cycle writes
+    // it, and clearHeatmapCanvas already runs it. Null it here so a handler
+    // can't survive the control — it re-registers on the next dropdown open.
+    this.dropdownCleanup?.();
+    this.dropdownCleanup = null;
 
     const mgr = this.manager;
     this.manager = null;

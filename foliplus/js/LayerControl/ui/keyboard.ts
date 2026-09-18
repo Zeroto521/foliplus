@@ -2,8 +2,8 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import { closeAttrsPanel } from "./attrs.js";
-import { owningRow } from "./context.js";
+import { closeAttrsPanel } from "./attr.js";
+import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
   cancelFocus,
@@ -185,14 +185,17 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement | null;
   if (!target || typeof target.closest !== "function") {
     ui.closeAttrsPanel(false);
+    ui.closeStylePanel(false);
     clearActiveItem(ui);
     return;
   }
-  // The attributes panel is a floating surface anchored to its row: a press
-  // anywhere outside it dismisses it, panel and map alike. One surface per
-  // press —the overflow menu keeps its own click-delegated close in
-  // interaction.ts, and Escape pops the menu before the panel.
+  // The attributes panel and the style panel are floating surfaces anchored
+  // to their row: a press anywhere outside them dismisses them, panel and
+  // map alike. One surface per press —the overflow menu keeps its own
+  // click-delegated close in interaction.ts, and Escape pops the menu before
+  // the panels.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
+  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
   if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
 };
 
@@ -259,8 +262,14 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       ui.closeMoreMenu(true);
     } else if (ui.activeAttrsPanel) {
       // The attributes panel and the overflow menu both float from the same
-      // 鈰?button, so Escape dismisses whichever is on top.
+      // ⋮ button, so Escape dismisses whichever is on top.
       ui.closeAttrsPanel(true);
+    } else if (ui.stylePanelLayerId) {
+      // The style panel floats from the same ⋮ button; Escape dismisses it
+      // and returns focus to its row (the panel's own controls consume the
+      // key first, so this is the fallback for Escape from the row, the map,
+      // or a control that does not handle it).
+      ui.closeStylePanel(true);
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }
@@ -428,14 +437,16 @@ const focusLayerRow = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Double-click on a layer row →focus the map on that layer.
- *  Only dead space on the row counts. Every control on the row is a
- *  denylist hit: two quick toggles / menu clicks / rename edits must not
- *  zoom the map. */
+ *  Only dead space on the row counts: every row control is a denylist hit,
+ *  and presses inside floating panels (style / attributes) are the panel's
+ *  business — two quick toggles / menu clicks / rename edits / label-switch
+ *  flips must not zoom the map. */
 
 const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
+  if (inFloatingPanel(target)) return;
   if (
     target.closest(
       [

@@ -683,7 +683,7 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(mgr as any, opts as any);
 
     // rebuildCentroid() builds layers in order: [0]=centroidDot (CircleMarker,
-    // node pane), [1]=centroidLabel (pane=measure_label),
+    // node pane), [1]=centroidLabel (pane=foliplus-measure-label),
     // [2]=centroidDelMarker (node pane). The dot is an SVG path (CircleMarker),
     // so it lives above the fill by pane z-order (node > graph).
     // The label's offset (CENTROID_Z_OFFSET) keeps it above segment labels

@@ -4,6 +4,40 @@ import * as CONST from "#foliplus/ExportControl/const.js";
 // ===========================================================================
 // Static exported constants (value-only tests, no mocking needed).
 // ===========================================================================
+
+describe("export canvas whitelists", () => {
+  it("reach every canvas overlay that paints map content", () => {
+    // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
+    // so a canvas in neither list vanishes from the export without any error.
+    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the labels,
+    // whose pane the manager creates with map.createPane — a sibling of the
+    // layer's content panes, unreachable from the per-layer walk.
+    const mapPane = document.createElement("div");
+    mapPane.className = "leaflet-map-pane";
+    const layerPane = document.createElement("div");
+    layerPane.className = "foliplus-layer-pane";
+    const vendorCanvas = document.createElement("canvas");
+    vendorCanvas.className = "vendor-overlay";
+    const annotationPane = document.createElement("div");
+    annotationPane.className = "foliplus-annotation-pane";
+    const annotation = document.createElement("canvas");
+    annotation.className = "foliplus-annotation-canvas";
+    layerPane.append(vendorCanvas);
+    annotationPane.append(annotation);
+    mapPane.append(layerPane, annotationPane);
+    document.body.appendChild(mapPane);
+
+    // Pane walk: any canvas a vendor layer mounts in its own pane.
+    expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
+      vendorCanvas,
+    ]);
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
+      annotation,
+    ]);
+    mapPane.remove();
+  });
+});
+
 describe("STORAGE", () => {
   it("derives key from map container id", () => {
     expect(CONST.STORAGE.KEY).toContain("foliplus_export_rect_");

@@ -13,6 +13,7 @@ import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
+import { throttleRaf } from "#common/throttle.js";
 import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
@@ -92,7 +93,7 @@ class MeasureManager {
    *   together instead of one measurement at a time. */
   private collidableLabels: CollidableLabel[] = [];
   /** Deferred re-plan; coalesces bursts of label updates into one pass. */
-  private labelPlanFrame: number | null = null;
+  private readonly scheduleLabelPlan = throttleRaf(() => this.planLabels());
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
   /** Cursor-following coordinate readout, live for the manager's lifetime.
@@ -136,6 +137,10 @@ class MeasureManager {
     this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.store = new MeasureStore(this.map, this.layerId);
+    // Class fields already hold the Python CONF defaults at this point —
+    // snapshot them before any runtime toggle so Reset cannot drift.
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelCollide = this.labelCollide;
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
@@ -146,6 +151,22 @@ class MeasureManager {
       ],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),
+      // The layer style drawer renders these two switches; the component owns
+      // the values (single source — both UIs call the same setters).
+      styleProvider: () => ({
+        labelShow: this.labelShow,
+        labelCollide: this.labelCollide,
+      }),
+      styleSetters: {
+        labelShow: v => this.setLabelsVisible(v === true),
+        labelCollide: v => this.setLabelCollide(v === true),
+      },
+      // Snapshot taken at construction — Reset restores these, never the
+      // live runtime toggles.
+      styleDefaults: () => ({
+        labelShow: defaultLabelShow,
+        labelCollide: defaultLabelCollide,
+      }),
     });
     this.currentMode = null;
     this.modeInstance = null;
@@ -468,10 +489,40 @@ class MeasureManager {
 
   // ── Label collision detection ─────────────────────────────────
 
-  /** True unless collision detection was switched off by the Python config. */
+  /** True unless collision detection was switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelCollide = CONF.label_collide !== false;
+  /** True unless the labels were switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelShow = CONF.label_show !== false;
+
   get labelsCollide(): boolean {
-    return CONF.collide_labels !== false;
+    return this.labelCollide;
   }
+
+  get labelsVisible(): boolean {
+    return this.labelShow;
+  }
+
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
+   *  every chip via the same `visibility` mechanism collision uses, so the two
+   *  never fight over the element. */
+  setLabelsVisible = (visible: boolean): void => {
+    this.labelShow = visible;
+    for (const { marker } of this.collidableLabels) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = visible ? "" : "hidden";
+    }
+    if (visible) this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
+  setLabelCollide = (on: boolean): void => {
+    this.labelCollide = on;
+    this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
 
   /**
    * Register a label chip for collision detection. `priority` says how much
@@ -485,6 +536,12 @@ class MeasureManager {
   registerLabel = (marker: L.Marker, priority: number): (() => void) => {
     const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
     this.bindLabelMapEvents();
     this.scheduleLabelPlan();
 
@@ -499,20 +556,6 @@ class MeasureManager {
       }
     };
   };
-
-  /** Defer a collision re-plan to the next frame so a burst of label updates
-   *  (a drag move, a node delete, a map move) runs one planner pass, not one
-   *  per update. */
-  private scheduleLabelPlan(): void {
-    if (this.labelPlanFrame !== null) return;
-    // Mark in-flight before the rAF call so the guard coalesces even when a
-    // synchronous test stub returns 0 (falsy but not null).
-    this.labelPlanFrame = 1;
-    requestAnimationFrame(() => {
-      this.labelPlanFrame = null;
-      this.planLabels();
-    });
-  }
 
   /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
    *  last plan stale. Bound lazily on the first label, released when the
@@ -632,6 +675,7 @@ class MeasureManager {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
+    this.scheduleLabelPlan.cancel();
     this.clearAll();
     this.hideCoordReadout();
     this.coordReadoutEl?.remove();

@@ -43,14 +43,28 @@ class TestMeasureControlPython:
     def test_custom_show_bearing(self):
         assert MeasureControl(show_bearing=False).show_bearing is False
 
-    def test_default_collide_labels(self):
-        assert MeasureControl().collide_labels is True
+    def test_default_label_show(self):
+        assert MeasureControl().label_show is True
 
-    def test_custom_collide_labels(self):
-        assert MeasureControl(collide_labels=False).collide_labels is False
+    def test_custom_label_show(self):
+        assert MeasureControl(label_show=False).label_show is False
 
-    def test_collide_labels_in_export_fields(self):
-        assert "collide_labels" in MeasureControl._export_fields
+    def test_label_show_in_export_fields(self):
+        assert "label_show" in MeasureControl._export_fields
+
+    def test_label_show_false_renders_false(self):
+        """label_show=False renders false so the JS side hides labels on load."""
+        html = render_control(MeasureControl(label_show=False))
+        assert_config_value(html, "label_show", False)
+
+    def test_default_label_collide(self):
+        assert MeasureControl().label_collide is True
+
+    def test_custom_label_collide(self):
+        assert MeasureControl(label_collide=False).label_collide is False
+
+    def test_label_collide_in_export_fields(self):
+        assert "label_collide" in MeasureControl._export_fields
 
     def test_default_export_format(self):
         assert MeasureControl().export_format == "geojson"
@@ -98,15 +112,15 @@ class TestMeasureControlRendering:
         html = render_control(MeasureControl(show_bearing=False))
         assert_config_value(html, "show_bearing", False)
 
-    def test_collide_labels_default_true(self):
-        """collide_labels defaults to true and renders as a JS boolean."""
+    def test_label_collide_default_true(self):
+        """label_collide defaults to true and renders as a JS boolean."""
         html = render_control(MeasureControl())
-        assert_config_value(html, "collide_labels", True)
+        assert_config_value(html, "label_collide", True)
 
-    def test_collide_labels_false(self):
-        """collide_labels=False renders false and disables collision detection."""
-        html = render_control(MeasureControl(collide_labels=False))
-        assert_config_value(html, "collide_labels", False)
+    def test_label_collide_false(self):
+        """label_collide=False renders false and disables collision detection."""
+        html = render_control(MeasureControl(label_collide=False))
+        assert_config_value(html, "label_collide", False)
 
     def test_custom_position(self):
         html = render_control(MeasureControl(position="topleft"))
@@ -468,7 +482,7 @@ class TestMeasureControlBrowser:
                 f"label pane z wrong (expected graph+2): {state}"
             )
             for phase in ("near", "far"):
-                assert "measure_label-pane" in state[phase]["pane"], (
+                assert "foliplus-measure-label-pane" in state[phase]["pane"], (
                     f"circle preview label is in {state[phase]['pane']} at {phase} radius"
                 )
                 assert int(state[phase]["z"]) == panes["label"], (
@@ -937,7 +951,7 @@ class TestMeasureControlBrowser:
                 const paneName = el => {
                     const pane = el.closest('.leaflet-pane');
                     if (!pane) return null;
-                    const m = pane.className.match(/measure_(\\w+)-pane/);
+                    const m = pane.className.match(/foliplus-measure-(\\w+)-pane/);
                     return m ? m[1] : null;
                 };
                 const dotZ = paneZ(dot);

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 import folium
 from conftest import (
     _js,
+    assert_config_value,
     assert_locale,
     make_browser_page,
     panel_ready,
@@ -37,6 +39,15 @@ class TestLayerControlPython:
 
     def test_default_locale(self):
         assert LayerControl()._locale_code == ""
+
+    def test_default_label_collide(self):
+        assert LayerControl().label_collide is True
+
+    def test_custom_label_collide(self):
+        assert LayerControl(label_collide=False).label_collide is False
+
+    def test_label_collide_in_export_fields(self):
+        assert "label_collide" in LayerControl._export_fields
 
     def test_custom_locale(self):
         assert LayerControl(locale="zh")._locale_code == "zh"
@@ -131,7 +142,7 @@ class TestLayerControlRendering:
 
         html = render_control(LayerControl())
         assert "FOLD" in html
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "rotate(180deg)" in css
 
     def test_locale_zh(self):
@@ -141,6 +152,16 @@ class TestLayerControlRendering:
     def test_position_renders(self):
         html = render_control(LayerControl(position="bottomright"))
         assert "bottomright" in html
+
+    def test_label_collide_default_true(self):
+        """label_collide defaults to true and renders as a JS boolean."""
+        html = render_control(LayerControl())
+        assert_config_value(html, "label_collide", True)
+
+    def test_label_collide_false(self):
+        """label_collide=False renders false and disables collision detection."""
+        html = render_control(LayerControl(label_collide=False))
+        assert_config_value(html, "label_collide", False)
 
     def test_multiple_base_layers(self):
         """Multiple base layers are all collected by render()."""
@@ -231,6 +252,38 @@ class TestLayerControlRendering:
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
 
+    def test_annotation_locale_keys(self):
+        """Style-panel locale keys exist in both en and zh.
+
+        The container (``style_*``) and the annotation-only dimension
+        (``style_label_field`` / ``_no_data``) stay component-scoped. The shared
+        label vocabulary (color/size/format/collide) moved to the common table,
+        rendered by ``core/labelControl.ts`` for this drawer and the heatmap
+        panel alike — ``test_locale.py`` covers that cross-table key set.
+        """
+        root = Path(__file__).resolve().parent.parent.parent
+        required = {
+            "style_layer",
+            "style_layer_tooltip",
+            "style_label_field",
+            "style_label_field_auto",
+            "style_label_no_data",
+            "style_reset",
+        }
+        for lang in ("en", "zh"):
+            data = json.loads(
+                (root / "foliplus" / "locale" / f"LayerControl.{lang}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            keys = {
+                k.split(".")[-1] for k in data.keys() if k.startswith("LayerControl.")
+            }
+            missing = required - keys
+            assert not missing, (
+                f"LayerControl.{lang} missing style-panel keys: {missing}"
+            )
+
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """click handler on color-layer-item present in rendered code."""
         html = render_control(LayerControl())
@@ -275,7 +328,7 @@ class TestLayerControlRendering:
 
     def test_layer_item_6_column_grid(self, base_map: folium.Map):
         """Layer item uses 6-column grid-template-areas with all six slots."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert '"drag check label count icon more"' in css
 
     def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
@@ -295,23 +348,23 @@ class TestLayerControlRendering:
 
     def test_more_button_grid_area(self):
         """More button is placed in the 'more' grid area."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-layer-more-btn" in css
         assert "grid-area: more" in css
 
     def test_drag_cell_grid_area(self):
         """Drag cell is placed in the 'drag' grid area."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "grid-area: drag" in css
 
     def test_count_column_5_char_cap(self):
         """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "38px" in css
 
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # type-icon-col width/height use the checkbox square (--space-xl = 16px),
         # not the old 14px/18px icon-size tokens.
         idx = css.find(".foliplus-type-icon-col {")
@@ -325,7 +378,7 @@ class TestLayerControlRendering:
         """More grid column and button both use --more-btn-width (7px),
         and the count column uses --count-track-width; both keep the track and
         each element's own width synchronised without magic numbers."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Named dimension vars are defined once
         assert "--count-track-width: 38px" in css
         assert "--more-btn-width: 7px" in css
@@ -374,7 +427,7 @@ class TestLayerControlRendering:
         onto the class by the focusin delegate. Only colour changes; the type
         icon must NOT scale."""
         html = render_control(LayerControl())
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Color layer picker (via :is() selector, no literal :hover string)
         assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
@@ -536,7 +589,7 @@ class TestLayerControlRendering:
 
     def test_folded_state_no_accent_text(self):
         """Folded label keeps neutral color; only left border and fold-btn use accent."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # left border and fold-btn turn accent when folded — both expected
         assert "foliplus-layer-folded" in css
         assert "border-left-color: var(--accent-primary)" in css
@@ -548,7 +601,7 @@ class TestLayerControlRendering:
     def test_toggle_all_grid_uses_named_slots_for_three_items(self):
         """Toggle-all row names only drag/check/label slots; divider is
         anonymous (dual-declaration trap removed)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # The toggle-all container's template-areas carries exactly the
         # three named slots (drag/check/label) plus three anonymous dots.
         lines = [l.strip() for l in css.splitlines() if "grid-template-areas" in l]
@@ -568,7 +621,7 @@ class TestLayerControlRendering:
         """Divider is placed by grid-column: 4 / -1 (explicit range), not
         grid-area or grid-column: span — so it never overflows to a new row
         when anonymous slots change count."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the .foliplus-section-divider rule nested under toggle-all.
         idx = css.find(".foliplus-section-divider {")
         assert idx != -1, "no .foliplus-section-divider { rule found"
@@ -586,7 +639,7 @@ class TestLayerControlRendering:
         start (4) = label slot + 1; end (-1) = last column. So the range
         never overflows past the last track, which would push the divider
         to a new row."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
         #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
         idx = css.find("--grid-layer-cols:")
@@ -618,7 +671,7 @@ class TestLayerControlRendering:
     def test_toggle_all_align_self_center_removed(self):
         """Divider no longer declares a redundant align-self: center — the
         row already aligns items to center via align-items: center."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         idx = css.find(".foliplus-section-divider {")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
@@ -626,7 +679,7 @@ class TestLayerControlRendering:
 
     def test_toggle_all_label_semibold_primary(self):
         """Section header label is semibold and text-primary so it reads as a real header."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
         assert "font-weight: var(--font-weight-semibold)" in css
         assert "color: var(--text-primary)" in css
@@ -635,7 +688,7 @@ class TestLayerControlRendering:
         """Toggle-all row joins the shared Row-cursor recipe: hover uses
         accent-primary (not accent-light) and the fold row cannot drift into a
         private hover style anymore."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         assert "is(:hover, .foliplus-layer-focused)" in css
         assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
@@ -643,9 +696,33 @@ class TestLayerControlRendering:
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
 
+    def test_open_overlay_lifts_owner_row_above_sibling_wake(self):
+        """While a row overlay is open the owner row is lifted to the floating
+        index, so no sibling hover wake can paint over the menu or a row
+        panel. A fixed overlay z-index is not enough: opening a menu focuses
+        its first item, so the focusin delegate marks the OWNER row
+        `.foliplus-layer-focused`; the recipe then gives the owner a z-index
+        1 stacking context that confines the overlay, and a later lit
+        sibling paints over it (measured in the browser). Lifting the owner
+        carries the overlay with it and settles every stacking combination.
+        Sibling rows keep their normal hover wake; that is their own state
+        display."""
+        css = read_css("foliplus/css/LayerControl/index.css")
+        overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
+        assert f"&:has({overlay_list})" in css, (
+            "the lift must key on the more-menu AND the row-panel shell"
+        )
+        assert ".foliplus-layer-item:has(" in css, (
+            "the owner row (the row containing the open overlay) is raised"
+        )
+        assert "z-index: var(--z-index-floating)" in css
+        # The ⋮ dropdown anchors flush to its row (the shared shell adds a 2px
+        # margin-top that would open a sliver of list under the cursor path).
+        assert "margin-top: 0" in css
+
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the rule that targets fold-btn itself (not fold-btn svg)
         # by searching for the closing of the selector without "svg" on the same segment
         match = re.search(
@@ -657,13 +734,80 @@ class TestLayerControlRendering:
 
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the group is folded."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
+    def test_shared_section_heading_in_form_css(self):
+        """Shared section heading lives in form.css (Heatmap + style panel)."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" in css
+        assert "text-transform: uppercase" in css
+        assert "letter-spacing: var(--letter-spacing-tight)" in css
+
+    def test_opacity_control_css(self):
+        """Opacity control: checkerboard + accent fill track, ringed thumb."""
+        css = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-style-opacity-control" in css
+        assert ".foliplus-style-opacity-range" in css
+        # The number field reuses the shared chrome instead of its own recipe,
+        # so the row matches the heatmap border row exactly.
+        assert ".foliplus-style-opacity-number" not in css
+        assert ".foliplus-form-number-input" in css
+        # Checkerboard + accent fill on both engine track prefixes.
+        assert "repeating-conic-gradient" in css
+        assert "var(--opacity-fill" in css
+        assert "::-webkit-slider-runnable-track" in css
+        assert "::-moz-range-track" in css
+        # Bar and thumb geometry are declared once and derived from each other:
+        # the bar is slimmer than the --ctrl-size row so it reads as a level,
+        # the thumb is proud of it so it reads as a handle, and the webkit
+        # centring margin is computed from the two rather than hand-tuned.
+        assert "--opacity-track-height: 14px" in css
+        assert "--opacity-thumb-size: 20px" in css
+        assert "height: var(--opacity-track-height)" in css
+        assert "width: var(--opacity-thumb-size)" in css
+        assert "margin-top: calc(" in css
+        # The two geometry tokens live on the range rule itself, not on the
+        # wrapper: a declaration that consumes them for a missing custom
+        # property is dropped at computed-value time, so a slider used without
+        # the wrapper would quietly fall back to a hairline track.
+        range_block = css[
+            css.index(".foliplus-style-opacity-range {") : css.index(
+                "}", css.index(".foliplus-style-opacity-range {")
+            )
+        ]
+        assert "--opacity-track-height" in range_block
+        assert "--opacity-thumb-size" in range_block
+        # Thumb: accent ring on a white core, lifted like the panel's toggle
+        # knob so both hand-held controls in a row read alike.
+        assert "border: var(--border-thick) solid var(--accent-primary)" in css
+        assert "background: var(--neutral-0)" in css
+        assert "box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30))" in css
+        assert "::-webkit-slider-thumb" in css
+        assert "::-moz-range-thumb" in css
+        # Grab affordance and the hover lift, on both engines.
+        assert "cursor: grab" in css
+        assert "cursor: grabbing" in css
+        assert ".foliplus-style-opacity-range:hover::-webkit-slider-thumb" in css
+        assert ".foliplus-style-opacity-range:hover::-moz-range-thumb" in css
+        assert "transform: scale(var(--scale-hover))" in css
+        # Focus ring on the range, matching every other foliplus control.
+        assert ".foliplus-style-opacity-range:focus-visible" in css
+        assert "box-shadow: var(--focus-ring)" in css
+        # The slider shares the shared inline cell, next to the number field.
+        assert ".foliplus-style-opacity-control .foliplus-style-opacity-range" in css
+
+    def test_style_panel_locale_keys_present(self):
+        """Opacity / section keys are injected into the LayerControl bundle."""
+        html = render_control(LayerControl())
+        assert "LayerControl.section_label" in html
+        assert "LayerControl.section_layer" in html
+        assert "LayerControl.style_opacity" in html
+
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "&:hover" in css
         assert "color: var(--accent-primary)" in css
@@ -675,7 +819,7 @@ class TestLayerControlRendering:
         identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
         the focusin delegate maps it onto the same JS class.
         """
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         wake = "is(:hover, .foliplus-layer-focused)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
@@ -687,7 +831,7 @@ class TestLayerControlRendering:
 
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         # Find the base fold-btn rule (not the folded or hover variants)
         idx = css.find(".foliplus-layer-fold-btn {")
         assert idx != -1
@@ -703,7 +847,7 @@ class TestLayerControlRendering:
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "svg {" in css
         assert "fill: none" in css
@@ -711,7 +855,7 @@ class TestLayerControlRendering:
     def test_drag_handle_block_and_size(self):
         """drag-handle is a block sized to the checkbox so its dot grip centers
         with the other row glyphs; no bold stroke (dots match MORE at 3px)."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ".drag-handle" in css
         assert "display: block" in css
         assert "width: var(--space-xl)" in css
@@ -726,7 +870,7 @@ class TestLayerControlRendering:
 
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "@keyframes foliplus-drag-pulse" in css
         assert "var(--drag-border-from" in css
         assert "var(--drag-border-to" in css
@@ -735,7 +879,7 @@ class TestLayerControlRendering:
 
     def test_drag_over_css_variables(self):
         """Drag-over drop indicators use CSS custom properties for all parameters."""
-        css = read_css("foliplus/css/LayerControl.css")
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert "--drag-border-width" in css
         assert "--drag-top-shadow" in css
         assert "--drag-bottom-shadow" in css
@@ -747,8 +891,8 @@ class TestLayerControlRendering:
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
         # Only LayerControl renders this checkbox (CONST.CLASSES.CHECKBOX), so
-        # the component is not shared and the rule stays in LayerControl.css.
-        css = read_css("foliplus/css/LayerControl.css")
+        # the component is not shared and the rule stays in its own stylesheet.
+        css = read_css("foliplus/css/LayerControl/index.css")
         assert ":indeterminate" in css
         assert ":indeterminate::after" in css
         # Should use a dash/minus icon (not a checkmark)
@@ -770,7 +914,7 @@ class TestLayerControlRendering:
         drag-over, :focus-visible)."""
         by_source = [
             (
-                "foliplus/css/LayerControl.css",
+                "foliplus/css/LayerControl/index.css",
                 [
                     (
                         'input[type="checkbox"]',
@@ -1128,6 +1272,135 @@ class TestLayerControlBrowser:
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
 
+    def test_annotation_canvas_draws(self, browser, tmp_path):
+        """Enabling labels draws text onto the shared annotation canvas."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["opaque"] > 0, "canvas has no drawn pixels"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_overlap_hides(self, browser, tmp_path):
+        """Two labels whose halo-inclusive boxes overlap collapse to the first."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_overlap_hides"))
+            assert result is not None, "annotation manager or LayerAPI not found"
+            assert result["canvas"] is True, f"canvas not created: {result}"
+            assert result["aOpaque"] > 0, "first (kept) label was not drawn"
+            assert result["bOpaque"] == 0, "second (hidden) label was drawn"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_click_through(self, browser, tmp_path):
+        """The canvas ignores pointer events so clicks land on the map/feature."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            result = page.evaluate(_js("LayerControl/annotation_click_through"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["pointerEvents"] == "none", result
+            assert result["hitIsCanvas"] is False, (
+                "annotation canvas intercepted the click"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_stays_put_on_pan(self, browser, tmp_path):
+        """Panning must not drift the labels: the canvas cancels mapPane's move."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_pan_stable"))
+            assert result is not None and result["canvas"] is True, result
+            assert result["beforeLeft"] == result["afterLeft"], result
+            assert result["beforeTop"] == result["afterTop"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_labels_follow_layer_visibility(self, browser, tmp_path):
+        """Hiding a layer drops its labels; showing it brings them back."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_hidden_layer"))
+            assert result is not None, result
+            assert result["before"] > 0, result
+            assert result["hidden"] == 0, result
+            assert result["shown"] > 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
+        """Each labelled layer gets its own canvas pane, z-ordered with its layer."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
+            assert result is not None and result["canvas"] is True, result
+            # One pane + one canvas per labelled layer — not a shared canvas.
+            assert result["canvasCount"] == 2, result
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] > 0, result
+            # Layer B is above layer A in the panel (createLayers prepends), so
+            # its z is higher.
+            assert result["layerB"] > result["layerA"], result
+            # Each label pane rides one z-step above its own layer, so the
+            # upper layer's labels cover the lower layer's — the stack order.
+            assert result["annB"] == result["layerB"] + 1, result
+            assert result["annA"] == result["layerA"] + 1, result
+            assert result["annB"] > result["annA"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_focus_lifts_label_pane(self, browser, tmp_path):
+        """Focusing a layer raises its label pane and draws only its labels."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/annotation_focus_lifts_pane"))
+            assert result is not None and result["row"] is True, result
+            # Focus lifts the focused layer's label pane to focusedZ + 1
+            # (FOCUS.PANE_Z 9000 − FOCUSED_Z_GAP 10 + 1).
+            assert result["after"]["annA"] == 8991, result
+            # The unfocused layer's pane stays where it was.
+            assert result["after"]["annB"] == result["before"]["annB"], result
+            # The focus filter plans the spotlighted layer only.
+            assert result["opaqueA"] > 0, result
+            assert result["opaqueB"] == 0, result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_opacity_pane_versus_features(self, browser, tmp_path):
+        """One pane write per layer, and never onto a pane that is shared.
+
+        After the ordering pass every overlay layer — a plain folium one
+        included — owns a pane and has its content migrated into it, so the
+        opacity is a single style write instead of a sweep over the features.
+        The neighbour is the control: it is a different layer in a different
+        pane and must be untouched.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/opacity_pane_isolation"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            # Plain layer: its own pane carries the opacity...
+            assert result["plainOpened"] is True, result
+            assert result["plainPaneShared"] is False, result
+            assert result["plainPaneBefore"] in ("", "1"), result
+            assert result["plainPaneAfter"] == "0.4", result
+            assert result["plainRegistryOpacity"] == 0.4, result
+            # ...and the features keep their own style (no per-feature sweep).
+            assert result["plainLeafOpacity"], result
+            assert all(v == 1 for v in result["plainLeafOpacity"]), result
+            # The neighbour is a different layer in a different pane.
+            assert result["plainNeighbourSamePane"] is False, result
+            assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
+            assert result["plainNeighbourLeafOpacity"], result
+            assert all(v == 1 for v in result["plainNeighbourLeafOpacity"]), result
+
+            # Managed layer: its declared panes carry it, one write each.
+            assert result["managedOpened"] is True, result
+            assert result["managedGraphPaneShared"] is False, result
+            assert result["managedGraphPaneOpacity"] == "0.4", result
+            assert result["managedNodePaneOpacity"] == "0.4", result
+            assert result["managedPolylineOpacity"] == 1, result
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -1150,9 +1423,16 @@ class TestLayerControlBrowser:
             assert api["hasSetVisible"]
             assert api["hasGetSize"]
             assert api["canvasTag"] == "CANVAS"
+            assert api["canvasClass"], "canvas should carry foliplus-canvas-layer"
+            assert api["parentIsPane"], "canvas should live in a foliplus-layer-pane"
+            assert api["paneRegistered"], "canvas pane should be on the map"
 
     def test_canvas_register_unregister(self, browser, tmp_path):
-        """Canvas register() creates a layer item; unregister() removes it."""
+        """Canvas register() creates a layer item; unregister() removes it.
+
+        Also asserts the pane model: canvas mounts in its own pane, setZIndex
+        writes the pane, and only destroy() drops the pane from the map.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
             assert result is not None
@@ -1160,6 +1440,14 @@ class TestLayerControlBrowser:
             assert not result["hasItemAfter"], (
                 "Canvas layer item should be removed after unregister"
             )
+            assert result["inPane"], "canvas pane should have foliplus-layer-pane"
+            assert result["canvasParent"], "canvas parent should be the dedicated pane"
+            assert result["paneZ"] == "640", "setZIndex should write the pane style"
+            assert result["registeredPaneName"] == "foliplus-canvas-__test_canvas_reg__"
+            assert result["paneAfterUnregister"], (
+                "unregister keeps the pane for re-register"
+            )
+            assert not result["paneAfterDestroy"], "destroy drops the pane"
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """migrateLayers moves Markers to per-layer panes."""
@@ -2112,7 +2400,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/onToggle/onZIndex/name/isBase) fall back to
+        (layer/paneName/iconSvg/onToggle/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -2134,7 +2422,6 @@ class TestLayerControlBrowser:
                 # partial re-register.
                 assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
                 assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
-                assert r["hasOnZIndex"] is True, f"{phase}: onZIndex lost"
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
@@ -2443,7 +2730,7 @@ class TestLayerControlBrowser:
         migrateLayers must skip container nodes when writing pane options.
         The container's own pane stays whatever registerLayer assigned
         (paneName), and must NOT be overwritten with a fallback
-        `foliplus_pane_*` name during migration.
+        `foliplus-pane-*` name during migration.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))
@@ -3509,3 +3796,440 @@ class TestLayerControlBrowser:
             assert page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
             ), "panel stayed expanded after clicking outside"
+
+    def test_row_overlay_stays_visible_over_lit_siblings(self, browser, tmp_path):
+        """Sibling rows keep their hover wake while a row overlay is open —
+        that is their own state display and the overlay is the pointer's
+        destination, not a modal. The guarantee is the overlay staying
+        visible: the owner row is lifted to the floating index (the
+        overlay's z-index is confined to the owner's stacking context
+        whenever the owner is hovered), so no lit sibling can paint over it.
+        Probes both the ⋮ menu and the attrs panel: hovering a sibling
+        LIGHTS it, and the point at the overlay's centre still resolves to
+        the overlay itself."""
+        layers = [
+            folium.FeatureGroup(name=f"Overlay {i}", overlay=True, show=True)
+            for i in range(3)
+        ]
+        with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            panel_ready(page)
+            page.mouse.move(5, 400)  # pointer off the panel
+
+            ROW = ".foliplus-layer-item[data-layer-type=overlay]"
+
+            def row_wake(idx):
+                # The Row-cursor wake of a sibling row: glow + drag grip.
+                # Nothing may suppress it — it is the row's own state display.
+                return page.evaluate(
+                    "idx => { const r = document.querySelectorAll('" + ROW + "')[idx];"
+                    " if (!r) return null;"
+                    " const cs = getComputedStyle(r);"
+                    " const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
+                    " return { glow: cs.boxShadow !== 'none',"
+                    "  grip: g ? getComputedStyle(g).opacity : null }; }",
+                    idx,
+                )
+
+            def overlay_topmost(sel):
+                # The point at the overlay's centre must resolve to the overlay
+                # itself — a lit sibling would otherwise paint over it.
+                return page.evaluate(
+                    "sel => { const el = document.querySelector(sel);"
+                    " if (!el) return null;"
+                    " const r = el.getBoundingClientRect();"
+                    " const hit = document.elementFromPoint("
+                    "   r.left + r.width / 2, r.top + r.height / 2);"
+                    " return hit ? !!hit.closest(sel) : null; }",
+                    sel,
+                )
+
+            def open_more_on_first_row():
+                page.evaluate(
+                    "() => document.querySelectorAll('"
+                    + ROW
+                    + " .foliplus-layer-more-btn')[0].click()"
+                )
+                page.wait_for_selector(
+                    ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+                )
+
+            # ── ⋮ menu open: a hovering sibling wakes, the menu stays topmost ──
+            open_more_on_first_row()
+            page.hover(":nth-match(" + ROW + ", 2)")
+            page.wait_for_function(
+                "() => getComputedStyle("
+                "  document.querySelectorAll('"
+                + ROW
+                + " .foliplus-drag-cell .drag-handle')[1]"
+                ").opacity === '1'",
+                timeout=2000,
+            )
+            assert page.is_visible(".foliplus-layer-more-menu.open")
+            wake = row_wake(1)
+            assert wake["glow"] is True, (
+                "a sibling hover must keep its wake under an open overlay, got "
+                + str(wake)
+            )
+            assert overlay_topmost(".foliplus-layer-more-menu") is True, (
+                "the open menu must stay above a lit sibling (owner lifted)"
+            )
+
+            # The owner anchor: the menu is the row's descendant, so the row
+            # that owns it stays lit while the pointer is on the menu.
+            page.hover(".foliplus-layer-more-menu.open li")
+            page.wait_for_timeout(250)
+            assert page.evaluate(
+                "() => { const r = document.querySelector("
+                "  '.foliplus-layer-item:has(.foliplus-layer-more-menu.open)');"
+                " return r ? getComputedStyle(r).boxShadow !== 'none' : null; }"
+            ), "the row owning the open menu must stay lit while hovering it"
+
+            # ── attrs panel open: same contract ──
+            # Escape closes the menu without collapsing the panel (a click
+            # outside the panel would — bindOutsideCollapse).
+            page.keyboard.press("Escape")
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="detached", timeout=5000
+            )
+            page.mouse.move(5, 400)
+            open_more_on_first_row()
+            page.evaluate(
+                "() => document.querySelector("
+                "  '.foliplus-layer-more-menu li[data-action=layer-attributes]'"
+                ").click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-attrs-panel", state="attached", timeout=5000
+            )
+            # The 280px attrs card fully covers the rows below the owner, so
+            # the wake probe uses the toggle-all header above it instead.
+            SEP = ".foliplus-layer-sep.foliplus-layer-toggle-all"
+            page.hover(SEP)
+            page.wait_for_function(
+                "() => { const r = document.querySelector('" + SEP + "');"
+                " return getComputedStyle(r).boxShadow !== 'none'; }",
+                timeout=2000,
+            )
+            assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
+                "the open attrs panel must stay above a lit sibling"
+            )
+
+
+# ── R1 pane-surface probe (§10.3) ──────────────────────────────────────
+#
+# Test-only suite: measures the four facts the LayerSurface refactor (R3+)
+# relies on, against the real Leaflet/folium DOM. No product code is
+# changed here. Each method locks in a *measured* behavior so a later
+# Leaflet/folium/plugin upgrade that invalidates a design assumption
+# surfaces as a test failure instead of a silent regression.
+#
+# The four facts per probe:
+#   1. where the content actually lives (pane name; shared or per-layer)
+#   2. whether CSS opacity written to that pane reaches the content
+#   3. whether DOM created at runtime inherits the same pane
+#   4. whether the layer's native setter is effective immediately
+#
+# `probe_pane_facts.js` is the shared harness; the other `probe_*.js`
+# snippets cover cases the harness cannot (heat canvas, cluster icon,
+# color basemap, mixed renderer, tile maxZoom refresh).
+
+_GEO_MIXED = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
+        },
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[119.29, 26.07], [119.31, 26.09]],
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [119.28, 26.06],
+                        [119.32, 26.06],
+                        [119.32, 26.10],
+                        [119.28, 26.10],
+                        [119.28, 26.06],
+                    ]
+                ],
+            },
+        },
+    ],
+}
+
+_TINY_PNG = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+
+
+class TestLayerPaneProbeBrowser:
+    """R1 probe — measured pane-surface facts (§10.3 ten-item checklist)."""
+
+    @staticmethod
+    def _probe(browser, tmp_path, *layers, slug="probe"):
+        """Render a default folium map (OSM base → finite maxZoom, so
+        MarkerCluster initializes) with LayerControl + *layers, exposing
+        ``window.__layerCtrl`` for the probe snippets."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        for layer in layers:
+            layer.add_to(m)
+        html = m.get_root().render()
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    @staticmethod
+    def _facts(page, spec: dict) -> dict:
+        page.evaluate(f"window.__probe = {json.dumps(spec)}")
+        return page.evaluate(_js("LayerControl/probe_pane_facts"))
+
+    # ── overlay / plugin probes (§10.3 #1–#6) ──────────────────────
+
+    def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
+        """#1 GeoJson: point→marker, line/polygon→path, all in one pane."""
+        geo = folium.GeoJson(_GEO_MIXED, name="Probe GeoJson")
+        with use_page(self._probe, browser, tmp_path, geo, slug="p1") as (page, _):
+            r = self._facts(
+                page,
+                {
+                    "id": geo.get_name(),
+                    "add": "geojson-addpoint",
+                    "native": "path-setstyle",
+                },
+            )
+        assert r["homes"], "GeoJson leaves should have DOM elements"
+        assert all(h["pane"].startswith("foliplus-pane-") for h in r["homes"])
+        assert not any(h["shared"] for h in r["homes"])
+        assert r["css"]["reached"] and not r["css"]["shared"]
+        assert r["runtime"]["reached"] and not r["runtime"]["shared"]
+        assert r["native"]["attr"] == "0.4"  # setStyle immediate on paths
+
+    def test_probe_standalone_marker_unregistered(self, browser, tmp_path):
+        """#2 folium.Marker (+ Icon): not a folium Layer, so never registered
+        — its divIcon stays in the shared markerPane; setOpacity is the
+        only per-marker lever."""
+        m1 = folium.Marker([26.08, 119.30], name="M1", icon=folium.Icon(color="red"))
+        m2 = folium.Marker(
+            [26.06, 119.28],
+            name="M2",
+            icon=folium.Icon(color="blue", icon="info-sign", prefix="fa"),
+        )
+        with use_page(self._probe, browser, tmp_path, m1, m2, slug="p2") as (
+            page,
+            _,
+        ):
+            r1 = self._facts(
+                page, {"layerVar": m1.get_name(), "native": "marker-setopacity"}
+            )
+            r2 = self._facts(page, {"layerVar": m2.get_name()})
+        for r in (r1, r2):
+            assert r["homes"][0]["pane"] == "markerPane"
+            assert r["homes"][0]["shared"] is True
+            assert r["css"]["shared"] is True  # would fade every marker
+        assert r1["native"]["eff"] == 0.4  # setOpacity immediate
+
+    def test_probe_marker_cluster_leaves(self, browser, tmp_path):
+        """#3 MarkerCluster: individual marker icons migrate to a per-layer
+        pane; runtime-added markers inherit it (after enforceOrder)."""
+        from folium.plugins import MarkerCluster
+
+        mc = MarkerCluster(name="Probe Cluster")
+        for lat, lng in ([26.10, 119.25], [26.12, 119.27], [26.14, 119.29]):
+            folium.Marker([lat, lng], name="c").add_to(mc)
+        with use_page(self._probe, browser, tmp_path, mc, slug="p3") as (page, _):
+            r = self._facts(page, {"id": mc.get_name(), "add": "cluster-addmarker"})
+        assert r["homes"][0]["pane"].startswith("foliplus-pane-")
+        assert not r["homes"][0]["shared"]
+        assert r["css"]["reached"] and not r["css"]["shared"]
+        assert r["runtime"]["reached"] and not r["runtime"]["shared"]
+
+    def test_probe_marker_cluster_icon_shared(self, browser, tmp_path):
+        """#3 (cluster icon): the ``.marker-cluster`` icon is NOT reached by
+        migrateLayers' eachLayer recursion, so it stays in markerPane."""
+        from folium.plugins import MarkerCluster
+
+        mc = MarkerCluster(name="Probe Cluster")
+        # Two markers at the same spot force a cluster icon at any zoom.
+        folium.Marker([26.10, 119.25], name="a").add_to(mc)
+        folium.Marker([26.10, 119.25], name="b").add_to(mc)
+        with use_page(self._probe, browser, tmp_path, mc, slug="p3icon") as (
+            page,
+            _,
+        ):
+            r = page.evaluate(_js("LayerControl/probe_cluster_icon"))
+        assert r["iconCount"] >= 1
+        assert r["iconPanes"] and all(p == "markerPane" for p in r["iconPanes"])
+
+    def test_probe_heat_canvas_overlay_pane(self, browser, tmp_path):
+        """#4 HeatMap: leaflet-heat appends its canvas to overlayPane; the
+        fallback pane enforceOrder assigns is never moved into, so a
+        per-layer pane carrier does NOT reach it today (shared pane)."""
+        from folium.plugins import HeatMap
+
+        heat = HeatMap([[26.08, 119.30, 1.0]], name="Probe Heat")
+        with use_page(self._probe, browser, tmp_path, heat, slug="p4") as (
+            page,
+            _,
+        ):
+            page.evaluate(f"window.__probe = {json.dumps({'id': heat.get_name()})}")
+            r = page.evaluate(_js("LayerControl/probe_heat_canvas"))
+        assert r["found"] is True
+        assert r["pane"] == "overlayPane"
+        assert r["shared"] is True
+        assert r["reached"] is True  # via the shared overlayPane only
+        assert r["setOptions"] == "function"  # minOpacity settable at runtime
+
+    def test_probe_image_overlay_overlay_pane(self, browser, tmp_path):
+        """#5 ImageOverlay: ``<img>`` stays in overlayPane (migrateLayers
+        only moves Path elements + Marker icons); setOpacity is immediate."""
+        from folium.raster_layers import ImageOverlay
+
+        img = ImageOverlay(_TINY_PNG, [[26.0, 119.2], [26.2, 119.4]], name="Img")
+        with use_page(self._probe, browser, tmp_path, img, slug="p5") as (
+            page,
+            _,
+        ):
+            r = self._facts(page, {"id": img.get_name(), "native": "img-setopacity"})
+        assert r["homes"][0]["pane"] == "overlayPane"
+        assert r["homes"][0]["shared"] is True
+        assert r["css"]["shared"] is True  # would fade all overlay content
+        assert r["native"]["eff"] == 0.4  # setOpacity immediate on the <img>
+
+    def test_probe_third_party_featuregroup_unregistered(self, browser, tmp_path):
+        """#6 A third-party L.FeatureGroup added directly (no styleSetters,
+        not registered) splits across overlayPane/markerPane — both shared."""
+        with use_page(self._probe, browser, tmp_path, slug="p6a") as (page, _):
+            r = self._facts(page, {"build": "featuregroup"})
+        panes = {h["pane"] for h in r["homes"]}
+        assert "overlayPane" in panes and "markerPane" in panes
+        assert all(h["shared"] for h in r["homes"])
+
+    def test_probe_third_party_featuregroup_registered(self, browser, tmp_path):
+        """#6 (registered via LayerAPI): everything migrates into a
+        per-layer fallback pane; runtime-added markers inherit it. This is
+        the C-tier contract — register to get the pane carrier."""
+        with use_page(self._probe, browser, tmp_path, slug="p6b") as (page, _):
+            page.evaluate(
+                """() => {
+                  const api = window.map.foliplus.LayerAPI;
+                  const fg = L.featureGroup([
+                    L.polygon([[26.30, 119.20], [26.34, 119.20], [26.32, 119.25]]),
+                    L.marker([26.33, 119.23]),
+                  ]);
+                  fg.addTo(window.map);
+                  api.registerLayer({ id: '__tp_fg__', name: 'TP FG', layer: fg });
+                  return true;
+                }"""
+            )
+            r = self._facts(page, {"id": "__tp_fg__", "add": "group-addmarker"})
+        assert all(h["pane"].startswith("foliplus-pane-") for h in r["homes"])
+        assert not any(h["shared"] for h in r["homes"])
+        assert r["css"]["reached"] and not r["css"]["shared"]
+        assert r["runtime"]["reached"] and not r["runtime"]["shared"]
+
+    # ── base + mixed renderer probes (§10.3 #7–#10) ────────────────
+
+    def test_probe_two_tilelayers_native_opacity(self, browser, tmp_path):
+        """#7 Two TileLayers share tilePane; setOpacity on one container
+        leaves the sibling opaque — direct evidence for "底图走原生 setOpacity,
+        永不用 pane 载体"."""
+        t1 = folium.TileLayer("OpenStreetMap", name="Probe OSM")
+        t2 = folium.TileLayer("CartoDB positron", name="Probe Carto")
+        with use_page(self._probe, browser, tmp_path, t1, t2, slug="p7") as (
+            page,
+            _,
+        ):
+            r = self._facts(page, {"id": t1.get_name(), "native": "tile-setopacity"})
+            sibling = page.evaluate(
+                """([idA, idB]) => {
+                  const m = window.__layerCtrl.m;
+                  const a = m.findLayer(m.layers.find(l => l.id === idA));
+                  const b = m.findLayer(m.layers.find(l => l.id === idB));
+                  a.setOpacity(0.4);
+                  const effA = getComputedStyle(a._container).opacity;
+                  const effB = getComputedStyle(b._container).opacity;
+                  a.setOpacity(1);
+                  return { effA, effB };
+                }""",
+                [t1.get_name(), t2.get_name()],
+            )
+        assert r["native"]["eff"] == 0.4
+        assert sibling["effA"] == "0.4" and sibling["effB"] == "1"
+
+    def test_probe_tile_maxzoom_needs_refresh(self, browser, tmp_path):
+        """#8 options.maxZoom change does NOT take effect immediately nor via
+        ``_updateLevels()`` alone; only ``_resetView()``/``redraw()`` clears
+        the now-out-of-range tiles. R8's native path must call redraw."""
+        t1 = folium.TileLayer("OpenStreetMap", name="Probe OSM")
+        with use_page(self._probe, browser, tmp_path, t1, slug="p8") as (
+            page,
+            _,
+        ):
+            page.evaluate(f"window.__probe = {json.dumps({'id': t1.get_name()})}")
+            r = page.evaluate(_js("LayerControl/probe_tile_maxzoom"))
+        assert r["before"] > 0
+        assert r["afterSet"] == r["before"]  # no immediate effect
+        assert r["afterLevels"] == r["before"]  # _updateLevels alone insufficient
+        assert r["afterReset"] == 0  # redraw clears out-of-range tiles
+
+    def test_probe_color_basemap_no_pane(self, browser, tmp_path):
+        """#9 Solid-color basemap has NO pane/element today — it is the map
+        container's CSS background via ``--color-layer-bg`` plus a
+        visibility-hidden tilePane. Five ad-hoc state spots; R8 promotes it
+        to a surface."""
+        with use_page(
+            self._probe,
+            browser,
+            tmp_path,
+            folium.TileLayer("OpenStreetMap", name="Probe OSM"),
+            slug="p9",
+        ) as (page, _):
+            r = page.evaluate(_js("LayerControl/probe_color_basemap"))
+        assert r["itemFound"] is True
+        assert r["containerActive"] is True
+        assert r["cssVar"] == "#3366cc"
+        assert r["containerBg"].startswith("rgb(51,")
+        assert r["tileHidden"] is True
+        assert r["tileVisibility"] == "hidden"
+        # No foliplus-owned pane carries the color — only the tile-hidden
+        # modifier on tilePane.
+        assert all("tile-hidden" in c for c in r["foliplusPanes"])
+
+    def test_probe_mixed_renderer_pane_consistent(self, browser, tmp_path):
+        """#10 SVG data pane + canvas label pane: pane-level opacity hits
+        both renderers; hiding/pointer-events:none on the label pane keeps
+        the SVG data clickable underneath."""
+        with use_page(self._probe, browser, tmp_path, slug="p10") as (page, _):
+            r = page.evaluate(_js("LayerControl/probe_mixed_renderer"))
+        assert r["pathPane"] == "__probe_mixed_data__"
+        assert r["labelCanvasPane"] == "__probe_mixed_label__"
+        assert abs(r["pathEff"] - 0.4) < 0.02
+        assert abs(r["canvasEff"] - 0.4) < 0.02
+        assert r["hitHiddenIsCanvas"] is False  # hidden label pane → path hit
+        assert r["hitNoPointerIsCanvas"] is False  # pointer-events:none → path hit

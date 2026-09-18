@@ -74,6 +74,14 @@ const FOCUS = `
     <circle cx="12" cy="12" r="2.2" class="solid"/>
   </svg>`;
 
+/** "Layer style" glyph — a capital T, the classic type/style mark. The
+ *  style panel currently exposes the label dimension; further dimensions
+ *  (color, opacity) join the same menu under this same glyph. */
+const STYLE = `
+  <svg viewBox="0 0 24 24">
+    <path d="M5 4 H19 M12 4 V20"/>
+  </svg>`;
+
 export {
   COLOR,
   DRAG_HANDLE,
@@ -85,5 +93,6 @@ export {
   MORE,
   POINT,
   POLYGON,
+  STYLE,
   UNKNOWN,
 };

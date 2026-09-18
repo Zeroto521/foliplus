@@ -50,5 +50,14 @@
   "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_del_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI",
-  "LayerControl.blocked": "地图暂不可用"
+  "LayerControl.blocked": "地图暂不可用",
+  "LayerControl.style_layer": "样式",
+  "LayerControl.style_layer_tooltip": "配置该图层的样式",
+  "LayerControl.style_label_no_data": "该图层无可标注字段",
+  "LayerControl.style_label_field": "标注字段",
+  "LayerControl.style_label_field_auto": "自动识别",
+  "LayerControl.style_reset": "重置",
+  "LayerControl.section_label": "标注",
+  "LayerControl.section_layer": "图层",
+  "LayerControl.style_opacity": "透明度"
 }

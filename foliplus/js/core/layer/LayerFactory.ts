@@ -1,10 +1,11 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONF / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
-import { dom } from "#common/dom.js";
+import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
+import { CANVAS_PANE_PREFIX } from "./const.js";
 import type { RegisterLayerOpts } from "./type.js";
 import type {
   CreateCanvasAPI,
@@ -112,6 +113,9 @@ class LayerFactory {
       subPanes: [...subPanes],
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? null,
+      styleDefaults: opts.styleDefaults ?? null,
     };
     // Register sub-panes eagerly so ensurePane can assign provisional
     // z-index on first creation. register() only fires when the first
@@ -278,21 +282,18 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
-    const {
-      map,
-      panes: _panes,
-      registerLayer,
-      unregisterLayer,
-      bringLayerToFront,
-    } = this.deps;
+    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
     if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
 
-    const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane) throw new Error(log.msg("mapPane not available"));
+    // Dedicated Leaflet pane: z-order, focus hide, and export all treat the
+    // canvas like any other layer pane. No SVG renderer — the canvas paints.
+    const paneName = `${CANVAS_PANE_PREFIX}${opts.id}`;
+    const { pane } = panes.ensurePane(paneName, false);
 
+    // Generic class so every createCanvas consumer shares the overlay CSS.
     const canvas = dom.el("canvas", {
-      class: "foliplus-heatmap-canvas",
-      parent: mapPane,
+      class: "foliplus-canvas-layer",
+      parent: pane,
     }) as HTMLCanvasElement;
     if (opts.className) canvas.classList.add(opts.className);
 
@@ -310,9 +311,7 @@ class LayerFactory {
     };
 
     const updatePosition = () => {
-      const pos = L.DomUtil.getPosition(mapPane);
-      canvas.style.left = `${-pos.x}px`;
-      canvas.style.top = `${-pos.y}px`;
+      cancelMapPaneTranslate(canvas, map);
     };
 
     const getSize = () => {
@@ -332,12 +331,6 @@ class LayerFactory {
         canvas.classList.toggle(HIDDEN, !visible);
       });
 
-    const onZIndex =
-      opts.onZIndex ||
-      ((z: number) => {
-        canvas.style.zIndex = String(z);
-      });
-
     const unregister = () => {
       if (!registered) return;
       registered = false;
@@ -352,10 +345,16 @@ class LayerFactory {
       name: opts.name || opts.id,
       iconSvg: opts.iconSvg || null,
       canvas,
+      paneName,
       onToggle,
-      onZIndex,
       featureCountProvider: opts.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? null,
+      styleDefaults: opts.styleDefaults ?? null,
       getBounds: opts.getBounds ?? null,
+      source: opts.source ?? null,
+      updatedAt: opts.updatedAt ?? null,
+      meta: opts.meta ?? null,
     };
     const register = () => {
       if (registered) return;
@@ -387,10 +386,11 @@ class LayerFactory {
         onMove.cancel();
         unregister();
         canvas.remove();
+        panes.removePane(paneName);
       },
       bringToFront: () => bringLayerToFront(opts.id),
       setZIndex: (z: number) => {
-        canvas.style.zIndex = String(z);
+        pane.style.zIndex = String(z);
       },
       setVisible: (v: boolean) => {
         canvas.classList.toggle(HIDDEN, !v);

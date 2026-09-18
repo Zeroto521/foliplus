@@ -1,76 +1,3 @@
-/* ── Custom Pane Interaction Rules ── */
-/* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.foliplus-layer-pane,
-.foliplus-layer-pane > svg {
-  pointer-events: none;
-}
-.foliplus-layer-pane .leaflet-interactive,
-.foliplus-layer-pane .leaflet-marker-icon {
-  pointer-events: auto;
-}
-
-/* ── Focus bounds rectangle (drawn on the map) ──
-   Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
-   needs a top-level selector. Leaflet renders L.rectangle as a <path> with
-   className applied directly (no polygon child).
-   Shares the "selection border" language with ExportControl's crop box:
-   accent dashed outline, --border-thick (2px). The focus rect is transient
-   (marching ants), the crop box is interactive (static), so animation
-   differs. No fill — a thin border only, so it never tints the focused
-   layer underneath. */
-path.foliplus-focus-rect {
-  fill: none;
-  stroke: var(--accent-primary);
-  stroke-dasharray: var(--dash-rhythm);
-  stroke-width: var(--border-thick);
-  stroke-linejoin: round;
-  /* "Marching ants" selection marquee — the dashes flow along the border. */
-  animation: foliplus-focus-march 0.8s linear infinite;
-  pointer-events: none;
-}
-/* Inverse mask that dims everything outside the focused bounds (the hole is
-   carved by the polygon's fill-rule; the mask must never capture input). */
-path.foliplus-focus-mask {
-  pointer-events: none;
-}
-/* Accent glow on the focused layer. Applied to the focused pane (one element)
-   by bringFocusedLayerToFront, NOT per leaf element — so focusing a dense
-   layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
-.foliplus-focus-pane.foliplus-focus-glow {
-  animation: foliplus-focus-glow-in 0.2s ease-out;
-  filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
-}
-@keyframes foliplus-focus-glow-in {
-  from {
-    filter: drop-shadow(0 0 0 rgba(var(--red-rgb), 0));
-  }
-  to {
-    filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
-  }
-}
-
-/* ── Focus: hide every non-focused layer, declaratively ──
-   While focusing, the map container gets `.foliplus-focus-active` and every
-   layer pane except the focused one (marked `.foliplus-focus-pane`) is hidden
-   with a single CSS rule — no per-pane JS visibility loop. The basemap lives
-   in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
-   and keeps the spatial context. Heatmap canvases live directly in mapPane,
-   so they need their own selector. */
-.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane),
-.foliplus-focus-active .foliplus-heatmap-canvas:not(.foliplus-focus-pane) {
-  visibility: hidden;
-}
-@keyframes foliplus-focus-march {
-  to {
-    stroke-dashoffset: -10;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  path.foliplus-focus-rect {
-    animation: none;
-  }
-}
-
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
@@ -105,7 +32,10 @@ path.foliplus-focus-mask {
     All track dimensions are named so the count / more columns stay
     synchronised in --grid-layer-cols and each element's own width.
     Track width includes the count column's 4px right padding, so usable
-    content is ~34px — enough for ~5 chars at font-size-xs (caps at 999). */
+    content is ~34px — about 3 digits at font-size-xs. Counts at or above
+    1000 are rendered compact by formatNumber("auto") (12K, 1.2万), so
+    overflow/ellipsis below is a last-resort guard for locales whose
+    compact unit is wider (de 10.000). */
   --count-track-width: 38px;
   --more-btn-width: 7px;
   --grid-layer-gap: 3px;
@@ -424,6 +354,23 @@ path.foliplus-focus-mask {
     }
   }
 
+  /* ── Open overlay: the owner row lifts above its siblings ──
+     While the ⋮ menu or a row panel (attrs / style) is open, sibling rows
+     keep their normal hover wake — that is their own state display. The one
+     thing that must hold is the overlay staying visible. Its fixed z-index
+     (9990 menu / 10 row panel) is NOT enough on its own: opening a menu
+     focuses its first item, so the container's focusin delegate marks the
+     OWNER row `.foliplus-layer-focused` — the recipe then gives it z-index
+     1, confining the overlay inside a stacking context where a LATER lit
+     sibling (z-index 1, later in DOM) paints over it (measured, not
+     guessed). Lifting the owner row itself to the floating index carries
+     the open overlay with it and settles every combination. */
+  &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
+    .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
+      z-index: var(--z-index-floating);
+    }
+  }
+
   /* ── Base basemap / color picker rows stay quiet ──
      No cursor glow or white wash on hover / keyboard focus: these are
      stack slots, not data layers you navigate to. The row itself stays
@@ -475,7 +422,9 @@ path.foliplus-focus-mask {
       font-weight: var(--font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned, the 38px column itself caps display to ~5 chars.
+      Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
+      so the 38px track fits the value; ellipsis is a last-resort guard for
+      locales whose compact unit is wider (de 10.000).
       Stays muted gray in every state: the count is annotation, not a control,
       so it intentionally does not join the hover/active color dance. */
     .foliplus-layer-count {
@@ -522,352 +471,4 @@ path.foliplus-focus-mask {
         var(--drag-pulse-count);
     }
   }
-  /* ── More options button (reserved slot, always visible) ──
-    An unchecked row rests it black; a checked row keeps it in the action
-    color — the layer is live, and the button is the row's only in-line
-    action. Hover lights it either way. (The .active leg was dropped by the
-    cursor unification in #229; restoring it — selected rows read their
-    state through the button, same as they do through the left bar.) */
-  .foliplus-layer-more-btn {
-    align-self: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--more-btn-width);
-    height: var(--space-xl);
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: none;
-    /* color intentionally NOT animated: the more button is destroyed and
-       re-created on every list rebuild, so a color transition would cause
-       .active rows' more buttons to flash var(--accent-primary) on each
-       rebuild. The focus ring below is supplied here — not by the global
-       :focus-visible rule — because that rule paints a border-color on this
-       7px-wide button, and border-box sizing would collapse its box to 3px and
-       clip the glyph. */
-    &:focus-visible {
-      outline: none;
-      color: var(--accent-primary);
-      box-shadow: var(--focus-ring);
-      border-radius: var(--radius-sm);
-    }
-
-    svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-  }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
-    color: var(--accent-primary);
-  }
-
-  /* ── Overflow dropdown menu ──
-     Shell + item hover/active live in common.css (Unified Dropdown / Menu);
-     this block owns position/size and the action-menu specifics. */
-  .foliplus-layer-more-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
-       little slack, without the dead gap the verb-only labels left at 128px.
-       Min-width — not fixed — so a future longer label widens it instead of
-       clipping. */
-    min-width: 112px;
-    padding: var(--space-xs) 0;
-    display: none;
-    list-style: none;
-  }
-  .foliplus-layer-more-menu.open {
-    display: block;
-  }
-  .foliplus-layer-more-menu li {
-    display: flex;
-    align-items: center;
-    /* Icon stays left, label aligns right (the gap is the minimum spacing). */
-    justify-content: space-between;
-    gap: var(--space-md);
-    padding: var(--space-xs) var(--space-sm);
-    white-space: nowrap;
-  }
-  .foliplus-layer-more-menu li:focus-visible {
-    outline: none;
-    box-shadow: var(--focus-ring);
-    border-radius: var(--radius-sm);
-  }
-  .foliplus-layer-more-menu li svg {
-    flex-shrink: 0;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-xs);
-    color: var(--text-muted);
-    fill: none;
-    stroke: currentColor;
-    stroke-width: var(--stroke-icon);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  /* Icon wakes to black on hover AND keyboard focus, matching the LayerControl
-     type-icon language (identity wakes to black, not accent — accent is reserved
-     for actions/status). Disabled stays muted. */
-  .foliplus-layer-more-menu li:not([disabled]) svg {
-    transition: color var(--transition-fast);
-  }
-  .foliplus-layer-more-menu li:not([disabled]):hover svg,
-  .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
-    color: var(--text-primary);
-  }
-  /* Disabled menu item (e.g. layer is hidden). */
-  .foliplus-layer-more-menu li[disabled] {
-    cursor: not-allowed;
-    opacity: 0.4;
-  }
-  .foliplus-layer-more-menu li[disabled]:hover {
-    background: transparent;
-    /* Keep text muted: the unified hover tints text accent, but a disabled
-       item must not answer with accent. */
-    color: var(--text-primary);
-  }
-
-  /* ── Attributes panel ──
-     Read-only metadata for one layer row. It IS a foliplus panel: the surface
-     carries `foliplus-panel` and its header/content use the shared panel
-     classes, so every visual rule comes from common/panel.css. This block only
-     positions the surface, sizes the type logo, adds the close affordance and
-     lays out the label/value rows (the heatmap form-row rhythm).
-
-     The width is capped at the anchoring row on purpose: the panel content
-     clips horizontally (common/panel.css `overflow-x: hidden`), so a fixed
-     width wider than `--panel-width` slices the left column off. */
-  .foliplus-layer-attrs-panel {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: var(--panel-width);
-    max-height: 340px;
-    padding: 0;
-    overflow-x: hidden;
-    /* Same card chrome as an expanded foliplus panel. */
-    border-radius: var(--radius-card);
-    box-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, 0.2);
-    /* Read-only metadata must stay copyable; the parent row is user-select:none. */
-    user-select: text;
-    cursor: default;
-  }
-  /* Header closes the panel — same affordance as the main Layer/Heatmap
-     panels (bindPanelToggle collapses on header click). */
-  /* LayerControl's SVGs are viewBox-only, so the logo needs an explicit size
-     inside the shared .foliplus-header-icon box. */
-  .foliplus-layer-attrs-icon svg {
-    width: 100%;
-    height: 100%;
-  }
-  /* Detail rows reuse the shared label/control geometry
-     (common/panel.css .foliplus-form-row / -label / -control), the same one the
-     heatmap's form rows use — these hooks only carry the panel specifics. */
-  .foliplus-layer-attrs-panel .foliplus-form-row {
-    padding: 0 var(--space-lg);
-  }
-  /* A long value (a URL source) takes its own line under the label. */
-  .foliplus-layer-attrs-panel .foliplus-form-row:has(.wide) {
-    flex-wrap: wrap;
-  }
-  .foliplus-layer-attrs-panel .foliplus-form-control.wide {
-    flex-basis: 100%;
-  }
-  /* Label/typography stay on the shared form recipe (sm / text-primary) so
-     the attrs panel and the heatmap config read as one product. This block
-     only adjusts the <dd> control column. */
-  .foliplus-layer-attrs-panel .foliplus-form-control {
-    /* Read-only text reads like a control: left-aligned, wrapping, and with
-       tabular figures so counts and timestamps line up column-wise. `margin: 0`
-       because a <dd> carries a UA block margin the heatmap's <div> does not. */
-    margin: 0;
-    font-size: var(--font-size-md);
-    font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
-  }
-
-  /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
-  .foliplus-layer-item.foliplus-layer-focusing {
-    border-left-color: var(--accent-primary);
-    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-    animation: foliplus-layer-focus-pulse 2.2s ease-in-out 2;
-  }
-  @keyframes foliplus-layer-focus-pulse {
-    0%,
-    100% {
-      background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-    }
-    50% {
-      background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
-    }
-  }
-
-  /* ── Color layer item overrides ──
-     Pointer cursor (not draggable) */
-  .foliplus-color-layer-item {
-    cursor: pointer;
-  }
-  /* ── Checkbox styles ── */
-  .foliplus-checkbox {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--space-xl);
-    height: var(--space-xl);
-  }
-  input[type="checkbox"] {
-    position: relative;
-    appearance: none;
-    margin: 0;
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
-    cursor: pointer;
-    transition: box-shadow var(--transition-fast);
-    /* background-color and border-color intentionally NOT animated: the
-       checkbox is destroyed and re-created on every list rebuild
-       (fold click -> renderInitialList), so a transition on either would
-       cause checked checkboxes to flash on each rebuild.
-       box-shadow stays animated — it is pointer/focus-driven and never changes
-       on rebuild; hover and :focus-visible come from the shared Unified Input
-       Interaction rule in common.css. */
-
-    /* ── Checked & indeterminate (partial selection) share active bg ── */
-    &:is(:checked, :indeterminate) {
-      background: var(--accent-primary);
-      border-color: var(--accent-primary);
-
-      /* ── Shared ::after positioning for both states ── */
-      &::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-size: var(--size-12);
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-    }
-    /* Checkmark icon */
-    &:checked::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-    }
-    /* Dash icon (partial selection) */
-    &:indeterminate::after {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
-    }
-    /* Outline suppression only. Kept as a self-reference — bare
-       `:focus-visible` inside a nested block compiles to a descendant selector
-       and would miss the box. The border-color + glow are supplied by the
-       shared Unified Input Interaction rule in common.css; the border jump is
-       instant because border-color is not in the transition above. */
-    &:focus-visible {
-      outline: none;
-    }
-  }
-  /* ── Solid color layer picker ── */
-  .foliplus-color-layer-input {
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thick) solid var(--input-border);
-    border-radius: var(--radius-round);
-    padding: 0;
-    background: none;
-    outline: none;
-    cursor: pointer;
-    transition: var(--transition-input);
-
-    &::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-    &::-webkit-color-swatch {
-      border: none;
-      border-radius: var(--radius-round);
-    }
-    &::-moz-color-swatch {
-      border: none;
-      border-radius: var(--radius-round);
-    }
-  }
-  .foliplus-color-layer-item.active .foliplus-color-layer-input {
-    border-color: var(--accent-primary);
-    box-shadow: var(--focus-ring);
-  }
-}
-
-/* ── Tile pane hidden state ── */
-.foliplus-layer-tile-hidden {
-  visibility: hidden;
-  opacity: 0;
-}
-
-/* ── Drag-over pulse animation ── */
-@keyframes foliplus-drag-pulse {
-  0%,
-  100% {
-    border-color: var(--drag-border-from);
-    box-shadow: var(--drag-shadow-from);
-  }
-  50% {
-    border-color: var(--drag-border-to);
-    box-shadow: var(--drag-shadow-to);
-  }
-}
-
-/* ── Color layer background on map container (via Leaflet container) ── */
-.leaflet-container.active {
-  background: var(--color-layer-bg, #cccccc);
-}
-
-/* ── Inline rename input (swaps the layer label's text node) ──
-   Visual chrome comes from the shared .foliplus-input base (common.css);
-   only the component-specific padding / color inherit live here — the
-   input lives inside the layer label, so it must inherit the row's text
-   color to stay legible on active/hover rows.
-   While editing (.foliplus-layer-renaming) the label column stretches
-   across label+count and the input fills its full height, so the field
-   looks like the SearchControl box rather than a shrunken inline edit. */
-/* While renaming, drop the row's vertical padding so the label can stretch
-   to the full row height and the input reads as a full-size field. These
-   must outrank the scoped `.foliplus-layer-ctrl .foliplus-layer-item` rules,
-   so they carry the full prefix. */
-.foliplus-layer-ctrl .foliplus-layer-item.foliplus-layer-renaming {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-.foliplus-layer-ctrl
-  .foliplus-layer-item.foliplus-layer-renaming
-  .foliplus-layer-label {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  /* The non-renaming label relies on overflow:hidden for its ellipsis; while
-     renaming the input takes over and that would clip the focus glow, so let
-     the breathing box-shadow spill out like the SearchControl field. */
-  overflow: visible;
-}
-.foliplus-layer-ctrl .foliplus-layer-rename-input {
-  /* Button-local `:focus-visible` rules (more / fold) and the shared input
-     hover/focus rule would paint a ring over this field; suppress the default
-     outline so the input keeps the shared `.foliplus-input:focus` glow,
-     matching Search. */
-  outline: none;
-  padding: 0 var(--space-md);
-  height: 100%;
-  color: inherit;
-  width: 100%;
 }

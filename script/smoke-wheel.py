@@ -12,25 +12,38 @@ first place — anyone adding a control has to remember to edit two files.
 Inspection has no such second file.
 
 The package under test must not be shadowed by a source checkout: point
-`PYTHONPATH` at an install target, or run this outside the repo.
+`PYTHONPATH` at an install target. Any `sys.path` entry that holds a
+`foliplus/` directory beats `PYTHONPATH` when it comes first — a stray
+probe script left in the repo root does exactly that, since `sys.path[0]`
+is the script's own directory. A good source tree would then certify a
+broken wheel, because the manifest check reads the install while the
+render reads the checkout. `assert_not_source_checkout()` refuses to run
+in that case rather than silently passing.
 
 Usage: python script/smoke-wheel.py
-Exits non-zero if no control can render.
+Raises on the first failure (`SmokeFailure` for a bad artifact set,
+`AssertionError` for a render gap); exits non-zero only through that
+exception, so a traceback in CI means a broken wheel.
 """
 
 from __future__ import annotations
 
 import importlib.metadata
-import inspect
+import json
 import sys
-import traceback
-
-import folium
-
-import foliplus
+from pathlib import Path
+from types import ModuleType
 
 
-def locate_controls() -> list[type]:
+class SmokeFailure(AssertionError):
+    """A packaged wheel cannot render.
+
+    Named rather than a bare `AssertionError` so a CI log can tell a broken
+    wheel from a test bug without reading the traceback.
+    """
+
+
+def locate_controls(foliplus: ModuleType) -> list[type]:
     """The exported `*Control` classes, excluding the `BaseControl` abstract."""
     return [
         getattr(foliplus, n)
@@ -41,109 +54,138 @@ def locate_controls() -> list[type]:
     ]
 
 
-def renderable(cls: type) -> tuple[bool, str]:
-    """Can `cls()` be constructed with no arguments?
+def check_manifest(dist_path: Path) -> list[str]:
+    """Every artifact the build wrote is present, and nothing extra is there.
 
-    Controls ship their own `dist/` bundle, so rendering one exercises the
-    whole packaging path. A control that needs arguments cannot be exercised
-    this way — it is reported, not silently dropped, so a newly added control
-    that fails this check still shows up.
-
-    Only a missing-argument `TypeError` counts as "not renderable". Anything
-    else is a real construction failure and must fail the run, or a control
-    that raises at init would be quietly listed under "skipped".
+    `_load_asset` raises `MissingAssetsError` if a bundle is absent, but only
+    for a control that actually gets rendered — a component that lost its
+    stylesheet in the wheel would go unnoticed here without this. The
+    manifest is what `script/build.mjs` wrote, so comparing both sides
+    catches a component dropped on either end.
     """
-    try:
-        cls()
-    except TypeError as exc:
-        if not is_missing_argument(exc):
-            return False, f"raised {exc}"
-        return False, "requires " + ", ".join(required_arguments(cls))
-    return True, ""
+    manifest = json.loads((dist_path / "artifacts.json").read_text(encoding="utf-8"))
+    listed = manifest["artifacts"]
+    expected = {artifact_name(name, ext) for name in listed for ext in ("js", "css")}
+    on_disk = {p.name for p in dist_path.iterdir() if p.is_file()}
+    if expected - on_disk:
+        raise SmokeFailure(f"missing from dist/: {sorted(expected - on_disk)}")
+    # artifacts.json is written by the build alongside the bundles, not part
+    # of the expected set — allow it, reject anything else.
+    if on_disk - expected - {"artifacts.json"}:
+        raise SmokeFailure(
+            f"unexpected files in dist/: {sorted(on_disk - expected - {'artifacts.json'})}"
+        )
+    return listed
 
 
-def is_missing_argument(exc: TypeError) -> bool:
-    """True if `exc` says a required argument was not supplied.
+def artifact_name(name: str, ext: str) -> str:
+    """One `dist/` filename for a component name and extension.
 
-    Leaflet-free, message-based: the stdlib phrasing varies by Python version.
+    The naming scheme is shared with `BaseControl.control_assets()` and
+    `script/build.mjs`; keeping it to one function per file means a rename
+    cannot land on one consumer and miss the other.
     """
-    return any(
-        phrase in str(exc)
-        for phrase in ("missing required", "positional argument", "argument(s)")
-    )
+
+    return f"foliplus-{name}.min.{ext}"
 
 
-def required_arguments(cls: type) -> list[str]:
-    """Names of the constructor's arguments that have no default.
+def assert_not_source_checkout(foliplus: ModuleType) -> None:
+    """Refuse to run if the import resolved to a source tree, not an install.
 
-    `inspect.signature(cls.__init__)` exposes `self`, so the leading positional
-    parameter is dropped by hand rather than assumed away.
+    A checkout is recognisable by the files a wheel never carries: `pyproject.toml`
+    and `test/` beside the package. Any one of them means the render is
+    exercising the working copy, so a good source tree would certify a
+    broken wheel.
     """
-    params = inspect.signature(cls.__init__).parameters.values()
-    out = []
-    for i, p in enumerate(params):
-        if i == 0 and p.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-            continue
-        if p.default is inspect.Parameter.empty and p.kind in (
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            inspect.Parameter.KEYWORD_ONLY,
-        ):
-            out.append(p.name)
-    return out
+
+    pkg_dir = Path(foliplus.__file__).resolve().parent
+    repo_root = pkg_dir.parent
+    markers = [repo_root / "pyproject.toml", repo_root / "test"]
+    found = [
+        str(m.relative_to(repo_root)) for m in markers if m.is_dir() or m.is_file()
+    ]
+    if found:
+        raise SmokeFailure(
+            f"imported foliplus from a source checkout at {pkg_dir} "
+            f"({', '.join(found)} present) — not from an installed wheel; "
+            "a good source tree would mask a broken wheel. "
+            "Install into an empty dir and run with PYTHONPATH pointed at it."
+        )
 
 
-def render_control(cls: type) -> bool:
-    """Render one control onto a blank map. Returns False on assertion failure."""
+def render_control(folium: ModuleType, cls: type, bundle_path: Path) -> None:
+    """Render one control onto a blank map, asserting the bundle really landed.
+
+    `check_manifest()` proves the files exist; this proves they are not empty
+    shells. A truncated bundle is the sharper form of the defect this script
+    exists for: `_load_asset` sees a file, the render produces a perfectly
+    valid 160KB document, and the page ships with a dead control. So the
+    bundle's own content is re-read and required to be present in the HTML.
+    """
     name = cls.__name__
-    try:
-        m = folium.Map(location=[40.4, -3.7])
-        cls().add_to(m)
-        # `add_to` can swap the map's root for a Figure, so render the root.
-        html = m.get_root().render()
-    except Exception:
-        traceback.print_exc()
-        print(f"  ✗ {name}: render raised")
-        return False
+    m = folium.Map(location=[40.4, -3.7])
+    cls().add_to(m)
+    # `add_to` can swap the map's root for a Figure, so render the root.
+    html = m.get_root().render()
 
-    # The bundles are inlined into the document, so their *filenames* never
-    # appear — match the esbuild banner, which carries the component name.
-    if "· common" not in html:
-        print(f"  ✗ {name}: shared bundle not emitted into <head>")
-        return False
-    if f"· {name}" not in html:
-        print(f"  ✗ {name}: component bundle not emitted")
-        return False
-    return True
+    # The bundle is inlined, so its filename never appears in the document —
+    # but the esbuild banner is the bundle's first line and survives the
+    # copy, so it is the cheapest content fingerprint. `foliplus.` is what a
+    # component bundle externalises to the shared runtime; without it the
+    # bundle is empty of anything that could drive the control.
+    js = bundle_path.read_text(encoding="utf-8")
+    assert "foliplus@" in html, f"{name}: shared bundle banner absent from <head>"
+    for marker in (f"· {name}", "foliplus.BaseControl"):
+        assert marker in js, f"{name}: bundle holds no {marker!r}"
+        assert marker in html, f"{name}: {marker!r} missing from the rendered page"
 
 
-def main() -> int:
+def main() -> None:
+    # The script's own directory is `sys.path[0]`, so a stray `script/foliplus.py`
+    # or `script/folium.py` would be imported instead of the installed package —
+    # a scratch file silently replacing the thing under test. Drop the entry
+    # before importing; nothing else in this script needs it.
+    self_dir = str(Path(__file__).resolve().parent)
+    sys.path = [p for p in sys.path if str(Path(p).resolve()) != self_dir]
+
+    # Imported here rather than at module level: `test_smoke_wheel.py` loads
+    # this file to exercise the manifest logic without pulling in branca,
+    # numpy and pandas. The suite can't stub `sys.modules` instead — pytest
+    # imports every test module at collection time, so a stub leaks into
+    # every other test in the session.
+    import folium
+
+    import foliplus
+
     version = importlib.metadata.version("foliplus")
-    origin = (
-        importlib.metadata.distribution("foliplus").locate_file("foliplus").as_posix()
-    )
-    print(f"foliplus {version} at {origin}")
+    # Anchor the manifest check and the render on `__file__` — the directory the
+    # import above resolved to, and the same anchor `BaseControl.dist_dir` uses.
+    # Both halves of this script therefore read one and the same `dist/`, which
+    # is what makes the render a valid certificate of the manifest's files.
+    package_dir = Path(foliplus.__file__).resolve().parent
+    print(f"foliplus {version} at {package_dir}")
+    assert_not_source_checkout(foliplus)
 
-    classes = locate_controls()
-    if not classes:
-        print("✗ no control classes exported from foliplus")
-        return 1
+    # Verify the installed package's dist/ before rendering anything, so a
+    # missing bundle is reported as a packaging defect rather than surfacing
+    # later as an unexpected error mid-render.
+    dist_dir = package_dir / "dist"
+    listed = check_manifest(dist_dir)
+    print(f"dist/: {len(listed)} components, all artifacts present")
 
-    ok, skipped = [], []
+    classes = locate_controls(foliplus)
+    assert classes, "no control classes exported from foliplus"
+
+    # Read the bundles back through the same anchor as the manifest, so a
+    # render can never certify a wheel whose files it never opened.
     for cls in classes:
-        can, hint = renderable(cls)
-        if not can:
-            skipped.append((cls.__name__, hint))
-            continue
-        if render_control(cls):
-            ok.append(cls.__name__)
+        render_control(folium, cls, dist_dir / artifact_name(cls.__name__, "js"))
 
-    print(f"rendered {len(ok)}/{len(classes)}: {', '.join(ok)}")
-    if skipped:
-        for name, hint in skipped:
-            print(f"  - {name}: not rendered ({hint})")
-
-    return 0 if ok else 1
+    print(
+        f"rendered {len(classes)} controls: "
+        f"{', '.join(sorted(c.__name__ for c in classes))}"
+    )
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

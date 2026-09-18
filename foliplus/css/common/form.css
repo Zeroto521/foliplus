@@ -1,0 +1,345 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Shared Form Controls
+  Reusable form primitives shared across component panels (HeatmapControl
+  and LayerControl's style panel). HeatmapControl keeps its own
+  .foliplus-heatmap-form-* classes for now; new panels use these directly.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* Form row: label on the left, control on the right. */
+.foliplus-form-row {
+  display: flex;
+  align-items: center;
+  min-height: var(--toggle-size);
+  gap: var(--space-md);
+  box-sizing: border-box;
+}
+
+.foliplus-form-label {
+  flex-shrink: 0;
+  /* Fixed width, not min-width: every panel (heatmap / attrs / style) shares
+     one control-column edge. Longer labels wrap inside the box instead of
+     pushing the control right. Explicit normal weight: the attrs panel uses
+     <dt>, whose UA stylesheet is bold — bold stays on section headings. */
+  width: var(--form-label-width);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  color: var(--text-primary);
+  text-align: right;
+  white-space: normal;
+  padding-right: var(--space-xs);
+  box-sizing: border-box;
+}
+
+.foliplus-form-control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Two controls sharing one form-control cell (border / label color+size).
+   Mirrors the former .foliplus-heatmap-form-inline — one recipe for both. */
+.foliplus-form-inline {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Color swatch — the polished heatmap control, promoted so the layer style
+   drawer matches the heatmap panel pixel-for-pixel. */
+.foliplus-form-color-input {
+  flex: 1;
+  height: var(--ctrl-size);
+  padding: var(--border-thin);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+  outline: none;
+  box-sizing: border-box;
+  transition: var(--transition-input);
+
+  &::-webkit-color-swatch-wrapper {
+    padding: var(--border-thin);
+  }
+  &::-webkit-color-swatch {
+    border: none;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* Compact integer / weight field beside a color swatch. */
+.foliplus-form-number-input {
+  width: var(--form-number-width, 52px);
+  height: var(--ctrl-size);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--size-6);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  text-align: center;
+  transition: var(--transition-input);
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  &[type="number"] {
+    appearance: textfield;
+  }
+}
+
+/* Shared select (mirrors HeatmapControl's form-select visual). The wide
+   right padding keeps localized option text clear of the arrow glyph. */
+.foliplus-form-select {
+  width: 100%;
+  height: var(--ctrl-size);
+  font-size: var(--font-size-md);
+  padding: 0 var(--space-xxl) 0 var(--space-md);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
+    no-repeat right var(--space-md) center;
+  background-size: var(--size-8) var(--size-6);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  appearance: none;
+  transition: var(--transition-input);
+}
+
+/* Shared toggle switch (mirrors HeatmapControl's toggle-switch). */
+.foliplus-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: var(--size-20);
+  flex-shrink: 0;
+  cursor: pointer;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+}
+.foliplus-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--neutral-300);
+  border-radius: 10px;
+  transition: background-color var(--transition-fast);
+
+  &::before {
+    content: "";
+    position: absolute;
+    height: var(--size-16);
+    width: var(--size-16);
+    left: var(--size-2);
+    bottom: var(--size-2);
+    background-color: var(--neutral-0);
+    border-radius: var(--radius-round);
+    transition:
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  }
+}
+.foliplus-toggle-switch:hover .foliplus-toggle-slider {
+  background-color: var(--neutral-500);
+}
+.foliplus-toggle-switch:hover .foliplus-toggle-slider::before {
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+.foliplus-toggle-switch input:checked + .foliplus-toggle-slider {
+  background-color: var(--accent-primary);
+}
+.foliplus-toggle-switch input:checked + .foliplus-toggle-slider::before {
+  transform: translateX(var(--size-20)) scale(1.15);
+}
+.foliplus-toggle-switch:hover input:checked + .foliplus-toggle-slider {
+  background-color: var(--accent-hover);
+}
+.foliplus-toggle-switch input:disabled + .foliplus-toggle-slider {
+  opacity: var(--alpha-50);
+  cursor: default;
+}
+
+/* ── Style panel (LayerControl) ──
+   Everything else shares the panel/form vocabulary above. Two additions:
+   the collapsible body under the labels toggle (`.foliplus-hidden` itself
+   is the global reset.css rule), and a focus-visible ring for the switch —
+   without it, a tab stop on a toggle looks identical to "not focused".
+   The ring is `var(--focus-ring)` verbatim: it is already a two-layer
+   box-shadow value, so wrapping it in `0 0 0 2px …` builds an invalid
+   declaration the browser drops, leaving no ring at all. */
+.foliplus-style-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.foliplus-toggle-switch input:focus-visible + .foliplus-toggle-slider {
+  box-shadow: var(--focus-ring);
+}
+
+/* The shared select had `outline: none` with nothing to replace it, so a
+   keyboard user saw no focus at all on any panel select. Same ring as every
+   other foliplus control. */
+.foliplus-form-select:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--focus-ring);
+}
+
+/* Section heading used by HeatmapControl and LayerControl style panels. */
+.foliplus-section-heading {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+  padding: var(--space-md) var(--space-xl) var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ── Opacity control (LayerControl style drawer) ──
+   The slider and the number share one form-control cell through the shared
+   `.foliplus-form-inline` recipe, and the number is the shared
+   `.foliplus-form-number-input` — so this row is pixel-identical to the
+   heatmap's border row (same --ctrl-size height, radius, chrome). Only the
+   slider itself is bespoke: a transparency checkerboard with an accent fill up
+   to the thumb (`--opacity-fill`, written by JS on every change) so the bar
+   reads as "how opaque", not "how far". */
+/* Slider and thumb geometry, declared on the control itself rather than on the
+   wrapper: these two variables are consumed by the track and thumb rules below,
+   and a missing wrapper class would silently drop both declarations (the
+   invalid-at-computed-value-time rule), leaving a hairline track. */
+.foliplus-style-opacity-range {
+  --opacity-track-height: 14px;
+  --opacity-thumb-size: 20px;
+  /* The element is --ctrl-size tall so the row lines up with the number field
+     beside it, while the visible bar stays slimmer: a 30px bar reads as a
+     filled slab, and the fill over the checkerboard would look like a colour
+     swatch rather than a level. */
+  height: var(--ctrl-size);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+}
+
+/* The slider takes the free space; the number field keeps its shared width. */
+.foliplus-style-opacity-control .foliplus-style-opacity-range {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The two track rules below are identical on purpose: `::-webkit-...` and
+   `::-moz-...` cannot share one selector, because a browser that does not know
+   the other pseudo-element drops the whole rule and the track loses its
+   background entirely. */
+.foliplus-style-opacity-range::-webkit-slider-runnable-track {
+  height: var(--opacity-track-height);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background-image:
+    linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--opacity-fill, 100%),
+      transparent var(--opacity-fill, 100%)
+    ),
+    repeating-conic-gradient(var(--neutral-300) 0 25%, var(--neutral-0) 0 50%);
+  background-size:
+    100% 100%,
+    var(--size-8) var(--size-8);
+  background-position:
+    left center,
+    50% 50%;
+  background-repeat: no-repeat, repeat;
+}
+
+.foliplus-style-opacity-range::-moz-range-track {
+  height: var(--opacity-track-height);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background-image:
+    linear-gradient(
+      to right,
+      var(--accent-primary) 0 var(--opacity-fill, 100%),
+      transparent var(--opacity-fill, 100%)
+    ),
+    repeating-conic-gradient(var(--neutral-300) 0 25%, var(--neutral-0) 0 50%);
+  background-size:
+    100% 100%,
+    var(--size-8) var(--size-8);
+  background-position:
+    left center,
+    50% 50%;
+  background-repeat: no-repeat, repeat;
+}
+
+/* WebKit top-aligns the thumb to the track box, so it needs the
+   half-difference margin to sit concentric. Firefox centres it on its own.
+   The shadow and the hover lift are the panel toggle knob's treatment, so the
+   two hand-held controls in a row read alike. */
+.foliplus-style-opacity-range::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--opacity-thumb-size);
+  height: var(--opacity-thumb-size);
+  margin-top: calc((var(--opacity-track-height) - var(--opacity-thumb-size)) / 2);
+  border: var(--border-thick) solid var(--accent-primary);
+  border-radius: var(--radius-round);
+  background: var(--neutral-0);
+  box-sizing: border-box;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.foliplus-style-opacity-range:hover::-webkit-slider-thumb {
+  transform: scale(var(--scale-hover));
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+
+.foliplus-style-opacity-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.foliplus-style-opacity-range::-moz-range-thumb {
+  width: var(--opacity-thumb-size);
+  height: var(--opacity-thumb-size);
+  border: var(--border-thick) solid var(--accent-primary);
+  border-radius: var(--radius-round);
+  background: var(--neutral-0);
+  box-sizing: border-box;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.foliplus-style-opacity-range:hover::-moz-range-thumb {
+  transform: scale(var(--scale-hover));
+  box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
+}
+
+.foliplus-style-opacity-range:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.foliplus-style-opacity-range:focus-visible {
+  box-shadow: var(--focus-ring);
+}

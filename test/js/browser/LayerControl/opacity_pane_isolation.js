@@ -1,0 +1,132 @@
+() => {
+  const ctrl = window.__layerCtrl;
+  const map = ctrl.m.map;
+  const api = map.foliplus.LayerAPI;
+  const ui = ctrl.m.ui;
+
+  const pointLayer = (id, name, lng) => {
+    const geo = L.geoJson({
+      type: "FeatureCollection",
+      features: [0, 1].map(i => ({
+        type: "Feature",
+        properties: { name: "p" + i, value: i + 1 },
+        geometry: { type: "Point", coordinates: [lng + i * 0.01, 26.08 + i * 0.01] },
+      })),
+    });
+    api.registerLayer({ id, name, layer: geo });
+    return geo;
+  };
+
+  // The pane a layer's content renders into, found from its own leaves.
+  const paneOf = layer => {
+    let pane = null;
+    layer.eachLayer(child => {
+      let n = child._path || child._icon || null;
+      while (n && !(n.classList && n.classList.contains("leaflet-pane"))) {
+        n = n.parentElement;
+      }
+      if (n) pane = n;
+    });
+    return pane;
+  };
+
+  const leafOpacity = layer => {
+    const vals = [];
+    layer.eachLayer(child => {
+      if (child.options && typeof child.options.opacity === "number") {
+        vals.push(child.options.opacity);
+      }
+    });
+    return vals;
+  };
+
+  const sharedPane = el =>
+    !!el &&
+    /leaflet-(overlay|marker|tile|shadow|tooltip|popup)-pane/.test(el.className);
+
+  const setOpacityViaSlider = id => {
+    ui.openStylePanel(id);
+    const range = document.querySelector(".foliplus-style-opacity-range");
+    if (!range) {
+      ui.closeStylePanel(false);
+      return false;
+    }
+    range.value = "40";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    ui.closeStylePanel(false);
+    return true;
+  };
+
+  // ── Case A: a plain folium layer, registered as-is ──────────────────
+  const plain = pointLayer("op_plain", "Plain", 119.3);
+  const plainNeighbour = pointLayer("op_plain_nb", "PlainNeighbour", 119.42);
+  // Run the ordering pass now instead of waiting out its debounce: it is what
+  // assigns each layer its own pane and migrates the content into it.
+  ctrl.m.enforceOrder();
+  const plainPane = paneOf(plain);
+  const plainPaneBefore = plainPane ? plainPane.style.opacity : null;
+  const plainOpened = setOpacityViaSlider("op_plain");
+  const plainLi = api.layers.find(l => l.id === "op_plain");
+  const plainNeighbourPane = paneOf(plainNeighbour);
+
+  // ── Case B: a managed layer with its own panes (createLayers) ───────
+  const managed = api.createLayers({
+    id: "op_managed",
+    name: "Managed",
+    panes: [
+      { name: "op-probe-graph" },
+      { name: "op-probe-node" },
+      { name: "op-probe-label", isLabel: true },
+    ],
+    styleSetters: { labelShow: () => {} },
+    styleProvider: () => ({ labelShow: true }),
+  });
+  managed.register();
+  managed.addLayer(
+    L.polyline([
+      [26.08, 119.5],
+      [26.09, 119.51],
+    ]),
+    "op-probe-graph",
+  );
+  managed.addLayer(L.circleMarker([26.085, 119.505], { radius: 5 }), "op-probe-node");
+  const managedOpened = setOpacityViaSlider("op_managed");
+  const graphPaneEl = map.getPane("op-probe-graph");
+  const nodePaneEl = map.getPane("op-probe-node");
+
+  return {
+    error: null,
+    // After the ordering pass a plain folium layer has its own pane too, so
+    // the opacity is one write there — no per-feature sweep — and the
+    // features keep the style they were created with.
+    plainPaneShared: sharedPane(plainPane),
+    plainPaneBefore,
+    plainPaneAfter: plainPane ? plainPane.style.opacity : null,
+    plainOpened,
+    plainRegistryOpacity: plainLi ? plainLi.opacity : null,
+    plainLeafOpacity: leafOpacity(plain),
+    // Its neighbour is a different layer in a different pane, untouched.
+    plainNeighbourSamePane: plainNeighbourPane === plainPane,
+    plainNeighbourPaneOpacity: plainNeighbourPane
+      ? plainNeighbourPane.style.opacity
+      : null,
+    plainNeighbourLeafOpacity: leafOpacity(plainNeighbour),
+    // A managed layer owns its declared panes, so the opacity goes on the pane
+    // element (one write per pane, no per-feature sweep).
+    managedOpened,
+    managedGraphPaneShared: sharedPane(graphPaneEl),
+    managedGraphPaneOpacity: graphPaneEl ? graphPaneEl.style.opacity : null,
+    managedNodePaneOpacity: nodePaneEl ? nodePaneEl.style.opacity : null,
+    managedPolylineOpacity: (() => {
+      let v = null;
+      managed.mainLayer.eachLayer(g =>
+        g.eachLayer(child => {
+          if (child.options && child.options.pane === "op-probe-graph") {
+            v = child.options.opacity;
+          }
+        }),
+      );
+      return v;
+    })(),
+  };
+};

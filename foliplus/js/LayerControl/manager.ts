@@ -22,6 +22,7 @@ import {
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
@@ -78,6 +79,7 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
+  annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
@@ -93,6 +95,7 @@ class LayerManager implements LayerAPI {
     this.unregisterLayer = this.unregisterLayer.bind(this);
     this.bringLayerToFront = this.bringLayerToFront.bind(this);
     this.touchLayer = this.touchLayer.bind(this);
+    this.setVisible = this.setVisible.bind(this);
     this.getLayerType = this.getLayerType.bind(this);
     this.getLayersByType = this.getLayersByType.bind(this);
     this.findLayer = this.findLayer.bind(this);
@@ -138,6 +141,9 @@ class LayerManager implements LayerAPI {
     this.map.on("layeradd", this.onLayerAdd);
 
     this.persistence = new LayerPersistence(this.layerRegistry);
+    // The annotation manager plans each layer's labels on that layer's own
+    // pane; enforceOrder z-orders the panes along with their layers.
+    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -350,7 +356,8 @@ class LayerManager implements LayerAPI {
       } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
-    if (opts.paneName) this.panes.ensurePane(opts.paneName);
+    // Canvas layers (createCanvas) paint on a 2d canvas — no SVG renderer.
+    if (opts.paneName) this.panes.ensurePane(opts.paneName, !opts.canvas);
     if (opts.layer) {
       for (const cp of this.panes.discoverChildPanes(opts.layer)) {
         this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
@@ -389,7 +396,18 @@ class LayerManager implements LayerAPI {
 
     if (this.ui) {
       if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
-      else this.ui.updateLayerItem(layerInfo, existingIdx);
+      else {
+        this.ui.updateLayerItem(layerInfo, existingIdx);
+        // Re-registration is how the API says "this layer's content changed", so
+        // the cached field list and the resolved auto field are both stale now.
+        // Invalidating re-renders as well, keeping the labels on the map in step
+        // with what the picker offers.
+        this.ui.invalidateFields(opts.id);
+        // A re-registration may replace the live layer/canvas object. Opacity
+        // is stored per-id, so re-apply it onto the fresh element (no-op when
+        // the user never changed it).
+        this.ui.applyUserState(opts.id);
+      }
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
@@ -428,6 +446,38 @@ class LayerManager implements LayerAPI {
    *  re-register (heatmap field change, measure add/edit/remove). */
   touchLayer(id: string): boolean {
     return this.layerRegistry.touch(id);
+  }
+
+  /**
+   * Set a layer's visibility from outside the panel — the same transition the
+   * checkbox performs, including the persisted hidden set, so the choice
+   * survives a reload the way a user toggle does.
+   *
+   * Base layers behave like overlays here: folium paints them as direct map
+   * children (`Layer.render` emits `addTo(map)`, with no per-base group
+   * wrapper), so hiding one removes it from the map. Neither this path nor the
+   * checkbox applies the "only one base at a time" rule — that is decided by
+   * the map's base-layer control, not by LayerControl.
+   *
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @param {boolean} visible - Show the layer, or hide it.
+   * @returns {boolean} true if the layer was found and its visibility was set.
+   */
+  setVisible(id: string, visible: boolean): boolean {
+    // Resolve the id up front so an unknown layer is reported the same whether
+    // or not a panel is attached — a caller must not be told a hide succeeded
+    // for an id that never existed.
+    if (!this.layerRegistry.has(id)) return false;
+    if (!this.ui) {
+      // No panel means no row to sync and no hidden-set funnel to write. The
+      // hidden set lives on LayerUI, so a success here would be a state change
+      // the panel can never show — and `destroy()` clears the registry too, so
+      // there is no later attach to replay it. Refuse instead of no-op-ing, or
+      // the caller cannot tell a no-panel call from a real hide.
+      log.warn("setVisible called before the panel is attached; no-op");
+      return false;
+    }
+    return this.ui.applyVisibility(id, visible);
   }
 
   /**
@@ -471,10 +521,17 @@ class LayerManager implements LayerAPI {
     // first attach — every reload.
     this.ui?.hiddenIds?.delete(id);
     this.ui?.saveHiddenIds();
+    // Tear down any annotation labels attached to this layer.
+    this.annotation.destroyLayer(id);
+    this.ui?.invalidateFields(id);
     if (this.ui?.renamedNames?.[id] != null) {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
+    // The two writes above are on separate debounce timers. Flush so the
+    // removal lands immediately rather than riding out the 100ms window —
+    // unregister is rare, so the flush cost is not worth amortising.
+    this.persistence.flushAll();
     this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
@@ -520,17 +577,35 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        const hasLayer = layer && this.map.hasLayer(layer);
         // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
         // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
         const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
         const z = this.computeZIndex(i, isGrid);
 
-        if (layerInfo.onZIndex) layerInfo.onZIndex(z);
-        if (!hasLayer) continue;
+        // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+        // they own a dedicated pane that must still take its place in the stack.
+        if (!layer) {
+          if (layerInfo.paneName) {
+            const { pane } = this.panes.ensurePane(layerInfo.paneName, false);
+            pane.style.zIndex = String(z);
+          }
+          continue;
+        }
+
+        if (!this.map.hasLayer(layer)) continue;
 
         this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
+
+        // The layer's label pane (created by AnnotationManager) rides just
+        // above it: labels cover that layer's own geometry, and the next layer
+        // up still covers the labels — the stack the panel shows.
+        const annotationPane = this.map.getPane(
+          CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+        );
+        if (annotationPane) {
+          annotationPane.style.zIndex = String(z + CONST.ANNOTATION_Z_OFFSET);
+        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
@@ -714,6 +789,7 @@ class LayerManager implements LayerAPI {
     // the control to be removed before the timer fires. unbindEvents also
     // flushes, but it only runs when a panel is attached.
     this.persistence.flushAll();
+    this.annotation.destroy();
     if (this.ui) {
       this.ui.unbindEvents();
       this.ui = null;

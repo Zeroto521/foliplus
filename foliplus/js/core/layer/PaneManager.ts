@@ -87,6 +87,23 @@ class PaneManager {
     return { pane, renderer };
   }
 
+  /** Remove a custom pane from the DOM and Leaflet's registry so `getPane`
+   *  stops returning a detached node. Used by createCanvas.destroy and any
+   *  component that owns a private pane (annotation labels). */
+  removePane(paneName: string) {
+    const key = CONST.RENDERER_KEY + paneName;
+    const renderer = (this.map as L.Map & PaneRendererMap)[key];
+    if (renderer) {
+      if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
+      delete (this.map as L.Map & PaneRendererMap)[key];
+    }
+    delete this.map._paneRenderers?.[paneName];
+    this.map.getPane(paneName)?.remove();
+    if (this.map._panes) delete this.map._panes[paneName];
+    this.childPanes.delete(paneName);
+    this.paneCache.clear();
+  }
+
   /** Reclaim the fallback pane that `unregisterLayer` just released.
    *  Must run after the layer is off the map, so nothing still renders into
    *  the pane. The caller supplies the stamp, since `fallbackPaneMap` is
@@ -331,6 +348,17 @@ class PaneManager {
     const fbName = this.fallbackPaneMap.get(L.stamp(layer));
     if (fbName) return [fbName];
     return ["overlayPane", "markerPane"];
+  }
+
+  /** The per-layer pane `enforceOrder` assigned this layer, or null.
+   *
+   *  Ownership, not a blocklist of Leaflet's shared panes: this pane is named
+   *  after the layer's stamp, so it holds that layer alone. A layer with none
+   *  is rendering into a pane it shares (Leaflet's `overlayPane` / `markerPane`,
+   *  or a pane a host deliberately shares between layers), and callers that
+   *  want to affect one layer only must not touch it. */
+  fallbackPaneOf(layer: L.Layer): string | null {
+    return this.fallbackPaneMap.get(L.stamp(layer)) ?? null;
   }
 }
 

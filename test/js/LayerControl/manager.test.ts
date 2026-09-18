@@ -8,7 +8,12 @@ import {
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { GEOM_TYPE, Z_INDEX } from "#foliplus/core/layer/const.js";
+import { applyUserState } from "#foliplus/LayerControl/ui/state.js";
+import {
+  FALLBACK_PANE_PREFIX,
+  GEOM_TYPE,
+  Z_INDEX,
+} from "#foliplus/core/layer/const.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -171,7 +176,32 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
     manager.enforceOrder();
     expect(grid.options.zIndex).toBeDefined();
-    expect(String(grid.options.pane)).not.toMatch(/^foliplus_pane_/);
+    expect(String(grid.options.pane)).not.toMatch(
+      new RegExp(`^${FALLBACK_PANE_PREFIX}`),
+    );
+  });
+
+  it("slots a layer's label pane just above that layer", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    const pane = document.createElement("div");
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? pane : realGetPane(name),
+    );
+
+    manager.enforceOrder();
+
+    expect(pane.style.zIndex).toBe(String(manager.computeZIndex(1, false) + 1));
+  });
+
+  it("skips the label-pane slot when the layer has no annotation pane", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? null : realGetPane(name),
+    );
+
+    expect(() => manager.enforceOrder()).not.toThrow();
   });
 
   it("computeZIndex returns expected values", () => {
@@ -268,7 +298,7 @@ describe("LayerManager", () => {
     // registry for the teardown to run.
     const paneA = document.createElement("div");
     const paneB = document.createElement("div");
-    const paneRegistry = { foliplus_pane_a: paneA, foliplus_pane_b: paneB };
+    const paneRegistry = { "foliplus-pane-a": paneA, "foliplus-pane-b": paneB };
     map._panes = paneRegistry;
     // Stable fallback so a debounced enforceOrder firing after this test's
     // teardown does not read a deleted registry.
@@ -284,15 +314,15 @@ describe("LayerManager", () => {
     window.L.stamp = stableStamp;
     const stampA = window.L.stamp(layerA);
     const stampB = window.L.stamp(layerB);
-    manager.panes.fallbackPaneMap.set(stampA, "foliplus_pane_a");
-    manager.panes.fallbackPaneMap.set(stampB, "foliplus_pane_b");
+    manager.panes.fallbackPaneMap.set(stampA, "foliplus-pane-a");
+    manager.panes.fallbackPaneMap.set(stampB, "foliplus-pane-b");
     expect(manager.unregisterLayer("fb_a")).toBe(true);
     // A is gone from both the records and the map DOM.
     expect(manager.panes.fallbackPaneMap.size).toBe(1);
-    expect(paneRegistry.foliplus_pane_a).toBeUndefined();
+    expect(paneRegistry["foliplus-pane-a"]).toBeUndefined();
     // B is still registered, so its pane survives the sweep.
-    expect(paneRegistry.foliplus_pane_b).toBe(paneB);
-    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus_pane_b"]);
+    expect(paneRegistry["foliplus-pane-b"]).toBe(paneB);
+    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus-pane-b"]);
     delete window["fb_a"];
     delete window["fb_b"];
   });
@@ -700,14 +730,7 @@ describe("LayerManager", () => {
     ]);
     const li = m2.layers[0];
     expect(li).toMatchObject({ id: "a", name: "A", visible: true, isBase: false });
-    for (const key of [
-      "paneName",
-      "iconSvg",
-      "type",
-      "canvas",
-      "onToggle",
-      "onZIndex",
-    ]) {
+    for (const key of ["paneName", "iconSvg", "type", "canvas", "onToggle"]) {
       expect(key in li).toBe(true);
     }
   });
@@ -786,11 +809,24 @@ describe("LayerManager", () => {
   it("createCanvas delegates to the factory", () => {
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
-    const api = manager.createCanvas({ id: "canvas1" });
-    expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
-    expect(typeof api.register).toBe("function");
-    expect(typeof api.bringToFront).toBe("function");
-    api.destroy();
+    // The shared mock's getPane always returns a fresh element; force the
+    // canvas-pane name to miss so ensurePane takes the createPane path.
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) =>
+      name.startsWith("foliplus-canvas-") ? null : realGetPane(name),
+    );
+    try {
+      const api = manager.createCanvas({ id: "canvas1" });
+      expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
+      expect(typeof api.register).toBe("function");
+      expect(typeof api.bringToFront).toBe("function");
+      expect(api.canvas.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
+        true,
+      );
+      api.destroy();
+    } finally {
+      map.getPane = realGetPane;
+    }
   });
 
   it("registerLayer appends a base layer when no base exists yet", () => {
@@ -818,10 +854,51 @@ describe("LayerManager", () => {
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),
+      invalidateFields: vi.fn(),
+      applyUserState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(manager.ui.updateLayerItem).toHaveBeenCalled();
     expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
+    // A re-registration is how the API says the layer's content changed, so the
+    // cached field list — and the auto field resolved from it — must be dropped.
+    expect(manager.ui.invalidateFields).toHaveBeenCalledWith("overlay1");
+    // Opacity is stored per-id; re-registration may swap the live layer/canvas.
+    expect(manager.ui.applyUserState).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("re-registration re-applies stored opacity onto a replaced canvas", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.uiContainer = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    manager.registerLayer({ id: "heat", name: "Heat", canvas });
+    manager.ui = {
+      updateLayerItem: vi.fn(),
+      initLayerItem: vi.fn(),
+      syncToggleAll: vi.fn(),
+      insertLayerItem: vi.fn(),
+      invalidateFields: vi.fn(),
+      applyUserState: (id: string) =>
+        applyUserState(
+          {
+            m: manager,
+            uiContainer: manager.uiContainer,
+            hiddenIds: new Set(),
+            renamedNames: {},
+            opacityMap: { heat: 0.4 },
+          } as any,
+          id,
+        ),
+      opacityMap: { heat: 0.4 },
+      hiddenIds: new Set(),
+    } as any;
+
+    // Swap the canvas on re-registration — the new element starts opaque.
+    const fresh = document.createElement("canvas");
+    manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
+
+    expect(fresh.style.opacity).toBe("0.4");
+    expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 
   it("unregisterLayer removes the UI row and reindexes", () => {
@@ -833,6 +910,7 @@ describe("LayerManager", () => {
     manager.ui = {
       reindexItems: vi.fn(),
       saveHiddenIds: vi.fn(),
+      invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
@@ -846,6 +924,7 @@ describe("LayerManager", () => {
       hiddenIds: new Set(["overlay1", "base1"]),
       reindexItems: vi.fn(),
       saveHiddenIds,
+      invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
 
@@ -937,6 +1016,18 @@ describe("LayerManager", () => {
     );
   });
 
+  it("registerLayer with a canvas skips the SVG renderer for its pane", () => {
+    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    const paneName = "foliplus-canvas-heat_no_svg";
+    manager.registerLayer({
+      id: "heat_no_svg",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      paneName,
+    });
+    expect(window.L.svg).not.toHaveBeenCalled();
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get
     // paneSet written so enforceOrder does not fall back to a generated pane.
@@ -959,6 +1050,35 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
     manager.enforceOrder();
     expect(tile.setZIndex).toHaveBeenCalled();
+  });
+
+  it("enforceOrder z-orders a canvas layer's dedicated pane (no Leaflet layer)", () => {
+    const paneName = "foliplus-canvas-heat1";
+    const canvasPane = document.createElement("div");
+    canvasPane.classList.add("foliplus-layer-pane");
+    const realGetPane = map.getPane;
+    const realCreatePane = map.createPane;
+    map.getPane = vi.fn((name: string) =>
+      name === paneName ? canvasPane : realGetPane(name),
+    );
+    map.createPane = vi.fn((name: string) =>
+      name === paneName ? canvasPane : realCreatePane(name),
+    );
+
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      paneName,
+    });
+    manager.enforceOrder();
+
+    // Overlays are prepended, so heat1 lands at index 0 of
+    // [heat1, overlay1, base1].
+    const expected = manager.computeZIndex(0, false);
+    expect(canvasPane.style.zIndex).toBe(String(expected));
+    map.getPane = realGetPane;
+    map.createPane = realCreatePane;
   });
 
   it("extractPoints collects markers with features", () => {
@@ -1075,7 +1195,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "fb", name: "Fb", layer });
     manager.enforceOrder();
-    expect(layer.options.pane).toMatch(/^foliplus_pane_/);
+    expect(layer.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
     expect(layer.options.paneSet).toBe(true);
   });
 
@@ -1578,6 +1698,62 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
     expect(enforceSpy).toHaveBeenCalled();
+  });
+
+  it("a successful move persists the new order and emits LAYER_CHANGE", () => {
+    // Reorder is observable to outside consumers only through these two
+    // side effects — keyboard.ts reindexes the DOM off the event, and
+    // reload-time order comes back from the persisted id list. A refactor
+    // that reorders without notifying or persisting would pass every
+    // `layers` snapshot assertion above and still silently regress.
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "b", name: "B", isBase: false },
+      { id: "c", name: "C", isBase: false },
+    ]);
+    vi.useFakeTimers();
+    const saveSpy = vi.spyOn(Storage, "save");
+    const onLayerChange = vi.fn();
+    manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
+
+    expect(manager.moveLayerUp("c")).toBe(true);
+
+    expect(onLayerChange).toHaveBeenCalledTimes(1);
+    // One hop: index 2 -> 1. reorder(2, 1) on [a, b, c] gives [a, c, b].
+    expect(manager.layers.map(l => l.id)).toEqual(["a", "c", "b"]);
+    vi.advanceTimersByTime(100);
+    const orderCalls = saveSpy.mock.calls.filter(c => c[0] === CONST.STORAGE.ORDER_KEY);
+    expect(orderCalls).toHaveLength(1);
+    expect(orderCalls[0][1]).toEqual(["a", "c", "b"]);
+
+    saveSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("a rejected move produces no side effects —no event, no persistence, no re-ordering", () => {
+    // The rejection paths are `idx`/group-boundary checks, but the contract is
+    // that all of them are inert. If a later edit adds enforcement between the
+    // check and the early return, these catch it; the per-case behavior itself
+    // is covered by the boundary tests above.
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false },
+      { id: "base1", name: "Base1", isBase: true },
+    ]);
+    // Spy before the act: an unspy'd method assertion is a no-op claim.
+    const enforceSpy = vi.spyOn(manager, "enforceOrder");
+    const onLayerChange = vi.fn();
+    manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
+
+    expect(manager.moveLayerUp("a")).toBe(false);
+    expect(manager.moveLayerDown("a")).toBe(false);
+    expect(manager.moveLayerUp("base1")).toBe(false);
+    expect(manager.moveLayerDown("base1")).toBe(false);
+    expect(manager.moveLayerUp("unknown")).toBe(false);
+    expect(manager.moveLayerDown("unknown")).toBe(false);
+
+    expect(onLayerChange).not.toHaveBeenCalled();
+    expect(enforceSpy).not.toHaveBeenCalled();
+    expect(manager.layers.map(l => l.id)).toEqual(["a", "base1"]);
   });
 });
 

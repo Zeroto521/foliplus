@@ -7,7 +7,7 @@ import * as CONST from "./const.js";
 
 /** One persisted dimension: its key and the lazy getter its debounced write
  *  reads. Fold state saves immediately, so it has no timer and no getter. */
-type Dimension = "order" | "hidden" | "names";
+type Dimension = "order" | "hidden" | "names" | "annotations" | "opacity";
 
 /** What {@link LayerPersistence.load} returns — every dimension, or null / an
  *  empty container where storage had none. */
@@ -16,6 +16,9 @@ type PersistedState = {
   foldedGroups: Set<string>;
   hiddenIds: Set<string>;
   names: Record<string, string>;
+  annotations: Record<string, unknown>;
+  /** Map of layer id → opacity in (0, 1]. Absent means default 1. */
+  opacity: Record<string, number>;
   /**
    * Whether the visibility key existed at all. An absent key means the user has
    * never made a choice, so the author's `show=` defaults stay in force; an
@@ -30,10 +33,10 @@ type PersistedState = {
 /**
  * Single entry point for all LayerControl persistence (localStorage).
  *
- * Four dimensions persist independently -- order, fold, visibility, names --
- * so each debounced write coalesces on its own timer without interfering with
- * the others, and a corrupt read of one dimension doesn't cascade into the
- * rest.
+ * Five dimensions persist independently -- order, fold, visibility, names, and
+ * per-layer annotation config -- so each debounced write coalesces on its own
+ * timer without interfering with the others, and a corrupt read of one
+ * dimension doesn't cascade into the rest.
  *
  * Reads go through {@link load} and writes through {@link write}, so a new
  * dimension is added in one place on each side instead of being sprinkled over
@@ -53,11 +56,15 @@ class LayerPersistence {
     order: undefined,
     hidden: undefined,
     names: undefined,
+    annotations: undefined,
+    opacity: undefined,
   };
   private readonly getters: Record<Dimension, (() => unknown) | null> = {
     order: null,
     hidden: null,
     names: null,
+    annotations: null,
+    opacity: null,
   };
 
   constructor(registry: LayerRegistry) {
@@ -103,11 +110,49 @@ class LayerPersistence {
     );
     const names: Record<string, string> = Object.fromEntries(nameEntries);
 
+    const annotationsData = Storage.load<Record<string, unknown>>(
+      CONST.STORAGE.ANNOTATION_KEY,
+      this.persistName,
+    );
+    const layerSet = new Set(ids);
+    const annotations =
+      annotationsData && typeof annotationsData === "object"
+        ? Object.fromEntries(
+            Object.entries(annotationsData).filter(
+              ([id, v]) =>
+                layerSet.has(id) &&
+                typeof v === "object" &&
+                v !== null &&
+                !Array.isArray(v),
+            ),
+          )
+        : {};
+
+    const opacityData = Storage.load<Record<string, unknown>>(
+      CONST.STORAGE.OPACITY_KEY,
+      this.persistName,
+    );
+    const opacity =
+      opacityData && typeof opacityData === "object"
+        ? Object.fromEntries(
+            Object.entries(opacityData).filter(
+              (entry): entry is [string, number] =>
+                layerSet.has(entry[0]) &&
+                typeof entry[1] === "number" &&
+                Number.isFinite(entry[1]) &&
+                entry[1] >= 0 &&
+                entry[1] <= 1,
+            ),
+          )
+        : {};
+
     return {
       order: order ? inRegistry(order) : null,
       foldedGroups: new Set(folded ?? []),
       hiddenIds: new Set(hidden ?? []),
       names,
+      annotations,
+      opacity,
       hiddenHasState: hidden !== null,
     };
   }
@@ -166,6 +211,16 @@ class LayerPersistence {
   /** Persist the current user-assigned names. */
   saveNames(namesGetter: () => Record<string, string>) {
     this.write(CONST.STORAGE.NAMES_KEY, "names", namesGetter);
+  }
+
+  /** Persist the current per-layer annotation config. */
+  saveAnnotations(annotationsGetter: () => Record<string, unknown>) {
+    this.write(CONST.STORAGE.ANNOTATION_KEY, "annotations", annotationsGetter);
+  }
+
+  /** Persist the current per-layer opacity map (id → 0-1). */
+  saveOpacity(opacityGetter: () => Record<string, number>) {
+    this.write(CONST.STORAGE.OPACITY_KEY, "opacity", opacityGetter);
   }
 
   /** Persist fold state immediately -- it toggles rarely, so no debounce. */
