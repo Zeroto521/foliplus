@@ -1955,11 +1955,21 @@ describe("LayerUI style panel", () => {
     // Aggregation field is data config on the component's own panel — never
     // delegated into the drawer.
     expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
-    // Shared section headings + opacity row always ride along.
-    expect(
-      panel.querySelectorAll(".foliplus-section-heading").length,
-    ).toBeGreaterThanOrEqual(2);
-    expect(panel.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
+    // The shared renderer emits controls only, so the panel still owns the
+    // section split: LABEL above the shared root, LAYER above the opacity row.
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.map(h => h.textContent)).toEqual([
+      "LayerControl.section_label",
+      "LayerControl.section_layer",
+    ]);
+    // Document order, not just presence: each heading must precede its section.
+    const order = [...panel.querySelectorAll("*")];
+    expect(order.indexOf(headings[0])).toBeLessThan(
+      order.indexOf(showToggle as unknown as Element),
+    );
+    expect(order.indexOf(headings[1])).toBeLessThan(
+      order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
+    );
   });
 
   it("delegated panel omits the field select even when field setter is present", () => {
