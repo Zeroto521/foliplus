@@ -975,6 +975,45 @@ describe("applyOpacityStateOne", () => {
     expect(pane.style.opacity).toBe("0.4");
   });
 
+  it("tolerates a missing pane element (released mid-session)", () => {
+    // A fallback pane is released on unregister; if the layer is still around
+    // but its pane is gone, the apply must not throw — it just has nowhere to
+    // write.
+    const getPane = vi.fn(() => null);
+    const ui = {
+      m: {
+        panes: { fallbackPaneOf: () => "foliplus-pane-3" },
+        map: { getPane },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    expect(() => applyOpacityStateOne(ui, li, 0.4)).not.toThrow();
+    expect(getPane).toHaveBeenCalledWith("foliplus-pane-3");
+  });
+
+  it("tolerates a leaf created without options", () => {
+    // A feature with no options object has nothing to multiply a base against;
+    // the walk treats it as fully opaque and moves on.
+    const setStyle = vi.fn();
+    const ui = { m: { panes: { fallbackPaneOf: () => null } } } as unknown as LayerUI;
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.5);
+
+    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+  });
+
   it("sets CSS opacity on each pane element for managed layers (subPanes)", () => {
     // Managed layers (createLayers: MeasureControl) own their panes. Setting
     // opacity on the pane element is multiplicative and covers every feature
