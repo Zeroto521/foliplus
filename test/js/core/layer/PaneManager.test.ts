@@ -295,6 +295,32 @@ describe("PaneManager", () => {
     expect(foreign.style.zIndex).toBe("999"); // untouched
   });
 
+  it("bumpPanes skips a registered pane this call did not declare", () => {
+    // childPanes is per map — every layer's registerSubPanes adds to it — while
+    // subPanes is one layer's ordered list. A pane another layer registered,
+    // that this layer's tree happens to advertise, must keep its own z: only
+    // the panes this call declared get an offset.
+    const ours = document.createElement("div");
+    const theirs = document.createElement("div");
+    theirs.style.zIndex = "777";
+    const map = {
+      getPane: vi.fn(name => (name === "ours" ? ours : theirs)),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    pm.registerSubPanes(["ours", "theirs"]);
+    const layer = {
+      options: {},
+      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
+        fn({ options: { pane: "ours" } });
+        fn({ options: { pane: "theirs" } });
+      },
+    } as unknown as L.Layer;
+    pm.bumpPanes(layer, 600, ["ours"]);
+    expect(ours.style.zIndex).toBe("600");
+    expect(theirs.style.zIndex).toBe("777"); // untouched
+  });
+
   it("reset clears the pane cache", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -311,6 +337,18 @@ describe("PaneManager", () => {
     pm.reset(1);
     expect(pm.paneCache.has(1)).toBe(false);
     expect(pm.paneCache.get(2)).toEqual(["b"]);
+  });
+
+  it("discoverChildPanes answers nothing once past the depth cap", () => {
+    // The cap is a parameter of a public method, so it is a contract: a caller
+    // that already descended too far gets an empty answer instead of a walk.
+    // The boundary itself (== cap) still walks.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const layer = { options: { pane: "ours" } } as unknown as L.Layer;
+    const past = CONST.RECURSION.PANE_DEPTH + 1;
+    expect(pm.discoverChildPanes(layer, past)).toEqual([]);
+    expect(pm.discoverChildPanes(layer, CONST.RECURSION.PANE_DEPTH)).toEqual(["ours"]);
   });
 
   it("discoverChildPanes reuses the cache until invalidated", () => {
@@ -534,6 +572,26 @@ describe("PaneManager", () => {
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
+  it("removePane drops the record of a renderer that is already off the map", () => {
+    // The renderer can be gone from the map before teardown reaches here (a
+    // tile layer's renderer-less pane, or someone else's removeLayer). Our
+    // record still has to be dropped: a pane re-created under the same name
+    // would otherwise inherit a renderer the old pane still owns.
+    const pane = document.createElement("div");
+    document.body.appendChild(pane);
+    const renderer = { id: "r" };
+    const map = makeMap(
+      { "foliplus-canvas-heat": pane },
+      { renderer: { "foliplus-canvas-heat": renderer } },
+    );
+    map.hasLayer = vi.fn(() => false);
+    const pm = new PaneManager(map);
+    pm.removePane("foliplus-canvas-heat");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(map[`${CONST.RENDERER_KEY}foliplus-canvas-heat`]).toBeUndefined();
+    expect(pane.parentNode).toBeNull();
+  });
+
   it("removePane leaves sibling panes alone", () => {
     const heat = document.createElement("div");
     const other = document.createElement("div");
@@ -630,6 +688,82 @@ describe("PaneManager", () => {
     pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(paneEl);
+  });
+
+  it("migrateLayers batches every marker of one pane into a single append", () => {
+    // The second marker against the same target pane is the path where the
+    // per-pane group already exists — and it is what proves the batch appends
+    // both markers (shadow then icon, per marker) instead of replacing the
+    // first one's nodes.
+    const paneEl = document.createElement("div");
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+    const markers = [0, 1].map(() => {
+      const icon = document.createElement("img");
+      const shadow = document.createElement("img");
+      const layer = {
+        getElement: () => icon,
+        _shadow: shadow,
+        options: {},
+        eachLayer: undefined,
+      };
+      Object.setPrototypeOf(layer, new window.L.Marker());
+      return { layer, icon, shadow };
+    });
+    pm.migrateLayers(
+      markers.map(({ layer }) => ({
+        layer,
+        paneName: "foliplus-measure-graph",
+        renderer,
+      })),
+    );
+    expect(Array.from(paneEl.children)).toEqual([
+      markers[0].shadow,
+      markers[0].icon,
+      markers[1].shadow,
+      markers[1].icon,
+    ]);
+  });
+
+  it("migrateLayers is idempotent for markers already in the target pane", () => {
+    // enforceOrder runs migrateLayers on every pass, so a node that is already
+    // where it belongs must not be re-appended — appending a node that is
+    // already a child re-orders it. A marker with no shadow at all has to
+    // survive the same pass.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    paneEl.append(shadow, icon);
+    const inPlace = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(inPlace, new window.L.Marker());
+
+    const bareIcon = document.createElement("img");
+    const noShadow = {
+      getElement: () => bareIcon,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(noShadow, new window.L.Marker());
+
+    pm.migrateLayers([
+      { layer: inPlace, paneName: "foliplus-measure-graph", renderer },
+      { layer: noShadow, paneName: "foliplus-measure-graph", renderer },
+    ]);
+
+    // The settled pair keeps its position; only the shadow-less marker's icon
+    // is appended, after it.
+    expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
   });
 
   it("migrateLayers skips layers without a paneName", () => {

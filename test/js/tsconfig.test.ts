@@ -79,11 +79,8 @@ const BANNED: Array<{ name: string; re: RegExp }> = [
 // count flat rather than banning it — the bar is "no new ones", which still
 // catches a future `as unknown as any`-style laundering.
 const NARROW_CASTS = [
-  { f: "core/layer/api.ts", n: 1 },
-  { f: "core/layer/util.ts", n: 1 },
   { f: "core/mapApi.ts", n: 1 },
   { f: "ExportControl/index.ts", n: 1 },
-  { f: "LayerControl/annotation/index.ts", n: 1 },
   { f: "LayerControl/ui/style.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
