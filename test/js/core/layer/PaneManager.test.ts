@@ -295,6 +295,32 @@ describe("PaneManager", () => {
     expect(foreign.style.zIndex).toBe("999"); // untouched
   });
 
+  it("bumpPanes skips a registered pane this call did not declare", () => {
+    // childPanes is per map — every layer's registerSubPanes adds to it — while
+    // subPanes is one layer's ordered list. A pane another layer registered,
+    // that this layer's tree happens to advertise, must keep its own z: only
+    // the panes this call declared get an offset.
+    const ours = document.createElement("div");
+    const theirs = document.createElement("div");
+    theirs.style.zIndex = "777";
+    const map = {
+      getPane: vi.fn(name => (name === "ours" ? ours : theirs)),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    pm.registerSubPanes(["ours", "theirs"]);
+    const layer = {
+      options: {},
+      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
+        fn({ options: { pane: "ours" } });
+        fn({ options: { pane: "theirs" } });
+      },
+    } as unknown as L.Layer;
+    pm.bumpPanes(layer, 600, ["ours"]);
+    expect(ours.style.zIndex).toBe("600");
+    expect(theirs.style.zIndex).toBe("777"); // untouched
+  });
+
   it("reset clears the pane cache", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -311,6 +337,18 @@ describe("PaneManager", () => {
     pm.reset(1);
     expect(pm.paneCache.has(1)).toBe(false);
     expect(pm.paneCache.get(2)).toEqual(["b"]);
+  });
+
+  it("discoverChildPanes answers nothing once past the depth cap", () => {
+    // The cap is a parameter of a public method, so it is a contract: a caller
+    // that already descended too far gets an empty answer instead of a walk.
+    // The boundary itself (== cap) still walks.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const layer = { options: { pane: "ours" } } as unknown as L.Layer;
+    const past = CONST.RECURSION.PANE_DEPTH + 1;
+    expect(pm.discoverChildPanes(layer, past)).toEqual([]);
+    expect(pm.discoverChildPanes(layer, CONST.RECURSION.PANE_DEPTH)).toEqual(["ours"]);
   });
 
   it("discoverChildPanes reuses the cache until invalidated", () => {
