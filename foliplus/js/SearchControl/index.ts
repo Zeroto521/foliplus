@@ -9,7 +9,7 @@ import { createIconButton, dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
-import { CLASSES, MODE, type SearchType } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
@@ -125,7 +125,10 @@ class SearchControl extends BaseControl {
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
-    this.cachedSuggestions = new Cache<string, SuggestItem[]>(50);
+    this.cachedSuggestions = new Cache<string, SuggestItem[]>(
+      AUTOCOMPLETE.CACHE_MAX,
+      AUTOCOMPLETE.CACHE_TTL_MS,
+    );
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;
