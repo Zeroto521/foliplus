@@ -18,21 +18,31 @@
   };
 
   // The pane a layer's content renders into, found from its own leaves.
+  // Handles both LayerGroup (eachLayer) and single layers (_path/_icon).
   const paneOf = layer => {
     let pane = null;
-    layer.eachLayer(child => {
+    const leaves = [];
+    if (layer.eachLayer) {
+      layer.eachLayer(child => leaves.push(child));
+    } else {
+      leaves.push(layer);
+    }
+    for (const child of leaves) {
       let n = child._path || child._icon || null;
       while (n && !(n.classList && n.classList.contains("leaflet-pane"))) {
         n = n.parentElement;
       }
       if (n) pane = n;
-    });
+    }
     return pane;
   };
 
   const leafOpacity = layer => {
     const vals = [];
-    layer.eachLayer(child => {
+    const each = layer.eachLayer
+      ? (cb) => layer.eachLayer(cb)
+      : (cb) => cb(layer);
+    each(child => {
       if (child.options && typeof child.options.opacity === "number") {
         vals.push(child.options.opacity);
       }
@@ -95,16 +105,30 @@
   const nodePaneEl = map.getPane("op-probe-node");
 
   // ── Case C: a hollow polygon keeps its hole (multiplicative, not override) ──
-  const hollow = L.polygon(
-    [[26.07, 119.45], [26.08, 119.45], [26.08, 119.46]],
-    { fillOpacity: 0, color: "#000", weight: 2 },
-  );
-  api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollow });
+  // Wrapped in GeoJSON with a property so the style panel opens (needs a
+  // labelable field to render the label section, which hosts the opacity row).
+  // style: { fillOpacity: 0 } makes it hollow — the pane CSS opacity must not
+  // fill it back in (0 × 0.4 = 0, not 0.4).
+  const hollowGeo = L.geoJson({
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { name: "hollow", value: 1 },
+      geometry: {
+        type: "Polygon",
+        coordinates: [[[119.45, 26.07], [119.45, 26.08], [119.46, 26.08], [119.45, 26.07]]],
+      },
+    }],
+  }, { style: { fillOpacity: 0, color: "#000", weight: 2 } });
+  api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
   ctrl.m.enforceOrder();
-  const hollowPane = paneOf(hollow);
+  const hollowPane = paneOf(hollowGeo);
   setOpacityViaSlider("op_hollow");
   const hollowPaneAfter = hollowPane ? hollowPane.style.opacity : null;
-  const hollowFillOpacity = hollow.options.fillOpacity;
+  let hollowFillOpacity = null;
+  hollowGeo.eachLayer(child => {
+    if (child.options) hollowFillOpacity = child.options.fillOpacity;
+  });
 
   return {
     error: null,

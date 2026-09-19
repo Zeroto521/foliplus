@@ -378,7 +378,7 @@ const applyLayerState = (
     }
   }
   if (patch.visible !== undefined) {
-    const layer = layerInfo.layer;
+    const layer = ui.m.findLayer(layerInfo);
     if (layer) {
       // Map membership — the same add/remove the checkbox path used. `addLayer`
       // is a no-op when the layer is already on the map, so a sweep can
