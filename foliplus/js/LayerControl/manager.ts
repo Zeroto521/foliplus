@@ -13,11 +13,12 @@ import {
   LayerSurface,
   PaneManager,
   type RegisterLayerOpts,
-  Z_INDEX,
   countFeatureGeometry,
   findLayer,
   forEachLeaf,
   getGeometryType,
+  topSlotZ,
+  zFor,
 } from "#core/layer/index.js";
 import {
   attributionEntries,
@@ -573,8 +574,7 @@ class LayerManager implements LayerAPI {
   }
 
   computeZIndex(i: number, isTile: boolean): number {
-    const zBase = isTile ? Z_INDEX.TILE_BASE : Z_INDEX.BASE;
-    return zBase + (this.layers.length - i) * Z_INDEX.STEP;
+    return zFor({ index: i, count: this.layers.length, tile: isTile });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -638,7 +638,8 @@ class LayerManager implements LayerAPI {
         // all of them are positioned from the tile base.
         const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
-        const z = this.computeZIndex(i, isGrid);
+        const slot = { index: i, count: this.layers.length, tile: isGrid };
+        const z = zFor(slot);
 
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
         // they own a dedicated pane that must still take its place in the stack.
@@ -669,7 +670,7 @@ class LayerManager implements LayerAPI {
           CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
         );
         if (annotationPane) {
-          annotationPane.style.zIndex = String(z + CONST.ANNOTATION_Z_OFFSET);
+          annotationPane.style.zIndex = String(zFor({ ...slot, role: "annotation" }));
         }
       }
 
@@ -677,8 +678,8 @@ class LayerManager implements LayerAPI {
       // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
       // markers (search/locate pins, ✕, data markers) one step below topZ but
       // still above every data pane — otherwise markerPane would hide under
-      // overlays. These offsets are relative to Z_INDEX.STEP (10).
-      const topZ = this.computeZIndex(0, false) + Z_INDEX.STEP;
+      // overlays. The base comes from the ladder; the offsets are fixed.
+      const topZ = topSlotZ(this.layers.length);
       const popupPaneEl = this.map.getPane("popupPane");
       if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
       const tooltipPaneEl = this.map.getPane("tooltipPane");

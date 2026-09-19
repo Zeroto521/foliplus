@@ -29,6 +29,7 @@ import type {
   PaneRole,
   PaneSpec,
 } from "./type.js";
+import { zFor } from "./z.js";
 
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceOpts {
@@ -161,6 +162,14 @@ class LayerSurface implements LayerSurfaceContract {
     this.contentDirty = true;
   }
 
+  /** The position-based base z the ordering pass last wrote for this surface. */
+  private baseZ?: number;
+  /** The absolute base z an override lifted every pane to. */
+  private overrideZ?: number;
+  /** The inline z each pane carried when an override was applied — what
+   *  `restoreZ` returns to when the ordering pass has not written yet. */
+  private zBefore?: Array<[HTMLElement, string]>;
+
   /** Write this surface's z onto its panes.
    *  @param z - The layer's position-based base z.
    *  @returns false when the layer paints through no pane of its own (a
@@ -168,10 +177,52 @@ class LayerSurface implements LayerSurfaceContract {
    *    falls back to the layer's own native z knob. */
   setZ(z: number): boolean {
     if (!this.panes.length) return false;
-    for (const pane of this.panes) {
-      this.host.ensurePane(pane.name, false).pane.style.zIndex = String(z + pane.order);
-    }
+    this.baseZ = z;
+    this.writeZ();
     return true;
+  }
+
+  /** Lift every pane to an absolute base z, keeping each pane's draw offset so
+   *  the layer's internal order survives the lift. Focus uses this instead of
+   *  a hand-derived ladder; `restoreZ` puts the stack back.
+   *  @param z - The absolute base z to lift to, e.g. `focusLayerZ()`.
+   *  @returns false when the surface paints through no pane of its own, or is
+   *    already lifted — the caller lifts the element itself in that case. */
+  setZOverride(z: number): boolean {
+    if (!this.panes.length || this.overrideZ !== undefined) return false;
+    this.zBefore = this.panes.map(pane => {
+      const el = this.host.ensurePane(pane.name, false).pane;
+      return [el, el.style.zIndex];
+    });
+    this.overrideZ = z;
+    this.writeZ();
+    return true;
+  }
+
+  /** Undo a `setZOverride`: rewrite the ordering pass's z, or the inline z the
+   *  panes carried before the lift when the ordering pass has not written yet.
+   *  @returns false when nothing was overridden. */
+  restoreZ(): boolean {
+    if (this.overrideZ === undefined) return false;
+    this.overrideZ = undefined;
+    if (this.baseZ === undefined) {
+      for (const [el, z] of this.zBefore ?? []) el.style.zIndex = z;
+    }
+    this.zBefore = undefined;
+    this.writeZ();
+    return true;
+  }
+
+  /** Write the z of every pane: the override base while a lift is active,
+   *  otherwise the ordering pass's. Writes nothing before either has been. */
+  private writeZ(): void {
+    const base = this.overrideZ ?? this.baseZ;
+    if (base === undefined) return;
+    for (const pane of this.panes) {
+      this.host.ensurePane(pane.name, false).pane.style.zIndex = String(
+        zFor({ base, role: pane.role, order: pane.order }),
+      );
+    }
   }
 
   /** Release the panes this surface synthesized. The layer is off the map by
