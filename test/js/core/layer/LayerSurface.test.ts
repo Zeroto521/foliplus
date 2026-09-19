@@ -198,6 +198,20 @@ describe("LayerSurface pane resolution", () => {
     expect(panes.label.style.pointerEvents).toBe("none");
   });
 
+  it("adds the foliplus-noninteractive class to non-interactive panes", () => {
+    const { map, panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "mixed",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: specs("graph", "label").map((s, i) =>
+        i === 1 ? { ...s, interactive: false } : s,
+      ),
+    });
+    expect(panes.label.classList.contains("foliplus-noninteractive")).toBe(true);
+    expect(panes.graph.classList.contains("foliplus-noninteractive")).toBe(false);
+  });
+
   it("leaves an interactive pane's pointer-events untouched", () => {
     const { map, panes, host } = makeMap();
     new LayerSurface(host, {
@@ -208,6 +222,24 @@ describe("LayerSurface pane resolution", () => {
     });
     expect(panes.graph.style.pointerEvents).toBe("");
     expect(panes.label.style.pointerEvents).toBe("");
+  });
+
+  it("skips a duplicate base pane name in the specs slice", () => {
+    // specs("graph","label") with paneName="graph" → the slice(1) loop sees
+    // only "label". If someone passes specs("graph","graph"), the second "graph"
+    // must not create a second pane with the same name.
+    const { map, panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "dup",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: [
+        { role: "base", order: 0, name: "graph" },
+        { role: "sub", order: 1, name: "graph" },
+      ],
+    });
+    expect(surface.paneNames).toEqual(["graph"]);
+    expect(Object.keys(panes).filter(k => k === "graph")).toHaveLength(1);
   });
 });
 
@@ -342,6 +374,35 @@ describe("LayerSurface.materialize", () => {
       _container: HTMLElement;
     };
     expect(path.element.parentNode).toBe(renderer._container);
+  });
+
+  it("no-ops when the layer is null (canvas surface)", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      canvas: true,
+    });
+    // A canvas surface has no layer to pin — materialize is a no-op.
+    const reconcile = vi.spyOn(host, "migrateLayers");
+    surface.materialize();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(surface.materialized).toBe(true);
+  });
+
+  it("no-ops when the surface has no panes (GridLayer)", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "tiles",
+      layer: new TileLayer() as unknown as L.Layer,
+    });
+    // A GridLayer paints in tilePane and carries its z itself — no panes,
+    // so reconcile has nothing to do.
+    const reconcile = vi.spyOn(host, "migrateLayers");
+    surface.materialize();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(surface.materialized).toBe(true);
   });
 });
 
