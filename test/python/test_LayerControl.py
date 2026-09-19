@@ -4009,6 +4009,52 @@ class TestLayerPaneProbeBrowser:
         page.evaluate(f"window.__probe = {json.dumps(spec)}")
         return page.evaluate(_js("LayerControl/probe_pane_facts"))
 
+    # ── R3: materialize at registration (I1 / I2) ──────────────────
+
+    def test_register_materializes_pane_before_add(self, browser, tmp_path):
+        """I1: after ``registerLayer`` returns — and *before* any ordering pass —
+        the content already sits in the layer's own pane.
+
+        The probe deliberately calls no ``enforceOrder``: the claim is that the
+        pane is decided before the layer joins the map, not that a later pass
+        moves it there. Every other pane probe has to force the pass first
+        precisely because that used to be the only moment the pane was set.
+        """
+        with use_page(self._probe, browser, tmp_path, slug="p_immediate") as (
+            page,
+            errors,
+        ):
+            r = page.evaluate(_js("LayerControl/register_immediate_pane"))
+        assert r is not None, "LayerAPI missing"
+        assert len(r["declared"]) == 1, r
+        pane = r["declared"][0]
+        assert pane.startswith("foliplus-pane-"), r
+        assert r["iconPane"] == pane, r
+        assert r["pathPane"] == pane, r
+        assert r["shared"] is False, r
+        assert r["leafPaneSet"] is True, r
+        assert not errors, f"JS errors: {errors}"
+
+    def test_register_rebuilds_surface_for_same_container(self, browser, tmp_path):
+        """I2: re-registering the same container keeps one pane set, and content
+        added in between lands in it too."""
+        with use_page(self._probe, browser, tmp_path, slug="p_rebuild") as (
+            page,
+            errors,
+        ):
+            r = page.evaluate(_js("LayerControl/register_rebuilds_surface"))
+        assert r is not None, "LayerAPI missing"
+        assert len(r["before"]) == 1, r
+        assert r["before"][0].startswith("foliplus-pane-"), r
+        # The pane set did not change across the re-registration...
+        assert r["after"] == r["before"], r
+        # ...and both markers render into it: the one from before, and the one
+        # added just before the re-registration.
+        assert r["firstMarkerPane"] == r["before"][0], r
+        assert r["secondMarkerPane"] == r["before"][0], r
+        assert r["rowCount"] == 1, r
+        assert not errors, f"JS errors: {errors}"
+
     # ── overlay / plugin probes (§10.3 #1–#6) ──────────────────────
 
     def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
