@@ -19,6 +19,12 @@ import * as Collision from "#foliplus/MeasureControl/collision.js";
 //      sample is the closest thing a loaded machine has to the code's own
 //      speed. Measured 2.5-7.1 ms for n=200 across four full-suite runs
 //      (three uninstrumented, one `--coverage` as CI runs it).
+//      The budgets were deliberately NOT tightened to fit that: a tighter bar
+//      would make the gate drift with CI runner speed instead of with the code.
+//      Resolution of the absolute bars is ~4x — they catch a constant-factor
+//      regression of that size or larger, and every asymptotic regression. The
+//      ground in between is the ratio gate below, which is what keeps the suite
+//      honest when the absolute bars are too coarse to notice.
 //   3. A scaling gate. Small and large are timed back to back in the same
 //      round, so one contention window applies to both and cancels in the
 //      ratio. That half cannot go blind under load.
