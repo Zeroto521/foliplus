@@ -90,7 +90,6 @@ interface SavedConfig {
   labelSize?: number;
   labelFormat?: NumberStyle;
   field?: string;
-  fieldAuto?: boolean;
 }
 
 // ==================== Core: Data Aggregation & Rendering ====================
@@ -105,11 +104,13 @@ class HeatmapManager {
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
+  /** Selected aggregation field — starts empty (no Python-side declaration),
+   *  becomes the first numeric property name in auto mode, or whatever the
+   *  user picked from the field dropdown. */
   currentField: string;
   currentScheme: string;
   currentMethod: string;
   autoFieldKey: string | null;
-  fieldAuto: boolean;
   numClasses: number;
   borderWeight: number;
   borderColor: string;
@@ -188,11 +189,10 @@ class HeatmapManager {
     this.selectedLayerId = null;
     this.pointLayers = [];
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
-    this.currentField = bareFieldName(CONF.field ?? "");
+    this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
     this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
     this.autoFieldKey = null;
-    this.fieldAuto = true;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
@@ -503,14 +503,26 @@ class HeatmapManager {
     }
   }
 
-  /** Numeric property keys on the source points, bare names (no prefix) —
-   *  same contract as LayerControl's annotation field picker. */
+  /** Numeric property keys on the source points — bare `feature.properties`
+   *  keys plus the two foliplus data-contract shapes (`value`, `options.value`).
+   *  Same contract as LayerControl's annotation field picker for the bare keys. */
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
-        const props = pt.marker?.feature?.properties;
+        const marker = pt.marker;
+        if (!marker) return;
+        const extended = marker as HeatmapPointMarker;
+        if (typeof extended.value === "number" && !seen.has("value")) {
+          seen.add("value");
+          fields.push("value");
+        }
+        if (typeof extended.options?.value === "number" && !seen.has("options.value")) {
+          seen.add("options.value");
+          fields.push("options.value");
+        }
+        const props = marker.feature?.properties;
         if (!props) return;
         Object.keys(props).forEach(k => {
           if (typeof props[k] === "number" && !seen.has(k)) {
@@ -553,12 +565,12 @@ class HeatmapManager {
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.currentAgg === CONST.AGG.COUNT) return 1;
-    const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
+    const key = this.currentField || this.autoFieldKey;
     const val = this.readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        log.warn(`Falling back to 1 for missing values, field=${this.currentField}`);
+        log.warn("value fallback to 1", this.currentField);
       }
       return 1;
     }
@@ -567,7 +579,7 @@ class HeatmapManager {
 
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
-    const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
+    const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
     if (this.cachedPoints && this.cachedPoints.key === key) {
       return this.cachedPoints.pts;
     }
@@ -651,7 +663,7 @@ class HeatmapManager {
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
-    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg && this.cachedAgg.key === aggKey) {
       aggregated = this.cachedAgg.data;
@@ -804,7 +816,6 @@ class HeatmapManager {
         labelSize: this.currentLabelSize,
         labelFormat: this.currentLabelFormat,
         field: this.currentField,
-        fieldAuto: this.fieldAuto,
       } satisfies SavedConfig,
       CONF.name,
     );
@@ -833,7 +844,7 @@ class HeatmapManager {
       : "";
     let fieldLabel = "";
     if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
-      const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
+      const key = this.currentField || this.autoFieldKey;
       if (key) fieldLabel = bareFieldName(key);
     }
 
@@ -874,7 +885,6 @@ class HeatmapManager {
     }
     if (saved.labelFormat) this.currentLabelFormat = saved.labelFormat;
     if (saved.field) this.currentField = bareFieldName(saved.field);
-    if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
     this.selectedLayerId = saved.layerId ?? null;
   }
 }

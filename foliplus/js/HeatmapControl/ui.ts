@@ -135,7 +135,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.m.currentField = ctrl.fieldSelect.value;
-    ctrl.m.fieldAuto = false;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.m.renderHexagons();
     persist(ctrl);
@@ -327,7 +326,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     ctrl.m.renderHexagons();
   } else if (ctrl.m.selectedLayerId) {
     // Restored selection (localStorage / rebuild): resolve the field list
-    // first so autoFieldKey is fresh — syncSourceMeta reads it under fieldAuto.
+    // first so autoFieldKey is fresh — syncSourceMeta reads it under currentField.
     updateFieldSelector(ctrl);
   }
 
@@ -391,8 +390,10 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
 
-  ctrl.m.fieldAuto = !fields.includes(ctrl.m.currentField);
-  ctrl.fieldSelect.value = ctrl.m.fieldAuto ? "" : ctrl.m.currentField;
+  if (ctrl.m.currentField && !fields.includes(ctrl.m.currentField)) {
+    ctrl.m.currentField = "";
+  }
+  ctrl.fieldSelect.value = ctrl.m.currentField;
 
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
@@ -575,9 +576,8 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
 const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.selectedLayerId = null;
   ctrl.m.autoFieldKey = null;
-  ctrl.m.fieldAuto = true;
   ctrl.m.currentAgg = CONST.AGG.COUNT;
-  ctrl.m.currentField = ctrl.conf.field ?? "";
+  ctrl.m.currentField = "";
   ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
