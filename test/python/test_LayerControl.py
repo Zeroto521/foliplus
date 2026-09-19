@@ -1413,8 +1413,17 @@ class TestLayerControlBrowser:
                 "a canvas in a pane must be re-enabled — the pane is "
                 f"pointer-events:none and the value inherits: {result}"
             )
-            assert result["canvasClicked"] is True, (
-                f"the canvas in the pane lost its click handler: {result}"
+            # Reachability first: the browser's own hit test has to land on
+            # the canvas, and then a real mouse click at those coordinates
+            # has to reach it.  A dispatch straight at the element would pass
+            # even when nothing can reach it — the hole the pane-level
+            # pointer-events bug slipped through.
+            assert result["hitIsCanvas"] is True, (
+                f"the canvas is not the hit target: {result}"
+            )
+            page.click("#foliplus-probe-clickable-canvas")
+            assert page.evaluate("window.__clickableDataCanvasHits") == 1, (
+                f"the real click never reached the canvas: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 
