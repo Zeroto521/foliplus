@@ -29,7 +29,6 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     else item.classList.remove(CONST.CLASSES.ACTIVE);
 
     if (layer) newState ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
-    if (newState && layer) layer.options.paneSet = false;
     if (layerInfo.onToggle) layerInfo.onToggle(newState);
     syncVisibility(ui, layerInfo, layer, newState);
     // No persist per iteration —schedule a single debounced write after the
@@ -113,7 +112,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   if (layer) {
     visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
   }
-  if (visible && layer) layer.options.paneSet = false;
   if (checkbox) {
     checkbox.checked = visible;
     checkbox.title = ui.T(visible ? "deselect_tooltip" : "select_tooltip");

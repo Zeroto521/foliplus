@@ -721,7 +721,7 @@ describe("applyOpacityStateOne", () => {
    *  per-feature walk. */
   const noPrivatePane = () =>
     ({
-      m: { panes: { fallbackPaneOf: () => null } },
+      m: { fallbackPaneOf: () => null },
     }) as unknown as LayerUI;
 
   it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
@@ -898,7 +898,7 @@ describe("applyOpacityStateOne", () => {
     const setStyle = vi.fn();
     const ui = {
       m: {
-        panes: { fallbackPaneOf: () => "foliplus-pane-7" },
+        fallbackPaneOf: () => "foliplus-pane-7",
         map: { getPane: (n: string) => (n === "foliplus-pane-7" ? pane : null) },
       },
     } as unknown as LayerUI;
@@ -923,7 +923,7 @@ describe("applyOpacityStateOne", () => {
     const getPane = vi.fn();
     const setStyle = vi.fn();
     const ui = {
-      m: { panes: { fallbackPaneOf: () => null }, map: { getPane } },
+      m: { fallbackPaneOf: () => null, map: { getPane } },
     } as unknown as LayerUI;
     const li = {
       id: "plain",
@@ -957,14 +957,14 @@ describe("applyOpacityStateOne", () => {
     } as unknown as LayerInfo;
 
     const unordered = {
-      m: { panes: { fallbackPaneOf: () => null } },
+      m: { fallbackPaneOf: () => null },
     } as unknown as LayerUI;
     applyOpacityStateOne(unordered, li, 0.4);
     expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
 
     const ordered = {
       m: {
-        panes: { fallbackPaneOf: () => "foliplus-pane-9" },
+        fallbackPaneOf: () => "foliplus-pane-9",
         map: { getPane: (n: string) => (n === "foliplus-pane-9" ? pane : null) },
       },
     } as unknown as LayerUI;
@@ -982,7 +982,7 @@ describe("applyOpacityStateOne", () => {
     const getPane = vi.fn(() => null);
     const ui = {
       m: {
-        panes: { fallbackPaneOf: () => "foliplus-pane-3" },
+        fallbackPaneOf: () => "foliplus-pane-3",
         map: { getPane },
       },
     } as unknown as LayerUI;
@@ -1001,7 +1001,7 @@ describe("applyOpacityStateOne", () => {
     // A feature with no options object has nothing to multiply a base against;
     // the walk treats it as fully opaque and moves on.
     const setStyle = vi.fn();
-    const ui = { m: { panes: { fallbackPaneOf: () => null } } } as unknown as LayerUI;
+    const ui = { m: { fallbackPaneOf: () => null } } as unknown as LayerUI;
     const li = {
       id: "plain",
       canvas: null,
@@ -1030,7 +1030,7 @@ describe("applyOpacityStateOne", () => {
     ]);
     const ui = {
       m: {
-        panes: { fallbackPaneOf: () => null },
+        fallbackPaneOf: () => null,
         map: { getPane: (n: string) => panes.get(n) ?? null },
       },
     } as unknown as LayerUI;
@@ -1055,7 +1055,7 @@ describe("applyOpacityStateOne", () => {
     pane.style.opacity = "0.4";
     const ui = {
       m: {
-        panes: { fallbackPaneOf: () => null },
+        fallbackPaneOf: () => null,
         map: { getPane: () => pane },
       },
     } as unknown as LayerUI;

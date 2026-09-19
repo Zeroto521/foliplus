@@ -5,12 +5,12 @@ import {
   type CreateCanvasOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
-  FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
   LayerRegistry,
+  LayerSurface,
   PaneManager,
   type RegisterLayerOpts,
   Z_INDEX,
@@ -76,6 +76,14 @@ class LayerManager implements LayerAPI {
   isEnforcing: boolean;
   isDestroyed: boolean;
   panes: PaneManager;
+  /** The rendering face of each registered layer, keyed by layer id. Created on
+   *  registration (and materialized before the layer joins the map) and dropped
+   *  on unregistration — it is the replacement for the stamp-keyed fallback
+   *  pane map plus the `options.paneSet` "already moved" flag. */
+  surfaces: Map<string, LayerSurface>;
+  /** The same surfaces keyed by the live layer's stamp, for the lookups that
+   *  start from a layer rather than from a registry entry. */
+  private surfacesByLayer: Map<number, LayerSurface>;
   factory: LayerFactory;
   lastAttribution: string | null;
   ui: LayerUI | null;
@@ -107,7 +115,9 @@ class LayerManager implements LayerAPI {
     this.isDestroyed = false;
 
     this.panes = new PaneManager(mapInstance);
-    this.getLayerPanes = this.panes.getLayerPanes.bind(this.panes);
+    this.surfaces = new Map();
+    this.surfacesByLayer = new Map();
+    this.getLayerPanes = this.resolveLayerPanes.bind(this);
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -350,24 +360,15 @@ class LayerManager implements LayerAPI {
       } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
     } else this.layerRegistry.prepend(layerInfo);
 
-    // Canvas layers (createCanvas) paint on a 2d canvas — no SVG renderer.
-    if (opts.paneName) this.panes.ensurePane(opts.paneName, !opts.canvas);
-    if (opts.layer) {
-      for (const cp of this.panes.discoverChildPanes(opts.layer)) {
-        this.panes.ensurePane(cp, !this.panes.childPanes.has(cp));
-      }
-      // options.pane is updated below — invalidate only this layer's cache.
-      this.panes.reset(L.stamp(opts.layer));
-    }
-    if (opts.layer) this.panes.fallbackPaneMap.delete(L.stamp(opts.layer));
-    if (
-      opts.paneName &&
-      opts.layer &&
-      !(opts.layer instanceof L.Path || opts.layer instanceof L.Marker)
-    ) {
-      opts.layer.options.pane = opts.paneName;
-      opts.layer.options.paneSet = true;
-    }
+    // I1: give the layer its rendering face and materialize it *before* it
+    // joins the map. `options.pane` is read by `map.addLayer` and ignored
+    // afterwards, so this is the last moment at which the pane can be decided
+    // without moving DOM — which is why the ordering pass no longer has to.
+    const surface = this.surfaceFor(layerInfo);
+    surface.materialize();
+    // materialize() may have written options.pane across the tree, so the
+    // cached child-pane list for this layer is stale.
+    if (opts.layer) this.panes.reset(L.stamp(opts.layer));
 
     // If the layer was previously hidden by the user, re-apply that state on
     // re-entry so it isn't silently re-added by runtime re-registration. The
@@ -491,8 +492,12 @@ class LayerManager implements LayerAPI {
     const layerStamp = layer ? L.stamp(layer) : null;
     if (layerStamp !== null) this.panes.reset(layerStamp);
     // The layer is off the map first (above), so the pane teardown never
-    // touches a live layer's renderer or path nodes.
-    this.panes.releaseFallbackPane(layerStamp);
+    // touches a live layer's renderer or path nodes. Only the pane the surface
+    // synthesized goes away: a declared pane survives, because re-registering
+    // the same id must not have to rebuild it.
+    this.surfaces.get(id)?.destroy();
+    this.surfaces.delete(id);
+    if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
     // Drop child-pane bookkeeping for layers that no longer use them.
     this.panes.sweepChildPanes(this.layers);
 
@@ -553,21 +558,64 @@ class LayerManager implements LayerAPI {
     return zBase + (this.layers.length - i) * Z_INDEX.STEP;
   }
 
+  /** The surface for a registry entry, built on first use. Registration builds
+   *  it explicitly (see registerLayer); this lazy path is for the entries that
+   *  never go through `registerLayer` — folium adds its own layers, so the
+   *  registry knows them only as unresolved ids and the ordering pass is where
+   *  they first get a rendering face. */
+  surfaceFor(layerInfo: LayerInfo): LayerSurface {
+    const spec = {
+      id: layerInfo.id,
+      layer: this.findLayer(layerInfo),
+      paneName: layerInfo.paneName,
+      subPanes: layerInfo.subPanes,
+      canvas: Boolean(layerInfo.canvas),
+    };
+    const existing = this.surfaces.get(layerInfo.id);
+    if (existing?.matches(spec)) return existing;
+    const surface = new LayerSurface(this.map, this.panes, spec);
+    this.surfaces.set(layerInfo.id, surface);
+    if (spec.layer) this.surfacesByLayer.set(L.stamp(spec.layer), surface);
+    return surface;
+  }
+
+  /** The surface that currently paints a live layer, or null. */
+  private surfaceForLayer(layer: L.Layer): LayerSurface | null {
+    return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
+  }
+
+  /** The pane a layer renders into alone because it declared none, or null.
+   *  Ownership rather than a blocklist of Leaflet's shared pane names: the name
+   *  is derived from the layer's stamp, so the pane holds that layer alone. A
+   *  layer with none is rendering into a pane it shares (Leaflet's `overlayPane`
+   *  / `markerPane`, or a pane a host deliberately shares between layers), and
+   *  callers that want to affect one layer only must not touch it. */
+  fallbackPaneOf(layer: L.Layer): string | null {
+    return this.surfaceForLayer(layer)?.synthesizedPaneName ?? null;
+  }
+
+  /** Panes a registered layer's content lives in, including the pane its
+   *  surface synthesized. Falls back to the names in the layer's own tree for a
+   *  layer nobody registered. */
+  private resolveLayerPanes(layer: L.Layer): string[] {
+    const surface = this.surfaceForLayer(layer);
+    if (surface?.panes.length) return surface.paneNames;
+    return this.panes.getLayerPanes(layer);
+  }
+
+  /** Give every layer a surface and write its z.
+   *
+   *  Ordering only. The pass used to allocate fallback panes and queue DOM moves
+   *  for a later migration; both moved into LayerSurface — panes are allocated
+   *  at materialization (before the layer joins the map, so `options.pane` is
+   *  already right at the one moment Leaflet reads it), and content added later
+   *  is pinned by the wrappers the surface installs. What is left here is the z
+   *  arithmetic and the shared panes around it, untouched. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
-      const layersToMove: Array<{
-        layer: L.Layer;
-        paneName: string | null;
-        renderer: L.SVG | null;
-      }> = [];
-
-      // Note: pane discovery cache is NOT cleared here — enforceOrder does not
-      // change layer-tree structure, so registered layers keep their cached
-      // child-pane lists. Structure changes (register/unregister/addLayer)
-      // invalidate specific entries via panes.reset(stamp).
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
@@ -580,16 +628,21 @@ class LayerManager implements LayerAPI {
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
         // they own a dedicated pane that must still take its place in the stack.
         if (!layer) {
-          if (layerInfo.paneName) {
-            const { pane } = this.panes.ensurePane(layerInfo.paneName, false);
-            pane.style.zIndex = String(z);
-          }
+          const surface = this.surfaceFor(layerInfo);
+          surface.materialize();
+          surface.setZ(z);
           continue;
         }
 
         if (!this.map.hasLayer(layer)) continue;
 
-        this.applyLayerZIndex({ layerInfo, layer, z, isGrid, isTile, layersToMove });
+        const surface = this.surfaceFor(layerInfo);
+        surface.materialize();
+        if (!surface.setZ(z)) {
+          // No pane of its own: the layer carries its z natively.
+          if (isTile) (layer as L.TileLayer).setZIndex(z);
+          else if (isGrid) (layer.options as L.GridLayerOptions).zIndex = z;
+        }
 
         // The layer's label pane (created by AnnotationManager) rides just
         // above it: labels cover that layer's own geometry, and the next layer
@@ -615,73 +668,9 @@ class LayerManager implements LayerAPI {
       const markerPaneEl = this.map.getPane("markerPane");
       if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
 
-      this.panes.migrateLayers(layersToMove);
       this.syncAttribution();
     } finally {
       this.isEnforcing = false;
-    }
-  }
-
-  applyLayerZIndex({
-    layerInfo,
-    layer,
-    z,
-    isGrid,
-    isTile,
-    layersToMove,
-  }: {
-    layerInfo: LayerInfo;
-    layer: L.Layer;
-    z: number;
-    isGrid: boolean;
-    isTile: boolean;
-    layersToMove: Array<{
-      layer: L.Layer;
-      paneName: string | null;
-      renderer: L.SVG | null;
-    }>;
-  }) {
-    const paneName = layerInfo.paneName;
-    if (paneName) {
-      const paneEntry = this.panes.ensurePane(paneName, !isTile);
-      paneEntry.pane.style.zIndex = String(z);
-      if (layer.options.pane !== paneName || !layer.options.paneSet) {
-        layersToMove.push({ layer, paneName, renderer: paneEntry.renderer });
-      }
-      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
-      return;
-    }
-
-    if (isTile) {
-      (layer as L.TileLayer).setZIndex(z);
-      return;
-    }
-
-    if (isGrid) {
-      // GridLayer subclass without TileLayer.setZIndex (e.g. L.gridLayer()):
-      // Leaflet renders it in tilePane and applies options.zIndex on update.
-      (layer.options as L.GridLayerOptions).zIndex = z;
-      return;
-    }
-
-    const childPanes = this.panes.discoverChildPanes(layer);
-    if (childPanes.length > 0) {
-      childPanes.forEach((cp: string) => {
-        const needRenderer = !isTile && !this.panes.childPanes.has(cp);
-        const paneEntry = this.panes.ensurePane(cp, needRenderer);
-        paneEntry.pane.style.zIndex = String(z);
-      });
-      this.panes.bumpPanes(layer, z, layerInfo.subPanes ?? []);
-      layer.options.paneSet = true;
-      return;
-    }
-
-    const fbName = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-    this.panes.fallbackPaneMap.set(L.stamp(layer), fbName);
-    const paneEntry = this.panes.ensurePane(fbName, !isTile);
-    paneEntry.pane.style.zIndex = String(z);
-    if (layer.options.pane !== fbName || !layer.options.paneSet) {
-      layersToMove.push({ layer, paneName: fbName, renderer: paneEntry.renderer });
     }
   }
 
@@ -795,6 +784,8 @@ class LayerManager implements LayerAPI {
     }
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
+    this.surfaces.clear();
+    this.surfacesByLayer.clear();
     this.panes.destroy();
     // Revert to the lightweight LayerAPI (no registry, no panel).
     // ensureLayerAPI guarantees a valid object, so consumers can always

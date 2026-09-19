@@ -150,17 +150,19 @@ describe("applyVisibility", () => {
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
   });
 
-  it("re-shows a hidden layer and clears paneSet for the z-order re-push", () => {
+  it("re-shows a hidden layer without touching its pane pin", () => {
+    // The layer's `options.pane` was set when its surface was materialized, and
+    // `map.addLayer` reads it back — so a re-show needs no "re-push" flag any
+    // more (the retired `options.paneSet = false`).
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
     expect(applyVisibility(ui, "overlay1", false)).toBe(true);
-    // Hiding needs no pane re-push, so only the show direction resets it.
     expect(layer.options.paneSet).toBeUndefined();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBe(false);
+    expect(layer.options.paneSet).toBeUndefined();
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
     expect(map.hasLayer(layer)).toBe(true);
   });
@@ -457,7 +459,7 @@ describe("LayerUI.handleChange", () => {
     expect(map.hasLayer(layer)).toBe(false);
   });
 
-  it("re-shows a hidden layer and clears paneSet for the z-order re-push", () => {
+  it("re-shows a hidden layer without touching its pane pin", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
@@ -466,7 +468,7 @@ describe("LayerUI.handleChange", () => {
 
     change(ui, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBe(false);
+    expect(layer.options.paneSet).toBeUndefined();
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
   });
 

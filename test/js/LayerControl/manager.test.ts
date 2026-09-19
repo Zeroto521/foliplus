@@ -18,13 +18,17 @@ import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
-class TileLayer {
-  options = { attribution: "© OpenStreetMap" };
-  setZIndex = vi.fn();
-}
-
+// Leaflet models a TileLayer as a GridLayer subclass, and the manager relies on
+// that: a GridLayer carries its z natively (`setZIndex` / `options.zIndex`) and
+// therefore gets no pane of its own, a decision LayerSurface makes with the same
+// `instanceof L.GridLayer` check.
 class GridLayer {
   options = {};
+}
+
+class TileLayer extends GridLayer {
+  options = { attribution: "© OpenStreetMap" };
+  setZIndex = vi.fn();
 }
 
 // ===========================================================================
@@ -97,7 +101,11 @@ describe("LayerManager", () => {
       options = {};
     }
 
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
 
     class CircleMarker {}
     const stamp = (() => {
@@ -122,7 +130,13 @@ describe("LayerManager", () => {
     window.L.Marker = Marker;
     window.L.CircleMarker = CircleMarker;
     window.L.stamp = stamp;
-    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    window.L.svg = vi.fn(() => ({
+      addTo: vi.fn(),
+      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // path nodes, and its absence would silently take the "mark handled"
+      // branch instead.
+      _container: document.createElement("div"),
+    }));
 
     const makePane = () => {
       const el = document.createElement("div");
@@ -191,7 +205,11 @@ describe("LayerManager", () => {
 
     manager.enforceOrder();
 
-    expect(pane.style.zIndex).toBe(String(manager.computeZIndex(1, false) + 1));
+    // base1 is a TileLayer, so its own z is the tile-based one — the same
+    // `computeZIndex` the ordering pass uses for it.
+    expect(pane.style.zIndex).toBe(
+      String(manager.computeZIndex(1, true) + CONST.ANNOTATION_Z_OFFSET),
+    );
   });
 
   it("skips the label-pane slot when the layer has no annotation pane", () => {
@@ -292,37 +310,41 @@ describe("LayerManager", () => {
     expect(result).toBe(true);
   });
 
-  it("unregisterLayer reclaims only the unregistered layer's fallback pane", () => {
-    // A full sweep on every unregister would also delete another
-    // registered layer's pane. The map fixture needs the Leaflet pane
-    // registry for the teardown to run.
-    const paneA = document.createElement("div");
-    const paneB = document.createElement("div");
-    const paneRegistry = { "foliplus-pane-a": paneA, "foliplus-pane-b": paneB };
+  it("unregisterLayer reclaims only the unregistered layer's synthesized pane", () => {
+    // A full sweep on every unregister would also delete another registered
+    // layer's pane. The map fixture needs the Leaflet pane registry for the
+    // teardown to run, and an identity-stable stamp: the surface derives its
+    // pane name from one, and the shared stamp mock is a counter.
+    window.L.stamp = stableStamp;
+    const paneRegistry: Record<string, HTMLElement> = {};
     map._panes = paneRegistry;
-    // Stable fallback so a debounced enforceOrder firing after this test's
-    // teardown does not read a deleted registry.
-    map.getPane = vi.fn(name => paneRegistry[name] ?? document.createElement("div"));
+    map.getPane = vi.fn((name: string) => paneRegistry[name] ?? null);
+    map.createPane = vi.fn((name: string) => {
+      const pane = document.createElement("div");
+      pane.classList.add("foliplus-layer-pane");
+      return (paneRegistry[name] = pane);
+    });
     const layerA = { options: {} };
     const layerB = { options: {} };
     window["fb_a"] = layerA;
     window["fb_b"] = layerB;
     manager.registerLayer({ id: "fb_a", name: "A", layer: layerA });
     manager.registerLayer({ id: "fb_b", name: "B", layer: layerB });
-    // The shared stamp mock is a counter, so stamps would shift between the
-    // sweep and the assertion. Use an identity-stable stamp like Leaflet's.
-    window.L.stamp = stableStamp;
-    const stampA = window.L.stamp(layerA);
-    const stampB = window.L.stamp(layerB);
-    manager.panes.fallbackPaneMap.set(stampA, "foliplus-pane-a");
-    manager.panes.fallbackPaneMap.set(stampB, "foliplus-pane-b");
+
+    const paneA = `${FALLBACK_PANE_PREFIX}${window.L.stamp(layerA)}`;
+    const paneB = `${FALLBACK_PANE_PREFIX}${window.L.stamp(layerB)}`;
+    // Both surfaces synthesized their own pane at registration.
+    expect(paneRegistry[paneA]).toBeDefined();
+    expect(paneRegistry[paneB]).toBeDefined();
+
     expect(manager.unregisterLayer("fb_a")).toBe(true);
     // A is gone from both the records and the map DOM.
-    expect(manager.panes.fallbackPaneMap.size).toBe(1);
-    expect(paneRegistry["foliplus-pane-a"]).toBeUndefined();
-    // B is still registered, so its pane survives the sweep.
-    expect(paneRegistry["foliplus-pane-b"]).toBe(paneB);
-    expect(manager.panes.getLayerPanes(layerB)).toEqual(["foliplus-pane-b"]);
+    expect(manager.surfaces.has("fb_a")).toBe(false);
+    expect(map._panes[paneA]).toBeUndefined();
+    // B is still registered, so its pane survives.
+    expect(map._panes[paneB]).toBeDefined();
+    expect(manager.getLayerPanes(layerB)).toEqual([paneB]);
+
     delete window["fb_a"];
     delete window["fb_b"];
   });
@@ -781,13 +803,13 @@ describe("LayerManager", () => {
     expect(manager.extractPoints("nonexistent")).toEqual([]);
   });
 
-  // ── migrateLayers container guard ──
+  // ── surface container guard ──
 
-  it("migrateLayers skips container layers (those with eachLayer)", () => {
+  it("a surface pins a container's content, never the container itself", () => {
+    // Leaflet ignores a group's own `options.pane` for its children, so the pin
+    // walks the tree instead of writing a pane onto the container.
     const container = { options: {}, eachLayer: vi.fn() };
-    const leaf = { options: { pane: "overlayPane" } };
     manager.registerLayer({ id: "c", name: "C", layer: container });
-    manager.registerLayer({ id: "l", name: "L", layer: leaf });
     expect(container.options.pane).toBeUndefined();
   });
 
@@ -1017,7 +1039,13 @@ describe("LayerManager", () => {
   });
 
   it("registerLayer with a canvas skips the SVG renderer for its pane", () => {
-    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    window.L.svg = vi.fn(() => ({
+      addTo: vi.fn(),
+      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // path nodes, and its absence would silently take the "mark handled"
+      // branch instead.
+      _container: document.createElement("div"),
+    }));
     const paneName = "foliplus-canvas-heat_no_svg";
     manager.registerLayer({
       id: "heat_no_svg",
@@ -1082,7 +1110,11 @@ describe("LayerManager", () => {
   });
 
   it("extractPoints collects markers with features", () => {
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
     window.L.Marker = Marker;
     const marker = new Marker() as any;
     marker.feature = { type: "Feature" };
@@ -1102,7 +1134,11 @@ describe("LayerManager", () => {
   });
 
   it("extractPoints excludes label markers (no double-counting)", () => {
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
     window.L.Marker = Marker;
     const data = new Marker() as any;
     data.feature = { type: "Feature" };
@@ -1137,7 +1173,11 @@ describe("LayerManager", () => {
     // "unknown" promise would diverge from downstream behavior.
     // A Marker WITH .feature (consumable) is extracted, proving the gate is
     // specifically the missing envelope, not Marker identity.
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
     window.L.Marker = Marker;
     const plain = new Marker() as any; // no .feature
     plain.getLatLng = () => ({ lat: 1, lng: 2 });
@@ -1204,7 +1244,12 @@ describe("LayerManager", () => {
     // registerLayer's discoverChildPanes does not fail, and that carries
     // the constructor identity forEachLeaf's instanceof checks need.
     const makeLeaf = (ctor: any, extra: unknown = {}) =>
-      Object.assign(Object.create(ctor.prototype), { options: {}, ...extra });
+      Object.assign(Object.create(ctor.prototype), {
+        options: {},
+        // A detached leaf has no element yet, and migrateLayers reads it.
+        getElement: () => null,
+        ...extra,
+      });
     const wrap = (...leaves: unknown[]) =>
       ({
         options: {},
@@ -1428,7 +1473,11 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       options = {};
     }
 
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
 
     class CircleMarker {}
     const stamp = (() => {
@@ -1436,13 +1485,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       return vi.fn(() => ++id);
     })();
 
-    class TileLayer {
-      options = { attribution: "© OpenStreetMap" };
-      setZIndex = vi.fn();
-    }
-
     class GridLayer {
       options = {};
+    }
+
+    class TileLayer extends GridLayer {
+      options = { attribution: "© OpenStreetMap" };
+      setZIndex = vi.fn();
     }
 
     window.L.TileLayer = TileLayer;
@@ -1462,7 +1511,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     window.L.Marker = Marker;
     window.L.CircleMarker = CircleMarker;
     window.L.stamp = stamp;
-    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    window.L.svg = vi.fn(() => ({
+      addTo: vi.fn(),
+      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // path nodes, and its absence would silently take the "mark handled"
+      // branch instead.
+      _container: document.createElement("div"),
+    }));
 
     const makePane = () => {
       const el = document.createElement("div");
@@ -1796,7 +1851,11 @@ describe("LayerManager user-assigned names", () => {
       options = {};
     }
 
-    class Marker {}
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
 
     class CircleMarker {}
     window.L.TileLayer = TileLayer;
@@ -1808,7 +1867,13 @@ describe("LayerManager user-assigned names", () => {
     window.L.Marker = Marker;
     window.L.CircleMarker = CircleMarker;
     window.L.stamp = vi.fn();
-    window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+    window.L.svg = vi.fn(() => ({
+      addTo: vi.fn(),
+      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // path nodes, and its absence would silently take the "mark handled"
+      // branch instead.
+      _container: document.createElement("div"),
+    }));
 
     const makePane = () => {
       const el = document.createElement("div");
