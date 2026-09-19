@@ -285,6 +285,71 @@ interface CreateLayersAPI {
   bringToFront: () => void;
 }
 
+/** Content options for `createSurface` — the discriminated-union branch. */
+type SurfaceContentOpts =
+  | { kind: "layers"; panes?: CreateLayersPane[] }
+  | {
+      kind: "canvas";
+      className?: string;
+      onToggle?: ((visible: boolean) => void) | null;
+      getBounds?: (() => L.LatLngBounds | null) | null;
+      source?: string | null;
+      updatedAt?: string | number | null;
+      meta?: Record<string, string | number> | null;
+    };
+
+/** Options for `LayerFactory.createSurface`. */
+interface SurfaceOpts {
+  id: string;
+  name?: string;
+  iconSvg?: string;
+  content: SurfaceContentOpts;
+  featureCountProvider?: (() => number) | null;
+  styleProvider?: (() => Record<string, unknown>) | null;
+  styleSetters?: Record<string, (value: unknown) => void> | null;
+  styleDefaults?: (() => Record<string, unknown>) | null;
+}
+
+/** Content handle returned by `createSurface` — the discriminated-union branch. */
+type SurfaceContentHandle =
+  | {
+      kind: "layers";
+      mainLayer: L.LayerGroup;
+      addLayer: (layer: L.Layer, paneName?: string) => L.Layer;
+      removeLayer: (...items: (L.Layer | null | undefined)[]) => void;
+      clearLayers: () => void;
+    }
+  | {
+      kind: "canvas";
+      canvas: HTMLCanvasElement;
+      ctx: CanvasRenderingContext2D | null;
+      resize: () => void;
+      getSize: () => { width: number; height: number };
+      updatePosition: () => void;
+      setZIndex: (z: number) => void;
+      setVisible: (v: boolean) => void;
+    };
+
+/** Return type of `LayerFactory.createSurface`. Discriminated union:
+ *  the canvas variant carries a `destroy` (canvas panes must be cleaned up);
+ *  the layers variant does not (Leaflet layers are removed by the registry). */
+type SurfaceHandle =
+  | {
+      content: Extract<SurfaceContentHandle, { kind: "layers" }>;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
+    }
+  | {
+      content: Extract<SurfaceContentHandle, { kind: "canvas" }>;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
+      destroy: () => void;
+    };
+
 /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
  *
  * Two implementations must satisfy this contract:
@@ -360,4 +425,8 @@ export type {
   PaneRole,
   PaneSpec,
   RegisterLayerOpts,
+  SurfaceContentHandle,
+  SurfaceContentOpts,
+  SurfaceHandle,
+  SurfaceOpts,
 };

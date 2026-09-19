@@ -93,8 +93,14 @@ describe("build artifacts", () => {
     // it first, then the shared renderer needed the next step; the larger
     // value wins on merge. The pane-role refactor added PaneManager.pinTree
     // (+151B) — the recursive pin that puts a GeoJSON group's child paths into
-    // the declared pane.
-    expect(size).toBeLessThan(156000);
+    // the declared pane. The createSurface refactor added a unified registration
+    // pipeline (+2.3KB): commonLayerOpts, register/unregister/registered
+    // closures, preRegister/preUnregister/shouldUnregister hooks, and the
+    // content.kind dispatch. This is new code, not deduplication — the two
+    // paths (mainLayer+pinTree vs canvas+resize+cancelMapPaneTranslate) are
+    // too different to share content logic. The shared part is the plumbing
+    // around it.
+    expect(size).toBeLessThan(159000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

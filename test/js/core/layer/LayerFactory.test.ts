@@ -764,4 +764,118 @@ describe("LayerFactory", () => {
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg }));
     });
   });
+
+  // ── createSurface equivalence ──
+
+  describe("createSurface", () => {
+    it("createLayers wrapper delegates to createSurface and returns the layers dialect", () => {
+      const wrapperApi = factory.createLayers({
+        id: "eq",
+        name: "Eq",
+        panes: [{ name: "g1" }, { name: "l1", isLabel: true }],
+      });
+      const handle = factory.createSurface({
+        id: "eq",
+        name: "Eq",
+        content: { kind: "layers", panes: [{ name: "g1" }, { name: "l1", isLabel: true }] },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "layers" }
+      >;
+      // The wrapper returns the handle's content fields plus the shared plumbing.
+      expect(Object.keys(wrapperApi).sort()).toEqual(
+        Object.keys({
+          mainLayer: c.mainLayer,
+          addLayer: c.addLayer,
+          removeLayer: c.removeLayer,
+          clearLayers: c.clearLayers,
+          register: handle.register,
+          unregister: handle.unregister,
+          registered: handle.registered,
+          bringToFront: handle.bringToFront,
+        }).sort(),
+      );
+    });
+
+    it("createCanvas wrapper delegates to createSurface and returns the canvas dialect", () => {
+      const wrapperApi = factory.createCanvas({ id: "eq-c", name: "EqC" });
+      const handle = factory.createSurface({
+        id: "eq-c",
+        name: "EqC",
+        content: { kind: "canvas" },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "canvas" }
+      >;
+      expect(Object.keys(wrapperApi).sort()).toEqual(
+        Object.keys({
+          canvas: c.canvas,
+          ctx: c.ctx,
+          resize: c.resize,
+          getSize: c.getSize,
+          updatePosition: c.updatePosition,
+          register: handle.register,
+          unregister: handle.unregister,
+          registered: handle.registered,
+          destroy: handle.destroy,
+          bringToFront: handle.bringToFront,
+          setZIndex: c.setZIndex,
+          setVisible: c.setVisible,
+        }).sort(),
+      );
+    });
+
+    it("layer surface declares paneSpecs with correct role and order", () => {
+      const handle = factory.createSurface({
+        id: "ps",
+        content: {
+          kind: "layers",
+          panes: [
+            { name: "base" },
+            { name: "sub", isLabel: true },
+            { name: "sub2" },
+          ],
+        },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "layers" }
+      >;
+      c.addLayer(new window.L.Path(), "sub");
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paneSpecs: [
+            { role: "base", order: 0, name: "base" },
+            { role: "sub", order: 1, name: "sub", isLabel: true },
+            { role: "sub", order: 2, name: "sub2" },
+          ],
+        }),
+      );
+    });
+
+    it("canvas surface creates a canvas element, context, and dedicated pane", () => {
+      const handle = factory.createSurface({
+        id: "cv",
+        content: { kind: "canvas", className: "custom" },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "canvas" }
+      >;
+      expect(c.canvas).toBeInstanceOf(HTMLCanvasElement);
+      expect(c.canvas.classList).toContain("foliplus-canvas-layer");
+      expect(c.canvas.classList).toContain("custom");
+      expect(c.ctx).not.toBeNull();
+      expect(handle.destroy).toBeDefined();
+      handle.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canvas: c.canvas,
+          paneName: "foliplus-canvas-cv",
+        }),
+      );
+    });
+  });
 });
