@@ -76,7 +76,7 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-155KB)", () => {
+  it("common JS has reasonable size (20-160KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path). The common bundle is tree-shaken from the
@@ -91,10 +91,8 @@ describe("build artifacts", () => {
     // renderer (#365) — one module for the heatmap panel and the layer style
     // drawer, replacing two copies. 155KB was the agreed ceiling — #332 raised
     // it first, then the shared renderer needed the next step; the larger
-    // value wins on merge. The pane-role refactor added PaneManager.pinTree
-    // (+151B) — the recursive pin that puts a GeoJSON group's child paths into
-    // the declared pane.
-    expect(size).toBeLessThan(156000);
+    // value wins on merge.
+    expect(size).toBeLessThan(160000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

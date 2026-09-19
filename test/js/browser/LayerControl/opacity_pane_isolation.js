@@ -94,6 +94,18 @@
   const graphPaneEl = map.getPane("op-probe-graph");
   const nodePaneEl = map.getPane("op-probe-node");
 
+  // ── Case C: a hollow polygon keeps its hole (multiplicative, not override) ──
+  const hollow = L.polygon(
+    [[26.07, 119.45], [26.08, 119.45], [26.08, 119.46]],
+    { fillOpacity: 0, color: "#000", weight: 2 },
+  );
+  api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollow });
+  ctrl.m.enforceOrder();
+  const hollowPane = paneOf(hollow);
+  setOpacityViaSlider("op_hollow");
+  const hollowPaneAfter = hollowPane ? hollowPane.style.opacity : null;
+  const hollowFillOpacity = hollow.options.fillOpacity;
+
   return {
     error: null,
     // After the ordering pass a plain folium layer has its own pane too, so
@@ -128,5 +140,10 @@
       );
       return v;
     })(),
+    // A hollow polygon (fillOpacity: 0) keeps its hole: the pane's CSS opacity
+    // is multiplicative at compositing time, not an override of the feature's
+    // own style. 0 × 0.4 = 0, so the fill stays invisible.
+    hollowPaneAfter,
+    hollowFillOpacity,
   };
 };

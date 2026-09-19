@@ -34,6 +34,7 @@ export type {
   CreateLayersOpts,
   LabelAwareLayer,
   LayerAPI,
+  LayerCapabilities,
   LayerInfo,
   PaneHandle,
   PaneRole,

@@ -240,7 +240,7 @@ class ExportRenderer {
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
         const zoom = this.map.getZoom();
-        const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
+        const sizedTiles: Array<{ tiles: TileDesc[]; count: number; layer: L.TileLayer }> = [];
         for (const li of layers) {
           if (
             !li.visible ||
@@ -253,14 +253,14 @@ class ExportRenderer {
             rc,
             this.calcTiles(li.layer, geoBounds, zoom, scale),
           );
-          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length });
+          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
 
         if (grandTotal > 0) {
           let tilesDone = 0;
-          for (const { tiles } of sizedTiles) {
-            await this.renderTileLayer(rc, tiles, handled => {
+          for (const { tiles, layer } of sizedTiles) {
+            await this.renderTileLayer(rc, tiles, layer, handled => {
               tilesDone += handled;
               rc.onProgress?.(
                 ExportRenderer.mapPhase(
@@ -335,6 +335,22 @@ class ExportRenderer {
     return canvas;
   }
 
+  /** Accumulate CSS opacity up the ancestor chain — `opacity` does not inherit,
+   *  so a pane's 0.4 must be multiplied with each child's own 0.5 to reach the
+   *  composited 0.2. Stops at the map container (its own opacity is 1 by
+   *  definition; anything above is page chrome, not layer content). */
+  private effectiveOpacity(el: HTMLElement): number {
+    let alpha = 1;
+    const cont = this.map.getContainer();
+    for (let n: HTMLElement | null = el; n && n !== cont; n = n.parentElement) {
+      const v = window.getComputedStyle(n).opacity;
+      if (v && v !== "1" && v !== "") {
+        alpha *= parseFloat(v);
+      }
+    }
+    return Math.max(0, Math.min(1, alpha));
+  }
+
   /** Render a standalone canvas element (e.g. HeatmapControl). */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
@@ -353,7 +369,14 @@ class ExportRenderer {
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
-      ctx.drawImage(img, dx, dy, dw, dh);
+      const alpha = this.effectiveOpacity(ce);
+      if (alpha < 1) {
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
     } catch {
       /* skip */
     }
@@ -404,10 +427,20 @@ class ExportRenderer {
   async renderTileLayer(
     rc: RenderCtx,
     visibleTiles: TileDesc[],
+    layer: L.TileLayer,
     onProgress?: (tilesDrawn: number) => void,
   ) {
     const ctx = rc.ctx;
     if (visibleTiles.length === 0) return;
+
+    // Native carrier (§20 ③): GridLayer's `options.opacity` is not captured by
+    // `toDataURL` — it lives on the element's style, applied at compositing time.
+    // Reading the base from `nativeBase` would require a second WeakMap; instead
+    // read the effective value directly. The LayerControl slider stores the
+    // multiplier in `layerInfo.opacity`; the absolute value is what `options.opacity`
+    // holds, so this is already the composed result.
+    const alpha = typeof layer.options.opacity === "number" ? layer.options.opacity : 1;
+    ctx.globalAlpha = alpha;
 
     let drawn = 0;
     // Load and draw tiles in concurrent batches to avoid overwhelming the
@@ -443,6 +476,7 @@ class ExportRenderer {
       // the batch position would credit tiles whose download failed.
       if (onProgress) onProgress(drawn);
     }
+    ctx.globalAlpha = 1;
   }
 
   /** Render SVG content from a single pane. */
@@ -504,17 +538,34 @@ class ExportRenderer {
       const url = URL.createObjectURL(blob);
       try {
         const svgImg = await loadImage(url);
-        ctx.drawImage(
-          svgImg as HTMLImageElement,
-          rect.left - svgL,
-          rect.top - svgT,
-          rect.width,
-          rect.height,
-          0,
-          0,
-          sw,
-          sh,
-        );
+        const paneAlpha = this.effectiveOpacity(pane);
+        if (paneAlpha < 1) {
+          ctx.globalAlpha = paneAlpha;
+          ctx.drawImage(
+            svgImg as HTMLImageElement,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.drawImage(
+            svgImg as HTMLImageElement,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
+        }
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -546,7 +597,14 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
-          ctx.drawImage(img, dx, dy, dw, dh);
+          const alpha = this.effectiveOpacity(ce);
+          if (alpha < 1) {
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(img, dx, dy, dw, dh);
+            ctx.globalAlpha = 1;
+          } else {
+            ctx.drawImage(img, dx, dy, dw, dh);
+          }
         } catch {
           /* skip */
         } finally {

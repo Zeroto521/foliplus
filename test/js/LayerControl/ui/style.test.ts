@@ -710,10 +710,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("paints the slider accent fill to the current value", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -729,11 +726,8 @@ describe("LayerUI style panel", () => {
     expect(range.style.getPropertyValue("--opacity-fill")).toBe("35%");
   });
 
-  it("opacity input applies setStyle on Path-like layers and persists", () => {
-    const setStyle = vi.fn();
+  it("opacity input applies to the layer and persists", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -744,7 +738,6 @@ describe("LayerUI style panel", () => {
     range.value = "60";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.6, fillOpacity: 0.6 });
     expect(li.opacity).toBe(0.6);
     expect(ui.opacityMap.overlay1).toBe(0.6);
     const number = panel.querySelector(
@@ -754,10 +747,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("opacity number change syncs the range and clamps out-of-range values", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -798,10 +788,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("reset restores opacity to fully opaque and drops the persisted entry", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -814,7 +801,6 @@ describe("LayerUI style panel", () => {
     const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
     expect(li.opacity).toBe(1);
     expect(ui.opacityMap.overlay1).toBeUndefined();
   });
@@ -823,9 +809,7 @@ describe("LayerUI style panel", () => {
     // 100% is the declared default, so a drag back to it is a reset by another
     // route and must leave no override behind -- otherwise the record keeps a
     // marker with no value for it.
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -845,10 +829,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("reopening the panel seeds the opacity inputs from opacityMap", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
@@ -871,10 +852,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("opacity 0 is kept in the map (only 1 is treated as default)", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
@@ -884,16 +862,12 @@ describe("LayerUI style panel", () => {
     range.value = "0";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0, fillOpacity: 0 });
     expect(ui.opacityMap.overlay1).toBe(0);
     expect(li.opacity).toBe(0);
   });
 
   it("a valid number change syncs the range slider", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    // A Path-like leaf (no eachLayer), so the walk lands on setStyle itself.
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -908,7 +882,6 @@ describe("LayerUI style panel", () => {
     number.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(range.value).toBe("35");
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.35, fillOpacity: 0.35 });
     expect(li.opacity).toBe(0.35);
   });
 
@@ -966,9 +939,7 @@ describe("LayerUI style panel", () => {
     // Clearing the field to retype reads as "" mid-edit; applying that would
     // parse as NaN and snap the layer transparent. Only the commit resolves it,
     // and it resolves to fully opaque — the invalid-commit default.
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -987,7 +958,6 @@ describe("LayerUI style panel", () => {
     number.dispatchEvent(new Event("input", { bubbles: true }));
     // Live pass: the layer keeps its opacity instead of going transparent.
     expect(li.opacity).toBe(0.45);
-    expect(setStyle).toHaveBeenCalledTimes(1);
 
     number.dispatchEvent(new Event("change", { bubbles: true }));
     // Commit: fall back to fully opaque and rewrite both inputs.
@@ -999,9 +969,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("no-ops when the layer disappears between open and edit", () => {
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -1016,7 +984,6 @@ describe("LayerUI style panel", () => {
       range.dispatchEvent(new Event("input", { bubbles: true }));
     }).not.toThrow();
 
-    expect(setStyle).not.toHaveBeenCalled();
     expect(ui.opacityMap.overlay1).toBeUndefined();
   });
 
@@ -1043,9 +1010,7 @@ describe("LayerUI style panel", () => {
     // pass defers anything outside [0, 100] and the commit resolves it. The
     // commit also rewrites the field the caret is in, like the shared number
     // field does on blur.
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -1077,9 +1042,7 @@ describe("LayerUI style panel", () => {
   it("moves the slider while leaving the caret's own text alone", () => {
     // The field keeps what the user is typing (the slider rounds it), so the
     // caret does not jump to the end on every keystroke.
-    const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
-    li.layer = { options: {}, setStyle } as unknown as L.Layer;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -1148,7 +1111,10 @@ describe("LayerUI style panel", () => {
 
   // ─────────────────── ⋮ menu item ───────────────────
 
-  it("the ⋮ menu's Style item is disabled without labelable fields", () => {
+  it("the ⋮ menu's Style item is enabled for pane-capable layers even without labels", () => {
+    // R5: capability-driven gate. A layer whose surface reports opacity/zoomRange
+    // capability gets the panel enabled — the opacity and zoomRange sliders are
+    // useful even without label fields.
     ui.fieldCache.delete("overlay1");
     const item = findItem(ui, "overlay1");
 
@@ -1157,8 +1123,8 @@ describe("LayerUI style panel", () => {
     const styleItem = item.querySelector(
       `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBe("disabled");
-    expect(styleItem.getAttribute("title")).toBe("LayerControl.style_label_no_data");
+    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
   it("the ⋮ menu's Style item is enabled once the layer has fields", () => {

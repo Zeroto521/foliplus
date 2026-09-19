@@ -1,5 +1,6 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
 import { createLogger } from "#common/log.js";
+import type { LayerManager } from "../manager.js";
 import * as CONST from "../const.js";
 import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
@@ -7,6 +8,21 @@ import type { LayerUI } from "./index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
+
+/** Cache the layer's original `options.opacity` so repeated slider drags
+ *  don't compound. The base is captured on first write and never re-read;
+ *  the slider value is a multiplier over the author's declared default. */
+const nativeBase = new WeakMap<L.Layer, number>();
+
+const nativeBaseOf = (layer: L.Layer): number => {
+  let base = nativeBase.get(layer);
+  if (base === undefined) {
+    const opts = (layer.options ?? {}) as L.LayerOptions & { opacity?: number };
+    base = typeof opts.opacity === "number" ? opts.opacity : 1;
+    nativeBase.set(layer, base);
+  }
+  return base;
+};
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
@@ -265,15 +281,122 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  * "visible" until the next full sweep and re-enter the map.
  */
 
+/**
+ * Apply one layer's opacity to the registry entry and to the live rendering.
+ *
+ * One pipeline, one carrier — every kind of layer resolves to exactly one
+ * write target (see `LayerSurface.capabilities.opacity`):
+ *
+ *   - canvas element (its own CSS opacity; the §4.2 ① carrier for heatmap /
+ *     measure, which still bake alpha at draw time — R11 will switch them to ②)
+ *   - its own pane (declared, sub, or synthesized) — one CSS write reaches
+ *     paths, markers, divIcons and canvases alike; multiplicative over
+ *     whatever each feature carries, unlike the old per-feature walk which
+ *     overwrote a hollow polygon's `fillOpacity: 0` with the slider value.
+ *   - the layer's native setter (`ImageOverlay.setOpacity`, `TileLayer.options
+ *     .opacity`) for the two shapes that own their own paint path.
+ *   - "none": MarkerCluster's cluster icons stay in the shared `markerPane`,
+ *     where `eachLayer` cannot reach them (§25.3-3); recording the intent in
+ *     `layerInfo.opacity` keeps the panel row honest even though the write is
+ *     a no-op.
+ *
+ * Called from the style panel's slider and reset buttons and from the
+ * count-change event (which re-fires the layer's stored opacity at the moment
+ * the real geometry lands after the preview ends).
+ */
+/**
+ * The single write pipeline for one layer's visual state.
+ *
+ * Opacity and visibility converge here so a caller can never reach a carrier
+ * that is not the honest one — the same `surface.capabilities` table that
+ * gates the style-panel row decides which write is legal, and the walk fallback
+ * that R3 made obsolete (the "content not yet in its own pane" window) is gone
+ * because materialization now happens at `registerLayer`.
+ *
+ * Both writes are idempotent — callers may re-apply the current value as many
+ * times as they like (the count-change event re-applies opacity on every
+ * refresh, the visibility sweep may revisit a layer across `CONTROL_ATTACHED`
+ * passes) without compounding the write.
+ *
+ * @param patch.opacity  — 0..1 slider value; written to whichever carrier
+ *   `surface.capabilities.opacity` names, and always to `layerInfo.opacity`
+ *   so the persisted row can be read back even when the carrier is "none".
+ * @param patch.visible — map membership for Leaflet layers, `onToggle` for
+ *   callback-only ones (canvas layers use the shared `HIDDEN` class in
+ *   `LayerFactory`, not a pane write); the row's checkbox is touched by the
+ *   caller, not here.
+ */
+const applyLayerState = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  patch: { opacity?: number; visible?: boolean },
+) => {
+  if (patch.opacity !== undefined) {
+    if (layerInfo.canvas) {
+      // The canvas element's own CSS opacity — the §4.2 ① carrier for the
+      // createCanvas shape (heatmap / measure). Kept as a distinct branch
+      // from the pane write: the pane's opacity would compound with this one,
+      // and a single knob must not be multiplied twice (§4.2 "别把两处相乘成
+      // 0.16 的坑").
+      layerInfo.canvas.style.opacity = String(patch.opacity);
+      layerInfo.opacity = patch.opacity;
+    } else {
+      const surface = ui.m.surfaceFor(layerInfo);
+      const carrier = surface.capabilities.opacity;
+      if (carrier !== "none") {
+        const layer = layerInfo.layer;
+        if (carrier === "native" && layer) {
+          // The layer paints through a setter of its own. `setOpacity`
+          // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
+          // TileLayer) is honoured at the next tile cycle. The slider is a
+          // multiplier over the author's declared default: reading the base
+          // from the option rather than from a cache would compound on every
+          // drag (0.5 → 0.25 → 0.125 …), so the base is captured once.
+          const opts = (layer.options ?? {}) as L.LayerOptions & { opacity?: number };
+          const base = nativeBaseOf(layer);
+          const target = base * patch.opacity;
+          if (typeof layer.setOpacity === "function") {
+            (layer as L.ImageOverlay).setOpacity(target);
+          } else {
+            layer.options = opts;
+            opts.opacity = target;
+          }
+          layerInfo.opacity = patch.opacity;
+        } else if (carrier === "pane") {
+          // One CSS write per pane we own — declared, sub, or synthesized.
+          // Multiplicative over each feature's own style, so a hollow polygon
+          // (fillOpacity: 0) keeps its hole.
+          for (const name of surface.paneNames) {
+            const pane = ui.m.map.getPane(name);
+            if (pane) pane.style.opacity = String(patch.opacity);
+          }
+          layerInfo.opacity = patch.opacity;
+        }
+      }
+      // carrier === "none": no honest write exists, so the value is not
+      // stored — a slider that writes nothing must not persist (§6.2).
+    }
+  }
+  if (patch.visible !== undefined) {
+    const layer = layerInfo.layer;
+    if (layer) {
+      // Map membership — the same add/remove the checkbox path used. `addLayer`
+      // is a no-op when the layer is already on the map, so a sweep can
+      // re-apply without re-adding what folium already placed.
+      const has = ui.m.map.hasLayer(layer);
+      if (patch.visible && !has) ui.m.map.addLayer(layer);
+      else if (!patch.visible && has) ui.m.map.removeLayer(layer);
+    } else if (layerInfo.onToggle) {
+      // Callback-only layers (canvas) have no Leaflet layer to add/remove —
+      // fire the toggle so the canvas toggles its own `HIDDEN` class.
+      layerInfo.onToggle(patch.visible);
+    }
+    layerInfo.visible = patch.visible;
+  }
+};
+
 const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const layer = ui.m.findLayer(layerInfo);
-
-  // Callback-only layers (canvas) have no Leaflet layer to remove —fire
-  // the toggle callback so the canvas itself hides.
-  if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
-  else if (layer && ui.m.map.hasLayer(layer)) ui.m.map.removeLayer(layer);
-
-  layerInfo.visible = false;
+  applyLayerState(ui, layerInfo, { visible: false });
 };
 
 /**
@@ -301,132 +424,16 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
   layerInfo.visible = true;
 };
 
-/** The panes this layer alone renders into, or `[]` when it has none yet.
+/** Apply one layer's opacity to the registry entry and to the live rendering.
  *
- *  Ownership, not a list of Leaflet's shared pane names: a declared
- *  `paneSpecs` entry is component-owned, and the pane a `LayerSurface`
- *  synthesizes for a layer that declared none is named after the layer's stamp,
- *  so it holds that layer alone. A blocklist could not tell that apart from a
- *  pane a host deliberately shares between two layers, which must not be faded.
- *
- *  `registerLayer` materializes the surface before the layer joins the map, so
- *  the synthesized pane is the layer's real home from the start; the empty
- *  answer is for an entry whose live layer the registry has not resolved. */
-const privatePanesOf = (ui: LayerUI, layerInfo: LayerInfo): string[] => {
-  const specs = layerInfo.paneSpecs ?? [];
-  if (specs.length > 0) return specs.map(s => s.name);
-  const layer = layerInfo.layer;
-  if (!layer) return [];
-  const own = ui.m.fallbackPaneOf(layer);
-  return own ? [own] : [];
-};
-
-/** Layers the per-feature walk has written to. The walk and the pane carrier
- *  are alternatives, never layers of one another: a plain folium layer joins the
- *  map through folium's own script, so it can be painted from a shared pane for
- *  the moment before the ordering pass gives it a surface — a layer can start on
- *  the walk and then resolve to a pane. */
-const walkedLayers = new WeakSet<L.Layer>();
-
-/**
- * Apply one layer's opacity to the registry entry and to the live rendering.
- *
- * The pane is the preferred carrier for every kind of layer: one style write
- * regardless of how many features the layer holds (a many-thousand-point
- * GeoJSON must not be swept on every slider step), CSS opacity multiplies with
- * each feature's own style instead of overwriting it, and it reaches paths,
- * markers and divIcons alike.
- *
- * `createCanvas` layers paint on a single element, which is the same deal.
- * Only a layer whose content is still in a pane it does not own falls back to
- * the per-feature walk — the window before `enforceOrder` has migrated it.
+ *  Delegates to {@link applyLayerState} — the single write pipeline. The
+ *  carrier decision (pane / native / none) is made by `LayerSurface` at
+ *  materialize time, so this function no longer needs to walk features
+ *  or synthesize panes on demand.
  */
 const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
   layerInfo.opacity = opacity;
-  if (layerInfo.canvas) {
-    layerInfo.canvas.style.opacity = String(opacity);
-    return;
-  }
-  const layer = layerInfo.layer;
-  const panes = privatePanesOf(ui, layerInfo);
-  if (panes.length > 0) {
-    // Undo any earlier walk before handing over to the pane, or the two would
-    // stack: the walk's per-feature value times the pane's, so a layer asked
-    // for 0.4 twice would render at 0.16.
-    if (layer && walkedLayers.has(layer)) {
-      applyLeafletOpacity(layer, 1);
-      walkedLayers.delete(layer);
-    }
-    for (const name of panes) {
-      const pane = ui.m.map.getPane(name);
-      if (pane) pane.style.opacity = String(opacity);
-    }
-    return;
-  }
-  if (layer) walkedLayers.add(layer);
-  applyLeafletOpacity(layer, opacity);
-};
-
-/** Each feature's own opacity, captured the first time it is touched.
- *
- *  Leaflet's `setStyle` / `setOpacity` are absolute, so writing the layer
- *  opacity straight in would destroy the feature's own value — a hollow
- *  polygon's `fillOpacity: 0` became 0.4 and its fill appeared instead of
- *  staying hollow. Storing the base once and always writing
- *  `base × layerOpacity` keeps the feature's own style intact and makes
- *  repeated passes idempotent (the base is read once, never from the value we
- *  just wrote). */
-const baseOpacity = new WeakMap<L.Layer, { opacity: number; fillOpacity: number }>();
-
-/** A leaf that can carry an opacity, plus the options the base is read from. */
-type OpacityCapable = L.Layer & {
-  options?: { opacity?: number; fillOpacity?: number };
-  setStyle?: (style: { opacity: number; fillOpacity: number }) => void;
-  eachLayer?: (fn: (l: L.Layer) => void) => void;
-  setOpacity?: (v: number) => void;
-};
-
-const baseOpacityOf = (layer: OpacityCapable, fill: boolean) => {
-  let base = baseOpacity.get(layer);
-  if (!base) {
-    const opts = layer.options ?? {};
-    base = {
-      opacity: typeof opts.opacity === "number" ? opts.opacity : 1,
-      fillOpacity: fill && typeof opts.fillOpacity === "number" ? opts.fillOpacity : 1,
-    };
-    baseOpacity.set(layer, base);
-  }
-  return base;
-};
-
-/** Recursive opacity application over a Leaflet layer tree.
- *
- *  Groups are walked first, then leaves: a `L.GeoJSON` exposes `setStyle`, but
- *  Leaflet's implementation only forwards it to `Path` children, silently
- *  skipping `Marker`s — which is why a point layer (folium's marker / divIcon
- *  layers) ignored the opacity control. Descending through `eachLayer` reaches
- *  every leaf, and a leaf then gets whichever API it actually has. */
-const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
-  if (!layer) return;
-  const target = layer as OpacityCapable;
-  if (typeof target.eachLayer === "function") {
-    target.eachLayer(child => applyLeafletOpacity(child, opacity));
-    return;
-  }
-  if (typeof target.setStyle === "function") {
-    const base = baseOpacityOf(target, true);
-    target.setStyle({
-      opacity: base.opacity * opacity,
-      fillOpacity: base.fillOpacity * opacity,
-    });
-    return;
-  }
-  if (typeof target.setOpacity === "function") {
-    // Marker / ImageOverlay: opacity is a CSS value on their element, so it
-    // multiplies with whatever the icon already carries.
-    const base = baseOpacityOf(target, false);
-    target.setOpacity(base.opacity * opacity);
-  }
+  applyLayerState(ui, layerInfo, { opacity });
 };
 
 /** Save user-assigned names, coalescing rapid calls. */

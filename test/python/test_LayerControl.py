@@ -1572,6 +1572,12 @@ class TestLayerControlBrowser:
             assert result["managedGraphPaneOpacity"] == "0.4", result
             assert result["managedNodePaneOpacity"] == "0.4", result
             assert result["managedPolylineOpacity"] == 1, result
+
+            # Case C: a hollow polygon (fillOpacity: 0) keeps its hole — the
+            # pane's CSS opacity is multiplicative at compositing time, not an
+            # override of the feature's own style.  0 × 0.4 = 0.
+            assert result["hollowPaneAfter"] == "0.4", result
+            assert result["hollowFillOpacity"] == 0, result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

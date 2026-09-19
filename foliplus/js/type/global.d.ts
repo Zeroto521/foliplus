@@ -244,6 +244,8 @@ declare global {
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
     type CRS = Leaflet.CRS;
+    /** leaflet.markercluster plugin — optional, guarded at runtime. */
+    class MarkerClusterGroup extends Leaflet.LayerGroup {}
   }
 
   /** A layer entry in the LayerControl ordered registry (read-only view). */
