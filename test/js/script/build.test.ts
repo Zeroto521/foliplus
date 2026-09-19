@@ -76,10 +76,12 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-155KB)", () => {
+  it("common JS has reasonable size (20-160KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    // Unminified dev build (CI path). The common bundle is tree-shaken from the
+    // Unminified dev build (CI path) — this reads the same `--dev` artifact
+    // `make test` produces, not the minified release one, even though both
+    // share the `.min.js` name. The common bundle is tree-shaken from the
     // component imports scanned into _shared-registry.ts, so this is a real
     // budget: ListCursor pushed it past 100KB, the createLayers panes
     // generalisation (#280) added the per-pane routing, the pluggable
@@ -100,7 +102,22 @@ describe("build artifacts", () => {
     // paths (mainLayer+pinTree vs canvas+resize+cancelMapPaneTranslate) are
     // too different to share content logic. The shared part is the plumbing
     // around it.
-    expect(size).toBeLessThan(159000);
+    //
+    // R9 (the z ladder) is +2667B over 2a381557, dev mode, same command, and
+    // every byte of it is in core/layer: the new z.ts module (+568B), plus
+    // LayerSurface's setZOverride (+805B), restoreZ (+520B), writeZ (+468B)
+    // and their three backing fields (+389B), less the 96B setZ loses because
+    // its write loop moved into writeZ, plus 12B of formatting. Every
+    // component-level edit lands in a component bundle, so this budget only
+    // moves when core/layer does. R5, R9, and R10 raise this same line to
+    // 160000, 160000, and 159000; the larger value wins on merge, and once
+    // all are in the ceiling should be re-measured on main in dev mode and
+    // set once, by one PR.
+    //
+    // Measured on this branch after merging main: 160897B (createSurface +2.3KB
+    // from main, z ladder +2667B from R9, over 2a381557's 155660B). The ceiling
+    // must accommodate both — 165000 leaves ~4KB headroom for the next round.
+    expect(size).toBeLessThan(165000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

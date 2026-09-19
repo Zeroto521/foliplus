@@ -168,6 +168,20 @@ interface LayerSurface {
    *  `LayerManager.destroy()`: that drops the registry without taking the
    *  registered layers off the map, so their panes are still painting. */
   destroy: () => void;
+  /** Write the layer's position-based base z onto every pane it paints into,
+   *  adding each pane's own draw offset.
+   *  @returns false when the surface paints through no pane of its own — a
+   *    `GridLayer` carries its z on the layer itself. */
+  setZ: (z: number) => boolean;
+  /** Lift every pane to an absolute base z, keeping each pane's draw offset so
+   *  the layer's internal order survives the lift. `restoreZ` puts the stack
+   *  back.
+   *  @returns false when the surface paints through no pane of its own, or is
+   *    already lifted. */
+  setZOverride: (z: number) => boolean;
+  /** Undo the last `setZOverride`.
+   *  @returns false when nothing was overridden. */
+  restoreZ: () => boolean;
 }
 
 /** One entry in `CreateLayersOpts.panes`. The caller names the pane and its

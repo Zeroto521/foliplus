@@ -17,6 +17,7 @@ import {
 import * as CONST from "./const.js";
 import type { PaneSpec } from "./type.js";
 import { forEachLayer } from "./util.js";
+import { zFor } from "./z.js";
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
@@ -81,7 +82,9 @@ class PaneManager {
       // order before the ordering pass assigns their position-based base
       // (which may never come if LayerControl is absent).
       const spec = this.childPaneSpecs.get(paneName);
-      if (spec) pane.style.zIndex = String(CONST.Z_INDEX.BASE + spec.order);
+      if (spec) {
+        pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
+      }
     }
     return { pane, renderer: needRenderer ? getRendererFor(this.map, paneName) : null };
   }
