@@ -4,11 +4,11 @@
    makes one for an overlay canvas. LayerControl only z-orders it afterwards.
    The pane takes no pointer, and neither does the SVG renderer container
    inside it: an inline <svg> carrying pointer-events is hit over its WHOLE
-   box, not only where it paints, and every foliplus pane holds one — the
-   topmost would swallow clicks for every layer painted below it, which is
-   what killed geometry hover/click and stuck the cursor at the inherited
-   `grab`. Leaflet never sets pointer-events on the svg for the same reason;
-   its paths are reached through the `.leaflet-interactive` rule below. */
+   box, not only where it paints, and every foliplus pane holds one. Left at
+   `auto`, the topmost would swallow clicks for every layer painted below it
+   and leave the cursor at the `grab` inherited from the container. Leaflet
+   never sets pointer-events on the svg for the same reason; its paths are
+   reached through the `.leaflet-interactive` rule below. */
 .foliplus-layer-pane,
 .foliplus-layer-pane > svg {
   pointer-events: none;
