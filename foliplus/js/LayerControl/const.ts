@@ -1,3 +1,4 @@
+import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -37,12 +38,13 @@ const FOCUS = {
    *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
-   *  below this (600 + 10·i); the focused layer is temporarily lifted just
-   *  below it so other layers never cover it. */
-  PANE_Z: 9000,
+   *  below this; the focused layer is temporarily lifted just below it so
+   *  other layers never cover it. The values live in the shared z ladder
+   *  (`core/layer/z`), which owns every z the stack writes. */
+  PANE_Z: FOCUS_Z.overlay,
   /** Gap below PANE_Z the focused layer's pane is lifted to (must stay below
    *  the mask, above every layer pane). */
-  FOCUSED_Z_GAP: 10,
+  FOCUSED_Z_GAP: FOCUS_Z.gap,
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
@@ -52,12 +54,6 @@ const FOCUS_PANE = "foliplus-focus-overlay";
  *  labelled layer, so its labels sit at that layer's place in the stack.
  *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
 const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
-
-/** Z offset of a layer's annotation pane above its layer. Layers sit
- *  `Z_INDEX.STEP` (10) apart, so +1 keeps the labels above their own layer
- *  while the next layer up still covers them — the same gap the focus ladder
- *  reuses when it raises a layer. */
-const ANNOTATION_Z_OFFSET = 1;
 
 /** CSS class names. */
 const CLASSES = {

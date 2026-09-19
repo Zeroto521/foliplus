@@ -76,10 +76,12 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-155KB)", () => {
+  it("common JS has reasonable size (20-160KB)", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
-    // Unminified dev build (CI path). The common bundle is tree-shaken from the
+    // Unminified dev build (CI path) — this reads the same `--dev` artifact
+    // `make test` produces, not the minified release one, even though both
+    // share the `.min.js` name. The common bundle is tree-shaken from the
     // component imports scanned into _shared-registry.ts, so this is a real
     // budget: ListCursor pushed it past 100KB, the createLayers panes
     // generalisation (#280) added the per-pane routing, the pluggable
@@ -94,7 +96,18 @@ describe("build artifacts", () => {
     // value wins on merge. The pane-role refactor added PaneManager.pinTree
     // (+151B) — the recursive pin that puts a GeoJSON group's child paths into
     // the declared pane.
-    expect(size).toBeLessThan(156000);
+    //
+    // R9 (the z ladder) is +2667B over 2a381557, dev mode, same command, and
+    // every byte of it is in core/layer: the new z.ts module (+568B), plus
+    // LayerSurface's setZOverride (+805B), restoreZ (+520B), writeZ (+468B)
+    // and their three backing fields (+389B), less the 96B setZ loses because
+    // its write loop moved into writeZ, plus 12B of formatting. Every
+    // component-level edit lands in a component bundle, so this budget only
+    // moves when core/layer does. R5 and R10 raise this same line to 160000
+    // and 159000; the larger value wins on merge, and once all three are in
+    // the ceiling should be re-measured on main in dev mode and set once, by
+    // one PR.
+    expect(size).toBeLessThan(160000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

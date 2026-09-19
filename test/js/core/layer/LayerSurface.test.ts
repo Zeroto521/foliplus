@@ -413,6 +413,135 @@ describe("LayerSurface.setZ", () => {
   });
 });
 
+describe("LayerSurface.setZOverride / restoreZ", () => {
+  const makeStacked = () => {
+    const { panes, host } = makeMap();
+    const declared = specs("graph", "node", "label");
+    host.registerPaneSpecs(declared);
+    const graph = new Path();
+    graph.options.pane = "graph";
+    const node = new Path();
+    node.options.pane = "node";
+    const label = new Path();
+    label.options.pane = "label";
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Group([graph, node, label]) as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: declared,
+    });
+    return { panes, surface };
+  };
+
+  it("lifts every pane to base + its own order, so the layer's internal order survives", () => {
+    const { panes, surface } = makeStacked();
+    surface.setZ(620);
+    expect(surface.setZOverride(8990)).toBe(true);
+    expect(panes.graph.style.zIndex).toBe("8990");
+    expect(panes.node.style.zIndex).toBe("8991");
+    expect(panes.label.style.zIndex).toBe("8992");
+  });
+
+  it("restores the ordering pass's z, pane by pane", () => {
+    const { panes, surface } = makeStacked();
+    surface.setZ(620);
+    surface.setZOverride(8990);
+    expect(surface.restoreZ()).toBe(true);
+    expect(panes.graph.style.zIndex).toBe("620");
+    expect(panes.node.style.zIndex).toBe("621");
+    expect(panes.label.style.zIndex).toBe("622");
+  });
+
+  it("restores the panes' pre-lift z when the ordering pass has not written yet", () => {
+    const { panes, surface } = makeStacked();
+    // PaneManager gave the declared panes their provisional z, so that is what
+    // a lift records and restore returns to.
+    expect(panes.graph.style.zIndex).toBe("600");
+    expect(panes.node.style.zIndex).toBe("601");
+    expect(panes.label.style.zIndex).toBe("602");
+    expect(surface.setZOverride(8990)).toBe(true);
+    expect(surface.restoreZ()).toBe(true);
+    expect(panes.graph.style.zIndex).toBe("600");
+    expect(panes.node.style.zIndex).toBe("601");
+    expect(panes.label.style.zIndex).toBe("602");
+  });
+
+  it("keeps the lift while the ordering pass re-runs, then lands on the newer slot", () => {
+    const { panes, surface } = makeStacked();
+    surface.setZ(620);
+    surface.setZOverride(8990);
+    surface.setZ(650);
+    expect(panes.graph.style.zIndex).toBe("8990");
+    expect(surface.restoreZ()).toBe(true);
+    expect(panes.graph.style.zIndex).toBe("650");
+    expect(panes.node.style.zIndex).toBe("651");
+    expect(panes.label.style.zIndex).toBe("652");
+  });
+
+  it("ignores a second lift and a restore with nothing lifted", () => {
+    const { surface } = makeStacked();
+    expect(surface.restoreZ()).toBe(false);
+    expect(surface.setZOverride(8990)).toBe(true);
+    expect(surface.setZOverride(7000)).toBe(false);
+  });
+
+  it("returns false for a surface that paints through no pane of its own", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "tile",
+      layer: new TileLayer() as unknown as L.Layer,
+    });
+    expect(surface.setZOverride(8990)).toBe(false);
+    expect(surface.restoreZ()).toBe(false);
+  });
+
+  it("is a translation, not a re-sort: the panes' relative order holds at both bases", () => {
+    // Two sub-panes plus the layer's annotation pane. `writeZ` prices an
+    // annotation pane at base + ANNOTATION_Z_OFFSET and ignores its order, so it
+    // lands level with a sub-pane; a focus lift must not change that
+    // relationship, only the base everything sits at.
+    const { panes, host } = makeMap();
+    const declared: PaneSpec[] = [
+      { role: "base", order: 0, name: "graph" },
+      { role: "sub", order: 1, name: "node" },
+      { role: "sub", order: 2, name: "label" },
+      { role: "annotation", order: 3, name: "ann" },
+    ];
+    host.registerPaneSpecs(declared);
+    const mk = (name: string) => {
+      const path = new Path();
+      path.options.pane = name;
+      return path;
+    };
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Group([
+        mk("graph"),
+        mk("node"),
+        mk("label"),
+        mk("ann"),
+      ]) as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: declared,
+    });
+    // The pairwise relation matrix (-1 / 0 / 1) pins the ordering without
+    // naming a single value.
+    const relations = () => {
+      const z = ["graph", "node", "label", "ann"].map(n =>
+        Number(panes[n].style.zIndex),
+      );
+      return z.map((a, i) => z.map((b, j) => Math.sign(a - b)));
+    };
+    surface.setZ(620);
+    const ordered = relations();
+    surface.setZOverride(8990);
+    expect(panes.graph.style.zIndex).toBe("8990");
+    expect(relations()).toEqual(ordered);
+    surface.restoreZ();
+    expect(relations()).toEqual(ordered);
+  });
+});
+
 describe("LayerSurface.matches", () => {
   it("is true only for the same layer object and the same declaration", () => {
     const { map, host } = makeMap();
