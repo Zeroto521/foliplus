@@ -3,10 +3,12 @@ import { resolve } from "path";
 import { globSync } from "tinyglobby";
 import { describe, expect, it } from "vitest";
 
-// Guards on the build toolchain's wiring and on the test tree's own shape. None
-// of these test a module in script/, so none of them live in test/js/script/:
-// that directory stays one test file per module. This file is named for what it
-// guards, not for a module, so it owes no entry to the naming guard below.
+// Guards on the build toolchain: how the scripts expose themselves, how the
+// `#script/*` alias is declared, how the lint config claims them, and that
+// test/js/script/ holds one test file per real module. None of these test a
+// module in script/, so none of them live in test/js/script/: that directory
+// stays a strict one-test-file-per-module mapping, and this file — named for
+// what it guards, not for a module — owes no entry to the naming rule it enforces.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -34,6 +36,37 @@ const at = (n: number): string[] => {
   expect(lists.length, `files: occurrence ${n + 1} not found`).toBeGreaterThan(n);
   return lists[n];
 };
+
+describe("script module surface", () => {
+  it("uses one aggregate block, never an inline export", () => {
+    for (const rel of scriptModules()) {
+      const src = readFileSync(resolve(ROOT, rel), "utf8");
+      const decls = src.match(/^export\s+/gm) ?? [];
+
+      expect(
+        decls.length,
+        `${rel}: split export surface — one aggregate block only`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        src,
+        `${rel}: inline export — use one export { … } block at the bottom`,
+      ).not.toMatch(/^export\s+(?:const|let|var|function|class|default)\s/m);
+    }
+  });
+
+  it("does not mix the two styles inside one module", () => {
+    for (const rel of scriptModules()) {
+      const src = readFileSync(resolve(ROOT, rel), "utf8");
+      const inline = /^export\s+(?:const|let|var|function|class)\s/m.test(src);
+      const aggregate = /^export\s*\{/m.test(src);
+
+      expect(
+        inline && aggregate,
+        `${rel}: mixes inline exports with an aggregate block`,
+      ).toBe(false);
+    }
+  });
+});
 
 // The `#script/*` import alias is declared in three independent places.
 // Dropping one of them breaks with a bare ERR_PACKAGE_IMPORT_NOT_DEFINED and no
@@ -96,15 +129,12 @@ describe("eslint.config.js rule scoping", () => {
   });
 });
 
-// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These stems have no
-// such module: they point at repo-root config, or at the convention this
-// directory is allowed to break. One entry per exception, each naming what the
-// file really tests.
+// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These two stems have
+// no such module: they point at repo-root files that are not in script/. One
+// entry per exception, each naming what the file really tests.
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
-  "script-module-surface":
-    "every script's export style — a convention across script/, not one module",
 };
 
 // `X.test.ts` has a subject when `X` is a real script module, or a stem that is
@@ -151,14 +181,16 @@ describe("test/js/script naming", () => {
   it("still rejects a name that maps to nothing", () => {
     // Counter-proof. Without it the loop above would keep passing after someone
     // relaxed hasSubject into a prefix match or a wildcard exception — the guard
-    // would go decorative and no test would notice. Both names here are real:
-    // namespace-plugin.test.ts tested a script that never existed, and
-    // exports.test.ts was the same pattern a generation later — it tested
-    // package.json and eslint.config.js, not any script/exports.mjs.
+    // would go decorative and no test would notice. All three names are real:
+    // namespace-plugin.test.ts tested a script that never existed; exports.test.ts
+    // was the same pattern, testing package.json and eslint.config.js rather than
+    // any script/exports.mjs; script-module-surface.test.ts sat in test/js/script/
+    // named for a convention across script/ instead of a module inside it.
     expect(hasSubject("namespace-plugin")).toBe(false);
     expect(hasSubject("exports")).toBe(false);
+    expect(hasSubject("script-module-surface")).toBe(false);
     expect(hasSubject("never-a-module")).toBe(false);
     expect(hasSubject("global-namespace-plugin")).toBe(true);
-    expect(hasSubject("script-module-surface")).toBe(true);
+    expect(hasSubject("Makefile")).toBe(true);
   });
 });
