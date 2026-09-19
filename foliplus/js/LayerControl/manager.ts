@@ -583,7 +583,7 @@ class LayerManager implements LayerAPI {
       id: layerInfo.id,
       layer: this.findLayer(layerInfo),
       paneName: layerInfo.paneName,
-      subPanes: layerInfo.subPanes,
+      paneSpecs: layerInfo.paneSpecs,
       canvas: Boolean(layerInfo.canvas),
     };
     const existing = this.surfaces.get(layerInfo.id);

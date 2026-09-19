@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
+import type { PaneSpec } from "#foliplus/core/layer/type.js";
 
 // Mock L.svg — needed by PaneManager.ensurePane
 beforeEach(() => {
@@ -11,6 +12,12 @@ beforeEach(() => {
   window.L.Marker = class {};
 });
 let count = 0;
+
+/** The pane spec list `createLayers` derives from an ordered name list: the
+ *  first name is the base pane, everything after it a `sub`, each one draw
+ *  offset above the previous. */
+const specs = (...names: string[]): PaneSpec[] =>
+  names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
 // Naming convention: DOM/CSS/named panes use hyphens.
 describe("pane prefix naming convention", () => {
@@ -120,8 +127,8 @@ describe("PaneManager", () => {
   });
 
   it("ensurePane sets provisional z-index on first creation only", () => {
-    // First creation: graph=BASE, node=BASE+STEP, label=BASE+2*STEP.
-    // Re-entry (pane already exists) must NOT touch z-index — bumpPanes
+    // First creation: each pane at BASE + its own order.
+    // Re-entry (pane already exists) must NOT touch z-index — the ordering pass
     // may have already overwritten it with a position-based base.
     const panes: Record<string, HTMLElement> = {};
     const map = {
@@ -132,26 +139,22 @@ describe("PaneManager", () => {
       }),
     };
     const pm = new PaneManager(map);
-    pm.registerSubPanes([
-      "foliplus-measure-graph",
-      "foliplus-measure-node",
-      "foliplus-measure-label",
-    ]);
+    pm.registerPaneSpecs(specs("graph", "node", "label"));
 
-    pm.ensurePane("foliplus-measure-label", false);
-    pm.ensurePane("foliplus-measure-node", false);
-    pm.ensurePane("foliplus-measure-graph", false);
+    pm.ensurePane("label", false);
+    pm.ensurePane("node", false);
+    pm.ensurePane("graph", false);
 
     const base = CONST.Z_INDEX.BASE;
-    const step = Number(CONST.CHILD_PANE_STEP);
-    expect(panes["foliplus-measure-graph"]!.style.zIndex).toBe(String(base));
-    expect(panes["foliplus-measure-node"]!.style.zIndex).toBe(String(base + step));
-    expect(panes["foliplus-measure-label"]!.style.zIndex).toBe(String(base + 2 * step));
+    const declared = specs("graph", "node", "label");
+    for (const spec of declared) {
+      expect(panes[spec.name]!.style.zIndex).toBe(String(base + spec.order));
+    }
 
-    // Simulate bumpPanes overwriting with a higher position-based base.
-    panes["foliplus-measure-label"]!.style.zIndex = "622";
-    pm.ensurePane("foliplus-measure-label", false);
-    expect(panes["foliplus-measure-label"]!.style.zIndex).toBe("622");
+    // Simulate the ordering pass overwriting with a higher position-based base.
+    panes["label"]!.style.zIndex = "622";
+    pm.ensurePane("label", false);
+    expect(panes["label"]!.style.zIndex).toBe("622");
   });
 
   it("ensurePane creates an SVG renderer when needRenderer is true", () => {
@@ -216,108 +219,45 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual([]);
   });
 
-  it("bumpPanes sets z + k * STEP on each sub-pane by its list index", () => {
-    const graph = document.createElement("div");
-    const label = document.createElement("div");
-    const map = {
-      getPane: vi.fn(name => (name === "g" ? graph : label)),
-      createPane: vi.fn(),
-    };
+  it("sweepChildPanes drops entries no longer referenced", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["g", "label"]);
-    // A container that advertises both child panes: discoverChildPanes
-    // walks `eachLayer` and collects every child's options.pane.
-    // The container itself also needs an `options` bag because traverse
-    // visits the outer node too (leafOnly=false).
-    const layer = {
-      options: {},
-      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
-        fn({ options: { pane: "g" } });
-        fn({ options: { pane: "label" } });
-      },
-    } as unknown as L.Layer;
-    pm.bumpPanes(layer, 600, ["g", "label"]);
-    // base pane at k=0, label pane at k=1 * STEP
-    expect(graph.style.zIndex).toBe(String(600 + 0 * Number(CONST.CHILD_PANE_STEP)));
-    expect(label.style.zIndex).toBe(String(600 + 1 * Number(CONST.CHILD_PANE_STEP)));
+    pm.registerPaneSpecs(specs("keep_label", "drop_label"));
+    pm.sweepChildPanes([{ paneSpecs: specs("keep_label") }, {}, { paneSpecs: [] }]);
+    expect(pm.childPanes.has("keep_label")).toBe(true);
+    expect(pm.childPanes.has("drop_label")).toBe(false);
   });
 
-  it("bumpPanes handles three sub-panes with ascending offsets", () => {
-    // The whole point of the panes-list refactor is N panes. Exercise a
-    // 3-pane layer (graph, node, label — the shape MeasureControl's
-    // closed PR #271 wanted) to prove the offset math doesn't have a
-    // hard-coded cap.
-    const graph = document.createElement("div");
-    const node = document.createElement("div");
-    const label = document.createElement("div");
-    const map = {
-      getPane: vi.fn(name => (name === "g" ? graph : name === "n" ? node : label)),
-      createPane: vi.fn(),
-    };
+  it("sweepChildPanes keeps a pane shared by multiple layers", () => {
+    // Two layers both use "shared_label" — after sweeping, the pane must
+    // stay because it's still referenced by at least one layer.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["g", "n", "label"]);
-    const layer = {
-      options: {},
-      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
-        fn({ options: { pane: "g" } });
-        fn({ options: { pane: "n" } });
-        fn({ options: { pane: "label" } });
-      },
-    } as unknown as L.Layer;
-    pm.bumpPanes(layer, 600, ["g", "n", "label"]);
-    expect(graph.style.zIndex).toBe(String(600 + 0 * Number(CONST.CHILD_PANE_STEP)));
-    expect(node.style.zIndex).toBe(String(600 + 1 * Number(CONST.CHILD_PANE_STEP)));
-    expect(label.style.zIndex).toBe(String(600 + 2 * Number(CONST.CHILD_PANE_STEP)));
+    pm.registerPaneSpecs(specs("shared_label"));
+    pm.sweepChildPanes([
+      { paneSpecs: specs("shared_label") },
+      { paneSpecs: specs("shared_label") },
+    ]);
+    expect(pm.childPanes.has("shared_label")).toBe(true);
   });
 
-  it("bumpPanes ignores child panes not in the caller's subPanes list", () => {
-    // A foreign pane that a third-party component put on the map: we
-    // registered only our two, so the foreign one is left at its own z.
-    const ours = document.createElement("div");
-    const foreign = document.createElement("div");
-    foreign.style.zIndex = "999";
-    const map = {
-      getPane: vi.fn(name => (name === "ours" ? ours : foreign)),
-      createPane: vi.fn(),
-    };
+  it("sweepChildPanes is a no-op when nothing is registered", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["ours"]);
-    const layer = {
-      options: {},
-      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
-        fn({ options: { pane: "ours" } });
-        fn({ options: { pane: "foreign" } });
-      },
-    } as unknown as L.Layer;
-    pm.bumpPanes(layer, 600, ["ours"]);
-    expect(ours.style.zIndex).toBe("600");
-    expect(foreign.style.zIndex).toBe("999"); // untouched
+    expect(() => pm.sweepChildPanes([{ paneSpecs: specs("phantom") }])).not.toThrow();
+    expect(pm.childPanes.size).toBe(0);
   });
 
-  it("bumpPanes skips a registered pane this call did not declare", () => {
-    // childPanes is per map — every layer's registerSubPanes adds to it — while
-    // subPanes is one layer's ordered list. A pane another layer registered,
-    // that this layer's tree happens to advertise, must keep its own z: only
-    // the panes this call declared get an offset.
-    const ours = document.createElement("div");
-    const theirs = document.createElement("div");
-    theirs.style.zIndex = "777";
-    const map = {
-      getPane: vi.fn(name => (name === "ours" ? ours : theirs)),
-      createPane: vi.fn(),
-    };
+  it("registerPaneSpecs is idempotent", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["ours", "theirs"]);
-    const layer = {
-      options: {},
-      eachLayer: (fn: (c: { options: { pane?: string } }) => void) => {
-        fn({ options: { pane: "ours" } });
-        fn({ options: { pane: "theirs" } });
-      },
-    } as unknown as L.Layer;
-    pm.bumpPanes(layer, 600, ["ours"]);
-    expect(ours.style.zIndex).toBe("600");
-    expect(theirs.style.zIndex).toBe("777"); // untouched
+    pm.registerPaneSpecs(specs("a", "b"));
+    pm.registerPaneSpecs(specs("a", "b", "c"));
+    pm.registerPaneSpecs(specs("a", "b")); // duplicate
+    expect(pm.childPanes.size).toBe(3);
+    expect(pm.childPanes.has("a")).toBe(true);
+    expect(pm.childPanes.has("b")).toBe(true);
+    expect(pm.childPanes.has("c")).toBe(true);
   });
 
   it("reset clears the pane cache", () => {
@@ -363,45 +303,83 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
   });
 
-  it("sweepChildPanes drops entries no longer referenced", () => {
-    const map = { getPane: vi.fn(), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    pm.registerSubPanes(["keep_label", "drop_label"]);
-    pm.sweepChildPanes([{ subPanes: ["keep_label"] }, {}, { subPanes: [] }]);
-    expect(pm.childPanes.has("keep_label")).toBe(true);
-    expect(pm.childPanes.has("drop_label")).toBe(false);
-  });
+  describe("pinTree", () => {
+    const makePath = () => {
+      const p = new window.L.Path();
+      (p as unknown as { options: Record<string, unknown> }).options = {};
+      return p as unknown as L.Path & { options: Record<string, unknown> };
+    };
 
-  it("sweepChildPanes keeps a pane shared by multiple layers", () => {
-    // Two layers both use "shared_label" — after sweeping, the pane must
-    // stay because it's still referenced by at least one layer.
-    const map = { getPane: vi.fn(), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    pm.registerSubPanes(["shared_label"]);
-    pm.sweepChildPanes([
-      { subPanes: ["shared_label"] },
-      { subPanes: ["shared_label"] },
-    ]);
-    expect(pm.childPanes.has("shared_label")).toBe(true);
-  });
+    const makeContainer = (children: L.Layer[]) =>
+      ({
+        options: {},
+        eachLayer: (fn: (c: L.Layer) => void) => children.forEach(fn),
+      }) as unknown as L.Layer;
 
-  it("sweepChildPanes is a no-op when nothing is registered", () => {
-    const map = { getPane: vi.fn(), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    expect(() => pm.sweepChildPanes([{ subPanes: ["phantom"] }])).not.toThrow();
-    expect(pm.childPanes.size).toBe(0);
-  });
+    it("pins a Path leaf to both the pane and its renderer", () => {
+      const renderer = { addTo: vi.fn() };
+      const map = {
+        getPane: vi.fn(() => document.createElement("div")),
+        createPane: vi.fn(),
+        _paneRenderers: { data: renderer },
+      };
+      const pm = new PaneManager(map);
+      const path = makePath();
+      pm.pinTree(path, "data");
+      expect(path.options.pane).toBe("data");
+      expect(path.options.paneSet).toBe(true);
+      expect(path.options.renderer).toBe(renderer);
+    });
 
-  it("registerSubPanes is idempotent", () => {
-    const map = { getPane: vi.fn(), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    pm.registerSubPanes(["a", "b"]);
-    pm.registerSubPanes(["a", "b", "c"]);
-    pm.registerSubPanes(["a", "b"]); // duplicate
-    expect(pm.childPanes.size).toBe(3);
-    expect(pm.childPanes.has("a")).toBe(true);
-    expect(pm.childPanes.has("b")).toBe(true);
-    expect(pm.childPanes.has("c")).toBe(true);
+    it("recurses into a container and pins every child path", () => {
+      // A GeoJSON group handed to createLayers used to leave its child paths on
+      // the map's default renderer, because only the top node got options.pane.
+      // Leaflet ignores a group's pane for its children, so each child has to
+      // carry it itself.
+      const map = {
+        getPane: vi.fn(() => document.createElement("div")),
+        createPane: vi.fn(() => document.createElement("div")),
+        _paneRenderers: {} as Record<string, unknown>,
+      };
+      const pm = new PaneManager(map);
+      const children = [makePath(), makePath()];
+      pm.pinTree(makeContainer(children), "data");
+      for (const path of children) {
+        expect(path.options.pane).toBe("data");
+        expect(path.options.paneSet).toBe(true);
+        expect(path.options.renderer).toBeDefined();
+      }
+    });
+
+    it("pins a non-path leaf to the pane without a renderer", () => {
+      const marker = { options: {} } as unknown as L.Layer & {
+        options: Record<string, unknown>;
+      };
+      const map = {
+        getPane: vi.fn(() => null),
+        createPane: vi.fn(() => document.createElement("div")),
+      };
+      const pm = new PaneManager(map);
+      pm.pinTree(marker, "data");
+      expect(marker.options.pane).toBe("data");
+      expect(marker.options.renderer).toBeUndefined();
+    });
+
+    it("invalidates the discovery cache for every node it pins", () => {
+      const map = {
+        getPane: vi.fn(() => null),
+        createPane: vi.fn(() => document.createElement("div")),
+      };
+      const pm = new PaneManager(map);
+      const child = { options: { pane: "old" } } as unknown as L.Layer;
+      const group = {
+        options: { pane: "old" },
+        eachLayer: (fn: (c: L.Layer) => void) => fn(child),
+      } as unknown as L.Layer;
+      pm.pinTree(group, "new");
+      expect(pm.discoverChildPanes(child)).toEqual(["new"]);
+      expect(pm.discoverChildPanes(group)).toEqual(["new"]);
+    });
   });
 
   it("ensureVector pins both renderer and pane on the layer", () => {
@@ -457,7 +435,7 @@ describe("PaneManager", () => {
     const map = makeMap({ "foliplus-canvas-heat": pane });
     map._paneRenderers = { "foliplus-canvas-heat": renderer };
     const pm = new PaneManager(map);
-    pm.registerSubPanes(["foliplus-canvas-heat"]);
+    pm.registerPaneSpecs(specs("foliplus-canvas-heat"));
     pm.removePane("foliplus-canvas-heat");
     expect(map.removeLayer).toHaveBeenCalledWith(renderer);
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
@@ -512,7 +490,7 @@ describe("PaneManager", () => {
     const map = makeMap({ "foliplus-pane-1": pane });
     const pm = new PaneManager(map);
     pm.paneCache.set(1, ["a"]);
-    pm.registerSubPanes(["foliplus-measure-label"]);
+    pm.registerPaneSpecs(specs("foliplus-measure-label"));
     pm.destroy();
     expect(pm.paneCache.size).toBe(0);
     expect(pm.childPanes.size).toBe(0);

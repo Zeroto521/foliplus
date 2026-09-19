@@ -147,7 +147,7 @@ class MeasureManager {
       panes: [
         { name: CONST.PANES.GRAPH },
         { name: CONST.PANES.NODE },
-        { name: CONST.PANES.LABEL, isLabel: true },
+        { name: CONST.PANES.LABEL, isLabel: true, interactive: false },
       ],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),

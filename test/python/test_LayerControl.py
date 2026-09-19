@@ -1163,6 +1163,30 @@ class TestLayerControlBrowser:
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
 
+    def test_geojson_group_pins_children_to_declared_pane(self, browser, tmp_path):
+        """A GeoJSON group's child paths render into the declared data pane.
+
+        ``addLayer`` writes ``options.pane`` on the node it is handed, and
+        Leaflet ignores a group's pane for its children — each child joins the
+        map on its own.  Without the recursive pin the shapes would draw into
+        the map's default pane even though every option says otherwise.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="geojson_pane") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/geojson_group_pins_children_pane"))
+            assert result is not None, "LayerAPI not found"
+            assert result["paneExists"], f"declared pane was never created: {result}"
+            assert result["groupPane"] == "__geojson_pane__", result
+            assert len(result["kids"]) == 2, f"unexpected child count: {result}"
+            for kid in result["kids"]:
+                assert kid["pane"] == "__geojson_pane__", f"child not pinned: {kid}"
+                assert kid["paneSet"] is True, f"child not marked pinned: {kid}"
+                assert kid["hasRenderer"], f"child has no renderer option: {kid}"
+                assert kid["isPath"], f"child has no renderer container: {kid}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_icon_svg_payload_never_reaches_dom(self, browser, tmp_path):
         """A hostile iconSvg survives the innerHTML sink as inert markup only.
 
@@ -1303,6 +1327,59 @@ class TestLayerControlBrowser:
             assert result["pointerEvents"] == "none", result
             assert result["hitIsCanvas"] is False, (
                 "annotation canvas intercepted the click"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_noninteractive_pane_click_through(self, browser, tmp_path):
+        """A pane declared ``interactive: false`` lets clicks reach the layer below,
+        while a marker inside that pane keeps its own click handler.
+
+        A label pane holds one full-bleed canvas, so without
+        ``pointer-events: none`` on the pane element it would swallow every
+        click over the map and the data layer underneath would stop being
+        clickable.  The declaration makes that happen — nothing component-side
+        has to opt in.
+
+        The pane's ``pointer-events: none`` must not kill descendants that
+        carry their own hit area: ``pointer-events`` is per-element, not
+        inherited.  A marker inside the pane keeps its
+        ``pointer-events: auto`` wrapper and its click handler stays live.
+        This is the mechanism MeasureControl's segment labels rely on.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="ni_pane") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(
+                _js("LayerControl/noninteractive_pane_click_through")
+            )
+            assert result is not None, "LayerAPI not found"
+            assert result["ready"] is True, f"fixture not ready: {result}"
+            assert result["labelPointerEvents"] == "none", result
+            assert result["dataPointerEvents"] == "none", (
+                f"data pane should also refuse hits (focus.css sets "
+                f"pointer-events:none on all foliplus-layer-pane): {result}"
+            )
+            # Data layer underneath: the polygon is the hit target at a point
+            # away from the marker, and its click handler fires.
+            assert result["polyHitIsPoly"] is True, (
+                f"label pane swallowed the hit: {result}"
+            )
+            assert result["polyHitInLabelPane"] is False, result
+            assert result["polyClicked"] is True, (
+                "the data feature did not receive the click"
+            )
+            # Marker inside the non-interactive pane: its own wrapper is the
+            # hit target (re-enabled by its own pointer-events:auto), and its
+            # click handler fires.  Without this the segment-label affordance
+            # would be silently lost.
+            assert result["markerHitIsIcon"] is True, (
+                f"marker did not receive the hit: {result}"
+            )
+            assert result["markerHitInLabelPane"] is True, result
+            assert result["labelMarkerClicked"] is True, (
+                "the marker inside the non-interactive pane lost its click "
+                f"handler: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 

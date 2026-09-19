@@ -2,16 +2,6 @@
 // Pure values, no DOM / CONF dependency. Re-exported by LayerControl/const.
 const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
 
-/**
- * z-index step between sub-panes within a single layer. Sub-panes are the
- * child `layerGroup`s `createLayers({ panes: [...] })` registers; each one
- * paints one step above the previous. LayerControl's `bumpPanes` uses this
- * step so a layer's sub-panes land at `base + k * CHILD_PANE_STEP`, `k` =
- * the sub-pane's position in `opts.panes`. Ordered by z ascending: sub-panes
- * are expected to be named in the same ascending order they should paint.
- */
-const CHILD_PANE_STEP = 1;
-
 const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
@@ -36,11 +26,4 @@ const GEOM_TYPE = {
   CUSTOM: "custom",
 };
 
-export {
-  CANVAS_PANE_PREFIX,
-  CHILD_PANE_STEP,
-  FALLBACK_PANE_PREFIX,
-  GEOM_TYPE,
-  RECURSION,
-  Z_INDEX,
-};
+export { CANVAS_PANE_PREFIX, FALLBACK_PANE_PREFIX, GEOM_TYPE, RECURSION, Z_INDEX };

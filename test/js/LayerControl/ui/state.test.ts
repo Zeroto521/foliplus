@@ -12,7 +12,7 @@ import {
   saveOpacityMap,
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import type { LayerInfo, PaneSpec } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -23,6 +23,11 @@ import {
   pressKey,
 } from "./fixture.js";
 import { TileLayer, installLeafletGlobals } from "./fixture.js";
+
+/** The pane spec list `createLayers` derives from an ordered name list: the
+ *  first name is the base pane, everything after it a `sub`. */
+const specs = (...names: string[]): PaneSpec[] =>
+  names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
 describe("LayerUI visibility persistence (hiddenIds)", () => {
   // Reusable layer stubs at module scope so standalone test blocks don't
@@ -839,7 +844,7 @@ describe("applyOpacityStateOne", () => {
       canvas: null,
       layer: { options: {} } as unknown as L.Layer,
       opacity: 1,
-      subPanes: [],
+      paneSpecs: [],
     } as unknown as LayerInfo;
 
     expect(() => applyOpacityStateOne(noPrivatePane(), li, 0.6)).not.toThrow();
@@ -1014,7 +1019,7 @@ describe("applyOpacityStateOne", () => {
     expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
   });
 
-  it("sets CSS opacity on each pane element for managed layers (subPanes)", () => {
+  it("sets CSS opacity on each pane element for managed layers (paneSpecs)", () => {
     // Managed layers (createLayers: MeasureControl) own their panes. Setting
     // opacity on the pane element is multiplicative and covers every feature
     // type uniformly — paths, markers, divIcons — without clobbering the
@@ -1038,7 +1043,7 @@ describe("applyOpacityStateOne", () => {
       id: "measure",
       canvas: null,
       layer: { options: {} } as unknown as L.Layer,
-      subPanes: ["graph", "node", "label"],
+      paneSpecs: specs("graph", "node", "label"),
       opacity: 1,
     } as unknown as LayerInfo;
 
@@ -1063,7 +1068,7 @@ describe("applyOpacityStateOne", () => {
       id: "measure",
       canvas: null,
       layer: { options: {} } as unknown as L.Layer,
-      subPanes: ["graph"],
+      paneSpecs: specs("graph"),
       opacity: 0.4,
     } as unknown as LayerInfo;
 
@@ -1205,7 +1210,7 @@ describe("event-driven row refresh", () => {
     // when the opacity "snaps in" to the real geometry.
     const events = ensureEvents(ui.m.map);
     const li = manager.layerRegistry.get("overlay1")!;
-    li.subPanes = ["__test_opacity_pane__"];
+    li.paneSpecs = specs("__test_opacity_pane__");
     ui.opacityMap = { overlay1: 0.4 };
     li.opacity = 0.4;
 

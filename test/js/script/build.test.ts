@@ -89,10 +89,12 @@ describe("build artifacts", () => {
     // form primitives through the same shell; so do the shared label
     // contracts (field collection, collision geometry) and the label-control
     // renderer (#365) — one module for the heatmap panel and the layer style
-    // drawer, replacing two copies. 155KB is the agreed ceiling — #332 raised
+    // drawer, replacing two copies. 155KB was the agreed ceiling — #332 raised
     // it first, then the shared renderer needed the next step; the larger
-    // value wins on merge.
-    expect(size).toBeLessThan(155000);
+    // value wins on merge. The pane-role refactor added PaneManager.pinTree
+    // (+151B) — the recursive pin that puts a GeoJSON group's child paths into
+    // the declared pane.
+    expect(size).toBeLessThan(156000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
