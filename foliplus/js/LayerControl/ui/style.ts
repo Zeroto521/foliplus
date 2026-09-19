@@ -141,10 +141,12 @@ const commitOpacityPct = (
   // is a sweep over every feature.
   if (li.opacity !== opacity) {
     applyOpacityStateOne(ui, li, opacity);
-    if (opacity === 1) delete ui.opacityMap[layerId];
-    else {
-      ui.opacityMap[layerId] = opacity;
+    if (opacity === 1) {
       // Fully opaque is the declared default, so there is no override to keep.
+      delete ui.opacityMap[layerId];
+      unmarkOverride(ui, layerId, "opacity");
+    } else {
+      ui.opacityMap[layerId] = opacity;
       markOverride(ui, layerId, "opacity");
     }
     saveState(ui);

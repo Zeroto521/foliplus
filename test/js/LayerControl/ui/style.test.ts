@@ -819,6 +819,31 @@ describe("LayerUI style panel", () => {
     expect(ui.opacityMap.overlay1).toBeUndefined();
   });
 
+  it("dragging back to fully opaque drops the provenance as well as the value", () => {
+    // 100% is the declared default, so a drag back to it is a reset by another
+    // route and must leave no override behind -- otherwise the record keeps a
+    // marker with no value for it.
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "30";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(ui.userOverrides.overlay1).toContain("opacity");
+
+    range.value = "100";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(ui.userOverrides.overlay1 ?? []).not.toContain("opacity");
+  });
+
   it("reopening the panel seeds the opacity inputs from opacityMap", () => {
     const setStyle = vi.fn();
     const li = manager.layerRegistry.get("overlay1")!;
