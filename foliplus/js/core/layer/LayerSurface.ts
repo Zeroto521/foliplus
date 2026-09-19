@@ -240,4 +240,3 @@ class LayerSurface implements LayerSurfaceContract {
 }
 
 export { LayerSurface };
-export type { SurfaceOpts };

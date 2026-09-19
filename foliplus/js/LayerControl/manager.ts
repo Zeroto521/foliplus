@@ -590,6 +590,12 @@ class LayerManager implements LayerAPI {
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(spec)) return existing;
+    if (existing?.layer) {
+      // The layer object (or its declaration) was replaced. Drop the stamp
+      // index entry for the superseded layer, or a lookup by it would keep
+      // answering with a surface nobody paints into anymore.
+      this.surfacesByLayer.delete(L.stamp(existing.layer));
+    }
     const surface = new LayerSurface(this.map, this.panes, spec);
     this.surfaces.set(layerInfo.id, surface);
     if (spec.layer) this.surfacesByLayer.set(L.stamp(spec.layer), surface);
