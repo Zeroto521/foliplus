@@ -363,10 +363,13 @@ const applyLayerState = (
           }
           layerInfo.opacity = patch.opacity;
         } else if (carrier === "pane") {
-          // One CSS write per pane we own — declared, sub, or synthesized.
-          // Multiplicative over each feature's own style, so a hollow polygon
-          // (fillOpacity: 0) keeps its hole.
-          for (const name of surface.paneNames) {
+          // One CSS write per pane we own — declared, sub, synthesized, or the
+          // layer's annotation pane. Multiplicative over each feature's own
+          // style, so a hollow polygon (fillOpacity: 0) keeps its hole.
+          const names = [...surface.paneNames];
+          const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
+          if (annotationPane) names.push(annotationPane);
+          for (const name of names) {
             const pane = ui.m.map.getPane(name);
             if (pane) pane.style.opacity = String(patch.opacity);
           }

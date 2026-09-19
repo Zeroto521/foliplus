@@ -1578,6 +1578,16 @@ class TestLayerControlBrowser:
             # override of the feature's own style.  0 × 0.4 = 0.
             assert result["hollowPaneAfter"] == "0.4", result
             assert result["hollowFillOpacity"] == 0, result
+
+            # Case D: annotation pane follows the layer's opacity. The geometry
+            # pane and the annotation pane must both carry the opacity. A
+            # neighbour layer's annotation pane is unaffected (per-layer pane,
+            # not shared).
+            assert result["annotationPaneExists"] is True, result
+            assert result["annotatedGeoPaneOpacity"] == "0", result
+            assert result["annotatedAnnotationPaneOpacity"] == "0", result
+            assert result["neighbourAnnotationPaneExists"] is True, result
+            assert result["neighbourAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):

@@ -130,6 +130,56 @@
     if (child.options) hollowFillOpacity = child.options.fillOpacity;
   });
 
+  // ── Case D: annotation pane follows the layer's opacity ─────────────
+  // A data layer with labels on: the geometry pane and the annotation pane
+  // must both carry the opacity. A neighbour layer's annotation pane is
+  // unaffected (per-layer pane, not shared).
+  const annotatedGeo = L.geoJson({
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { name: "annotated", value: 1 },
+      geometry: {
+        type: "Polygon",
+        coordinates: [[[119.55, 26.10], [119.55, 26.11], [119.56, 26.11], [119.55, 26.10]]],
+      },
+    }],
+  });
+  api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
+  // A neighbour layer with its own annotation, so we can assert isolation.
+  const neighbourGeo = L.geoJson({
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { name: "neighbour", value: 1 },
+      geometry: {
+        type: "Polygon",
+        coordinates: [[[119.57, 26.10], [119.57, 26.11], [119.58, 26.11], [119.57, 26.10]]],
+      },
+    }],
+  });
+  api.registerLayer({ id: "op_annotated_nb", name: "AnnotatedNb", layer: neighbourGeo });
+  ctrl.m.enforceOrder();
+
+  // Enable labels on both layers.
+  ctrl.m.annotation.setConfig("op_annotated", { ...ctrl.m.annotation.getConfig("op_annotated"), show: true });
+  ctrl.m.annotation.renderLabels("op_annotated");
+  ctrl.m.annotation.setConfig("op_annotated_nb", { ...ctrl.m.annotation.getConfig("op_annotated_nb"), show: true });
+  ctrl.m.annotation.renderLabels("op_annotated_nb");
+
+  const annotatedGeoPane = paneOf(annotatedGeo);
+  const annotationPane = map.getPane("foliplus-annotation-op_annotated");
+  const neighbourAnnotationPane = map.getPane("foliplus-annotation-op_annotated_nb");
+
+  // Set opacity to 0.
+  ui.openStylePanel("op_annotated");
+  const rangeD = document.querySelector(".foliplus-style-opacity-range");
+  if (rangeD) {
+    rangeD.value = "0";
+    rangeD.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  ui.closeStylePanel(false);
+
   return {
     error: null,
     // After the ordering pass a plain folium layer has its own pane too, so
@@ -169,5 +219,13 @@
     // own style. 0 × 0.4 = 0, so the fill stays invisible.
     hollowPaneAfter,
     hollowFillOpacity,
+    // Case D: annotation pane follows the layer's opacity. The geometry pane
+    // and the annotation pane must both carry the opacity. A neighbour layer's
+    // annotation pane is unaffected (per-layer pane, not shared).
+    annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
+    annotatedAnnotationPaneOpacity: annotationPane ? annotationPane.style.opacity : null,
+    neighbourAnnotationPaneOpacity: neighbourAnnotationPane ? neighbourAnnotationPane.style.opacity : null,
+    annotationPaneExists: !!annotationPane,
+    neighbourAnnotationPaneExists: !!neighbourAnnotationPane,
   };
 };

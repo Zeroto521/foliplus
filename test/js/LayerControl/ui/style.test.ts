@@ -1109,6 +1109,49 @@ describe("LayerUI style panel", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("omits the opacity row for a layer whose surface cannot carry it (delegated)", () => {
+    // MarkerCluster duck: `_topClusterLevel` triggers `opacity: "none"`.
+    // The delegated label controls must still render — the panel is not
+    // empty, only the opacity row is gone.
+    manager.registerLayer({
+      id: "cluster1",
+      name: "Cluster",
+      layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
+      styleProvider: () => ({ labelShow: true, labelSize: 14, labelColor: "#ff0000" }),
+      styleSetters: { labelShow: vi.fn(), labelSize: vi.fn(), labelColor: vi.fn() },
+    });
+    const item = findItem(ui, "cluster1");
+    ui.openStylePanel("cluster1");
+    const panel = panelOf(item)!;
+
+    // No opacity row at all.
+    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
+    // The delegated label controls are still there.
+    expect(panel.querySelector(".foliplus-style-label-size-input")).not.toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-color-input")).not.toBeNull();
+  });
+
+  it("omits the opacity row for a layer whose surface cannot carry it (annotation)", () => {
+    // Same duck, but the annotation panel (not delegated). The field/format/
+    // collide rows must still render.
+    manager.registerLayer({
+      id: "cluster2",
+      name: "Cluster2",
+      layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
+    });
+    ui.fieldCache.set("cluster2", [{ name: "count", numeric: true }]);
+    const item = findItem(ui, "cluster2");
+    ui.openStylePanel("cluster2");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
+    // Annotation rows are still there.
+    expect(panel.querySelector(".foliplus-style-field-select")).not.toBeNull();
+    expect(panel.querySelector(".foliplus-style-label-color-input")).not.toBeNull();
+  });
+
   // ─────────────────── ⋮ menu item ───────────────────
 
   it("the ⋮ menu's Style item is enabled for pane-capable layers even without labels", () => {

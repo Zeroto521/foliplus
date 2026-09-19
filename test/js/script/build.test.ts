@@ -92,6 +92,17 @@ describe("build artifacts", () => {
     // drawer, replacing two copies. 155KB was the agreed ceiling — #332 raised
     // it first, then the shared renderer needed the next step; the larger
     // value wins on merge.
+    //
+    // Measured on this branch (R5, over 2a381557's 155660B baseline):
+    // 157431B — the +1771B is the capability detection (detectCapabilities +
+    // isMarkerCluster duck), the unified applyLayerState write pipeline, the
+    // nativeBase WeakMap (compounding fix), and the annotation pane carrier
+    // lookup. 160000 leaves ~2.5KB headroom for the next round.
+    //
+    // This value is provisional — R10 (refactor/layer-z) set 165000 on its
+    // own branch after merging main + R9. Once all three refactors land, the
+    // last merger should re-measure on main in dev mode and set the final
+    // threshold once, by one PR.
     expect(size).toBeLessThan(160000);
   });
 
