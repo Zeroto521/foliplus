@@ -86,7 +86,7 @@ beforeEach(() => {
 describe("LayerSurface pane resolution", () => {
   it("takes the declared pane as base and never synthesizes one", () => {
     const { map, host } = makeMap();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
       paneName: "graph",
@@ -100,7 +100,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("appends sub-panes in declaration order, without a renderer each", () => {
     const { map, host } = makeMap();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
       paneName: "graph",
@@ -118,7 +118,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("gives a canvas pane no renderer", () => {
     const { map, host } = makeMap();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
       paneName: CONST.CANVAS_PANE_PREFIX + "heat",
@@ -130,7 +130,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("gives a GridLayer no pane at all — it carries its z itself", () => {
     const { map, host } = makeMap();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new TileLayer() as unknown as L.Layer,
     });
@@ -146,7 +146,7 @@ describe("LayerSurface pane resolution", () => {
     child.options.pane = "own";
     const foreign = new Path();
     foreign.options.pane = "foreign";
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "mixed",
       layer: new Group([child, foreign]) as unknown as L.Layer,
     });
@@ -162,7 +162,7 @@ describe("LayerSurface pane resolution", () => {
   it("synthesizes a stamp-named pane when the layer declares none", () => {
     const { map, host } = makeMap();
     const layer = new Group([new Marker()]);
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: layer as unknown as L.Layer,
     });
@@ -178,7 +178,7 @@ describe("LayerSurface.materialize", () => {
   it("routes a declared layer before it joins the map (I1)", () => {
     const { map, host } = makeMap();
     const layer = new Path();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: layer as unknown as L.Layer,
       paneName: "graph",
@@ -196,7 +196,7 @@ describe("LayerSurface.materialize", () => {
     const { map, host } = makeMap();
     const child = new Path();
     const group = new Group([child]);
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: group as unknown as L.Layer,
       paneName: "graph",
@@ -211,7 +211,7 @@ describe("LayerSurface.materialize", () => {
     const { map, host } = makeMap();
     const child = new Marker();
     const layer = new Group([child]);
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: layer as unknown as L.Layer,
     });
@@ -230,7 +230,7 @@ describe("LayerSurface.materialize", () => {
     // surfaces writes z and never walks a tree again.
     const { map, host } = makeMap();
     const reconcile = vi.spyOn(host, "migrateLayers");
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
@@ -244,7 +244,7 @@ describe("LayerSurface.materialize", () => {
   it("reconciles again once the content is marked dirty", () => {
     const { map, host } = makeMap();
     const reconcile = vi.spyOn(host, "migrateLayers");
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
@@ -259,7 +259,7 @@ describe("LayerSurface.materialize", () => {
   it("pins content that arrives after materialization", () => {
     const { map, host } = makeMap();
     const group = new Group();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: group as unknown as L.Layer,
     });
@@ -280,7 +280,7 @@ describe("LayerSurface.materialize", () => {
     attached.element = document.createElement("img");
     attached._shadow = document.createElement("img");
     document.body.append(attached._shadow, attached.element);
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([attached]) as unknown as L.Layer,
     });
@@ -296,7 +296,7 @@ describe("LayerSurface.materialize", () => {
     path._map = map;
     path.element = document.createElementNS("http://www.w3.org/2000/svg", "path");
     document.body.appendChild(path.element);
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([path]) as unknown as L.Layer,
     });
@@ -316,7 +316,7 @@ describe("LayerSurface.setZ", () => {
     graph.options.pane = "graph";
     const label = new Path();
     label.options.pane = "label";
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: new Group([graph, label]) as unknown as L.Layer,
       paneName: "graph",
@@ -329,7 +329,7 @@ describe("LayerSurface.setZ", () => {
 
   it("writes the synthesized pane's z", () => {
     const { map, panes, host } = makeMap();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
@@ -342,7 +342,7 @@ describe("LayerSurface.matches", () => {
   it("is true only for the same layer object and the same declaration", () => {
     const { map, host } = makeMap();
     const layer = new Group();
-    const surface = new LayerSurface(map as unknown as L.Map, host, {
+    const surface = new LayerSurface(host, {
       id: "a",
       layer: layer as unknown as L.Layer,
       paneName: "graph",
@@ -360,13 +360,17 @@ describe("LayerSurface.matches", () => {
     );
     expect(surface.matches({ ...base, paneName: "other" })).toBe(false);
     expect(surface.matches({ ...base, subPanes: ["graph"] })).toBe(false);
+    // A declaration that names no sub-panes at all, and one that names the same
+    // number but not the same panes.
+    expect(surface.matches({ ...base, subPanes: undefined })).toBe(false);
+    expect(surface.matches({ ...base, subPanes: ["graph", "other"] })).toBe(false);
   });
 });
 
 describe("LayerSurface.destroy", () => {
   it("releases only the pane it synthesized", () => {
     const { map, panes, host } = makeMap();
-    const synthesized = new LayerSurface(map as unknown as L.Map, host, {
+    const synthesized = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
@@ -375,7 +379,7 @@ describe("LayerSurface.destroy", () => {
     synthesized.destroy();
     expect(panes[paneName]).toBeUndefined();
 
-    const declared = new LayerSurface(map as unknown as L.Map, host, {
+    const declared = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
       paneName: "graph",

@@ -345,6 +345,24 @@ describe("moveIntoPane", () => {
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(layer.options.pane).toBe("p");
   });
+
+  it("drops a stale renderer when no replacement can be built", () => {
+    // `getRendererFor` degrades to null. A Path must then fall back to
+    // Leaflet's own renderer for the new pane rather than keep pointing at the
+    // old pane's.
+    const map = makeMap();
+    window.L.Path = class {
+      options: Record<string, unknown> = { pane: "old", renderer: { id: "stale" } };
+    } as unknown as typeof L.Path;
+    window.L.svg = vi.fn(() => {
+      throw new Error("no svg");
+    });
+    map.hasLayer = () => false;
+    const layer = new window.L.Path();
+    moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
+    expect(layer.options.pane).toBe("new");
+    expect(layer.options.renderer).toBeUndefined();
+  });
 });
 
 describe("internalLayers", () => {

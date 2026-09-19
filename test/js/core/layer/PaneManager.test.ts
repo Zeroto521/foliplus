@@ -425,6 +425,29 @@ describe("PaneManager", () => {
     expect(layer.options.renderer).toBe(pinned);
   });
 
+  it("ensureVector still names the pane when no renderer can be built", () => {
+    // `getRendererFor` degrades to null instead of throwing mid-map-operation.
+    // The pane name must still be written: a Path with no renderer falls back
+    // to Leaflet's own renderer *for that pane*, which is the right place to
+    // be — and leaving `options.renderer` at a stale renderer would not be.
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+      _paneRenderers: {} as Record<string, unknown>,
+    };
+    window.L.svg = vi.fn(() => {
+      throw new Error("no svg");
+    });
+    const pm = new PaneManager(map);
+    const layer = {
+      options: { renderer: { id: "stale" } } as Record<string, unknown>,
+    } as unknown as L.Path;
+    expect(pm.ensureVector(layer, "p")).toBeNull();
+    expect(layer.options.pane).toBe("p");
+    expect(layer.options.renderer).toBeUndefined();
+  });
+
   // ── removePane (createCanvas.destroy / private panes) ──
 
   it("removePane detaches the pane and clears the renderer registry", () => {
