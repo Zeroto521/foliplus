@@ -355,7 +355,7 @@ const applyLayerState = (
           const opts = (layer.options ?? {}) as L.LayerOptions & { opacity?: number };
           const base = nativeBaseOf(layer);
           const target = base * patch.opacity;
-          if (typeof layer.setOpacity === "function") {
+          if (typeof (layer as L.ImageOverlay).setOpacity === "function") {
             (layer as L.ImageOverlay).setOpacity(target);
           } else {
             layer.options = opts;

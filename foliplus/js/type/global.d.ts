@@ -241,11 +241,10 @@ declare global {
     type PathOptions = Leaflet.PathOptions;
     type GridLayer = Leaflet.GridLayer;
     type GridLayerOptions = Leaflet.GridLayerOptions;
+    type ImageOverlay = Leaflet.ImageOverlay;
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
     type CRS = Leaflet.CRS;
-    /** leaflet.markercluster plugin — optional, guarded at runtime. */
-    class MarkerClusterGroup extends Leaflet.LayerGroup {}
   }
 
   /** A layer entry in the LayerControl ordered registry (read-only view). */

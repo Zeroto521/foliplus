@@ -301,8 +301,15 @@ class LayerSurface implements LayerSurfaceContract {
  *  and may not be loaded at all, so the reference is guarded with a runtime
  *  presence check rather than a hard instanceof. */
 const isMarkerCluster = (layer: L.Layer): boolean => {
-  if (typeof L.MarkerClusterGroup !== "undefined" && layer instanceof L.MarkerClusterGroup)
+  // The plugin's `L.MarkerClusterGroup` is optional — the runtime may not
+  // have it. Read it off the Leaflet global and duck-type the rest.
+  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
+  if (
+    typeof ctor === "function" &&
+    layer instanceof (ctor as new (...args: never[]) => unknown)
+  ) {
     return true;
+  }
   // Fallback: the plugin's private `_topClusterLevel` field. If the plugin is
   // renamed or the instanceof fails (plugin loaded without `L.MarkerClusterGroup`),
   // this still catches it. The failure mode — duck typing alone — is documented

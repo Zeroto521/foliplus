@@ -597,7 +597,7 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
-          const alpha = this.effectiveOpacity(ce);
+          const alpha = this.effectiveOpacity(ce as HTMLElement);
           if (alpha < 1) {
             ctx.globalAlpha = alpha;
             ctx.drawImage(img, dx, dy, dw, dh);
