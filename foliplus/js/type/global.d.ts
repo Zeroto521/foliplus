@@ -241,6 +241,7 @@ declare global {
     type PathOptions = Leaflet.PathOptions;
     type GridLayer = Leaflet.GridLayer;
     type GridLayerOptions = Leaflet.GridLayerOptions;
+    type ImageOverlay = Leaflet.ImageOverlay;
     type TileLayer = Leaflet.TileLayer;
     type TileLayerOptions = Leaflet.TileLayerOptions;
     type CRS = Leaflet.CRS;

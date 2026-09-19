@@ -117,6 +117,13 @@ describe("build artifacts", () => {
     // Measured on this branch after merging main: 160897B (createSurface +2.3KB
     // from main, z ladder +2667B from R9, over 2a381557's 155660B). The ceiling
     // must accommodate both — 165000 leaves ~4KB headroom for the next round.
+    //
+    // R5 (this branch, layer-write-pipeline) adds detectCapabilities,
+    // isMarkerCluster, the applyLayerState single write pipeline, the
+    // nativeBase per-layer WeakMap, and the annotation pane carrier union —
+    // +1771B over 2a381557 in dev mode, same command. Every byte lands in
+    // core/layer + LayerControl, so R9's ceiling of 165000 accommodates it
+    // with ~4KB headroom still.
     expect(size).toBeLessThan(165000);
   });
 

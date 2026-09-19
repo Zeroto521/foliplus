@@ -62,9 +62,18 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
-  const styleDisabled =
-    focusDisabled ||
-    (!layerHasLabelFields(ui, layerId) && !layerHasStyleDelegation(ui, layerId));
+  //
+  // R5: capability-driven gate. A layer whose surface reports opacity and
+  // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
+  // dimensions, so the panel is disabled unless it still has label fields or
+  // style delegation to configure.
+  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
+  const canConfigure =
+    (caps && (caps.opacity !== "none" || caps.zoomRange !== "none")) ||
+    layerHasLabelFields(ui, layerId) ||
+    layerHasStyleDelegation(ui, layerId);
+  const styleDisabled = focusDisabled || !canConfigure;
 
   menu.appendChild(
     dom.el(

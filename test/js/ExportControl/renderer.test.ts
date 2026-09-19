@@ -621,13 +621,15 @@ describe("ExportRenderer.render — canvas creation", () => {
 //===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
+  const mockLayer = { options: { opacity: 1 } } as L.TileLayer;
+
   it("reports the cumulative tiles drawn after each batch", async () => {
     const total = CONST.TILE_CONCURRENCY * 2;
     stubBitmaps();
     const rc = makeRC(4096, 4096);
     const onProgress = vi.fn();
 
-    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), onProgress);
+    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), mockLayer, onProgress);
 
     // One report per batch, counting the tiles actually painted so far —
     // never the batch index, which would credit tiles that were still loading.
@@ -641,7 +643,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // render() does the clipping before calling, so an empty list is the only
     // way this pass starts.  The early return must not report anything.
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(100, 100), [], onProgress);
+    await makeRenderer().renderTileLayer(makeRC(100, 100), [], mockLayer, onProgress);
     expect(onProgress).not.toHaveBeenCalled();
   });
 
@@ -652,7 +654,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, onProgress);
+    await makeRenderer().renderTileLayer(
+      makeRC(1536, 512),
+      survivors,
+      mockLayer,
+      onProgress,
+    );
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -679,6 +686,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096, ctx),
       rcTiles(makeRC(4096, 4096, ctx), 2),
+      mockLayer,
       onProgress,
     );
 
@@ -694,6 +702,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), total),
+      mockLayer,
       onProgress,
     );
     // Two batches: a full one, then the single leftover tile — the last report
@@ -711,6 +720,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), CONST.TILE_CONCURRENCY),
+      mockLayer,
       onProgress,
     );
     // The tile was fetched and enumerated but nothing reached the canvas, so it
@@ -1079,9 +1089,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(async (_rc: any, _tiles: any, cb: any) => {
-      cb(1);
-    });
+    tileLayer.mockImplementation(
+      async (_rc: any, _tiles: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.

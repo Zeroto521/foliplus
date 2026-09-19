@@ -4,6 +4,41 @@
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
 
+/** What a layer's surface can actually be asked to do, computed once at
+ *  materialization by `LayerSurface` (which alone knows the panes it owns and
+ *  the shape of its content — the R1 probes are what pin each value).
+ *
+ *  Read-only on `LayerInfo` as a projection, never persisted: a caller-supplied
+ *  `capabilities` in `RegisterLayerOpts` would let a third party claim support
+ *  it does not have, and the honest-degradation contract (§6.2 "不得静默失效")
+ *  depends on the answer being the surface's, not the caller's. */
+interface LayerCapabilities {
+  /** How the layer's opacity is written:
+   *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
+   *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
+   *      the layer's option, not a pane.
+   *    - "pane"   — we own a pane for this layer; one CSS write on the pane
+   *      covers every child (SVG path / marker / divIcon / canvas element).
+   *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
+   *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
+   *      pane write would fade the individual markers but not the cluster —
+   *      half the layer. The UI then hides the opacity control rather than
+   *      offering a knob that lies. */
+  opacity: "native" | "pane" | "none";
+  /** Whether zoom-range visibility is honoured:
+   *    - "native" — the layer's own `options.minZoom`/`maxZoom` (GridLayer).
+   *    - "pane"   — we hide the pane (or skip drawing it).
+   *    - "none"   — no honest carrier. R8 will supply this value for the color
+   *      basemap once it is promoted to a real surface; today that layer is not
+   *      in the registry at all, so no placeholder is emitted. */
+  zoomRange: "native" | "pane" | "none";
+  /** Whether the surface can be z-reordered by our own mechanism. Today every
+   *  materialized surface can; the field is declared so a later carrier that
+   *  cannot (a plugin that owns its own z) can say so without another shape
+   *  change. */
+  relocatable: boolean;
+}
+
 /** Options for registerLayer / createLayerInfo. */
 interface RegisterLayerOpts {
   id: string;
@@ -433,6 +468,7 @@ export type {
   CreateLayersPane,
   LabelAwareLayer,
   LayerAPI,
+  LayerCapabilities,
   LayerInfo,
   LayerSurface,
   PaneHandle,
