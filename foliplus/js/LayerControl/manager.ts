@@ -18,9 +18,13 @@ import {
   findLayer,
   forEachLeaf,
   getGeometryType,
+} from "#core/layer/index.js";
+import {
+  attributionEntries,
   hasAttachedPath,
   isGroupLike,
-} from "#core/layer/index.js";
+  refreshAttributions,
+} from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -723,13 +727,13 @@ class LayerManager implements LayerAPI {
     this.lastAttribution = topAttr;
     if (prev) {
       if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
-      else delete attrCtrl._attributions[prev];
+      else delete attributionEntries(attrCtrl)[prev];
     }
     if (topAttr) {
       if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
-      else attrCtrl._attributions[topAttr] = 1;
+      else attributionEntries(attrCtrl)[topAttr] = 1;
     }
-    if (!attrCtrl.removeAttribution) attrCtrl._update();
+    if (!attrCtrl.removeAttribution) refreshAttributions(attrCtrl);
   }
 
   attachUI(containerDiv: HTMLElement) {

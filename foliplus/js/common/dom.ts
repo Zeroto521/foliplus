@@ -256,10 +256,10 @@ const createLocationMarker = (
   );
   if (openPopup) marker.openPopup();
   // Add title to Leaflet's popup close button for hover tooltip.
+  // _closeButton is a Leaflet private — exempted from the adapter charter only by layering (common/ must not import #core/); see OUT_OF_CHARTER in the guard test.
   const popupEl = marker.getPopup();
   if (popupEl) {
-    const closeBtn = (popupEl as L.Popup & { _closeButton?: HTMLAnchorElement })
-      ._closeButton;
+    const closeBtn = popupEl._closeButton;
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {

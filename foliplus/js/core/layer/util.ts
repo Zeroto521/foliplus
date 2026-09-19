@@ -1,12 +1,12 @@
 // core layer-traversal utilities — pure functions, no DOM / CONF.
-import * as CONST from "./const.js";
 import {
   internalLayers,
   layerElements,
   layerIcon,
   layerMap,
   reinitInteraction,
-} from "./leafletAdapter.js";
+} from "../leafletAdapter.js";
+import * as CONST from "./const.js";
 import type { LabelAwareLayer } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.

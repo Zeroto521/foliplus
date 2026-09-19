@@ -16,9 +16,6 @@ export { LayerRegistry } from "./LayerRegistry.js";
 // from this barrel would need one of them renamed for no gain.
 export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
-// The Leaflet-private reaches components need; everything else in the adapter
-// stays internal to core/layer, and Leaflet's public API is called directly.
-export { destroyPane, hasAttachedPath, isGroupLike } from "./leafletAdapter.js";
 export {
   findLayer,
   forEachLayer,

@@ -1,9 +1,10 @@
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import adapterSource from "#core/layer/leafletAdapter?raw";
-import * as adapter from "#foliplus/core/layer/leafletAdapter.js";
+import adapterSource from "#core/leafletAdapter?raw";
+import * as adapter from "#foliplus/core/leafletAdapter.js";
 import {
+  attributionEntries,
   destroyPane,
   getRendererContainer,
   getRendererFor,
@@ -13,10 +14,12 @@ import {
   layerElements,
   layerIcon,
   layerMap,
+  layerUrl,
   markerShadow,
   moveIntoPane,
+  refreshAttributions,
   reinitInteraction,
-} from "#foliplus/core/layer/leafletAdapter.js";
+} from "#foliplus/core/leafletAdapter.js";
 
 // `getRendererFor` builds an SVG renderer; the shared Leaflet mock carries no
 // `svg` factory because no other module in this file needs one.
@@ -31,22 +34,36 @@ beforeEach(() => {
 // confined. Confining them to one module is what makes a Leaflet upgrade a
 // single-file problem, and this scan is what keeps them confined.
 //
-// WHAT THIS COVERS — exactly these eleven field names, and nothing else:
+// WHAT THIS COVERS — exactly these thirteen field names, and nothing else:
 //   _panes, _paneRenderers              (pane registry: adapter-owned)
 //   _container, _icon, _initInteraction, _layers, _map, _path, _shadow
 //                                       (leaf + renderer internals: adapter-owned)
-//   _attributions, _update              (AttributionControl: counted exceptions)
+//   _url                                (tile URL template: adapter-owned)
+//   _attributions, _update              (attribution control: adapter-owned)
+//   _closeButton                        (popup close button: counted exception)
 // It is not a claim about "every private reach". Fields outside this set —
-// `TileLayer._url` in core/geo/coord.ts, `Marker._latlng`, anything a future
-// Leaflet adds — are simply not watched. Widening the set is the way to widen
-// the guard.
+// `Marker._latlng`, anything a future Leaflet adds — are simply not watched.
+// Widening the set is the way to widen the guard.
 //
 // Anchoring: most names are matched only after a dot, because they are generic
 // enough that a bare word would false-positive (`_update`, `_path`, `_map`).
 // The two pane-registry names are distinctive enough to match without one, so
 // `map["_panes"]` and `const { _panes } = map` are caught as well. Not caught,
 // and worth knowing: a *string-keyed* read of a dot-anchored name — the shape
-// ScaleControl already uses for `_map` (`Reflect.set(scaleCtrl, "_map", …)`).
+// ScaleControl uses for `_map` (`Reflect.set(scaleCtrl, "_map", …)`). That is
+// a known, deliberate exception: it writes a field Leaflet would have set for
+// it, on an object this tree created itself, and it is a string key so the dot
+// anchor never sees it.
+//
+// `this.` is excluded by lookbehind, because the reach this module owns is one
+// that goes *inward* at another object's private field. `this._map` in
+// BaseControl.ts and ScaleControl/index.ts is Leaflet's own field on the
+// L.Control subclass they *are* (set by Control.addTo) — their own state, not
+// an inward reach. The `\b` is what makes the exclusion tight: bare
+// `(?<!this)` would also exempt `_this._map`, where `_this` is `this` held
+// under another name and the field is reached *through* it — an inward reach
+// all the same. Only the dot-anchored branch carries the lookbehind, so a
+// further hop (`this.foo._map`) is still caught.
 //
 // Comments are stripped before matching, so the prose above and in the sources
 // may name the fields freely; that is where the why lives. String literals are
@@ -54,32 +71,26 @@ beforeEach(() => {
 // and `${position}_container` from matching, and removing the literals would
 // hide the `["_panes"]` form the bare alternative exists to catch.
 const PRIVATE_FIELD_RE =
-  /\._(?:container|layers|icon|path|map|shadow|initInteraction|attributions|update)\b|\b_(?:panes|paneRenderers)\b/g;
+  /(?<!\bthis)\._(?:attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url)\b|\b_(?:panes|paneRenderers)\b/g;
 
 const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
 const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 
 // Reaches this module deliberately does not own, counted rather than ignored so
-// a *new* one in any of these files still fails:
-//   - core/geo/coord.ts reads a map's child registry to find the tile layers of
-//     the current basemap — CRS detection, a different concern that has no
-//     business importing a pane adapter;
-//   - BaseControl.ts and ScaleControl/index.ts use `this._map`, which is
-//     Leaflet's own field on the L.Control subclass they *are* (set by
-//     Control.addTo), not an inward reach into another object's internals;
-//   - LayerControl/manager.ts trims an AttributionControl's entries
-//     (`_attributions`, `_update`) — a control internal, not a layer one. Its
-//     three lines belong in an attribution helper of their own if a second
-//     consumer ever appears; see the PR body.
-const OUT_OF_CHARTER = [
-  { f: "core/geo/coord.ts", n: 1 },
-  { f: "BaseControl.ts", n: 3 },
-  { f: "ScaleControl/index.ts", n: 3 },
-  { f: "LayerControl/manager.ts", n: 3 },
-] as const;
+// a *new* one in any of these files still fails. The single surviving entry is
+// a layering decision, not a judgement about whether the field is Leaflet's:
+//   - common/dom.ts titles a popup's close button through `_closeButton`. The
+//     probe could live here, but common/ never imports from #core/ (core does
+//     the importing; no common file reaches up today), so routing that reach
+//     through this module would invert the layering — and there was a prior
+//     incident of a common→core inversion to unwind. The popup-title logic
+//     arguably does not belong in common/ at all; it is marker/popup business,
+//     not a generic DOM utility. Moving it is a separate step, and the probe
+//     comes with it.
+const OUT_OF_CHARTER = [{ f: "common/dom.ts", n: 1 }] as const;
 
-const ADAPTER = "foliplus/js/core/layer/leafletAdapter.ts";
+const ADAPTER = "foliplus/js/core/leafletAdapter.ts";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
@@ -99,7 +110,7 @@ const walk = (dir: string): string[] => {
 const rel = (p: string) => p.slice(REPO_ROOT.length + 1).replace(/\\/g, "/");
 const code = (p: string) => codeOnly(readFileSync(p, "utf-8"));
 
-const adapterPath = resolve(JS_ROOT, "core/layer/leafletAdapter.ts");
+const adapterPath = resolve(JS_ROOT, "core/leafletAdapter.ts");
 const sources = walk(JS_ROOT);
 
 describe("leafletAdapter is the only module touching the named Leaflet privates", () => {
@@ -140,8 +151,10 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     const found = (code(adapterPath).match(PRIVATE_FIELD_RE) || []).map(m =>
       m.replace(/^\./, ""),
     );
-    // Sorted by code unit, which is why _paneRenderers precedes _panes.
+    // Sorted by code unit, which is why _paneRenderers precedes _panes and
+    // _update precedes _url (the deciding character is p, then r).
     expect([...new Set(found)].sort()).toEqual([
+      "_attributions",
       "_container",
       "_icon",
       "_initInteraction",
@@ -151,6 +164,8 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       "_panes",
       "_path",
       "_shadow",
+      "_update",
+      "_url",
     ]);
   });
 
@@ -169,6 +184,20 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     // The documented boundary: a string-keyed read of a dot-anchored name is
     // not detected (ScaleControl reaches `_map` exactly this way).
     expect(matched('Reflect.set(scaleCtrl, "_map", value)')).toEqual([]);
+    // Own field, excluded by lookbehind.
+    expect(matched("this._map")).toEqual([]);
+    expect(matched("ensureEvents(this._map)")).toEqual([]);
+    // A further hop is still an inward reach.
+    expect(matched("this.foo._map")).toEqual(["._map"]);
+    expect(matched("layer._map")).toEqual(["._map"]);
+    // So is `this` held under another name: same private field, reached through
+    // the alias. `\b` is what keeps the exclusion to the identifier alone.
+    expect(matched("_this._map")).toEqual(["._map"]);
+    expect(matched("const _this = this; _this._map")).toEqual(["._map"]);
+    expect(matched("window._this._map")).toEqual(["._map"]);
+    // The pane registry is caught through an alias as well, by the bare
+    // alternative.
+    expect(matched("_this._panes")).toEqual(["_panes"]);
   });
 });
 
@@ -177,13 +206,16 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
 // `_map` is `protected` on Leaflet's Layer and `_shadow` on Marker. Neither can
 // be declared in type/global.d.ts — a public declaration of either stops Marker
 // from being assignable to Layer, which every `map.eachLayer` consumer in the
-// tree depends on — so each probe narrows to the one field it reads. That is
-// the whole type-system cost of this module, and it is held here.
+// tree depends on — so each probe narrows to the one field it reads. `_url`
+// is the third: it is declared on TileLayer, but the probes take the whole
+// layer tree. That is the whole type-system cost of this module, and it is
+// held here.
 describe("source pins", () => {
-  it("narrows to a protected field twice, never through `unknown`", () => {
+  it("narrows to a private field three times, never through `unknown`", () => {
     expect(adapterSource).not.toMatch(/\bas\s+(unknown|any)\b/);
     expect(adapterSource.match(/as [A-Z]\w+/g)).toEqual([
       "as LayerWithMap",
+      "as LayerWithUrl",
       "as MarkerWithShadow",
     ]);
   });
@@ -200,6 +232,7 @@ describe("source pins", () => {
     // remove+add point). `setPaneZ` and the like stay out: a plain DOM write is
     // exactly the hop this charter refuses.
     expect(Object.keys(adapter).sort()).toEqual([
+      "attributionEntries",
       "destroyPane",
       "getRendererContainer",
       "getRendererFor",
@@ -209,8 +242,10 @@ describe("source pins", () => {
       "layerElements",
       "layerIcon",
       "layerMap",
+      "layerUrl",
       "markerShadow",
       "moveIntoPane",
+      "refreshAttributions",
       "reinitInteraction",
     ]);
   });
@@ -452,7 +487,7 @@ describe("reinitInteraction", () => {
   });
 });
 
-describe("layerMap / markerShadow", () => {
+describe("layerMap / markerShadow / layerUrl", () => {
   it("layerMap returns the map a layer is attached to, null when detached", () => {
     const map = { id: "map" };
     expect(layerMap(leafStub({ _map: map }))).toBe(map);
@@ -463,5 +498,34 @@ describe("layerMap / markerShadow", () => {
     const shadow = document.createElement("img");
     expect(markerShadow(leafStub({ _shadow: shadow }))).toBe(shadow);
     expect(markerShadow(leafStub({}))).toBeNull();
+  });
+
+  it("layerUrl returns the tile URL template, null for a layer that has none", () => {
+    // The probe takes the whole tree rather than narrowing with instanceof: a
+    // registry holds whatever the map holds, and a non-tile entry answers null.
+    expect(layerUrl(leafStub({ _url: "https://x/{z}/{y}/{x}.png" }))).toBe(
+      "https://x/{z}/{y}/{x}.png",
+    );
+    expect(layerUrl(leafStub({}))).toBeNull();
+    expect(layerUrl(leafStub({ options: {} }))).toBeNull();
+  });
+});
+
+describe("attributionEntries / refreshAttributions", () => {
+  it("hands over the control's own table by reference", () => {
+    // Mutation must land in the control, so this is a live handover, not a copy.
+    const table = { Leaflet: 1 };
+    const ctrl = leafStub({ _attributions: table, _update: () => {} });
+    const entries = attributionEntries(ctrl);
+    expect(entries).toBe(table);
+    entries["tile"] = 1;
+    expect(ctrl._attributions).toEqual({ Leaflet: 1, tile: 1 });
+  });
+
+  it("refreshAttributions calls the control's own redraw", () => {
+    const update = vi.fn();
+    const ctrl = leafStub({ _attributions: {}, _update: update });
+    refreshAttributions(ctrl);
+    expect(update).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,13 +8,13 @@
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / ensureVector / bumpPanes / removePane / reset / destroy
-import * as CONST from "./const.js";
 import {
   destroyPane,
   getRendererContainer,
   getRendererFor,
   markerShadow,
-} from "./leafletAdapter.js";
+} from "../leafletAdapter.js";
+import * as CONST from "./const.js";
 import { forEachLayer } from "./util.js";
 
 /** A Leaflet Path layer with the mutable option surface we set on. */

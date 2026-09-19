@@ -5,6 +5,7 @@
 // bundles this module into foliplus-common.min.js exactly once).
 //
 // These functions operate on Leaflet maps and coordinate systems.
+import { internalLayers, layerUrl } from "#core/leafletAdapter.js";
 import { createLogger } from "#common/log.js";
 
 // coord.ts has no CONF — it is shared across components and core — so the
@@ -40,11 +41,11 @@ const COORD_BOUNDS = { LON: 180, LAT: 90 };
 const probeMap = (map: L.Map | null): Probe => {
   const urls: string[] = [];
   try {
-    const layers = map?._layers as Record<string, L.TileLayer> | undefined;
+    const layers = map ? internalLayers(map) : undefined;
     if (layers) {
       for (const id in layers) {
-        const url = layers[id]?._url;
-        if (url) urls.push(String(url));
+        const url = layerUrl(layers[id]);
+        if (url) urls.push(url);
       }
     }
   } catch (err) {
