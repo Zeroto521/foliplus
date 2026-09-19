@@ -253,6 +253,14 @@ class PaneManager {
    * default renderer and never land in the declared pane. The renderer is
    * written too: without it a later re-attach recreates the `<path>` in the
    * default SVG.
+   *
+   * `paneName` always names a **declared** pane, so the pane already exists by
+   * the time this runs. `LayerFactory.addLayer` is the only caller and it
+   * gates on `paneNames.includes(requested)`: a name outside `opts.panes`
+   * never reaches here — the leaf falls through to `origAddLayer` and lands in
+   * the base pane, with no pin. Both sides of that gate are pinned by
+   * `LayerFactory.test.ts` ("addLayer with an unknown paneName …" and
+   * "mainLayer.addLayer falls through to origAddLayer …").
    */
   pinTree(node: L.Layer, paneName: string): void {
     const walk = (n: PinnableNode): void => {
@@ -262,8 +270,9 @@ class PaneManager {
       // `discoverChildPanes` sees the pin rather than the pre-pin name.
       this.reset(L.stamp(n));
       if (!n.eachLayer) {
+        // A Path needs its renderer pinned; every other leaf just carries the
+        // pane name written above.
         if (n instanceof L.Path) this.ensureVector(n as PathWithPane, paneName);
-        else this.ensurePane(paneName, false);
         return;
       }
       n.eachLayer(c => walk(c as PinnableNode));

@@ -15,10 +15,9 @@ interface RegisterLayerOpts {
    * The panes this layer paints into, in draw order. Absent means the layer
    * has a single flat pane (its `paneName`), or none at all for a GridLayer.
    *
-   * Replaces the flat `subPanes: string[]`: there the draw position was the
-   * entry's array index and `PaneManager.bumpPanes` re-derived it, so adding
-   * a pane meant an index shift. The position is now the spec's `order`, a
-   * declaration the caller writes down once.
+   * The draw position is the spec's `order`, written down once by the factory
+   * rather than re-derived from the index at every z write (the removed
+   * `bumpPanes` + `CHILD_PANE_STEP` pair).
    *
    * Was `labelPane?: string | null` — that name was MeasureControl-specific
    * and couldn't express a second, third, or fourth pane. Measuring a circle
@@ -114,10 +113,18 @@ type PaneRole = "base" | "sub" | "annotation" | "preview";
 /** One pane a surface declares: what it is for, where it sits in the layer's
  *  own draw stack, and the pane it paints into.
  *
- * Replaces the flat `subPanes: string[]` + `CHILD_PANE_STEP` +
- * `PaneManager.bumpPanes` expression, where the draw position was the entry's
- * array index and had to be re-derived at every z write. The position is now
- * `order`, a declaration read once. */
+ *  `role` and `order` are a **frozen contract whose readers have not landed
+ *  yet — read this before deleting either as unused**:
+ *    - `order` is the draw offset z arithmetic reads. It replaced the flat
+ *      `subPanes: string[]` whose position was re-derived at every z write
+ *      (the removed `bumpPanes` + `CHILD_PANE_STEP` pair).
+ *    - `role` is what the planned z convergence (`z = f(layerIndex, role)`)
+ *      and the per-role renderer defaults will read, and it is where the
+ *      `annotation` / `preview` panes get their name once the components that
+ *      declare them exist.
+ *
+ *  Today `LayerFactory` derives both from the entry's index, so nothing
+ *  branches on them yet. That is why they look write-only. */
 interface PaneSpec {
   role: PaneRole;
   /** Draw offset above the layer's base z. Unique within one surface, 0 for

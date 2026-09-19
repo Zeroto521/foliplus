@@ -25,6 +25,7 @@ import { FALLBACK_PANE_PREFIX } from "./const.js";
 import type {
   LayerSurface as LayerSurfaceContract,
   PaneHandle,
+  PaneRole,
   PaneSpec,
 } from "./type.js";
 
@@ -98,17 +99,11 @@ class LayerSurface implements LayerSurfaceContract {
 
     if (declared) {
       const base = this.specs[0];
-      this.addPane(
-        declared,
-        !opts.canvas,
-        base ?? {
-          role: "base",
-          order: 0,
-          name: declared,
-        },
-      );
+      this.addPane(declared, !opts.canvas, base?.role, base?.order);
       for (const spec of this.specs.slice(1)) {
-        if (spec.name !== declared) this.addPane(spec.name, false, spec);
+        if (spec.name !== declared) {
+          this.addPane(spec.name, false, spec.role, spec.order);
+        }
       }
       this.pinTarget = null;
       return;
@@ -127,15 +122,7 @@ class LayerSurface implements LayerSurfaceContract {
       // A pane registered through `createLayers({ panes })` already has a
       // renderer from `ensureVector`; only a foreign pane needs one built.
       const spec = host.childPaneSpecs.get(name);
-      this.addPane(
-        name,
-        spec === undefined,
-        spec ?? {
-          role: "base",
-          order: 0,
-          name,
-        },
-      );
+      this.addPane(name, spec === undefined, spec?.role, spec?.order);
     }
     if (childPanes.length) {
       this.pinTarget = null;
@@ -143,7 +130,7 @@ class LayerSurface implements LayerSurfaceContract {
     }
 
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-    this.addPane(name, true, { role: "base", order: 0, name });
+    this.addPane(name, true);
     this.pinTarget = name;
   }
 
@@ -204,6 +191,13 @@ class LayerSurface implements LayerSurfaceContract {
    *  nothing. */
   matches(opts: SurfaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
+    // `role` and `order` are part of the declaration, not decoration: a spec
+    // whose role changes describes a different face, and the surface has to be
+    // rebuilt. They are derived from the index today (`LayerFactory` writes
+    // them from position), which makes the two comparisons look redundant —
+    // they stop being so the moment a spec carries a role its position does
+    // not imply, which is where R9's `z = f(layerIndex, role)` and the
+    // per-role renderer defaults are headed.
     const samePanes =
       this.specs.length === specs.length &&
       this.specs.every(
@@ -232,11 +226,16 @@ class LayerSurface implements LayerSurfaceContract {
    *  re-opens it: whether a pane's content takes a hit is the content's own
    *  call (`AnnotationCanvas` writes `none` on itself, a data canvas is
    *  re-enabled by the rule in `LayerControl/focus.css`). */
-  private addPane(name: string, needRenderer: boolean, spec: PaneSpec): void {
+  private addPane(
+    name: string,
+    needRenderer: boolean,
+    role: PaneRole = "base",
+    order = 0,
+  ): void {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer);
     this.panes.push({
-      role: spec.role,
-      order: spec.order,
+      role,
+      order,
       name,
       element: pane,
       renderer,
