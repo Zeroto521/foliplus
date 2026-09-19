@@ -22,7 +22,11 @@
 // No CONF / translator dependency: core/layer, not a component dir.
 import type { PaneManager } from "./PaneManager.js";
 import { FALLBACK_PANE_PREFIX } from "./const.js";
-import type { LayerSurface as LayerSurfaceContract, PaneHandle, PaneRole } from "./type.js";
+import type {
+  LayerSurface as LayerSurfaceContract,
+  PaneHandle,
+  PaneRole,
+} from "./type.js";
 
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceOpts {

@@ -10,6 +10,10 @@ export {
 } from "./const.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
+// The class, not `type.ts`'s interface of the same name: it is what the manager
+// constructs, and its type already carries the surface contract (the interface
+// is the `implements` target those members are checked against). Exporting both
+// from this barrel would need one of them renamed for no gain.
 export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
 // The Leaflet-private reaches components need; everything else in the adapter
@@ -34,7 +38,6 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerInfo,
-  LayerSurface as LayerSurfaceContract,
   PaneHandle,
   PaneRole,
   RegisterLayerOpts,

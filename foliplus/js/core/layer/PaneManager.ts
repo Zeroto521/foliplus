@@ -155,8 +155,7 @@ class PaneManager {
       if (!groups.has(container)) groups.set(container, []);
       const collect = (l: L.Layer): void => {
         if (
-          (l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void })
-            .eachLayer
+          (l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void }).eachLayer
         ) {
           (l as L.Layer & { eachLayer: (fn: (c: L.Layer) => void) => void }).eachLayer(
             collect,

@@ -324,9 +324,7 @@ describe("LayerSurface.setZ", () => {
     });
     expect(surface.setZ(620)).toBe(true);
     expect(panes.graph.style.zIndex).toBe("620");
-    expect(panes.label.style.zIndex).toBe(
-      String(620 + Number(CONST.CHILD_PANE_STEP)),
-    );
+    expect(panes.label.style.zIndex).toBe(String(620 + Number(CONST.CHILD_PANE_STEP)));
   });
 
   it("writes the synthesized pane's z", () => {
