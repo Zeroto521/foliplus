@@ -100,8 +100,9 @@ declare module "leaflet" {
     // Leaflet keeps the tile URL template in _url (no public accessor).
     _url: string;
   }
-  interface AttributionControl {
-    _attributions: Record<string, number>;
+  interface Popup {
+    // The close button Leaflet builds when closeButton is enabled.
+    _closeButton?: HTMLAnchorElement;
   }
   interface CRS {
     /** Geodesic destination (leaflet-geodesy plugin, CDN). */

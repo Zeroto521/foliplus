@@ -1,4 +1,4 @@
-// core/layer/leafletAdapter — the only module that reaches into Leaflet's
+// core/leafletAdapter — the only module that reaches into Leaflet's
 // private surface.
 //
 // Leaflet keeps everything pane hosting needs off its public interface:
@@ -10,12 +10,17 @@
 //     `_container` / `_map` (runtime state, not API);
 //   - a marker's drop shadow: `marker._shadow`;
 //   - the hook that re-registers a marker's hit target and drag handles:
-//     `layer._initInteraction`.
+//     `layer._initInteraction`;
+//   - a tile layer's URL template: `layer._url`, which CRS detection and the
+//     export renderer both need and Leaflet exposes nowhere;
+//   - the attribution control's entry table and its redraw hook:
+//     `attrCtrl._attributions` / `_update`, read only when Leaflet's public
+//     `addAttribution` / `removeAttribution` are missing.
 //
 // Every such reach in foliplus goes through this module and nowhere else, so a
 // Leaflet upgrade is a one-file problem instead of a grep across the tree.
-// test/js/core/layer/leafletAdapter.test.ts enforces both halves of that: no
-// other production module names one of the fields, and this one still does.
+// test/js/core/leafletAdapter.test.ts enforces both halves of that: no other
+// production module names one of the fields, and this one still does.
 //
 // Deliberately absent: anything that merely forwards a public call. `getPane`,
 // `createPane` and `getPanes` are Leaflet's own API, so callers use them
@@ -45,6 +50,24 @@ type LeafInternals = {
  *  narrows to the one field it reads instead. */
 type LayerWithMap = L.Layer & { _map?: L.Map | null };
 type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
+
+/** `_url` is declared on `TileLayer` only, but callers hand over whatever the
+ *  map's child registry holds — and they deliberately do not narrow with
+ *  `instanceof`, because a registry entry that is not a TileLayer simply has no
+ *  URL rather than being a programming error. */
+type LayerWithUrl = L.Layer & { _url?: string };
+
+/** The attribution control's two internals, described structurally.
+ *
+ *  `L.Control.Attribution` cannot be named here as a type: type/global.d.ts
+ *  aliases `L.Control` to Leaflet's Control *instance* type, so `L.Control` in a
+ *  type position has no `Attribution` member and the annotation fails. A
+ *  structural type also keeps the probe's contract readable — the two fields it
+ *  touches and nothing else. */
+type AttributionInternals = {
+  _attributions: Record<string, number>;
+  _update: () => void;
+};
 
 /** A layer-tree node. Leaflet's `Map` and `LayerGroup` key children by
  *  `L.stamp` in `_layers` and enumerate them through `eachLayer`. A
@@ -136,6 +159,15 @@ const getRendererContainer = (renderer: LeafInternals | null): HTMLElement | nul
 /** The map a layer is attached to, or null while it is off the map. */
 const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map ?? null;
 
+/** A tile layer's URL template, or null when the layer carries none.
+ *
+ *  Callers must not narrow with `instanceof L.TileLayer` first: a registry
+ *  holds whatever the map holds, and an entry that is not a tile layer answers
+ *  null rather than requiring the caller to know which of its layers paint
+ *  tiles. */
+const layerUrl = (layer: L.Layer): string | null =>
+  (layer as LayerWithUrl)._url ?? null;
+
 /** A marker's icon element, or null. Kept apart from `layerElements` because
  *  `setInteractive` re-runs the marker's own interaction setup for this node and
  *  must skip it in the manual class / hit-target pass. */
@@ -178,7 +210,27 @@ const reinitInteraction = (layer: LeafInternals): boolean => {
   return true;
 };
 
+/** The attribution control's live entry table, which the caller mutates.
+ *
+ *  Leaflet's public `addAttribution` / `removeAttribution` are the supported
+ *  route and this table is what they write to. It is the only route left when a
+ *  build ships without them, which is the only branch that reaches for it — so
+ *  an absent table means nothing usable at all and is left to throw, as the
+ *  direct read did.
+ *
+ *  Returned by reference on purpose: the caller deletes and sets entries, the
+ *  same way `internalLayers` hands over the map's child registry. */
+const attributionEntries = (
+  attrCtrl: AttributionInternals,
+): Record<string, number> => attrCtrl._attributions;
+
+/** Re-run the control's own redraw — the private counterpart of a public-API
+ *  edit, which repaints on its own. */
+const refreshAttributions = (attrCtrl: AttributionInternals): void =>
+  attrCtrl._update();
+
 export {
+  attributionEntries,
   destroyPane,
   getRendererContainer,
   getRendererFor,
@@ -188,7 +240,9 @@ export {
   layerElements,
   layerIcon,
   layerMap,
+  layerUrl,
   markerShadow,
   moveIntoPane,
+  refreshAttributions,
   reinitInteraction,
 };

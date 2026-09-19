@@ -258,8 +258,7 @@ const createLocationMarker = (
   // Add title to Leaflet's popup close button for hover tooltip.
   const popupEl = marker.getPopup();
   if (popupEl) {
-    const closeBtn = (popupEl as L.Popup & { _closeButton?: HTMLAnchorElement })
-      ._closeButton;
+    const closeBtn = popupEl._closeButton;
     if (closeBtn) closeBtn.title = closeLabelText || "";
   }
   if (!addr) {

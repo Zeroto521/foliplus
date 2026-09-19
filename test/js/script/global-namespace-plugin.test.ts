@@ -66,6 +66,14 @@ describe("sharedGlobalNamespace", () => {
     );
   });
 
+  it("maps #core/leafletAdapter.js to foliplus.core.leafletAdapter", () => {
+    // A core-root single file, so it needs its own entry: the #common fallback
+    // would build "foliplus.common.#core/leafletAdapter".
+    expect(sharedGlobalNamespace("#core/leafletAdapter.js")).toBe(
+      "foliplus.core.leafletAdapter",
+    );
+  });
+
   it("maps #foliplus/BaseControl.js to foliplus.BaseControl", () => {
     expect(sharedGlobalNamespace("#foliplus/BaseControl.js")).toBe(
       "foliplus.BaseControl",

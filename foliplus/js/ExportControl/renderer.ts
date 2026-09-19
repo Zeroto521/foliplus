@@ -1,4 +1,5 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
+import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
@@ -88,9 +89,9 @@ class ExportRenderer {
     const opts = tileLayer.options as L.TileLayerOptions;
     const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
     const subdomains = opts.subdomains || "abc";
-    // Leaflet stores the tile URL template in the private _url — there is no
-    // public accessor; the TileLayer augmentation declares it.
-    const urlTemplate = tileLayer._url || "";
+    // Leaflet keeps the tile URL template off its public interface; the adapter
+    // probe is the one route to it.
+    const urlTemplate = layerUrl(tileLayer) || "";
 
     // Get bounds in EPSG:3857
     const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
@@ -241,7 +242,7 @@ class ExportRenderer {
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
         for (const li of layers) {
-          if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url) {
+          if (!li.visible || !(li.layer instanceof L.TileLayer) || !layerUrl(li.layer)) {
             continue;
           }
           const tiles = this.tilePositions(
@@ -281,7 +282,7 @@ class ExportRenderer {
         li =>
           li.visible &&
           (li.canvas ||
-            (li.layer && !(li.layer instanceof L.TileLayer && li.layer._url))),
+            (li.layer && !(li.layer instanceof L.TileLayer && layerUrl(li.layer)))),
       );
       let done = 0;
       for (let i = passable.length - 1; i >= 0; i--) {

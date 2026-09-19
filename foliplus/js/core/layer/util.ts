@@ -6,7 +6,7 @@ import {
   layerIcon,
   layerMap,
   reinitInteraction,
-} from "./leafletAdapter.js";
+} from "../leafletAdapter.js";
 import type { LabelAwareLayer } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.

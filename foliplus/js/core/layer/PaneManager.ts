@@ -14,7 +14,7 @@ import {
   getRendererContainer,
   getRendererFor,
   markerShadow,
-} from "./leafletAdapter.js";
+} from "../leafletAdapter.js";
 import { forEachLayer } from "./util.js";
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
