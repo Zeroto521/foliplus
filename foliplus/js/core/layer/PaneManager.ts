@@ -254,13 +254,19 @@ class PaneManager {
    * written too: without it a later re-attach recreates the `<path>` in the
    * default SVG.
    *
-   * `paneName` always names a **declared** pane, so the pane already exists by
-   * the time this runs. `LayerFactory.addLayer` is the only caller and it
-   * gates on `paneNames.includes(requested)`: a name outside `opts.panes`
-   * never reaches here — the leaf falls through to `origAddLayer` and lands in
-   * the base pane, with no pin. Both sides of that gate are pinned by
-   * `LayerFactory.test.ts` ("addLayer with an unknown paneName …" and
-   * "mainLayer.addLayer falls through to origAddLayer …").
+   * `paneName` always names a **declared** pane that already exists, by two
+   * independent guarantees:
+   *   - existence — the pane is built before anything can be routed into it.
+   *     `LayerFactory.addLayer` calls `register()` before it pins (and only
+   *     when the group is not on the map yet, so every later call already has
+   *     the surface); `register()` reaches `LayerManager.registerLayer` →
+   *     `surfaceFor` → `new LayerSurface(...)`, whose constructor runs
+   *     `addPane` → `PaneManager.ensurePane` and creates the DOM pane.
+   *   - name — `LayerFactory.addLayer` gates on
+   *     `paneNames.includes(requested)`, so a name outside `opts.panes` never
+   *     reaches this method at all. Both sides of that gate are pinned by
+   *     `LayerFactory.test.ts` ("addLayer with an unknown paneName …" and
+   *     "mainLayer.addLayer falls through to origAddLayer …").
    */
   pinTree(node: L.Layer, paneName: string): void {
     const walk = (n: PinnableNode): void => {
