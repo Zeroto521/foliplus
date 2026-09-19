@@ -1163,6 +1163,37 @@ class TestLayerControlBrowser:
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
 
+    def test_geojson_group_pins_children_to_declared_pane(self, browser, tmp_path):
+        """A GeoJSON group's child paths render into the declared data pane.
+
+        ``addLayer`` writes ``options.pane`` on the node it is handed, and
+        Leaflet ignores a group's pane for its children — each child joins the
+        map on its own.  Without the recursive pin the shapes would draw into
+        the map's default pane even though every option says otherwise.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="geojson_pane") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/geojson_group_pins_children_pane"))
+            assert result is not None, "LayerAPI not found"
+            assert result["paneExists"], f"declared pane was never created: {result}"
+            assert result["groupPane"] == "__geojson_pane__", result
+            assert len(result["kids"]) == 2, f"unexpected child count: {result}"
+            for kid in result["kids"]:
+                assert kid["pane"] == "__geojson_pane__", f"child not pinned: {kid}"
+                assert kid["paneSet"] is True, f"child not marked pinned: {kid}"
+                assert kid["hasRendererOpt"], f"child has no renderer option: {kid}"
+                assert kid["hasRenderer"], f"child has no _renderer: {kid}"
+                assert kid["isPath"], f"child has no renderer container: {kid}"
+                # DOM truth: the SVG container's parent must be the declared pane element.
+                assert kid["inDeclaredPane"] is True, (
+                    f"child renders outside declared pane "
+                    f"(parent: {kid['parentTag']}."
+                    f"{kid['parentClass']}): {kid}"
+                )
+            assert not errors, f"JS errors: {errors}"
+
     def test_icon_svg_payload_never_reaches_dom(self, browser, tmp_path):
         """A hostile iconSvg survives the innerHTML sink as inert markup only.
 
@@ -1303,6 +1334,148 @@ class TestLayerControlBrowser:
             assert result["pointerEvents"] == "none", result
             assert result["hitIsCanvas"] is False, (
                 "annotation canvas intercepted the click"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_label_canvas_click_through(self, browser, tmp_path):
+        """A decoration canvas lets clicks reach the layer below, while a
+        marker in the same pane keeps its own click handler.
+
+        A label pane holds one full-bleed canvas.  It paints decoration rather
+        than receiving hits, so it declares ``pointer-events: none`` on itself
+        — the shape ``AnnotationCanvas`` uses.  Without that it would swallow
+        every click over the map and the data layer underneath would stop
+        being clickable.  Nothing pane-level has to opt in: the decision
+        belongs to the element that paints.
+
+        The pane's own ``pointer-events: none`` (every foliplus pane carries
+        it) must not kill descendants that have their own hit area:
+        ``pointer-events`` is per-element, not inherited.  A marker in the
+        pane keeps its ``pointer-events: auto`` wrapper and its click handler
+        stays live.  This is the mechanism MeasureControl's segment labels
+        rely on.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="label_canvas") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/label_canvas_click_through"))
+            assert result is not None, "LayerAPI not found"
+            assert result["ready"] is True, f"fixture not ready: {result}"
+            assert result["labelPointerEvents"] == "none", result
+            assert result["dataPointerEvents"] == "none", (
+                f"data pane should also refuse hits (focus.css sets "
+                f"pointer-events:none on all foliplus-layer-pane): {result}"
+            )
+            # Data layer underneath: the polygon is the hit target at a point
+            # away from the marker, and its click handler fires.
+            assert result["polyHitIsPoly"] is True, (
+                f"label canvas swallowed the hit: {result}"
+            )
+            assert result["polyHitInLabelPane"] is False, result
+            assert result["polyClicked"] is True, (
+                "the data feature did not receive the click"
+            )
+            # Marker in the pane: its own wrapper is the hit target
+            # (re-enabled by its own pointer-events:auto), and its click
+            # handler fires.  Without this the segment-label affordance would
+            # be silently lost.
+            assert result["markerHitIsIcon"] is True, (
+                f"marker did not receive the hit: {result}"
+            )
+            assert result["markerHitInLabelPane"] is True, result
+            assert result["labelMarkerClicked"] is True, (
+                f"the marker in the pane lost its click handler: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_clickable_data_canvas(self, browser, tmp_path):
+        """A canvas in a pane receives clicks.
+
+        ``pointer-events`` inherits, so everything inside the ``none`` pane
+        starts off unable to take a hit.  A canvas is the surface its owner
+        paints into — Leaflet hit-tests a canvas renderer by coordinate, not
+        by element — so the CSS switches canvases back on.  A canvas that
+        paints decoration instead opts out on itself.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="clickable_data") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/clickable_data_canvas"))
+            assert result is not None, "LayerAPI not found"
+            assert result["ready"] is True, f"fixture not ready: {result}"
+            assert result["pointerEvents"] == "none", (
+                "the pane div itself stays pointer-events:none (it is a "
+                f"container, not a hit target): {result}"
+            )
+            assert result["canvasPointerEvents"] == "auto", (
+                "a canvas in a pane must be re-enabled — the pane is "
+                f"pointer-events:none and the value inherits: {result}"
+            )
+            # Reachability first: the browser's own hit test has to land on
+            # the canvas, and then a real mouse click at those coordinates
+            # has to reach it.  A dispatch straight at the element would pass
+            # even when nothing can reach it — the hole the pane-level
+            # pointer-events bug slipped through.
+            assert result["hitIsCanvas"] is True, (
+                f"the canvas is not the hit target: {result}"
+            )
+            page.click("#foliplus-probe-clickable-canvas")
+            assert page.evaluate("window.__clickableDataCanvasHits") == 1, (
+                f"the real click never reached the canvas: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_pane_svg_does_not_capture_the_map(self, browser, tmp_path):
+        """The SVG renderer inside a foliplus pane must not swallow the map.
+
+        An inline ``<svg>`` carrying ``pointer-events`` is hit over its whole
+        box, not only where it paints.  Every foliplus pane holds one and each
+        covers the map, so an SVG left at ``auto`` takes every event meant for
+        a layer painted below it — geometry hover/click dies and the cursor
+        sticks at the inherited ``grab``.
+
+        ``pointer-events`` on the svg has to stay ``none``; the paths are
+        reached through ``.leaflet-interactive`` instead.  Leaflet never sets
+        it on the svg for exactly this reason.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="pane_svg") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/pane_svg_does_not_capture"))
+            assert result is not None, "LayerAPI not found"
+            assert result["ready"] is True, f"fixture not ready: {result}"
+
+            assert result["svgPointerEvents"] == "none", (
+                "the pane's SVG renderer must not be a hit target, or it "
+                f"captures the whole map: {result}"
+            )
+            assert result["panePointerEvents"] == "none", result
+
+            # On the geometry: the path is the target, with the interactive
+            # cursor, and its click handler stays live.
+            assert result["pathIsInteractive"] is True, result
+            assert result["pathPointerEvents"] == "auto", result
+            assert result["onHitIsPath"] is True, (
+                f"geometry is not the hit target on itself: {result}"
+            )
+            assert result["onHitCursor"] == "pointer", (
+                f"geometry does not show the interactive cursor: {result}"
+            )
+            assert result["clicked"] is True, (
+                f"the feature did not receive the click: {result}"
+            )
+
+            # Off the geometry: nothing of the foliplus pane may be the
+            # target.  This is the regression — the pane's SVG used to take
+            # every point of the map.
+            assert result["offHitIsSvg"] is False, (
+                f"the pane's SVG swallowed a point off the geometry: {result}"
+            )
+            assert result["offHitInPane"] is False, (
+                f"a foliplus pane swallowed a point off the geometry: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 

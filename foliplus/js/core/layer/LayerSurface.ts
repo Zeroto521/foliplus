@@ -26,6 +26,7 @@ import type {
   LayerSurface as LayerSurfaceContract,
   PaneHandle,
   PaneRole,
+  PaneSpec,
 } from "./type.js";
 
 /** Options a surface is resolved from — the register-time declaration only. */
@@ -34,8 +35,8 @@ interface SurfaceOpts {
   layer: L.Layer | null;
   /** The pane the caller declared for this layer, if any. */
   paneName?: string | null;
-  /** Sub-panes, ordered by z ascending (see RegisterLayerOpts.subPanes). */
-  subPanes?: string[];
+  /** The panes this layer paints into, in draw order. */
+  paneSpecs?: readonly PaneSpec[];
   /** True for a `createCanvas` surface: its pane carries a canvas, not SVG. */
   canvas?: boolean;
 }
@@ -79,7 +80,7 @@ class LayerSurface implements LayerSurfaceContract {
   contentDirty = false;
 
   private readonly host: PaneManager;
-  private readonly subPanes: string[];
+  private readonly specs: readonly PaneSpec[];
   private readonly spec: SurfaceDeclaration;
   /** The pane this surface synthesized because the layer declared none. Its
    *  content is pinned here; a declared pane's content is routed by whoever
@@ -90,16 +91,19 @@ class LayerSurface implements LayerSurfaceContract {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
-    this.subPanes = opts.subPanes ?? [];
+    this.specs = opts.paneSpecs ?? [];
 
     const declared = opts.paneName ?? null;
     const layer = opts.layer;
     this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
 
     if (declared) {
-      this.addPane(declared, !opts.canvas, "base");
-      for (const name of this.subPanes) {
-        if (name !== declared) this.addPane(name, false, "sub");
+      const base = this.specs[0];
+      this.addPane(declared, !opts.canvas, base?.role, base?.order);
+      for (const spec of this.specs.slice(1)) {
+        if (spec.name !== declared) {
+          this.addPane(spec.name, false, spec.role, spec.order);
+        }
       }
       this.pinTarget = null;
       return;
@@ -117,7 +121,8 @@ class LayerSurface implements LayerSurfaceContract {
     for (const name of childPanes) {
       // A pane registered through `createLayers({ panes })` already has a
       // renderer from `ensureVector`; only a foreign pane needs one built.
-      this.addPane(name, !host.childPanes.has(name), "base");
+      const spec = host.childPaneSpecs.get(name);
+      this.addPane(name, spec === undefined, spec?.role, spec?.order);
     }
     if (childPanes.length) {
       this.pinTarget = null;
@@ -125,7 +130,7 @@ class LayerSurface implements LayerSurfaceContract {
     }
 
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-    this.addPane(name, true, "base");
+    this.addPane(name, true);
     this.pinTarget = name;
   }
 
@@ -153,13 +158,7 @@ class LayerSurface implements LayerSurfaceContract {
   setZ(z: number): boolean {
     if (!this.panes.length) return false;
     for (const pane of this.panes) {
-      this.host.ensurePane(pane.name, false).pane.style.zIndex = String(z);
-    }
-    // Sub-panes ride one CHILD_PANE_STEP apart, in declaration order. The base
-    // pane is the k=0 entry of that list, so this rewrites the same value it
-    // just got rather than a different one.
-    if (this.subPanes.length && this.layer) {
-      this.host.bumpPanes(this.layer, z, this.subPanes);
+      this.host.ensurePane(pane.name, false).pane.style.zIndex = String(z + pane.order);
     }
     return true;
   }
@@ -191,9 +190,22 @@ class LayerSurface implements LayerSurfaceContract {
    *  not change too, rebuilding would re-walk an already-pinned tree for
    *  nothing. */
   matches(opts: SurfaceOpts): boolean {
+    const specs = opts.paneSpecs ?? [];
+    // `role` and `order` are part of the declaration, not decoration: a spec
+    // whose role changes describes a different face, and the surface has to be
+    // rebuilt. They are derived from the index today (`LayerFactory` writes
+    // them from position), which makes the two comparisons look redundant —
+    // they stop being so the moment a spec carries a role its position does
+    // not imply, which is where R9's `z = f(layerIndex, role)` and the
+    // per-role renderer defaults are headed.
     const samePanes =
-      this.subPanes.length === (opts.subPanes?.length ?? 0) &&
-      this.subPanes.every((name, i) => name === opts.subPanes?.[i]);
+      this.specs.length === specs.length &&
+      this.specs.every(
+        (spec, i) =>
+          spec.role === specs[i].role &&
+          spec.order === specs[i].order &&
+          spec.name === specs[i].name,
+      );
     return (
       this.spec.layer === opts.layer &&
       this.spec.paneName === (opts.paneName ?? null) &&
@@ -208,10 +220,26 @@ class LayerSurface implements LayerSurfaceContract {
    *  the surface itself places Path content (the base pane of a declared
    *  surface, and the synthesized fallback) — a sub-pane's renderer is built by
    *  the content that routes into it (`createLayers`' `ensureVector`), and
-   *  building it here would put a full-size empty `<svg>` in every label pane. */
-  private addPane(name: string, needRenderer: boolean, role: PaneRole = "base"): void {
+   *  building it here would put a full-size empty `<svg>` in every label pane.
+   *
+   *  Every pane is created `pointer-events: none` by CSS, and nothing here
+   *  re-opens it: whether a pane's content takes a hit is the content's own
+   *  call (`AnnotationCanvas` writes `none` on itself, a data canvas is
+   *  re-enabled by the rule in `LayerControl/focus.css`). */
+  private addPane(
+    name: string,
+    needRenderer: boolean,
+    role: PaneRole = "base",
+    order = 0,
+  ): void {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer);
-    this.panes.push({ role, name, element: pane, renderer });
+    this.panes.push({
+      role,
+      order,
+      name,
+      element: pane,
+      renderer,
+    });
   }
 
   /** Pin the layer's content into its panes: its options always (so a not-yet-

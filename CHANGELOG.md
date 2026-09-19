@@ -92,6 +92,7 @@
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
+- `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 
 ## [v0.3.0] (2026-08-02)
 

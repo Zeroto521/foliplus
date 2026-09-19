@@ -304,7 +304,7 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
 /** The panes this layer alone renders into, or `[]` when it has none yet.
  *
  *  Ownership, not a list of Leaflet's shared pane names: a declared
- *  `subPanes` entry is component-owned, and the pane a `LayerSurface`
+ *  `paneSpecs` entry is component-owned, and the pane a `LayerSurface`
  *  synthesizes for a layer that declared none is named after the layer's stamp,
  *  so it holds that layer alone. A blocklist could not tell that apart from a
  *  pane a host deliberately shares between two layers, which must not be faded.
@@ -313,7 +313,8 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
  *  the synthesized pane is the layer's real home from the start; the empty
  *  answer is for an entry whose live layer the registry has not resolved. */
 const privatePanesOf = (ui: LayerUI, layerInfo: LayerInfo): string[] => {
-  if (layerInfo.subPanes?.length > 0) return layerInfo.subPanes;
+  const specs = layerInfo.paneSpecs ?? [];
+  if (specs.length > 0) return specs.map(s => s.name);
   const layer = layerInfo.layer;
   if (!layer) return [];
   const own = ui.m.fallbackPaneOf(layer);

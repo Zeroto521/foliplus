@@ -46,8 +46,8 @@ describe("RegisterLayerOpts", () => {
     // @ts-expect-error visible is boolean | undefined
     const bad = make().createLayerInfo({ id: "l1", visible: "yes" });
 
-    // @ts-expect-error subPanes is string[]
-    const notArray = make().createLayerInfo({ id: "l1", subPanes: "pane" });
+    // @ts-expect-error paneSpecs is PaneSpec[]
+    const notArray = make().createLayerInfo({ id: "l1", paneSpecs: "pane" });
 
     // @ts-expect-error isBase is boolean
     const notBool = make().createLayerInfo({ id: "l1", isBase: "true" });
@@ -56,7 +56,7 @@ describe("RegisterLayerOpts", () => {
     // so garbage at a declared key lands in the registry verbatim. This is
     // what callers are protected from by the type alone.
     expect(bad.visible).toBe("yes");
-    expect(notArray.subPanes).toBe("pane");
+    expect(notArray.paneSpecs).toBe("pane");
     expect(notBool.isBase).toBe("true");
   });
 
@@ -73,13 +73,18 @@ describe("RegisterLayerOpts", () => {
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
       '<rect x="0" y="0" width="16" height="16"/></svg>';
 
+    const paneSpecs = [
+      { role: "base", order: 0, name: "a" },
+      { role: "sub", order: 1, name: "b" },
+    ];
+
     const opts: RegisterLayerOpts = {
       id: "l1",
       name: "L1",
       layer,
       isBase: false,
       paneName: "myPane",
-      subPanes: ["a", "b"],
+      paneSpecs,
       iconSvg: svg,
       visible: false,
       opacity: 0.5,
@@ -99,7 +104,7 @@ describe("RegisterLayerOpts", () => {
       name: "L1",
       isBase: false,
       paneName: "myPane",
-      subPanes: ["a", "b"],
+      paneSpecs,
       visible: false,
       opacity: 0.5,
       source: "data.csv",
@@ -125,7 +130,7 @@ describe("LayerInfo", () => {
     const unknown = li.anythingGoes;
 
     expect(Object.keys(li)).toEqual(
-      expect.arrayContaining(["id", "name", "iconSvg", "subPanes"]),
+      expect.arrayContaining(["id", "name", "iconSvg", "paneSpecs"]),
     );
     expect(unknown === undefined).toBe(true);
   });

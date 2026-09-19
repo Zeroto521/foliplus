@@ -12,16 +12,18 @@ interface RegisterLayerOpts {
   isBase?: boolean;
   paneName?: string | null;
   /**
-   * Sub-panes for this layer, ordered by z ascending. The k-th name gets
-   * `CHILD_PANE_STEP` offset in `PaneManager.bumpPanes`. Empty or absent
-   * means the layer has a single flat pane (its `paneName`).
+   * The panes this layer paints into, in draw order. Absent means the layer
+   * has a single flat pane (its `paneName`), or none at all for a GridLayer.
+   *
+   * The draw position is the spec's `order`, written down once by the factory
+   * rather than re-derived from the index at every z write (the removed
+   * `bumpPanes` + `CHILD_PANE_STEP` pair).
    *
    * Was `labelPane?: string | null` — that name was MeasureControl-specific
-   * and couldn't express a second, third, or fourth sub-pane. Measuring a
-   * circle now puts nodes in a middle pane between paths and labels; this
-   * field names that third slot without renaming core.
+   * and couldn't express a second, third, or fourth pane. Measuring a circle
+   * now puts nodes in a pane between paths and labels.
    */
-  subPanes?: string[];
+  paneSpecs?: PaneSpec[];
   iconSvg?: string | null;
   visible?: boolean;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
@@ -62,8 +64,8 @@ interface LayerInfo {
   opacity?: number;
   isBase: boolean;
   paneName: string | null;
-  /** Sub-panes (see `RegisterLayerOpts.subPanes`). Ordered by z ascending. */
-  subPanes: string[];
+  /** The panes this layer paints into, in draw order. */
+  paneSpecs: PaneSpec[];
   iconSvg: string | null;
   type: string | null;
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
@@ -102,17 +104,45 @@ interface LabelAwareLayer extends L.Layer {
   };
 }
 
-/** What a surface's pane is for, drawn from the design's `PaneSpec["role"]`.
- *  `annotation` and `preview` have no producer yet — they arrive with the
- *  components that declare them (label pane, measure preview) — but they are
- *  spelled here so the union is the contract rather than a local invention. */
+/** What a surface's pane is for. `annotation` and `preview` have no producer
+ *  yet — they arrive with the components that declare them (label pane,
+ *  measure preview) — but they are spelled here so the union is the contract
+ *  rather than a local invention. */
 type PaneRole = "base" | "sub" | "annotation" | "preview";
 
+/** One pane a surface declares: what it is for, where it sits in the layer's
+ *  own draw stack, and the pane it paints into.
+ *
+ *  `role` and `order` are a **frozen contract whose readers have not landed
+ *  yet — read this before deleting either as unused**:
+ *    - `order` is the draw offset z arithmetic reads. It replaced the flat
+ *      `subPanes: string[]` whose position was re-derived at every z write
+ *      (the removed `bumpPanes` + `CHILD_PANE_STEP` pair).
+ *    - `role` is what the planned z convergence (`z = f(layerIndex, role)`)
+ *      and the per-role renderer defaults will read, and it is where the
+ *      `annotation` / `preview` panes get their name once the components that
+ *      declare them exist.
+ *
+ *  Today `LayerFactory` derives both from the entry's index, so nothing
+ *  branches on them yet. That is why they look write-only. */
+interface PaneSpec {
+  role: PaneRole;
+  /** Draw offset above the layer's base z. Unique within one surface, 0 for
+   *  the base pane. This is the value z arithmetic reads. */
+  order: number;
+  name: string;
+  /** Marks the leaves routed here as labels (`isLabel`), which
+   *  `countFeatureGeometry` / `getGeometryType` exclude from
+   *  feature-geometry counts. */
+  isLabel?: boolean;
+}
+
 /** One physical pane a surface paints into: the `leaflet-pane` div, the
- *  renderer it holds (null for canvas and renderer-less panes), and which role
- *  the surface gives it. */
+ *  renderer it holds (null for canvas and renderer-less panes), the role the
+ *  surface gives it, and its offset above the layer's base z. */
 interface PaneHandle {
   readonly role: PaneRole;
+  readonly order: number;
   readonly name: string;
   /** The pane element — the single target of every face-level write
    *  (z-index today; opacity / display / filter in later steps). */
@@ -140,31 +170,35 @@ interface LayerSurface {
   destroy: () => void;
 }
 
+/** One entry in `CreateLayersOpts.panes`. The caller names the pane and its
+ *  label semantics; the role and draw order come from the entry's position in
+ *  the list — the first is the base, everything after it is a `sub`. */
+interface CreateLayersPane {
+  name: string;
+  /** Marks the leaves routed here as labels. See `PaneSpec.isLabel`. */
+  isLabel?: boolean;
+}
+
 /** Options for `LayerAPI.createLayers`. */
 interface CreateLayersOpts {
   id: string;
   name?: string;
   /**
-   * Sub-panes this layer's content may live in, ordered by z ascending.
+   * The panes this layer's content may live in, in draw order.
    *
    * The first entry's `name` is the layer's base pane and doubles as
-   * `RegisterLayerOpts.paneName`. Every name is used as the z-target for
-   * `PaneManager.bumpPanes` at the layer's base z; entries past the first
-   * get successive offsets via `CHILD_PANE_STEP`.
-   *
-   * Entries with `isLabel: true` mark their leaves with the `isLabel` flag,
-   * which `countFeatureGeometry` / `util.getGeometryType` use to exclude
-   * label leaves from feature-geometry counts.
+   * `RegisterLayerOpts.paneName`. Each entry's draw offset is its position in
+   * this list, written down once as `PaneSpec.order` and read back at every z
+   * write — never re-derived from an array index.
    *
    * Was `{ graphPane?: string; labelPane?: string }` — the pair hard-coded
-   * a two-pane shape (paths under labels) that couldn't express a node
-   * pane between them, and it made core aware of measure-specific roles.
-   * An ordered entry list lets the caller name any N panes in any order;
-   * core only knows they exist and paints them above the base by index.
+   * a two-pane shape (paths under labels) that couldn't express a node pane
+   * between them, and it made core aware of measure-specific roles. An
+   * ordered entry list lets the caller name any N panes in any order.
    *
    * When empty or absent, the layer is a single flat layer with no sub-panes.
    */
-  panes?: Array<{ name: string; isLabel?: boolean }>;
+  panes?: CreateLayersPane[];
   iconSvg?: string;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of the default
@@ -317,11 +351,13 @@ export type {
   CreateCanvasOpts,
   CreateLayersAPI,
   CreateLayersOpts,
+  CreateLayersPane,
   LabelAwareLayer,
   LayerAPI,
   LayerInfo,
   LayerSurface,
   PaneHandle,
   PaneRole,
+  PaneSpec,
   RegisterLayerOpts,
 };

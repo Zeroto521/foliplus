@@ -36,6 +36,8 @@
   canvas.style.height = "200px";
   canvas.style.position = "absolute";
   canvas.className = "probe-label-canvas";
+  // Decoration, not a hit surface — AnnotationCanvas declares the same.
+  canvas.style.pointerEvents = "none";
   labelPane.appendChild(canvas);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,0,0,1)";

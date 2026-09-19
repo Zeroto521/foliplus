@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
+import type { PaneSpec } from "#foliplus/core/layer/type.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
@@ -50,6 +51,12 @@ class Group {
 }
 
 let stampId = 0;
+
+/** The pane spec list `createLayers` derives from an ordered name list: the
+ *  first name is the base pane, everything after it a `sub`, each one draw
+ *  offset above the previous. */
+const specs = (...names: string[]): PaneSpec[] =>
+  names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
 const makeMap = () => {
   const panes: Record<string, HTMLElement> = {};
@@ -104,9 +111,9 @@ describe("LayerSurface pane resolution", () => {
       id: "a",
       layer: new Path() as unknown as L.Layer,
       paneName: "graph",
-      subPanes: ["graph", "node", "label"],
+      paneSpecs: specs("graph", "node", "label"),
     });
-    // paneName is also subPanes[0]; it must not be listed twice.
+    // paneName is also paneSpecs[0]; it must not be listed twice.
     expect(surface.paneNames).toEqual(["graph", "node", "label"]);
     expect(surface.panes.map(p => p.role)).toEqual(["base", "sub", "sub"]);
     // A sub-pane's renderer belongs to the content that routes into it
@@ -141,7 +148,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("adopts the child panes the layer's own tree names", () => {
     const { map, panes, host } = makeMap();
-    host.registerSubPanes(["own"]);
+    host.registerPaneSpecs(specs("own"));
     const child = new Path();
     child.options.pane = "own";
     const foreign = new Path();
@@ -172,6 +179,39 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
     expect(surface.panes[0].renderer).not.toBeNull();
   });
+
+  it("never writes pointer-events onto a pane", () => {
+    // Whether a pane's content takes a hit is that content's own call:
+    // AnnotationCanvas writes `none` on itself, a data canvas is re-enabled by
+    // the canvas rule in LayerControl/focus.css. The surface stays out of it.
+    const { map, panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "mixed",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: specs("graph", "label"),
+    });
+    expect(panes.graph.style.pointerEvents).toBe("");
+    expect(panes.label.style.pointerEvents).toBe("");
+  });
+
+  it("skips a duplicate base pane name in the specs slice", () => {
+    // specs("graph","label") with paneName="graph" → the slice(1) loop sees
+    // only "label". If someone passes specs("graph","graph"), the second "graph"
+    // must not create a second pane with the same name.
+    const { map, panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "dup",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: [
+        { role: "base", order: 0, name: "graph" },
+        { role: "sub", order: 1, name: "graph" },
+      ],
+    });
+    expect(surface.paneNames).toEqual(["graph"]);
+    expect(Object.keys(panes).filter(k => k === "graph")).toHaveLength(1);
+  });
 });
 
 describe("LayerSurface.materialize", () => {
@@ -200,7 +240,7 @@ describe("LayerSurface.materialize", () => {
       id: "a",
       layer: group as unknown as L.Layer,
       paneName: "graph",
-      subPanes: ["graph", "label"],
+      paneSpecs: specs("graph", "label"),
     });
     surface.materialize();
     expect(group.options.pane).toBe("graph");
@@ -306,25 +346,60 @@ describe("LayerSurface.materialize", () => {
     };
     expect(path.element.parentNode).toBe(renderer._container);
   });
+
+  it("no-ops when the layer is null (canvas surface)", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      canvas: true,
+    });
+    // A canvas surface has no layer to pin — materialize is a no-op.
+    const reconcile = vi.spyOn(host, "migrateLayers");
+    surface.materialize();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(surface.materialized).toBe(true);
+  });
+
+  it("no-ops when the surface has no panes (GridLayer)", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "tiles",
+      layer: new TileLayer() as unknown as L.Layer,
+    });
+    // A GridLayer paints in tilePane and carries its z itself — no panes,
+    // so reconcile has nothing to do.
+    const reconcile = vi.spyOn(host, "migrateLayers");
+    surface.materialize();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(surface.materialized).toBe(true);
+  });
 });
 
 describe("LayerSurface.setZ", () => {
-  it("writes the base z and steps each sub-pane above it", () => {
+  it("writes each pane's z as base + its own order, pane by pane", () => {
+    // Three panes (graph, node, label — the shape MeasureControl paints) so the
+    // offset is checked for the third pane too, not just the first sub-pane.
     const { map, panes, host } = makeMap();
-    host.registerSubPanes(["graph", "label"]);
+    const declared = specs("graph", "node", "label");
+    host.registerPaneSpecs(declared);
     const graph = new Path();
     graph.options.pane = "graph";
+    const node = new Path();
+    node.options.pane = "node";
     const label = new Path();
     label.options.pane = "label";
     const surface = new LayerSurface(host, {
       id: "a",
-      layer: new Group([graph, label]) as unknown as L.Layer,
+      layer: new Group([graph, node, label]) as unknown as L.Layer,
       paneName: "graph",
-      subPanes: ["graph", "label"],
+      paneSpecs: declared,
     });
     expect(surface.setZ(620)).toBe(true);
     expect(panes.graph.style.zIndex).toBe("620");
-    expect(panes.label.style.zIndex).toBe(String(620 + Number(CONST.CHILD_PANE_STEP)));
+    expect(panes.node.style.zIndex).toBe("621");
+    expect(panes.label.style.zIndex).toBe("622");
   });
 
   it("writes the synthesized pane's z", () => {
@@ -346,24 +421,36 @@ describe("LayerSurface.matches", () => {
       id: "a",
       layer: layer as unknown as L.Layer,
       paneName: "graph",
-      subPanes: ["graph", "label"],
+      paneSpecs: specs("graph", "label"),
     });
     const base = {
       id: "a",
       layer: layer as unknown as L.Layer,
       paneName: "graph",
-      subPanes: ["graph", "label"],
+      paneSpecs: specs("graph", "label"),
     };
     expect(surface.matches(base)).toBe(true);
     expect(surface.matches({ ...base, layer: new Group() as unknown as L.Layer })).toBe(
       false,
     );
     expect(surface.matches({ ...base, paneName: "other" })).toBe(false);
-    expect(surface.matches({ ...base, subPanes: ["graph"] })).toBe(false);
-    // A declaration that names no sub-panes at all, and one that names the same
+    expect(surface.matches({ ...base, paneSpecs: specs("graph") })).toBe(false);
+    // A declaration that names no panes at all, and one that names the same
     // number but not the same panes.
-    expect(surface.matches({ ...base, subPanes: undefined })).toBe(false);
-    expect(surface.matches({ ...base, subPanes: ["graph", "other"] })).toBe(false);
+    expect(surface.matches({ ...base, paneSpecs: undefined })).toBe(false);
+    expect(surface.matches({ ...base, paneSpecs: specs("graph", "other") })).toBe(
+      false,
+    );
+    // Same names, but a different role on the second pane.
+    expect(
+      surface.matches({
+        ...base,
+        paneSpecs: [
+          { ...base.paneSpecs[0] },
+          { ...base.paneSpecs[1], role: "annotation" },
+        ],
+      }),
+    ).toBe(false);
   });
 });
 
