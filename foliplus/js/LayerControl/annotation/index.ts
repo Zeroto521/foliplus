@@ -14,8 +14,8 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { destroyPane } from "#core/leafletAdapter.js";
 import { forEachLeaf } from "#core/layer/index.js";
+import { destroyPane } from "#core/leafletAdapter.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,

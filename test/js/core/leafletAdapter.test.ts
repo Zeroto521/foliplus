@@ -505,12 +505,12 @@ describe("layerMap / markerShadow / layerUrl", () => {
 describe("attributionEntries / refreshAttributions", () => {
   it("hands over the control's own table by reference", () => {
     // Mutation must land in the control, so this is a live handover, not a copy.
-    const table = { "Leaflet": 1 };
+    const table = { Leaflet: 1 };
     const ctrl = leafStub({ _attributions: table, _update: () => {} });
     const entries = attributionEntries(ctrl);
     expect(entries).toBe(table);
     entries["tile"] = 1;
-    expect(ctrl._attributions).toEqual({ "Leaflet": 1, tile: 1 });
+    expect(ctrl._attributions).toEqual({ Leaflet: 1, tile: 1 });
   });
 
   it("refreshAttributions calls the control's own redraw", () => {

@@ -242,7 +242,11 @@ class ExportRenderer {
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
         for (const li of layers) {
-          if (!li.visible || !(li.layer instanceof L.TileLayer) || !layerUrl(li.layer)) {
+          if (
+            !li.visible ||
+            !(li.layer instanceof L.TileLayer) ||
+            !layerUrl(li.layer)
+          ) {
             continue;
           }
           const tiles = this.tilePositions(

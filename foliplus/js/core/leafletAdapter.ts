@@ -220,9 +220,8 @@ const reinitInteraction = (layer: LeafInternals): boolean => {
  *
  *  Returned by reference on purpose: the caller deletes and sets entries, the
  *  same way `internalLayers` hands over the map's child registry. */
-const attributionEntries = (
-  attrCtrl: AttributionInternals,
-): Record<string, number> => attrCtrl._attributions;
+const attributionEntries = (attrCtrl: AttributionInternals): Record<string, number> =>
+  attrCtrl._attributions;
 
 /** Re-run the control's own redraw — the private counterpart of a public-API
  *  edit, which repaints on its own. */
