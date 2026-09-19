@@ -689,10 +689,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
-  fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
-    signal: ctrl.suggestAbortController.signal,
-    headers: provider.headers,
-  })
+  const suggestRequest = fetchWithTimeout(
+    buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS),
+    { signal: ctrl.suggestAbortController.signal, headers: provider.headers },
+  )
     .then(r => r.json())
     .then((raw: unknown) => {
       // Provider normalizes raw API JSON into the shared SuggestItem shape
@@ -727,8 +727,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
-      removePanel(ctrl);
+      try {
+        log.warn("suggestion fetch failed:", err);
+      } finally {
+        removePanel(ctrl);
+      }
     });
+  // Fire-and-forget: a rejection raised while settling the handlers above
+  // (removePanel or the log) would otherwise go unobserved. Swallow it — the
+  // fetch outcome is already handled, and swallowing keeps a late reject from
+  // escaping as an unhandled rejection after the control has unloaded.
+  void suggestRequest.catch(() => undefined);
 };
 
 const initDebouncedFetch = (ctrl: SearchControlState) => {
