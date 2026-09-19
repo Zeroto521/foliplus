@@ -3,6 +3,13 @@ import { resolve } from "path";
 import { globSync } from "tinyglobby";
 import { describe, expect, it } from "vitest";
 
+// Guards on the build toolchain: how the scripts expose themselves, how the
+// `#script/*` alias is declared, how the lint config claims them, and that
+// test/js/script/ holds one test file per real module. None of these test a
+// module in script/, so none of them live in test/js/script/: that directory
+// stays a strict one-test-file-per-module mapping, and this file — named for
+// what it guards, not for a module — owes no entry to the naming rule it enforces.
+//
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
 
@@ -119,5 +126,71 @@ describe("eslint.config.js rule scoping", () => {
     expect(scopes).toContain("test/js/**/*.{js,ts}");
     const n = scopes.indexOf("test/js/**/*.{js,ts}");
     expect(at(n)).toEqual(["test/js/**/*.{js,ts}"]);
+  });
+});
+
+// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These two stems have
+// no such module: they point at repo-root files that are not in script/. One
+// entry per exception, each naming what the file really tests.
+const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
+  Makefile: "the root Makefile",
+  "vitest.config": "vitest.config.mjs",
+};
+
+// `X.test.ts` has a subject when `X` is a real script module, or a stem that is
+// on the list above. Anything else is a fossil: a test file named for something
+// that does not exist.
+const hasSubject = (stem: string) =>
+  ["mjs", "cjs", "js"].some(ext =>
+    existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
+  ) || stem in NON_MODULE_TEST_SUBJECTS;
+
+describe("test/js/script naming", () => {
+  it("every test file names the module it tests", () => {
+    const tests = globSync({
+      cwd: ROOT,
+      patterns: ["test/js/script/*.test.ts"],
+    }).sort();
+    expect(tests.length).toBeGreaterThan(0);
+
+    const stemOf = (rel: string) =>
+      rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "");
+
+    const exceptions = Object.entries(NON_MODULE_TEST_SUBJECTS)
+      .map(([k, v]) => `  ${k} — ${v}`)
+      .join("\n");
+
+    for (const rel of tests) {
+      const stem = stemOf(rel);
+      expect(
+        hasSubject(stem),
+        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
+          `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
+      ).toBe(true);
+    }
+
+    // The other way: an entry that names no test file is a stale exception.
+    for (const stem of Object.keys(NON_MODULE_TEST_SUBJECTS)) {
+      expect(
+        tests.some(rel => stemOf(rel) === stem),
+        `NON_MODULE_TEST_SUBJECTS.${stem} matches no test/js/script/${stem}.test.ts`,
+      ).toBe(true);
+    }
+  });
+
+  it("still rejects a name that maps to nothing", () => {
+    // Counter-proof. Without it the loop above would keep passing after someone
+    // relaxed hasSubject into a prefix match or a wildcard exception — the guard
+    // would go decorative and no test would notice. All three names are real:
+    // namespace-plugin.test.ts tested a script that never existed; exports.test.ts
+    // was the same pattern, testing package.json and eslint.config.js rather than
+    // any script/exports.mjs; script-module-surface.test.ts sat in test/js/script/
+    // named for a convention across script/ instead of a module inside it.
+    expect(hasSubject("namespace-plugin")).toBe(false);
+    expect(hasSubject("exports")).toBe(false);
+    expect(hasSubject("script-module-surface")).toBe(false);
+    expect(hasSubject("never-a-module")).toBe(false);
+    expect(hasSubject("global-namespace-plugin")).toBe(true);
+    expect(hasSubject("Makefile")).toBe(true);
   });
 });

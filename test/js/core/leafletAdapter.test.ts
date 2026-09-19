@@ -45,15 +45,32 @@ beforeEach(() => {
 // `Marker._latlng`, anything a future Leaflet adds — are simply not watched.
 // Widening the set is the way to widen the guard.
 //
-// Anchoring: most names are matched only after a dot, because they are generic
-// enough that a bare word would false-positive (`_update`, `_path`, `_map`).
-// The two pane-registry names are distinctive enough to match without one, so
-// `map["_panes"]` and `const { _panes } = map` are caught as well. Not caught,
-// and worth knowing: a *string-keyed* read of a dot-anchored name — the shape
-// ScaleControl uses for `_map` (`Reflect.set(scaleCtrl, "_map", …)`). That is
-// a known, deliberate exception: it writes a field Leaflet would have set for
-// it, on an object this tree created itself, and it is a string key so the dot
-// anchor never sees it.
+// Anchoring: four branches, each deliberately narrow rather than one wide
+// pattern that would match loosely inside strings.
+//
+//   1. Dot-anchored — `layer._map`. These eleven names are generic enough that
+//      a bare word would false-positive (`_update`, `_path`, `_map`).
+//   2. Bare pane-registry names — `_panes`, `_paneRenderers`. Distinctive enough
+//      to match without an anchor, which is what catches `map["_panes"]` and
+//      `const { _panes } = map`.
+//   3. String-keyed — `map["_map"]`, `Reflect.set(x, "_map", v)`,
+//      `Object.getOwnPropertyDescriptor(m, "_layers")`. The quotes confine the
+//      match to a key, and the required trailing `]` or `,` keeps out a string
+//      that merely *contains* the name: `"type_color_map"` fails because the
+//      quote is not immediately before `_map`, and
+//      `getOwnPropertyDescriptor(api, "layers")` fails because there is no
+//      leading underscore.
+//   4. Bare token in a declaration destructuring — `const { _map } = layer`,
+//      `const { _layers: ls } = m`. Anchored on a declaration keyword, not on
+//      `{`: a bare `{ _name` also matches a *type* property
+//      (`type X = L.Layer & { _map?: L.Map | null }`), which declares a field
+//      instead of reaching one — six such sites live in this module alone and
+//      would fail the scan.
+//
+// Still not caught, and worth knowing: a pattern element after another
+// (`const { a, _map } = m`), a parameter destructure (`function f({ _map })`),
+// a key held in a variable (`const k = "_map"; map[k]`), and a key used in any
+// position other than the three examples above (`const k = "_map"` alone).
 //
 // `this.` is excluded by lookbehind, because the reach this module owns is one
 // that goes *inward* at another object's private field. `this._map` in
@@ -67,19 +84,33 @@ beforeEach(() => {
 //
 // Comments are stripped before matching, so the prose above and in the sources
 // may name the fields freely; that is where the why lives. String literals are
-// deliberately NOT stripped: the dot anchor already keeps `"type_color_map"`
-// and `${position}_container` from matching, and removing the literals would
-// hide the `["_panes"]` form the bare alternative exists to catch.
-const PRIVATE_FIELD_RE =
-  /(?<!\bthis)\._(?:attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url)\b|\b_(?:panes|paneRenderers)\b/g;
+// deliberately NOT stripped: branch 3 reads them, so removing the literals
+// would hide the `["_map"]` form it exists to catch. `"type_color_map"` and
+// `${position}_container` still do not match — the anchors are what exclude
+// them, not the stripping.
+//
+// The field list is reused by branches 1, 3 and 4, so the pattern is built
+// rather than written as a literal. The quote class is a plain template
+// literal, because a backtick cannot appear inside a raw one.
+const FIELD_NAMES =
+  "attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url";
+const QUOTES = `['"\`]`;
+
+const PRIVATE_FIELD_RE = new RegExp(
+  String.raw`(?<!\bthis)\._(?:${FIELD_NAMES})\b` +
+    String.raw`|\b_(?:panes|paneRenderers)\b` +
+    `|${QUOTES}_(?:${FIELD_NAMES})${QUOTES}(?=[\\],)])` +
+    String.raw`|\b(?:const|let|var)\s*\{\s*_(?:${FIELD_NAMES})\b`,
+  "g",
+);
 
 const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
 const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 
 // Reaches this module deliberately does not own, counted rather than ignored so
-// a *new* one in any of these files still fails. The single surviving entry is
-// a layering decision, not a judgement about whether the field is Leaflet's:
+// a *new* one in any of these files still fails. Neither entry is a judgement
+// about whether the field is Leaflet's:
 //   - common/dom.ts titles a popup's close button through `_closeButton`. The
 //     probe could live here, but common/ never imports from #core/ (core does
 //     the importing; no common file reaches up today), so routing that reach
@@ -88,7 +119,16 @@ const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 //     arguably does not belong in common/ at all; it is marker/popup business,
 //     not a generic DOM utility. Moving it is a separate step, and the probe
 //     comes with it.
-const OUT_OF_CHARTER = [{ f: "common/dom.ts", n: 1 }] as const;
+//   - ScaleControl/index.ts primes `_map` onto the control it built itself —
+//     `Reflect.set(L.control.scale(…), "_map", this._map)` — so `onAdd` sees a
+//     map already bound. That is a write on a self-created object, not a read
+//     of another object's private field. It is exactly the string-keyed shape
+//     branch 3 exists to catch, which is why it is now counted here rather
+//     than remaining invisible to the scan.
+const OUT_OF_CHARTER = [
+  { f: "common/dom.ts", n: 1 },
+  { f: "ScaleControl/index.ts", n: 1 },
+] as const;
 
 const ADAPTER = "foliplus/js/core/leafletAdapter.ts";
 
@@ -171,20 +211,59 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
 
   it("matches the pane registry through both anchors, and no false friend", () => {
     const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
+    // Branch 2: distinctive enough to match bare, which is what catches a
+    // string key or a destructuring of them.
     expect(matched("map._panes")).toEqual(["_panes"]);
     expect(matched("map._paneRenderers")).toEqual(["_paneRenderers"]);
-    // The bare alternative is why a string key or a destructuring is caught.
     expect(matched('map["_panes"]')).toEqual(["_panes"]);
     expect(matched("const { _panes } = map")).toEqual(["_panes"]);
-    // False friends the dot anchor already keeps out — which is why stripping
-    // string literals would earn nothing.
+    expect(matched("_this._panes")).toEqual(["_panes"]);
+    // False friends the anchors keep out.
     expect(matched('"type_color_map"')).toEqual([]);
     expect(matched("type_color_map")).toEqual([]);
     expect(matched("${position}_container")).toEqual([]);
-    // The documented boundary: a string-keyed read of a dot-anchored name is
-    // not detected (ScaleControl reaches `_map` exactly this way).
-    expect(matched('Reflect.set(scaleCtrl, "_map", value)')).toEqual([]);
-    // Own field, excluded by lookbehind.
+  });
+
+  it("catches a string-keyed reach, and not a name that merely looks like one", () => {
+    const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
+    expect(matched('map["_map"]')).toEqual(['"_map"']);
+    expect(matched("map['_layers']")).toEqual(["'_layers'"]);
+    // The shape ScaleControl uses for `_map` — now visible, so it is counted in
+    // OUT_OF_CHARTER rather than slipping past the scan.
+    expect(matched('Reflect.set(scaleCtrl, "_map", value)')).toEqual(['"_map"']);
+    expect(matched('Object.getOwnPropertyDescriptor(m, "_layers")')).toEqual([
+      '"_layers"',
+    ]);
+    // Branch 3 has no `this.` lookbehind: a further hop is still an inward
+    // reach, regardless of how the key is quoted.
+    expect(matched('this.foo["_map"]')).toEqual(['"_map"']);
+    expect(matched("this.foo[`_map`]")).toEqual(["`_map`"]);
+    // False friends. Both occur in the production tree.
+    expect(matched('Object.getOwnPropertyDescriptor(api, "layers")')).toEqual([]);
+    expect(matched('T("map")')).toEqual([]);
+    expect(matched('"type_color_map"')).toEqual([]);
+    expect(matched('"${position}_container"')).toEqual([]);
+    // Residual gap: a key held in a variable, or in a value position.
+    expect(matched('const k = "_map"; map[k]')).toEqual([]);
+  });
+
+  it("catches a bare token in a destructuring, not a type declaration of one", () => {
+    const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
+    expect(matched("const { _map } = layer")).toEqual(["const { _map"]);
+    expect(matched("const { _layers: ls } = m")).toEqual(["const { _layers"]);
+    expect(matched("let { _icon } = node")).toEqual(["let { _icon"]);
+    // A type member declares the same name and is not a reach. This is why the
+    // branch is anchored on a declaration keyword rather than on `{` — the
+    // adapter alone holds six of them.
+    expect(matched("type X = L.Layer & { _map?: L.Map | null }")).toEqual([]);
+    expect(matched("type T = {\n  _layers?: Record<string, L.Layer>;\n}")).toEqual([]);
+    // Residual gaps, documented above: another element first, or a parameter.
+    expect(matched("const { a, _map } = m")).toEqual([]);
+    expect(matched("function f({ _map }) {}")).toEqual([]);
+  });
+
+  it("excludes only `this._map`, because that is Leaflet's own field", () => {
+    const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
     expect(matched("this._map")).toEqual([]);
     expect(matched("ensureEvents(this._map)")).toEqual([]);
     // A further hop is still an inward reach.
@@ -195,9 +274,6 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     expect(matched("_this._map")).toEqual(["._map"]);
     expect(matched("const _this = this; _this._map")).toEqual(["._map"]);
     expect(matched("window._this._map")).toEqual(["._map"]);
-    // The pane registry is caught through an alias as well, by the bare
-    // alternative.
-    expect(matched("_this._panes")).toEqual(["_panes"]);
   });
 });
 
