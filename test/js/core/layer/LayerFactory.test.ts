@@ -646,8 +646,12 @@ describe("LayerFactory", () => {
 
     it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
       class MockLayerGroup {
-        addLayer(_l: unknown) { return this; }
-        removeLayer(_l: unknown) { return this; }
+        addLayer(_l: unknown) {
+          return this;
+        }
+        removeLayer(_l: unknown) {
+          return this;
+        }
       }
       window.L.LayerGroup = MockLayerGroup;
       const api = factory.createLayers({
