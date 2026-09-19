@@ -12,7 +12,6 @@ import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
-import { reconcileHiddenIds } from "./state.js";
 import { applyUserState } from "./state.js";
 import { syncToggleAll, syncVisibility } from "./visibility.js";
 
@@ -28,20 +27,6 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   let anyBaseVisible = false;
   for (let i = 0; i < ui.m.layers.length; i++) {
     if (initLayerItem(ui, ui.m.layers[i])) anyBaseVisible = true;
-  }
-  // Once the pass above has written each checkbox from the map's real
-  // membership, the rows hold the truth. Reconcile hiddenIds against them
-  // exactly once so the persisted set becomes absolute. It must come after
-  // initLayerItem, not in attachUI: rows render checked by default and
-  // initLayerItem is what corrects them from map.hasLayer(). It also waits
-  // until every layer resolves —on the first pass (setTimeout 0) folium
-  // layers may not be linked into the registry yet, and reconciling then
-  // would read a visible layer as hidden and persist that (corrupting the
-  // local storage for every later test/load). The re-run triggered by
-  // CONTROL_ATTACHED converges here.
-  if (!ui.isHiddenReconciled && ui.allLayersResolved()) {
-    ui.isHiddenReconciled = true;
-    reconcileHiddenIds(ui);
   }
   // "All bases hidden" (not "any layer hidden") —hiding an overlay on a
   // base-less map must not suppress the color-layer background.

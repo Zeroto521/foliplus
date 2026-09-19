@@ -36,7 +36,7 @@ describe("LayerUI rename", () => {
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -417,8 +417,8 @@ describe("LayerUI rename", () => {
 
     it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { [CONST.COLOR.MAP_ID]: "Custom Color" } }),
       );
       ui.loadPersistedState();
       ui.applyUserState();
@@ -466,8 +466,8 @@ describe("LayerUI rename", () => {
 
     it("loadPersistedState reads renamed names from localStorage", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Over1", base1: "Over2" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Over1", base1: "Over2" } }),
       );
 
       ui.loadPersistedState();
@@ -477,8 +477,8 @@ describe("LayerUI rename", () => {
 
     it("applyUserState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Persisted Name" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Persisted Name" } }),
       );
 
       ui.loadPersistedState();
@@ -497,8 +497,8 @@ describe("LayerUI rename", () => {
 
     it("does not re-write a row that already holds the stored name", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Persisted Name" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Persisted Name" } }),
       );
       ui.loadPersistedState();
       ui.applyUserState();
@@ -528,8 +528,10 @@ describe("LayerUI rename", () => {
 
     it("a targeted apply updates only that layer's registry entry", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          renamedNames: { overlay1: "Renamed", base1: "Also Renamed" },
+        }),
       );
       ui.loadPersistedState();
 
@@ -574,15 +576,15 @@ describe("LayerUI rename", () => {
       checkbox.title = "Polygons";
       ui.renamedNames = {};
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "not-json");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "[]");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "[]");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "null");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "null");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
@@ -599,11 +601,11 @@ describe("LayerUI rename", () => {
       vi.useFakeTimers();
       input.value = "Persisted";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)!);
-      expect(stored).toEqual({ overlay1: "Persisted" });
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      expect(stored.renamedNames).toEqual({ overlay1: "Persisted" });
     });
 
     it("debounces rapid renames into a single localStorage write", () => {
@@ -639,13 +641,17 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(setItem).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find(
-        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
-      );
+      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+        try {
+          return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
+        } catch {
+          return false;
+        }
+      });
       expect(namesCall).toBeDefined();
-      expect(JSON.parse(namesCall![1])).toEqual({ overlay1: "Third" });
+      expect(JSON.parse(namesCall![1]).renamedNames).toEqual({ overlay1: "Third" });
 
       vi.useRealTimers();
       Object.defineProperty(window, "localStorage", {
@@ -677,11 +683,15 @@ describe("LayerUI rename", () => {
       input.value = "Polygons"; // unchanged
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find(
-        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
-      );
+      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+        try {
+          return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
+        } catch {
+          return false;
+        }
+      });
       expect(namesCall).toBeUndefined();
 
       vi.useRealTimers();

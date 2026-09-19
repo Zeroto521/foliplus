@@ -22,11 +22,9 @@ describe("RECURSION", () => {
 });
 
 describe("STORAGE", () => {
-  it("derives keys from map container id", () => {
-    expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
-    expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
-    expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
-    expect(CONST.STORAGE.OPACITY_KEY).toContain("foliplus_layer_opacity_");
+  it("exposes exactly one key derived from the map container id", () => {
+    expect(Object.keys(CONST.STORAGE)).toEqual(["KEY"]);
+    expect(CONST.STORAGE.KEY).toMatch(/^foliplus_layer_state_/);
   });
 });
 

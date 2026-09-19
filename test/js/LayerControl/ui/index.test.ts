@@ -163,22 +163,27 @@ describe("LayerUI shell — delegates", () => {
   });
 
   it("saveFoldState persists the folded-group set", () => {
-    const save = vi.spyOn(manager.persistence, "saveFoldedGroups");
+    const save = vi.spyOn(manager.persistence, "schedule");
     ui.foldedGroups = new Set(["overlays"]);
 
     ui.saveFoldState();
 
-    expect(save).toHaveBeenCalledWith(ui.foldedGroups);
+    expect(save).toHaveBeenCalled();
+    const fields = save.mock.calls[0][0] as { foldedGroups: () => string[] };
+    expect(fields.foldedGroups()).toEqual(["overlays"]);
   });
 
   it("saveNamesState persists the rename map", () => {
-    const save = vi.spyOn(manager.persistence, "saveNames");
+    const save = vi.spyOn(manager.persistence, "schedule");
     ui.renamedNames = { overlay1: "Renamed" };
 
     ui.saveNamesState();
 
     expect(save).toHaveBeenCalled();
-    expect((save.mock.calls[0][0] as () => Record<string, string>)()).toEqual({
+    const fields = save.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({
       overlay1: "Renamed",
     });
   });

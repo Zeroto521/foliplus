@@ -3,27 +3,17 @@ import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
-const SAVE_ORDER_DEBOUNCE_MS = 100;
+/** One debounce for every persisted dimension -- the record is written whole,
+ *  so there is a single timer rather than one per dimension. */
+const SAVE_DEBOUNCE_MS = 100;
 
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
-/** Persistent storage keys. */
-const STORAGE = {
-  ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
-  FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
-  /** Set of layer ids currently off the map. Absolute, not relative: it is
-   *  what is hidden, not merely what the user toggled to hide. A relative set
-   *  could never express "show a layer the author declared show=False", because
-   *  that id was never added to begin with. */
-  VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
-  /** Map of layer id → user-assigned display name. */
-  NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
-  /** Map of layer id → annotation config (show/field/format). */
-  ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
-  /** Map of layer id → opacity (0-1). Only non-default values are stored. */
-  OPACITY_KEY: `foliplus_layer_opacity_${map.getContainer().id}`,
-};
+/** Persistent storage key. One record per map container, so multi-map pages
+ *  keep their state separate and a new dimension is added by extending the
+ *  record rather than by introducing a new key. */
+const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 
 /** Color map layer. */
 const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
@@ -193,7 +183,7 @@ export {
   FOCUS,
   FOCUS_PANE,
   GROUP,
-  SAVE_ORDER_DEBOUNCE_MS,
+  SAVE_DEBOUNCE_MS,
   SEL,
   STORAGE,
 };

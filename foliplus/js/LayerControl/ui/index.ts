@@ -14,6 +14,7 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import type { LayerManager } from "../manager.js";
+import type { LayerOverride } from "../persistence.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
@@ -88,10 +89,9 @@ import {
   applyUserState,
   applyVisibleStateOne,
   loadPersistedState,
-  reconcileHiddenIds,
   saveFoldState,
-  saveHiddenIds,
   saveNamesState,
+  saveState,
   syncHiddenId,
 } from "./state.js";
 import {
@@ -128,14 +128,11 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
-  /** The visibility key existed in storage, so `hiddenIds` is the user's
-   *  assertion about every layer. Absent means no choice was ever made and the
-   *  author's `show=` defaults must not be overridden by an unhide sweep. */
-  hiddenHasState: boolean;
-  /** Set once the hidden set has been rebuilt against the rendered rows --
-   *  reconcileHiddenIds must run a single time, after the first
-   *  initLayerItem pass, not on every fold-toggle. */
-  isHiddenReconciled: boolean;
+  /** Which dimensions the user has actually set, per layer id. A layer absent
+   *  here keeps the author's `show=` / opacity default -- that is what replaces
+   *  a map-level "did the user choose at all" flag, which could not tell one
+   *  layer's choice from another's. */
+  userOverrides: Record<string, LayerOverride[]>;
   isColorActive: boolean;
   currentColor: string;
   /** Map of layer id → user-assigned display name (survives reload). */
@@ -205,6 +202,9 @@ class LayerUI {
   labelConfigs: Record<string, unknown>;
   /** Persisted per-layer opacity map (id → 0-1). Applied on load / late register. */
   opacityMap: Record<string, number>;
+  /** Persisted per-layer zoom range the user moved the handles for
+   *  (id → [minZoom, maxZoom]). Applied on load / late register. */
+  zoomRangeMap: Record<string, [number, number]>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -227,8 +227,7 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
-    this.hiddenHasState = false;
-    this.isHiddenReconciled = false;
+    this.userOverrides = {};
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.renamedNames = {};
@@ -253,6 +252,7 @@ class LayerUI {
     this.pressInPanel = false;
     this.labelConfigs = {};
     this.opacityMap = {};
+    this.zoomRangeMap = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -646,8 +646,8 @@ class LayerUI {
   syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
     return syncHiddenId(this, id, hidden, persist);
   }
-  saveHiddenIds() {
-    return saveHiddenIds(this);
+  saveState() {
+    return saveState(this);
   }
   applyUserState(id?: string) {
     return applyUserState(this, id);
@@ -784,12 +784,6 @@ class LayerUI {
     return cancelFocus(this);
   }
   // ── focus helpers (also used internally by focus.ts) ──
-  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
-   *  False during the first post-attach pass, when folium layers may not be in
-   *  the registry yet. */
-  allLayersResolved(): boolean {
-    return this.m.layers.every(li => this.m.findLayer(li) != null);
-  }
 }
 
 export { LayerUI };

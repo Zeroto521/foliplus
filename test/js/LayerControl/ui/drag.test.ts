@@ -45,7 +45,7 @@ const makeUi = (
       saveOrder: vi.fn(),
       moveLayer: vi.fn(() => true),
       layerRegistry: { indexOf: () => 0 },
-      persistence: { saveFoldedGroups: vi.fn() },
+      persistence: { schedule: vi.fn() } as any,
     },
   } as unknown as LayerUI;
 };

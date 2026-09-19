@@ -1,37 +1,113 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
-import { type Debounced, debounce } from "#common/debounce.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
+
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const log = createLogger(CONF.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
-  ui.foldedGroups = state.foldedGroups;
-  ui.hiddenIds = state.hiddenIds;
-  ui.renamedNames = state.names;
-  ui.hiddenHasState = state.hiddenHasState;
+  ui.foldedGroups = new Set(state.foldedGroups);
+  ui.renamedNames = state.renamedNames;
   // Style (label) configs are stored on the UI shell and applied by
   // ui/style.ts once the layers resolve (deferred init passes).
   ui.labelConfigs = state.annotations;
-  ui.opacityMap = state.opacity;
+  // Per-layer intent: the value lives in hiddenIds / opacityMap, `overrides`
+  // records that the user set it. A layer with no entry keeps the author's
+  // declared default -- there is no map-level "did the user choose at all" flag,
+  // because the distinction is per layer.
+  ui.hiddenIds = new Set();
+  ui.opacityMap = {};
+  ui.zoomRangeMap = {};
+  ui.userOverrides = {};
+  for (const [id, entry] of Object.entries(state.layers)) {
+    ui.userOverrides[id] = [...entry.overrides];
+    if (entry.overrides.includes("visible") && entry.visible === false) {
+      ui.hiddenIds.add(id);
+    }
+    const opacity = entry.opacity;
+    if (entry.overrides.includes("opacity") && typeof opacity === "number") {
+      ui.opacityMap[id] = opacity;
+    }
+    // Value and provenance are validated together on read, so presence of the
+    // provenance guarantees presence of the value.
+    if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
+      ui.zoomRangeMap[id] = entry.zoomRange;
+    }
+  }
 };
 
 /** Save fold state to localStorage. */
 
 const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.saveFoldedGroups(ui.foldedGroups);
+  ui.m.persistence.schedule({ foldedGroups: () => [...ui.foldedGroups] });
 };
 
-/** Save hidden-layer ids to localStorage, coalescing rapid calls. */
-
-const saveHiddenIds = (ui: LayerUI) => {
-  ui.m.persistence.saveHiddenIds(() => ui.hiddenIds);
+/** Whether one dimension still holds a live value. An override with none means
+ *  the user reset it, so the dimension drops back to the author's declared
+ *  default instead of persisting an empty choice. */
+const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
+  if (override === "opacity") return typeof ui.opacityMap[id] === "number";
+  if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
+  return true;
 };
 
-/** Save per-layer opacity map to localStorage, coalescing rapid calls. */
-const saveOpacityMap = (ui: LayerUI) => {
-  ui.m.persistence.saveOpacity(() => ui.opacityMap);
+/** Build the record's `layers` section from the live state: one entry per
+ *  layer the user has actually touched, so an untouched layer keeps the
+ *  author's declared default across a reload. */
+const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
+  const states: Record<string, PersistedLayerState> = {};
+  for (const [id, overrides] of Object.entries(ui.userOverrides)) {
+    const declared = overrides.filter(override => hasLiveValue(ui, id, override));
+    if (declared.length === 0) continue;
+    const state: PersistedLayerState = { overrides: declared };
+    if (declared.includes("visible")) state.visible = !ui.hiddenIds.has(id);
+    const opacity = ui.opacityMap[id];
+    if (declared.includes("opacity") && typeof opacity === "number") {
+      state.opacity = opacity;
+    }
+    if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    states[id] = state;
+  }
+  return states;
+};
+
+/** Save the per-layer intent --visibility, opacity and zoom range--
+ *  coalescing rapid calls. */
+const saveState = (ui: LayerUI) => {
+  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
+};
+
+/** Record that the user has set a dimension for one layer. The first action is
+ *  what turns an author's declared default into the user's own state.
+ *
+ *  Refuses a marker for a dimension that holds no live value: {@link buildLayerStates}
+ *  filters such a marker out of the next write, so recording it here would mean the
+ *  user's action is lost with nothing in the console. Failing loud at the one gate
+ *  every caller passes through keeps that from being a silent failure. */
+const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  if (!hasLiveValue(ui, id, override)) {
+    log.warn(
+      `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
+        `marker not recorded — set the value before marking`,
+    );
+    return;
+  }
+  const overrides = ui.userOverrides[id] ?? [];
+  if (!overrides.includes(override)) overrides.push(override);
+  ui.userOverrides[id] = overrides;
+};
+
+/** Drop one dimension's provenance -- the single rule a Reset button reduces to,
+ *  sending the value back to the author's declared default. */
+const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  const overrides = (ui.userOverrides[id] ?? []).filter(entry => entry !== override);
+  if (overrides.length > 0) ui.userOverrides[id] = overrides;
+  else delete ui.userOverrides[id];
 };
 
 /**
@@ -117,37 +193,40 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       applyOpacityStateOne(ui, layerInfo, ui.opacityMap[layerId]);
     }
     if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
-    else if (ui.hiddenHasState) applyVisibleStateOne(ui, layerInfo);
+    else if (ui.userOverrides[layerId]?.includes("visible")) {
+      applyVisibleStateOne(ui, layerInfo);
+    }
   }
 
-  // Prune ids whose layers are gone for good, so stale persistence does not
-  // accumulate. Live means "in the registry or still queued in
+  // Prune ids whose layers are gone for good, so the record cannot grow
+  // without bound. Live means "in the registry or still queued in
   // pendingRegistrations" —attachUI drains that queue before this sweep, so
   // neither implies a layer that will come back. The cost is a third-party
   // layer hidden and re-registered on a later activation: it re-enters
-  // visible rather than coming back hidden. Keeping such ids would make the
-  // prune a no-op and let the set grow without bound.
-  //
-  // Persisted, because only the live ids are written back: the write can
-  // never drop an id that still resolves to a layer, so nothing is lost even
-  // though this runs before initLayerItem has corrected any checkbox.
+  // visible rather than coming back hidden. Value and provenance are pruned in
+  // one pass so the record never keeps an override for a layer it no longer
+  // records a value for; the write can only drop ids that stopped resolving,
+  // so nothing live is lost even though this runs before initLayerItem has
+  // corrected any checkbox.
   const pending = new Set(ui.m.pendingRegistrations.map(li => li.id));
   const stillPresent = (layerId: string) =>
     registry.get(layerId) != null || pending.has(layerId);
-  const gone = [...ui.hiddenIds].filter(layerId => !stillPresent(layerId));
-  if (gone.length > 0) {
-    ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => stillPresent(layerId)));
-    ui.hiddenHasState = true;
-    saveHiddenIds(ui);
-  }
-  // Opacity is the same absolute-map shape as names: a stale id that no
-  // longer resolves to a layer must not accumulate. Unlike hidden ids there
-  // is no "absent key" semantics to preserve — a missing entry simply means
-  // fully opaque — so pruning on every sweep is safe.
-  const goneOpacity = Object.keys(ui.opacityMap).filter(id => !stillPresent(id));
-  if (goneOpacity.length > 0) {
-    for (const id of goneOpacity) delete ui.opacityMap[id];
-    saveOpacityMap(ui);
+  const gone = new Set(
+    [
+      ...ui.hiddenIds,
+      ...Object.keys(ui.opacityMap),
+      ...Object.keys(ui.zoomRangeMap),
+      ...Object.keys(ui.userOverrides),
+    ].filter(layerId => !stillPresent(layerId)),
+  );
+  if (gone.size > 0) {
+    ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => !gone.has(layerId)));
+    for (const layerId of gone) {
+      delete ui.opacityMap[layerId];
+      delete ui.zoomRangeMap[layerId];
+      delete ui.userOverrides[layerId];
+    }
+    saveState(ui);
   }
 };
 
@@ -349,65 +428,10 @@ const applyLeafletOpacity = (layer: L.Layer | null, opacity: number): void => {
   }
 };
 
-/**
- * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
- * absolute instead of "ids the user toggled".
- *
- * A layer the author declared `show=False` is off the map and absent from
- * `hiddenIds`, so checking it on calls `hiddenIds.delete(id)` on an id that
- * was never added and leaves the set unchanged. Every subsequent toggle then
- * differs from the author's defaults by zero entries, so the saved set cannot
- * distinguish "user hid this" from "author hid this" and a reload restores the
- * author's `show=False` instead of the user's choice. Reading the rows closes
- * that gap.
- *
- * Runs once, straight after the first
- * {@link LayerUI.initTypesAndVisibility} pass has corrected every checkbox
- * from `map.hasLayer()`. That pass repeats on fold-toggle, and only ids
- * already in the registry are considered, so the set never acquires a stale
- * id and no later pass writes again.
- *
- * It writes only when the set actually changed. On an unchanged load -- the
- * common case, where the user comes back and sees the author's defaults -- a
- * write would replace a previously saved set with the current one, which
- * still holds ids this map no longer registers. Those ids had been pruned
- * before the rows rendered, so this would be a write that drops saved state
- * the user made. Skipping keeps the load read-only.
- */
-
-const reconcileHiddenIds = (ui: LayerUI) => {
-  const container = ui.uiContainer;
-  if (!container) return;
-
-  // Additions only. A row can read as checked while its id sits in hiddenIds
-  // -- initLayerItem derives the checkbox from map.hasLayer(), so any map
-  // that still reports membership (stale state, a stub in tests) makes the
-  // row disagree with the set applyUserState() just built. Deleting here
-  // would then discard state the user persisted, so the disagreement is
-  // trusted in one direction only. Removal belongs to the change paths, where
-  // a user actually acted: handleChange, syncAllChecked, deselectAllBaseMaps.
-  let changed = false;
-  for (const li of ui.m.layers) {
-    const item = container.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(li.id)}"]`,
-    ) as HTMLElement | null;
-    const checkbox = item?.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-    if (!checkbox || checkbox.checked || ui.hiddenIds.has(li.id)) continue;
-    ui.hiddenIds.add(li.id);
-    changed = true;
-  }
-  if (changed) {
-    ui.hiddenHasState = true;
-    saveHiddenIds(ui);
-  }
-};
-
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
-  ui.m.persistence.saveNames(() => ui.renamedNames);
+  ui.m.persistence.schedule({ renamedNames: () => ({ ...ui.renamedNames }) });
 };
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
@@ -427,12 +451,12 @@ const syncHiddenId = (
 ) => {
   if (hidden) ui.hiddenIds.add(id);
   else ui.hiddenIds.delete(id);
-  // The first change is what turns author defaults into the user's state.
-  // Until it has happened the visibility key does not exist, so the unhide
-  // half of the sweep must stay off or an empty saved set would override the
-  // author's `show=False` on the next load.
-  ui.hiddenHasState = true;
-  if (persist) saveHiddenIds(ui);
+  // The first change is what turns the author's default into the user's own
+  // state: until it has happened the layer has no entry in `layers` at all, so
+  // the unhide half of the sweep must leave it alone or an empty choice would
+  // override the author's `show=False` on the next load.
+  markOverride(ui, id, "visible");
+  if (persist) saveState(ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
@@ -447,14 +471,14 @@ const syncHiddenId = (
 export {
   loadPersistedState,
   saveFoldState,
-  saveHiddenIds,
-  saveOpacityMap,
+  saveState,
+  markOverride,
+  unmarkOverride,
   applyUserState,
   applyHiddenOne,
   applyHiddenStateOne,
   applyOpacityStateOne,
   applyVisibleStateOne,
-  reconcileHiddenIds,
   saveNamesState,
   syncHiddenId,
 };
