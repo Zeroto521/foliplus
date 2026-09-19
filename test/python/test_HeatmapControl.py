@@ -180,7 +180,7 @@ class TestHeatmapControlRendering:
     def test_error_keys_injected(self):
         """Error/warning locale keys appear in rendered HTML."""
         html = render_control(HeatmapControl())
-        assert "Falling back to 1" in html
+        assert "value fallback to 1" in html
         assert "h3 cell conversion failed" in html
         assert "h3 boundary conversion failed" in html
         assert "HeatmapControl.close_title" in html
