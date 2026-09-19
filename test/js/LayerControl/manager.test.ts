@@ -696,6 +696,29 @@ describe("LayerManager", () => {
     expect(manager.lastAttribution).toBe("");
   });
 
+  it("syncAttribution falls back to the control's private table when Leaflet has no API", () => {
+    // addAttribution/removeAttribution are the supported route and this tree
+    // prefers them. This is the only branch that reaches for the table, so it
+    // earns its own test: the previous entry has to leave the same table the
+    // new one lands in, not just be replaced inside the manager.
+    const tile = new TileLayer();
+    manager.map.hasLayer.mockImplementation(l => l === tile);
+    manager.registerLayer({ id: "base1", name: "OSM", layer: tile, isBase: true });
+
+    const attr = map.attributionControl;
+    manager.syncAttribution();
+    expect(attr._attributions).toEqual({ "© OpenStreetMap": 1 });
+    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+    const redrawsAfterFirst = attr._update.mock.calls.length;
+
+    tile.options.attribution = "© Second";
+    manager.syncAttribution();
+    expect(attr._attributions).toEqual({ "© Second": 1 });
+    expect(manager.lastAttribution).toBe("© Second");
+    // Exactly one redraw for the sync that changed something.
+    expect(attr._update.mock.calls.length).toBe(redrawsAfterFirst + 1);
+  });
+
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(Storage, "save");
