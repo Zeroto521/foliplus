@@ -451,6 +451,25 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields.filter(f => f === "value")).toHaveLength(1);
     expect(fields.filter(f => f === "options.value")).toHaveLength(1);
   });
+
+  it("collectFields skips markers with no marker object", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: null },
+      { marker: { feature: { properties: { price: 1 } } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields still enumerates value when feature.properties is absent", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 7 } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("value");
+  });
 });
 
 describe("HeatmapManager — layer visibility vs zoom", () => {

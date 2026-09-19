@@ -570,7 +570,7 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        log.warn(`Falling back to 1 for missing values, field=${this.currentField}`);
+        log.warn("value fallback to 1", this.currentField);
       }
       return 1;
     }
