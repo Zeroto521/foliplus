@@ -38,6 +38,10 @@ describe("ensureLayerAPI", () => {
       Path: class {},
       Marker: class {},
     });
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+    })) as any;
     map = {
       foliplus: null as any,
       getContainer: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
