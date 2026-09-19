@@ -644,22 +644,32 @@ describe("LayerManager", () => {
     vi.useRealTimers();
   });
 
-  it("onLayerAdd ignores unrelated layers once all registered layers are resolved", () => {
+  it("onLayerAdd marks materialized surfaces dirty for an add it cannot attribute", () => {
+    // The manager cannot tell which surface a new layer belongs to — that is
+    // what makes the reconcile observation-based (walk the tree, pin what is
+    // unpinned) rather than interception-based (hook `addLayer`, and silently
+    // half-fade the day something bypasses the hook). So every materialized
+    // surface is marked, and the pass re-pins whichever tree actually changed.
+    // The price is one tree walk per content change, paid only while a surface
+    // is dirty.
     vi.useFakeTimers();
     const spy = vi.spyOn(manager, "enforceOrder");
-    // Resolve every registered layer so the managed-layer filter is active.
     manager.registerLayer({ id: "overlay1", name: "Points", layer: { options: {} } });
-    manager.registerLayer({
-      id: "base1",
-      name: "OSM",
-      layer: new TileLayer(),
-      isBase: true,
-    });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
     spy.mockClear();
-    // An unrelated layeradd (e.g. ExportControl crossOrigin re-add) must NOT
-    // trigger a full enforceOrder pass.
     manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("onLayerAdd schedules nothing while no surface is materialized", () => {
+    // Nothing registered, nothing materialized: an add has no pane to re-pin,
+    // so the add is not a reason to run a pass.
+    vi.useFakeTimers();
+    const fresh = new LayerManager(map, []);
+    const spy = vi.spyOn(fresh, "enforceOrder");
+    fresh.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
     expect(spy).not.toHaveBeenCalled();
     vi.useRealTimers();

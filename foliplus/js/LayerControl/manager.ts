@@ -148,7 +148,24 @@ class LayerManager implements LayerAPI {
         return;
       }
 
-      if (this.hasUnresolvedLayers() && !this.isEnforcing) this.debouncedEnforce();
+      // A layer's content can arrive at any time — a third party mutates a
+      // registered group's tree, or folium's own script lands the leaves of a
+      // registered container. Mark every materialized surface dirty so the next
+      // ordering pass reconciles it; there is no need to know which surface the
+      // new content belongs to, which is what the old permanently-true flag used
+      // to approximate (and got wrong: it kept the pass walking every tree on
+      // every pass). The mark is synchronous because the probe path calls
+      // `enforceOrder` directly, and a debounce-only trigger would miss it.
+      let dirty = false;
+      for (const surface of this.surfaces.values()) {
+        if (surface.materialized) {
+          surface.markContentDirty();
+          dirty = true;
+        }
+      }
+      if ((this.hasUnresolvedLayers() || dirty) && !this.isEnforcing) {
+        this.debouncedEnforce();
+      }
     };
     this.map.on("layeradd", this.onLayerAdd);
 
