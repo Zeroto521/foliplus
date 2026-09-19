@@ -464,6 +464,24 @@ describe("LayerFactory", () => {
       expect(unreg).toHaveBeenCalledWith("test");
     });
 
+    it("clearLayers leaves the map untouched when the map does not hold the mainLayer", () => {
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => false) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      expect(() => api.clearLayers()).not.toThrow();
+      expect(map.removeLayer).not.toHaveBeenCalledWith(api.mainLayer);
+    });
+
     it("register() always calls registerLayer (not idempotent at callback level)", () => {
       const reg = vi.fn(() => null);
       const f = new LayerFactory({
@@ -519,6 +537,130 @@ describe("LayerFactory", () => {
       api.addLayer(new window.L.Path(), "graph1");
       expect(ensureVectorSpy).toHaveBeenCalledWith(expect.anything(), "graph1");
       ensureVectorSpy.mockRestore();
+    });
+
+    it("forwards styleProvider / styleSetters / styleDefaults to registerLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const styleProvider = () => ({ color: "#f00" });
+      const styleSetters = { color: () => {} };
+      const styleDefaults = () => ({ weight: 2 });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+        styleProvider,
+        styleSetters,
+        styleDefaults,
+      });
+      api.addLayer(new window.L.Path(), "g1");
+      expect(reg).toHaveBeenCalledWith(
+        expect.objectContaining({ styleProvider, styleSetters, styleDefaults }),
+      );
+    });
+
+    it("removeLayer ignores null and undefined entries", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer, "g1");
+      expect(() => api.removeLayer(layer, null, undefined)).not.toThrow();
+      expect(api.mainLayer.getLayers().length).toBe(1);
+    });
+
+    it("addLayer skips auto-register when the map already holds the mainLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      api.register();
+      reg.mockClear();
+      api.addLayer(new window.L.Path(), "g1");
+      expect(reg).not.toHaveBeenCalled();
+    });
+
+    it("unregister keeps the layer registered while it still holds content", () => {
+      const unreg = vi.fn(() => true);
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: unreg,
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      api.register();
+      api.addLayer(new window.L.Path(), "g1");
+      api.unregister();
+      expect(unreg).not.toHaveBeenCalled();
+      expect(api.registered()).toBe(true);
+    });
+
+    it("clearLayers skips onDataChange when featureCountProvider is supplied", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+        onDataChange,
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+        featureCountProvider: () => 0,
+      });
+      api.addLayer(new window.L.Path(), "g1");
+      onDataChange.mockClear();
+      api.clearLayers();
+      expect(onDataChange).not.toHaveBeenCalled();
+    });
+
+    it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
+      class MockLayerGroup {
+        addLayer(_l: unknown) { return this; }
+        removeLayer(_l: unknown) { return this; }
+      }
+      window.L.LayerGroup = MockLayerGroup;
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      const layer = new window.L.Path();
+      layer.options.pane = "__not_ours__";
+      (layer.options as { paneSet?: boolean }).paneSet = true;
+      api.mainLayer.addLayer(layer);
+      expect(layer.options.pane).toBe("__not_ours__");
+      delete (window.L as any).LayerGroup;
     });
   });
 
@@ -697,6 +839,24 @@ describe("LayerFactory", () => {
       expect(size.height).toBe(600);
     });
 
+    it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
+      const original = window.devicePixelRatio;
+      Object.defineProperty(window, "devicePixelRatio", {
+        value: 0,
+        configurable: true,
+      });
+      try {
+        const api = factory.createCanvas({ id: "test" });
+        api.resize();
+        expect(api.canvas.width).toBe(800);
+      } finally {
+        Object.defineProperty(window, "devicePixelRatio", {
+          value: original,
+          configurable: true,
+        });
+      }
+    });
+
     it("passes custom onToggle to registerLayer", () => {
       const onToggle = vi.fn();
       const reg = vi.fn(() => null);
@@ -762,6 +922,40 @@ describe("LayerFactory", () => {
       });
       api.addLayer(new window.L.Path(), "g1");
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg }));
+    });
+
+    it("forwards getBounds to registerLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const getBounds = () => null;
+      const api = f.createCanvas({ id: "test", getBounds });
+      api.register();
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ getBounds }));
+    });
+
+    it("default onToggle hides the canvas when invoked with false", () => {
+      const reg = vi.fn((opts: any) => {
+        opts.onToggle(false);
+        return null;
+      });
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createCanvas({ id: "test" });
+      api.register();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
     });
   });
 
