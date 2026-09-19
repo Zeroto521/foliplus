@@ -1,24 +1,24 @@
-// core/PaneManager — physical pane hosting + z-index landing.
-// Responsibility: "who orders" is LayerRegistry; "where content lands and
-// carries the z-number" is PaneManager. No CONF dependency.
+// core/PaneManager — physical pane hosting.
+// Responsibility: "who orders and who owns which pane" is LayerSurface /
+// LayerRegistry; "make the pane div exist and hand back its renderer" is
+// PaneManager. No CONF dependency.
 //
 // Method layering (tests follow the boundary):
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / ensureVector / bumpPanes / migrateLayers / reset / destroy
-//     releaseFallbackPane
+//     ensurePane / ensureVector / bumpPanes / removePane / reset / destroy
 import * as CONST from "./const.js";
-import { destroyPane, getRendererContainer, markerShadow } from "./leafletAdapter.js";
+import {
+  destroyPane,
+  getRendererContainer,
+  getRendererFor,
+  markerShadow,
+} from "./leafletAdapter.js";
 import { forEachLayer } from "./util.js";
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
-
-/** Renderer storage on L.Map (keyed by CONST.RENDERER_KEY + pane name). */
-interface PaneRendererMap {
-  [key: string]: L.SVG | undefined;
-}
 
 class PaneManager {
   map: L.Map;
@@ -35,7 +35,6 @@ class PaneManager {
    */
   childPanes: Set<string>;
   paneCache: Map<number, string[]>;
-  fallbackPaneMap: Map<number, string>;
 
   constructor(map: L.Map) {
     this.map = map;
@@ -48,14 +47,15 @@ class PaneManager {
     ]);
     this.childPanes = new Set();
     this.paneCache = new Map();
-    this.fallbackPaneMap = new Map();
   }
 
   // ── Leaflet DOM integration ────────────────────────────────────
 
   /** Ensure a custom pane exists on the map.
    *  @param {string} paneName - Pane name.
-   *  @param {boolean} [needRenderer=true] - Whether to create an SVG renderer. */
+   *  @param {boolean} [needRenderer=true] - Whether to build an SVG renderer
+   *    for it. False for canvas panes and for sub-panes, whose renderer the
+   *    content that routes into them creates (`ensureVector`). */
   ensurePane(
     paneName: string,
     needRenderer = true,
@@ -72,58 +72,16 @@ class PaneManager {
         pane.style.zIndex = String(CONST.Z_INDEX.BASE + k * CONST.CHILD_PANE_STEP);
       }
     }
-    let renderer: L.SVG | null = null;
-    if (needRenderer) {
-      const key = CONST.RENDERER_KEY + paneName;
-      renderer = (this.map as L.Map & PaneRendererMap)[key] ?? null;
-      if (!renderer) {
-        renderer = L.svg({ pane: paneName });
-        renderer.addTo(this.map);
-        (this.map as L.Map & PaneRendererMap)[key] = renderer;
-      }
-    }
-    return { pane, renderer };
+    return { pane, renderer: needRenderer ? getRendererFor(this.map, paneName) : null };
   }
 
-  /** Detach a pane's renderer and drop our record of it.
-   *
-   *  `map.removeLayer` is what unbinds the renderer's map event listeners
-   *  (zoom, moveend, viewreset, …) — that listener set is what grew per
-   *  add/remove cycle, and `Renderer.onRemove` is what detaches the SVG root.
-   *  Dropping our key is the other half: a pane re-created under the same name
-   *  would otherwise inherit a renderer the old pane still owns. */
-  private detachRenderer(paneName: string) {
-    const key = CONST.RENDERER_KEY + paneName;
-    const renderer = (this.map as L.Map & PaneRendererMap)[key];
-    if (!renderer) return;
-    if (this.map.hasLayer(renderer)) this.map.removeLayer(renderer);
-    delete (this.map as L.Map & PaneRendererMap)[key];
-  }
-
-  /** Remove a custom pane from the DOM and Leaflet's registry so `getPane`
-   *  stops returning a detached node. Used by createCanvas.destroy and any
-   *  component that owns a private pane (annotation labels). */
+  /** Remove a pane this tree owns from the DOM and Leaflet's registries.
+   *  Used by LayerSurface.destroy (the layer's synthesized pane) and by
+   *  createCanvas.destroy (its dedicated pane). */
   removePane(paneName: string) {
-    this.detachRenderer(paneName);
     destroyPane(this.map, paneName);
     this.childPanes.delete(paneName);
     this.paneCache.clear();
-  }
-
-  /** Reclaim the fallback pane that `unregisterLayer` just released.
-   *  Must run after the layer is off the map, so nothing still renders into
-   *  the pane. The caller supplies the stamp, since `fallbackPaneMap` is
-   *  keyed by stamp and the layer is already gone from the registry.
-   *  Clears the two renderer registries plus the pane record. */
-  releaseFallbackPane(stamp: number | null) {
-    if (stamp == null) return;
-    const paneName = this.fallbackPaneMap.get(stamp);
-    if (!paneName) return;
-    this.detachRenderer(paneName);
-    // Leaflet's own per-pane registry is separate from our key, and clearing it
-    // is what keeps getRenderer() from re-adding a dead renderer.
-    destroyPane(this.map, paneName);
-    this.fallbackPaneMap.delete(stamp);
   }
 
   /** Clear all pane state. Called by LayerManager.destroy().
@@ -132,7 +90,6 @@ class PaneManager {
    *  deleting their panes would drop them off the map. */
   destroy() {
     this.paneCache.clear();
-    this.fallbackPaneMap.clear();
     this.childPanes.clear();
   }
 
@@ -166,6 +123,11 @@ class PaneManager {
 
   /**
    * Move layer DOM content into target panes, batched via DocumentFragment.
+   *
+   * This is the one relocation primitive a `LayerSurface` reconciles with — it
+   * is only ever assembled on demand (the surface is dirty), never queued
+   * permanently. Idempotent: a node already where it belongs is left alone, so
+   * the steady-state ordering pass never builds it.
    */
   migrateLayers(
     layersToMove: Array<{
@@ -183,8 +145,8 @@ class PaneManager {
       if (!container) {
         // No renderer container (e.g. tile layers with a paneName get
         // needRenderer=false). DOM migration is impossible, but the layer must
-        // still be marked handled — otherwise applyLayerZIndex re-queues it on
-        // every enforceOrder pass (options.pane never matches paneName).
+        // still be marked handled — otherwise a dirty surface would re-queue it
+        // on every reconcile.
         layer.options.pane = paneName;
         layer.options.paneSet = true;
         continue;
@@ -193,7 +155,8 @@ class PaneManager {
       if (!groups.has(container)) groups.set(container, []);
       const collect = (l: L.Layer): void => {
         if (
-          (l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void }).eachLayer
+          (l as L.Layer & { eachLayer?: (fn: (c: L.Layer) => void) => void })
+            .eachLayer
         ) {
           (l as L.Layer & { eachLayer: (fn: (c: L.Layer) => void) => void }).eachLayer(
             collect,
@@ -296,14 +259,11 @@ class PaneManager {
    *
    * @param layer - The Path to pin.
    * @param paneName - The pane this layer's renderer should live in.
-   * @returns The renderer that was pinned.
+   * @returns The renderer that was pinned, or null when none could be built.
    */
-  ensureVector(layer: PathWithPane, paneName: string): L.Renderer {
-    const key = CONST.RENDERER_KEY + paneName;
-    const cached = ((this.map as L.Map & PaneRendererMap)[key] ??
-      null) as L.Renderer | null;
-    const target = cached || this.ensurePane(paneName, true).renderer!;
-    layer.options.renderer = target;
+  ensureVector(layer: PathWithPane, paneName: string): L.Renderer | null {
+    const target = getRendererFor(this.map, paneName);
+    layer.options.renderer = target ?? undefined;
     layer.options.pane = paneName;
     return target;
   }
@@ -333,24 +293,13 @@ class PaneManager {
     return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
   }
 
-  /** Find all panes a layer's content lives in, including fallback panes. */
+  /** Find all panes a layer's content lives in, including the synthesized pane
+   *  a LayerSurface gave it (which the caller resolves — this only knows the
+   *  panes the layer's own tree names). */
   getLayerPanes(layer: L.Layer): string[] {
     const panes = this.discoverChildPanes(layer);
     if (panes.length > 0) return panes;
-    const fbName = this.fallbackPaneMap.get(L.stamp(layer));
-    if (fbName) return [fbName];
     return ["overlayPane", "markerPane"];
-  }
-
-  /** The per-layer pane `enforceOrder` assigned this layer, or null.
-   *
-   *  Ownership, not a blocklist of Leaflet's shared panes: this pane is named
-   *  after the layer's stamp, so it holds that layer alone. A layer with none
-   *  is rendering into a pane it shares (Leaflet's `overlayPane` / `markerPane`,
-   *  or a pane a host deliberately shares between layers), and callers that
-   *  want to affect one layer only must not touch it. */
-  fallbackPaneOf(layer: L.Layer): string | null {
-    return this.fallbackPaneMap.get(L.stamp(layer)) ?? null;
   }
 }
 

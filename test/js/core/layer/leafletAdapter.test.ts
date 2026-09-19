@@ -1,11 +1,12 @@
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import adapterSource from "#core/layer/leafletAdapter?raw";
 import * as adapter from "#foliplus/core/layer/leafletAdapter.js";
 import {
   destroyPane,
   getRendererContainer,
+  getRendererFor,
   hasAttachedPath,
   internalLayers,
   isGroupLike,
@@ -13,8 +14,15 @@ import {
   layerIcon,
   layerMap,
   markerShadow,
+  moveIntoPane,
   reinitInteraction,
 } from "#foliplus/core/layer/leafletAdapter.js";
+
+// `getRendererFor` builds an SVG renderer; the shared Leaflet mock carries no
+// `svg` factory because no other module in this file needs one.
+beforeEach(() => {
+  window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
+});
 
 // ── Static guard: the named private surface ─────────────────────
 //
@@ -184,12 +192,17 @@ describe("source pins", () => {
     expect(adapterSource).not.toMatch(/^\s*import\b/m);
   });
 
-  it("exports only reaches, never a hop over Leaflet's public API", () => {
-    // getPane / createPane / getPanes are Leaflet's own; a wrapper for them
-    // would add a call without removing a private reach.
+  it("exports the private reaches and the relocation primitives, never a bare public hop", () => {
+    // A forwarder over Leaflet's public API would add a call without removing a
+    // private reach. `destroyPane` and `getRendererFor` are here because both
+    // have to agree with `_paneRenderers`; `moveIntoPane` is here because it
+    // re-pins `options.renderer` through that registry (and is the single
+    // remove+add point). `setPaneZ` and the like stay out: a plain DOM write is
+    // exactly the hop this charter refuses.
     expect(Object.keys(adapter).sort()).toEqual([
       "destroyPane",
       "getRendererContainer",
+      "getRendererFor",
       "hasAttachedPath",
       "internalLayers",
       "isGroupLike",
@@ -197,15 +210,20 @@ describe("source pins", () => {
       "layerIcon",
       "layerMap",
       "markerShadow",
+      "moveIntoPane",
       "reinitInteraction",
     ]);
   });
 });
 
-/** A map stub carrying the two pane registries `destroyPane` clears. */
+/** A map stub carrying the two pane registries and the layer membership the
+ *  pane teardown needs. */
 const makeMap = (panes: Record<string, HTMLElement> = {}) => ({
   getPane: (name: string) => panes[name],
   createPane: (name: string) => (panes[name] = document.createElement("div")),
+  hasLayer: () => true,
+  addLayer: vi.fn(),
+  removeLayer: vi.fn(),
   _panes: panes as Record<string, HTMLElement> | undefined,
   _paneRenderers: {} as Record<string, unknown> | undefined,
 });
@@ -229,6 +247,17 @@ describe("destroyPane", () => {
     expect(map._paneRenderers?.heat).toBeUndefined();
   });
 
+  it("unbinds a live renderer before dropping its record", () => {
+    // `map.removeLayer` is what unbinds the renderer's map listeners
+    // (zoom / moveend / viewreset) and detaches its SVG root — leaving it
+    // registered grows that listener set on every add/remove cycle.
+    const renderer = { id: "r" };
+    const map = makeMap();
+    map._paneRenderers = { heat: renderer };
+    destroyPane(map as L.Map, "heat");
+    expect(map.removeLayer).toHaveBeenCalledWith(renderer);
+  });
+
   it("leaves a sibling pane registered and attached", () => {
     const heat = document.createElement("div");
     const other = document.createElement("div");
@@ -245,6 +274,76 @@ describe("destroyPane", () => {
     map._panes = undefined;
     map._paneRenderers = undefined;
     expect(() => destroyPane(map as L.Map, "never-created")).not.toThrow();
+  });
+});
+
+describe("getRendererFor", () => {
+  it("adopts the renderer Leaflet already registered for the pane", () => {
+    const existing = { id: "r" };
+    const map = makeMap();
+    map._paneRenderers = { p: existing };
+    expect(getRendererFor(map as unknown as L.Map, "p")).toBe(existing);
+    expect(window.L.svg).not.toHaveBeenCalled();
+  });
+
+  it("builds one and registers it under the pane name", () => {
+    const map = makeMap();
+    const built = getRendererFor(map as unknown as L.Map, "p");
+    expect(window.L.svg).toHaveBeenCalledWith({ pane: "p" });
+    expect(map._paneRenderers?.p).toBe(built);
+    expect((built as unknown as { addTo: unknown }).addTo).toBeDefined();
+  });
+
+  it("degrades to null when the renderer cannot be built", () => {
+    const map = makeMap();
+    window.L.svg = vi.fn(() => {
+      throw new Error("no svg");
+    });
+    expect(getRendererFor(map as unknown as L.Map, "p")).toBeNull();
+  });
+});
+
+describe("moveIntoPane", () => {
+  it("re-pins a Path's renderer to the target pane before re-adding", () => {
+    // The private half: `options.pane` alone would leave the Path on the
+    // renderer its *old* pane still holds.
+    const map = makeMap();
+    window.L.Path = class {
+      options: Record<string, unknown> = { pane: "old", renderer: { id: "stale" } };
+    } as unknown as typeof L.Path;
+    const layer = new window.L.Path();
+    map.hasLayer = () => false;
+    moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
+    expect(layer.options.pane).toBe("new");
+    expect(map._paneRenderers?.new).toBe(layer.options.renderer);
+  });
+
+  it("removes and re-adds a layer that is already on the map", () => {
+    const map = makeMap();
+    const order: string[] = [];
+    map.hasLayer = () => true;
+    map.removeLayer = () => {
+      order.push("remove");
+      return map;
+    };
+    map.addLayer = () => {
+      order.push("add");
+      return map;
+    };
+    const layer = { options: {} } as unknown as L.Layer;
+    moveIntoPane(map as unknown as L.Map, layer, "p");
+    // options.pane is read at `addLayer`, so it has to be written in between.
+    expect(order).toEqual(["remove", "add"]);
+    expect(layer.options.pane).toBe("p");
+  });
+
+  it("leaves a detached layer detached", () => {
+    const map = makeMap();
+    map.hasLayer = () => false;
+    const layer = { options: {} } as unknown as L.Layer;
+    moveIntoPane(map as unknown as L.Map, layer, "p");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(layer.options.pane).toBe("p");
   });
 });
 

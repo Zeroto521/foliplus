@@ -6,11 +6,11 @@ export {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   RECURSION,
-  RENDERER_KEY,
   Z_INDEX,
 } from "./const.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
+export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
 // The Leaflet-private reaches components need; everything else in the adapter
 // stays internal to core/layer, and Leaflet's public API is called directly.
@@ -34,5 +34,8 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerInfo,
+  LayerSurface as LayerSurfaceContract,
+  PaneHandle,
+  PaneRole,
   RegisterLayerOpts,
 } from "./type.js";

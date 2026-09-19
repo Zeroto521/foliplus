@@ -12,8 +12,7 @@ beforeEach(() => {
 });
 let count = 0;
 
-// Naming convention: DOM/CSS/named panes use hyphens; internal object keys
-// (RENDERER_KEY) keep underscores. See CLAUDE / layer const comments.
+// Naming convention: DOM/CSS/named panes use hyphens.
 describe("pane prefix naming convention", () => {
   it("fallback / canvas / annotation pane prefixes are hyphenated", () => {
     for (const prefix of [
@@ -25,24 +24,13 @@ describe("pane prefix naming convention", () => {
       expect(prefix).not.toContain("_");
     }
   });
-
-  it("RENDERER_KEY stays underscored as an internal map key", () => {
-    expect(CONST.RENDERER_KEY).toBe("foliplus_renderer_");
-  });
 });
 
-// Map stub for the fallback-pane tests. Mirrors the two renderer registries
-// real Leaflet keeps, both keyed by pane name: foliplus's own key and
-// `_paneRenderers`. Pass a distinct leafletRenderer to force them apart.
+// Map stub. Pane renderers live in Leaflet's own `_paneRenderers`, keyed by pane
+// name — the single registry the adapter reads and writes (`getRendererFor`).
 const makeMap = (
   panes: Record<string, HTMLElement>,
-  {
-    renderer,
-    leafletRenderer,
-  }: {
-    renderer?: Record<string, unknown>;
-    leafletRenderer?: Record<string, unknown>;
-  } = {},
+  renderers: Record<string, unknown> = {},
 ) => {
   const map = {
     getPane: vi.fn(name => panes[name] ?? null),
@@ -50,11 +38,8 @@ const makeMap = (
     removeLayer: vi.fn(),
     hasLayer: vi.fn(() => true),
     _panes: panes,
+    _paneRenderers: renderers,
   };
-  for (const [pane, r] of Object.entries(renderer ?? {})) {
-    map[`${CONST.RENDERER_KEY}${pane}`] = r;
-  }
-  if (leafletRenderer) map._paneRenderers = leafletRenderer;
   return map;
 };
 
@@ -93,14 +78,13 @@ describe("PaneManager", () => {
     expect(panes).toContain("foliplus-measure-graph");
   });
 
-  it("getLayerPanes returns fallback pane when registered", () => {
+  it("getLayerPanes returns the panes the layer's own tree names", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
+    // A layer that declared none answers with Leaflet's shared panes: the pane
+    // a LayerSurface synthesizes is resolved from the surface, not from here.
     const layer = { options: {} };
-    const stamp = 42;
-    window.L.stamp = vi.fn(() => stamp);
-    pm.fallbackPaneMap.set(stamp, "foliplus-pane-42");
-    expect(pm.getLayerPanes(layer)).toEqual(["foliplus-pane-42"]);
+    expect(pm.getLayerPanes(layer)).toEqual(["overlayPane", "markerPane"]);
   });
 
   it("getLayerPanes falls back to overlayPane/markerPane by default", () => {
@@ -200,12 +184,27 @@ describe("PaneManager", () => {
     const map = {
       getPane: vi.fn(() => pane),
       createPane: vi.fn(),
-      "foliplus_renderer_foliplus-measure-graph": renderer,
+      _paneRenderers: { "foliplus-measure-graph": renderer },
     };
     const pm = new PaneManager(map);
     const result = pm.ensurePane("foliplus-measure-graph", true);
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBe(renderer);
+  });
+
+  it("ensurePane registers a new renderer in Leaflet's registry", () => {
+    // Leaflet's `getRenderer` hands a Path with no `options.renderer` whatever
+    // `_paneRenderers` holds for its pane, so a renderer missing from that
+    // registry lets Leaflet build a second <svg> in the same pane.
+    const pane = document.createElement("div");
+    const map = {
+      getPane: vi.fn(() => pane),
+      createPane: vi.fn(),
+      _paneRenderers: {} as Record<string, unknown>,
+    };
+    const pm = new PaneManager(map);
+    const result = pm.ensurePane("foliplus-measure-graph", true);
+    expect(map._paneRenderers["foliplus-measure-graph"]).toBe(result.renderer);
   });
 
   it("discoverChildPanes filters out default panes", () => {
@@ -426,147 +425,26 @@ describe("PaneManager", () => {
     expect(layer.options.renderer).toBe(pinned);
   });
 
-  it("releaseFallbackPane detaches a fallback pane and its renderer", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
-    const renderer = {};
-    const map = makeMap(
-      { "foliplus-pane-1": pane },
-      {
-        renderer: { "foliplus-pane-1": renderer },
-        leafletRenderer: { "foliplus-pane-1": renderer },
-      },
-    );
-    const pm = new PaneManager(map);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-1");
-    pm.releaseFallbackPane(1);
-    expect(map.removeLayer).toHaveBeenCalledWith(renderer);
-    expect(map._panes["foliplus-pane-1"]).toBeUndefined();
-    expect(pane.parentNode).toBeNull();
-    expect(pm.fallbackPaneMap.size).toBe(0);
-  });
-
-  it("releaseFallbackPane clears both renderer registries", () => {
-    const pane = document.createElement("div");
-    const renderer = {};
-    // A different object: real Leaflet stores the same renderer in both
-    // registries, so sharing it here would make the _paneRenderers assertion
-    // implied by the foliplus key assertion.
-    const staleRenderer = {};
-    const map = makeMap(
-      { "foliplus-pane-1": pane },
-      {
-        renderer: { "foliplus-pane-1": renderer },
-        leafletRenderer: { "foliplus-pane-1": staleRenderer },
-      },
-    );
-    const pm = new PaneManager(map);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-1");
-    pm.releaseFallbackPane(1);
-    expect(map[CONST.RENDERER_KEY + "foliplus-pane-1"]).toBeUndefined();
-    // getRenderer() re-adds a renderer it finds off the map, so a stale
-    // _paneRenderers entry would resurrect the dead renderer.
-    expect(map._paneRenderers["foliplus-pane-1"]).toBeUndefined();
-  });
-
-  it("releaseFallbackPane leaves other layers' panes alone", () => {
-    const paneA = document.createElement("div");
-    const paneB = document.createElement("div");
-    document.body.appendChild(paneA);
-    document.body.appendChild(paneB);
-    // Distinct ids: the two stubs would otherwise compare structurally equal
-    // and make the "not called with B" assertion vacuous.
-    const rendererA = { id: "a" };
-    const rendererB = { id: "b" };
-    const map = makeMap(
-      { "foliplus-pane-a": paneA, "foliplus-pane-b": paneB },
-      {
-        renderer: { "foliplus-pane-a": rendererA, "foliplus-pane-b": rendererB },
-        leafletRenderer: { "foliplus-pane-a": rendererA, "foliplus-pane-b": rendererB },
-      },
-    );
-    const pm = new PaneManager(map);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-a");
-    pm.fallbackPaneMap.set(2, "foliplus-pane-b");
-    pm.releaseFallbackPane(1);
-    expect(map.removeLayer).toHaveBeenCalledWith(rendererA);
-    expect(map.removeLayer).not.toHaveBeenCalledWith(rendererB);
-    expect(map._panes["foliplus-pane-a"]).toBeUndefined();
-    expect(map._panes["foliplus-pane-b"]).toBe(paneB);
-    // B's renderer must not be detached or dropped from Leaflet's registry.
-    expect(map._paneRenderers["foliplus-pane-b"]).toBe(rendererB);
-    expect(pm.fallbackPaneMap.size).toBe(1);
-  });
-
-  it("releaseFallbackPane is a no-op with no stamp", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
-    const renderer = {};
-    const map = makeMap(
-      { "foliplus-pane-1": pane },
-      { renderer: { "foliplus-pane-1": renderer } },
-    );
-    const pm = new PaneManager(map);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-1");
-    pm.releaseFallbackPane(null);
-    expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(map._panes["foliplus-pane-1"]).toBe(pane);
-    expect(pm.fallbackPaneMap.size).toBe(1);
-  });
-
-  it("releaseFallbackPane is a no-op when no fallback pane was assigned", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
-    const map = makeMap({ "foliplus-pane-1": pane }, { leafletRenderer: {} });
-    const pm = new PaneManager(map);
-    // No fallbackPaneMap entry (e.g. a layer that uses a named pane instead).
-    pm.releaseFallbackPane(1);
-    expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(map._panes["foliplus-pane-1"]).toBe(pane);
-  });
-
-  it("releaseFallbackPane handles a renderer-less pane (tile layer)", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
-    // Tile layers get a fallback pane with needRenderer=false, so there is no
-    // foliplus RENDERER_KEY entry to clean — only the pane + Leaflet's own
-    // registry.
-    const map = makeMap({ "foliplus-pane-1": pane }, { leafletRenderer: {} });
-    const pm = new PaneManager(map);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-1");
-    pm.releaseFallbackPane(1);
-    expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(map._panes["foliplus-pane-1"]).toBeUndefined();
-    expect(pane.parentNode).toBeNull();
-    expect(pm.fallbackPaneMap.size).toBe(0);
-  });
-
   // ── removePane (createCanvas.destroy / private panes) ──
 
-  it("removePane detaches the pane and clears both renderer registries", () => {
+  it("removePane detaches the pane and clears the renderer registry", () => {
     const pane = document.createElement("div");
     document.body.appendChild(pane);
     const renderer = { id: "r" };
-    const map = makeMap(
-      { "foliplus-canvas-heat": pane },
-      {
-        renderer: { "foliplus-canvas-heat": renderer },
-        leafletRenderer: { "foliplus-canvas-heat": renderer },
-      },
-    );
+    const map = makeMap({ "foliplus-canvas-heat": pane });
+    map._paneRenderers = { "foliplus-canvas-heat": renderer };
     const pm = new PaneManager(map);
     pm.registerSubPanes(["foliplus-canvas-heat"]);
     pm.removePane("foliplus-canvas-heat");
     expect(map.removeLayer).toHaveBeenCalledWith(renderer);
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
-    expect(map[`${CONST.RENDERER_KEY}foliplus-canvas-heat`]).toBeUndefined();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
     expect(pm.childPanes.has("foliplus-canvas-heat")).toBe(false);
   });
 
   it("removePane is a no-op for an unknown pane name", () => {
-    const map = makeMap({}, { leafletRenderer: {} });
+    const map = makeMap({});
     const pm = new PaneManager(map);
     expect(() => pm.removePane("never-created")).not.toThrow();
     expect(map.removeLayer).not.toHaveBeenCalled();
@@ -580,15 +458,13 @@ describe("PaneManager", () => {
     const pane = document.createElement("div");
     document.body.appendChild(pane);
     const renderer = { id: "r" };
-    const map = makeMap(
-      { "foliplus-canvas-heat": pane },
-      { renderer: { "foliplus-canvas-heat": renderer } },
-    );
+    const map = makeMap({ "foliplus-canvas-heat": pane });
+    map._paneRenderers = { "foliplus-canvas-heat": renderer };
     map.hasLayer = vi.fn(() => false);
     const pm = new PaneManager(map);
     pm.removePane("foliplus-canvas-heat");
     expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(map[`${CONST.RENDERER_KEY}foliplus-canvas-heat`]).toBeUndefined();
+    expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
   });
 
@@ -597,10 +473,10 @@ describe("PaneManager", () => {
     const other = document.createElement("div");
     document.body.appendChild(heat);
     document.body.appendChild(other);
-    const map = makeMap(
-      { "foliplus-canvas-heat": heat, "foliplus-canvas-other": other },
-      { leafletRenderer: {} },
-    );
+    const map = makeMap({
+      "foliplus-canvas-heat": heat,
+      "foliplus-canvas-other": other,
+    });
     const pm = new PaneManager(map);
     pm.removePane("foliplus-canvas-heat");
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
@@ -613,11 +489,9 @@ describe("PaneManager", () => {
     const map = makeMap({ "foliplus-pane-1": pane });
     const pm = new PaneManager(map);
     pm.paneCache.set(1, ["a"]);
-    pm.fallbackPaneMap.set(1, "foliplus-pane-1");
     pm.registerSubPanes(["foliplus-measure-label"]);
     pm.destroy();
     expect(pm.paneCache.size).toBe(0);
-    expect(pm.fallbackPaneMap.size).toBe(0);
     expect(pm.childPanes.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
     // registered layers from the map — they are still live, so the pane DOM
@@ -625,6 +499,8 @@ describe("PaneManager", () => {
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._panes["foliplus-pane-1"]).toBe(pane);
   });
+
+  // ── migrateLayers (the reconcile primitive LayerSurface calls) ──
 
   it("migrateLayers is a no-op for empty input", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
@@ -727,9 +603,9 @@ describe("PaneManager", () => {
   });
 
   it("migrateLayers is idempotent for markers already in the target pane", () => {
-    // enforceOrder runs migrateLayers on every pass, so a node that is already
-    // where it belongs must not be re-appended — appending a node that is
-    // already a child re-orders it. A marker with no shadow at all has to
+    // A reconcile re-runs this after every content change, so a node that is
+    // already where it belongs must not be re-appended — appending a node that
+    // is already a child re-orders it. A marker with no shadow at all has to
     // survive the same pass.
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
@@ -780,8 +656,8 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: {} as Record<string, unknown>, eachLayer: undefined };
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
-    // whole layer without setting options.pane/paneSet, so the manager re-queued
-    // it on every enforceOrder pass. The options must still be marked handled.
+    // whole layer without setting options.pane/paneSet, so a dirty surface
+    // re-queued it on every reconcile. The options must still be marked handled.
     pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);

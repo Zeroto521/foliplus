@@ -3,6 +3,8 @@
 //
 // Leaflet keeps everything pane hosting needs off its public interface:
 //   - pane teardown: `map._panes` / `map._paneRenderers` (no public API);
+//   - the per-pane renderer registry: `map._paneRenderers`, which both
+//     `getRenderer` and pane teardown have to agree with;
 //   - a renderer's root element: `renderer._container`;
 //   - a layer's DOM nodes and map back-reference: `layer._icon` / `_path` /
 //     `_container` / `_map` (runtime state, not API);
@@ -63,16 +65,68 @@ const internalLayers = (node: LayerTreeNode): Record<string, L.Layer> | undefine
 const isGroupLike = (node: LayerTreeNode): boolean =>
   typeof node.eachLayer === "function" || Boolean(node._layers);
 
-/** Detach a pane and drop it from Leaflet's registries.
+/** Detach a pane and drop it from Leaflet's registries — the one teardown for a
+ *  pane this tree owns.
  *
- *  Both have to be cleared or the pane comes back: `getPane` would keep
- *  returning the detached node, and Leaflet's `getRenderer` re-adds any
- *  renderer it finds off the map, resurrecting a dead renderer into a pane that
- *  no longer belongs to it. */
+ *  Three things have to go, in this order:
+ *    - the renderer, off the map first. `map.removeLayer` is what unbinds its
+ *      map listeners (zoom / moveend / viewreset) and detaches the SVG root;
+ *      leaving it registered grows that listener set on every add/remove cycle.
+ *    - `_paneRenderers`. `getRenderer` re-adds any renderer it finds off the map,
+ *      so a stale entry resurrects a dead renderer into a pane that no longer
+ *      belongs to it.
+ *    - the pane element and `_panes`, or `getPane` keeps returning a detached
+ *      node and `createPane` never rebuilds. */
 const destroyPane = (map: L.Map, name: string): void => {
+  const renderer = map._paneRenderers?.[name];
+  if (renderer && map.hasLayer(renderer)) map.removeLayer(renderer);
   if (map._paneRenderers) delete map._paneRenderers[name];
   map.getPane(name)?.remove();
   if (map._panes) delete map._panes[name];
+};
+
+/** Relocate a layer to a pane by remove + re-add, re-pinning its renderer.
+ *
+ *  `options.pane` is read at `map.addLayer`, so a layer already on the map can
+ *  only change panes by being removed and re-added. It re-pins
+ *  `options.renderer` through {@link getRendererFor} so a Path lands in the new
+ *  pane's renderer rather than the one its old pane still holds — which is the
+ *  private half, and what makes this more than a hop over Leaflet's public API.
+ *
+ *  No consumer in R3; the first one arrives with the content-source hook (R6b),
+ *  which is where a pane change while the layer is attached becomes
+ *  reachable. */
+const moveIntoPane = (map: L.Map, layer: L.Layer, paneName: string): void => {
+  const attached = map.hasLayer(layer);
+  if (attached) map.removeLayer(layer);
+  layer.options.pane = paneName;
+  if (layer instanceof L.Path) {
+    layer.options.renderer = getRendererFor(map, paneName) ?? undefined;
+  }
+  if (attached) map.addLayer(layer);
+};
+
+/** The SVG renderer a pane's Path layers must be pinned to, created on demand.
+ *
+ *  Leaflet's `_paneRenderers` is both the lookup and the record: `getRenderer`
+ *  hands a Path with no `options.renderer` whatever that registry holds for the
+ *  pane, so a renderer missing from it lets Leaflet build a **second** `<svg>`
+ *  inside the same pane. Registering ours there is what keeps one pane to one
+ *  renderer.
+ *
+ *  @returns the pane's renderer, or null when it has none and none could be
+ *    built (the caller then leaves the layer on Leaflet's default renderer). */
+const getRendererFor = (map: L.Map, name: string): L.SVG | null => {
+  const existing = map._paneRenderers?.[name];
+  if (existing) return existing as L.SVG;
+  try {
+    const renderer = L.svg({ pane: name });
+    renderer.addTo(map);
+    if (map._paneRenderers) map._paneRenderers[name] = renderer;
+    return renderer;
+  } catch {
+    return null;
+  }
 };
 
 /** A renderer's root element — the `<svg>` / `<canvas>` holding its shapes. */
@@ -127,6 +181,7 @@ const reinitInteraction = (layer: LeafInternals): boolean => {
 export {
   destroyPane,
   getRendererContainer,
+  getRendererFor,
   hasAttachedPath,
   internalLayers,
   isGroupLike,
@@ -134,5 +189,6 @@ export {
   layerIcon,
   layerMap,
   markerShadow,
+  moveIntoPane,
   reinitInteraction,
 };
