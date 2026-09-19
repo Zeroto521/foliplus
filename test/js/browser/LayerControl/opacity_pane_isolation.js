@@ -39,9 +39,7 @@
 
   const leafOpacity = layer => {
     const vals = [];
-    const each = layer.eachLayer
-      ? (cb) => layer.eachLayer(cb)
-      : (cb) => cb(layer);
+    const each = layer.eachLayer ? cb => layer.eachLayer(cb) : cb => cb(layer);
     each(child => {
       if (child.options && typeof child.options.opacity === "number") {
         vals.push(child.options.opacity);
@@ -109,17 +107,29 @@
   // labelable field to render the label section, which hosts the opacity row).
   // style: { fillOpacity: 0 } makes it hollow — the pane CSS opacity must not
   // fill it back in (0 × 0.4 = 0, not 0.4).
-  const hollowGeo = L.geoJson({
-    type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "hollow", value: 1 },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[119.45, 26.07], [119.45, 26.08], [119.46, 26.08], [119.45, 26.07]]],
-      },
-    }],
-  }, { style: { fillOpacity: 0, color: "#000", weight: 2 } });
+  const hollowGeo = L.geoJson(
+    {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { name: "hollow", value: 1 },
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [119.45, 26.07],
+                [119.45, 26.08],
+                [119.46, 26.08],
+                [119.45, 26.07],
+              ],
+            ],
+          },
+        },
+      ],
+    },
+    { style: { fillOpacity: 0, color: "#000", weight: 2 } },
+  );
   api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
   ctrl.m.enforceOrder();
   const hollowPane = paneOf(hollowGeo);
@@ -136,35 +146,63 @@
   // unaffected (per-layer pane, not shared).
   const annotatedGeo = L.geoJson({
     type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "annotated", value: 1 },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[119.55, 26.10], [119.55, 26.11], [119.56, 26.11], [119.55, 26.10]]],
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "annotated", value: 1 },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [119.55, 26.1],
+              [119.55, 26.11],
+              [119.56, 26.11],
+              [119.55, 26.1],
+            ],
+          ],
+        },
       },
-    }],
+    ],
   });
   api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
   // A neighbour layer with its own annotation, so we can assert isolation.
   const neighbourGeo = L.geoJson({
     type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "neighbour", value: 1 },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[119.57, 26.10], [119.57, 26.11], [119.58, 26.11], [119.57, 26.10]]],
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "neighbour", value: 1 },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [119.57, 26.1],
+              [119.57, 26.11],
+              [119.58, 26.11],
+              [119.57, 26.1],
+            ],
+          ],
+        },
       },
-    }],
+    ],
   });
-  api.registerLayer({ id: "op_annotated_nb", name: "AnnotatedNb", layer: neighbourGeo });
+  api.registerLayer({
+    id: "op_annotated_nb",
+    name: "AnnotatedNb",
+    layer: neighbourGeo,
+  });
   ctrl.m.enforceOrder();
 
   // Enable labels on both layers.
-  ctrl.m.annotation.setConfig("op_annotated", { ...ctrl.m.annotation.getConfig("op_annotated"), show: true });
+  ctrl.m.annotation.setConfig("op_annotated", {
+    ...ctrl.m.annotation.getConfig("op_annotated"),
+    show: true,
+  });
   ctrl.m.annotation.renderLabels("op_annotated");
-  ctrl.m.annotation.setConfig("op_annotated_nb", { ...ctrl.m.annotation.getConfig("op_annotated_nb"), show: true });
+  ctrl.m.annotation.setConfig("op_annotated_nb", {
+    ...ctrl.m.annotation.getConfig("op_annotated_nb"),
+    show: true,
+  });
   ctrl.m.annotation.renderLabels("op_annotated_nb");
 
   const annotatedGeoPane = paneOf(annotatedGeo);
@@ -223,8 +261,12 @@
     // and the annotation pane must both carry the opacity. A neighbour layer's
     // annotation pane is unaffected (per-layer pane, not shared).
     annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
-    annotatedAnnotationPaneOpacity: annotationPane ? annotationPane.style.opacity : null,
-    neighbourAnnotationPaneOpacity: neighbourAnnotationPane ? neighbourAnnotationPane.style.opacity : null,
+    annotatedAnnotationPaneOpacity: annotationPane
+      ? annotationPane.style.opacity
+      : null,
+    neighbourAnnotationPaneOpacity: neighbourAnnotationPane
+      ? neighbourAnnotationPane.style.opacity
+      : null,
     annotationPaneExists: !!annotationPane,
     neighbourAnnotationPaneExists: !!neighbourAnnotationPane,
   };

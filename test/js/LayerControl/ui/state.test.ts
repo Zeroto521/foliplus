@@ -44,7 +44,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   const makeTestMap = () => {
     const removeLayer = vi.fn();
     const addLayer = vi.fn();
-    const panes = new Map<string, { style: Record<string, string>; classList: { add: () => void; remove: () => void } }>();
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
     const getPane = vi.fn((name: string) => {
       let p = panes.get(name);
       if (!p) {
@@ -795,7 +801,10 @@ describe("applyOpacityStateOne", () => {
   const paneUi = (paneName: string, pane: HTMLElement) =>
     ({
       m: {
-        surfaceFor: () => ({ capabilities: { opacity: "pane" }, paneNames: [paneName] }),
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" },
+          paneNames: [paneName],
+        }),
         map: { getPane: (n: string) => (n === paneName ? pane : null) },
       },
     }) as unknown as LayerUI;
@@ -827,7 +836,9 @@ describe("applyOpacityStateOne", () => {
 
     applyOpacityStateOne(nativeUi(), li, 0.5);
 
-    expect((li.layer as unknown as { options: { opacity: number } }).options.opacity).toBe(0.5);
+    expect(
+      (li.layer as unknown as { options: { opacity: number } }).options.opacity,
+    ).toBe(0.5);
     expect(li.opacity).toBe(0.5);
   });
 
@@ -996,7 +1007,13 @@ describe("LayerUI opacity restore / prune", () => {
   const makeMap = () => {
     const setStyle = vi.fn();
     const layer = { options: {}, setStyle } as unknown as L.Layer;
-    const panes = new Map<string, { style: Record<string, string>; classList: { add: () => void; remove: () => void } }>();
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
     const getPane = vi.fn((name: string) => {
       let p = panes.get(name);
       if (!p) {

@@ -1,7 +1,7 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
 import { createLogger } from "#common/log.js";
-import type { LayerManager } from "../manager.js";
 import * as CONST from "../const.js";
+import type { LayerManager } from "../manager.js";
 import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";

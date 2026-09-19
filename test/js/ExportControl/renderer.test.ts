@@ -654,7 +654,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, mockLayer, onProgress);
+    await makeRenderer().renderTileLayer(
+      makeRC(1536, 512),
+      survivors,
+      mockLayer,
+      onProgress,
+    );
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -1084,9 +1089,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(async (_rc: any, _tiles: any, _layer: any, cb: any) => {
-      cb(1);
-    });
+    tileLayer.mockImplementation(
+      async (_rc: any, _tiles: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.
@@ -2097,7 +2104,7 @@ describe("ExportRenderer.tilePositions", () => {
   // rect is its world position minus (0, 384) -- arithmetic, no re-projection.
   const CENTER = { lat: 40.97989806962013, lng: 0 };
   const CONCRECT = { width: 1024, height: 768 };
-const makeRC = (w: number, h: number, scale = 1) => {
+  const makeRC = (w: number, h: number, scale = 1) => {
     const canvas = document.createElement("canvas");
     canvas.width = w * scale;
     canvas.height = h * scale;

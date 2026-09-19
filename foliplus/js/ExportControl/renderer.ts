@@ -240,7 +240,11 @@ class ExportRenderer {
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
         const zoom = this.map.getZoom();
-        const sizedTiles: Array<{ tiles: TileDesc[]; count: number; layer: L.TileLayer }> = [];
+        const sizedTiles: Array<{
+          tiles: TileDesc[];
+          count: number;
+          layer: L.TileLayer;
+        }> = [];
         for (const li of layers) {
           if (
             !li.visible ||
@@ -253,7 +257,8 @@ class ExportRenderer {
             rc,
             this.calcTiles(li.layer, geoBounds, zoom, scale),
           );
-          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
+          if (tiles.length > 0)
+            sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
 
