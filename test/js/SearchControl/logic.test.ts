@@ -1658,13 +1658,11 @@ describe("fetchSuggestions: render behavior", () => {
     // buildSearchUrl reaches toWgs84 before the fetch, and ensureGcoord warns
     // on the gcoord fallback, so the warn mock must absorb that first call and
     // only throw on the handler's own — otherwise it trips on the URL build.
-    const warnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation((message: string) => {
-        if (typeof message === "string" && message.includes("suggestion fetch")) {
-          throw new Error("console failed");
-        }
-      });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation((message: string) => {
+      if (typeof message === "string" && message.includes("suggestion fetch")) {
+        throw new Error("console failed");
+      }
+    });
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ json: () => Promise.reject(new SyntaxError("bad json")) }),
     ) as unknown as typeof fetch;
