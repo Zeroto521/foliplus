@@ -67,6 +67,13 @@ Object.defineProperty(URL, "revokeObjectURL", {
   writable: true,
 });
 
+// jsdom does not implement the Canvas 2D context; LayerFactory.createCanvas
+// throws when getContext("2d") returns null, so stub it once for every file.
+HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+  setTransform: vi.fn(),
+  clearRect: vi.fn(),
+})) as any;
+
 // Mock window.foliplus runtime (must be set before module imports that capture it)
 window.foliplus = {
   showHint: vi.fn(),

@@ -117,7 +117,9 @@ class LayerFactory {
     opts: SurfaceOpts & { content: { kind: "canvas" } },
   ): Extract<SurfaceHandle, { content: { kind: "canvas" } }>;
   createSurface(opts: SurfaceOpts): SurfaceHandle {
-    if (opts.content.kind === "canvas" && !opts?.id) {
+    // Unreachable for typed callers (SurfaceOpts.id is required); kept as a
+    // guard for untyped JS callers that skip the overload.
+    if (opts.content.kind === "canvas" && !opts.id) {
       throw new Error(log.msg("createCanvas requires an id"));
     }
 
@@ -139,8 +141,31 @@ class LayerFactory {
     let preRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
     let shouldUnregister: () => boolean = () => true;
-    let destroyFn: (() => void) | null = null;
     let content: SurfaceContentHandle;
+
+    const register = () => {
+      // registerIdempotent: the layers branch sets it false (register always
+      // fires), the canvas branch true (idempotent). The compiler can't narrow
+      // a let across the if (content.kind) split, so the check is kept for
+      // canvas; layers never takes the return path.
+      if (registerIdempotent && registered) return;
+      registered = true;
+      preRegister();
+      registerLayer(layerOpts);
+    };
+
+    const unregister = () => {
+      if (!registered) return;
+      // shouldUnregister: the canvas branch pins it to () => true (always
+      // unregister), the layers branch evaluates remaining content. The check
+      // is kept for layers; canvas never takes the return path.
+      if (!shouldUnregister()) return;
+      registered = false;
+      preUnregister();
+      unregisterLayer(opts.id);
+    };
+
+    const bringToFront = () => bringLayerToFront(opts.id);
 
     if (opts.content.kind === "layers") {
       const { invalidateType, onDataChange } = this.deps;
@@ -253,27 +278,12 @@ class LayerFactory {
         );
       content = { kind: "layers", mainLayer, addLayer, removeLayer, clearLayers };
 
-      const register = () => {
-        if (registerIdempotent && registered) return;
-        registered = true;
-        preRegister();
-        registerLayer(layerOpts);
-      };
-
-      const unregister = () => {
-        if (!registered) return;
-        if (!shouldUnregister()) return;
-        registered = false;
-        preUnregister();
-        unregisterLayer(opts.id);
-      };
-
       return {
         content,
         register,
         unregister,
         registered: () => registered,
-        bringToFront: () => bringLayerToFront(opts.id),
+        bringToFront,
       };
     }
 
@@ -296,6 +306,7 @@ class LayerFactory {
     if (className) canvas.classList.add(className);
 
     const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error(log.msg("createCanvas requires a 2d context"));
 
     const resize = () => {
       const container = map.getContainer();
@@ -352,12 +363,12 @@ class LayerFactory {
       canvas.classList.remove(HIDDEN);
     };
     preUnregister = () => {
-      ctx!.setTransform(1, 0, 0, 1, 0, 0);
-      ctx!.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       canvas.classList.add(HIDDEN);
     };
     shouldUnregister = () => true;
-    destroyFn = () => {
+    const destroyCanvas = () => {
       map.off("move", onMove);
       map.off("resize", onResize);
       onMove.cancel();
@@ -380,29 +391,13 @@ class LayerFactory {
       },
     };
 
-    const register = () => {
-      if (registerIdempotent && registered) return;
-      registered = true;
-      preRegister();
-      registerLayer(layerOpts);
-    };
-
-    const unregister = () => {
-      if (!registered) return;
-      if (!shouldUnregister()) return;
-      registered = false;
-      preUnregister();
-      unregisterLayer(opts.id);
-    };
-
-    if (!destroyFn) throw new Error(log.msg("unreachable"));
     return {
       content,
       register,
       unregister,
       registered: () => registered,
-      bringToFront: () => bringLayerToFront(opts.id),
-      destroy: destroyFn,
+      bringToFront,
+      destroy: destroyCanvas,
     };
   }
 }

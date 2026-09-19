@@ -654,17 +654,20 @@ describe("LayerFactory", () => {
         }
       }
       window.L.LayerGroup = MockLayerGroup;
-      const api = factory.createLayers({
-        id: "test",
-        name: "Test",
-        panes: [{ name: "g1" }],
-      });
-      const layer = new window.L.Path();
-      layer.options.pane = "__not_ours__";
-      (layer.options as { paneSet?: boolean }).paneSet = true;
-      api.mainLayer.addLayer(layer);
-      expect(layer.options.pane).toBe("__not_ours__");
-      delete (window.L as any).LayerGroup;
+      try {
+        const api = factory.createLayers({
+          id: "test",
+          name: "Test",
+          panes: [{ name: "g1" }],
+        });
+        const layer = new window.L.Path();
+        layer.options.pane = "__not_ours__";
+        (layer.options as { paneSet?: boolean }).paneSet = true;
+        api.mainLayer.addLayer(layer);
+        expect(layer.options.pane).toBe("__not_ours__");
+      } finally {
+        Reflect.deleteProperty(window.L, "LayerGroup");
+      }
     });
   });
 
