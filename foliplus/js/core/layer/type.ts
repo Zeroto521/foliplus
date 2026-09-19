@@ -102,6 +102,44 @@ interface LabelAwareLayer extends L.Layer {
   };
 }
 
+/** What a surface's pane is for, drawn from the design's `PaneSpec["role"]`.
+ *  `annotation` and `preview` have no producer yet — they arrive with the
+ *  components that declare them (label pane, measure preview) — but they are
+ *  spelled here so the union is the contract rather than a local invention. */
+type PaneRole = "base" | "sub" | "annotation" | "preview";
+
+/** One physical pane a surface paints into: the `leaflet-pane` div, the
+ *  renderer it holds (null for canvas and renderer-less panes), and which role
+ *  the surface gives it. */
+interface PaneHandle {
+  readonly role: PaneRole;
+  readonly name: string;
+  /** The pane element — the single target of every face-level write
+   *  (z-index today; opacity / display / filter in later steps). */
+  readonly element: HTMLElement;
+  /** The SVG renderer Path content in this pane must be pinned to, or null. */
+  renderer: L.SVG | null;
+}
+
+/** The rendering face of one registered layer: which panes carry its content,
+ *  and (later) the derived state those panes are written from.
+ *
+ *  Replaces the two ad-hoc records the layer manager used to keep — the
+ *  stamp-keyed fallback-pane map and the `options.paneSet` flag that stood in
+ *  for "already moved" — with the real state. See core/layer/LayerSurface.ts
+ *  for the two invariants (materialize-before-add, fixed pane set). */
+interface LayerSurface {
+  readonly id: string;
+  readonly layer: L.Layer | null;
+  /** The panes this layer paints into, base first. Fixed once materialized. */
+  readonly panes: readonly PaneHandle[];
+  materialized: boolean;
+  /** Release the panes this surface created. Not called by
+   *  `LayerManager.destroy()`: that drops the registry without taking the
+   *  registered layers off the map, so their panes are still painting. */
+  destroy: () => void;
+}
+
 /** Options for `LayerAPI.createLayers`. */
 interface CreateLayersOpts {
   id: string;
@@ -282,5 +320,8 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerInfo,
+  LayerSurface,
+  PaneHandle,
+  PaneRole,
   RegisterLayerOpts,
 };

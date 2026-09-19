@@ -156,10 +156,10 @@ class LayerFactory {
      *  `origAddLayer` unchanged.
      *
      *  Distinguishing "explicit" from "class-default" uses `options.paneSet`
-     *  — the flag `PaneManager.migrateLayers` / `ensureVector` /
-     *  `LayerFactory.addLayer` set when they actually write `options.pane`.
-     *  Without it, every `L.polyline()` carries `options.pane ===
-     *  'overlayPane'` and the auto-default below would never fire.
+     *  — the flag `ensureVector` / `LayerSurface`'s pin / this method set when
+     *  they actually write `options.pane`. Without it, every `L.polyline()`
+     *  carries `options.pane === 'overlayPane'` and the auto-default below
+     *  would never fire.
      *
      *  Vector layers additionally get pinned to the sub-pane's renderer so
      *  a later `setPane()` call cannot fall through to Leaflet's default

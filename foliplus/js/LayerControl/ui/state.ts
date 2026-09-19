@@ -225,28 +225,27 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
 /** The panes this layer alone renders into, or `[]` when it has none yet.
  *
  *  Ownership, not a list of Leaflet's shared pane names: a declared
- *  `subPanes` entry is component-owned, and the fallback pane `enforceOrder`
- *  assigns is named after the layer's stamp, so it holds that layer alone.
- *  A blocklist could not tell that apart from a pane a host deliberately
- *  shares between two layers, which must not be faded.
+ *  `subPanes` entry is component-owned, and the pane a `LayerSurface`
+ *  synthesizes for a layer that declared none is named after the layer's stamp,
+ *  so it holds that layer alone. A blocklist could not tell that apart from a
+ *  pane a host deliberately shares between two layers, which must not be faded.
  *
- *  `enforceOrder` both assigns the fallback pane and migrates the content into
- *  it (`PaneManager.migrateLayers` moves path elements and marker icons), so
- *  an assignment is the content's real home. Until that pass has run the layer
- *  is in `markerPane` / `overlayPane` and this returns `[]`, which is the
- *  window the per-feature walk covers. */
+ *  `registerLayer` materializes the surface before the layer joins the map, so
+ *  the synthesized pane is the layer's real home from the start; the empty
+ *  answer is for an entry whose live layer the registry has not resolved. */
 const privatePanesOf = (ui: LayerUI, layerInfo: LayerInfo): string[] => {
   if (layerInfo.subPanes?.length > 0) return layerInfo.subPanes;
   const layer = layerInfo.layer;
   if (!layer) return [];
-  const own = ui.m.panes.fallbackPaneOf(layer);
+  const own = ui.m.fallbackPaneOf(layer);
   return own ? [own] : [];
 };
 
 /** Layers the per-feature walk has written to. The walk and the pane carrier
- *  are alternatives, never layers of one another: `enforceOrder` migrates a
- *  layer's content into its own pane on a debounce, so a layer can start on
- *  the walk (content still in a shared pane) and later resolve to a pane. */
+ *  are alternatives, never layers of one another: a plain folium layer joins the
+ *  map through folium's own script, so it can be painted from a shared pane for
+ *  the moment before the ordering pass gives it a surface — a layer can start on
+ *  the walk and then resolve to a pane. */
 const walkedLayers = new WeakSet<L.Layer>();
 
 /**
