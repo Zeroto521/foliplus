@@ -3,7 +3,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
-import { saveHiddenIds, syncHiddenId } from "./state.js";
+import { saveState, syncHiddenId } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -36,8 +36,9 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     syncHiddenId(ui, layerInfo.id, !newState, false);
   });
 
-  // Persist hidden-set after bulk toggle (single debounced write for the batch).
-  saveHiddenIds(ui);
+  // Persist the hidden-set after bulk toggle (single debounced write for the
+  // batch).
+  saveState(ui);
 
   if (group === CONST.GROUP.BASE && !newState) {
     hideColorLayer(ui);

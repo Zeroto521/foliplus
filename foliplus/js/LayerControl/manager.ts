@@ -226,7 +226,7 @@ class LayerManager implements LayerAPI {
 
   /** Persist layer order — delegates to LayerPersistence for centralized I/O. */
   saveOrder() {
-    this.persistence.saveOrder(() => this.layers.map(l => l.id));
+    this.persistence.schedule({ order: () => this.layers.map(l => l.id) });
   }
 
   // ==================== Public API Methods ====================
@@ -525,16 +525,20 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
-    // Remove the layer's id from the persisted hidden set and rename map so
-    // a removed layer doesn't carry stale state into a future session.
-    // The rename prune has to happen here rather than in applyUserState:
-    // that sweep also runs for ids that are not in the registry yet because
-    // they belong to a component registering later (HeatmapControl and
-    // MeasureControl register in their own constructor, after this UI has
-    // already attached), and pruning there would revert the rename on the
-    // first attach — every reload.
-    this.ui?.hiddenIds?.delete(id);
-    this.ui?.saveHiddenIds();
+    // Drop the layer's id from every persisted section so a removed layer
+    // doesn't carry stale state into a future session. The prune has to happen
+    // here rather than in applyUserState: that sweep also runs for ids that
+    // are not in the registry yet because they belong to a component
+    // registering later (HeatmapControl and MeasureControl register in their
+    // own constructor, after this UI has already attached), and pruning there
+    // would revert the change on the first attach — every reload.
+    if (this.ui) {
+      this.ui.hiddenIds.delete(id);
+      delete this.ui.opacityMap[id];
+      delete this.ui.zoomRangeMap[id];
+      delete this.ui.userOverrides[id];
+      this.ui.saveState();
+    }
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
     this.ui?.invalidateFields(id);
@@ -542,9 +546,9 @@ class LayerManager implements LayerAPI {
       delete this.ui.renamedNames[id];
       this.ui.saveNamesState();
     }
-    // The two writes above are on separate debounce timers. Flush so the
-    // removal lands immediately rather than riding out the 100ms window —
-    // unregister is rare, so the flush cost is not worth amortising.
+    // Both writes share one debounce timer. Flush so the removal lands
+    // immediately rather than riding out the 100ms window —unregister is rare,
+    // so the flush cost is not worth amortising.
     this.persistence.flushAll();
     this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when

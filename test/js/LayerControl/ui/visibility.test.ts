@@ -171,8 +171,10 @@ describe("applyVisibility", () => {
     // Seed the hidden state the same way the attach sweep would, so the
     // precondition (hidden on the map) is built by the real funnel.
     window.localStorage.setItem(
-      CONST.STORAGE.VISIBILITY_KEY,
-      JSON.stringify(["overlay1"]),
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: { overlay1: { visible: false, overrides: ["visible"] } },
+      }),
     );
     const seeded = makeUi(map, [
       { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
@@ -222,9 +224,12 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "overlay1", false)).toBe(true);
     // The write is debounced; flush the funnel and read the key back.
     manager.persistence.flushAll();
-    const stored = window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY);
+    const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
     expect(stored).not.toBeNull();
-    expect(JSON.parse(stored!)).toContain("overlay1");
+    expect(JSON.parse(stored!).layers.overlay1).toEqual({
+      visible: false,
+      overrides: ["visible"],
+    });
 
     // A fresh manager over the same storage replays the hide rather than
     // restoring the author's default.
@@ -236,16 +241,23 @@ describe("applyVisibility", () => {
     fresh.destroy();
   });
 
-  it("clears the persisted hide when a layer is shown again", () => {
+  it("keeps the entry when a layer is shown again, but records visible:true", () => {
     applyVisibility(ui, "overlay1", false);
     applyVisibility(ui, "overlay1", true);
     manager.persistence.flushAll();
 
-    // The hidden set is absolute ("not on the map"), not a "user toggled"
-    // delta, so re-showing empties it rather than deleting the key. Re-read it
-    // the way a reload does and assert the layer comes back visible.
-    const stored = window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY);
-    expect(JSON.parse(stored ?? "[]")).toEqual([]);
+    // Old assertion: the persisted hidden set was `[]` — "hidden" was an
+    // absolute list, so re-showing deleted the id. The record cannot express
+    // "the user showed it" versus "the author declared show=True", and the
+    // entry's absence *is* the author's default. Keeping the id therefore
+    // means re-showing an author-declared show=False layer would no longer be
+    // undone on reload, which is exactly the point. The value records the
+    // choice instead.
+    const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
+    expect(JSON.parse(stored!).layers.overlay1).toEqual({
+      visible: true,
+      overrides: ["visible"],
+    });
 
     const fresh = makeUi(map, [
       { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },

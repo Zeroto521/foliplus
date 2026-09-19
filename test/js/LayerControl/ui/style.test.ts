@@ -20,7 +20,7 @@ describe("LayerUI style panel", () => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
     ui.hiddenIds = new Set();
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
     // number, which is what makes the number-format row reachable.
@@ -236,7 +236,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
-    const saveAnnotations = vi.spyOn(manager.persistence, "saveAnnotations");
+    const saveAnnotations = vi.spyOn(manager.persistence, "schedule");
 
     const toggle = panelOf(item).querySelector(
       ".foliplus-style-toggle-input",
@@ -247,6 +247,12 @@ describe("LayerUI style panel", () => {
     expect(setConfig).toHaveBeenCalled();
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
     expect(saveAnnotations).toHaveBeenCalled();
+    const fields = saveAnnotations.mock.calls.at(-1)![0] as {
+      annotations: () => Record<string, Record<string, unknown>>;
+    };
+    expect(fields.annotations().overlay1).toEqual(
+      expect.objectContaining({ show: true }),
+    );
     expect(manager.annotation.getConfig("overlay1").show).toBe(true);
   });
 
@@ -811,6 +817,31 @@ describe("LayerUI style panel", () => {
     expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
     expect(li.opacity).toBe(1);
     expect(ui.opacityMap.overlay1).toBeUndefined();
+  });
+
+  it("dragging back to fully opaque drops the provenance as well as the value", () => {
+    // 100% is the declared default, so a drag back to it is a reset by another
+    // route and must leave no override behind -- otherwise the record keeps a
+    // marker with no value for it.
+    const setStyle = vi.fn();
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.layer = { options: {}, setStyle } as unknown as L.Layer;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "30";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(ui.userOverrides.overlay1).toContain("opacity");
+
+    range.value = "100";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(ui.userOverrides.overlay1 ?? []).not.toContain("opacity");
   });
 
   it("reopening the panel seeds the opacity inputs from opacityMap", () => {
@@ -1437,7 +1468,7 @@ describe("LayerUI style panel", () => {
   it("the debounced annotation save invokes the config getter", () => {
     vi.useFakeTimers();
     try {
-      const saveAnnotations = vi.spyOn(manager.persistence, "saveAnnotations");
+      const saveAnnotations = vi.spyOn(manager.persistence, "schedule");
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
       const panel = panelOf(item)!;
@@ -1459,11 +1490,10 @@ describe("LayerUI style panel", () => {
       vi.advanceTimersByTime(200);
 
       expect(saveAnnotations).toHaveBeenCalled();
-      const getter = saveAnnotations.mock.calls.at(-1)![0] as () => Record<
-        string,
-        unknown
-      >;
-      expect(getter()).toEqual({
+      const fields = saveAnnotations.mock.calls.at(-1)![0] as {
+        annotations: () => Record<string, unknown>;
+      };
+      expect(fields.annotations()).toEqual({
         overlay1: {
           show: true,
           field: "count",

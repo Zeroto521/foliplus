@@ -464,7 +464,7 @@ describe("LayerManager", () => {
     manager.map.removeLayer = removeLayer;
     manager.ui = {
       hiddenIds: new Set(["new1"]),
-      saveHiddenIds: vi.fn(),
+      saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
@@ -484,7 +484,7 @@ describe("LayerManager", () => {
     const onToggle = vi.fn();
     manager.ui = {
       hiddenIds: new Set(["canvas1"]),
-      saveHiddenIds: vi.fn(),
+      saveState: vi.fn(),
     } as any;
     manager.registerLayer({
       id: "canvas1",
@@ -511,7 +511,7 @@ describe("LayerManager", () => {
     manager.map.removeLayer = removeLayer;
     manager.ui = {
       hiddenIds: new Set(["new1"]),
-      saveHiddenIds: vi.fn(),
+      saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
@@ -529,7 +529,7 @@ describe("LayerManager", () => {
     manager.map.removeLayer = removeLayer;
     manager.ui = {
       hiddenIds: new Set(["other"]),
-      saveHiddenIds: vi.fn(),
+      saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
 
@@ -763,18 +763,19 @@ describe("LayerManager", () => {
       spy.mockRestore();
     });
 
-    it("reads only the order key at construction time", () => {
+    it("reads the record once at construction time", () => {
       // The constructor runs before LayerControl's UI has attached, and order is
-      // the only dimension it needs. Reading all four dimensions here would be
-      // four JSON parses to recover one, and would repeat the read LayerUI makes
-      // at attach time against a registry that has since grown.
+      // the only dimension it needs. One key is read either way, so the narrow
+      // read is about not parsing four dimensions to recover one, and about not
+      // repeating the read LayerUI makes at attach time against a registry that
+      // has since grown.
       const spy = vi.spyOn(Storage, "load");
       new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
         { id: "overlay1", name: "O", isBase: false },
       ]);
       const keys = spy.mock.calls.map(c => c[0]);
-      expect(keys).toEqual([CONST.STORAGE.ORDER_KEY]);
+      expect(keys).toEqual([CONST.STORAGE.KEY]);
       spy.mockRestore();
     });
   });
@@ -963,8 +964,12 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
       reindexItems: vi.fn(),
-      saveHiddenIds: vi.fn(),
+      saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
@@ -972,19 +977,28 @@ describe("LayerManager", () => {
     expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
-  it("unregisterLayer removes the layer id from the persisted hidden set", () => {
+  it("unregisterLayer removes the layer id from every persisted section", () => {
     manager.map.hasLayer.mockReturnValue(false);
-    const saveHiddenIds = vi.fn();
+    const saveState = vi.fn();
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
+      opacityMap: { overlay1: 0.4, base1: 1 },
+      zoomRangeMap: { overlay1: [3, 12] },
+      userOverrides: {
+        overlay1: ["visible", "opacity", "zoomRange"],
+        base1: ["visible"],
+      },
       reindexItems: vi.fn(),
-      saveHiddenIds,
+      saveState,
       invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
 
     expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
-    expect(saveHiddenIds).toHaveBeenCalledTimes(1);
+    expect(manager.ui.opacityMap).toEqual({ base1: 1 });
+    expect(manager.ui.zoomRangeMap).toEqual({});
+    expect(manager.ui.userOverrides).toEqual({ base1: ["visible"] });
+    expect(saveState).toHaveBeenCalledTimes(1);
   });
 
   it("attachUI delegates to the UI", () => {
@@ -1049,24 +1063,28 @@ describe("LayerManager", () => {
     save.mockClear();
     m.destroy();
     expect(save).toHaveBeenCalledWith(
-      CONST.STORAGE.ORDER_KEY,
-      expect.any(Array),
+      CONST.STORAGE.KEY,
+      expect.objectContaining({ order: ["a", "b"] }),
       expect.any(String),
     );
   });
 
-  it("destroy flushes a pending hidden-set write instead of cancelling it", () => {
-    // Same ordering for visibility: a hide just before teardown must survive a
-    // reload, which is the whole point of the flush.
+  it("destroy flushes a pending intent write instead of cancelling it", () => {
+    // Same ordering for per-layer intent: a hide just before teardown must
+    // survive a reload, which is the whole point of the flush.
     const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     m.persistence = new LayerPersistence(m.layerRegistry);
     const save = vi.spyOn(Storage, "save");
-    m.persistence.saveHiddenIds(() => new Set(["a"]));
+    m.persistence.schedule({
+      layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
+    });
     save.mockClear();
     m.destroy();
     expect(save).toHaveBeenCalledWith(
-      CONST.STORAGE.VISIBILITY_KEY,
-      ["a"],
+      CONST.STORAGE.KEY,
+      expect.objectContaining({
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      }),
       expect.any(String),
     );
   });
@@ -1794,13 +1812,17 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     // reload-time order comes back from the persisted id list. A refactor
     // that reorders without notifying or persisting would pass every
     // `layers` snapshot assertion above and still silently regress.
+    // The fake clock is cleared and storage emptied before the constructor: an
+    // earlier test leaves debounced writes on the clock and a record in the
+    // shared key, and either one would reorder these layers before the move.
+    vi.useFakeTimers();
+    vi.clearAllTimers();
+    window.localStorage.clear();
     manager = new LayerManager(map, [
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
       { id: "c", name: "C", isBase: false },
     ]);
-    vi.useFakeTimers();
-    const saveSpy = vi.spyOn(Storage, "save");
     const onLayerChange = vi.fn();
     manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
 
@@ -1809,12 +1831,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     expect(onLayerChange).toHaveBeenCalledTimes(1);
     // One hop: index 2 -> 1. reorder(2, 1) on [a, b, c] gives [a, c, b].
     expect(manager.layers.map(l => l.id)).toEqual(["a", "c", "b"]);
-    vi.advanceTimersByTime(100);
-    const orderCalls = saveSpy.mock.calls.filter(c => c[0] === CONST.STORAGE.ORDER_KEY);
-    expect(orderCalls).toHaveLength(1);
-    expect(orderCalls[0][1]).toEqual(["a", "c", "b"]);
+    // Flush instead of ticking the clock: the debounces another test left on
+    // it would write their own order over this test's read of storage.
+    manager.persistence.flushAll();
+    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)).toEqual(
+      expect.objectContaining({ order: ["a", "c", "b"] }),
+    );
 
-    saveSpy.mockRestore();
     vi.useRealTimers();
   });
 
@@ -1974,16 +1997,16 @@ describe("LayerManager user-assigned names", () => {
   });
 
   it("applies a persisted rename at startup", () => {
-    // `attachUI` reads the names key at call time, so the seed has to land
+    // `attachUI` reads the record at call time, so the seed has to land
     // before `attachUI` — but after the LayerManager constructor, which has
-    // already built the registry that loadNames validates against.
+    // already built the registry that loadPersistedState reads against.
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh);
     window.localStorage.setItem(
-      CONST.STORAGE.NAMES_KEY,
-      JSON.stringify({ ext: "My Layer" }),
+      CONST.STORAGE.KEY,
+      JSON.stringify({ renamedNames: { ext: "My Layer" } }),
     );
     fresh.attachUI(document.createElement("div"));
 
@@ -2005,8 +2028,8 @@ describe("LayerManager user-assigned names", () => {
     ]);
     fresh.ui = new LayerUI(fresh);
     window.localStorage.setItem(
-      CONST.STORAGE.NAMES_KEY,
-      JSON.stringify({ heatmap1: "POI Density" }),
+      CONST.STORAGE.KEY,
+      JSON.stringify({ renamedNames: { heatmap1: "POI Density" } }),
     );
     fresh.attachUI(document.createElement("div"));
 
@@ -2034,8 +2057,8 @@ describe("LayerManager user-assigned names", () => {
     // is the only place that prunes a rename, since it knows the layer is
     // gone for good.
     window.localStorage.setItem(
-      CONST.STORAGE.NAMES_KEY,
-      JSON.stringify({ "no-such-id": "Ghost" }),
+      CONST.STORAGE.KEY,
+      JSON.stringify({ renamedNames: { "no-such-id": "Ghost" } }),
     );
     manager.ui.loadPersistedState();
 
