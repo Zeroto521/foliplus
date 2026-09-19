@@ -727,10 +727,6 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
-      // Inside the handler, not beside it: a handler that throws instead of
-      // settling would still leave the promise unobserved. Both statements below
-      // can throw — removePanel touches live DOM, and so can the log — so either
-      // must be wrapped for the rejection to settle.
       try {
         log.warn("suggestion fetch failed:", err);
       } finally {
