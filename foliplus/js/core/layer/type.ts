@@ -128,10 +128,6 @@ interface PaneSpec {
    *  `countFeatureGeometry` / `getGeometryType` exclude from
    *  feature-geometry counts. */
   isLabel?: boolean;
-  /** Whether the pane's content may be hit. False writes
-   *  `pointer-events: none` on the pane element, so a full-bleed canvas label
-   *  pane does not swallow the clicks meant for the data layer below it. */
-  interactive?: boolean;
 }
 
 /** One physical pane a surface paints into: the `leaflet-pane` div, the
@@ -174,9 +170,6 @@ interface CreateLayersPane {
   name: string;
   /** Marks the leaves routed here as labels. See `PaneSpec.isLabel`. */
   isLabel?: boolean;
-  /** Whether the pane's content may be hit. Defaults to true; false writes
-   *  `pointer-events: none` on the pane so the layer below stays clickable. */
-  interactive?: boolean;
 }
 
 /** Options for `LayerAPI.createLayers`. */

@@ -1,14 +1,31 @@
 /* ── Custom Pane Interaction Rules ── */
-/* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.foliplus-layer-pane {
+/* layer-pane is created by PaneManager.ensurePane — LayerSurface materializes
+   a layer's pane before the layer joins the map, LayerFactory.createCanvas
+   makes one for an overlay canvas. LayerControl only z-orders it afterwards.
+   The pane takes no pointer, and neither does the SVG renderer container
+   inside it: an inline <svg> carrying pointer-events is hit over its WHOLE
+   box, not only where it paints, and every foliplus pane holds one — the
+   topmost would swallow clicks for every layer painted below it, which is
+   what killed geometry hover/click and stuck the cursor at the inherited
+   `grab`. Leaflet never sets pointer-events on the svg for the same reason;
+   its paths are reached through the `.leaflet-interactive` rule below. */
+.foliplus-layer-pane,
+.foliplus-layer-pane > svg {
   pointer-events: none;
 }
-.foliplus-layer-pane > * {
+/* `pointer-events` inherits, so everything inside the `none` pane starts off
+   unable to take a hit. A canvas in a pane IS the surface its owner paints
+   into — Leaflet hit-tests a canvas renderer by coordinate, not by element —
+   so it has to be switched back on. A canvas that paints decoration rather
+   than receiving hits says so itself: the overlay canvas
+   LayerFactory.createCanvas builds carries `.foliplus-canvas-layer`, and
+   AnnotationCanvas writes `pointer-events: none` on its own element. */
+.foliplus-layer-pane > canvas:not(.foliplus-canvas-layer) {
   pointer-events: auto;
 }
-.foliplus-layer-pane.foliplus-noninteractive > * {
-  pointer-events: none;
-}
+/* Paths and markers re-enable themselves, in any pane. This is the route by
+   which a label inside a pane keeps its own click handler — MeasureControl's
+   segment labels depend on it. */
 .foliplus-layer-pane .leaflet-interactive,
 .foliplus-layer-pane .leaflet-marker-icon {
   pointer-events: auto;

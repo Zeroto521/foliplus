@@ -73,7 +73,6 @@ class LayerFactory {
       order: i,
       name: p.name,
       isLabel: p.isLabel,
-      interactive: p.interactive ?? true,
     }));
     const paneNames = paneSpecs.map(s => s.name);
     const basePaneName = paneNames[0] ?? null;

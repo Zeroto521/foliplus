@@ -18,7 +18,7 @@
     name: "Mixed",
     panes: [
       { name: "__probe_mixed_data__" },
-      { name: "__probe_mixed_label__", isLabel: true, interactive: false },
+      { name: "__probe_mixed_label__", isLabel: true },
     ],
   });
   const poly = L.polygon([
@@ -36,6 +36,8 @@
   canvas.style.height = "200px";
   canvas.style.position = "absolute";
   canvas.className = "probe-label-canvas";
+  // Decoration, not a hit surface — AnnotationCanvas declares the same.
+  canvas.style.pointerEvents = "none";
   labelPane.appendChild(canvas);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,0,0,1)";

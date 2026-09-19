@@ -210,8 +210,7 @@ class LayerSurface implements LayerSurfaceContract {
         (spec, i) =>
           spec.role === specs[i].role &&
           spec.order === specs[i].order &&
-          spec.name === specs[i].name &&
-          spec.interactive === specs[i].interactive,
+          spec.name === specs[i].name,
       );
     return (
       this.spec.layer === opts.layer &&
@@ -229,16 +228,12 @@ class LayerSurface implements LayerSurfaceContract {
    *  the content that routes into it (`createLayers`' `ensureVector`), and
    *  building it here would put a full-size empty `<svg>` in every label pane.
    *
-   *  A pane declared non-interactive gets `pointer-events: none` on the element
-   *  itself: a full-bleed canvas in a label pane is one element, so it would
-   *  otherwise swallow every click over that area and the data layer below it
-   *  would become unclickable. */
+   *  Every pane is created `pointer-events: none` by CSS, and nothing here
+   *  re-opens it: whether a pane's content takes a hit is the content's own
+   *  call (`AnnotationCanvas` writes `none` on itself, a data canvas is
+   *  re-enabled by the rule in `LayerControl/focus.css`). */
   private addPane(name: string, needRenderer: boolean, spec: PaneSpec): void {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer);
-    if (spec.interactive === false) {
-      pane.style.pointerEvents = "none";
-      pane.classList.add("foliplus-noninteractive");
-    }
     this.panes.push({
       role: spec.role,
       order: spec.order,

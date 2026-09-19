@@ -5,8 +5,8 @@
   const LABEL = "__ni_label_pane__";
   const mg = api.createLayers({
     id: "__ni_pane__",
-    name: "NonInteractivePane",
-    panes: [{ name: DATA }, { name: LABEL, isLabel: true, interactive: false }],
+    name: "LabelCanvas",
+    panes: [{ name: DATA }, { name: LABEL, isLabel: true }],
   });
   const poly = L.polygon([
     [25.9, 119.1],
@@ -48,12 +48,14 @@
       hasMarker: Boolean(markerIcon),
     };
   }
-  // A label canvas is one element covering the map. Without
-  // pointer-events: none on its pane it would swallow every click meant for
-  // the data layer underneath.
+  // A label canvas is one full-bleed element. It paints decoration rather
+  // than receiving hits, so it says so on itself — the shape AnnotationCanvas
+  // uses. Without that it would swallow every click meant for the data layer
+  // underneath.
   const canvas = document.createElement("canvas");
   canvas.width = 4000;
   canvas.height = 4000;
+  canvas.style.pointerEvents = "none";
   labelPane.appendChild(canvas);
 
   const container = window.map.getContainer().getBoundingClientRect();

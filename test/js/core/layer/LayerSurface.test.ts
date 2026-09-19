@@ -180,39 +180,10 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.panes[0].renderer).not.toBeNull();
   });
 
-  it("writes pointer-events: none onto a pane declared non-interactive", () => {
-    // A label pane is a full-bleed canvas: one element, so it would swallow
-    // every click over that area and the data layer below it would stop being
-    // clickable. The declaration, not the component, makes that happen.
-    const { map, panes, host } = makeMap();
-    const surface = new LayerSurface(host, {
-      id: "mixed",
-      layer: new Path() as unknown as L.Layer,
-      paneName: "graph",
-      paneSpecs: specs("graph", "label").map((s, i) =>
-        i === 1 ? { ...s, interactive: false } : s,
-      ),
-    });
-    expect(surface.panes.map(p => p.role)).toEqual(["base", "sub"]);
-    expect(panes.graph.style.pointerEvents).toBe("");
-    expect(panes.label.style.pointerEvents).toBe("none");
-  });
-
-  it("adds the foliplus-noninteractive class to non-interactive panes", () => {
-    const { map, panes, host } = makeMap();
-    new LayerSurface(host, {
-      id: "mixed",
-      layer: new Path() as unknown as L.Layer,
-      paneName: "graph",
-      paneSpecs: specs("graph", "label").map((s, i) =>
-        i === 1 ? { ...s, interactive: false } : s,
-      ),
-    });
-    expect(panes.label.classList.contains("foliplus-noninteractive")).toBe(true);
-    expect(panes.graph.classList.contains("foliplus-noninteractive")).toBe(false);
-  });
-
-  it("leaves an interactive pane's pointer-events untouched", () => {
+  it("never writes pointer-events onto a pane", () => {
+    // Whether a pane's content takes a hit is that content's own call:
+    // AnnotationCanvas writes `none` on itself, a data canvas is re-enabled by
+    // the canvas rule in LayerControl/focus.css. The surface stays out of it.
     const { map, panes, host } = makeMap();
     new LayerSurface(host, {
       id: "mixed",
@@ -477,16 +448,6 @@ describe("LayerSurface.matches", () => {
         paneSpecs: [
           { ...base.paneSpecs[0] },
           { ...base.paneSpecs[1], role: "annotation" },
-        ],
-      }),
-    ).toBe(false);
-    // Same names, but the second pane now answers to the pointer.
-    expect(
-      surface.matches({
-        ...base,
-        paneSpecs: [
-          { ...base.paneSpecs[0] },
-          { ...base.paneSpecs[1], interactive: true },
         ],
       }),
     ).toBe(false);

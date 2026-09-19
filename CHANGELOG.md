@@ -92,7 +92,7 @@
 - `HeatmapControl`: release the `BEFORE_EXPORT`/`AFTER_EXPORT` subscriptions on control removal and drop the dead defensive guards from the teardown path ([#301](https://github.com/Zeroto521/foliplus/pull/301))
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
-- `LayerControl`: `interactive: false` pane now blocks all direct-child clicks; `foliplus-noninteractive` class scopes `> * { pointer-events: none }` to non-interactive panes only, keeping data-layer canvases clickable ([#377](https://github.com/Zeroto521/foliplus/pull/377))
+- `LayerControl`: a pane's SVG renderer no longer captures the map — it stays `pointer-events: none` (an inline `<svg>` with `auto` is hit over its whole box, so the topmost pane swallowed every layer below it and geometry hover/click died); a canvas in a pane is re-enabled instead, and one that paints decoration opts out on itself ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 
 ## [v0.3.0] (2026-08-02)
 

@@ -38,6 +38,5 @@
     pointerEvents: getComputedStyle(pane).pointerEvents,
     canvasPointerEvents: getComputedStyle(canvas).pointerEvents,
     canvasClicked,
-    isNoninteractive: pane.classList.contains("foliplus-noninteractive"),
   };
 };
