@@ -158,7 +158,6 @@ describe("bindControls — change handlers", () => {
     ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
     expect(m.currentField).toBe("sales");
-    expect(m.fieldAuto).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -349,13 +348,11 @@ describe("bindControls — clear (reset) button", () => {
       label_format: "int",
       border_weight: 3,
       border_color: "#abcdef",
-      field: "value",
     });
     const { ctrl, m, panel } = setup(conf);
     m.selectedLayerId = "p1";
     m.currentAgg = CONST.AGG.SUM;
     m.currentField = "x";
-    m.fieldAuto = false;
     m.autoFieldKey = "y";
     m.currentScheme = "Greens";
     m.numClasses = 8;
@@ -373,7 +370,7 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(m.selectedLayerId).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe(conf.field);
+    expect(m.currentField).toBe("");
     expect(m.numClasses).toBe(conf.n_classes);
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
@@ -612,7 +609,7 @@ describe("layer dropdown — source meta publish", () => {
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
     m.currentAgg = "avg";
-    m.fieldAuto = true;
+    m.currentField = "";
     m.autoFieldKey = null;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       {

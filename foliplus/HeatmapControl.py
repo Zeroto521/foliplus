@@ -67,11 +67,6 @@ class HeatmapControl(BaseControl):
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
 
-    field : str or None, default None
-        Property name to aggregate on. ``None`` counts features per hexagon
-        (auto-detected from the first numeric property); a string aggregates
-        that numeric property.
-
     border_weight : float, default 1.5
         Hexagon border width in canvas units. Must not be negative.
 
@@ -115,13 +110,11 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
-    >>> HeatmapControl(field="value", border_weight=2.0, label_show=False).add_to(m)
     """
 
     default_js = load_cdn("HeatmapControl")
 
     _export_fields = (
-        "field",
         "color_scheme",
         "method",
         "n_classes",
@@ -147,7 +140,6 @@ class HeatmapControl(BaseControl):
         n_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
         schemes: list[str] | None = None,
-        field: str | None = None,
         border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_color: str = "#333333",
         fill_opacity: Fraction = 0.7,
@@ -159,7 +151,6 @@ class HeatmapControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
-        self.field = field
         self.color_scheme = color_scheme
         self.method = method
         self.n_classes = n_classes

@@ -102,7 +102,6 @@ describe("getPointValue", () => {
   it("returns 1 as fallback for missing field", () => {
     m.currentAgg = CONST.AGG.SUM;
     m.currentField = "nonexistent";
-    m.fieldAuto = false;
     expect(m.getPointValue({})).toBe(1);
   });
 });
@@ -259,18 +258,17 @@ describe("readMarkerField — additional gaps", () => {
 });
 
 describe("getPointValue — additional gaps", () => {
-  it("uses autoFieldKey when fieldAuto is true", () => {
+  it("uses autoFieldKey when currentField is empty", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = true;
+    m.currentField = "";
     m.autoFieldKey = "value";
     expect(m.getPointValue({ value: 42 })).toBe(42);
   });
 
-  it("uses currentField when fieldAuto is false", () => {
+  it("uses currentField when it is set", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = false;
     m.currentField = "options.value";
     expect(m.getPointValue({ options: { value: 99 } })).toBe(99);
   });
@@ -278,7 +276,6 @@ describe("getPointValue — additional gaps", () => {
   it("warns on value fallback (once per render)", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = false;
     m.currentField = "bad_field";
     m.valueFallbackWarned = false;
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -535,7 +532,7 @@ describe("getSelectedPoints", () => {
   it("returns cached points when key matches", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
-    m.cachedPoints = { key: "layer1|count|true|", pts: [{ lat: 1 }] } as any;
+    m.cachedPoints = { key: "layer1|count|", pts: [{ lat: 1 }] } as any;
     const pts = m.getSelectedPoints();
     expect(pts).toHaveLength(1);
   });
@@ -616,7 +613,7 @@ describe("renderHexagons", () => {
     m.map = { _container: {}, getZoom: () => 5 };
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
-      key: "layer1|count|true||2|jenks|Reds|6",
+      key: "layer1|count||2|jenks|Reds|6",
       data: {
         hexCells: {},
         getAggValue: () => 0,
@@ -799,7 +796,6 @@ describe("HeatmapManager — persistence", () => {
       m.currentLabelShow = true;
       m.currentLabelFormat = "comma";
       m.currentField = "price";
-      m.fieldAuto = false;
 
       m.saveConfig();
 
@@ -814,7 +810,6 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.labelShow).toBe(true);
       expect(stored.labelFormat).toBe("comma");
       expect(stored.field).toBe("price");
-      expect(stored.fieldAuto).toBe(false);
     });
 
     it("saves null layerId when no layer selected", () => {
@@ -898,7 +893,6 @@ describe("HeatmapManager — persistence", () => {
         labelShow: true,
         labelFormat: "percent",
         field: "properties.qty",
-        fieldAuto: false,
       });
       expect(m.selectedLayerId).toBe("layer_xyz");
       expect(m.currentAgg).toBe("max");
@@ -911,7 +905,6 @@ describe("HeatmapManager — persistence", () => {
       expect(m.currentLabelFormat).toBe("percent");
       // Legacy "properties." prefix is stripped on load.
       expect(m.currentField).toBe("qty");
-      expect(m.fieldAuto).toBe(false);
     });
 
     it("clamps numClasses to valid range", () => {
@@ -959,7 +952,6 @@ describe("HeatmapManager — persistence", () => {
       m1.borderColor = "#111111";
       m1.currentLabelShow = true;
       m1.currentField = "value";
-      m1.fieldAuto = false;
       m1.saveConfig();
 
       const m2 = makeManager();
@@ -976,7 +968,6 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
       expect(m2.currentField).toBe("value");
-      expect(m2.fieldAuto).toBe(false);
     });
 
     it("returns defaults when localStorage is empty", () => {
@@ -988,7 +979,6 @@ describe("HeatmapManager — persistence", () => {
     it("preserves falsy values (false / 0) through save → load → apply", () => {
       const m1 = makeManager();
       m1.currentLabelShow = false;
-      m1.fieldAuto = false;
       m1.borderWeight = 0;
       m1.saveConfig();
 
@@ -998,7 +988,6 @@ describe("HeatmapManager — persistence", () => {
       m2.applySavedConfig(loaded!);
 
       expect(m2.currentLabelShow).toBe(false);
-      expect(m2.fieldAuto).toBe(false);
       expect(m2.borderWeight).toBe(0);
     });
   });
@@ -1570,7 +1559,6 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 2 }];
     m.selectedLayerId = "pts";
     m.currentAgg = "sum";
-    m.fieldAuto = false;
     m.currentField = "properties.sales";
 
     m.syncSourceMeta();
@@ -1593,12 +1581,12 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("uses the auto field when fieldAuto is on", () => {
+  it("uses the auto field when currentField is empty", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
     m.currentAgg = "avg";
-    m.fieldAuto = true;
+    m.currentField = "";
     m.autoFieldKey = "properties.dwell";
 
     m.syncSourceMeta();
@@ -1623,7 +1611,6 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
     m.currentAgg = "max";
-    m.fieldAuto = false;
     m.currentField = "value";
 
     m.syncSourceMeta();

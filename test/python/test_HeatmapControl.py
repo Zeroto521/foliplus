@@ -156,10 +156,10 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl(locale="zh"))
         assert_locale(html, "网格聚合")
 
-    def test_field_kwarg(self):
-        """Direct field kwarg is injected into JS template."""
-        html = render_control(HeatmapControl(field="value"))
-        assert_config_value(html, "field", "value")
+    def test_field_kwarg_removed(self):
+        """field kwarg is no longer accepted — it was a dead declaration."""
+        with pytest.raises(TypeError):
+            HeatmapControl(field="value")
 
     def test_scheme_names_inline(self):
         """schemes list is inlined as JSON array."""
