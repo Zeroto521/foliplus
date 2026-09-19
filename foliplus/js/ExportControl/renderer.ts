@@ -257,8 +257,9 @@ class ExportRenderer {
             rc,
             this.calcTiles(li.layer, geoBounds, zoom, scale),
           );
-          if (tiles.length > 0)
+          if (tiles.length > 0) {
             sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
+          }
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
 
