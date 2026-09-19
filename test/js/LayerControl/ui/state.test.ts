@@ -7,6 +7,7 @@ import {
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
+  loadPersistedState,
   markOverride,
   saveFoldState,
   saveState,
@@ -733,6 +734,19 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     expect(ui.m.map.addLayer).toHaveBeenCalled();
     expect(layerInfo.visible).toBe(true);
   });
+
+  it("applyVisibleStateOne leaves an already-visible layer alone", () => {
+    // The sweep runs on every attach and every rebuild, so a layer that is
+    // already on the map must not be added again -- addLayer on a live layer
+    // is redundant at best and re-orders the stacking at worst.
+    const ui = makeApplyUi(true);
+    const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
+
+    applyVisibleStateOne(ui, layerInfo);
+
+    expect(ui.m.map.addLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
 });
 
 describe("ui/state saveFoldState", () => {
@@ -1393,6 +1407,41 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(fields.layers()).toEqual({});
   });
 
+  it("keeps the other dimensions when one is reset", () => {
+    // Reset is per dimension, so unmarking zoomRange must not drop the layer's
+    // other choices -- wiping the whole entry here would make one Reset button
+    // forget the opacity the user set moments earlier.
+    const bare = {
+      userOverrides: { overlay1: ["visible", "zoomRange"] },
+    } as unknown as LayerUI;
+
+    unmarkOverride(bare, "overlay1", "zoomRange");
+
+    expect(bare.userOverrides.overlay1).toEqual(["visible"]);
+  });
+
+  it("drops an entry whose only marker holds no live value", () => {
+    // The mirror of the markOverride refusal, from the write side: a marker that
+    // lost its value must not be written as an empty entry, which the next read
+    // would discard anyway. Failing closed here keeps the invariant that every
+    // persisted marker has a value.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, unknown>;
+    };
+    expect(fields.layers()).toEqual({});
+  });
+
   it("refuses a marker for a dimension with no live value, loudly", () => {
     // buildLayerStates filters a marker whose value is missing, so recording it
     // here would mean the user's action vanishes on the next write with nothing
@@ -1414,6 +1463,55 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(schedule).not.toHaveBeenCalled();
     expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
     warn.mockRestore();
+  });
+
+  it("restores a stored opacity and zoom range from the record", () => {
+    // The record keeps the value and the provenance side by side, so a restore
+    // must move them to the matching live maps. Reading the value without the
+    // provenance would persist an author default as if the user had chosen it.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        order: null,
+        foldedGroups: ["Overlay"],
+        renamedNames: {},
+        annotations: {},
+        layers: {
+          overlay1: {
+            opacity: 0.35,
+            zoomRange: [3, 12],
+            overrides: ["opacity", "zoomRange"],
+          },
+        },
+      }),
+    );
+
+    loadPersistedState(ui);
+
+    expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
+    expect(ui.opacityMap).toEqual({ overlay1: 0.35 });
+    expect(ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
+    expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
+  });
+
+  it("persists an opacity change together with its provenance", () => {
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: { overlay1: 0.6 },
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, { opacity?: number; overrides: string[] }>;
+    };
+    expect(fields.layers()).toEqual({
+      overlay1: { opacity: 0.6, overrides: ["opacity"] },
+    });
   });
 
   it("applyUserState(id) ignores an id with no registry entry", () => {
