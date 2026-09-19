@@ -59,9 +59,11 @@ beforeEach(() => {
 // that goes *inward* at another object's private field. `this._map` in
 // BaseControl.ts and ScaleControl/index.ts is Leaflet's own field on the
 // L.Control subclass they *are* (set by Control.addTo) — their own state, not
-// an inward reach. Only the dot-anchored branch carries the lookbehind; the
-// lookbehind excludes the dot immediately following `this.`, so `this.foo._map`
-// is still caught.
+// an inward reach. The `\b` is what makes the exclusion tight: bare
+// `(?<!this)` would also exempt `_this._map`, where `_this` is `this` held
+// under another name and the field is reached *through* it — an inward reach
+// all the same. Only the dot-anchored branch carries the lookbehind, so a
+// further hop (`this.foo._map`) is still caught.
 //
 // Comments are stripped before matching, so the prose above and in the sources
 // may name the fields freely; that is where the why lives. String literals are
@@ -69,7 +71,7 @@ beforeEach(() => {
 // and `${position}_container` from matching, and removing the literals would
 // hide the `["_panes"]` form the bare alternative exists to catch.
 const PRIVATE_FIELD_RE =
-  /(?<!this)\._(?:attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url)\b|\b_(?:panes|paneRenderers)\b/g;
+  /(?<!\bthis)\._(?:attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url)\b|\b_(?:panes|paneRenderers)\b/g;
 
 const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
@@ -185,10 +187,17 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     // Own field, excluded by lookbehind.
     expect(matched("this._map")).toEqual([]);
     expect(matched("ensureEvents(this._map)")).toEqual([]);
-    // ...but only the dot immediately after `this`. A further hop is still an
-    // inward reach, so the lookbehind is 4 characters, not 5.
+    // A further hop is still an inward reach.
     expect(matched("this.foo._map")).toEqual(["._map"]);
     expect(matched("layer._map")).toEqual(["._map"]);
+    // So is `this` held under another name: same private field, reached through
+    // the alias. `\b` is what keeps the exclusion to the identifier alone.
+    expect(matched("_this._map")).toEqual(["._map"]);
+    expect(matched("const _this = this; _this._map")).toEqual(["._map"]);
+    expect(matched("window._this._map")).toEqual(["._map"]);
+    // The pane registry is caught through an alias as well, by the bare
+    // alternative.
+    expect(matched("_this._panes")).toEqual(["_panes"]);
   });
 });
 
