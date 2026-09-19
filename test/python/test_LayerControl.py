@@ -1183,8 +1183,15 @@ class TestLayerControlBrowser:
             for kid in result["kids"]:
                 assert kid["pane"] == "__geojson_pane__", f"child not pinned: {kid}"
                 assert kid["paneSet"] is True, f"child not marked pinned: {kid}"
-                assert kid["hasRenderer"], f"child has no renderer option: {kid}"
+                assert kid["hasRendererOpt"], f"child has no renderer option: {kid}"
+                assert kid["hasRenderer"], f"child has no _renderer: {kid}"
                 assert kid["isPath"], f"child has no renderer container: {kid}"
+                # DOM truth: the SVG container's parent must be the declared pane element.
+                assert kid["inDeclaredPane"] is True, (
+                    f"child renders outside declared pane "
+                    f"(parent: {kid['parentTag']}."
+                    f"{kid['parentClass']}): {kid}"
+                )
             assert not errors, f"JS errors: {errors}"
 
     def test_icon_svg_payload_never_reaches_dom(self, browser, tmp_path):
@@ -1379,6 +1386,39 @@ class TestLayerControlBrowser:
             assert result["markerHitInLabelPane"] is True, result
             assert result["labelMarkerClicked"] is True, (
                 "the marker inside the non-interactive pane lost its click "
+                f"handler: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_clickable_data_canvas(self, browser, tmp_path):
+        """A canvas in an interactive data pane receives clicks.
+
+        The ``foliplus-noninteractive`` class (added only when
+        ``interactive: false``) scopes the ``> * { pointer-events: none }``
+        rule so that data-layer canvases keep their default
+        ``pointer-events: auto`` and stay clickable.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="clickable_data") as (
+            page,
+            errors,
+        ):
+            result = page.evaluate(_js("LayerControl/clickable_data_canvas"))
+            assert result is not None, "LayerAPI not found"
+            assert result["ready"] is True, f"fixture not ready: {result}"
+            assert result["isNoninteractive"] is False, (
+                "data pane should not carry the non-interactive class: "
+                f"{result}"
+            )
+            assert result["pointerEvents"] == "none", (
+                "the pane div itself stays pointer-events:none (it is a "
+                f"container, not a hit target): {result}"
+            )
+            assert result["canvasPointerEvents"] == "auto", (
+                "canvas inside an interactive pane must keep its default "
+                f"pointer-events:auto: {result}"
+            )
+            assert result["canvasClicked"] is True, (
+                "the canvas inside the interactive pane lost its click "
                 f"handler: {result}"
             )
             assert not errors, f"JS errors: {errors}"

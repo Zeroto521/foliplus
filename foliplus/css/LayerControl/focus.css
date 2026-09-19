@@ -1,7 +1,12 @@
 /* ── Custom Pane Interaction Rules ── */
 /* layer-pane is dynamically created by LayerControl._enforceLayerOrder */
-.foliplus-layer-pane,
+.foliplus-layer-pane {
+  pointer-events: none;
+}
 .foliplus-layer-pane > * {
+  pointer-events: auto;
+}
+.foliplus-layer-pane.foliplus-noninteractive > * {
   pointer-events: none;
 }
 .foliplus-layer-pane .leaflet-interactive,

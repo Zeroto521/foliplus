@@ -235,7 +235,10 @@ class LayerSurface implements LayerSurfaceContract {
    *  would become unclickable. */
   private addPane(name: string, needRenderer: boolean, spec: PaneSpec): void {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer);
-    if (spec.interactive === false) pane.style.pointerEvents = "none";
+    if (spec.interactive === false) {
+      pane.style.pointerEvents = "none";
+      pane.classList.add("foliplus-noninteractive");
+    }
     this.panes.push({
       role: spec.role,
       order: spec.order,

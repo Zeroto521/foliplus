@@ -44,16 +44,21 @@
   });
   mg.mainLayer.addLayer(geo);
   const kids = [];
+  const declaredPane = window.map.getPane(PANE);
   geo.eachLayer(c => {
     const renderer = c._renderer;
     const container = renderer && renderer._container;
+    const parent = container ? container.parentNode : null;
     kids.push({
       pane: c.options.pane,
       paneSet: c.options.paneSet,
-      hasRenderer: Boolean(c.options.renderer),
+      hasRendererOpt: Boolean(c.options.renderer),
+      hasRenderer: Boolean(renderer),
       isPath: Boolean(container),
-      // DOM truth: which pane the shape's SVG element actually renders into.
-      containerPane: container ? container.parentNode.id : null,
+      // DOM truth: the SVG container's parent must be the declared pane element.
+      inDeclaredPane: declaredPane ? parent === declaredPane : false,
+      parentTag: parent ? parent.tagName : null,
+      parentClass: parent ? parent.className.slice(0, 60) : null,
     });
   });
   return {

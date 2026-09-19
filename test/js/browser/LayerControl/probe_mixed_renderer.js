@@ -18,7 +18,7 @@
     name: "Mixed",
     panes: [
       { name: "__probe_mixed_data__" },
-      { name: "__probe_mixed_label__", isLabel: true },
+      { name: "__probe_mixed_label__", isLabel: true, interactive: false },
     ],
   });
   const poly = L.polygon([
