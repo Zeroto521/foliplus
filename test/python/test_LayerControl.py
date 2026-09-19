@@ -2145,9 +2145,10 @@ class TestLayerControlBrowser:
                     assert row["onMap"] is True, (
                         f"{row['id']}: re-entered the map while pruned\n{rows}"
                     )
-            key = next(k for k in rows["storage"] if "layer_visibility" in k)
-            stored = json.loads(rows["storage"][key])
-            assert all(not i.startswith("__probe") for i in stored), (
+            key = next(k for k in rows["storage"] if "layer_state" in k)
+            record = json.loads(rows["storage"][key])
+            layers = record.get("layers", {})
+            assert all(not lid.startswith("__probe") for lid in layers), (
                 f"pruned ids persisted again: {rows['storage']}"
             )
 

@@ -35,7 +35,12 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
-import { applyOpacityStateOne, saveOpacityMap } from "./state.js";
+import {
+  applyOpacityStateOne,
+  markOverride,
+  saveState,
+  unmarkOverride,
+} from "./state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
@@ -79,9 +84,9 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
 
 /** Persist the current per-layer annotation config map. */
 const persistStyleLabel = (ui: LayerUI): void => {
-  ui.m.persistence.saveAnnotations(() =>
-    Object.fromEntries(ui.m.annotation.configEntries()),
-  );
+  ui.m.persistence.schedule({
+    annotations: () => Object.fromEntries(ui.m.annotation.configEntries()),
+  });
 };
 
 /** Shared section heading (common/form.css `.foliplus-section-heading`). */
@@ -137,8 +142,12 @@ const commitOpacityPct = (
   if (li.opacity !== opacity) {
     applyOpacityStateOne(ui, li, opacity);
     if (opacity === 1) delete ui.opacityMap[layerId];
-    else ui.opacityMap[layerId] = opacity;
-    saveOpacityMap(ui);
+    else {
+      ui.opacityMap[layerId] = opacity;
+      // Fully opaque is the declared default, so there is no override to keep.
+      markOverride(ui, layerId, "opacity");
+    }
+    saveState(ui);
   }
   syncOpacityInputs(panel, pct, commit);
 };
@@ -184,7 +193,8 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (li) applyOpacityStateOne(ui, li, 1);
   delete ui.opacityMap[layerId];
-  saveOpacityMap(ui);
+  unmarkOverride(ui, layerId, "opacity");
+  saveState(ui);
 };
 
 /** Shared Reset footer — divider + button, same vocabulary for the annotation
