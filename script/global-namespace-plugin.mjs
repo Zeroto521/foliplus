@@ -57,29 +57,47 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   return result;
 };
 
+/** Map a shared-module specifier to the global namespace holding its exports:
+ *  foliplus.BaseControl / foliplus.hint / foliplus.core.<mod> /
+ *  foliplus.common.<mod>. The shim generated below reads exactly this string,
+ *  so a wrong value makes the import resolve to `undefined` at runtime while
+ *  the build still prints a tick for it.
+ *
+ *  Two specifiers are exceptions, and they are the two things
+ *  runtime/index.ts publishes directly on `window.foliplus` rather than under
+ *  `.core` — `BaseControl` and `hint`, in the `Object.assign(window.foliplus,
+ *  …)` block. `hint` is the only core-root file this affects: nothing in the
+ *  tree publishes or reads `foliplus.core.hint`, so letting it fall through to
+ *  the general rule would ship a shim that reads an empty namespace.
+ *
+ *  `component` and `mode` are NOT exceptions. runtime publishes them under
+ *  `foliplus.core` (the `foliplus.core.component = …` lines) and the general
+ *  rule returns byte-for-byte what their former manual entries did, which is
+ *  why those entries were deleted. Appearing in SKIPPED_CORE_FILES
+ *  (script/scan-registry.mjs) only means the generated registry does not
+ *  publish them; that is a registration decision and says nothing about the
+ *  namespace a shim must read.
+ */
 const sharedGlobalNamespace = spec => {
   if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
+  if (spec === "#core/hint.js") return "foliplus.hint";
+  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
+  // future events/modes). Core-root single files are handled below.
+  const coreSub = spec.match(/^#core\/([^/]+)\//);
+  if (coreSub) return "foliplus.core." + coreSub[1];
   // Every core-root single file needs its own entry: the #common fallback below
   // would build "foliplus.common.#core/<name>", whose shim declaration is not
   // valid JS. A missing entry therefore breaks whichever component imports the
   // file, and build.mjs still prints a tick for it — the artifact just stays
   // stale. test/js/script/global-namespace-plugin.test.ts walks the directory
-  // and fails on any entry that does not parse.
-  if (spec === "#core/hint.js") return "foliplus.hint";
-  if (spec === "#core/component.js") return "foliplus.core.component";
-  if (spec === "#core/interaction.js") return "foliplus.core.interaction";
-  if (spec === "#core/labelCollision.js") return "foliplus.core.labelCollision";
-  if (spec === "#core/labelControl.js") return "foliplus.core.labelControl";
-  if (spec === "#core/labelField.js") return "foliplus.core.labelField";
-  if (spec === "#core/leafletAdapter.js") return "foliplus.core.leafletAdapter";
-  if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
-  if (spec === "#core/mapApi.js") return "foliplus.core.mapApi";
-  if (spec === "#core/mode.js") return "foliplus.core.mode";
-  if (spec === "#core/controlEnv.js") return "foliplus.core.controlEnv";
-  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
-  // future events/modes). Core-root single files are handled above.
-  const coreSub = spec.match(/^#core\/([^/]+)\//);
-  if (coreSub) return "foliplus.core." + coreSub[1];
+  // and fails on any entry that does not parse. `index` is carved out:
+  // #core/index.js is a barrel nothing imports, and mapping it to
+  // foliplus.core.index would resurrect dead code from the deleted
+  // core/index.ts barrel.
+  const coreSingle = spec.match(/^#core\/([^/]+?)(?:\.js)?$/);
+  if (coreSingle && coreSingle[1] !== "index") {
+    return "foliplus.core." + coreSingle[1];
+  }
   const mod = spec.replace(/^#common\//, "").replace(/\.js$/, "");
   return "foliplus.common." + mod;
 };
