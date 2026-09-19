@@ -495,6 +495,21 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
     expect(surface.restoreZ()).toBe(false);
   });
 
+  it("handles restoreZ with zBefore unset (defensive guard)", () => {
+    // setZOverride always sets zBefore before overrideZ, so this state is
+    // unreachable through the public API. The ?? [] on the loop guards against
+    // a future refactor that forgets to set it — it should no-op, not throw.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "plain",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    const surfaceAny = surface as unknown as Record<string, unknown>;
+    surfaceAny.overrideZ = 8990;
+    expect(surface.restoreZ()).toBe(true);
+    expect(surfaceAny.overrideZ).toBeUndefined();
+  });
+
   it("is a translation, not a re-sort: the panes' relative order holds at both bases", () => {
     // Two sub-panes plus the layer's annotation pane. `writeZ` prices an
     // annotation pane at base + ANNOTATION_Z_OFFSET and ignores its order, so it

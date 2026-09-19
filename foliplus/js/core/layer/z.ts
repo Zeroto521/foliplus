@@ -10,13 +10,20 @@
 //
 // One ladder stays out on purpose: the popup/tooltip/marker relationship the
 // ordering pass writes onto Leaflet's own panes (`topZ + 1 / topZ / topZ - 1`
-// in `LayerManager.enforceOrder`). Those three lines describe the relative
-// order of Leaflet's *native* panes, not a foliplus layer's slot, and `topZ`
-// itself already comes out of `zFor` — so only a constant relationship is
-// left. Folding it in would mean adding `PaneRole` values (marker/tooltip/
-// popup) that no layer ever declares, polluting the frozen role contract, and
-// the per-role renderer defaults do not apply to a native pane at all. So
-// leave those three lines where they are: a fixed relationship, not a ladder.
+// in `LayerManager.enforceOrder`). The base for those three lines comes out of
+// the ladder (`topSlotZ`); what stays out is the fixed relationship between
+// them — they describe the relative order of Leaflet's *native* panes, not a
+// foliplus layer's slot. Folding it in would mean adding `PaneRole` values
+// (marker/tooltip/popup) that no layer ever declares, polluting the frozen
+// role contract, and the per-role renderer defaults do not apply to a native
+// pane at all. So leave those three lines where they are: a fixed
+// relationship, not a ladder.
+//
+// Division of labour: core owns the z space — every value the layer stack
+// writes, including the focus spotlight ceiling. LayerControl owns *when* to
+// use it (the focus state machine), not what the numbers are. That is why
+// `FOCUS_Z` lives here rather than in the component dir: a second home would
+// recreate the "two places must stay in sync" problem this file exists to end.
 //
 // Pure: no DOM, no CONF, no Leaflet.
 import { Z_INDEX } from "./const.js";
@@ -81,4 +88,8 @@ const zFor = ({
   return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
 
-export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, zFor, type ZArgs };
+/** The z one step above the topmost layer's slot — the base for the three
+ *  native-pane offsets (popup / tooltip / marker) in `LayerManager.enforceOrder`. */
+const topSlotZ = (count: number): number => zFor({ index: -1, count });
+
+export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor, type ZArgs };

@@ -4,6 +4,7 @@ import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
+  GridLayer,
   allFolded,
   attachWithGroup,
   findItem,
@@ -927,7 +928,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay2");
 
       expect(panes.get("custom_pane")?.style.zIndex).toBe(
-        String(CONST.FOCUS.PANE_Z - 10),
+        String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP),
       );
 
       ui.cancelFocus();
@@ -995,6 +996,68 @@ describe("LayerUI focus", () => {
 
       // Best-effort lift: discovery failure skips the pane loop, not the focus.
       expect(() => ui.focusLayer("overlay2")).not.toThrow();
+    });
+
+    it("lifts discovered panes when the surface has no pane of its own", () => {
+      // A GridLayer's surface has no panes (it carries its z on itself), so
+      // setZOverride returns false and the fallback calls getLayerPanes. The
+      // shared default panes it discovers must be skipped — only the per-layer
+      // pane is lifted.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      const gridLayer = Object.assign(new GridLayer(), {
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+      manager.registerLayer({
+        id: "tiles",
+        name: "Tiles",
+        layer: gridLayer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
+        "custom_pane",
+        "overlayPane",
+      ]);
+
+      ui.focusLayer("tiles");
+
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(true);
+      // The default pane is skipped before getPane is called, so it was
+      // never created — the loop `continue`s on it.
+      expect(map.getPane).not.toHaveBeenCalledWith("overlayPane");
+
+      ui.cancelFocus();
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(false);
+    });
+
+    it("skips the pane loop without throwing when discovery fails on a pane-less surface", () => {
+      const gridLayer = Object.assign(new GridLayer(), {
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+      manager.registerLayer({
+        id: "tiles",
+        name: "Tiles",
+        layer: gridLayer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("boom");
+      });
+
+      expect(() => ui.focusLayer("tiles")).not.toThrow();
     });
 
     it("creates the focus pane when the map lacks it", () => {

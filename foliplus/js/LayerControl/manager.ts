@@ -13,11 +13,11 @@ import {
   LayerSurface,
   PaneManager,
   type RegisterLayerOpts,
-  Z_INDEX,
   countFeatureGeometry,
   findLayer,
   forEachLeaf,
   getGeometryType,
+  topSlotZ,
   zFor,
 } from "#core/layer/index.js";
 import {
@@ -688,8 +688,8 @@ class LayerManager implements LayerAPI {
       // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
       // markers (search/locate pins, ✕, data markers) one step below topZ but
       // still above every data pane — otherwise markerPane would hide under
-      // overlays. These offsets are relative to Z_INDEX.STEP (10).
-      const topZ = zFor({ index: 0, count: this.layers.length }) + Z_INDEX.STEP;
+      // overlays. The base comes from the ladder; the offsets are fixed.
+      const topZ = topSlotZ(this.layers.length);
       const popupPaneEl = this.map.getPane("popupPane");
       if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
       const tooltipPaneEl = this.map.getPane("tooltipPane");

@@ -4,6 +4,7 @@ import {
   ANNOTATION_Z_OFFSET,
   FOCUS_Z,
   focusLayerZ,
+  topSlotZ,
   zFor,
 } from "#foliplus/core/layer/z.js";
 
@@ -47,6 +48,22 @@ describe("zFor slots", () => {
   it("prices a pane at the stack base while no slot has been claimed", () => {
     expect(zFor({})).toBe(Z_INDEX.BASE);
     expect(zFor({ order: 2 })).toBe(Z_INDEX.BASE + 2);
+  });
+
+  it("prices an index without a count at the base, not a slot", () => {
+    // count defaults to index, so (count - index) is 0 — the base itself.
+    // A caller that gives an index but forgets the count silently lands on
+    // the base rather than erroring; this pins the behaviour so a future
+    // change to the default is a conscious decision.
+    expect(zFor({ index: 3 })).toBe(Z_INDEX.BASE);
+  });
+
+  it("prices topSlotZ one step above the topmost layer's slot", () => {
+    const count = 3;
+    const topSlot = zFor({ index: 0, count });
+    expect(topSlotZ(count)).toBe(topSlot + Z_INDEX.STEP);
+    // Equivalent to the old hand-derived formula.
+    expect(topSlotZ(count)).toBe(zFor({ index: 0, count }) + Z_INDEX.STEP);
   });
 
   it("prices an absolute base instead of a slot", () => {

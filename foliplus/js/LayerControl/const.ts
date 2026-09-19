@@ -39,11 +39,14 @@ const FOCUS = {
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this; the focused layer is temporarily lifted just below it so
-   *  other layers never cover it. The values live in the shared z ladder
-   *  (`core/layer/z`), which owns every z the stack writes. */
+   *  other layers never cover it. The real value lives in the shared z
+   *  ladder (`core/layer/z`); this alias exists so existing assertions and
+   *  external readers can refer to the value through the component's own
+   *  surface without reaching into core — the single source of truth is
+   *  still only `core/layer/z`. */
   PANE_Z: FOCUS_Z.overlay,
   /** Gap below PANE_Z the focused layer's pane is lifted to (must stay below
-   *  the mask, above every layer pane). */
+   *  the mask, above every layer pane). Same alias rationale as PANE_Z. */
   FOCUSED_Z_GAP: FOCUS_Z.gap,
 };
 
