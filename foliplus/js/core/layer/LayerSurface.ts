@@ -41,8 +41,9 @@ interface SurfaceOpts {
 }
 
 /** A layer with the mutable option surface the pin writes to. Containers carry
- *  `eachLayer` and never get `options.pane` of their own — Leaflet ignores a
- *  group's pane for its children, which is why the pin walks the tree. */
+ *  `eachLayer`, and Leaflet ignores a group's pane for its children — which is
+ *  why the pin hands such a node's whole tree to `migrateLayers` instead of
+ *  writing one pane name onto the group. */
 interface PinnableNode extends L.Layer {
   options: L.LayerOptions & {
     renderer?: L.Renderer;
@@ -58,6 +59,14 @@ interface PinnableNode extends L.Layer {
 const isContainer = (node: PinnableNode): boolean =>
   typeof node.eachLayer === "function";
 
+/** The declaration inputs that decide a surface's pane set. Compared by
+ *  `matches` when the same id is registered again. */
+interface SurfaceDeclaration {
+  layer: L.Layer | null;
+  paneName: string | null;
+  canvas: boolean;
+}
+
 class LayerSurface implements LayerSurfaceContract {
   readonly id: string;
   readonly layer: L.Layer | null;
@@ -69,27 +78,23 @@ class LayerSurface implements LayerSurfaceContract {
    *  cleared by `materialize()`. */
   contentDirty = false;
 
-  private readonly map: L.Map;
   private readonly host: PaneManager;
   private readonly subPanes: string[];
-  /** The declaration this surface was built from — `matches` compares against it
-   *  when the same id is registered again. */
-  private readonly spec: SurfaceOpts;
+  private readonly spec: SurfaceDeclaration;
   /** The pane this surface synthesized because the layer declared none. Its
    *  content is pinned here; a declared pane's content is routed by whoever
    *  declared it (createLayers), so there is nothing for us to pin. */
   private readonly pinTarget: string | null;
 
-  constructor(map: L.Map, host: PaneManager, opts: SurfaceOpts) {
-    this.map = map;
+  constructor(host: PaneManager, opts: SurfaceOpts) {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
     this.subPanes = opts.subPanes ?? [];
-    this.spec = { ...opts, subPanes: this.subPanes };
 
     const declared = opts.paneName ?? null;
     const layer = opts.layer;
+    this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
 
     if (declared) {
       this.addPane(declared, !opts.canvas, "base");
@@ -191,8 +196,8 @@ class LayerSurface implements LayerSurfaceContract {
       this.subPanes.every((name, i) => name === opts.subPanes?.[i]);
     return (
       this.spec.layer === opts.layer &&
-      (this.spec.paneName ?? null) === (opts.paneName ?? null) &&
-      Boolean(this.spec.canvas) === Boolean(opts.canvas) &&
+      this.spec.paneName === (opts.paneName ?? null) &&
+      this.spec.canvas === Boolean(opts.canvas) &&
       samePanes
     );
   }

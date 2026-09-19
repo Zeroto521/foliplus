@@ -150,20 +150,14 @@ class LayerManager implements LayerAPI {
 
       // A layer's content can arrive at any time — a third party mutates a
       // registered group's tree, or folium's own script lands the leaves of a
-      // registered container. Mark every materialized surface dirty so the next
-      // ordering pass reconciles it; there is no need to know which surface the
-      // new content belongs to, which is what the old permanently-true flag used
-      // to approximate (and got wrong: it kept the pass walking every tree on
-      // every pass). The mark is synchronous because the probe path calls
+      // registered container. Mark every surface dirty so the next ordering pass
+      // reconciles it; there is no need to know which surface the new content
+      // belongs to, which is what the old permanently-true flag used to
+      // approximate (and got wrong: it kept the pass walking every tree on every
+      // pass). The mark is synchronous because the probe path calls
       // `enforceOrder` directly, and a debounce-only trigger would miss it.
-      let dirty = false;
-      for (const surface of this.surfaces.values()) {
-        if (surface.materialized) {
-          surface.markContentDirty();
-          dirty = true;
-        }
-      }
-      if ((this.hasUnresolvedLayers() || dirty) && !this.isEnforcing) {
+      for (const surface of this.surfaces.values()) surface.markContentDirty();
+      if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
         this.debouncedEnforce();
       }
     };
@@ -596,7 +590,7 @@ class LayerManager implements LayerAPI {
       // answering with a surface nobody paints into anymore.
       this.surfacesByLayer.delete(L.stamp(existing.layer));
     }
-    const surface = new LayerSurface(this.map, this.panes, spec);
+    const surface = new LayerSurface(this.panes, spec);
     this.surfaces.set(layerInfo.id, surface);
     if (spec.layer) this.surfacesByLayer.set(L.stamp(spec.layer), surface);
     return surface;
@@ -631,9 +625,9 @@ class LayerManager implements LayerAPI {
    *  Ordering only. The pass used to allocate fallback panes and queue DOM moves
    *  for a later migration; both moved into LayerSurface — panes are allocated
    *  at materialization (before the layer joins the map, so `options.pane` is
-   *  already right at the one moment Leaflet reads it), and content added later
-   *  is pinned by the wrappers the surface installs. What is left here is the z
-   *  arithmetic and the shared panes around it, untouched. */
+   *  already right at the one moment Leaflet reads it), and content that arrived
+   *  since the last pass is re-pinned by `materialize()` itself. What is left
+   *  here is the z arithmetic and the shared panes around it, untouched. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
@@ -642,8 +636,8 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer()).
-        // TileLayer has public setZIndex; other GridLayers keep options.zIndex.
+        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer());
+        // all of them are positioned from the tile base.
         const isGrid = layer instanceof L.GridLayer;
         const isTile = layer instanceof L.TileLayer;
         const z = this.computeZIndex(i, isGrid);
@@ -662,9 +656,12 @@ class LayerManager implements LayerAPI {
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
         if (!surface.setZ(z)) {
-          // No pane of its own: the layer carries its z natively.
+          // `setZ` answers false only for a layer with no pane of its own, which
+          // is exactly a GridLayer: it paints in the shared tilePane and carries
+          // its z natively. TileLayer has the public setter; every other grid
+          // subclass keeps `options.zIndex`, which Leaflet applies on update.
           if (isTile) (layer as L.TileLayer).setZIndex(z);
-          else if (isGrid) (layer.options as L.GridLayerOptions).zIndex = z;
+          else (layer.options as L.GridLayerOptions).zIndex = z;
         }
 
         // The layer's label pane (created by AnnotationManager) rides just
