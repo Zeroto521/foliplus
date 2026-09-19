@@ -626,6 +626,46 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
+
+  it("clears a stale currentField that is no longer in the layer's fields", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    m.currentAgg = "sum";
+    m.currentField = "old_field";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5 } } },
+      },
+    ]);
+
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.currentField).toBe("");
+  });
+
+  it("preserves a currentField that is still in the layer's fields", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    m.currentAgg = "sum";
+    m.currentField = "sales";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5, price: 10 } } },
+      },
+    ]);
+
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.currentField).toBe("sales");
+  });
 });
 
 describe("setupObserver", () => {

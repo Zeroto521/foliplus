@@ -404,6 +404,53 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields).not.toContain("name");
     expect(fields.filter(f => f === "price")).toHaveLength(1);
   });
+
+  it("collectFields enumerates numeric value on extended marker", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 42, feature: { properties: { price: 1 } } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("value");
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields enumerates numeric options.value on extended marker", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { options: { value: 99 }, feature: { properties: {} } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("options.value");
+  });
+
+  it("collectFields skips non-numeric value and options.value", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        marker: {
+          value: "not-a-number",
+          options: { value: undefined },
+          feature: { properties: { price: 1 } },
+        },
+      },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).not.toContain("value");
+    expect(fields).not.toContain("options.value");
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields deduplicates value and options.value across markers", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 1, feature: { properties: {} } } },
+      { marker: { value: 2, options: { value: 3 }, feature: { properties: {} } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields.filter(f => f === "value")).toHaveLength(1);
+    expect(fields.filter(f => f === "options.value")).toHaveLength(1);
+  });
 });
 
 describe("HeatmapManager — layer visibility vs zoom", () => {
