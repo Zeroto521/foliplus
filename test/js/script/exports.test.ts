@@ -121,3 +121,50 @@ describe("eslint.config.js rule scoping", () => {
     expect(at(n)).toEqual(["test/js/**/*.{js,ts}"]);
   });
 });
+
+// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These stems have no
+// such module: they point at repo-root config, or at the tree itself. One entry
+// per exception, each naming what the file really tests.
+const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
+  Makefile: "the root Makefile",
+  "vitest.config": "vitest.config.mjs",
+  exports: "package.json, eslint.config.js, vitest.config.mjs, test/js/tsconfig.json",
+};
+
+describe("test/js/script naming", () => {
+  it("every test file names the module it tests", () => {
+    const tests = globSync({
+      cwd: ROOT,
+      patterns: ["test/js/script/*.test.ts"],
+    }).sort();
+    expect(tests.length).toBeGreaterThan(0);
+
+    const stemOf = (rel: string) =>
+      rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "");
+    const hasModule = (stem: string) =>
+      ["mjs", "cjs", "js"].some(ext =>
+        existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
+      );
+
+    const exceptions = Object.entries(NON_MODULE_TEST_SUBJECTS)
+      .map(([k, v]) => `  ${k} — ${v}`)
+      .join("\n");
+
+    for (const rel of tests) {
+      const stem = stemOf(rel);
+      expect(
+        hasModule(stem) || stem in NON_MODULE_TEST_SUBJECTS,
+        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
+          `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
+      ).toBe(true);
+    }
+
+    // The other way: an entry that names no test file is a stale exception.
+    for (const stem of Object.keys(NON_MODULE_TEST_SUBJECTS)) {
+      expect(
+        tests.some(rel => stemOf(rel) === stem),
+        `NON_MODULE_TEST_SUBJECTS.${stem} matches no test/js/script/${stem}.test.ts`,
+      ).toBe(true);
+    }
+  });
+});
