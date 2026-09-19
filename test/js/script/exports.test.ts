@@ -131,6 +131,14 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   exports: "package.json, eslint.config.js, vitest.config.mjs, test/js/tsconfig.json",
 };
 
+// `X.test.ts` has a subject when `X` is a real script module, or a stem that is
+// on the list above. Anything else is a fossil: a test file named for something
+// that does not exist.
+const hasSubject = (stem: string) =>
+  ["mjs", "cjs", "js"].some(ext =>
+    existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
+  ) || stem in NON_MODULE_TEST_SUBJECTS;
+
 describe("test/js/script naming", () => {
   it("every test file names the module it tests", () => {
     const tests = globSync({
@@ -141,10 +149,6 @@ describe("test/js/script naming", () => {
 
     const stemOf = (rel: string) =>
       rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "");
-    const hasModule = (stem: string) =>
-      ["mjs", "cjs", "js"].some(ext =>
-        existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
-      );
 
     const exceptions = Object.entries(NON_MODULE_TEST_SUBJECTS)
       .map(([k, v]) => `  ${k} — ${v}`)
@@ -153,7 +157,7 @@ describe("test/js/script naming", () => {
     for (const rel of tests) {
       const stem = stemOf(rel);
       expect(
-        hasModule(stem) || stem in NON_MODULE_TEST_SUBJECTS,
+        hasSubject(stem),
         `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
           `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
       ).toBe(true);
@@ -166,5 +170,16 @@ describe("test/js/script naming", () => {
         `NON_MODULE_TEST_SUBJECTS.${stem} matches no test/js/script/${stem}.test.ts`,
       ).toBe(true);
     }
+  });
+
+  it("still rejects a name that maps to nothing", () => {
+    // Counter-proof. Without it the loop above would keep passing after someone
+    // relaxed hasSubject into a prefix match or a wildcard exception — the guard
+    // would go decorative and no test would notice. `namespace-plugin` is the
+    // real case: that test file named a script that never existed.
+    expect(hasSubject("namespace-plugin")).toBe(false);
+    expect(hasSubject("never-a-module")).toBe(false);
+    expect(hasSubject("global-namespace-plugin")).toBe(true);
+    expect(hasSubject("Makefile")).toBe(true);
   });
 });
