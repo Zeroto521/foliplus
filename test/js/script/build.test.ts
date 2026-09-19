@@ -113,7 +113,11 @@ describe("build artifacts", () => {
     // 160000, 160000, and 159000; the larger value wins on merge, and once
     // all are in the ceiling should be re-measured on main in dev mode and
     // set once, by one PR.
-    expect(size).toBeLessThan(160000);
+    //
+    // Measured on this branch after merging main: 160897B (createSurface +2.3KB
+    // from main, z ladder +2667B from R9, over 2a381557's 155660B). The ceiling
+    // must accommodate both — 165000 leaves ~4KB headroom for the next round.
+    expect(size).toBeLessThan(165000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
