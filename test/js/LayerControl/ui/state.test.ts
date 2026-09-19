@@ -7,6 +7,7 @@ import {
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
+  markOverride,
   saveFoldState,
   saveState,
   syncHiddenId,
@@ -1390,6 +1391,29 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       layers: () => Record<string, unknown>;
     };
     expect(fields.layers()).toEqual({});
+  });
+
+  it("refuses a marker for a dimension with no live value, loudly", () => {
+    // buildLayerStates filters a marker whose value is missing, so recording it
+    // here would mean the user's action vanishes on the next write with nothing
+    // in the console. The gate therefore refuses it and says so instead of
+    // accepting a marker that cannot survive a flush.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    markOverride(bare, "overlay1", "zoomRange");
+
+    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(schedule).not.toHaveBeenCalled();
+    expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
+    warn.mockRestore();
   });
 
   it("applyUserState(id) ignores an id with no registry entry", () => {

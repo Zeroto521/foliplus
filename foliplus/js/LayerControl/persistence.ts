@@ -42,10 +42,6 @@ type PersistedRecord = {
   layers: Record<string, PersistedLayerState>;
 };
 
-/** What {@link LayerPersistence.load} returns: the record, with the sections
- *  that depend on which layers are registered filtered to those. */
-type PersistedState = PersistedRecord;
-
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that
  *  only knows the layer order cannot wipe the fold, rename, and label state it
@@ -229,7 +225,7 @@ class LayerPersistence {
    * the only call that knows a layer is gone for good; hidden state in
    * `LayerUI.applyUserState`, after the late registrations have landed.
    */
-  load(): PersistedState {
+  load(): PersistedRecord {
     const record = parseRecord(
       Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName),
     );
@@ -314,10 +310,4 @@ class LayerPersistence {
 }
 
 export { LayerPersistence };
-export type {
-  LiveState,
-  LayerOverride,
-  PersistedLayerState,
-  PersistedRecord,
-  PersistedState,
-};
+export type { LiveState, LayerOverride, PersistedLayerState, PersistedRecord };

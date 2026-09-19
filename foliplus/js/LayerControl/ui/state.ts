@@ -1,8 +1,12 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
+import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
+
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const log = createLogger(CONF.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
@@ -79,8 +83,20 @@ const saveState = (ui: LayerUI) => {
 };
 
 /** Record that the user has set a dimension for one layer. The first action is
- *  what turns an author's declared default into the user's own state. */
+ *  what turns an author's declared default into the user's own state.
+ *
+ *  Refuses a marker for a dimension that holds no live value: {@link buildLayerStates}
+ *  filters such a marker out of the next write, so recording it here would mean the
+ *  user's action is lost with nothing in the console. Failing loud at the one gate
+ *  every caller passes through keeps that from being a silent failure. */
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  if (!hasLiveValue(ui, id, override)) {
+    log.warn(
+      `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
+        `marker not recorded — set the value before marking`,
+    );
+    return;
+  }
   const overrides = ui.userOverrides[id] ?? [];
   if (!overrides.includes(override)) overrides.push(override);
   ui.userOverrides[id] = overrides;
