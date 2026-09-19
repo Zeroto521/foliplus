@@ -95,7 +95,13 @@ describe("build artifacts", () => {
     // it first, then the shared renderer needed the next step; the larger
     // value wins on merge. The pane-role refactor added PaneManager.pinTree
     // (+151B) — the recursive pin that puts a GeoJSON group's child paths into
-    // the declared pane.
+    // the declared pane. The createSurface refactor added a unified registration
+    // pipeline (+2.3KB): commonLayerOpts, register/unregister/registered
+    // closures, preRegister/preUnregister/shouldUnregister hooks, and the
+    // content.kind dispatch. This is new code, not deduplication — the two
+    // paths (mainLayer+pinTree vs canvas+resize+cancelMapPaneTranslate) are
+    // too different to share content logic. The shared part is the plumbing
+    // around it.
     //
     // R9 (the z ladder) is +2667B over 2a381557, dev mode, same command, and
     // every byte of it is in core/layer: the new z.ts module (+568B), plus
@@ -103,10 +109,10 @@ describe("build artifacts", () => {
     // and their three backing fields (+389B), less the 96B setZ loses because
     // its write loop moved into writeZ, plus 12B of formatting. Every
     // component-level edit lands in a component bundle, so this budget only
-    // moves when core/layer does. R5 and R10 raise this same line to 160000
-    // and 159000; the larger value wins on merge, and once all three are in
-    // the ceiling should be re-measured on main in dev mode and set once, by
-    // one PR.
+    // moves when core/layer does. R5, R9, and R10 raise this same line to
+    // 160000, 160000, and 159000; the larger value wins on merge, and once
+    // all are in the ceiling should be re-measured on main in dev mode and
+    // set once, by one PR.
     expect(size).toBeLessThan(160000);
   });
 
