@@ -1406,8 +1406,7 @@ class TestLayerControlBrowser:
             assert result is not None, "LayerAPI not found"
             assert result["ready"] is True, f"fixture not ready: {result}"
             assert result["isNoninteractive"] is False, (
-                "data pane should not carry the non-interactive class: "
-                f"{result}"
+                f"data pane should not carry the non-interactive class: {result}"
             )
             assert result["pointerEvents"] == "none", (
                 "the pane div itself stays pointer-events:none (it is a "
