@@ -66,6 +66,7 @@
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
 - `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350))
+- `LayerControl`: unify `createLayers`/`createCanvas` under a single `createSurface` factory with a `content.kind` discriminated union; both methods become thin wrappers, shared registration pipeline (commonLayerOpts, register/unregister closures, pre/post hooks) extracted into one code path ([#378](https://github.com/Zeroto521/foliplus/pull/378))
 
 ### Removed
 

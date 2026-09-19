@@ -777,7 +777,10 @@ describe("LayerFactory", () => {
       const handle = factory.createSurface({
         id: "eq",
         name: "Eq",
-        content: { kind: "layers", panes: [{ name: "g1" }, { name: "l1", isLabel: true }] },
+        content: {
+          kind: "layers",
+          panes: [{ name: "g1" }, { name: "l1", isLabel: true }],
+        },
       });
       const c = handle.content as Extract<
         import("#foliplus/core/layer/type.js").SurfaceContentHandle,
@@ -832,11 +835,7 @@ describe("LayerFactory", () => {
         id: "ps",
         content: {
           kind: "layers",
-          panes: [
-            { name: "base" },
-            { name: "sub", isLabel: true },
-            { name: "sub2" },
-          ],
+          panes: [{ name: "base" }, { name: "sub", isLabel: true }, { name: "sub2" }],
         },
       });
       const c = handle.content as Extract<

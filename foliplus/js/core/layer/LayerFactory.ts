@@ -277,8 +277,14 @@ class LayerFactory {
       };
     }
 
-    const { className, onToggle: onToggleOpt, getBounds, source, updatedAt, meta } =
-      opts.content;
+    const {
+      className,
+      onToggle: onToggleOpt,
+      getBounds,
+      source,
+      updatedAt,
+      meta,
+    } = opts.content;
 
     const paneName = `${CANVAS_PANE_PREFIX}${opts.id}`;
     const { pane } = panes.ensurePane(paneName, false);
