@@ -235,7 +235,7 @@ const refreshAttributions = (attrCtrl: AttributionInternals): void =>
  *  want a locale-translated hover label on the X. Called after
  *  `bindPopup`/`openPopup` so the popup element exists. Missing button
  *  (closeButton disabled, popup not yet built) is a no-op. */
-const setPopupCloseTitle = (popup: L.Popup | null, title: string): void => {
+const setPopupCloseTitle = (popup: L.Popup | undefined | null, title: string): void => {
   const btn = popup?._closeButton;
   if (btn) btn.title = title;
 };
