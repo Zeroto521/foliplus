@@ -6,9 +6,10 @@
  * narrow or legacy terminals. Shared by bundle-size-check and build.
  */
 
-/** Bundle size status markers (over/low/up/down/same/new/missing). */
+/** Bundle size status markers (over/trivial/low/up/down/same/new/missing). */
 const STATUS = {
   over: "✗",
+  trivial: "≈",
   low: "⚠",
   up: "↑",
   down: "↓",
