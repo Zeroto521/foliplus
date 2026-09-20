@@ -1,10 +1,10 @@
+import { createLocationMarker } from "#core/locationMarker.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
   attachDelClick,
   makeDelIcon,
   toggleDelIcon,
 } from "#common/delicon.js";
-import { createLocationMarker } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";

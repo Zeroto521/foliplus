@@ -12,6 +12,7 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -21,7 +22,7 @@ import {
   bindDelIconToPopup,
   makeDelIcon,
 } from "#common/delicon.js";
-import { createLocationMarker, dom } from "#common/dom.js";
+import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";

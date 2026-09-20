@@ -228,6 +228,18 @@ const attributionEntries = (attrCtrl: AttributionInternals): Record<string, numb
 const refreshAttributions = (attrCtrl: AttributionInternals): void =>
   attrCtrl._update();
 
+/** Set the popup close button's `title` (hover tooltip).
+ *
+ *  Leaflet builds `_closeButton` when `closeButton` is enabled but exposes no
+ *  public way to title it. Location markers are the only caller in-tree; they
+ *  want a locale-translated hover label on the X. Called after
+ *  `bindPopup`/`openPopup` so the popup element exists. Missing button
+ *  (closeButton disabled, popup not yet built) is a no-op. */
+const setPopupCloseTitle = (popup: L.Popup | null, title: string): void => {
+  const btn = popup?._closeButton;
+  if (btn) btn.title = title;
+};
+
 export {
   attributionEntries,
   destroyPane,
@@ -244,4 +256,5 @@ export {
   moveIntoPane,
   refreshAttributions,
   reinitInteraction,
+  setPopupCloseTitle,
 };
