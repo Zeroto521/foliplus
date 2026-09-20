@@ -4,9 +4,9 @@
   // (2) a marker (div-icon, NOT in a foliplus pane),
   // (3) a heatmap canvas with a red fill in a foliplus layer pane.
   //
-  // The map is centred at [26.08, 119.30] zoom 12. The default crop box is
-  // 25% padding, so the visible area is ~[25%,75%] of the viewport. The three
-  // carriers are placed at ~35%, ~50%, ~65% of the viewport width.
+  // The map is centred at [26.08, 119.30] zoom 12. At this zoom, ~1 degree
+  // of longitude ≈ 10 px, so the three carriers are spread ~15 degrees apart
+  // to land at ~30%, ~50%, ~70% of the viewport width.
   //
   // Returns the layer id to focus (the canvas), so the GeoJson pane gets
   // hidden by focus CSS. Before B1, the vectors disappear (visibility
@@ -14,11 +14,10 @@
   //
   // Also returns the three window rectangles (in export-canvas pixel coords)
   // for sampling. The export canvas is 1280x720 at scale=2, so CSS pixels
-  // map to canvas pixels at 2x. The crop box starts at CSS 320,240 and
+  // map to canvas pixels at 2x. The crop box starts at CSS (320,240) and
   // spans 640x360 CSS px, so canvas pixel (0,0) = CSS (320,240).
   //
-  // Window centres in CSS: x = 320 + 0.35*640, 320 + 0.50*640, 320 + 0.65*640
-  //                      y = 240 + 0.50*360
+  // Window centres in CSS: x = 320 + f*640, y = 240 + 0.5*360
   // Canvas coords (×2):   x = 2*(320 + f*640), y = 2*(240 + 0.5*360)
   // Window size: 80 canvas px (40 CSS px)
 
@@ -26,13 +25,13 @@
   if (!api) return { error: "no LayerAPI" };
 
   // --- Carrier 1: red GeoJson polygon (SVG vector in a foliplus pane) ---
-  // Centre at [26.08, 119.22] (left of map centre).
+  // Centre at [26.08, 104.30] (~15 degrees west of map centre).
   const poly = new L.Polygon(
     [
-      [26.085, 119.215],
-      [26.085, 119.225],
-      [26.075, 119.225],
-      [26.075, 119.215],
+      [26.085, 104.295],
+      [26.085, 104.305],
+      [26.075, 104.305],
+      [26.075, 104.295],
     ],
     { color: "red", fillColor: "rgb(230,30,30)", fillOpacity: 0.8, weight: 2 },
   );
@@ -56,7 +55,7 @@
   window.map.addLayer(marker);
 
   // --- Carrier 3: heatmap canvas with red fill (foliplus pane) ---
-  // Centre at [26.08, 119.38] (right of map centre).
+  // Centre at [26.08, 134.30] (~15 degrees east of map centre).
   const cvs = api.createCanvas({
     id: "__focus_canvas__",
     name: "Focus Canvas",
@@ -80,26 +79,15 @@
   // Export canvas: 1280x720. Crop box: CSS (320,240) to (960,600).
   // Canvas pixel (0,0) = CSS (320,240). Scale factor: 2.
   // Window centres: CSS x = 320 + f*640, y = 240 + 0.5*360 = 420
-  // Canvas: x = 2*(320 + f*640), y = 2*420 = 840
-  // But wait, the canvas is 720 tall, so y=840 is out of bounds.
-  // Let me recalculate: the export canvas is cropWidth*scale x cropHeight*scale
-  // = 640*2 x 360*2 = 1280x720. Crop box starts at CSS (320,240).
-  // Canvas (0,0) = CSS (320,240). Canvas (1280,720) = CSS (960,600).
-  // So CSS y=420 maps to canvas y = 2*(420-240) = 360.
-  // CSS x = 320 + f*640 maps to canvas x = 2*f*640 = 1280*f.
-  //
-  // Window centres:
-  //   Vector:  f=0.35 → canvas x=448, y=360
-  //   Marker:  f=0.50 → canvas x=640, y=360
-  //   Canvas:  f=0.65 → canvas x=832, y=360
+  // Canvas: x = 2*(320 + f*640), y = 2*(420-240) = 360
   // Window size: 80x80 canvas px.
 
   return {
     focusLayer: "__focus_canvas__",
     windows: {
-      vector: { x: 408, y: 440, w: 80, h: 80 },
-      marker: { x: 600, y: 440, w: 80, h: 80 },
-      canvas: { x: 792, y: 440, w: 80, h: 80 },
+      vector: { x: 408, y: 320, w: 80, h: 80 },
+      marker: { x: 600, y: 320, w: 80, h: 80 },
+      canvas: { x: 792, y: 320, w: 80, h: 80 },
     },
   };
 }

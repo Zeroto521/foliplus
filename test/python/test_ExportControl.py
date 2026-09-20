@@ -1299,6 +1299,10 @@ class TestExportControlBrowser:
                 assert w["hit"] > 0, (
                     f"{carrier} carrier red pixels missing from export: {result}"
                 )
+                ratio = w["hit"] / w["total"]
+                assert 0.95 <= ratio <= 1.05, (
+                    f"{carrier} survival ratio {ratio:.3f} outside [0.95, 1.05]: {result}"
+                )
 
             assert len(errors) == 0, f"JS errors on focus export: {errors}"
 
@@ -1326,20 +1330,6 @@ class TestExportControlBrowser:
             assert hide_result is not None and hide_result.get("hidden") is True, (
                 f"Could not find/hide vector path: {hide_result}"
             )
-            print(f"[debug] hide result: {hide_result}")
-
-            # Verify the path is hidden.
-            verify = page.evaluate(
-                """() => {
-                    const paths = document.querySelectorAll('path');
-                    let hiddenCount = 0;
-                    for (const p of paths) {
-                        if (p.style.display === 'none') hiddenCount++;
-                    }
-                    return { hiddenPaths: hiddenCount, totalPaths: paths.length };
-                }"""
-            )
-            print(f"[debug] verify: {verify}")
 
             # Install canvas hook before export.
             self._install_canvas_hook(page)
