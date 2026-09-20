@@ -69,9 +69,24 @@ describe("ui/list row placement", () => {
     // Register three overlays so the registry order is A-B-C.
     const { manager, ui } = initFixture({
       data: [
-        { id: "A", name: "A", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
-        { id: "B", name: "B", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
-        { id: "C", name: "C", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
+        {
+          id: "A",
+          name: "A",
+          isBase: false,
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "B",
+          name: "B",
+          isBase: false,
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "C",
+          name: "C",
+          isBase: false,
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
       ],
     });
 

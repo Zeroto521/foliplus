@@ -364,7 +364,9 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const input = item?.querySelector(
     'input[type="checkbox"], input[type="radio"]',
   ) as HTMLInputElement | null;
-  const typeCol = item?.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`) as HTMLElement | null;
+  const typeCol = item?.querySelector(
+    `.${CONST.CLASSES.TYPE_ICON_COL}`,
+  ) as HTMLElement | null;
   const layer = ui.m.findLayer(layerInfo);
   let baseVisible = false;
 
