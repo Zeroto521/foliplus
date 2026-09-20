@@ -645,15 +645,17 @@ describe("LayerFactory", () => {
     });
 
     it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
-      class MockLayerGroup {
-        addLayer(_l: unknown) {
-          return this;
-        }
-        removeLayer(_l: unknown) {
-          return this;
-        }
-      }
-      window.L.LayerGroup = MockLayerGroup;
+      const protoAddLayer = vi.fn(function (this: unknown) {
+        return this;
+      });
+      window.L.LayerGroup = {
+        prototype: {
+          addLayer: protoAddLayer,
+          removeLayer: vi.fn(function (this: unknown) {
+            return this;
+          }),
+        },
+      };
       try {
         const api = factory.createLayers({
           id: "test",
@@ -664,10 +666,33 @@ describe("LayerFactory", () => {
         layer.options.pane = "__not_ours__";
         (layer.options as { paneSet?: boolean }).paneSet = true;
         api.mainLayer.addLayer(layer);
-        expect(layer.options.pane).toBe("__not_ours__");
+        // The "not our pane" fallthrough must hit the LayerGroup prototype —
+        // not the instance's own addLayer (which the wrapper just replaced).
+        // The pane-unchanged assertion the test used to make held on both
+        // branches, so it did not pin anything; this one does.
+        expect(protoAddLayer).toHaveBeenCalledTimes(1);
+        expect(protoAddLayer).toHaveBeenCalledWith(layer);
       } finally {
         Reflect.deleteProperty(window.L, "LayerGroup");
       }
+    });
+
+    it("does not consult the LayerGroup prototype when L.LayerGroup is undefined", () => {
+      // setup.ts's L stub has no LayerGroup key, so the falsy branch delegates
+      // to the layerGroup mock's own addLayer, which pushes into `children`.
+      // Observable via getLayers(). Complements the test above: that one fails
+      // if the truthy branch stops running; this one fails if the falsy branch
+      // stops running.
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      const layer = new window.L.Path();
+      layer.options.pane = "__not_ours__";
+      (layer.options as { paneSet?: boolean }).paneSet = true;
+      api.mainLayer.addLayer(layer);
+      expect(api.mainLayer.getLayers()).toContain(layer);
     });
   });
 
@@ -685,7 +710,6 @@ describe("LayerFactory", () => {
       expect(typeof api.registered).toBe("function");
       expect(typeof api.destroy).toBe("function");
       expect(typeof api.bringToFront).toBe("function");
-      expect(typeof api.setZIndex).toBe("function");
       expect(typeof api.setVisible).toBe("function");
     });
 
@@ -795,12 +819,6 @@ describe("LayerFactory", () => {
       expect(api.canvas.classList.contains("hidden")).toBe(true);
       api.setVisible(true);
       expect(api.canvas.classList.contains("hidden")).toBe(false);
-    });
-
-    it("setZIndex sets the dedicated pane style", () => {
-      const api = factory.createCanvas({ id: "canvas_test" });
-      api.setZIndex(42);
-      expect(api.canvas.parentElement?.style.zIndex).toBe("42");
     });
 
     it("mounts the canvas in a dedicated foliplus-layer-pane", () => {
@@ -1025,7 +1043,6 @@ describe("LayerFactory", () => {
           registered: handle.registered,
           destroy: handle.destroy,
           bringToFront: handle.bringToFront,
-          setZIndex: c.setZIndex,
           setVisible: c.setVisible,
         }).sort(),
       );

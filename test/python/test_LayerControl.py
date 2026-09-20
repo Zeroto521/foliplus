@@ -1608,7 +1608,6 @@ class TestLayerControlBrowser:
             assert api["hasResize"]
             assert api["hasDestroy"]
             assert api["hasUpdatePosition"]
-            assert api["hasSetZIndex"]
             assert api["hasSetVisible"]
             assert api["hasGetSize"]
             assert api["canvasTag"] == "CANVAS"
@@ -1619,8 +1618,9 @@ class TestLayerControlBrowser:
     def test_canvas_register_unregister(self, browser, tmp_path):
         """Canvas register() creates a layer item; unregister() removes it.
 
-        Also asserts the pane model: canvas mounts in its own pane, setZIndex
-        writes the pane, and only destroy() drops the pane from the map.
+        Also asserts the pane model: canvas mounts in its own pane, the ordering
+        pass prices the pane from the layer stack, and only destroy() drops the
+        pane from the map.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/canvas_register_unregister_dom"))
@@ -1631,7 +1631,10 @@ class TestLayerControlBrowser:
             )
             assert result["inPane"], "canvas pane should have foliplus-layer-pane"
             assert result["canvasParent"], "canvas parent should be the dedicated pane"
-            assert result["paneZ"] == "640", "setZIndex should write the pane style"
+            assert result["expectedPaneZ"], "canvas should hold a registry slot"
+            assert result["paneZ"] == result["expectedPaneZ"], (
+                "the ordering pass should price the canvas pane from the layer stack"
+            )
             assert result["registeredPaneName"] == "foliplus-canvas-__test_canvas_reg__"
             assert result["paneAfterUnregister"], (
                 "unregister keeps the pane for re-register"

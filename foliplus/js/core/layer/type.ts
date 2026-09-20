@@ -302,7 +302,6 @@ interface CreateCanvasAPI {
   registered: () => boolean;
   destroy: () => void;
   bringToFront: () => void;
-  setZIndex: (z: number) => void;
   setVisible: (v: boolean) => void;
 }
 
@@ -375,7 +374,6 @@ type SurfaceContentHandle =
       resize: () => void;
       getSize: () => { width: number; height: number };
       updatePosition: () => void;
-      setZIndex: (z: number) => void;
       setVisible: (v: boolean) => void;
     };
 
