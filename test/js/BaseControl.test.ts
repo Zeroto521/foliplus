@@ -623,12 +623,41 @@ describe("BaseControl", () => {
     // sharing an event+fn pair collapsed into one binding. With the last
     // call site migrated there is no reason to leave them reachable, and
     // the events field that only listenDOM filled goes with them.
-    expect(BaseControl.prototype).toHaveProperty("on");
-    expect(BaseControl.prototype).toHaveProperty("onMap");
-    expect(BaseControl.prototype).toHaveProperty("effect");
-    expect(BaseControl.prototype).not.toHaveProperty("listenDOM");
-    expect(BaseControl.prototype).not.toHaveProperty("listenMap");
-    expect(BaseControl.prototype).not.toHaveProperty("trackCleanup");
-    expect(BaseControl.prototype).not.toHaveProperty("events");
+    //
+    // Presence is read as a plain boolean map and compared with toEqual,
+    // rather than handing BaseControl.prototype to toHaveProperty. On a
+    // failure that matcher pretty-prints the received object, which walks
+    // the prototype chain and evaluates the `signal` getter; the getter
+    // throws on a detached read, so the assertion that actually failed
+    // would be reported as "read of `signal` on a detached control" with
+    // no pointer to the gate. Presence checks are pure `in` reads.
+    //
+    // Methods are checked on the prototype, where a re-added method lands.
+    // `events` was a class field (target ES2022), so it lived on instances
+    // — asserting it against the prototype was vacuously true even before
+    // the field was ever declared. It is checked on a live instance, which
+    // also catches an alias re-added in assignment form
+    // (`this.listenDOM = ...`): that never appears on the prototype.
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+
+    const shape = (target: object, names: readonly string[]) =>
+      Object.fromEntries(names.map(name => [name, name in target]));
+
+    expect(shape(BaseControl.prototype, ["on", "onMap", "effect"])).toEqual({
+      on: true,
+      onMap: true,
+      effect: true,
+    });
+    expect(shape(ctrl, ["listenDOM", "listenMap", "trackCleanup", "events"])).toEqual({
+      listenDOM: false,
+      listenMap: false,
+      trackCleanup: false,
+      events: false,
+    });
   });
 });

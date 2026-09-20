@@ -266,7 +266,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     f: "common/panel.ts",
     n: 2,
     reason:
-      "bindOutsideCollapse / bindFoldToggle factories return their own unbind closure — that is exactly the `effect` case, but the factory itself has no control instance",
+      "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
   },
   {
     f: "core/hint.ts",
@@ -353,7 +353,7 @@ const L_DOM_EVENT_ON: ReadonlyArray<AllowEntry> = [
     f: "common/panel.ts",
     n: 3,
     reason:
-      "bindPanelToggle (2) and bindFoldToggle (1) are free-standing factories: their signatures take a container/opts object, not a BaseControl instance, so `this.on` is unreachable from inside them. Same class of exception as the addEventListener entry for this same file — migrating means threading a control reference through the factory API",
+      "all three bind to elements inside a panel container subtree: bindPanelToggle (2) resolves button and header via container.querySelector, bindFoldToggle (1) receives the toggle button from createFoldControl. Leaflet stores the listener on the target element's own _leaflet_events, so it is collected with the container — the tree has zero L.DomEvent.off calls, nothing pairs them off. Both factories are free-standing: their signatures take a container/opts object, not a BaseControl instance, so `this.on` is unreachable from inside them",
   },
 ];
 

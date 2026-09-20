@@ -219,6 +219,10 @@ class BaseControl extends L.Control {
    * timers, raf loops, helper factories that return their own unbind,
    * and multi-step setup that installs several sub-resources and has to
    * unwind them all.
+   *
+   * A timer goes in wrapped, not as the bare handle: `setInterval` returns
+   * a number, which has no teardown hook, so returning it lands on the
+   * warning above. The closure hands back the disposer instead.
    */
   effect(
     setup: () => void | (() => void) | { cancel?: () => void; disconnect?: () => void },
