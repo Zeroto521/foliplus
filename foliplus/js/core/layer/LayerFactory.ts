@@ -105,7 +105,6 @@ class LayerFactory {
       registered: handle.registered,
       destroy: handle.destroy,
       bringToFront: handle.bringToFront,
-      setZIndex: handle.content.setZIndex,
       setVisible: handle.content.setVisible,
     };
   }
@@ -383,9 +382,6 @@ class LayerFactory {
       resize,
       getSize,
       updatePosition,
-      setZIndex: (z: number) => {
-        pane.style.zIndex = String(z);
-      },
       setVisible: (v: boolean) => {
         canvas.classList.toggle(HIDDEN, !v);
       },
