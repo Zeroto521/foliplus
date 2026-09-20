@@ -17,6 +17,7 @@ import {
   layerUrl,
   markerShadow,
   moveIntoPane,
+  primeControlMap,
   refreshAttributions,
   reinitInteraction,
   setPopupCloseTitle,
@@ -109,15 +110,13 @@ const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
 const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 
-// One reach this module deliberately does not own, counted rather than
-// ignored so a *new* one in that file still fails:
-//   - ScaleControl/index.ts primes `_map` onto the control it built itself —
-//     `Reflect.set(L.control.scale(…), "_map", this._map)` — so `onAdd` sees a
-//     map already bound. That is a write on a self-created object, not a read
-//     of another object's private field. It is exactly the string-keyed shape
-//     branch 3 exists to catch, which is why it is now counted here rather
-//     than remaining invisible to the scan.
-const OUT_OF_CHARTER = [{ f: "ScaleControl/index.ts", n: 1 }] as const;
+// Counted exceptions to the charter, named by file and count so a *new* reach
+// in that file still fails. Empty: no production module outside the adapter is
+// allowed to reach one of the named private fields. Adding an entry here means
+// deciding that a specific file must be permitted a bounded set of reaches, so
+// the change is visible as a change to this constant rather than as a silently
+// widened scan.
+const OUT_OF_CHARTER: ReadonlyArray<{ f: string; n: number }> = [];
 
 const ADAPTER = "foliplus/js/core/leafletAdapter.ts";
 
@@ -148,6 +147,10 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
   });
 
   it("confines every named reach to the adapter or to a counted exception", () => {
+    // The exception list is currently empty — that is the state the guard
+    // asserts on, so a new allowance shows up as an edit to the array and to
+    // this assertion together, not as a quietly widened scan.
+    expect(OUT_OF_CHARTER).toHaveLength(0);
     const allowances = new Map(
       OUT_OF_CHARTER.map(({ f, n }) => [`foliplus/js/${f}`, n]),
     );
@@ -176,9 +179,11 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
   });
 
   it("the adapter really holds all of them, so the scan cannot pass vacuously", () => {
-    // A match is either `._icon` (dot-anchored) or `_panes` (bare alternative).
+    // A match is either `._icon` (dot-anchored), `_panes` (bare alternative),
+    // or `"_map"` (string-keyed from primeControlMap's Reflect.set); each is
+    // stripped to the field name so the set says which fields are touched.
     const found = (code(adapterPath).match(PRIVATE_FIELD_RE) || []).map(m =>
-      m.replace(/^\./, ""),
+      m.replace(/^\W+|\W+$/g, ""),
     );
     // Sorted by code unit, which is why _paneRenderers precedes _panes and
     // _update precedes _url (the deciding character is p, then r).
@@ -218,8 +223,8 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     const matched = (src: string) => src.match(PRIVATE_FIELD_RE) ?? [];
     expect(matched('map["_map"]')).toEqual(['"_map"']);
     expect(matched("map['_layers']")).toEqual(["'_layers'"]);
-    // The shape ScaleControl uses for `_map` — now visible, so it is counted in
-    // OUT_OF_CHARTER rather than slipping past the scan.
+    // The shape the adapter uses to prime a control's map — branch 3 exists to
+    // catch it, which is why it lives in the adapter rather than a component.
     expect(matched('Reflect.set(scaleCtrl, "_map", value)')).toEqual(['"_map"']);
     expect(matched('Object.getOwnPropertyDescriptor(m, "_layers")')).toEqual([
       '"_layers"',
@@ -311,6 +316,7 @@ describe("source pins", () => {
       "layerUrl",
       "markerShadow",
       "moveIntoPane",
+      "primeControlMap",
       "refreshAttributions",
       "reinitInteraction",
       "setPopupCloseTitle",
@@ -610,5 +616,21 @@ describe("setPopupCloseTitle", () => {
 
   it("is a no-op when the popup has no close button", () => {
     expect(() => setPopupCloseTitle({} as unknown as L.Popup, "Close")).not.toThrow();
+  });
+});
+
+describe("primeControlMap", () => {
+  it("binds the map onto the control", () => {
+    const map = { id: "map" };
+    const ctrl = leafStub({});
+    primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
+    expect((ctrl as { _map?: unknown })._map).toBe(map);
+  });
+
+  it("overwrites an earlier binding, since the caller decides when to prime", () => {
+    const map = { id: "new" };
+    const ctrl = leafStub({ _map: { id: "old" } });
+    primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
+    expect((ctrl as { _map?: unknown })._map).toBe(map);
   });
 });
