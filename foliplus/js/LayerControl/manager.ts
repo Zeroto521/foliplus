@@ -493,6 +493,14 @@ class LayerManager implements LayerAPI {
 
   /**
    * Unregister and remove a layer from the map and panel.
+   *
+   * Generic teardown only —it never touches persisted user state. A layer
+   * unregistering itself may simply be temporarily empty: HeatmapControl
+   * unregisters its canvas when the data goes empty, and nothing about that
+   * says the user's stored opacity, zoom range, or hidden state is wanted
+   * back at the author default. Erasing stored state is an explicit user
+   * action, and it has its own entry point: {@link deleteLayer}.
+   *
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
@@ -526,35 +534,49 @@ class LayerManager implements LayerAPI {
         if (this.ui) this.ui.reindexItems();
       }
     }
-    // Drop the layer's id from every persisted section so a removed layer
-    // doesn't carry stale state into a future session. The prune has to happen
-    // here rather than in applyUserState: that sweep also runs for ids that
-    // are not in the registry yet because they belong to a component
-    // registering later (HeatmapControl and MeasureControl register in their
-    // own constructor, after this UI has already attached), and pruning there
-    // would revert the change on the first attach — every reload.
-    if (this.ui) {
-      this.ui.hiddenIds.delete(id);
-      delete this.ui.opacityMap[id];
-      delete this.ui.zoomRangeMap[id];
-      delete this.ui.userOverrides[id];
-      this.ui.saveState();
-    }
+    // Nothing below writes persisted state —see the method's doc. The rename
+    // and the per-layer intent both survive this teardown, so a component that
+    // unregisters an empty layer and registers it again comes back with the
+    // name and the settings the user chose.
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
     this.ui?.invalidateFields(id);
-    if (this.ui?.renamedNames?.[id] != null) {
-      delete this.ui.renamedNames[id];
-      this.ui.saveNamesState();
-    }
-    // Both writes share one debounce timer. Flush so the removal lands
-    // immediately rather than riding out the 100ms window —unregister is rare,
-    // so the flush cost is not worth amortising.
+    // Unregister is rare, so flush rather than riding out the 100ms window.
+    // Any pending write carries the registry's current order, which no longer
+    // lists this id —that dimension reads the registry live, so the removal is
+    // recorded without the teardown touching a persisted map.
     this.persistence.flushAll();
     this.events.emit(EVENTS.LAYER_CHANGE);
     // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
     // their layer is deleted from the panel and sync their internal state.
     this.events.emit(EVENTS.LAYER_REMOVED, { id });
+    return true;
+  }
+
+  /**
+   * Delete a layer: unregister it and drop every persisted value the user set
+   * for it —the single place that does, and the only one.
+   *
+   * {@link unregisterLayer} is a generic teardown and cannot say whether a
+   * layer is gone for good, so it never erases anything. Only a user who
+   * pointed at a row and chose "delete" knows; per-dimension resets instead
+   * drop one provenance marker via `unmarkOverride`, which is the same
+   * guarantee at the dimension level.
+   *
+   * @param {string} id - The layer ID previously passed to registerLayer().
+   * @returns {boolean} true if the layer existed, false otherwise.
+   */
+  deleteLayer(id: string): boolean {
+    const removed = this.unregisterLayer(id);
+    if (!removed) return false;
+    if (!this.ui) return true;
+    this.ui.dropPersistedLayerState(id);
+    if (this.ui.renamedNames[id] != null) {
+      delete this.ui.renamedNames[id];
+      this.ui.saveNamesState();
+    }
+    this.ui.saveState();
+    this.persistence.flushAll();
     return true;
   }
 

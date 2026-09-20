@@ -8,7 +8,10 @@ import {
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { applyUserState } from "#foliplus/LayerControl/ui/state.js";
+import {
+  applyUserState,
+  dropPersistedLayerState,
+} from "#foliplus/LayerControl/ui/state.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -977,7 +980,12 @@ describe("LayerManager", () => {
     expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
-  it("unregisterLayer removes the layer id from every persisted section", () => {
+  it("unregisterLayer leaves every persisted section alone", () => {
+    // Generic teardown cannot tell a temporarily-empty layer from a deleted
+    // one — HeatmapControl unregisters its canvas whenever the data goes
+    // empty — so it must not erase the user's stored values, including the
+    // rename: the component may register the same id again and the user
+    // expects the name they chose, not the registry's default.
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
@@ -988,17 +996,76 @@ describe("LayerManager", () => {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
+      renamedNames: { overlay1: "Renamed" },
       reindexItems: vi.fn(),
       saveState,
+      saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
     manager.unregisterLayer("overlay1");
+
+    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+    expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
+    expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
+    expect(manager.ui.userOverrides).toEqual({
+      overlay1: ["visible", "opacity", "zoomRange"],
+      base1: ["visible"],
+    });
+    expect(manager.ui.renamedNames.overlay1).toBe("Renamed");
+    expect(saveState).not.toHaveBeenCalled();
+  });
+
+  it("deleteLayer drops the layer id from every persisted section", () => {
+    // The one call that knows a layer is gone for good, so the one call that
+    // may erase its stored values — the per-layer intent and the rename.
+    manager.map.hasLayer.mockReturnValue(false);
+    const saveState = vi.fn();
+    const saveNamesState = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["overlay1", "base1"]),
+      opacityMap: { overlay1: 0.4, base1: 1 },
+      zoomRangeMap: { overlay1: [3, 12] },
+      userOverrides: {
+        overlay1: ["visible", "opacity", "zoomRange"],
+        base1: ["visible"],
+      },
+      renamedNames: { overlay1: "Renamed" },
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
+      reindexItems: vi.fn(),
+      saveState,
+      saveNamesState,
+      invalidateFields: vi.fn(),
+    } as any;
+    manager.deleteLayer("overlay1");
 
     expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
     expect(manager.ui.userOverrides).toEqual({ base1: ["visible"] });
+    expect(manager.ui.renamedNames.overlay1).toBeUndefined();
     expect(saveState).toHaveBeenCalledTimes(1);
+    expect(saveNamesState).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteLayer refuses an unknown id and writes nothing", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    const saveState = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["overlay1"]),
+      opacityMap: { overlay1: 0.4 },
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      renamedNames: {},
+      dropPersistedLayerState: vi.fn(),
+      reindexItems: vi.fn(),
+      saveState,
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    expect(manager.deleteLayer("never-registered")).toBe(false);
+    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1"]));
+    expect(saveState).not.toHaveBeenCalled();
   });
 
   it("attachUI delegates to the UI", () => {
@@ -2051,11 +2118,10 @@ describe("LayerManager user-assigned names", () => {
     expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
   });
 
-  it("keeps a stored rename for an id that no longer exists", () => {
+  it("keeps a stored rename for an id that has no registry entry", () => {
     // The sweep must not drop a rename whose id is absent from the registry:
-    // that id may belong to a component that registers later. unregisterLayer
-    // is the only place that prunes a rename, since it knows the layer is
-    // gone for good.
+    // that id may belong to a component that registers later. Only deleteLayer
+    // prunes a rename, since only it knows the layer is gone for good.
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify({ renamedNames: { "no-such-id": "Ghost" } }),
@@ -2070,14 +2136,29 @@ describe("LayerManager user-assigned names", () => {
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
   });
 
-  it("prunes a rename when its layer is unregistered", () => {
-    // The prune lives on unregisterLayer because only that call knows the
-    // layer is gone for good rather than merely not registered yet.
+  it("keeps a rename when its layer unregisters", () => {
+    // unregisterLayer is generic teardown — HeatmapControl reaches it whenever
+    // its data goes empty — so a rename pruned there would vanish along with
+    // a temporary data gap and resurface as the registry's own name. Only
+    // deleteLayer prunes a rename.
     manager.ui.renamedNames["ext"] = "My Layer";
     const save = vi.fn();
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("ext")).toBe(true);
+
+    expect(manager.ui.renamedNames["ext"]).toBe("My Layer");
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("deleteLayer prunes the rename for a deleted layer", () => {
+    manager.ui.renamedNames["ext"] = "My Layer";
+    const save = vi.fn();
+    manager.ui.saveNamesState = save;
+    manager.ui.dropPersistedLayerState = (id: string) =>
+      dropPersistedLayerState(manager.ui, id);
+
+    expect(manager.deleteLayer("ext")).toBe(true);
 
     expect(manager.ui.renamedNames["ext"]).toBeUndefined();
     expect(save).toHaveBeenCalled();

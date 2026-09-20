@@ -221,9 +221,10 @@ class LayerPersistence {
    * `LayerUI.attachUI`, which loads before HeatmapControl and MeasureControl
    * register in their own constructor, so filtering here would drop their entries
    * on the very first attach and show the default name or re-add the layer after
-   * every refresh. Stale ids are pruned elsewhere: names in `unregisterLayer`,
-   * the only call that knows a layer is gone for good; hidden state in
-   * `LayerUI.applyUserState`, after the late registrations have landed.
+   * every refresh. Stale ids are pruned only by `LayerManager.deleteLayer`, the
+   * one call that knows a layer is gone for good: `unregisterLayer` is a generic
+   * teardown that a component's empty-data pass goes through, and the attach
+   * sweep cannot tell "not registered yet" from "gone".
    */
   load(): PersistedRecord {
     const record = parseRecord(

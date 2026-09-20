@@ -11,6 +11,7 @@ from conftest import (
     _js,
     assert_config_value,
     assert_locale,
+    heatmap_ready,
     make_browser_page,
     panel_ready,
     read_css,
@@ -22,7 +23,7 @@ from conftest import (
 )
 from folium import Element
 
-from foliplus import LayerControl
+from foliplus import HeatmapControl, LayerControl
 
 
 class TestLayerControlPython:
@@ -2262,16 +2263,14 @@ class TestLayerControlBrowser:
                 )
 
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
-        """Layers registered at runtime get pruned from the hidden set after a
-        reload -- they have no registry entry to prove they are coming back.
+        """A hidden layer that re-registers later comes back hidden, not reset.
 
         HeatmapControl and MeasureControl register in their own constructor,
         which runs after the LayerControl IIFE has attached, so a hidden id can
-        precede its row. The prune keeps ids that are still live (registry or
-        pending) and drops the rest, and it must not resurrect a dropped id
-        when the component re-registers later: that id stays pruned for the
-        lifetime of the session, which is the trade the prune makes to stay
-        bounded.
+        precede its row. The reload must leave the stored record alone -- a
+        missing registry entry is not evidence that the state should go, only
+        a delete is -- so when the component re-registers the layer returns the
+        way the user left it instead of resurrecting visible.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
@@ -2311,37 +2310,221 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # The probes were only registered at runtime, so they are gone
-            # until re-registered -- and their ids have been pruned along with
-            # them, because no registry entry survived the reload.
+            # until re-registered -- and their ids survive the reload in
+            # storage: nothing pruned them merely because their registry
+            # entries did not.
             rows = page.evaluate(_js("LayerControl/read_hidden_state"))
             assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
             assert rows["rows"][0]["checked"] is False
             assert rows["rows"][0]["visible"] is False
             assert rows["rows"][0]["onMap"] is False
+            key = next(k for k in rows["storage"] if "layer_state" in k)
+            layers = json.loads(rows["storage"][key]).get("layers", {})
+            assert {lid for lid in layers if lid.startswith("__probe")} == {
+                "__probeA__",
+                "__probeB__",
+            }, f"reload pruned ids it had no right to drop: {rows['storage']}"
+            for lid in ("__probeA__", "__probeB__"):
+                assert layers[lid]["visible"] is False, (
+                    f"{lid}: reload changed a stored hidden state: {rows['storage']}"
+                )
 
             page.evaluate(_js("LayerControl/register_hidden_probes"))
             page.wait_for_timeout(300)
 
-            # Re-registration must not resurrect the pruned ids: the probes
-            # come back visible, and the pruned ids stay out of storage.
+            # Re-registration restores the stored state instead of resetting
+            # it: the probes come back off the map, unchecked, and the three
+            # projections of their state still agree.
             rows = page.evaluate(_js("LayerControl/read_hidden_state"))
             assert len(rows["rows"]) == 3, f"expected 3 rows, got {rows}"
             for row in rows["rows"]:
                 if row["id"].startswith("__probe"):
-                    assert row["checked"] is True, (
-                        f"{row['id']}: pruned id resurrected across re-register\n{rows}"
+                    assert row["checked"] is False, (
+                        f"{row['id']}: re-register reset a stored hidden state\n{rows}"
                     )
-                    assert row["visible"] is True, (
-                        f"{row['id']}: registry revived a pruned id\n{rows}"
+                    assert row["visible"] is False, (
+                        f"{row['id']}: registry lost a stored hidden state\n{rows}"
                     )
-                    assert row["onMap"] is True, (
-                        f"{row['id']}: re-entered the map while pruned\n{rows}"
+                    assert row["onMap"] is False, (
+                        f"{row['id']}: re-entered the map while hidden\n{rows}"
                     )
-            key = next(k for k in rows["storage"] if "layer_state" in k)
-            record = json.loads(rows["storage"][key])
-            layers = record.get("layers", {})
-            assert all(not lid.startswith("__probe") for lid in layers), (
-                f"pruned ids persisted again: {rows['storage']}"
+
+    def test_late_layer_opacity_survives_reload(self, browser, tmp_path):
+        """A lazily-registered layer keeps its stored opacity across a reload.
+
+        HeatmapControl registers its canvas in its own constructor, which runs
+        after the LayerControl IIFE has already attached the panel. On the
+        first attach the heatmap's id is therefore unresolvable, and the sweep
+        used to read that as "the layer is gone for good": it dropped the
+        stored opacity from memory and wrote the deletion back, so every
+        refresh reset the user's opacity to the author default. Nothing in the
+        page says the layer is gone -- only a delete does -- so a reload must
+        not touch the record at all.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html = m.get_root().render()
+        match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+        assert match, "map variable not found in rendered HTML"
+        # The visit under test is the reload: seed the record the previous
+        # visit would have written (heatmap at 35%), then re-read it. The
+        # heatmap id is the stable component id, not a per-map suffix.
+        seed = {
+            "order": None,
+            "foldedGroups": [],
+            "renamedNames": {},
+            "annotations": {},
+            "layers": {
+                "foliplus_heatmap": {
+                    "opacity": 0.35,
+                    "overrides": ["opacity"],
+                }
+            },
+        }
+
+        html_path = tmp_path / "test_late_layer_opacity_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.add_init_script(
+                f"localStorage.setItem("
+                f"'foliplus_layer_state_{match.group(1)}', "
+                f"{json.dumps(json.dumps(seed))});"
+            )
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            # The value the previous visit wrote must still be in storage.
+            after_attach = page.evaluate(_js("LayerControl/read_opacity_state"))
+            assert after_attach.get("id"), f"heatmap row missing: {after_attach}"
+            assert after_attach["stored"] == 0.35, (
+                f"attach dropped the stored opacity: {after_attach}"
+            )
+            assert after_attach["overrides"] == ["opacity"], (
+                f"attach dropped the stored provenance: {after_attach}"
+            )
+            assert after_attach["canvasRegistered"] is True, (
+                f"heatmap canvas never registered: {after_attach}"
+            )
+            assert after_attach["canvasOpacity"] == "0.35", (
+                f"attach reset the canvas to the author default: {after_attach}"
+            )
+
+            # And the user can still move the slider, then survive a reload.
+            set_result = page.evaluate(_js("LayerControl/set_heatmap_opacity"))
+            assert set_result.get("id"), f"could not set opacity: {set_result}"
+            assert set_result["value"] == 35, f"slider did not take 35: {set_result}"
+            page.wait_for_timeout(300)
+
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            after_reload = page.evaluate(_js("LayerControl/read_opacity_state"))
+            assert after_reload.get("id"), f"heatmap row missing: {after_reload}"
+            assert after_reload["stored"] == 0.35, (
+                f"reload reverted the user's opacity to the author default: "
+                f"{after_reload}"
+            )
+            assert after_reload["overrides"] == ["opacity"], (
+                f"reload dropped the stored provenance: {after_reload}"
+            )
+            assert after_reload["canvasOpacity"] == "0.35", (
+                f"reload painted the canvas at the author default: {after_reload}"
+            )
+
+    def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
+        """unregisterLayer never erases a value; only an explicit delete does.
+
+        The heatmap's empty-data frame reaches unregisterLayer the same way
+        this probe does, so the teardown that drops a stored opacity would
+        have fired on a data change -- the user would see "I only switched the
+        data source, why did my opacity reset?" Deleting the layer is the one
+        action that knows the id is gone for good.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_unregister_keeps_opacity.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(200)
+
+            result = page.evaluate(_js("LayerControl/canvas_unregister_keeps_state"))
+            assert result.get("afterSet"), f"probe did not reach the write: {result}"
+            assert result["afterSet"] == {
+                "opacity": 0.35,
+                "overrides": ["opacity"],
+            }, f"slider write did not persist: {result}"
+
+            # The layer is gone from the map and the panel...
+            assert result["registeredAfterUnregister"] is False, (
+                f"unregister did not remove the layer: {result}"
+            )
+            # ...but the stored opacity is untouched, and the registry did not
+            # keep a row for it either.
+            assert result["afterUnregister"] == {
+                "opacity": 0.35,
+                "overrides": ["opacity"],
+            }, (
+                f"unregister erased a value it had no right to drop: {result}"
+            )
+
+            # The explicit path is what drops it -- and only it.
+            assert result["deleteError"] is None, (
+                f"deleteLayer raised: {result['deleteError']}"
+            )
+            assert result["deleteReturn"] is True, f"deleteLayer failed: {result}"
+            assert result["afterDelete"] is None, (
+                f"delete did not drop the stored value: {result}"
+            )
+            assert result["registeredAfterDelete"] is False, (
+                f"delete left the layer registered: {result}"
             )
 
     def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):

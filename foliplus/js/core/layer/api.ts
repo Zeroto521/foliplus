@@ -16,7 +16,8 @@ import type { LayerAPI, LayerInfo } from "./type.js";
  *
  * The lightweight defaults:
  *   createLayers / createCanvas — fully functional (via LayerFactory)
- *   layers / registerLayer / unregisterLayer / bringLayerToFront — no-op
+ *   layers / registerLayer / unregisterLayer / deleteLayer / bringLayerToFront
+ *     — no-op
  *   extractPoints / getLayerPanes / getLayersByType — return empty
  *
  * @param map - Leaflet map instance.
@@ -51,6 +52,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     layers: Object.freeze([]),
     registerLayer: () => null,
     unregisterLayer: () => false,
+    deleteLayer: () => false,
     bringLayerToFront: () => {},
     setVisible: () => false,
     touchLayer: () => false,
