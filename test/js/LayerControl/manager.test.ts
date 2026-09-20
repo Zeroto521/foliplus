@@ -1119,6 +1119,42 @@ describe("LayerManager", () => {
     expect(saveState).not.toHaveBeenCalled();
   });
 
+  it("deleteLayer completes when the panel never attached", () => {
+    // A layer can be deleted before attachUI has created the UI, so the teardown
+    // must not assume one exists — nothing was ever persisted to erase.
+    manager.map.hasLayer.mockReturnValue(false);
+
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(manager.layerRegistry.get("overlay1")).toBeUndefined();
+  });
+
+  it("deleteLayer skips the rename write when the id has no rename", () => {
+    // The name map needs saving only when there was a rename to drop; the
+    // per-layer intent write is separate, and an unrelated rename must survive.
+    manager.map.hasLayer.mockReturnValue(false);
+    const saveState = vi.fn();
+    const saveNamesState = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(["overlay1", "base1"]),
+      opacityMap: { overlay1: 0.4 },
+      zoomRangeMap: { overlay1: [3, 12] },
+      userOverrides: { overlay1: ["visible", "opacity"] },
+      renamedNames: { base1: "Renamed" },
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
+      reindexItems: vi.fn(),
+      saveState,
+      saveNamesState,
+      invalidateFields: vi.fn(),
+    } as any;
+
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+
+    expect(saveState).toHaveBeenCalledTimes(1);
+    expect(saveNamesState).not.toHaveBeenCalled();
+    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
+  });
+
   it("attachUI delegates to the UI", () => {
     manager.ui = { attachUI: vi.fn() } as any;
     const div = document.createElement("div");
