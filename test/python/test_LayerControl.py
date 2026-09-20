@@ -1325,13 +1325,22 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_click_through(self, browser, tmp_path):
-        """The canvas ignores pointer events so clicks land on the map/feature."""
+        """The canvas ignores pointer events so clicks land on the map/feature.
+
+        The canvas opts out by carrying ``foliplus-canvas-layer`` (the
+        decoration-canvas marker), which the base ``.foliplus-layer-pane``
+        rule turns into ``pointer-events: none`` — no inline style. The
+        computed value is what we assert, not the inline attribute.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             page.evaluate(_js("LayerControl/annotation_canvas_draws"))
             result = page.evaluate(_js("LayerControl/annotation_click_through"))
             assert result is not None and result["canvas"] is True, result
             assert result["pointerEvents"] == "none", result
+            assert result["decorationClass"] is True, (
+                "annotation canvas must carry foliplus-canvas-layer"
+            )
             assert result["hitIsCanvas"] is False, (
                 "annotation canvas intercepted the click"
             )
@@ -1501,7 +1510,13 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
-        """Each labelled layer gets its own canvas pane, z-ordered with its layer."""
+        """Each labelled layer gets its own canvas pane, z-ordered with its layer.
+
+        The pane goes through ``PaneManager.ensurePane`` (the single entry
+        point for owned panes), so it carries the base ``foliplus-layer-pane``
+        class alongside the annotation role marker — that is what makes the
+        pane's interaction rules in focus.css apply without a special case.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
@@ -1518,6 +1533,16 @@ class TestLayerControlBrowser:
             assert result["annB"] == result["layerB"] + 1, result
             assert result["annA"] == result["layerA"] + 1, result
             assert result["annB"] > result["annA"], result
+            # Both panes carry the base layer class plus the annotation role.
+            for which in ("A", "B"):
+                classes = result[f"paneClasses{which}"]
+                assert classes is not None, result
+                assert classes["layer"] is True, (
+                    f"annotation pane must carry foliplus-layer-pane: {result}"
+                )
+                assert classes["annotation"] is True, (
+                    f"annotation pane must carry foliplus-annotation-pane: {result}"
+                )
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_focus_lifts_label_pane(self, browser, tmp_path):
