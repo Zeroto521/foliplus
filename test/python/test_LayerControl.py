@@ -4482,6 +4482,93 @@ class TestLayerControlBrowser:
                 "the open attrs panel must stay above a lit sibling"
             )
 
+    # ── Row lookup by data-layer-id, not by registry / DOM position ──
+    #
+    # Each of these three scrambles the registry or the panel so the two
+    # orders disagree, then asserts the mutation landed on the row named by
+    # the layer's id. A positional lookup would have hit a neighbour.
+
+    def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
+        """initLayerItem stamps the row named by data-layer-id, not the one at
+        the layer's registry index."""
+        with use_page(self._make_page, browser, tmp_path, slug="initlayeritem") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/initlayeritem_scrambled_dom"))
+            assert state is not None, "LayerControl instance not reachable"
+            # The precondition the assertion depends on: the row sitting at
+            # alpha's registry index is a different layer, so only an id lookup
+            # can find alpha's row.
+            assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
+            # initLayerItem wrote alpha's name into alpha's own checkbox.
+            assert state["labels"]["alpha"] == "A"
+            # ...and left the neighbours' checkboxes alone. An index-based
+            # lookup would have stamped "A" onto whoever sat at alpha's
+            # registry index.
+            assert state["labels"]["beta"] == "B", (
+                "a neighbour's row was rewritten with alpha's name "
+                f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
+            )
+            assert state["labels"]["gamma"] == "C"
+            # Ids the registry does not know about are declined.
+            assert state["unknownReturnsFalse"] is False
+            assert not errors, f"JS errors: {errors}"
+
+    def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):
+        """handleDrop resolves the drop target by data-layer-id: a DOM-position
+        read would have seen a self-drop and left the registry behind the
+        panel."""
+        with use_page(self._make_page, browser, tmp_path, slug="dragrow") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(
+                _js("LayerControl/drag_scrambled_dom_only_updates_correct_row")
+            )
+            assert state is not None, "LayerControl instance not reachable"
+            # The drop actually moved the registry. A DOM-position lookup reads
+            # the target at the dragged layer's own index and aborts as a
+            # self-drop, leaving the registry behind the panel.
+            assert state["registryMoved"] is True, (
+                f"the drop aborted: the target row was resolved by DOM position, "
+                f"not id (registry stayed {state['beforeRegistry']})"
+            )
+            # Panel and registry agree once the drop has settled.
+            assert state["panelMatchesRegistry"] is True, (
+                f"panel {state['domIds']} drifted from registry "
+                f"{state['afterRegistry']}"
+            )
+            assert state["dragDisarmed"] is True
+            assert not errors, f"JS errors: {errors}"
+
+    def test_updatelayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
+        """updateLayerItem pushes a rename onto the row named by data-layer-id,
+        not the row at the layer's registry index."""
+        with use_page(self._make_page, browser, tmp_path, slug="updatelayeritem") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/updatelayeritem_stale_index"))
+            assert state is not None, "LayerControl instance not reachable"
+            # The precondition: the row at alpha's registry index is a
+            # different layer.
+            assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
+            assert state["labels"]["alpha"] == "A2", (
+                "the renamed layer's row was not updated"
+            )
+            # Whoever sat at alpha's registry index must keep their own name;
+            # an index-based lookup would have written the rename there.
+            assert state["labels"]["beta"] == "B", (
+                "a neighbour's row was rewritten with alpha's name "
+                f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
+            )
+            assert state["labels"]["gamma"] == "C"
+            assert not errors, f"JS errors: {errors}"
+
 
 # ── R1 pane-surface probe (§10.3) ──────────────────────────────────────
 #

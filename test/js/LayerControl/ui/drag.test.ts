@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
+  handleDragEnd,
+  handleDragLeave,
+  handleDragOver,
   handleDrop,
   showReorderBlockedHint,
   toggleFold,
@@ -81,7 +84,8 @@ describe("ui/drag", () => {
 
   describe("DOM order diverges from registry order", () => {
     /** Build a ui with 3 layers (A-B-C in registry) and DOM scrambled to C-A-B,
-     *  with dataset.index simulating a stale reindexItems pass (DOM position). */
+     *  with dataset.index carrying the stale DOM position the old positional
+     *  lookup would have read. */
     const makeScrambledUi = () => {
       const layers: LayerInfo[] = [
         { id: "A", name: "A", isBase: false } as LayerInfo,
@@ -100,7 +104,7 @@ describe("ui/drag", () => {
         row.appendChild(box);
         uiContainer.appendChild(row);
       }
-      // Simulate stale reindexItems: DOM position, not registry position.
+      // Stale offset: DOM position, not registry position.
       Array.from(
         uiContainer.querySelectorAll<HTMLElement>(`${CONST.SEL.LAYER_ITEM}`),
       ).forEach((row, i) => {
@@ -113,6 +117,8 @@ describe("ui/drag", () => {
         layers,
         ui: {
           uiContainer,
+          conf: { name: "LayerControl" },
+          T: (key: string) => key,
           foldedGroups: new Set<string>(),
           saveFoldState: vi.fn(),
           dragIdx: 0,
@@ -136,6 +142,7 @@ describe("ui/drag", () => {
           },
         } as unknown as LayerUI,
         reorder,
+        canReorderBetween,
       };
     };
 
@@ -154,6 +161,194 @@ describe("ui/drag", () => {
       // Old code: targetIdx = 2 (DOM position), reorder(0, 2) — wrong target.
       // New code: targetIdx = 1 (B's registry index), reorder(0, 1) — correct.
       expect(reorder).toHaveBeenCalledWith(0, 1);
+    });
+
+    it("handleDragOver marks the row below when the id resolves past the drag index", () => {
+      const { ui } = makeScrambledUi();
+      // C sits at DOM position 0 while A is being dragged (registry 0): a
+      // positional read would see targetIdx === dragIdx and paint nothing.
+      // By id, C is registry 2, which is below the dragged row.
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const rowC = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="C"]`,
+      )!;
+      expect(rowC.dataset.index).toBe("0");
+
+      handleDragOver(ui, dragEvent(rowC));
+
+      expect(rowC.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(rowC.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(ui.lastDragOverItem).toBe(rowC);
+    });
+
+    it("handleDragOver marks the row above when the id resolves before the drag index", () => {
+      const { ui } = makeScrambledUi();
+      // A sits at DOM position 1, exactly where B (registry 1) is being
+      // dragged: a positional read would see an equal index and paint nothing.
+      // By id, A is registry 0, which is above.
+      (ui as unknown as { dragIdx: number }).dragIdx = 1;
+      const rowA = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="A"]`,
+      )!;
+      expect(rowA.dataset.index).toBe("1");
+
+      handleDragOver(ui, dragEvent(rowA));
+
+      expect(rowA.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+      expect(rowA.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
+    it("handleDragOver blocks a forbidden move and clears the previous marker", () => {
+      const { ui, canReorderBetween } = makeScrambledUi();
+      canReorderBetween.mockReturnValue(false);
+      const rows = Array.from(
+        ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      );
+      ui.lastDragOverItem = rows[0];
+      rows[0].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+
+      const event = dragEvent(rows[1]);
+      handleDragOver(ui, event);
+
+      expect(canReorderBetween).toHaveBeenCalled();
+      expect(rows[0].classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(ui.lastDragOverItem).toBe(rows[1]);
+      // A blocked move is remembered for the hint but paints no drop position.
+      expect(rows[1].classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(rows[1].classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(event.dataTransfer?.dropEffect).toBe("none");
+    });
+
+    it("handleDragOver ignores the color basemap row", () => {
+      const { ui } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const color = document.createElement("div");
+      color.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
+      ui.uiContainer.appendChild(color);
+
+      const event = dragEvent(color);
+      handleDragOver(ui, event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(ui.lastDragOverItem).toBe(null);
+    });
+
+    it("handleDragOver does nothing until a drag is armed", () => {
+      const { ui } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+
+      const event = dragEvent(target);
+      handleDragOver(ui, event);
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(target.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
+    it("handleDrop refuses a blocked reorder and keeps the drag armed", () => {
+      const { ui, reorder, canReorderBetween } = makeScrambledUi();
+      canReorderBetween.mockReturnValue(false);
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(canReorderBetween).toHaveBeenCalledWith(0, 1);
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(0);
+    });
+
+    it("handleDrop relocates the dragged row before its target on a backward move", () => {
+      const { ui, reorder } = makeScrambledUi();
+      // Drag B (registry 1) onto A (registry 0). A sits at DOM position 1, so a
+      // positional read would see targetIdx === dragIdx and bail without moving.
+      // By id, A is registry 0: a real backward move, inserting before the target.
+      (ui as unknown as { dragIdx: number }).dragIdx = 1;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="A"]`,
+      )!;
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(reorder).toHaveBeenCalledWith(1, 0);
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect(
+        Array.from(
+          ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        ).map(row => row.getAttribute(CONST.DATA.LAYER_ID)),
+      ).toEqual(["C", "B", "A"]);
+    });
+
+    it("handleDrop aborts when the dragged row is missing from the panel", () => {
+      const layers: LayerInfo[] = [
+        { id: "A", name: "A", isBase: false } as LayerInfo,
+        { id: "B", name: "B", isBase: false } as LayerInfo,
+      ];
+      const uiContainer = document.createElement("div");
+      const rowB = document.createElement("div");
+      rowB.className = CONST.CLASSES.LAYER_ITEM;
+      rowB.setAttribute(CONST.DATA.LAYER_ID, "B");
+      uiContainer.appendChild(rowB);
+      const reorder = vi.fn();
+      const ui = {
+        uiContainer,
+        conf: { name: "LayerControl" },
+        T: (key: string) => key,
+        dragIdx: 0,
+        lastDragOverItem: null,
+        m: {
+          layers,
+          canReorderBetween: vi.fn(() => true),
+          enforceOrder: vi.fn(),
+          saveOrder: vi.fn(),
+          layerRegistry: { indexOf: () => 0, reorder },
+        },
+      } as unknown as LayerUI;
+
+      handleDrop(ui, dragEvent(rowB));
+
+      expect(reorder).toHaveBeenCalledWith(0, 1);
+      // A has no row to relocate, so the drag is disarmed without ordering.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
+    it("handleDragLeave clears the marker on the row being left", () => {
+      const { ui } = makeScrambledUi();
+      const row = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="A"]`,
+      )!;
+      row.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+
+      handleDragLeave(ui, dragEvent(row));
+
+      expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+    });
+
+    it("handleDragEnd disarms the drag and strips every marker", () => {
+      const { ui } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const rows = Array.from(
+        ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      );
+      rows[0].classList.add(CONST.CLASSES.DRAGGING, CONST.CLASSES.DRAG_OVER_TOP);
+      rows[1].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+      ui.lastDragOverItem = rows[0];
+
+      handleDragEnd(ui);
+
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect(ui.lastDragOverItem).toBe(null);
+      rows.forEach(row => {
+        expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+        expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+        expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      });
     });
   });
 });

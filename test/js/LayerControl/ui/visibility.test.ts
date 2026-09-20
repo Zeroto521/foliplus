@@ -558,8 +558,8 @@ describe("DOM order diverges from registry order", () => {
   };
 
   /** Rearrange the overlay rows so the DOM order is C-A-B (registry is A-B-C),
-   *  then simulate the stale index a prior reindexItems pass would have left:
-   *  dataset.index reflects DOM position, not registry position. */
+   *  then write dataset.index from DOM position: the stale offset the old
+   *  positional lookup would have read. */
   const scrambleDomOrder = (ui: LayerUI) => {
     const rows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
@@ -569,9 +569,9 @@ describe("DOM order diverges from registry order", () => {
     expect(rows.length).toBe(3);
     const container = rows[0].parentNode!;
     container.insertBefore(rows[2], rows[0]); // A,B,C -> C,A,B
-    // The old reindexItems wrote DOM position into dataset.index; the handler
-    // then read that index as a registry offset. Simulate the stale state so
-    // the assertion can distinguish "looked up by id" from "looked up by
+    // dataset.index now carries DOM position while the registry is still A-B-C:
+    // the stale offset the old positional lookup would have read. Simulating it
+    // lets the assertion distinguish "looked up by id" from "looked up by
     // (now wrong) position". Re-query after the move so the loop sees DOM
     // order, not the pre-scramble array order.
     const reordered = Array.from(
@@ -640,6 +640,42 @@ describe("DOM order diverges from registry order", () => {
     expect(manager.layerRegistry.get("A")?.visible).toBe(false);
     expect(manager.layerRegistry.get("B")?.visible).toBe(false);
     expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+  });
+
+  it("handleChange takes the color branch for the basemap input, never a layer id", () => {
+    scrambleDomOrder(ui);
+    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
+      `.${CONST.CLASSES.COLOR_INPUT}`,
+    )!;
+    colorInput.value = "#00ff00";
+
+    handleChange(ui, { target: colorInput } as Event);
+
+    expect(ui.currentColor).toBe("#00ff00");
+    expect(ui.isColorActive).toBe(true);
+    // The color row is keyed by its class, so no data-layer-id lookup runs and
+    // the scrambled overlay rows are left untouched.
+    expect(manager.layerRegistry.get("A")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("B")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(true);
+  });
+
+  it("handleInput repaints the basemap while the color picker is being used", () => {
+    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
+      `.${CONST.CLASSES.COLOR_INPUT}`,
+    )!;
+    colorInput.value = "#0000ff";
+
+    handleInput(ui, { target: colorInput } as Event);
+
+    expect(ui.currentColor).toBe("#0000ff");
+    expect(ui.isColorActive).toBe(true);
+  });
+
+  it("toggleAll restores the basemap when the base group is cleared", () => {
+    ui.toggleAll(CONST.GROUP.BASE, false);
+
+    expect(ui.isColorActive).toBe(true);
   });
 });
 
