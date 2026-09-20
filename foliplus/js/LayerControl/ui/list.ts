@@ -150,9 +150,7 @@ const insertLayerItem = (
     const above = idx > 0 ? ui.m.layers[idx - 1] : null;
     const anchor =
       above && above.isBase === layerInfo.isBase
-        ? container.querySelector(
-            `[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`,
-          )
+        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
         : null;
     if (anchor) anchor.after(frag);
     else container.insertBefore(frag, firstOfGroup);
