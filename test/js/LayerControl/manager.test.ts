@@ -359,9 +359,13 @@ describe("LayerManager", () => {
     const paneRegistry: Record<string, HTMLElement> = {};
     map._panes = paneRegistry;
     map.getPane = vi.fn((name: string) => paneRegistry[name] ?? null);
+    // Do NOT stamp the base class here — that would make the assertion
+    // below self-proving. The base `foliplus-layer-pane` comes from
+    // PaneManager.ensurePane; leaving it out of the mock means the
+    // assertion has teeth: if ensurePane ever stops stamping it, this
+    // goes red.
     map.createPane = vi.fn((name: string) => {
       const pane = document.createElement("div");
-      pane.classList.add("foliplus-layer-pane");
       return (paneRegistry[name] = pane);
     });
     map.getPanes = vi.fn(() => ({}));
