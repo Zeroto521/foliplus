@@ -65,7 +65,7 @@
 - `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are created lazily and rebuilt after `removeControl` + `addControl` on the same control ([#307](https://github.com/Zeroto521/foliplus/pull/307))
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
-- `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388), [#390](https://github.com/Zeroto521/foliplus/pull/390))
+- `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388), [#391](https://github.com/Zeroto521/foliplus/pull/391))
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 
 ### Removed
@@ -94,7 +94,7 @@
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
-- `LayerControl`: the focus overlay pane now goes through `PaneManager.ensurePane` like every owned pane — it carries the base `foliplus-layer-pane` class alongside the `foliplus-focus-pane` exclusion tag, so the interaction rules apply uniformly without a special case and the spotlight stays visible ([#390](https://github.com/Zeroto521/foliplus/pull/390))
+- `LayerControl`: the focus overlay pane now goes through `PaneManager.ensurePane` like every owned pane — it carries the base `foliplus-layer-pane` class alongside the `foliplus-focus-pane` exclusion tag, so the interaction rules apply uniformly without a special case and the spotlight stays visible ([#391](https://github.com/Zeroto521/foliplus/pull/391))
 
 ## [v0.3.0] (2026-08-02)
 
