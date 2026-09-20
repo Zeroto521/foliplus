@@ -319,8 +319,9 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  * passes) without compounding the write.
  *
  * @param patch.opacity  — 0..1 slider value; written to whichever carrier
- *   `surface.capabilities.opacity` names, and always to `layerInfo.opacity`
- *   so the persisted row can be read back even when the carrier is "none".
+ *   `surface.capabilities.opacity` names. When the carrier is "none" no honest
+ *   write exists, so the value is not stored — a slider that writes nothing
+ *   must not persist (§6.2).
  * @param patch.visible — map membership for Leaflet layers, `onToggle` for
  *   callback-only ones (canvas layers use the shared `HIDDEN` class in
  *   `LayerFactory`, not a pane write); the row's checkbox is touched by the
@@ -376,8 +377,6 @@ const applyLayerState = (
           layerInfo.opacity = patch.opacity;
         }
       }
-      // carrier === "none": no honest write exists, so the value is not
-      // stored — a slider that writes nothing must not persist (§6.2).
     }
   }
   if (patch.visible !== undefined) {
@@ -435,7 +434,6 @@ const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
  *  or synthesize panes on demand.
  */
 const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number) => {
-  layerInfo.opacity = opacity;
   applyLayerState(ui, layerInfo, { opacity });
 };
 

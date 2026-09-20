@@ -911,7 +911,6 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
     expect(() => applyOpacityStateOne(nativeUi(), li, 0.4)).not.toThrow();
-    expect(li.opacity).toBe(0.4);
   });
 
   it("fades a plain layer through its own pane", () => {
@@ -1030,7 +1029,7 @@ describe("applyOpacityStateOne", () => {
     expect(pane.style.opacity).toBe("1");
   });
 
-  it("stores the value but writes nothing when the carrier is none", () => {
+  it("writes nothing when the carrier is none", () => {
     const ui = {
       m: {
         surfaceFor: () => ({
@@ -1049,7 +1048,7 @@ describe("applyOpacityStateOne", () => {
 
     applyOpacityStateOne(ui, li, 0.4);
 
-    expect(li.opacity).toBe(0.4);
+    expect(li.opacity).toBe(1);
   });
 
   it("includes the annotation pane in the opacity write", () => {

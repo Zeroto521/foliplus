@@ -357,6 +357,17 @@ class ExportRenderer {
     return Math.max(0, Math.min(1, alpha));
   }
 
+  /** Apply a drawing operation under a given alpha, restoring the previous value. */
+  private withAlpha(ctx: CanvasRenderingContext2D, alpha: number, draw: () => void) {
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = alpha;
+    try {
+      draw();
+    } finally {
+      ctx.globalAlpha = prev;
+    }
+  }
+
   /** Render a standalone canvas element (e.g. HeatmapControl). */
   async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
@@ -375,14 +386,9 @@ class ExportRenderer {
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
-      const alpha = this.effectiveOpacity(ce);
-      if (alpha < 1) {
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(img, dx, dy, dw, dh);
-        ctx.globalAlpha = 1;
-      } else {
-        ctx.drawImage(img, dx, dy, dw, dh);
-      }
+      this.withAlpha(ctx, this.effectiveOpacity(ce), () => {
+        ctx.drawImage(img!, dx, dy, dw, dh);
+      });
     } catch {
       /* skip */
     }
@@ -447,42 +453,44 @@ class ExportRenderer {
     // holds, so this is already the composed result.
     const alpha = typeof layer.options.opacity === "number" ? layer.options.opacity : 1;
     ctx.globalAlpha = alpha;
+    try {
+      let drawn = 0;
+      // Load and draw tiles in concurrent batches to avoid overwhelming the
+      // browser connection limit (~6 per domain) while still parallelizing.
+      const concurrency = CONST.TILE_CONCURRENCY;
+      for (let i = 0; i < visibleTiles.length; i += concurrency) {
+        const batch = visibleTiles.slice(i, i + concurrency);
+        const bitmaps = await Promise.all(
+          batch.map(t => loadImageBitmap(t.url).catch(() => null)),
+        );
 
-    let drawn = 0;
-    // Load and draw tiles in concurrent batches to avoid overwhelming the
-    // browser connection limit (~6 per domain) while still parallelizing.
-    const concurrency = CONST.TILE_CONCURRENCY;
-    for (let i = 0; i < visibleTiles.length; i += concurrency) {
-      const batch = visibleTiles.slice(i, i + concurrency);
-      const bitmaps = await Promise.all(
-        batch.map(t => loadImageBitmap(t.url).catch(() => null)),
-      );
-
-      for (let j = 0; j < batch.length; j++) {
-        const bitmap = bitmaps[j];
-        if (!bitmap) continue;
-        const t = batch[j];
-        try {
-          ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
-          drawn++;
-        } catch {
-          /* skip tile on draw error */
-        } finally {
-          // Bitmap is drawn once and never needed again; close to free GPU memory.
+        for (let j = 0; j < batch.length; j++) {
+          const bitmap = bitmaps[j];
+          if (!bitmap) continue;
+          const t = batch[j];
           try {
-            bitmap.close();
+            ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+            drawn++;
           } catch {
-            /* already closed */
+            /* skip tile on draw error */
+          } finally {
+            // Bitmap is drawn once and never needed again; close to free GPU memory.
+            try {
+              bitmap.close();
+            } catch {
+              /* already closed */
+            }
           }
         }
-      }
 
-      // Report the tiles painted this batch so the caller can accumulate a
-      // share of the whole export instead of re-basing per layer.  Counting
-      // the batch position would credit tiles whose download failed.
-      if (onProgress) onProgress(drawn);
+        // Report the tiles painted this batch so the caller can accumulate a
+        // share of the whole export instead of re-basing per layer.  Counting
+        // the batch position would credit tiles whose download failed.
+        if (onProgress) onProgress(drawn);
+      }
+    } finally {
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
   }
 
   /** Render SVG content from a single pane. */
@@ -544,9 +552,7 @@ class ExportRenderer {
       const url = URL.createObjectURL(blob);
       try {
         const svgImg = await loadImage(url);
-        const paneAlpha = this.effectiveOpacity(pane);
-        if (paneAlpha < 1) {
-          ctx.globalAlpha = paneAlpha;
+        this.withAlpha(ctx, this.effectiveOpacity(pane), () => {
           ctx.drawImage(
             svgImg as HTMLImageElement,
             rect.left - svgL,
@@ -558,20 +564,7 @@ class ExportRenderer {
             sw,
             sh,
           );
-          ctx.globalAlpha = 1;
-        } else {
-          ctx.drawImage(
-            svgImg as HTMLImageElement,
-            rect.left - svgL,
-            rect.top - svgT,
-            rect.width,
-            rect.height,
-            0,
-            0,
-            sw,
-            sh,
-          );
-        }
+        });
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -603,14 +596,9 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
-          const alpha = this.effectiveOpacity(ce as HTMLElement);
-          if (alpha < 1) {
-            ctx.globalAlpha = alpha;
-            ctx.drawImage(img, dx, dy, dw, dh);
-            ctx.globalAlpha = 1;
-          } else {
-            ctx.drawImage(img, dx, dy, dw, dh);
-          }
+          this.withAlpha(ctx, this.effectiveOpacity(ce as HTMLElement), () => {
+            ctx.drawImage(img!, dx, dy, dw, dh);
+          });
         } catch {
           /* skip */
         } finally {
@@ -734,11 +722,13 @@ class ExportRenderer {
         const sw = w * ratioX;
         const sh = h * ratioY;
         if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-        try {
-          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
+        this.withAlpha(ctx, this.effectiveOpacity(el), () => {
+          try {
+            ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+          } catch {
+            /* skip */
+          }
+        });
       }
     } finally {
       // All sprites have been drawn (or aborted); release their bitmaps.
@@ -808,13 +798,15 @@ class ExportRenderer {
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
       await ensureFont(fontSpec);
-      ctx.save();
-      ctx.font = fontSpec;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = color;
-      ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
-      ctx.restore();
+      this.withAlpha(ctx, this.effectiveOpacity(root), () => {
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
+        ctx.restore();
+      });
     }
   }
 
@@ -823,7 +815,7 @@ class ExportRenderer {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
 
     for (const root of markerRoots) {
-      const textEl = root.querySelector(CONST.SEL.LABEL) || root;
+      const textEl = (root.querySelector(CONST.SEL.LABEL) || root) as HTMLElement;
       const text = textEl.textContent || "";
       if (!text.trim()) continue;
       if (root.querySelector("i")) continue;
@@ -847,32 +839,35 @@ class ExportRenderer {
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
+      const textAlpha = this.effectiveOpacity(textEl);
       // Draw background from textEl's computed style.
       // backdrop-filter: blur() is a browser-only visual effect that cannot
       // be replicated on canvas.  Use the specified color as-is so the
       // export is deterministic and faithful to the CSS value.
       const bg = textCS.backgroundColor;
       if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
-        ctx.save();
-        ctx.fillStyle = bg;
-        const br = parseFloat(textCS.borderRadius) || 0;
-        if (br > 0) {
-          ctx.beginPath();
-          ctx.roundRect(dx, dy, dw, dh, br * scale);
-          ctx.fill();
-        } else ctx.fillRect(dx, dy, dw, dh);
-
-        const bw = parseFloat(textCS.borderWidth) || 0;
-        if (bw > 0 && textCS.borderStyle !== "none") {
-          ctx.strokeStyle = textCS.borderColor || bg;
-          ctx.lineWidth = bw * scale;
+        this.withAlpha(ctx, textAlpha, () => {
+          ctx.save();
+          ctx.fillStyle = bg;
+          const br = parseFloat(textCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
             ctx.roundRect(dx, dy, dw, dh, br * scale);
-            ctx.stroke();
-          } else ctx.strokeRect(dx, dy, dw, dh);
-        }
-        ctx.restore();
+            ctx.fill();
+          } else ctx.fillRect(dx, dy, dw, dh);
+
+          const bw = parseFloat(textCS.borderWidth) || 0;
+          if (bw > 0 && textCS.borderStyle !== "none") {
+            ctx.strokeStyle = textCS.borderColor || bg;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
+              ctx.stroke();
+            } else ctx.strokeRect(dx, dy, dw, dh);
+          }
+          ctx.restore();
+        });
       }
 
       let fontSize = parseFloat(textCS.fontSize) || 14;
@@ -884,21 +879,22 @@ class ExportRenderer {
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
       await ensureFont(fontSpec);
-      ctx.save();
-      ctx.font = fontSpec;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = color;
-      const cx = dx + dw / 2;
-      const cy = dy + dh / 2;
-      const lines = text.trim().split("\n");
-      const lineHeight = fontSize * 1.2;
-      const startY = cy - ((lines.length - 1) * lineHeight) / 2;
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
-      }
-
-      ctx.restore();
+      this.withAlpha(ctx, textAlpha, () => {
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        const cx = dx + dw / 2;
+        const cy = dy + dh / 2;
+        const lines = text.trim().split("\n");
+        const lineHeight = fontSize * 1.2;
+        const startY = cy - ((lines.length - 1) * lineHeight) / 2;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
+        }
+        ctx.restore();
+      });
     }
   }
 
@@ -920,23 +916,28 @@ class ExportRenderer {
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
+      const rootAlpha = this.effectiveOpacity(root);
+
       // 1. <img> elements (default Leaflet markers)
       const imgEl =
         root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
         let img: HTMLImageElement | null = null;
+        let drawn = false;
         try {
           img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
-          ctx.drawImage(img, dx, dy, dw, dh);
-          continue;
+          drawn = true;
         } catch {
           /* fall through */
         } finally {
           if (img) {
-            // Image loaded from a regular URL; event handlers detached inside
-            // loadImage() so the Image element can be GC'd.
+            this.withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img!, dx, dy, dw, dh);
+            });
+            drawn = true;
           }
         }
+        if (drawn) continue;
       }
 
       // 2. Elements with inline SVG (divIcon with html: '<svg>...</svg>')
@@ -963,7 +964,9 @@ class ExportRenderer {
           const url = URL.createObjectURL(blob);
           try {
             const img = (await loadImage(url)) as HTMLImageElement;
-            ctx.drawImage(img, dx, dy, dw, dh);
+            this.withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img, dx, dy, dw, dh);
+            });
           } finally {
             URL.revokeObjectURL(url);
           }
@@ -982,26 +985,28 @@ class ExportRenderer {
       const hasBgColor =
         bgColor && bgColor !== "transparent" && bgColor !== "rgba(0, 0, 0, 0)";
       if (hasBgColor && !hasSprite && !root.querySelector(CONST.SEL.LABEL)) {
-        ctx.save();
-        ctx.fillStyle = bgColor;
-        const br = parseFloat(rootCS.borderRadius) || 0;
-        if (br > 0) {
-          ctx.beginPath();
-          ctx.roundRect(dx, dy, dw, dh, br * scale);
-          ctx.fill();
-        } else ctx.fillRect(dx, dy, dw, dh);
-
-        const bw = parseFloat(rootCS.borderWidth) || 0;
-        if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
-          ctx.strokeStyle = rootCS.borderColor;
-          ctx.lineWidth = bw * scale;
+        this.withAlpha(ctx, rootAlpha, () => {
+          ctx.save();
+          ctx.fillStyle = bgColor;
+          const br = parseFloat(rootCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
             ctx.roundRect(dx, dy, dw, dh, br * scale);
-            ctx.stroke();
-          } else ctx.strokeRect(dx, dy, dw, dh);
-        }
-        ctx.restore();
+            ctx.fill();
+          } else ctx.fillRect(dx, dy, dw, dh);
+
+          const bw = parseFloat(rootCS.borderWidth) || 0;
+          if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
+            ctx.strokeStyle = rootCS.borderColor;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
+              ctx.stroke();
+            } else ctx.strokeRect(dx, dy, dw, dh);
+          }
+          ctx.restore();
+        });
       }
     }
   }
