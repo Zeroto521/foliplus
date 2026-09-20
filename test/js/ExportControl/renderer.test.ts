@@ -2024,6 +2024,37 @@ describe("ExportRenderer.renderTextLabels", () => {
       restore();
     }
   });
+
+  it("draws a square text-label border using strokeRect", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const restore = withStyle({
+      backgroundColor: "rgb(10, 10, 10)",
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "rgb(255, 0, 0)",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe("ExportRenderer.renderRemaining", () => {
@@ -2155,6 +2186,68 @@ describe("ExportRenderer.renderRemaining", () => {
         [root],
       );
       expect(ctx.fillRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("sets the color attribute on an inline SVG when the parent has a non-black color", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
+    root.appendChild(svg);
+    const restore = withStyle({ color: "#ff0" });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("injects xmlns into inline SVG source when the element was created without a namespace", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElement("svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElement("path"));
+    root.appendChild(svg);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a square background with a border using strokeRect", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 10, 10);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 0, 255)",
+      backgroundImage: "none",
+      borderRadius: "0px",
+      borderWidth: "2px",
+      borderStyle: "solid",
+      borderColor: "rgb(0, 0, 0)",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
     } finally {
       restore();
     }

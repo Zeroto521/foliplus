@@ -118,7 +118,29 @@ describe("AnnotationManager — formatting and fields", () => {
         }),
       } as unknown as L.Layer),
     ).toEqual({ lat: 1, lng: 2 });
+    // A leaf whose getLatLng exists but returns null/undefined is not a
+    // marker whose point is undefined — it falls through to bounds, so a
+    // group whose "point" accessor resolves to nothing still gets an anchor
+    // from its extents.
+    expect(
+      mgr.resolveAnchor({
+        getLatLng: () => null,
+        getBounds: () => ({
+          isValid: () => true,
+          getCenter: () => ({ lat: 1, lng: 2 }),
+        }),
+      } as unknown as L.Layer),
+    ).toEqual({ lat: 1, lng: 2 });
     expect(mgr.resolveAnchor({} as L.Layer)).toBeNull();
+    expect(
+      mgr.resolveAnchor({
+        getLatLng: () => null,
+        getBounds: () => ({
+          isValid: () => true,
+          getCenter: () => ({ lat: 1, lng: 2 }),
+        }),
+      } as unknown as L.Layer),
+    ).toEqual({ lat: 1, lng: 2 });
   });
 
   it("reads a field off feature.properties", () => {

@@ -4,12 +4,14 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
+  applyHiddenStateOne,
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
   loadPersistedState,
   markOverride,
   saveFoldState,
+  saveNamesState,
   saveState,
   syncHiddenId,
   unmarkOverride,
@@ -795,6 +797,20 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     applyVisibleStateOne(ui, layerInfo);
     expect(onToggle).not.toHaveBeenCalled();
   });
+
+  it("applyHiddenStateOne fires onToggle for a callback-only layer", () => {
+    // Covers the `else if (layerInfo.onToggle)` branch in applyLayerState —
+    // a layer with no Leaflet layer object but a toggle callback (canvas).
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const onToggle = vi.fn();
+    const layerInfo = { id: "a", onToggle } as unknown as LayerInfo;
+
+    applyHiddenStateOne(ui, layerInfo);
+
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(layerInfo.visible).toBe(false);
+  });
 });
 
 describe("ui/state saveFoldState", () => {
@@ -1499,5 +1515,40 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     ui.applyUserState("overlay1");
 
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("applyUserState renames the color basemap row without a registry entry", () => {
+    // The color basemap has no LayerInfo in the registry — its rename goes
+    // straight to the row label. Without the id guard at the top of the
+    // sweep the color item would be skipped and the label would stay stale.
+    ui.renamedNames = { [CONST.COLOR.MAP_ID]: "Renamed Color" };
+
+    ui.applyUserState();
+
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    ) as HTMLElement | null;
+    expect(colorItem).not.toBeNull();
+    const label = colorItem!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Color");
+  });
+
+  it("persists renamed names through the persistence scheduler", () => {
+    // saveNamesState is the write half of the rename flow. Without a test
+    // that reaches it, the function stays uncovered even though the read
+    // path (applyUserState) is exercised.
+    const schedule = vi.fn();
+    const bare = {
+      renamedNames: { overlay1: "Renamed" },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveNamesState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 });

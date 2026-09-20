@@ -415,6 +415,30 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").field).toBe("count");
   });
 
+  it("skips syncFormatRow when the format row is absent from the DOM", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    panelOf(item).querySelector(".foliplus-style-format-row")?.remove();
+    const field = panelOf(item).querySelector(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement;
+    field.value = "count";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").field).toBe("count");
+  });
+
+  it("omits the format key when the format select is absent from the DOM", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    panelOf(item).querySelector(".foliplus-style-format-select")?.remove();
+    const field = panelOf(item).querySelector(
+      ".foliplus-style-field-select",
+    ) as HTMLSelectElement;
+    field.value = "count";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(manager.annotation.getConfig("overlay1").field).toBe("count");
+  });
+
   // ─────────────────── labels toggle (default off) ───────────────────
 
   it("defaults the labels toggle off, with the body collapsed", () => {
