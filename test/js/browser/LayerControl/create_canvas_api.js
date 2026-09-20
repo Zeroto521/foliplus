@@ -10,7 +10,6 @@
     hasResize: typeof cvs.resize === "function",
     hasDestroy: typeof cvs.destroy === "function",
     hasUpdatePosition: typeof cvs.updatePosition === "function",
-    hasSetZIndex: typeof cvs.setZIndex === "function",
     hasSetVisible: typeof cvs.setVisible === "function",
     hasGetSize: typeof cvs.getSize === "function",
     canvasTag: cvs.canvas.tagName,
