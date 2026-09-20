@@ -228,7 +228,7 @@ const isCovered = (stem: string) =>
 // The allow-list records the current bare calls with the reason each cannot be
 // migrated yet — either the call is inside `BaseControl.on` itself (the sole
 // entry), it's a factory in `common/`/`core/` that cannot reach a control
-// instance, or the file is another PR's territory (T28 = LayerControl/ui/**).
+// instance, or it's a pending migration to `this.on` in a component file.
 // Each entry pins the exact call count, so a new bare call in the same file
 // still fails. The list is intentionally large (this is the *downstream* work
 // the user scoped out); it is what makes the next migration visible.
@@ -316,24 +316,24 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
   {
     f: "LayerControl/ui/attr.ts",
     n: 3,
-    reason:
-      "T28 in-flight — LayerControl/ui/** is another PR's scope; this guard names them so the count is pinned, not swept",
+    reason: "attribute panel event bindings — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/index.ts",
     n: 13,
     reason:
-      "T28 in-flight — LayerControl/ui/** is another PR's scope; 13 pinned, no more allowed without an explicit change",
+      "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/menu.ts",
     n: 1,
-    reason: "T28 in-flight — LayerControl/ui/** is another PR's scope",
+    reason: "more-menu outside-click — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/style.ts",
     n: 5,
-    reason: "T28 in-flight — LayerControl/ui/** is another PR's scope",
+    reason:
+      "style-panel input / dropdown / opacity bindings — pending migration to `this.on`",
   },
 ];
 

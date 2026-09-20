@@ -215,7 +215,9 @@ class BaseControl extends L.Control {
    * and multi-step setup that installs several sub-resources and has to
    * unwind them all.
    */
-  effect(setup: () => void | (() => void)): void {
+  effect(
+    setup: () => void | (() => void) | { cancel?: () => void; disconnect?: () => void },
+  ): void {
     const result = setup();
     if (result == null) return;
     if (typeof result !== "function") {

@@ -368,7 +368,7 @@ describe("BaseControl", () => {
     // effect helper adapts that to a cleanup entry without the caller
     // needing to know the shape.
     const cancel = vi.fn();
-    const d = { cancel } as unknown as { cancel: () => void };
+    const d = { cancel };
 
     class TestCtrl extends BaseControl {
       buildDOM() {
@@ -388,7 +388,7 @@ describe("BaseControl", () => {
   it("effect accepts a setup closure that returns a value with .disconnect()", () => {
     // MutationObserver / ResizeObserver shape.
     const disconnect = vi.fn();
-    const obs = { disconnect } as unknown as { disconnect: () => void };
+    const obs = { disconnect };
 
     class TestCtrl extends BaseControl {
       buildDOM() {
