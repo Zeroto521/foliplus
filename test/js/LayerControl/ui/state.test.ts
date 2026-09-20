@@ -811,6 +811,21 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     expect(onToggle).toHaveBeenCalledWith(false);
     expect(layerInfo.visible).toBe(false);
   });
+
+  it("applyVisibleStateOne is a no-op for a stale id that resolves to nothing", () => {
+    // The else-if has no else, so its skip count stays 0 unless this path is
+    // really reached: an id the persistence record still holds but the registry
+    // has pruned — no Leaflet layer to add and no toggle callback to fire. Over
+    // such entries the sweep only moves the registry's visible flag.
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
+
+    applyVisibleStateOne(ui, layerInfo);
+
+    expect(ui.m.map.addLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
 });
 
 describe("ui/state saveFoldState", () => {
@@ -1532,6 +1547,33 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const label = colorItem!.querySelector("label") as HTMLElement | null;
     expect(label).not.toBeNull();
     expect(label!.textContent).toBe("Renamed Color");
+  });
+
+  it("applyUserState renames a layer that is in the registry", () => {
+    // Covers the regular layer path in the sweep (lines 196-203): a layer ID
+    // that IS in the registry gets its name projected through the layerInfo.
+    ui.renamedNames = { overlay1: "Renamed Overlay" };
+
+    ui.applyUserState();
+
+    const item = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="overlay1"]`,
+    ) as HTMLElement | null;
+    expect(item).not.toBeNull();
+    const label = item!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Overlay");
+  });
+
+  it("applyUserState(id) renames a layer through the id path", () => {
+    // Covers line 165: applyNameProjection in the `if (id)` branch.
+    // The item is null in this path, so only layerInfo.name is updated.
+    ui.renamedNames = { overlay1: "Renamed via id" };
+
+    ui.applyUserState("overlay1");
+
+    const li = manager.layerRegistry.get("overlay1");
+    expect(li?.name).toBe("Renamed via id");
   });
 
   it("persists renamed names through the persistence scheduler", () => {

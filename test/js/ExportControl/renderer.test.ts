@@ -727,6 +727,21 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // earns no progress: counting it would say the map is more done than it is.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([0]);
   });
+
+  it("still draws every tile when no onProgress callback is passed", async () => {
+    // render() always forwards its own callback, but renderTileLayer is also
+    // reachable on its own, so the report has to stay optional.
+    const ctx = makeMockCtx();
+    stubBitmaps();
+
+    await makeRenderer().renderTileLayer(
+      makeRC(4096, 4096, ctx),
+      rcTiles(makeRC(4096, 4096, ctx), CONST.TILE_CONCURRENCY),
+      mockLayer,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(CONST.TILE_CONCURRENCY);
+  });
 });
 
 describe("ExportRenderer.render — onProgress across tile layers", () => {
@@ -2051,6 +2066,39 @@ describe("ExportRenderer.renderTextLabels", () => {
       expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
       expect(ctx.roundRect).not.toHaveBeenCalled();
       expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("falls back to the background colour when the label declares no border colour", async () => {
+    // `borderColor` can be an empty string when only width and style are set;
+    // without the fallback the stroke would paint the canvas default (opaque
+    // black) over a label that asked for its own fill as the outline.
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const bg = "rgb(10, 10, 10)";
+    const restore = withStyle({
+      backgroundColor: bg,
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeStyle).toBe(bg);
     } finally {
       restore();
     }
