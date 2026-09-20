@@ -8,6 +8,12 @@
  * exports used by components on window.foliplus.core / .common / BaseControl,
  * enabling esbuild to tree-shake unused exports from component bundles.
  *
+ * The scan is script/import-scan.mjs, shared with
+ * script/global-namespace-plugin.mjs: this file publishes a name on
+ * window.foliplus, the plugin reads it back through a shim, so both sides
+ * must scan with the same rules. This file only canonicalizes the keys and
+ * generates the artifact.
+ *
  * NOTE: core/{component,hint,mode} are SKIPPED — registered manually in
  * runtime/index.ts (see SKIPPED_CORE_FILES in the source).
  *
@@ -16,10 +22,11 @@
  *
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { mkdirSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -50,71 +57,24 @@ const srcDir = resolve(ROOT, "foliplus/js");
 const buildJs = resolve(ROOT, "foliplus/.build/js");
 mkdirSync(buildJs, { recursive: true });
 
-const scanImports = dir => {
-  const imported = new Map();
-  const starImported = new Map();
-  const allSrc = new Map();
-
-  const walk = d => {
-    for (const entry of readdirSync(d, { withFileTypes: true })) {
-      const full = resolve(d, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
-        const src = readFileSync(full, "utf-8");
-        allSrc.set(full, src);
-
-        const namedRe =
-          /import[\s]*\{([^}]+)\}[\s]*from[\s]*"(#(?:common|core|foliplus)\/[^"]+)"/g;
-        let m;
-        while ((m = namedRe.exec(src))) {
-          const spec = m[2]
-            .replace(/^#/, "")
-            .replace(/\.js$/, "")
-            .replace(/\/index$/, "");
-          const names = m[1]
-            .split(",")
-            .map(n => n.trim())
-            .filter(n => !n.startsWith("type"))
-            .map(n => n.replace(/[\s]+as[\s]+.*/g, ""))
-            .filter(Boolean);
-          if (!imported.has(spec)) imported.set(spec, new Set());
-          names.forEach(n => imported.get(spec).add(n));
-        }
-
-        const starRe =
-          /import[\s]+\*[\s]+as[\s]+(\w+)[\s]+from[\s]*"(#(?:common|core)\/[^"]+)"/g;
-        while ((m = starRe.exec(src))) {
-          const spec = m[2]
-            .replace(/^#/, "")
-            .replace(/\.js$/, "")
-            .replace(/\/index$/, "");
-          if (!starImported.has(spec)) starImported.set(spec, new Set());
-          starImported.get(spec).add(m[1]);
-        }
-      }
-    }
-  };
-
-  walk(dir);
-
-  for (const [spec, aliases] of starImported) {
-    if (!imported.has(spec)) imported.set(spec, new Set());
-    for (const alias of aliases) {
-      for (const src of allSrc.values()) {
-        const upperRe = new RegExp(alias + "[.]" + "([A-Z][A-Z0-9_]*)", "g");
-        let pm;
-        while ((pm = upperRe.exec(src))) imported.get(spec).add(pm[1]);
-        if (alias === "Storage") {
-          const stdRe = new RegExp(alias + "[.]" + "(load|save)", "g");
-          let sm;
-          while ((sm = stdRe.exec(src))) imported.get(spec).add(sm[1]);
-        }
-      }
-    }
+/** Walk a component dir and return `{ canonicalSpec: [names...] }` — named and
+ *  star-import usage merged, keyed the way this registry is generated from
+ *  (`core/geo`, `common/dom`). Named `registryUsedExports` rather than
+ *  `scanImports`: the actual scan is script/import-scan.mjs, and this is only
+ *  the registry's adapter over it. */
+const registryUsedExports = dir => {
+  const { named, starUsed } = scanSharedImports(dir);
+  const merged = new Map();
+  for (const [spec, names] of [...named.entries(), ...starUsed.entries()]) {
+    const key = canonicalSpec(spec);
+    const set = merged.get(key) || new Set();
+    for (const n of names) set.add(n);
+    merged.set(key, set);
   }
-
   const usedExports = {};
-  for (const [spec, names] of imported) usedExports[spec] = [...names].sort();
+  for (const key of [...merged.keys()].sort()) {
+    usedExports[key] = [...merged.get(key)].sort();
+  }
   return usedExports;
 };
 
@@ -144,7 +104,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
 
   const usedExports = {};
   for (const dir of componentDirs) {
-    const scanned = scanImports(dir);
+    const scanned = registryUsedExports(dir);
     for (const [spec, names] of Object.entries(scanned)) {
       if (!usedExports[spec]) usedExports[spec] = [];
       usedExports[spec].push(...names);
@@ -211,7 +171,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   }
 };
 
-export { generateRegistry, scanImports };
+export { generateRegistry, registryUsedExports };
 
 // CLI entry point: `node script/scan-registry.mjs [--root <path>] [--silent]`.
 // Guarded so importing this module (e.g. for tests) has no side effects.
