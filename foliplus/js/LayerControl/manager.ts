@@ -170,8 +170,16 @@ class LayerManager implements LayerAPI {
 
     this.persistence = new LayerPersistence(this.layerRegistry);
     // The annotation manager plans each layer's labels on that layer's own
-    // pane; enforceOrder z-orders the panes along with their layers.
-    this.annotation = new AnnotationManager(this.map, id => this.findLayer(id));
+    // pane; enforceOrder z-orders the panes along with their layers. The pane
+    // comes through PaneManager.ensurePane so it carries the base
+    // foliplus-layer-pane class like every other owned pane, and it goes back
+    // out through removePane so the spec/cache are cleared in step.
+    this.annotation = new AnnotationManager(
+      this.map,
+      id => this.findLayer(id),
+      name => this.panes.ensurePane(name, false).pane,
+      name => this.panes.removePane(name),
+    );
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
