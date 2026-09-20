@@ -176,6 +176,10 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
     if (id in ui.opacityMap) applyOpacityStateOne(ui, layerInfo, ui.opacityMap[id]);
+    // The order dimension is replayed on the same pass: this path runs once per
+    // late registration, so without it the layer would keep the slot it was
+    // inserted into rather than the position the user already arranged.
+    ui.m.replaySavedOrder(id);
     return;
   }
 
@@ -232,6 +236,11 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // went from memory *and* storage in the same pass, so a late-registered
   // layer (heatmap, measure) lost its stored opacity, zoom range, and
   // visibility on the first attach of every reload.
+
+  // The order comes from the same read as the dimensions above, which lands
+  // before late registrations -- so it is replayed across the registry that
+  // exists now, and each later registration refines its own slot.
+  ui.m.replaySavedOrder();
 };
 
 /**
@@ -434,6 +443,40 @@ const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number
   applyLayerState(ui, layerInfo, { opacity });
 };
 
+/**
+ * Replay one layer's stored intent at the moment a carrier for it appears.
+ *
+ * An annotation pane is created lazily — when labels first turn on, which can be
+ * long after the slider was last moved — and nothing writes to a pane that does
+ * not exist yet, so the pane's appearance is its own replay point. It must go
+ * through the one write pipeline rather than setting the style itself:
+ * `applyLayerState` is what resolves the carrier, so a layer whose carrier is its
+ * own canvas keeps writing `canvas.style` instead of picking up a second,
+ * multiplying write on a pane (§4.2).
+ *
+ * The name names the trigger, not the dimension: `visible` rides on map
+ * membership / `onToggle` and `zoomRange` is a declaration, so neither goes
+ * through a pane, and one hook per dimension would be wrong. The patch is
+ * derived from `userOverrides` instead, so this replays what the user stored for
+ * the id. A pane carries only opacity today — a fact about panes, not about this
+ * hook — and when one gains a dimension the derivation below is what changes.
+ *
+ * Only stored values are replayed, so an untouched layer keeps the author's
+ * declared default.
+ */
+const replayLayerState = (ui: LayerUI, id: string) => {
+  const layerInfo = ui.m.layerRegistry.get(id);
+  if (!layerInfo) return; // not registered yet —its stored state is kept
+  const stored = ui.userOverrides[id] ?? [];
+  const patch: { opacity?: number } = {};
+  if (stored.includes("opacity")) {
+    const opacity = ui.opacityMap[id];
+    if (typeof opacity === "number") patch.opacity = opacity;
+  }
+  if (patch.opacity === undefined) return; // nothing stored — nothing to replay
+  applyLayerState(ui, layerInfo, patch);
+};
+
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
@@ -485,6 +528,7 @@ export {
   applyHiddenOne,
   applyHiddenStateOne,
   applyOpacityStateOne,
+  replayLayerState,
   applyVisibleStateOne,
   saveNamesState,
   syncHiddenId,

@@ -10,6 +10,10 @@ describe("BaseControl", () => {
     map = { on: vi.fn(), off: vi.fn() };
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("calls init() at construction", () => {
     const init = vi.fn();
 
@@ -253,7 +257,7 @@ describe("BaseControl", () => {
     document.body.removeChild(el);
   });
 
-  it("listenMap tracks and unbinds map listeners", () => {
+  it("onMap tracks and unbinds map listeners", () => {
     const fn = vi.fn();
 
     class TestCtrl extends BaseControl {
@@ -263,7 +267,7 @@ describe("BaseControl", () => {
     }
     const ctrl = new TestCtrl();
     ctrl._map = map;
-    ctrl.listenMap("zoomend", fn);
+    ctrl.onMap("zoomend", fn);
     expect(map.on).toHaveBeenCalledWith("zoomend", fn);
 
     ctrl.onRemove();
@@ -301,93 +305,14 @@ describe("BaseControl", () => {
     const ctrl = new TestCtrl();
     ctrl._map = map;
     ctrl.onAdd();
-    ctrl.listenDOM(document.createElement("div"), "click", () => {});
-    ctrl.listenMap("zoomend", () => {});
-    ctrl.trackCleanup(() => {});
+    ctrl.on(document.createElement("div"), "click", () => {});
+    ctrl.onMap("zoomend", () => {});
+    ctrl.effect(() => () => {});
 
     ctrl.onRemove();
     ctrl.onRemove(); // second call should not throw
-    expect(ctrl.events).toEqual([]);
     expect(ctrl.mapListeners).toEqual([]);
     expect(ctrl.cleanups).toEqual([]);
-  });
-
-  it("listenDOM does not double-bind the same (event, fn) pair", () => {
-    class TestCtrl extends BaseControl {
-      buildDOM() {
-        return document.createElement("div");
-      }
-    }
-    const ctrl = new TestCtrl();
-    ctrl._map = map;
-    ctrl.onAdd();
-    const el = document.createElement("div");
-    const addSpy = vi.fn();
-    el.addEventListener = addSpy;
-    const fn = () => {};
-    ctrl.listenDOM(el, "click", fn);
-    ctrl.listenDOM(el, "click", fn);
-    expect(addSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("listenDOM is distinct for different fns on the same event", () => {
-    // The dedup key includes the fn so two handlers on the same event
-    // (e.g. a click that stops propagation plus one that records) are
-    // both bound — the pre-refactor (target, event) key would have
-    // silently dropped the second.
-    class TestCtrl extends BaseControl {
-      buildDOM() {
-        return document.createElement("div");
-      }
-    }
-    const ctrl = new TestCtrl();
-    ctrl._map = map;
-    ctrl.onAdd();
-    const el = document.createElement("div");
-    const addSpy = vi.fn();
-    el.addEventListener = addSpy;
-    const a = () => 1;
-    const b = () => 2;
-    ctrl.listenDOM(el, "click", a);
-    ctrl.listenDOM(el, "click", b);
-    expect(addSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it("trackCleanup runs teardown callbacks on remove", () => {
-    // Panel factories return their own unbind function rather than an
-    // element/event pair, so they cannot go through listenDOM.
-    const cleanup = vi.fn();
-
-    class TestCtrl extends BaseControl {
-      buildDOM() {
-        return document.createElement("div");
-      }
-    }
-    const ctrl = new TestCtrl();
-    ctrl._map = map;
-    ctrl.trackCleanup(cleanup);
-    expect(cleanup).not.toHaveBeenCalled();
-
-    ctrl.onRemove();
-    expect(cleanup).toHaveBeenCalledTimes(1);
-    expect(ctrl.cleanups).toEqual([]);
-  });
-
-  it("trackCleanup does not register the same callback twice", () => {
-    const cleanup = vi.fn();
-
-    class TestCtrl extends BaseControl {
-      buildDOM() {
-        return document.createElement("div");
-      }
-    }
-    const ctrl = new TestCtrl();
-    ctrl._map = map;
-    ctrl.trackCleanup(cleanup);
-    ctrl.trackCleanup(cleanup);
-
-    ctrl.onRemove();
-    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it("effect runs the setup closure immediately and unbinds its returned cleanup", () => {
@@ -471,10 +396,15 @@ describe("BaseControl", () => {
     expect(() => ctrl.onRemove()).not.toThrow();
   });
 
-  it("effect ignores a setup closure that returns a bare object (no cancel/disconnect)", () => {
-    // Defensive fall-through: an object without either method is a no-op —
-    // the caller passed something that isn't a teardown resource. Registering
-    // it as a cleanup would call it at remove time and throw.
+  it("effect warns and registers nothing when setup returns a bare object", () => {
+    // Defensive fall-through: an object without either teardown hook is not a
+    // resource — registering it would be invoked at remove time and throw. It
+    // is dropped, but with a warning: a silent drop here means the caller
+    // handed back something they meant to be torn down and nothing else tells
+    // them it was never registered.
+    const warn = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -486,6 +416,8 @@ describe("BaseControl", () => {
 
     ctrl.effect(() => ({ value: 42 }));
     expect(ctrl.cleanups).toHaveLength(0);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/effect\(\).*no \.cancel/);
     expect(() => ctrl.onRemove()).not.toThrow();
   });
 
@@ -670,7 +602,7 @@ describe("BaseControl", () => {
         return document.createElement("div");
       }
       destroy() {
-        this.trackCleanup(cleanup);
+        this.effect(() => cleanup);
         throw new Error("boom");
       }
     }
@@ -682,5 +614,50 @@ describe("BaseControl", () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(ctrl.cleanups).toHaveLength(0);
     expect(ctrl.ac).toBeNull();
+  });
+
+  it("the tracked surface is on / onMap / effect, with no legacy aliases", () => {
+    // listenDOM / listenMap / trackCleanup forwarded to the entries above
+    // but each carried a subtly different dedup contract — listenDOM keyed
+    // on (event, fn) and dropped the target, so two different elements
+    // sharing an event+fn pair collapsed into one binding. With the last
+    // call site migrated there is no reason to leave them reachable, and
+    // the events field that only listenDOM filled goes with them.
+    //
+    // Presence is read as a plain boolean map and compared with toEqual,
+    // rather than handing BaseControl.prototype to toHaveProperty. On a
+    // failure that matcher pretty-prints the received object, which walks
+    // the prototype chain and evaluates the `signal` getter; the getter
+    // throws on a detached read, so the assertion that actually failed
+    // would be reported as "read of `signal` on a detached control" with
+    // no pointer to the gate. Presence checks are pure `in` reads.
+    //
+    // Methods are checked on the prototype, where a re-added method lands.
+    // `events` was a class field (target ES2022), so it lived on instances
+    // — asserting it against the prototype was vacuously true even before
+    // the field was ever declared. It is checked on a live instance, which
+    // also catches an alias re-added in assignment form
+    // (`this.listenDOM = ...`): that never appears on the prototype.
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+
+    const shape = (target: object, names: readonly string[]) =>
+      Object.fromEntries(names.map(name => [name, name in target]));
+
+    expect(shape(BaseControl.prototype, ["on", "onMap", "effect"])).toEqual({
+      on: true,
+      onMap: true,
+      effect: true,
+    });
+    expect(shape(ctrl, ["listenDOM", "listenMap", "trackCleanup", "events"])).toEqual({
+      listenDOM: false,
+      listenMap: false,
+      trackCleanup: false,
+      events: false,
+    });
   });
 });

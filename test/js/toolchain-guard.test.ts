@@ -216,27 +216,35 @@ const scriptTestStems = (): Set<string> =>
 const isCovered = (stem: string) =>
   scriptTestStems().has(stem) || stem in INTENTIONAL_NO_TEST;
 
-// ── No bare addEventListener in foliplus/js ─────────────────────────────────
+// ── Tracked listener registrations in foliplus/js ───────────────────────────
 //
-// The pre-`BaseControl.on` design made document/window-level and capture
-// registrations inexpressible via the base class, which is exactly why so many
-// controls reached for `addEventListener` and then had to hand-track the
-// removal in a component-owned field. The refactor adds `BaseControl.on` with
-// a shared lifecycle `signal`, so `capture: true` and window-level targets
-// are first-class again. This guard stops new bare calls from creeping in.
+// Two banned forms, one mechanism. The pre-`BaseControl.on` design made
+// document/window-level and capture registrations inexpressible via the base
+// class, which is exactly why so many controls reached for `addEventListener`
+// and then had to hand-track the removal in a component-owned field. The
+// refactor adds `BaseControl.on` with a shared lifecycle `signal`, so
+// `capture: true` and window-level targets are first-class again.
 //
-// The allow-list records the current bare calls with the reason each cannot be
-// migrated yet — either the call is inside `BaseControl.on` itself (the sole
-// entry), it's a factory in `common/`/`core/` that cannot reach a control
-// instance, or it's a pending migration to `this.on` in a component file.
-// Each entry pins the exact call count, so a new bare call in the same file
-// still fails. The list is intentionally large (this is the *downstream* work
-// the user scoped out); it is what makes the next migration visible.
-const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
+// `L.DomEvent.on(` is the older half of the same leak: Leaflet's DOM wrapper
+// takes no `signal` and returns no unbind closure, so a caller that uses it
+// has to remember `L.DomEvent.off` and nothing fails loudly when they don't.
+// Same mechanism, same allow-list shape, so the two are guarded together.
+//
+// `.onclick =` is deliberately not part of either guard: `onclick = null` is
+// the legitimate way to clear a handler, and banning the assignment form would
+// buy nothing but noise.
+//
+// Each allow-list entry pins the exact call count for its file, so a new call
+// in the same file still fails. The addEventListener list is intentionally
+// large (this is the *downstream* work scoped out of the refactor); it is what
+// makes the next migration visible.
+type AllowEntry = {
   f: string; // relative to foliplus/js/
-  n: number; // exact bare addEventListener call count
+  n: number; // exact call count
   reason: string;
-}> = [
+};
+
+const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   {
     f: "BaseControl.ts",
     n: 1,
@@ -258,7 +266,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
     f: "common/panel.ts",
     n: 2,
     reason:
-      "bindOutsideCollapse / bindFoldToggle factories return their own unbind closure — that is exactly the `effect` case, but the factory itself has no control instance",
+      "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
   },
   {
     f: "core/hint.ts",
@@ -337,7 +345,27 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
   },
 ];
 
+// `L.DomEvent.on(` is rare in this tree, which is the point of the guard: one
+// file, three calls, all in the same pair of factories. Quantified before the
+// entry was written, not after.
+const L_DOM_EVENT_ON: ReadonlyArray<AllowEntry> = [
+  {
+    f: "common/panel.ts",
+    n: 3,
+    reason:
+      "all three bind to elements inside a panel container subtree: bindPanelToggle (2) resolves button and header via container.querySelector, bindFoldToggle (1) receives the toggle button from createFoldControl. Leaflet stores the listener on the target element's own _leaflet_events, so it is collected with the container — the tree has zero L.DomEvent.off calls, nothing pairs them off. Both factories are free-standing: their signatures take a container/opts object, not a BaseControl instance, so `this.on` is unreachable from inside them",
+  },
+];
+
+// The addEventListener match needs a `.` prefix so `addEventListener(` at the
+// start of a line or behind a paren is still caught, and it does not match
+// `removeEventListener(` — after `document.` comes `remove…`, not `addEventListener`.
 const BARE_RE = /\.\s*addEventListener\s*\(/g;
+// `L.DomEvent.on(` and not `L.DomEvent.once(`: `.once` is Leaflet's
+// auto-removing variant, which unbinds itself after the first fire, so it is
+// not a leak in the same sense. Zero occurrences in the tree today; the
+// counter-proof below pins that it is excluded on purpose.
+const DOM_EVENT_ON_RE = /\bL\.DomEvent\.on\s*\(/g;
 
 /**
  * Strip line and block comments from TypeScript source, but skip over
@@ -449,57 +477,91 @@ const stripComments = (src: string): string => {
   return out;
 };
 
-const bareCallsIn = (src: string): number =>
-  stripComments(src).match(BARE_RE)?.length ?? 0;
+const callsIn = (src: string, re: RegExp): number =>
+  stripComments(src).match(re)?.length ?? 0;
+
+/** Per-file call count measured against the production tree. */
+const scan = (re: RegExp): Array<{ f: string; n: number }> => {
+  const hits: Array<{ f: string; n: number }> = [];
+  const files = globSync({
+    cwd: ROOT,
+    patterns: ["foliplus/js/**/*.ts"],
+  }).sort();
+  for (const rel of files) {
+    const n = callsIn(readFileSync(resolve(ROOT, rel), "utf8"), re);
+    if (n > 0) hits.push({ f: rel.replace(/^foliplus\/js\//, ""), n });
+  }
+  return hits;
+};
+
+/**
+ * Compare a measured per-file call count against an allow-list.
+ *
+ * Pure on purpose: no fs, no regex, no glob. `tree` is what the scan
+ * measured, `allow` is the pinned list, and one string per discrepancy comes
+ * back. The counter-proofs below assert on synthetic input through this
+ * function, so they exercise the same decision the real test does — an
+ * earlier draft asserted on a parallel re-implementation of the loop, which
+ * kept passing even after the loop itself was gutted.
+ */
+const checkBareListeners = (
+  call: string,
+  tree: ReadonlyArray<{ f: string; n: number }>,
+  allow: ReadonlyArray<{ f: string; n: number }>,
+): string[] => {
+  const problems: string[] = [];
+  const pinned = new Map<string, number>();
+  for (const e of allow) {
+    if (pinned.has(e.f)) {
+      problems.push(
+        `${e.f}: duplicate allow-list entry — first pins n=${pinned.get(e.f)}, ` +
+          `this one says n=${e.n}`,
+      );
+      continue;
+    }
+    pinned.set(e.f, e.n);
+  }
+
+  // `seen` means "the scan reached this file", not "the count matched". A
+  // file with a drifted count is reported once as a drift; a file the scan
+  // never touched at all is reported once as stale.
+  const seen = new Set<string>();
+  for (const { f, n } of tree) {
+    seen.add(f);
+    const expected = pinned.get(f);
+    if (expected === undefined) {
+      problems.push(
+        `${f}: ${n} ${call} call(s) — not on the allow-list; route it ` +
+          `through the tracked entry or add an entry with the reason`,
+      );
+    } else if (n !== expected) {
+      problems.push(
+        `${f}: ${n} ${call} call(s), allow-list pins ${expected} — a new one ` +
+          `crept in, or the file was already migrated (drop the entry)`,
+      );
+    }
+  }
+
+  for (const e of allow) {
+    if (!seen.has(e.f)) {
+      problems.push(
+        `${e.f}: allow-list entry (n=${e.n}) but the scan found no ${call} ` +
+          `call — the entry is stale, remove it`,
+      );
+    }
+  }
+  return problems;
+};
 
 describe("no bare addEventListener in foliplus/js", () => {
-  it("allow-list has no duplicate file entries", () => {
-    // A duplicate key silently overwrites the first entry in the Map,
-    // letting "duplicate + wrong count" pass undetected.
-    const files = BARE_ADD_EVENT_LISTENER.map(e => e.f);
-    expect(new Set(files).size).toBe(files.length);
-  });
-
   it("every bare call is on the allow-list, and the allow-list still matches the tree", () => {
-    const files = globSync({
-      cwd: ROOT,
-      patterns: ["foliplus/js/**/*.ts"],
-    }).sort();
-    const problems: string[] = [];
-    const allow = new Map(BARE_ADD_EVENT_LISTENER.map(e => [e.f, e.n]));
-    const seen = new Set<string>();
-
-    for (const rel of files) {
-      const src = readFileSync(resolve(ROOT, rel), "utf8");
-      const n = bareCallsIn(src);
-      if (n === 0) continue;
-      const key = rel.replace(/^foliplus\/js\//, "");
-      const allowed = allow.get(key);
-      if (allowed === undefined) {
-        problems.push(
-          `${key}: ${n} bare addEventListener call(s) — not on the allow-list; ` +
-            "migrate to this.on or add an entry with the reason",
-        );
-      } else if (n !== allowed) {
-        problems.push(
-          `${key}: ${n} bare call(s), allow-list says ${allowed} — ` +
-            `a new one crept in, or the file was already migrated (drop the entry)`,
-        );
-      } else {
-        seen.add(key);
-      }
-    }
-
-    for (const e of BARE_ADD_EVENT_LISTENER) {
-      if (!seen.has(e.f)) {
-        problems.push(
-          `${e.f}: allow-list entry (n=${e.n}) but the file has no bare calls — ` +
-            `the entry is stale, remove it`,
-        );
-      }
-    }
-
-    expect(problems).toEqual([]);
+    expect(
+      checkBareListeners(
+        "bare addEventListener",
+        scan(BARE_RE),
+        BARE_ADD_EVENT_LISTENER,
+      ),
+    ).toEqual([]);
   });
 
   it("BaseControl.ts is actually the sole addEventListener implementation", () => {
@@ -511,36 +573,109 @@ describe("no bare addEventListener in foliplus/js", () => {
     expect(stripComments(src)).toMatch(/target\.addEventListener\(/);
     expect(stripComments(src)).toMatch(/signal/);
   });
+});
 
-  it("the scan and the allow-list both still bite", () => {
-    // Counter-proof. Without this the loop above would keep passing after the
-    // regex stopped matching anything, or after the allow-list became a free
-    // pass for every file — the guard would go decorative and no test would
-    // notice. Every expected value here is one that must NOT be true.
-    expect(bareCallsIn("target.addEventListener('click', fn)")).toBe(1);
-    expect(bareCallsIn("target.addEventListener ('click', fn)")).toBe(1);
-    expect(bareCallsIn("// fake.addEventListener('click')")).toBe(0);
-    expect(bareCallsIn("/* x */ target.addEventListener('click', fn)")).toBe(1);
-    expect(bareCallsIn("target.addEventListener('click', fn)")).not.toBe(0);
+describe("no L.DomEvent.on in foliplus/js", () => {
+  it("every L.DomEvent.on call is on the allow-list, and the allow-list still matches the tree", () => {
+    expect(
+      checkBareListeners("L.DomEvent.on", scan(DOM_EVENT_ON_RE), L_DOM_EVENT_ON),
+    ).toEqual([]);
+  });
+});
+
+describe("the listener allow-list guard still bites", () => {
+  // Counter-proof. Without these the two scans above would keep passing after
+  // the regex stopped matching anything, after the allow-list became a free
+  // pass for every file, or after the checker itself went decorative. They
+  // feed checkBareListeners synthetic input — not a copy of the scan — so a
+  // regression in the decision logic is what they catch.
+  it("flags a call no allow-list entry pins", () => {
+    const problems = checkBareListeners(
+      "bare addEventListener",
+      [{ f: "NewControl/ui.ts", n: 1 }],
+      BARE_ADD_EVENT_LISTENER,
+    );
+    expect(problems.filter(p => p.startsWith("NewControl/ui.ts:"))).toEqual([
+      "NewControl/ui.ts: 1 bare addEventListener call(s) — not on the " +
+        "allow-list; route it through the tracked entry or add an entry with the reason",
+    ]);
+  });
+
+  it("flags a count drift on a pinned file", () => {
+    const problems = checkBareListeners(
+      "bare addEventListener",
+      [{ f: "BaseControl.ts", n: 2 }],
+      BARE_ADD_EVENT_LISTENER,
+    );
+    expect(problems.filter(p => p.startsWith("BaseControl.ts:"))).toEqual([
+      "BaseControl.ts: 2 bare addEventListener call(s), allow-list pins 1 " +
+        "— a new one crept in, or the file was already migrated (drop the entry)",
+    ]);
+  });
+
+  it("flags a stale entry for a file that is fully migrated", () => {
+    const problems = checkBareListeners(
+      "bare addEventListener",
+      [],
+      [{ f: "GoneControl/ui.ts", n: 3 }],
+    );
+    expect(problems).toEqual([
+      "GoneControl/ui.ts: allow-list entry (n=3) but the scan found no " +
+        "bare addEventListener call — the entry is stale, remove it",
+    ]);
+  });
+
+  it("flags a duplicate allow-list entry instead of silently overwriting it", () => {
+    // A duplicate key used to be a Map overwrite: "duplicate + wrong count"
+    // passed undetected, and the surviving entry was whichever came last.
+    const problems = checkBareListeners(
+      "L.DomEvent.on",
+      [{ f: "common/panel.ts", n: 3 }],
+      [
+        { f: "common/panel.ts", n: 3 },
+        { f: "common/panel.ts", n: 1 },
+      ],
+    );
+    expect(problems).toEqual([
+      "common/panel.ts: duplicate allow-list entry — first pins n=3, this one says n=1",
+    ]);
+  });
+
+  it("both real allow-lists are free of duplicate keys", () => {
+    for (const [label, list] of [
+      ["BARE_ADD_EVENT_LISTENER", BARE_ADD_EVENT_LISTENER],
+      ["L_DOM_EVENT_ON", L_DOM_EVENT_ON],
+    ] as const) {
+      const files = list.map(e => e.f);
+      expect(new Set(files).size, label).toBe(files.length);
+    }
+  });
+
+  it("the regexes match what they claim and nothing else", () => {
+    expect(callsIn("target.addEventListener('click', fn)", BARE_RE)).toBe(1);
+    expect(callsIn("target.addEventListener ('click', fn)", BARE_RE)).toBe(1);
+    expect(callsIn("// fake.addEventListener('click')", BARE_RE)).toBe(0);
+    expect(callsIn("/* x */ target.addEventListener('click', fn)", BARE_RE)).toBe(1);
+    // `removeEventListener(` is not a registration.
+    expect(callsIn("target.removeEventListener('click', fn)", BARE_RE)).toBe(0);
     // String-aware: `//` inside a URL is not a comment start.
     expect(
-      bareCallsIn('const u = "https://x"; target.addEventListener("click", fn)'),
+      callsIn('const u = "https://x"; target.addEventListener("click", fn)', BARE_RE),
     ).toBe(1);
     // `//` inside a regex literal is not a comment start.
-    expect(bareCallsIn('/\\/\\/x/.test(s); target.addEventListener("click", fn)')).toBe(
-      1,
-    );
+    expect(
+      callsIn('/\\/\\/x/.test(s); target.addEventListener("click", fn)', BARE_RE),
+    ).toBe(1);
 
-    const isAllowed = (f: string, n: number) => {
-      const e = BARE_ADD_EVENT_LISTENER.find(x => x.f === f);
-      return !!e && e.n === n;
-    };
-    expect(isAllowed("BaseControl.ts", 1)).toBe(true);
-    expect(isAllowed("BaseControl.ts", 2)).toBe(false);
-    expect(isAllowed("LayerControl/ui/index.ts", 13)).toBe(true);
-    expect(isAllowed("LayerControl/ui/index.ts", 14)).toBe(false);
-    expect(isAllowed("never-added.ts", 1)).toBe(false);
-    expect(isAllowed("never-added.ts", 0)).toBe(false);
+    expect(callsIn('L.DomEvent.on(btn, "click", fn)', DOM_EVENT_ON_RE)).toBe(1);
+    expect(callsIn("L.DomEvent.on (btn, 'click', fn)", DOM_EVENT_ON_RE)).toBe(1);
+    expect(callsIn("// L.DomEvent.on(btn, 'click', fn)", DOM_EVENT_ON_RE)).toBe(0);
+    // The rest of the Leaflet DOM surface is not a registration.
+    expect(callsIn("L.DomEvent.off(btn, 'click', fn)", DOM_EVENT_ON_RE)).toBe(0);
+    expect(callsIn("L.DomEvent.stop(event)", DOM_EVENT_ON_RE)).toBe(0);
+    expect(callsIn("L.DomEvent.disableClickPropagation(el)", DOM_EVENT_ON_RE)).toBe(0);
+    // `.once` is the auto-removing variant, excluded on purpose.
+    expect(callsIn("L.DomEvent.once(btn, 'click', fn)", DOM_EVENT_ON_RE)).toBe(0);
   });
 });
 

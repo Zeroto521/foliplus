@@ -74,7 +74,7 @@ class HeatmapControl extends BaseControl {
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
-    this.trackCleanup(destroy);
+    this.effect(() => destroy);
     this.ctrl = ctrl;
     this.m.ui = this;
     bindControls(this, panelContent);
