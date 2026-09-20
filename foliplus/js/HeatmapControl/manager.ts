@@ -314,28 +314,22 @@ class HeatmapManager {
   }
 
   bindMapEvents() {
-    // Hide canvas during zoom to avoid flicker, RAF-throttled redraw during pan.
-    // zoomend triggers full re-render (renderHexagons) via separate handler
-    // because it needs debounced H3 hexbin recalculation, not just cache redraw.
+    // RAF-throttled redraw during pan. The zoom-hide / zoom-show pair is
+    // gone: the heatmap's visibility now rides the unified effective-shown
+    // pipeline driven by LayerControl (intent + zoom range), so it no
+    // longer hides itself on zoomstart. The `onZoomEnd` handler below
+    // still re-renders the hexagons at the new level (a debounced H3
+    // recompute, not a visibility toggle).
     this.mapCleanup = bindMapSync({
       map: this.map,
-      hideEvents: ["zoomstart"],
-      showEvents: ["zoomend"],
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
-      },
-      onHide: () => {
-        this.overlay.setVisible?.(false);
-      },
-      onShow: () => {
-        if (this.layerVisible) this.overlay.setVisible?.(true);
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        if (this.layerVisible) this.overlay.setVisible?.(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);

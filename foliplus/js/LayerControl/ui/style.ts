@@ -37,6 +37,7 @@ import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
 import {
   applyOpacityStateOne,
+  applyZoomRangeStateOne,
   markOverride,
   saveState,
   unmarkOverride,
@@ -65,6 +66,29 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
 const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
+};
+
+/** Whether the layer's surface can honestly carry a zoom-range write.
+ *
+ *  Three conditions, all required:
+ *    1. `!layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
+ *       have no real Leaflet layer to add/remove, so a range that hides them
+ *       has no carrier (§31.4-3).
+ *    2. `!layerInfo.isBase` — basemaps are out of R7 scope.
+ *    3. `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
+ *       have no honest zoom-range carrier (§6.2 "不得静默失效").
+ *
+ *  Condition 1 is the substantive gate (§31.7): capability alone cannot tell
+ *  "has content panes" from "callback-only canvas", because `detectCapabilities`
+ *  returns `"pane"` for any surface with a canvas. The `!layerInfo.canvas`
+ *  check is the same predicate §5.4 uses for the style panel's opacity row.
+ */
+const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return false;
+  if (li.canvas) return false;
+  if (li.isBase) return false;
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
 };
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
@@ -209,6 +233,193 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   saveState(ui);
 };
 
+/** Reset one layer's zoom range to the full map range and drop its override. */
+const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
+  const li = ui.m.layerRegistry.get(layerId);
+  delete ui.zoomRangeMap[layerId];
+  unmarkOverride(ui, layerId, "zoomRange");
+  saveState(ui);
+  if (li) {
+    applyZoomRangeStateOne(ui, li, null);
+    // Refresh the row's visual state (fill, values, out-of-range).
+    const panel = ui.uiContainer.querySelector(
+      `.${CONST.CLASSES.STYLE_PANEL}`,
+    ) as HTMLElement | null;
+    const row = panel?.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement | null;
+    if (row) syncZoomRangeRow(ui, layerId, row);
+  }
+};
+
+/** Clamp a zoom value into the map's current [min, max] range. */
+const clampZoom = (value: number, mapMin: number, mapMax: number): number =>
+  Math.max(mapMin, Math.min(mapMax, Math.round(value)));
+
+/** Percent position of a zoom value within [mapMin, mapMax]. */
+const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
+  const range = mapMax - mapMin;
+  if (range <= 0) return 0;
+  return ((zoom - mapMin) / range) * 100;
+};
+
+/** Update the zoom-range row's visual state: fill position, value labels,
+ *  and the out-of-range dimming. Does not write to the map or persistence —
+ *  that is the commit pass's job. */
+const syncZoomRangeRow = (
+  ui: LayerUI,
+  layerId: string,
+  row: HTMLElement,
+): void => {
+  const mapMin = ui.m.map.getMinZoom();
+  const mapMax = ui.m.map.getMaxZoom();
+  const stored = ui.zoomRangeMap[layerId];
+  const min = stored ? Math.max(stored[0], mapMin) : mapMin;
+  const max = stored ? Math.min(stored[1], mapMax) : mapMax;
+  const current = ui.m.map.getZoom();
+
+  const minPct = zoomToPct(min, mapMin, mapMax);
+  const maxPct = zoomToPct(max, mapMin, mapMax);
+  const currentPct = zoomToPct(current, mapMin, mapMax);
+
+  const fill = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
+  ) as HTMLElement | null;
+  if (fill) {
+    fill.style.left = `${minPct}%`;
+    fill.style.right = `${100 - maxPct}%`;
+  }
+
+  const marker = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT}`,
+  ) as HTMLElement | null;
+  if (marker) marker.style.left = `${currentPct}%`;
+
+  const values = row.querySelectorAll(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`,
+  );
+  if (values.length >= 2) {
+    values[0].textContent = String(min);
+    values[1].textContent = String(max);
+  }
+
+  // Out-of-range: dim the row when the current zoom falls outside [min, max].
+  const outOfRange = current < min || current > max;
+  row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR, outOfRange);
+};
+
+/** Build the zoom-range form row: a dual-thumb slider on a track with a
+ *  current-zoom marker and value labels.
+ *
+ *  The two <input type=range> elements overlay each other; only their thumbs
+ *  are interactive (pointer-events: none on the inputs, auto on the thumbs).
+ *  The track shows the selected range as an accent fill, and a vertical line
+ *  marks the map's current zoom level.
+ *
+ *  Initial values come from `zoomRangeMap[layerId]` (the persisted choice),
+ *  clamped to the map's current [min, max]. When no range is stored, the
+ *  full map range is used — the "author-undeclared" default. */
+const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const mapMin = ui.m.map.getMinZoom();
+  const mapMax = ui.m.map.getMaxZoom();
+  const stored = ui.zoomRangeMap[layerId];
+  const min = stored ? Math.max(stored[0], mapMin) : mapMin;
+  const max = stored ? Math.min(stored[1], mapMax) : mapMax;
+
+  const minPct = zoomToPct(min, mapMin, mapMax);
+  const maxPct = zoomToPct(max, mapMin, mapMax);
+  const current = ui.m.map.getZoom();
+  const currentPct = zoomToPct(current, mapMin, mapMax);
+
+  const fill = dom.el("div", {
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_FILL,
+    style: `left:${minPct}%;right:${100 - maxPct}%`,
+  });
+  const marker = dom.el("div", {
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
+    style: `left:${currentPct}%`,
+  });
+
+  const minInput = dom.el("input", {
+    type: "range",
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_MIN,
+    min: String(mapMin),
+    max: String(mapMax),
+    step: "1",
+    value: String(min),
+    "aria-label": ui.T("style_zoom_range_min"),
+  });
+  const maxInput = dom.el("input", {
+    type: "range",
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_MAX,
+    min: String(mapMin),
+    max: String(mapMax),
+    step: "1",
+    value: String(max),
+    "aria-label": ui.T("style_zoom_range_max"),
+  });
+
+  const track = dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK },
+    fill,
+    marker,
+    minInput,
+    maxInput,
+  );
+
+  const values = dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_VAL },
+    dom.el("span", {}, String(min)),
+    dom.el("span", {}, String(max)),
+  );
+
+  const control = dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL },
+    track,
+    values,
+  );
+
+  const row = dom.el(
+    "div",
+    {
+      class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    },
+    dom.el(
+      "label",
+      { class: CONST.CLASSES.FORM_LABEL },
+      ui.T("style_zoom_range"),
+    ),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
+  );
+
+  // Out-of-range on first render.
+  if (current < min || current > max) {
+    row.classList.add(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR);
+  }
+
+  return row;
+};
+
+/** Apply a new zoom range to a layer: persist it, mark the override, and
+ *  update the live map state. The values are already clamped to the map's
+ *  [min, max] by the caller. */
+const commitZoomRange = (
+  ui: LayerUI,
+  layerId: string,
+  min: number,
+  max: number,
+): void => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
+  ui.zoomRangeMap[layerId] = [min, max];
+  markOverride(ui, layerId, "zoomRange");
+  saveState(ui);
+  applyZoomRangeStateOne(ui, li, [min, max]);
+};
+
 /** Shared Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
 const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
@@ -327,8 +538,10 @@ const renderDelegatedStylePanel = (
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (§6.2).
-  if (layerCanOpacity(ui, layerId)) {
-    root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+    root.append(sectionHeading(ui.T("section_layer")));
+    if (layerCanOpacity(ui, layerId)) root.append(buildOpacityRow(ui, layerId));
+    if (canShowZoomRange(ui, layerId)) root.append(buildZoomRangeRow(ui, layerId));
   }
 
   const { panel, content } = createRowPanel({
@@ -545,8 +758,10 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     ),
     body,
   );
-  if (layerCanOpacity(ui, layerId)) {
-    content.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+    content.append(sectionHeading(ui.T("section_layer")));
+    if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
+    if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
   }
   appendResetFooter(ui, content);
   return panel;
@@ -608,6 +823,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
+  const mapMin = ui.m.map.getMinZoom();
+  const mapMax = ui.m.map.getMaxZoom();
+
   /** Shared opacity handler for both panel flavours (LayerControl-owned).
    *  `commit` separates the live pass from the blur/change pass: an emptied or
    *  out-of-range entry only resolves on commit — the same rule the shared
@@ -627,15 +845,66 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     return true;
   };
 
+  /** Shared zoom-range handler for both panel flavours. `commit` separates
+   *  the live pass (input event — update the visual state only, no persist)
+   *  from the blur/change pass (commit the value and persist). */
+  const handleZoomRangeTarget = (t: EventTarget | null, commit: boolean): boolean => {
+    if (!(t instanceof HTMLInputElement)) return false;
+    if (
+      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MIN) &&
+      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MAX)
+    ) {
+      return false;
+    }
+    const row = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement | null;
+    if (!row) return true;
+
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+    const maxInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+    ) as HTMLInputElement;
+    let min = clampZoom(parseFloat(minInput.value), mapMin, mapMax);
+    let max = clampZoom(parseFloat(maxInput.value), mapMin, mapMax);
+
+    // Two thumbs never cross: dragging min at max clamps min to max,
+    // and vice versa. This is the §31.5 "two thumbs never cross" rule.
+    if (min > max) {
+      if (t === minInput) {
+        min = max;
+        minInput.value = String(min);
+      } else {
+        max = min;
+        maxInput.value = String(max);
+      }
+    }
+
+    // Live pass: update the visual state only (fill, values, out-of-range).
+    syncZoomRangeRow(ui, layerId, row);
+
+    if (commit) {
+      commitZoomRange(ui, layerId, min, max);
+    }
+    return true;
+  };
+
   panel.addEventListener("input", (event: Event) => {
     // Live slider updates while dragging; stop so the container's color
     // input handler never sees the range.
     if (handleOpacityTarget(event.target, false)) event.stopPropagation();
+    if (handleZoomRangeTarget(event.target, false)) event.stopPropagation();
   });
 
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     if (handleOpacityTarget(t, true)) {
+      event.stopPropagation();
+      return;
+    }
+    if (handleZoomRangeTarget(t, true)) {
       event.stopPropagation();
       return;
     }
@@ -711,6 +980,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     if (t.closest(".foliplus-style-reset-btn")) {
       // Opacity is LayerControl-owned in both flavours: always restore 1.
       resetLayerOpacity(ui, layerId);
+      // Zoom range is LayerControl-owned: reset to the full map range.
+      resetLayerZoomRange(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.
@@ -774,6 +1045,20 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     );
   }
 
+  // While the panel is open, a zoom change must move the current-zoom marker
+  // on the zoom-range row and refresh its out-of-range state. The map-level
+  // zoomend handler (ui.onZoomEnd) updates the effective-shown for every
+  // layer; this one only updates the row's visual state.
+  const zoomRangeRow = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement | null;
+  if (zoomRangeRow) {
+    ui.styleZoomEndHandler = () => {
+      syncZoomRangeRow(ui, layerId, zoomRangeRow);
+    };
+    ui.m.map.on("zoomend", ui.styleZoomEndHandler);
+  }
+
   ui.stylePanelLayerId = layerId;
 };
 
@@ -786,6 +1071,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.styleUnsubscribe?.();
   ui.styleUnsubscribe = null;
   ui.styleRefresh = null;
+  if (ui.styleZoomEndHandler) {
+    ui.m.map.off("zoomend", ui.styleZoomEndHandler);
+    ui.styleZoomEndHandler = null;
+  }
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
   const panel = ui.uiContainer.querySelector(

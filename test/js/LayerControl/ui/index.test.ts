@@ -108,6 +108,7 @@ describe("LayerUI shell — event subscriptions", () => {
       flyTo: vi.fn(),
       getZoom: vi.fn(() => 5),
       getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
       getBounds: vi.fn(() => ({
         pad: vi.fn(() => m),
         getSouthWest: () => ({ lat: 20, lng: 90 }),

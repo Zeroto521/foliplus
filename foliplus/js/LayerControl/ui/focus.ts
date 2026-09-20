@@ -223,6 +223,11 @@ const dismissFocus = (ui: LayerUI): void => {
   }
 
   ui.focusingLayerId = null;
+  // Focus suspends inRange for its duration: with focus gone, the focused
+  // layer's effective-shown falls back to intent && inRange. If its range
+  // still excludes the current zoom, the sweep removes it from the map —
+  // the "unfocus returns it to hidden" half of the focus gate.
+  ui.refreshZoomEffectiveShown();
 };
 
 /**

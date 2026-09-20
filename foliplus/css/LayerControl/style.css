@@ -18,4 +18,122 @@
   .foliplus-layer-style-panel .foliplus-toggle-switch {
     display: flex;
   }
+
+  /* ── Zoom-range row ──────────────────────────────────────────────
+     Dual-thumb slider on a track with a current-zoom marker. The two
+     <input type=range> elements overlay each other; only their thumbs
+     are interactive (pointer-events: none on the inputs themselves), so
+     a mousedown lands on whichever thumb is nearer. The selected range
+     fills the track with the accent color; the current zoom is a
+     vertical line that reads "you are here". A dimmed state (.out-of-range)
+     appears when the current zoom falls outside the selected range. */
+  .foliplus-style-zoom-range-row {
+    --zoom-track-height: 14px;
+    --zoom-thumb-size: 18px;
+
+    .foliplus-style-zoom-range-control {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .foliplus-style-zoom-range-track {
+      position: relative;
+      height: var(--zoom-track-height);
+      background: var(--neutral-200);
+      border: var(--border-thin) solid var(--input-border);
+      border-radius: calc(var(--zoom-track-height) / 2);
+    }
+
+    /* The selected range: positioned by JS as `left:X% right:Y%`. */
+    .foliplus-style-zoom-range-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--accent-primary);
+      border-radius: calc(var(--zoom-track-height) / 2);
+      pointer-events: none;
+    }
+
+    /* The current-zoom marker: a vertical line crossing the track. */
+    .foliplus-style-zoom-range-current {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      width: 2px;
+      background: var(--ink-strong, #333);
+      pointer-events: none;
+    }
+
+    /* The two overlapping range inputs. Only the thumbs accept pointer
+       events; the input itself is a transparent overlay. */
+    .foliplus-style-zoom-range-min,
+    .foliplus-style-zoom-range-max {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: transparent;
+      pointer-events: none;
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .foliplus-style-zoom-range-min::-webkit-slider-thumb,
+    .foliplus-style-zoom-range-max::-webkit-slider-thumb {
+      pointer-events: auto;
+      appearance: none;
+      width: var(--zoom-thumb-size);
+      height: var(--zoom-thumb-size);
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--accent-primary);
+      box-shadow: 0 0 0 1px var(--border-thin);
+      cursor: grab;
+      margin-top: calc((var(--zoom-track-height) - var(--zoom-thumb-size)) / 2);
+    }
+    .foliplus-style-zoom-range-min:active::-webkit-slider-thumb,
+    .foliplus-style-zoom-range-max:active::-webkit-slider-thumb {
+      cursor: grabbing;
+    }
+
+    .foliplus-style-zoom-range-min::-moz-range-thumb,
+    .foliplus-style-zoom-range-max::-moz-range-thumb {
+      pointer-events: auto;
+      width: var(--zoom-thumb-size);
+      height: var(--zoom-thumb-size);
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--accent-primary);
+      cursor: grab;
+    }
+
+    /* The value labels row: min · max · current. Compact, same font as the
+       number fields elsewhere in the panel. */
+    .foliplus-style-zoom-range-values {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--neutral-600, #666);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Out-of-range: dim the track + fill + markers, and shift the fill to
+       the muted color. The thumbs stay bright so the user can still find
+       them. */
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-track {
+      background: var(--neutral-100, #eee);
+    }
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-fill {
+      background: var(--neutral-400, #999);
+    }
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current {
+      background: var(--neutral-500, #888);
+    }
+  }
 }

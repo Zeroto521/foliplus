@@ -119,6 +119,20 @@ const CLASSES = {
   STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
   STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
   STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
+  /** Zoom-range row: a dual-thumb slider with a current-zoom marker. */
+  STYLE_ZOOM_RANGE_ROW: "foliplus-style-zoom-range-row",
+  STYLE_ZOOM_RANGE_CONTROL: "foliplus-style-zoom-range-control",
+  STYLE_ZOOM_RANGE_TRACK: "foliplus-style-zoom-range-track",
+  STYLE_ZOOM_RANGE_FILL: "foliplus-style-zoom-range-fill",
+  STYLE_ZOOM_RANGE_MIN: "foliplus-style-zoom-range-min",
+  STYLE_ZOOM_RANGE_MAX: "foliplus-style-zoom-range-max",
+  STYLE_ZOOM_RANGE_CURRENT: "foliplus-style-zoom-range-current",
+  STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
+  /** Marks the row when the map's current zoom falls outside the layer's
+   *  range — a dimmed state that reads "you set this to hide at the current
+   *  level" without hiding the row itself (the user may still want to change
+   *  it). */
+  STYLE_ZOOM_RANGE_OOR: "foliplus-zoom-range-out-of-range",
   /** Shared form-row layout classes (also used by HeatmapControl template). */
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",
