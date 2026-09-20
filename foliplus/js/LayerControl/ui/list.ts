@@ -20,8 +20,9 @@ import { syncToggleAll, syncVisibility } from "./visibility.js";
 const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
-  // reload hidden layers are back on the map. Hidden ids no longer in the
-  // registry are dropped (their layer was removed).
+  // reload hidden layers are back on the map. An id that is not in the
+  // registry is skipped by the sweep, not dropped from the record — stored
+  // state is erased only by an explicit delete.
   applyUserState(ui);
 
   let anyBaseVisible = false;
@@ -139,7 +140,21 @@ const insertLayerItem = (
     const nextAnchor = container.querySelector(nextGroupSel);
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
-  } else container.insertBefore(frag, firstOfGroup);
+  } else {
+    // The row lands where the registry put the layer, not at the group's top: a
+    // late registration replayed onto a stored slot must sit at that depth in
+    // the panel too, or the panel's order diverges from the drawn order and
+    // initLayerItem's index-based lookup reads a neighbour's checkbox. The
+    // neighbour above is used rather than the one below so the last row of a
+    // group has something to anchor on at all.
+    const above = idx > 0 ? ui.m.layers[idx - 1] : null;
+    const anchor =
+      above && above.isBase === layerInfo.isBase
+        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
+        : null;
+    if (anchor) anchor.after(frag);
+    else container.insertBefore(frag, firstOfGroup);
+  }
 
   if (reindex) reindexItems(ui);
   // insertLayerItem is where a late-registered (third-party) layer first

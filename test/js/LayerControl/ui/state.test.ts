@@ -10,6 +10,7 @@ import {
   applyVisibleStateOne,
   loadPersistedState,
   markOverride,
+  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
@@ -1097,6 +1098,73 @@ describe("applyOpacityStateOne", () => {
 
     expect(graphPane.style.opacity).toBe("0.4");
     expect(annotationPane.style.opacity).toBe("0.4");
+  });
+});
+
+describe("replayLayerState", () => {
+  // An annotation pane is created lazily — when labels first turn on, which can
+  // be long after the slider was last moved — and nothing writes to a pane that
+  // does not exist yet. The pane's appearance is its own replay point, so the
+  // stored intent has to be re-applied there instead of being assumed present.
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("writes the stored opacity onto the layer", () => {
+    ui.userOverrides.overlay1 = ["opacity"];
+    ui.opacityMap.overlay1 = 0.3;
+
+    replayLayerState(ui, "overlay1");
+
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(0.3);
+  });
+
+  it("gates the write on the override flag, not on a stored value", () => {
+    // A value without its flag must not reach the write pipeline; the layer
+    // keeps the default the author declared.
+    const before = manager.layerRegistry.get("overlay1")!.opacity;
+    ui.opacityMap.overlay1 = 0.4;
+
+    const surfaceFor = vi.spyOn(manager, "surfaceFor");
+    replayLayerState(ui, "overlay1");
+
+    expect(surfaceFor).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
+    expect(ui.userOverrides.overlay1).toBeUndefined();
+    surfaceFor.mockRestore();
+  });
+
+  it("skips an override whose value never reached the map", () => {
+    // The record can claim an override whose value is absent; sending that
+    // through the write pipeline would be an undefined opacity.
+    const before = manager.layerRegistry.get("overlay1")!.opacity;
+    ui.userOverrides.overlay1 = ["opacity"];
+
+    const surfaceFor = vi.spyOn(manager, "surfaceFor");
+    replayLayerState(ui, "overlay1");
+
+    expect(surfaceFor).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
+    surfaceFor.mockRestore();
+  });
+
+  it("replays nothing for an id the registry does not know", () => {
+    ui.userOverrides.ghost = ["opacity"];
+    ui.opacityMap.ghost = 0.3;
+
+    expect(() => replayLayerState(ui, "ghost")).not.toThrow();
+    expect(manager.layers.every(l => l.opacity !== 0.3)).toBe(true);
   });
 });
 
