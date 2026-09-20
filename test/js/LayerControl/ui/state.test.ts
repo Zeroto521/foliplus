@@ -4,12 +4,14 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
+  applyHiddenStateOne,
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
   loadPersistedState,
   markOverride,
   saveFoldState,
+  saveNamesState,
   saveState,
   syncHiddenId,
   unmarkOverride,
@@ -44,6 +46,21 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   const makeTestMap = () => {
     const removeLayer = vi.fn();
     const addLayer = vi.fn();
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
+    const getPane = vi.fn((name: string) => {
+      let p = panes.get(name);
+      if (!p) {
+        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        panes.set(name, p);
+      }
+      return p;
+    });
     return {
       map: {
         on: vi.fn(),
@@ -56,10 +73,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           el.id = "map";
           return el;
         }),
-        getPane: vi.fn(() => ({
-          style: {},
-          classList: { add: vi.fn(), remove: vi.fn() },
-        })),
+        getPane,
         createPane: vi.fn(() => ({
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
@@ -68,6 +82,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       },
       addLayer,
       removeLayer,
+      panes,
     };
   };
 
@@ -704,13 +719,15 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
   it("applyHiddenOne removes a present layer and unchecks the row", () => {
     const ui = makeApplyUi(true);
     const onToggle = vi.fn();
+    const layer = { on: vi.fn(), off: vi.fn() };
     const layerInfo = {
       id: "a",
+      layer,
       onToggle,
       isBase: false,
     } as unknown as LayerInfo;
     applyHiddenOne(ui, layerInfo, "a");
-    expect(ui.m.map.removeLayer).toHaveBeenCalled();
+    expect(ui.m.map.removeLayer).toHaveBeenCalledWith(layer);
     expect(layerInfo.visible).toBe(false);
     const box = ui.uiContainer.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
@@ -752,6 +769,63 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     expect(ui.m.map.addLayer).not.toHaveBeenCalled();
     expect(layerInfo.visible).toBe(true);
   });
+
+  it("applyHiddenOne skips removeLayer when the layer is already off the map", () => {
+    // `!patch.visible && has` must be false when has=false, so the else-if
+    // body (removeLayer) is not entered — covers the false branch of the
+    // else-if guard.
+    const ui = makeApplyUi(false);
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = { id: "a", layer, isBase: false } as unknown as LayerInfo;
+    applyHiddenOne(ui, layerInfo, "a");
+    expect(ui.m.map.removeLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(false);
+  });
+
+  it("applyVisibleStateOne skips onToggle when a layer object exists", () => {
+    // `!layer && layerInfo.onToggle` is false when layer exists, even if
+    // onToggle is also present — the layer path takes priority.
+    const ui = makeApplyUi(true);
+    const onToggle = vi.fn();
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = {
+      id: "a",
+      layer,
+      onToggle,
+      isBase: false,
+    } as unknown as LayerInfo;
+    applyVisibleStateOne(ui, layerInfo);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("applyHiddenStateOne fires onToggle for a callback-only layer", () => {
+    // Covers the `else if (layerInfo.onToggle)` branch in applyLayerState —
+    // a layer with no Leaflet layer object but a toggle callback (canvas).
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const onToggle = vi.fn();
+    const layerInfo = { id: "a", onToggle } as unknown as LayerInfo;
+
+    applyHiddenStateOne(ui, layerInfo);
+
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(layerInfo.visible).toBe(false);
+  });
+
+  it("applyVisibleStateOne is a no-op for a stale id that resolves to nothing", () => {
+    // The else-if has no else, so its skip count stays 0 unless this path is
+    // really reached: an id the persistence record still holds but the registry
+    // has pruned — no Leaflet layer to add and no toggle callback to fire. Over
+    // such entries the sweep only moves the registry's visible flag.
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
+
+    applyVisibleStateOne(ui, layerInfo);
+
+    expect(ui.m.map.addLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
 });
 
 describe("ui/state saveFoldState", () => {
@@ -773,11 +847,25 @@ describe("ui/state saveFoldState", () => {
 // ─────────────────── opacity apply / restore / prune ───────────────────
 
 describe("applyOpacityStateOne", () => {
-  /** A UI whose layer owns no pane, so the call falls back to the
-   *  per-feature walk. */
-  const noPrivatePane = () =>
+  /** A UI whose layer has "native" opacity capability (no pane). */
+  const nativeUi = () =>
     ({
-      m: { fallbackPaneOf: () => null },
+      m: {
+        surfaceFor: () => ({ capabilities: { opacity: "native" }, paneNames: [] }),
+        map: { getPane: () => null },
+      },
+    }) as unknown as LayerUI;
+
+  /** A UI whose layer has "pane" opacity capability. */
+  const paneUi = (paneName: string, pane: HTMLElement) =>
+    ({
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" },
+          paneNames: [paneName],
+        }),
+        map: { getPane: (n: string) => (n === paneName ? pane : null) },
+      },
     }) as unknown as LayerUI;
 
   it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
@@ -790,89 +878,60 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne(noPrivatePane(), li, 0.35);
+    applyOpacityStateOne(nativeUi(), li, 0.35);
 
     expect(canvas.style.opacity).toBe("0.35");
     expect(li.opacity).toBe(0.35);
     expect(setStyle).not.toHaveBeenCalled();
   });
 
-  it("calls setStyle({opacity, fillOpacity}) on Path-like layers", () => {
-    const setStyle = vi.fn();
+  it("writes layer.options.opacity for native layers without setOpacity", () => {
     const li = {
       id: "poly",
       canvas: null,
-      layer: { options: {}, setStyle } as unknown as L.Layer,
+      layer: { options: {} } as unknown as L.Layer,
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne(noPrivatePane(), li, 0.5);
+    applyOpacityStateOne(nativeUi(), li, 0.5);
 
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+    expect(
+      (li.layer as unknown as { options: { opacity: number } }).options.opacity,
+    ).toBe(0.5);
     expect(li.opacity).toBe(0.5);
   });
 
-  it("recurses through LayerGroup children (no setStyle on the group)", () => {
-    const childSetStyle = vi.fn();
-    const group = {
-      options: {},
-      eachLayer: vi.fn((fn: (l: unknown) => void) => {
-        fn({ options: {}, setStyle: childSetStyle });
-      }),
-    };
-    const li = {
-      id: "group",
-      canvas: null,
-      layer: group as unknown as L.Layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    applyOpacityStateOne(noPrivatePane(), li, 0.2);
-
-    expect(group.eachLayer).toHaveBeenCalled();
-    expect(childSetStyle).toHaveBeenCalledWith({ opacity: 0.2, fillOpacity: 0.2 });
-  });
-
-  it("reaches Markers inside a GeoJSON instead of using its setStyle", () => {
-    // Leaflet's GeoJSON.setStyle forwards only to Path children, so a point
-    // layer built from markers (folium's default) ignored the opacity control
-    // entirely. Walking eachLayer reaches the markers, which take setOpacity.
-    const groupSetStyle = vi.fn();
-    const markerSetOpacity = vi.fn();
-    const geoJson = {
-      options: {},
-      setStyle: groupSetStyle,
-      eachLayer: vi.fn((fn: (l: unknown) => void) => {
-        fn({ options: {}, setOpacity: markerSetOpacity });
-      }),
-    };
-    const li = {
-      id: "points",
-      canvas: null,
-      layer: geoJson as unknown as L.Layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    applyOpacityStateOne(noPrivatePane(), li, 0.3);
-
-    expect(markerSetOpacity).toHaveBeenCalledWith(0.3);
-    // The group-level setStyle would have silently skipped the markers.
-    expect(groupSetStyle).not.toHaveBeenCalled();
-    expect(li.opacity).toBe(0.3);
-  });
-
-  it("falls back to setOpacity for Markers", () => {
+  it("calls setOpacity(base * target) for native layers with setOpacity", () => {
     const setOpacity = vi.fn();
     const li = {
       id: "marker",
       canvas: null,
-      layer: { options: {}, setOpacity } as unknown as L.Layer,
+      layer: { options: { opacity: 0.8 }, setOpacity } as unknown as L.Layer,
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne(noPrivatePane(), li, 0.8);
+    applyOpacityStateOne(nativeUi(), li, 0.5);
 
+    expect(setOpacity).toHaveBeenCalledWith(0.4);
+  });
+
+  it("multiplies the layer's own opacity instead of overwriting it", () => {
+    // A layer registered at 0.8 must not jump to 1 when the user drags the
+    // slider to 1 — the base is read from options and the write is
+    // base × target, so 0.8 × 1 = 0.8.
+    const setOpacity = vi.fn();
+    const li = {
+      id: "faded",
+      canvas: null,
+      layer: { options: { opacity: 0.8 }, setOpacity } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 1);
     expect(setOpacity).toHaveBeenCalledWith(0.8);
+
+    applyOpacityStateOne(nativeUi(), li, 0.5);
+    expect(setOpacity).toHaveBeenCalledWith(0.4);
   });
 
   it("no-ops safely when the layer is null", () => {
@@ -882,82 +941,16 @@ describe("applyOpacityStateOne", () => {
       layer: null,
       opacity: 1,
     } as unknown as LayerInfo;
-    expect(() => applyOpacityStateOne(noPrivatePane(), li, 0.4)).not.toThrow();
-    expect(li.opacity).toBe(0.4);
+    expect(() => applyOpacityStateOne(nativeUi(), li, 0.4)).not.toThrow();
   });
 
-  it("no-ops on a layer with none of the three opacity APIs", () => {
-    // A layer type foliplus does not know (no eachLayer, no setStyle, no
-    // setOpacity) still records the value — the walk ends quietly instead of
-    // throwing on the next redraw.
-    const li = {
-      id: "opaque",
-      canvas: null,
-      layer: { options: {} } as unknown as L.Layer,
-      opacity: 1,
-      paneSpecs: [],
-    } as unknown as LayerInfo;
-
-    expect(() => applyOpacityStateOne(noPrivatePane(), li, 0.6)).not.toThrow();
-    expect(li.opacity).toBe(0.6);
-  });
-
-  it("multiplies each feature's own opacity instead of overwriting it", () => {
-    // A hollow polygon carries fillOpacity: 0. Writing the layer opacity
-    // straight in would make its fill appear (0.4) instead of staying hollow;
-    // the walk writes base × layer, and reads the base once so a second pass
-    // does not compound.
-    const setStyle = vi.fn();
-    const li = {
-      id: "hollow",
-      canvas: null,
-      layer: {
-        options: { opacity: 1, fillOpacity: 0 },
-        setStyle,
-      } as unknown as L.Layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    applyOpacityStateOne(noPrivatePane(), li, 0.5);
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.5, fillOpacity: 0 });
-
-    applyOpacityStateOne(noPrivatePane(), li, 0.25);
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.25, fillOpacity: 0 });
-
-    // Reset restores the feature's own values, hollow fill included.
-    applyOpacityStateOne(noPrivatePane(), li, 1);
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 0 });
-  });
-
-  it("multiplies a Marker's own opacity too", () => {
-    const setOpacity = vi.fn();
-    const li = {
-      id: "faded-marker",
-      canvas: null,
-      layer: {
-        options: { opacity: 0.8 },
-        setOpacity,
-      } as unknown as L.Layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    applyOpacityStateOne(noPrivatePane(), li, 0.5);
-
-    expect(setOpacity).toHaveBeenCalledWith(0.4);
-  });
-
-  it("fades a plain layer through its own fallback pane, not a walk", () => {
-    // enforceOrder names a per-layer pane after the layer's stamp and migrates
-    // the content into it, so the layer is faded with a single style write
-    // instead of a sweep — the cost no longer grows with the feature count.
+  it("fades a plain layer through its own pane", () => {
+    // registerLayer materializes the surface before the layer joins the map,
+    // so the pane is the layer's real home from the start. One CSS write
+    // regardless of feature count.
     const pane = document.createElement("div");
     const setStyle = vi.fn();
-    const ui = {
-      m: {
-        fallbackPaneOf: () => "foliplus-pane-7",
-        map: { getPane: (n: string) => (n === "foliplus-pane-7" ? pane : null) },
-      },
-    } as unknown as LayerUI;
+    const ui = paneUi("foliplus-pane-7", pane);
     const li = {
       id: "plain",
       canvas: null,
@@ -971,77 +964,12 @@ describe("applyOpacityStateOne", () => {
     expect(setStyle).not.toHaveBeenCalled();
   });
 
-  it("walks the features before the layer has a pane of its own", () => {
-    // Registered but not yet ordered: the content is still in Leaflet's shared
-    // markerPane / overlayPane, so there is no pane of its own to fade.
-    // Touching that shared pane would fade every other overlay layer, so the
-    // walk carries the opacity instead and no pane is touched at all.
-    const getPane = vi.fn();
-    const setStyle = vi.fn();
-    const ui = {
-      m: { fallbackPaneOf: () => null, map: { getPane } },
-    } as unknown as LayerUI;
-    const li = {
-      id: "plain",
-      canvas: null,
-      layer: { options: {}, setStyle } as unknown as L.Layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    applyOpacityStateOne(ui, li, 0.4);
-
-    expect(getPane).not.toHaveBeenCalled();
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
-  });
-
-  it("does not stack the walk and the pane when a layer acquires its own pane", () => {
-    // enforceOrder migrates the content on a debounce, so a layer can be
-    // walked first and resolve to its own pane afterwards. The walk's write
-    // must be undone, or the two would multiply: asked for 0.4 twice over, the
-    // layer would render at 0.16.
-    const setStyle = vi.fn();
-    const pane = document.createElement("div");
-    const layer = {
-      options: { opacity: 1, fillOpacity: 1 },
-      setStyle,
-    } as unknown as L.Layer;
-    const li = {
-      id: "plain",
-      canvas: null,
-      layer,
-      opacity: 1,
-    } as unknown as LayerInfo;
-
-    const unordered = {
-      m: { fallbackPaneOf: () => null },
-    } as unknown as LayerUI;
-    applyOpacityStateOne(unordered, li, 0.4);
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
-
-    const ordered = {
-      m: {
-        fallbackPaneOf: () => "foliplus-pane-9",
-        map: { getPane: (n: string) => (n === "foliplus-pane-9" ? pane : null) },
-      },
-    } as unknown as LayerUI;
-    applyOpacityStateOne(ordered, li, 0.4);
-
-    // The feature is handed back its own value, and the pane carries 0.4 once.
-    expect(setStyle).toHaveBeenLastCalledWith({ opacity: 1, fillOpacity: 1 });
-    expect(pane.style.opacity).toBe("0.4");
-  });
-
   it("tolerates a missing pane element (released mid-session)", () => {
-    // A fallback pane is released on unregister; if the layer is still around
+    // A pane is released on unregister; if the layer is still around
     // but its pane is gone, the apply must not throw — it just has nowhere to
     // write.
-    const getPane = vi.fn(() => null);
-    const ui = {
-      m: {
-        fallbackPaneOf: () => "foliplus-pane-3",
-        map: { getPane },
-      },
-    } as unknown as LayerUI;
+    const pane = document.createElement("div");
+    const ui = paneUi("foliplus-pane-3", null as unknown as HTMLElement);
     const li = {
       id: "plain",
       canvas: null,
@@ -1050,14 +978,13 @@ describe("applyOpacityStateOne", () => {
     } as unknown as LayerInfo;
 
     expect(() => applyOpacityStateOne(ui, li, 0.4)).not.toThrow();
-    expect(getPane).toHaveBeenCalledWith("foliplus-pane-3");
   });
 
-  it("tolerates a leaf created without options", () => {
-    // A feature with no options object has nothing to multiply a base against;
-    // the walk treats it as fully opaque and moves on.
+  it("tolerates a layer with no options", () => {
+    // A feature with no options object has nothing to read a base from;
+    // the native carrier treats it as fully opaque and writes the target
+    // directly.
     const setStyle = vi.fn();
-    const ui = { m: { fallbackPaneOf: () => null } } as unknown as LayerUI;
     const li = {
       id: "plain",
       canvas: null,
@@ -1065,12 +992,12 @@ describe("applyOpacityStateOne", () => {
       opacity: 1,
     } as unknown as LayerInfo;
 
-    applyOpacityStateOne(ui, li, 0.5);
+    applyOpacityStateOne(nativeUi(), li, 0.5);
 
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.5, fillOpacity: 0.5 });
+    expect(setStyle).not.toHaveBeenCalled();
   });
 
-  it("sets CSS opacity on each pane element for managed layers (paneSpecs)", () => {
+  it("sets CSS opacity on each pane element for managed layers", () => {
     // Managed layers (createLayers: MeasureControl) own their panes. Setting
     // opacity on the pane element is multiplicative and covers every feature
     // type uniformly — paths, markers, divIcons — without clobbering the
@@ -1086,7 +1013,10 @@ describe("applyOpacityStateOne", () => {
     ]);
     const ui = {
       m: {
-        fallbackPaneOf: () => null,
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph", "node", "label"],
+        }),
         map: { getPane: (n: string) => panes.get(n) ?? null },
       },
     } as unknown as LayerUI;
@@ -1106,12 +1036,14 @@ describe("applyOpacityStateOne", () => {
     expect(li.opacity).toBe(0.4);
   });
 
-  it("pane opacity at 1 clears the pane (reset)", () => {
+  it("pane opacity at 1 writes 1 (reset)", () => {
     const pane = document.createElement("div");
-    pane.style.opacity = "0.4";
     const ui = {
       m: {
-        fallbackPaneOf: () => null,
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph"],
+        }),
         map: { getPane: () => pane },
       },
     } as unknown as LayerUI;
@@ -1127,12 +1059,80 @@ describe("applyOpacityStateOne", () => {
 
     expect(pane.style.opacity).toBe("1");
   });
+
+  it("writes nothing when the carrier is none", () => {
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "none" as const },
+          paneNames: [],
+        }),
+        map: { getPane: () => null },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "cluster",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(li.opacity).toBe(1);
+  });
+
+  it("includes the annotation pane in the opacity write", () => {
+    const graphPane = document.createElement("div");
+    const annotationPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["annotation", annotationPane],
+    ]);
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph"],
+        }),
+        map: { getPane: (n: string) => panes.get(n) ?? null },
+        annotation: { paneNameFor: () => "annotation" },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      paneSpecs: specs("graph"),
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(annotationPane.style.opacity).toBe("0.4");
+  });
 });
 
 describe("LayerUI opacity restore / prune", () => {
   const makeMap = () => {
     const setStyle = vi.fn();
     const layer = { options: {}, setStyle } as unknown as L.Layer;
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
+    const getPane = vi.fn((name: string) => {
+      let p = panes.get(name);
+      if (!p) {
+        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        panes.set(name, p);
+      }
+      return p;
+    });
     const map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -1144,17 +1144,14 @@ describe("LayerUI opacity restore / prune", () => {
         el.id = "map";
         return el;
       }),
-      getPane: vi.fn(() => ({
-        style: {},
-        classList: { add: vi.fn(), remove: vi.fn() },
-      })),
+      getPane,
       createPane: vi.fn(() => ({
         style: {},
         classList: { add: vi.fn(), remove: vi.fn() },
       })),
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     };
-    return { map, layer, setStyle };
+    return { map, layer, setStyle, panes };
   };
 
   beforeEach(() => {
@@ -1170,15 +1167,17 @@ describe("LayerUI opacity restore / prune", () => {
   });
 
   it("applyUserState restores a stored opacity onto Path layers", () => {
-    const { map, layer, setStyle } = makeMap();
+    const { map, layer, panes } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
     u.opacityMap = { overlay1: 0.45 };
 
     u.applyUserState();
 
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.45, fillOpacity: 0.45 });
     expect(m.layerRegistry.get("overlay1")?.opacity).toBe(0.45);
+    // The pane carrier received the write (§5.4 multiplicative).
+    const writtenPane = [...panes.values()].find(p => p.style.opacity === "0.45");
+    expect(writtenPane).toBeDefined();
   });
 
   it("applyUserState(id) applies opacity for a late-registered canvas layer", () => {
@@ -1197,7 +1196,7 @@ describe("LayerUI opacity restore / prune", () => {
   });
 
   it("prunes opacity entries whose layers are gone", () => {
-    const { map, layer, setStyle } = makeMap();
+    const { map, layer, panes } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
     u.opacityMap = { overlay1: 0.4, ghost: 0.1 };
@@ -1205,8 +1204,10 @@ describe("LayerUI opacity restore / prune", () => {
     u.applyUserState();
 
     expect(u.opacityMap).toEqual({ overlay1: 0.4 });
-    // Still applied the live entry before pruning the ghost.
-    expect(setStyle).toHaveBeenCalledWith({ opacity: 0.4, fillOpacity: 0.4 });
+    // The live entry was written to the pane; the ghost was pruned with no write.
+    const writtenPanes = [...panes.values()].filter(p => p.style.opacity);
+    expect(writtenPanes).toHaveLength(1);
+    expect(writtenPanes[0].style.opacity).toBe("0.4");
   });
 
   it("prunes a zoom range and its provenance together when the layer is gone", () => {
@@ -1529,5 +1530,67 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     ui.applyUserState("overlay1");
 
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("applyUserState renames the color basemap row without a registry entry", () => {
+    // The color basemap has no LayerInfo in the registry — its rename goes
+    // straight to the row label. Without the id guard at the top of the
+    // sweep the color item would be skipped and the label would stay stale.
+    ui.renamedNames = { [CONST.COLOR.MAP_ID]: "Renamed Color" };
+
+    ui.applyUserState();
+
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    ) as HTMLElement | null;
+    expect(colorItem).not.toBeNull();
+    const label = colorItem!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Color");
+  });
+
+  it("applyUserState renames a layer that is in the registry", () => {
+    // Covers the regular layer path in the sweep (lines 196-203): a layer ID
+    // that IS in the registry gets its name projected through the layerInfo.
+    ui.renamedNames = { overlay1: "Renamed Overlay" };
+
+    ui.applyUserState();
+
+    const item = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="overlay1"]`,
+    ) as HTMLElement | null;
+    expect(item).not.toBeNull();
+    const label = item!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Overlay");
+  });
+
+  it("applyUserState(id) renames a layer through the id path", () => {
+    // Covers line 165: applyNameProjection in the `if (id)` branch.
+    // The item is null in this path, so only layerInfo.name is updated.
+    ui.renamedNames = { overlay1: "Renamed via id" };
+
+    ui.applyUserState("overlay1");
+
+    const li = manager.layerRegistry.get("overlay1");
+    expect(li?.name).toBe("Renamed via id");
+  });
+
+  it("persists renamed names through the persistence scheduler", () => {
+    // saveNamesState is the write half of the rename flow. Without a test
+    // that reaches it, the function stays uncovered even though the read
+    // path (applyUserState) is exercised.
+    const schedule = vi.fn();
+    const bare = {
+      renamedNames: { overlay1: "Renamed" },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveNamesState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 });

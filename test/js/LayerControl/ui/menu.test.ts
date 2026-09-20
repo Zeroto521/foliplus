@@ -188,6 +188,30 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
       expect(ui.activeMenu).not.toBeNull();
     });
+
+    it("opens without crashing when the item has no data-layer-id", () => {
+      const item = document.createElement("div");
+      item.className = "foliplus-layer-item";
+      ui.uiContainer.appendChild(item);
+      ui.openMoreMenu(item);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("enables the Style entry for a layer with styleSetters but no label fields", () => {
+      manager.registerLayer({
+        id: "delegated1",
+        name: "Heatmap",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: { labelShow: vi.fn() },
+      } as any);
+      const item = findItem(ui, "delegated1");
+      ui.openMoreMenu(item);
+      const styleLi = item.querySelector(
+        "li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("disabled")).toBeNull();
+    });
   });
 
   // ─────────────────── attributes panel ───────────────────
@@ -382,6 +406,59 @@ describe("LayerUI menu", () => {
       expect(toggleSpy).not.toHaveBeenCalled();
 
       HTMLInputElement.prototype.dispatchEvent = origDispatchEvent;
+    });
+  });
+
+  describe("menu edge cases", () => {
+    it("opens the menu on an item without a data-layer-id attribute", () => {
+      const item = document.createElement("div");
+      document.body.appendChild(item);
+
+      ui.openMoreMenu(item);
+
+      const menu = item.querySelector(".foliplus-layer-more-menu");
+      expect(menu).not.toBeNull();
+      expect(menu!.querySelectorAll("li").length).toBeGreaterThan(0);
+      ui.closeMoreMenu();
+    });
+
+    it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
+      // Set styleSetters on the layer info in the registry — layerHasStyleDelegation
+      // reads from ui.m.layerRegistry, not window.foliplus.styleDelegation.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = { color: vi.fn() };
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("disabled")).toBeNull();
+      ui.closeMoreMenu();
+    });
+
+    it("disables the style entry when the layer has no label fields and no style delegation", () => {
+      // A layer whose surface reports opacity/zoomRange as "none" (MarkerCluster)
+      // and has no label fields or style delegation — canConfigure is false.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = undefined;
+      // Force the surface to report "none" capabilities
+      const surface = ui.m.surfaceFor(li!);
+      (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
+        opacity: "none",
+        zoomRange: "none",
+        relocatable: false,
+      };
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("aria-disabled")).toBe("true");
+      ui.closeMoreMenu();
     });
   });
 

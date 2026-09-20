@@ -617,16 +617,6 @@ class LayerManager implements LayerAPI {
     return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
   }
 
-  /** The pane a layer renders into alone because it declared none, or null.
-   *  Ownership rather than a blocklist of Leaflet's shared pane names: the name
-   *  is derived from the layer's stamp, so the pane holds that layer alone. A
-   *  layer with none is rendering into a pane it shares (Leaflet's `overlayPane`
-   *  / `markerPane`, or a pane a host deliberately shares between layers), and
-   *  callers that want to affect one layer only must not touch it. */
-  fallbackPaneOf(layer: L.Layer): string | null {
-    return this.surfaceForLayer(layer)?.synthesizedPaneName ?? null;
-  }
-
   /** Panes a registered layer's content lives in, including the pane its
    *  surface synthesized. Falls back to the names in the layer's own tree for a
    *  layer nobody registered. */

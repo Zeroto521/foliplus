@@ -23,6 +23,7 @@
 import type { PaneManager } from "./PaneManager.js";
 import { FALLBACK_PANE_PREFIX } from "./const.js";
 import type {
+  LayerCapabilities,
   LayerSurface as LayerSurfaceContract,
   PaneHandle,
   PaneRole,
@@ -74,6 +75,12 @@ class LayerSurface implements LayerSurfaceContract {
   readonly layer: L.Layer | null;
   readonly panes: PaneHandle[] = [];
   materialized = false;
+  /** What this surface can actually be asked to do — resolved once in the
+   *  constructor (the pane set is fixed by then, I2) and read by the UI, the
+   *  export renderer and third parties. Never persisted: it is derived from
+   *  what the surface owns, so letting a caller supply it would let them claim
+   *  support they do not have and break the honest-degradation contract. */
+  readonly capabilities: LayerCapabilities;
   /** Whether the layer's tree has changed since the last reconcile. Set by the
    *  manager on `layeradd` (synchronously — the probe path calls
    *  `enforceOrder` directly, so a debounce-only trigger would miss it) and
@@ -97,6 +104,10 @@ class LayerSurface implements LayerSurfaceContract {
     const declared = opts.paneName ?? null;
     const layer = opts.layer;
     this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
+    // Capabilities are resolved here, before any early return below, so every
+    // branch — declared, synthesized, native — reports the same way. A GridLayer
+    // or ImageOverlay gets "native" regardless of whether a pane is allocated.
+    this.capabilities = detectCapabilities(opts);
 
     if (declared) {
       const base = this.specs[0];
@@ -326,5 +337,106 @@ class LayerSurface implements LayerSurfaceContract {
     node.options.paneSet = true;
   }
 }
+
+/** The MarkerCluster plugin's group — a shape this tree does not own.
+ *
+ *  Two tells distinguish it from every other LayerGroup: the plugin attaches
+ *  `_topClusterLevel` (its own tree root) and, if the plugin is loaded, is
+ *  reachable via `L.MarkerClusterGroup`. `eachLayer` on the group reaches the
+ *  individual markers, but the cluster icons themselves live in the shared
+ *  `markerPane` and never enter `eachLayer`, so there is no honest carrier for
+ *  a per-layer opacity on a MarkerCluster group — the pane write would fade the
+ *  individual markers but not the clusters (half the layer).
+ *
+ *  `L.MarkerClusterGroup` is not in the ambient typings; the plugin is optional
+ *  and may not be loaded at all, so the reference is guarded with a runtime
+ *  presence check rather than a hard instanceof. */
+const isMarkerCluster = (layer: L.Layer): boolean => {
+  // The plugin's `L.MarkerClusterGroup` is optional — the runtime may not
+  // have it. Read it off the Leaflet global and duck-type the rest.
+  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
+  if (
+    typeof ctor === "function" &&
+    layer instanceof (ctor as new (...args: never[]) => unknown)
+  ) {
+    return true;
+  }
+  // Fallback: the plugin's private `_topClusterLevel` field. If the plugin is
+  // renamed or the instanceof fails (plugin loaded without `L.MarkerClusterGroup`),
+  // this still catches it. The failure mode — duck typing alone — is documented
+  // in the PR body per §25.3-3.
+  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
+};
+
+/** Whether the layer paints through a setter of its own (not a pane of ours).
+ *
+ *  `GridLayer` and `ImageOverlay` both fall into this bucket: `GridLayer` (and
+ *  its `TileLayer` subclass) carries `options.opacity` + `minZoom`/`maxZoom`
+ *  and reads them at `addLayer`; `ImageOverlay`'s `<img>` stays in the shared
+ *  `overlayPane` — a pane write would fade every layer in that shared pane —
+ *  but its own `setOpacity` is immediate and correct (R1 §25.2). */
+const usesNativeSetter = (layer: L.Layer): boolean =>
+  (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||
+  (typeof L.ImageOverlay !== "undefined" && layer instanceof L.ImageOverlay);
+
+/** Resolve a surface's capabilities from what it actually owns (R1 probes).
+ *
+ *  Every situation where content could land outside our panes is either given
+ *  a carrier or honestly downgraded to "none" here — that is the precondition
+ *  for deleting the per-feature walk: no case is left with a write that is
+ *  neither owned nor declared impossible.
+ *
+ *    - MarkerCluster → "none" for both. The cluster icons stay in the shared
+ *      `markerPane`, `eachLayer` cannot reach them (§25.3-3).
+ *    - GridLayer / ImageOverlay → "native". R1 §25.2 measured: `ImageOverlay`
+ *      `setOpacity` immediate-and-correct; `GridLayer` options immediate at
+ *      addLayer (zoomRange honest only for GridLayer, not ImageOverlay).
+ *    - Everything else registered with a content surface → "pane" (declared
+ *      or synthesized). Includes createCanvas whose canvas sits in its own
+ *      dedicated pane.
+ *
+ *  The only "none" left is a layer that has no content we can route: the
+ *  constructor synthesizes no pane and none is declared — e.g. a third-party
+ *  plugin that builds its own canvas in Leaflet's `overlayPane`. Its content
+ *  is not ours to write. */
+const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
+  const layer = opts.layer;
+
+  if (layer && isMarkerCluster(layer)) {
+    return { opacity: "none", zoomRange: "none", relocatable: false };
+  }
+
+  if (layer && usesNativeSetter(layer)) {
+    // ImageOverlay's zoomRange is declared in options but not runtime-effective
+    // once attached (R1 §25.3-5): only GridLayer honours min/maxZoom live.
+    const zoomRange: LayerCapabilities["zoomRange"] =
+      layer instanceof L.GridLayer ? "native" : "none";
+    return { opacity: "native", zoomRange, relocatable: true };
+  }
+
+  // The surface paints into panes we own — declared, sub, or synthesized — so
+  // one style write per pane covers every child. `opts.canvas` covers the
+  // createCanvas shape, whose canvas element sits inside its own dedicated
+  // pane and is addressable through the same CSS write (§4.2 first version:
+  // canvas bakes alpha later, R11).
+  const hasContentPanes =
+    Boolean(opts.paneName) ||
+    (opts.paneSpecs && opts.paneSpecs.length > 0) ||
+    opts.canvas;
+
+  if (hasContentPanes) {
+    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+  }
+
+  // A non-grid, non-native layer with no declared pane and no canvas: the
+  // constructor would synthesize a fallback (any non-grid `layer` gets one).
+  // That pane is addressable on its own.
+  if (layer) {
+    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+  }
+
+  // No layer at all and no canvas — nothing to write.
+  return { opacity: "none", zoomRange: "none", relocatable: false };
+};
 
 export { LayerSurface };

@@ -67,6 +67,16 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
   return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
 };
 
+/** Whether the layer's surface can honestly carry an opacity write. Layers with
+ *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
+ *  pane we do not own) get no opacity row — a slider that writes nothing but
+ *  persists the value would violate §6.2 "不得静默失效". */
+const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return false;
+  return ui.m.surfaceFor(li).capabilities.opacity !== "none";
+};
+
 /** Drop a layer's cached field list and re-render if it is currently labelling.
  *  Called when a layer's features can change (runtime createLayers) or when the
  *  layer is removed.
@@ -313,7 +323,13 @@ const renderDelegatedStylePanel = (
   // section split, and the Layer section (opacity) belongs to LayerControl
   // rather than to the component that delegates its label style.
   root.prepend(sectionHeading(ui.T("section_label")));
-  root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+  // Row-level capability gate (§5.4): the opacity row only renders when the
+  // surface can honestly carry the write. A layer with `opacity: "none"`
+  // (MarkerCluster) would otherwise see a slider that writes nothing but
+  // persists the value — a lie that survives reload (§6.2).
+  if (layerCanOpacity(ui, layerId)) {
+    root.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+  }
 
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
@@ -528,9 +544,10 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
     ),
     body,
-    sectionHeading(ui.T("section_layer")),
-    buildOpacityRow(ui, layerId),
   );
+  if (layerCanOpacity(ui, layerId)) {
+    content.append(sectionHeading(ui.T("section_layer")), buildOpacityRow(ui, layerId));
+  }
   appendResetFooter(ui, content);
   return panel;
 };

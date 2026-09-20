@@ -18,21 +18,29 @@
   };
 
   // The pane a layer's content renders into, found from its own leaves.
+  // Handles both LayerGroup (eachLayer) and single layers (_path/_icon).
   const paneOf = layer => {
     let pane = null;
-    layer.eachLayer(child => {
+    const leaves = [];
+    if (layer.eachLayer) {
+      layer.eachLayer(child => leaves.push(child));
+    } else {
+      leaves.push(layer);
+    }
+    for (const child of leaves) {
       let n = child._path || child._icon || null;
       while (n && !(n.classList && n.classList.contains("leaflet-pane"))) {
         n = n.parentElement;
       }
       if (n) pane = n;
-    });
+    }
     return pane;
   };
 
   const leafOpacity = layer => {
     const vals = [];
-    layer.eachLayer(child => {
+    const each = layer.eachLayer ? cb => layer.eachLayer(cb) : cb => cb(layer);
+    each(child => {
       if (child.options && typeof child.options.opacity === "number") {
         vals.push(child.options.opacity);
       }
@@ -94,6 +102,122 @@
   const graphPaneEl = map.getPane("op-probe-graph");
   const nodePaneEl = map.getPane("op-probe-node");
 
+  // ── Case C: a hollow polygon keeps its hole (multiplicative, not override) ──
+  // Wrapped in GeoJSON with a property so the style panel opens (needs a
+  // labelable field to render the label section, which hosts the opacity row).
+  // style: { fillOpacity: 0 } makes it hollow — the pane CSS opacity must not
+  // fill it back in (0 × 0.4 = 0, not 0.4).
+  const hollowGeo = L.geoJson(
+    {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { name: "hollow", value: 1 },
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [119.45, 26.07],
+                [119.45, 26.08],
+                [119.46, 26.08],
+                [119.45, 26.07],
+              ],
+            ],
+          },
+        },
+      ],
+    },
+    { style: { fillOpacity: 0, color: "#000", weight: 2 } },
+  );
+  api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
+  ctrl.m.enforceOrder();
+  const hollowPane = paneOf(hollowGeo);
+  setOpacityViaSlider("op_hollow");
+  const hollowPaneAfter = hollowPane ? hollowPane.style.opacity : null;
+  let hollowFillOpacity = null;
+  hollowGeo.eachLayer(child => {
+    if (child.options) hollowFillOpacity = child.options.fillOpacity;
+  });
+
+  // ── Case D: annotation pane follows the layer's opacity ─────────────
+  // A data layer with labels on: the geometry pane and the annotation pane
+  // must both carry the opacity. A neighbour layer's annotation pane is
+  // unaffected (per-layer pane, not shared).
+  const annotatedGeo = L.geoJson({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "annotated", value: 1 },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [119.55, 26.1],
+              [119.55, 26.11],
+              [119.56, 26.11],
+              [119.55, 26.1],
+            ],
+          ],
+        },
+      },
+    ],
+  });
+  api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
+  // A neighbour layer with its own annotation, so we can assert isolation.
+  const neighbourGeo = L.geoJson({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "neighbour", value: 1 },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [119.57, 26.1],
+              [119.57, 26.11],
+              [119.58, 26.11],
+              [119.57, 26.1],
+            ],
+          ],
+        },
+      },
+    ],
+  });
+  api.registerLayer({
+    id: "op_annotated_nb",
+    name: "AnnotatedNb",
+    layer: neighbourGeo,
+  });
+  ctrl.m.enforceOrder();
+
+  // Enable labels on both layers.
+  ctrl.m.annotation.setConfig("op_annotated", {
+    ...ctrl.m.annotation.getConfig("op_annotated"),
+    show: true,
+  });
+  ctrl.m.annotation.renderLabels("op_annotated");
+  ctrl.m.annotation.setConfig("op_annotated_nb", {
+    ...ctrl.m.annotation.getConfig("op_annotated_nb"),
+    show: true,
+  });
+  ctrl.m.annotation.renderLabels("op_annotated_nb");
+
+  const annotatedGeoPane = paneOf(annotatedGeo);
+  const annotationPane = map.getPane("foliplus-annotation-op_annotated");
+  const neighbourAnnotationPane = map.getPane("foliplus-annotation-op_annotated_nb");
+
+  // Set opacity to 0.
+  ui.openStylePanel("op_annotated");
+  const rangeD = document.querySelector(".foliplus-style-opacity-range");
+  if (rangeD) {
+    rangeD.value = "0";
+    rangeD.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  ui.closeStylePanel(false);
+
   return {
     error: null,
     // After the ordering pass a plain folium layer has its own pane too, so
@@ -128,5 +252,22 @@
       );
       return v;
     })(),
+    // A hollow polygon (fillOpacity: 0) keeps its hole: the pane's CSS opacity
+    // is multiplicative at compositing time, not an override of the feature's
+    // own style. 0 × 0.4 = 0, so the fill stays invisible.
+    hollowPaneAfter,
+    hollowFillOpacity,
+    // Case D: annotation pane follows the layer's opacity. The geometry pane
+    // and the annotation pane must both carry the opacity. A neighbour layer's
+    // annotation pane is unaffected (per-layer pane, not shared).
+    annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
+    annotatedAnnotationPaneOpacity: annotationPane
+      ? annotationPane.style.opacity
+      : null,
+    neighbourAnnotationPaneOpacity: neighbourAnnotationPane
+      ? neighbourAnnotationPane.style.opacity
+      : null,
+    annotationPaneExists: !!annotationPane,
+    neighbourAnnotationPaneExists: !!neighbourAnnotationPane,
   };
 };

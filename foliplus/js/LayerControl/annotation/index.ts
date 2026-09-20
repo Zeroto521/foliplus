@@ -191,6 +191,15 @@ class AnnotationManager {
     return this.config.has(id);
   }
 
+  /** The pane name a layer's labels render into, or null when it has none yet.
+   *  Read-only projection: the pane is created lazily by {@link ensureCanvas}
+   *  when labels first turn on, and lives outside the surface's frozen pane set.
+   *  The layer's opacity writer asks here at write time (§5.4: one dimension,
+   *  one writer — the carrier set is surface panes ∪ annotation pane). */
+  paneNameFor(id: string): string | null {
+    return this.panes.has(id) ? CONST.ANNOTATION_PANE_PREFIX + id : null;
+  }
+
   /** All configured layers' id → config entries (for persistence). */
   configEntries(): [string, AnnotationConfig][] {
     return [...this.config.entries()];

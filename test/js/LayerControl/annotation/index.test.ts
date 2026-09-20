@@ -140,7 +140,29 @@ describe("AnnotationManager — formatting and fields", () => {
         }),
       } as unknown as L.Layer),
     ).toEqual({ lat: 1, lng: 2 });
+    // A leaf whose getLatLng exists but returns null/undefined is not a
+    // marker whose point is undefined — it falls through to bounds, so a
+    // group whose "point" accessor resolves to nothing still gets an anchor
+    // from its extents.
+    expect(
+      mgr.resolveAnchor({
+        getLatLng: () => null,
+        getBounds: () => ({
+          isValid: () => true,
+          getCenter: () => ({ lat: 1, lng: 2 }),
+        }),
+      } as unknown as L.Layer),
+    ).toEqual({ lat: 1, lng: 2 });
     expect(mgr.resolveAnchor({} as L.Layer)).toBeNull();
+    expect(
+      mgr.resolveAnchor({
+        getLatLng: () => null,
+        getBounds: () => ({
+          isValid: () => true,
+          getCenter: () => ({ lat: 1, lng: 2 }),
+        }),
+      } as unknown as L.Layer),
+    ).toEqual({ lat: 1, lng: 2 });
   });
 
   it("reads a field off feature.properties", () => {
@@ -682,5 +704,19 @@ describe("AnnotationManager — render & plan", () => {
     events?.emit(EVENTS.AFTER_EXPORT, { component: "test" });
     // Both sides of the export refresh in the same frame the capture reads.
     expect(c.paint).toHaveBeenCalledTimes(2);
+  });
+
+  it("paneNameFor returns the pane name when the layer has labels, null otherwise", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+
+    expect(mgr.paneNameFor("a")).toBeNull();
+
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    expect(mgr.paneNameFor("a")).toBe("foliplus-annotation-a");
+
+    mgr.destroyLayer("a");
+    expect(mgr.paneNameFor("a")).toBeNull();
   });
 });
