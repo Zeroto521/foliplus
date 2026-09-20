@@ -194,3 +194,62 @@ describe("test/js/script naming", () => {
     expect(hasSubject("Makefile")).toBe(true);
   });
 });
+
+// The naming rule above runs one way: every test file must name a real module.
+// The other direction — every module must have a test file — was the blind
+// spot that left script/glyph.mjs uncovered. A module without a test can never
+// be an accident: it is either tested, or named here with the reason it
+// cannot be. The list is empty today; keeping it is what makes the gap below
+// deliberate instead of silent.
+const INTENTIONAL_NO_TEST: Record<string, string> = {};
+
+const scriptStem = (rel: string) =>
+  rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");
+
+const scriptTestStems = (): Set<string> =>
+  new Set(
+    globSync({ cwd: ROOT, patterns: ["test/js/script/*.test.ts"] })
+      .sort()
+      .map(rel => rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "")),
+  );
+
+const isCovered = (stem: string) =>
+  scriptTestStems().has(stem) || stem in INTENTIONAL_NO_TEST;
+
+describe("script module coverage", () => {
+  it("every script module is tested, or named as deliberately untested", () => {
+    const intentional = Object.entries(INTENTIONAL_NO_TEST)
+      .map(([k, v]) => `  ${k} — ${v}`)
+      .join("\n");
+
+    for (const rel of scriptModules()) {
+      const stem = scriptStem(rel);
+      expect(
+        isCovered(stem),
+        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as ` +
+          `deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
+      ).toBe(true);
+    }
+  });
+
+  it("the escape hatch is neither stale nor decorative", () => {
+    // An entry that no longer applies is dead config: it trains a reader to
+    // trust the list, so a later real gap gets the same treatment for free.
+    for (const stem of Object.keys(INTENTIONAL_NO_TEST)) {
+      expect(
+        scriptModules().some(rel => scriptStem(rel) === stem),
+        `INTENTIONAL_NO_TEST.${stem} matches no script module`,
+      ).toBe(true);
+      expect(
+        scriptTestStems().has(stem),
+        `INTENTIONAL_NO_TEST.${stem} has a test file — drop the entry`,
+      ).toBe(false);
+    }
+
+    // Counter-proof. Without it the loop above would keep passing after the
+    // escape hatch stopped being a list and started matching everything — the
+    // guard would go decorative and no test would notice.
+    expect(isCovered("glyph")).toBe(true);
+    expect(isCovered("never-a-module")).toBe(false);
+  });
+});
