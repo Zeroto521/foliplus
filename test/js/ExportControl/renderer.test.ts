@@ -1197,10 +1197,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
       },
     };
 
-    const tileLayer = vi.spyOn(
-      ExportRenderer.prototype as any,
-      "renderTileLayer",
-    ).mockResolvedValue(undefined);
+    const tileLayer = vi
+      .spyOn(ExportRenderer.prototype as any, "renderTileLayer")
+      .mockResolvedValue(undefined);
     const onProgress = vi.fn();
 
     await runRender(onProgress);
@@ -1419,13 +1418,14 @@ const stubLoad = () => vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
 const captureSources = () => {
   const real = XMLSerializer.prototype.serializeToString;
   const sources: string[] = [];
-  vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(
-    function (this: XMLSerializer, node: Node) {
-      const src = real.call(this, node);
-      sources.push(src);
-      return src;
-    },
-  );
+  vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(function (
+    this: XMLSerializer,
+    node: Node,
+  ) {
+    const src = real.call(this, node);
+    sources.push(src);
+    return src;
+  });
   return sources;
 };
 

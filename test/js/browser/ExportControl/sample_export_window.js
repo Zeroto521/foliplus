@@ -33,4 +33,4 @@
     result[name] = { hit, total };
   }
   return result;
-}
+};

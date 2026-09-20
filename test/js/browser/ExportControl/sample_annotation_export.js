@@ -32,4 +32,4 @@
     w: exportC.width,
     h: exportC.height,
   };
-}
+};

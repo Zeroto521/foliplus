@@ -45,7 +45,7 @@
 
   // --- Carrier 2: marker (div-icon, NOT in a foliplus pane) ---
   // Centre at [26.08, 119.30] (map centre).
-  const marker = L.marker([26.08, 119.30], {
+  const marker = L.marker([26.08, 119.3], {
     icon: L.divIcon({
       className: "",
       html: '<div style="width:20px;height:20px;background:rgb(230,30,30);border-radius:50%"></div>',
@@ -90,4 +90,4 @@
       canvas: { x: 792, y: 320, w: 80, h: 80 },
     },
   };
-}
+};

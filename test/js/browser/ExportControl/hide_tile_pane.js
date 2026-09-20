@@ -9,4 +9,4 @@
   if (!tilePane) return false;
   tilePane.classList.add("foliplus-layer-tile-hidden");
   return getComputedStyle(tilePane).visibility === "hidden";
-}
+};

@@ -32,4 +32,4 @@
     if (near) hits++;
   }
   return { found: true, hit: hits, total, w: c.width, h: c.height };
-}
+};

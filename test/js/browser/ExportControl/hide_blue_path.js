@@ -16,4 +16,4 @@
     }
   }
   return { hidden: hiddenCount > 0, count: hiddenCount };
-}
+};

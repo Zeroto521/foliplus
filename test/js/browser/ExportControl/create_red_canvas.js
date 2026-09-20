@@ -27,4 +27,4 @@
     0.2 * cvs.canvas.height,
   );
   return true;
-}
+};
