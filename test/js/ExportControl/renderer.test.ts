@@ -1615,11 +1615,10 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(src).toContain("L 180 180");
   });
 
-  it("keeps a child's own display: none, whether a rule or inline sets it", async () => {
-    // Inline `display: none` rides into the clone in the copied style
-    // attribute, so cloneNode carries it on its own.  A rule-hidden element
-    // has no inline style at all — the computed copy is its only route out of
-    // the clone, and the standalone SVG would otherwise paint it.
+  it("removes a child's own display: none from the clone — rule or inline", async () => {
+    // The pipeline serialises to an <img>, which ignores inline display, so the
+    // only reliable exclusion is removal.  Both rule-hidden and inline-hidden
+    // elements must be pruned from the clone.
     const style = document.createElement("style");
     style.textContent = ".t25-rule-hidden { display: none; }";
     document.head.appendChild(style);
@@ -1647,8 +1646,13 @@ describe("ExportRenderer.renderPaneSVG", () => {
       );
 
       const src = srcs[0] || "";
-      expect((src.match(/display:\s*none/g) || []).length).toBe(2);
+      // Neither hidden path appears in the serialised SVG.
+      expect(src).not.toContain("L 200 0");
+      expect(src).not.toContain("L 195 5");
+      // The visible path survives.
       expect(src).toContain("L 180 180");
+      // No display:none attribute leaks into the clone.
+      expect((src.match(/display:\s*none/g) || []).length).toBe(0);
     } finally {
       style.remove();
     }

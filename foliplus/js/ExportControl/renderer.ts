@@ -564,17 +564,21 @@ class ExportRenderer {
         const originals = svgEl.querySelectorAll("*");
         for (let i = 0; i < allEls.length && i < originals.length; i++) {
           const cs = window.getComputedStyle(originals[i]);
+          // An element whose own computed display is "none" must not appear in
+          // the export — the pipeline serialises to an <img>, which ignores
+          // inline display, so the only reliable exclusion is removal.
+          if (cs.getPropertyValue("display") === "none") {
+            (allEls[i] as Element).remove();
+            continue;
+          }
           const inline = allEls[i] as HTMLElement;
           for (const p of props) {
             const v = cs.getPropertyValue(p);
             if (!v) continue;
             // fill: none and stroke: none mean "unpainted", and the standalone
             // clone carries no stylesheet to express that — skipping them
-            // leaves the default black fill, so those skips stay.  `display:
-            // none` is the one "none" that must survive: an element hidden by a
-            // rule has no inline style for cloneNode to carry, and this copy is
-            // the only thing keeping it out of the export.
-            if (v === "none" && p !== "display") continue;
+            // leaves the default black fill, so those skips stay.
+            if (v === "none") continue;
             if (p === "fill" && v === "rgb(0, 0, 0)") continue;
             inline.style.setProperty(p, v);
           }
@@ -674,7 +678,8 @@ class ExportRenderer {
           el.tagName === "CANVAS" ||
           el.tagName === "SVG" ||
           el.matches(CONST.SEL.SKIP_EXPORT) ||
-          el.querySelector(CONST.SEL.SKIP_EXPORT)
+          el.querySelector(CONST.SEL.SKIP_EXPORT) ||
+          window.getComputedStyle(el).display === "none"
         ) {
           continue;
         }

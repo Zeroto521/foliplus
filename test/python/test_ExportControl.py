@@ -1309,10 +1309,11 @@ class TestExportControlBrowser:
     def test_export_focus_element_display_none(self, browser, tmp_path):
         """Reverse gate: element's own display:none is respected in export.
 
-        Sets display:none on a specific SVG path, exports, and asserts the
-        path's window has 0 matching pixels. This pins the "respect element's
-        own hiding" behaviour — prevents deleting `visibility`/`display` from
-        the props whitelist, which would silently include hidden elements.
+        Sets display:none on a specific SVG path (blue polygon), exports, and
+        asserts the path's window has 0 blue pixels. The polygon is blue so
+        its pixels are distinguishable from the red background — the pruning
+        code in renderPaneSVG removes display:none elements from the clone,
+        so they never appear in the SVG string and produce zero pixels.
         """
         with use_page(
             self._make_page, browser, tmp_path, slug="export_display_none"
@@ -1323,20 +1324,21 @@ class TestExportControlBrowser:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
-            # Set up three carriers and hide one path via display:none.
-            state = page.evaluate(_js("ExportControl/focus_three_carriers"))
+            # Set up carriers with a blue polygon (distinguishable from
+            # the red background).
+            state = page.evaluate(_js("ExportControl/setup_display_none_test"))
             assert state is not None and "error" not in state, state
 
             # Hide the polygon's SVG path via display:none.
-            hide_result = page.evaluate(_js("ExportControl/hide_vector_path"))
+            hide_result = page.evaluate(_js("ExportControl/hide_blue_path"))
             assert hide_result is not None and hide_result.get("hidden") is True, (
-                f"Could not find/hide vector path: {hide_result}"
+                f"Could not find/hide blue vector path: {hide_result}"
             )
 
             # Install canvas hook before export.
             self._install_canvas_hook(page)
 
-            # Full export flow (no focus this time — just testing display:none).
+            # Full export flow.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -1355,11 +1357,11 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(2000)
 
-            # Sample the vector window — should have 0 red pixels (path is hidden).
+            # Sample the vector window — should have 0 blue pixels (path pruned).
             page.evaluate(
                 f"""() => {{
                     window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [230, 30, 30];
+                    window._sampleColor = [0, 0, 230];
                     window._sampleTol = 30;
                     window._sampleAlphaMin = 100;
                 }}"""
@@ -1367,31 +1369,89 @@ class TestExportControlBrowser:
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
 
-            # Debug: check canvas state.
-            debug2 = page.evaluate(
-                """() => {
-                    const canvases = window._capturedCanvases || [];
-                    const ec = canvases[canvases.length - 1];
-                    if (!ec) return { error: 'no canvas', n: canvases.length };
-                    const ctx = ec.getContext('2d');
-                    const data = ctx.getImageData(0, 0, ec.width, ec.height);
-                    let nonTrans = 0;
-                    for (let i = 3; i < data.data.length; i += 4) {
-                        if (data.data[i] > 10) nonTrans++;
-                    }
-                    return { canvasW: ec.width, canvasH: ec.height, nonTransparent: nonTrans };
-                }"""
-            )
-            print(f"[debug] canvas: {debug2}")
-
             assert result["vector"]["hit"] == 0, (
-                f"Hidden path (display:none) still has red pixels in export: {result}"
+                f"Hidden path (display:none) still has blue pixels in export: {result}"
             )
             # Also verify the other two carriers are still present.
-            assert result["marker"]["hit"] > 0, f"Marker carrier missing: {result}"
-            assert result["canvas"]["hit"] > 0, f"Canvas carrier missing: {result}"
+            page.evaluate(
+                """() => {
+                    window._sampleColor = [230, 30, 30];
+                }"""
+            )
+            result2 = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result2["marker"]["hit"] > 0, (
+                f"Marker carrier missing: {result2}"
+            )
+            assert result2["canvas"]["hit"] > 0, (
+                f"Canvas carrier missing: {result2}"
+            )
 
             assert len(errors) == 0, f"JS errors on display:none export: {errors}"
+
+    def test_export_visibility_hidden_behavior(self, browser, tmp_path):
+        """Empirical test: does the export draw visibility:hidden elements?
+
+        Sets visibility:hidden on a blue polygon's SVG path, exports, and
+        checks if blue pixels are present. Contract §22-8 line 790 intends
+        for visibility (not display) to be used for layout preservation while
+        export still sees the element. This test provides empirical evidence
+        for the reviewer's contract update decision.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, slug="export_visibility_hidden"
+        ) as (page, _):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Set up carriers with a blue polygon.
+            state = page.evaluate(_js("ExportControl/setup_display_none_test"))
+            assert state is not None and "error" not in state, state
+
+            # Set visibility:hidden on the polygon's SVG path.
+            hide_result = page.evaluate(_js("ExportControl/hide_blue_path_visibility"))
+            assert hide_result is not None and hide_result.get("hidden") is True, (
+                f"Could not find/hide blue vector path: {hide_result}"
+            )
+
+            # Install canvas hook before export.
+            self._install_canvas_hook(page)
+
+            # Full export flow.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample the vector window for blue pixels.
+            page.evaluate(
+                f"""() => {{
+                    window._sampleWindows = {json.dumps(state["windows"])};
+                    window._sampleColor = [0, 0, 230];
+                    window._sampleTol = 30;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+
+            # Report the empirical result.
+            print(f"visibility:hidden empirical result: {result}")
+            print(f"Vector window blue pixel hit count: {result['vector']['hit']}")
+
+            assert len(errors) == 0, f"JS errors on visibility:hidden export: {errors}"
 
     def test_export_preview_excluded_finalized_retained(self, browser, tmp_path):
         """Preview lines are excluded from export; finalized lines are retained.
