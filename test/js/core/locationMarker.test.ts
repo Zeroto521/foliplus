@@ -3,11 +3,8 @@ import { createLocationMarker } from "#core/locationMarker.js";
 
 describe("createLocationMarker", () => {
   let map;
-  // A real anchor so `setPopupCloseTitle` has a target to write to; the
-  // adapter is a no-op when _closeButton is null, which is why every other
-  // test in this block stubs it to null (the title-setting branch is only
-  // exercised by the dedicated test below).
-  const closeBtn = document.createElement("a");
+  // Every test stubs _closeButton to null; the two title-setting tests below
+  // create their own real anchor so the adapter reach is exercised.
   const mockMarker = {
     bindPopup: vi.fn().mockReturnThis(),
     openPopup: vi.fn().mockReturnThis(),
@@ -61,6 +58,7 @@ describe("createLocationMarker", () => {
     // real anchor so the reach is exercised; every other test in this block
     // stubs _closeButton to null, which is exactly why this behavior was
     // zero-covered before.
+    const closeBtn = document.createElement("a");
     const marker = {
       bindPopup: vi.fn().mockReturnThis(),
       openPopup: vi.fn(),
@@ -87,6 +85,7 @@ describe("createLocationMarker", () => {
   });
 
   it("falls back to an empty title when the close label is empty", () => {
+    const closeBtn = document.createElement("a");
     const marker = {
       bindPopup: vi.fn().mockReturnThis(),
       openPopup: vi.fn(),
