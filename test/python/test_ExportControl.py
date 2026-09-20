@@ -1379,12 +1379,8 @@ class TestExportControlBrowser:
                 }"""
             )
             result2 = page.evaluate(_js("ExportControl/sample_export_window"))
-            assert result2["marker"]["hit"] > 0, (
-                f"Marker carrier missing: {result2}"
-            )
-            assert result2["canvas"]["hit"] > 0, (
-                f"Canvas carrier missing: {result2}"
-            )
+            assert result2["marker"]["hit"] > 0, f"Marker carrier missing: {result2}"
+            assert result2["canvas"]["hit"] > 0, f"Canvas carrier missing: {result2}"
 
             assert len(errors) == 0, f"JS errors on display:none export: {errors}"
 
