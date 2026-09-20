@@ -7,14 +7,14 @@
 // KEY OPTIMIZATION: Auto-scan component source for shared-module imports,
 // then generate shims ONLY for the actually-imported names. Unused exports
 // are never declared, so they cannot appear in the bundle. The scan itself
-// lives in script/shared-import-scan.mjs — the same engine
+// lives in script/import-scan.mjs — the same engine
 // script/scan-registry.mjs uses, so publishing and reading cannot drift.
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
-} from "./shared-import-scan.mjs";
+} from "./import-scan.mjs";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -22,7 +22,9 @@ const NAMED_RE = /export\s*\{([^}]+)\}/g;
 const STAR_RE = /export\s*\*\s*from\s*["']([^"']+)["']/g;
 const RE_EXPORT_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
 
-/** Parse a comma-separated export list, returning exported names (respects as). */
+/** Parse a comma-separated export list, returning exported names (respects as).
+ *  `type` is a modifier (`type A`), never a prefix — `export { typeFoo }` is
+ *  a real identifier and survives. */
 const exportNames = list =>
   list
     .split(",")
@@ -31,7 +33,7 @@ const exportNames = list =>
       const m = trimmed.match(/^(.+?)\s+as\s+(.+)$/);
       return m ? m[2].trim() : trimmed;
     })
-    .filter(n => n && !n.startsWith("type"));
+    .filter(n => n && !/^type\s/.test(n));
 
 const exportCache = new Map();
 
@@ -107,7 +109,7 @@ const sharedGlobalNamespace = spec => {
 /** Engine-backed scan, in the shape this plugin has always consumed:
  *  `{ used, starUsed }` keyed by the RAW specifier, because `onLoad` receives
  *  exactly what esbuild resolved. `collectSources` is re-exported verbatim
- *  from script/shared-import-scan.mjs. */
+ *  from script/import-scan.mjs. */
 const scanSharedImports = dir => {
   const { named, starUsed } = scanSharedImportsEngine(dir);
   return { used: named, starUsed };

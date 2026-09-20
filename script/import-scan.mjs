@@ -1,4 +1,4 @@
-// script/shared-import-scan.mjs — the one import scanner for shared modules.
+// script/import-scan.mjs — the one import scanner for shared modules.
 //
 // Two consumers read the same thing and used to each keep a private copy of
 // this code:
@@ -32,6 +32,14 @@
 // The star pass is likewise the superset: `\b`-anchored alias + any
 // identifier, which subsumes the registry's uppercase-only match plus its
 // `Storage.load|save` special case.
+//
+// Two bugs both predecessors shared are fixed here rather than preserved:
+//   - a `type`-prefixed modifier check used `startsWith("type")`, which also
+//     deleted real identifiers like `typeFoo`;
+//   - the star pass scanned every source for every alias, so a file that
+//     imported spec A as `X` and another that imported spec B as `X` got the
+//     props of both specs attributed to both. Props are now collected only
+//     from the files that imported the spec under that alias.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
@@ -44,7 +52,9 @@ const canonicalSpec = spec =>
     .replace(/\/index$/, "");
 
 /** Parse a named-import list: `foo, bar, baz as b, type A` → `["foo","bar","baz"]`.
- *  Keeps the module-side name (the `as` alias is the local binding). */
+ *  Keeps the module-side name (the `as` alias is the local binding).
+ *  `type` is matched as a modifier — `type A` — never as a prefix, so a
+ *  legitimate identifier such as `typeFoo` survives. */
 const parseImportNames = list =>
   list
     .split(",")
@@ -52,7 +62,7 @@ const parseImportNames = list =>
       const trimmed = part.trim();
       return trimmed.replace(/\s+as\s+.*/g, "").trim();
     })
-    .filter(n => n && !n.startsWith("type"));
+    .filter(n => n && !/^type\s/.test(n));
 
 // `import { A, B } from "#core/x.js"`  |  `import * as X from "#common/y.js"`
 const SHARED_IMPORT_RE =
@@ -85,38 +95,48 @@ const collectSources = (dir, out = []) => {
  *    starUsed — `import * as X from "#…"` props seen as `X.prop`
  *  `starUsed` only gets an entry when at least one prop was found, so an
  *  unused star alias stays invisible here and lets the plugin fall back to
- *  the full export set. */
+ *  the full export set.
+ *
+ *  A prop belongs to the spec that the file which mentions it imported under
+ *  that alias — not to every spec that shares the alias elsewhere. Reusing
+ *  one alias for two modules is legal, and attributing both modules' props to
+ *  both would publish a name the importer never touched. */
 const scanSharedImports = dir => {
   const sources = collectSources(dir);
   const named = new Map();
-  const aliases = new Map(); // rawSpec -> Set<local alias>
+  const aliasFiles = new Map(); // rawSpec -> Map<alias -> Set<source index>>
   SHARED_IMPORT_RE.lastIndex = 0;
-  for (const src of sources) {
+  for (let i = 0; i < sources.length; i++) {
+    const src = sources[i];
     let m;
     while ((m = SHARED_IMPORT_RE.exec(src))) {
       const spec = "#" + m[3];
+      // m[2] present ⇒ star import, m[1] present ⇒ named import; the regex's
+      // alternation guarantees exactly one, so no undefined-fallback is needed.
       if (m[2]) {
-        const set = aliases.get(spec) || new Set();
-        set.add(m[2]);
-        aliases.set(spec, set);
+        const byAlias = aliasFiles.get(spec) || new Map();
+        const files = byAlias.get(m[2]) || new Set();
+        files.add(i);
+        byAlias.set(m[2], files);
+        aliasFiles.set(spec, byAlias);
       } else {
         const set = named.get(spec) || new Set();
-        for (const n of parseImportNames(m[1] || "")) set.add(n);
+        for (const n of parseImportNames(m[1])) set.add(n);
         named.set(spec, set);
       }
     }
   }
   const starUsed = new Map();
-  for (const [spec, aliasSet] of aliases) {
+  for (const [spec, byAlias] of aliasFiles) {
     const names = new Set();
-    for (const alias of aliasSet) {
+    for (const [alias, files] of byAlias) {
       const propRe = new RegExp(
         "\\b" + alias.replace(/[$]/g, "\\$") + "\\.([A-Za-z_$][\\w$]*)",
         "g",
       );
-      for (const src of sources) {
+      for (const i of files) {
         let pm;
-        while ((pm = propRe.exec(src))) names.add(pm[1]);
+        while ((pm = propRe.exec(sources[i]))) names.add(pm[1]);
       }
     }
     if (names.size) starUsed.set(spec, names);
@@ -124,10 +144,4 @@ const scanSharedImports = dir => {
   return { named, starUsed };
 };
 
-export {
-  SHARED_IMPORT_RE,
-  canonicalSpec,
-  collectSources,
-  parseImportNames,
-  scanSharedImports,
-};
+export { canonicalSpec, collectSources, parseImportNames, scanSharedImports };

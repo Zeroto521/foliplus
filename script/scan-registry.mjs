@@ -8,7 +8,7 @@
  * exports used by components on window.foliplus.core / .common / BaseControl,
  * enabling esbuild to tree-shake unused exports from component bundles.
  *
- * The scan is script/shared-import-scan.mjs, shared with
+ * The scan is script/import-scan.mjs, shared with
  * script/global-namespace-plugin.mjs: this file publishes a name on
  * window.foliplus, the plugin reads it back through a shim, so both sides
  * must scan with the same rules. This file only canonicalizes the keys and
@@ -26,7 +26,7 @@ import { mkdirSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
-import { canonicalSpec, scanSharedImports } from "./shared-import-scan.mjs";
+import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -59,9 +59,10 @@ mkdirSync(buildJs, { recursive: true });
 
 /** Walk a component dir and return `{ canonicalSpec: [names...] }` — named and
  *  star-import usage merged, keyed the way this registry is generated from
- *  (`core/geo`, `common/dom`). The engine is script/shared-import-scan.mjs;
- *  the plugin-side consumer keeps the raw specifiers instead. */
-const scanImports = dir => {
+ *  (`core/geo`, `common/dom`). Named `registryUsedExports` rather than
+ *  `scanImports`: the actual scan is script/import-scan.mjs, and this is only
+ *  the registry's adapter over it. */
+const registryUsedExports = dir => {
   const { named, starUsed } = scanSharedImports(dir);
   const merged = new Map();
   for (const [spec, names] of [...named.entries(), ...starUsed.entries()]) {
@@ -103,7 +104,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
 
   const usedExports = {};
   for (const dir of componentDirs) {
-    const scanned = scanImports(dir);
+    const scanned = registryUsedExports(dir);
     for (const [spec, names] of Object.entries(scanned)) {
       if (!usedExports[spec]) usedExports[spec] = [];
       usedExports[spec].push(...names);
@@ -170,7 +171,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   }
 };
 
-export { generateRegistry, scanImports };
+export { generateRegistry, registryUsedExports };
 
 // CLI entry point: `node script/scan-registry.mjs [--root <path>] [--silent]`.
 // Guarded so importing this module (e.g. for tests) has no side effects.
