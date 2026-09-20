@@ -15,7 +15,6 @@ import {
   collectLabelFields,
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
-import { destroyPane } from "#core/leafletAdapter.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -85,6 +84,11 @@ class AnnotationManager {
    *  narrow function (not the PaneManager itself) to match the `layerFind`
    *  pattern and keep the annotation module coupled only to what it needs. */
   private readonly ensureOwnedPane: (name: string) => HTMLElement;
+  /** Symmetric release — routes to PaneManager.removePane, which also drops
+   *  the pane's spec and the discovery cache, so the create/destroy pair is
+   *  booked in one place. Without it a stale spec could hand a rebuild a
+   *  leftover z from the previous instance. */
+  private readonly releaseOwnedPane: (name: string) => void;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
@@ -113,10 +117,12 @@ class AnnotationManager {
     mapInstance: L.Map,
     layerFind: (id: string) => L.Layer | null,
     ensureOwnedPane: (name: string) => HTMLElement,
+    releaseOwnedPane: (name: string) => void,
   ) {
     this.map = mapInstance;
     this.layerFind = layerFind;
     this.ensureOwnedPane = ensureOwnedPane;
+    this.releaseOwnedPane = releaseOwnedPane;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -551,13 +557,16 @@ class AnnotationManager {
   }
 
   /** Drop a layer's canvas and pane. Called on unregister and on teardown; the
-   *  pane has to leave Leaflet's registry too, or getPane keeps returning it. */
+   *  pane has to leave Leaflet's registry too, or getPane keeps returning it.
+   *  Goes through PaneManager.removePane (the release counterpart of
+   *  ensurePane) so the manager's spec and cache entries are cleaned in step
+   *  with the DOM — the "booked in one place" invariant §29 sets. */
   private dropCanvas(id: string): void {
     this.canvases.get(id)?.destroy();
     this.canvases.delete(id);
     const pane = this.panes.get(id);
     if (!pane) return;
-    destroyPane(this.map, CONST.ANNOTATION_PANE_PREFIX + id);
+    this.releaseOwnedPane(CONST.ANNOTATION_PANE_PREFIX + id);
     this.panes.delete(id);
   }
 }
