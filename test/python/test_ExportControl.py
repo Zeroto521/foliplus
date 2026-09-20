@@ -833,10 +833,53 @@ class TestExportControlBrowser:
             # Verify the export button (download) is shown after lock
             assert page.locator(".foliplus-tool-bar .confirm").is_visible()
 
-    def test_export_with_heatmap_canvas(self, browser, tmp_path):
-        """Export with a canvas layer (simulated) produces no errors."""
-        from foliplus import LayerControl
+    def _install_canvas_hook(self, page) -> None:
+        """Hook ``document.createElement`` to capture canvases the renderer
+        makes internally (never attached to the DOM). Same trick
+        ``test_export_marker_opacity_blend`` uses; fresh-page-per-test means
+        the patch can't leak.
+        """
+        page.evaluate(
+            """() => {
+                window._capturedCanvases = [];
+                const orig = document.createElement.bind(document);
+                document.createElement = function(tag, ...args) {
+                    const el = orig(tag, ...args);
+                    if (tag === 'canvas') {
+                        window._capturedCanvases.push(el);
+                    }
+                    return el;
+                };
+            }"""
+        )
 
+    def _red_pixels_in_export(
+        self,
+        page,
+        match=[230, 30, 30],
+        tol=30,
+        alpha_min=200,
+    ) -> dict:
+        """Count pixels matching ``match`` in the renderer's output canvas."""
+        page.evaluate(
+            f"""() => {{
+                window._sampleColor = {match};
+                window._sampleTol = {tol};
+                window._sampleAlphaMin = {alpha_min};
+            }}"""
+        )
+        return page.evaluate(_js("ExportControl/sample_export_canvas"))
+
+    def test_export_with_heatmap_canvas(self, browser, tmp_path):
+        """Export captures the pixels a canvas layer draws.
+
+        The canvas layer's ``foliplus-canvas-layer`` class marks it as
+        pointer-events decoration on screen, but the canvas itself is
+        *content* — HeatmapControl is the only user and its map is real data.
+        This test draws a red rectangle and checks the export canvas actually
+        holds those red pixels. A blanket exclude of ``.foliplus-canvas-layer``
+        would silently zero out the count, and the test would catch it.
+        """
         with use_page(self._make_page, browser, tmp_path, slug="export_heatmap") as (
             page,
             _,
@@ -844,10 +887,11 @@ class TestExportControlBrowser:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
-            # Create a canvas layer via LayerControl API
-            page.evaluate(_js("ExportControl/create_test_canvas"))
+            created = page.evaluate(_js("ExportControl/create_red_canvas"))
+            assert created is True, "create_red_canvas failed"
 
-            # Open export, lock, export
+            self._install_canvas_hook(page)
+
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -857,7 +901,6 @@ class TestExportControlBrowser:
                 ".foliplus-export-box.locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .confirm").click()
-
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
@@ -865,14 +908,29 @@ class TestExportControlBrowser:
                 }""",
                 timeout=30000,
             )
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(2000)
 
-            # Cleanup canvas layer
             page.evaluate(_js("ExportControl/remove_test_canvas"))
+            result = self._red_pixels_in_export(page)
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] >= 100, (
+                f"Canvas layer's red pixels missing from export: {result}"
+            )
+            assert result["total"] > 0, f"No pixels drawn in export: {result}"
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
     def test_export_with_annotation_labels(self, browser, tmp_path):
-        """Export with LayerControl annotation labels keeps them drawn, no errors."""
+        """Export captures the annotation label pixels at their positions.
+
+        The pixel-position comparison is the gate: for every opaque pixel in
+        the live annotation canvas, the same (x, y) in the export canvas
+        must also be opaque. The two canvases share CSS coordinates (the
+        export canvas' crop-box origin cancels the annotation canvas' offset,
+        regardless of DPR and export scale), so a pixel-position match is a
+        position match. A regression that dropped the annotation canvas from
+        the export (a blanket exclude of ``.foliplus-canvas-layer`` would
+        do exactly that) would leave zero matched pixels.
+        """
         with use_page(self._make_page, browser, tmp_path, slug="export_annotation") as (
             page,
             errors,
@@ -880,12 +938,13 @@ class TestExportControlBrowser:
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
-            # Create an annotation layer and confirm its labels are painted.
             state = page.evaluate(_js("ExportControl/annotation_canvas_in_export"))
             assert state is not None and state["canvas"] is True, state
             assert state["opaqueBefore"] > 0, state
+            assert state["sample"] is not None, state
 
-            # Full export flow: open, lock, export.
+            self._install_canvas_hook(page)
+
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -902,9 +961,8 @@ class TestExportControlBrowser:
                 }""",
                 timeout=30000,
             )
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(2000)
 
-            # The export's synchronous redraw must not have destroyed the labels.
             after = page.evaluate(
                 """() => {
                     const canvas = window.map
@@ -920,7 +978,101 @@ class TestExportControlBrowser:
                 }"""
             )
             assert after > 0, f"annotation labels lost after export: {after}"
+
+            # Pixel gate: sample the export canvas for the label colour. The
+            # annotation canvas carries `.foliplus-canvas-layer`; a blanket
+            # exclude of that class would drop the annotation labels from the
+            # export and leave zero matching pixels. The halo has alpha
+            # ~191 (0.75 * 255), so lower the alpha threshold to include it.
+            result = self._red_pixels_in_export(
+                page, match=state["sample"], alpha_min=100
+            )
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] > 0, (
+                f"annotation label pixels missing from export: {result}"
+            )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
+
+    def test_export_excludes_tiles_for_solid_color_basemap(
+        self, browser, tmp_path
+    ):
+        """Solid-color basemap hides tilePane; the export must not draw tiles.
+
+        Picking a colour marks tilePane ``foliplus-layer-tile-hidden`` rather
+        than unchecking the tile layers, so every ``li.visible`` stays true.
+        Without a guard the renderer still fetches tile URLs and draws them
+        over the colour the user just picked.
+
+        The fetch spy is the primary gate: it counts tile-URL fetches during
+        the export. The test page blocks OSM tiles with 404 (see conftest),
+        so a pixel assertion cannot distinguish "tiles were skipped" from
+        "tiles were fetched and failed to load"; only the fetch call itself
+        tells them apart. The red-pixel sanity check is a separate regression
+        gate on the canvas layer's pixels surviving the export.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="export_solid_color") as (
+            page,
+            _,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            assert page.evaluate(_js("ExportControl/create_red_canvas")) is True
+
+            # Count tile-URL fetches during the export. The renderer fetches
+            # tiles via loadImageBitmap, which uses window.fetch. Before the
+            # fix this returns > 0; after the fix it must be 0.
+            assert page.evaluate(
+                """() => {
+                    window._fetchLog = [];
+                    const origFetch = window.fetch;
+                    window.fetch = function(input, init) {
+                        const url = (typeof input === 'string')
+                            ? input
+                            : (input && input.url) || String(input);
+                        window._fetchLog.push(url);
+                        return origFetch.apply(this, arguments);
+                    };
+                    return true;
+                }"""
+            )
+
+            self._install_canvas_hook(page)
+            assert page.evaluate(_js("ExportControl/hide_tile_pane")) is True
+
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            tile_fetches = page.evaluate(
+                r"""() => (window._fetchLog || []).filter(
+                    u => /tile\.[^\/]+\.org/.test(u)
+                ).length"""
+            )
+            assert tile_fetches == 0, (
+                f"tile fetches during export despite hidden tilePane: {tile_fetches}"
+            )
+
+            result = self._red_pixels_in_export(page)
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] >= 100, (
+                f"canvas layer's red pixels missing from export: {result}"
+            )
+            assert len(errors) == 0, f"JS errors on solid-color export: {errors}"
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Drag bottom-right handle to resize the crop box."""

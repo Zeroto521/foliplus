@@ -114,6 +114,13 @@ class PreviewMode extends MeasureMode {
   addPreview<T extends L.Layer>(layer: T, paneName?: string): T {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer, paneName);
+    // The preview is a drawing aid, not content: an export started mid-drawing
+    // must not freeze it in the picture.  Every preview funnels through here —
+    // pinToTop and moveCursorNode rebuild by remove + re-add, which is the same
+    // call — so one stamp covers the rebuilds too.  Duck-checked rather than
+    // instanceof: a non-element layer simply has no getElement and is skipped.
+    const el = (layer as { getElement?: () => HTMLElement | null }).getElement?.();
+    el?.classList.add(CONST.CLASSES.NO_EXPORT);
     return layer;
   }
 

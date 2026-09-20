@@ -236,6 +236,17 @@ class ExportRenderer {
       // does the same filtering as the draw pass) and counted, and its own
       // total is reported against the running cross-layer sum.
       if (geoBounds && geoBounds.nw) {
+        // A solid-color basemap hides tilePane by class instead of unchecking
+        // the tile layers, so every `li.visible` is still true and the tile
+        // URLs would still be fetched — the tiles repaint over the colour the
+        // user just picked.  Read the pane's computed state rather than the
+        // class: it is what the screen actually shows, and it does not bind to
+        // whichever rule produced the hiding.  Skipping here leaves sizedTiles
+        // empty, so the progress denominator correctly reports no tiles.
+        const tilePane = this.map.getPane("tilePane");
+        const tilePaneVisible =
+          !tilePane || window.getComputedStyle(tilePane).visibility !== "hidden";
+
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
@@ -247,6 +258,7 @@ class ExportRenderer {
         }> = [];
         for (const li of layers) {
           if (
+            !tilePaneVisible ||
             !li.visible ||
             !(li.layer instanceof L.TileLayer) ||
             !layerUrl(li.layer)
@@ -523,26 +535,60 @@ class ExportRenderer {
       const svgT = svgRect.top - contRect.top;
       if (svgRect.width < 1 || svgRect.height < 1) continue;
 
-      const clone = svgEl.cloneNode(true) as SVGElement;
-      clone.removeAttribute("style");
-      clone.setAttribute("width", String(svgRect.width));
-      clone.setAttribute("height", String(svgRect.height));
+      // A pane's own `visibility` is a transient view state — focus hides every
+      // non-focused pane with one CSS rule — and the export has to ignore it, or
+      // a focused export silently drops every vector.  A child's own
+      // `visibility` is content and must be honoured.  The trouble is that
+      // `visibility` inherits, so a computed read returns the ancestor
+      // contribution dressed up as the child's own.  Flipping the pane's inline
+      // value neutralises just that: inline style beats focus.css's author
+      // rule, while a child's own value lives on the child and survives.
+      // `visibility` does not affect layout, so this is no reflow.
+      //
+      // The flip has to close before the first `await`.  Everything above is
+      // synchronous — getComputedStyle, cloneNode, the prop write, XMLSerializer
+      // — and the loads below are network-bound, so restoring here gives the
+      // browser no paint opportunity in between.  Saving the flip for the end
+      // of render() would leave every layer un-hidden for the whole tile
+      // download.
+      const savedVisibility = pane.style.visibility;
+      pane.style.visibility = "visible";
+      let src = "";
+      try {
+        const clone = svgEl.cloneNode(true) as SVGElement;
+        clone.removeAttribute("style");
+        clone.setAttribute("width", String(svgRect.width));
+        clone.setAttribute("height", String(svgRect.height));
 
-      const allEls = clone.querySelectorAll("*");
-      const originals = svgEl.querySelectorAll("*");
-      for (let i = 0; i < allEls.length && i < originals.length; i++) {
-        const cs = window.getComputedStyle(originals[i]);
-        const inline = allEls[i] as HTMLElement;
-        for (const p of props) {
-          const v = cs.getPropertyValue(p);
-          if (!v || v === "none") continue;
-          if (p === "fill" && v === "rgb(0, 0, 0)") continue;
-          if (p === "stroke" && v === "none") continue;
-          inline.style.setProperty(p, v);
+        const allEls = clone.querySelectorAll("*");
+        const originals = svgEl.querySelectorAll("*");
+        for (let i = 0; i < allEls.length && i < originals.length; i++) {
+          const cs = window.getComputedStyle(originals[i]);
+          const inline = allEls[i] as HTMLElement;
+          for (const p of props) {
+            const v = cs.getPropertyValue(p);
+            if (!v) continue;
+            // fill: none and stroke: none mean "unpainted", and the standalone
+            // clone carries no stylesheet to express that — skipping them
+            // leaves the default black fill, so those skips stay.  `display:
+            // none` is the one "none" that must survive: an element hidden by a
+            // rule has no inline style for cloneNode to carry, and this copy is
+            // the only thing keeping it out of the export.
+            if (v === "none" && p !== "display") continue;
+            if (p === "fill" && v === "rgb(0, 0, 0)") continue;
+            inline.style.setProperty(p, v);
+          }
         }
+
+        // Content a component opted out of — prune the clone, never the live
+        // DOM, since the map still needs the preview while drawing continues.
+        clone.querySelectorAll(CONST.SEL.SKIP_EXPORT).forEach(n => n.remove());
+
+        src = new XMLSerializer().serializeToString(clone);
+      } finally {
+        pane.style.visibility = savedVisibility;
       }
 
-      let src = new XMLSerializer().serializeToString(clone);
       if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
         src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
       }

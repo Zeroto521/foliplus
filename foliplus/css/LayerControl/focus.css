@@ -16,10 +16,13 @@
   pointer-events: none;
 }
 /* `pointer-events` inherits, so everything inside the `none` pane starts off
-   unable to take a hit. A canvas that paints decoration rather than receiving
-   hits carries `.foliplus-canvas-layer` and so keeps inheriting `none`; the
-   one canvas that must turn `auto` is Leaflet's own canvas renderer — a
-   canvas without that class, which is how the pane-level hit-test surface is
+   unable to take a hit. The split is about receiving hits, not about whether
+   the painted pixels are content: `.foliplus-canvas-layer` marks a canvas
+   that does not want a hit-test surface, and that class is stamped on
+   LayerFactory's canvas whose only user today is HeatmapControl — content, not
+   decoration. Annotation label canvases carry the same class for the same
+   reason. Turning `auto` is reserved for Leaflet's own canvas renderer, the one
+   canvas without the class, which is how the pane-level hit-test surface is
    expressed. */
 .foliplus-layer-pane > canvas:not(.foliplus-canvas-layer) {
   pointer-events: auto;

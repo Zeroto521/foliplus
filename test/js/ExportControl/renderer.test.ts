@@ -1174,6 +1174,43 @@ describe("ExportRenderer.render — layer pass routing", () => {
     );
   });
 
+  it("skips the tile pass when tilePane is hidden by a solid-color basemap", async () => {
+    // Picking a colour removes the tile layers with map.removeLayer and hides
+    // tilePane by class — it never goes through applyVisibility, so every
+    // li.visible is still true.  Re-fetching the tile URLs would repaint them
+    // over the colour the user just picked, so the pass judges the pane's
+    // computed state instead of the class that produced it.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const tilePane = document.createElement("div");
+    tilePane.style.visibility = "hidden";
+    const map = (globalThis as any).map;
+    map.getPane = (name: string) => (name === "tilePane" ? tilePane : null);
+    map.foliplus = {
+      LayerAPI: {
+        layers: [
+          { visible: true, layer: makeTileLayer() },
+          { visible: true, layer: { options: {} } },
+        ],
+        getLayerPanes: () => [],
+      },
+    };
+
+    const tileLayer = vi.spyOn(
+      ExportRenderer.prototype as any,
+      "renderTileLayer",
+    ).mockResolvedValue(undefined);
+    const onProgress = vi.fn();
+
+    await runRender(onProgress);
+
+    expect(tileLayer).not.toHaveBeenCalled();
+    // No tiles in the denominator, so the bar resumes at the layer range and
+    // the surviving vector layer still walks it to the top.
+    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+
   it("runs the four marker passes when the layer's panes hold markers", async () => {
     // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
     // and svg from the pane and the four marker passes draw whatever is left.
@@ -1376,6 +1413,22 @@ const pinBox = (el, left = 0, top = 0, width = 100, height = 100) => {
  *  load an object URL, so stub it for the tests that reach the draw call. */
 const stubLoad = () => vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
 
+/** Capture the serialized SVG each pass hands to loadImage.  The pass hands it
+ *  to URL.createObjectURL and the tests cannot read a blob back, so intercept
+ *  the serializer instead and keep the real output. */
+const captureSources = () => {
+  const real = XMLSerializer.prototype.serializeToString;
+  const sources: string[] = [];
+  vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(
+    function (this: XMLSerializer, node: Node) {
+      const src = real.call(this, node);
+      sources.push(src);
+      return src;
+    },
+  );
+  return sources;
+};
+
 describe("ExportRenderer.renderPaneSVG", () => {
   const NS = CONST.SVG_NS;
 
@@ -1477,6 +1530,161 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(alphaDuringDraw).toBe(0.5);
     expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("peels the pane's own visibility: a transient view state such as focus", async () => {
+    // focus.css hides every non-focused pane with one rule, and `visibility`
+    // inherits — so a computed read hands back the ancestor's contribution as
+    // the child's own.  Copying it serialises the layer hidden and the whole
+    // vector set silently leaves a focused export.  Flipping the pane's inline
+    // value peels just that part.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    svg.appendChild(path);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect((srcs[0] || "").match(/visibility:\s*hidden/g)).toBeNull();
+    expect(p.style.visibility).toBe("hidden");
+  });
+
+  it("restores the pane's visibility when reading the clone throws", async () => {
+    // The flip lives in a finally: render() awaits between panes, so a leak
+    // across an await would hold the layers un-hidden for the whole export.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    await expect(
+      new ExportRenderer(makeRenderer().map).renderPaneSVG(
+        positionedRC(1000, 1000, ctx),
+        p,
+      ),
+    ).rejects.toThrow("boom");
+
+    expect(p.style.visibility).toBe("hidden");
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a child's own visibility: hidden and its neighbours visible", async () => {
+    // The other half of the contract: only the ancestor contribution is peeled.
+    // Collision suppression hides individual label chips the same way, and the
+    // export is meant to keep drawing them.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const hidden = document.createElementNS(NS, "path");
+    hidden.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    hidden.style.visibility = "hidden";
+    const shown = document.createElementNS(NS, "path");
+    shown.setAttribute("d", "M 20 20 L 180 20 L 180 180 L 20 180 Z");
+    svg.append(hidden, shown);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    const src = srcs[0] || "";
+    expect((src.match(/visibility:\s*hidden/g) || []).length).toBe(1);
+    expect(src).toContain("L 200 200");
+    expect(src).toContain("L 180 180");
+  });
+
+  it("keeps a child's own display: none, whether a rule or inline sets it", async () => {
+    // Inline `display: none` rides into the clone in the copied style
+    // attribute, so cloneNode carries it on its own.  A rule-hidden element
+    // has no inline style at all — the computed copy is its only route out of
+    // the clone, and the standalone SVG would otherwise paint it.
+    const style = document.createElement("style");
+    style.textContent = ".t25-rule-hidden { display: none; }";
+    document.head.appendChild(style);
+    try {
+      const ctx = makeMockCtx();
+      const p = pane();
+      const svg = document.createElementNS(NS, "svg");
+      pinBox(svg, 0, 0, 200, 200);
+      const byRule = document.createElementNS(NS, "path");
+      byRule.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+      byRule.classList.add("t25-rule-hidden");
+      const byInline = document.createElementNS(NS, "path");
+      byInline.setAttribute("d", "M 5 5 L 195 5 L 195 195 L 5 195 Z");
+      byInline.style.display = "none";
+      const kept = document.createElementNS(NS, "path");
+      kept.setAttribute("d", "M 20 20 L 180 20 L 180 180 L 20 180 Z");
+      svg.append(byRule, byInline, kept);
+      p.appendChild(svg);
+      const srcs = captureSources();
+      stubLoad();
+
+      await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+        positionedRC(1000, 1000, ctx),
+        p,
+      );
+
+      const src = srcs[0] || "";
+      expect((src.match(/display:\s*none/g) || []).length).toBe(2);
+      expect(src).toContain("L 180 180");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("prunes both opt-out carriers from the clone and leaves the live DOM alone", async () => {
+    // The export drops the marked node; the map still needs it while drawing
+    // continues, so only the clone is pruned.
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const keep = document.createElementNS(NS, "path");
+    keep.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    const byAttr = document.createElementNS(NS, "path");
+    byAttr.setAttribute("d", "M 5 5 L 195 5 L 195 195 L 5 195 Z");
+    byAttr.setAttribute("data-foliplus-export", "exclude");
+    const byClass = document.createElementNS(NS, "path");
+    byClass.setAttribute("d", "M 10 10 L 190 10 L 190 190 L 10 190 Z");
+    byClass.classList.add("foliplus-no-export");
+    svg.append(keep, byAttr, byClass);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    const src = srcs[0] || "";
+    expect(src).toContain("L 200 200");
+    expect(src).not.toContain("L 195 195");
+    expect(src).not.toContain("L 190 190");
+    expect(byAttr.parentNode).toBe(svg);
+    expect(byClass.parentNode).toBe(svg);
   });
 });
 
@@ -1661,6 +1869,35 @@ describe("ExportRenderer.collectLayerMarkers", () => {
     svg.setAttribute("data-foliplus-export", "exclude");
     const roots = document.createElement("div");
     roots.append(canvas, keep, svg);
+    const restore = withLayerPanes(pane, roots as any);
+    try {
+      const map = makeRenderer().map;
+      (map as any).getPane = () => roots;
+      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
+        keep,
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips a root carrying the opt-out class and one that nests it", () => {
+    // The class is the second carrier of SKIP_EXPORT: a Leaflet Path only
+    // exposes a construction-time className hook, so there is no attribute to
+    // stamp afterwards.  The marker pass sweeps pane children, so a preview
+    // marker's container has to be dropped here.  A child that merely *holds*
+    // a marked element is dropped with it — the marker pass draws whole roots,
+    // never a subtree of one.
+    const pane = "vector";
+    const keep = document.createElement("div");
+    const byClass = document.createElement("div");
+    byClass.classList.add("foliplus-no-export");
+    const nesting = document.createElement("div");
+    const inner = document.createElement("div");
+    inner.classList.add("foliplus-no-export");
+    nesting.appendChild(inner);
+    const roots = document.createElement("div");
+    roots.append(keep, byClass, nesting);
     const restore = withLayerPanes(pane, roots as any);
     try {
       const map = makeRenderer().map;
