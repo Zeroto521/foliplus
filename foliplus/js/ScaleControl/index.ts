@@ -10,8 +10,11 @@ const T = createScopedTranslator(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {
+  private scaleCtrl?: L.Control.Scale;
+
   buildDOM() {
     const scaleCtrl = L.control.scale({ metric: true, imperial: false });
+    this.scaleCtrl = scaleCtrl;
     primeControlMap(scaleCtrl, this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");
@@ -34,6 +37,15 @@ class ScaleControl extends BaseControl {
     }
 
     return ctrl;
+  }
+
+  destroy() {
+    // scaleCtrl is a separate L.Control instance that onAdd registered a
+    // 'move' listener directly on the map. BaseControl.mapListeners only
+    // tracks what we listenMap()'d, so this.inner must be cleaned here
+    // symmetrically — the same way we called onAdd manually in buildDOM.
+    this.scaleCtrl?.onRemove(this._map);
+    this.scaleCtrl = undefined;
   }
 }
 

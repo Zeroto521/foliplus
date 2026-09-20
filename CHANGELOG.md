@@ -94,6 +94,7 @@
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
+- `ScaleControl`: teardown no longer leaks the inner Leaflet `L.Control.Scale`'s `move` listener — `buildDOM` calls `scaleCtrl.onAdd` by hand to wrap its output in `.foliplus-scale-wrap`, so `BaseControl.mapListeners` never tracked it; `destroy()` now calls `scaleCtrl.onRemove(map)` symmetrically and drops the reference ([#388](https://github.com/Zeroto521/foliplus/pull/388))
 
 ## [v0.3.0] (2026-08-02)
 
