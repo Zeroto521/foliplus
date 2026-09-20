@@ -202,7 +202,9 @@ const fmtPct = (curr, prev) => {
  *  low-margin warning. A shrink is never `trivial` — a decrease is news at any
  *  size, and it cannot gate regardless. It also needs a computable percentage,
  *  so a growth off a zero-size baseline falls through to `up`; that case is
- *  unreachable here, since a zero-size brotli output is not a bundle. */
+ *  unreachable here, since a zero-size brotli output is not a bundle. The
+ *  `delta < 0` guard is its unreachable mirror: with `pct == null` the baseline
+ *  is zero, so the delta is the current size itself, which is positive. */
 const statusOf = (over, low, material, pct, delta) => {
   if (over) return "over";
   if (low) return "low";
@@ -214,6 +216,7 @@ const statusOf = (over, low, material, pct, delta) => {
     return "same";
   }
   if (delta > 0) return "up";
+  /* v8 ignore next -- unreachable with pct == null, see above */
   if (delta < 0) return "down";
   return "same";
 };
@@ -452,6 +455,7 @@ const check = (args, root = ROOT) => {
 
   if (drift.length) {
     const parts = drift.map(d => {
+      /* v8 ignore next -- every build tool is a devDependency of the tree ROOT reads */
       const next = d.curr == null ? "absent" : `→ ${d.curr}`;
       return `${d.pkg} ${d.prev} ${next}`;
     });
@@ -520,6 +524,7 @@ export {
   MIN_GROWTH_BYTES,
   emit,
   fmtDelta,
+  fmtDeltaBytes,
   fmtKB,
   fmtPct,
   parseArgs,

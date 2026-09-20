@@ -10,6 +10,7 @@ import {
   check,
   emit,
   fmtDelta,
+  fmtDeltaBytes,
   fmtKB,
   fmtPct,
   parseArgs,
@@ -375,6 +376,16 @@ describe("formatters", () => {
     expect(fmtPct(100, 0)).toBe("—");
   });
 
+  it("formats deltas in bytes, keeping a zero delta bare", () => {
+    // The floor is a byte count, so the growth held against it renders in bytes:
+    // "+0.01 KB" drops the number that actually decides the verdict.
+    expect(fmtDeltaBytes(411, 404)).toBe("+7 B");
+    expect(fmtDeltaBytes(404, 404)).toBe("0 B");
+    expect(fmtDeltaBytes(397, 404)).toBe("-7 B");
+    expect(fmtDeltaBytes(null, 404)).toBe("—");
+    expect(fmtDeltaBytes(404, null)).toBe("—");
+  });
+
   it("falls back to · for an unknown status marker", () => {
     // buildRows only emits the known statuses, but the marker lookup is defensive.
     expect(rowCells({ status: "bogus", curr: null, prev: null }).icon).toBe("·");
@@ -473,6 +484,27 @@ describe("check", () => {
     const root = mkTmp();
     mkDist(root, { "a.min.js": "const x = 1;" });
     expect(check(parseArgs([]), root)).toBe(0);
+  });
+
+  it("renders the total row as em-dashes when the baseline records no sizes", () => {
+    // A capture taken from a build that produced nothing has an empty files map:
+    // every bundle reads "new" and the total has nothing to add up, so the
+    // baseline cell must show "—" rather than a misleading 0.00 KB.
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": BODY });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" + writeBaseline(root, { files: {} }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
+    const total = fmtKB(brotli(BODY));
+    expect(readFileSync(report, "utf-8")).toContain(
+      `**Total:** ${total} · **Δ** — (—) · 1 of 1 bundles changed`,
+    );
+    expect(readFileSync(report, "utf-8")).toContain(
+      `| **Total** | **${total}** | **—** | **—** | **—** | |`,
+    );
   });
 
   it("appends a Markdown summary when GITHUB_STEP_SUMMARY is set", () => {
@@ -802,6 +834,32 @@ describe("emit", () => {
     }
     expect(logs.join(" ")).toContain("Cannot write");
     expect(logs.join(" ")).toContain(dir);
+  });
+});
+
+describe("toolVersion", () => {
+  it("returns null for a package that is not installed at the root", () => {
+    // `emit` records null for a tool the build no longer needs; the drift
+    // warning reads "absent" for the same case.
+    expect(toolVersion(mkTmp(), "esbuild")).toBeNull();
+  });
+
+  it("returns null when the manifest has no version field", () => {
+    const root = mkTmp();
+    mkdirSync(join(root, "node_modules", "esbuild"), { recursive: true });
+    writeFileSync(join(root, "node_modules", "esbuild", "package.json"), "{}", "utf-8");
+    expect(toolVersion(root, "esbuild")).toBeNull();
+  });
+
+  it("reads the version from the manifest", () => {
+    const root = mkTmp();
+    mkdirSync(join(root, "node_modules", "esbuild"), { recursive: true });
+    writeFileSync(
+      join(root, "node_modules", "esbuild", "package.json"),
+      JSON.stringify({ name: "esbuild", version: "0.24.2" }),
+      "utf-8",
+    );
+    expect(toolVersion(root, "esbuild")).toBe("0.24.2");
   });
 });
 
