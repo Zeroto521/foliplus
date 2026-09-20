@@ -161,6 +161,9 @@ describe("ensureLayerAPI", () => {
   it("no-op methods behave as specified", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
+    // deleteLayer erases stored state, so the stub cannot claim to do it —
+    // false, not undefined, like the other registry-backed no-ops.
+    expect(api.deleteLayer("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
     // no-LayerControl call apart from an unknown id on a live one.
