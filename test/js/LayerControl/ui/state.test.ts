@@ -1001,6 +1001,59 @@ describe("applyOpacityStateOne", () => {
 
     expect(pane.style.opacity).toBe("1");
   });
+
+  it("stores the value but writes nothing when the carrier is none", () => {
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "none" as const },
+          paneNames: [],
+        }),
+        map: { getPane: () => null },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "cluster",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("includes the annotation pane in the opacity write", () => {
+    const graphPane = document.createElement("div");
+    const annotationPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["annotation", annotationPane],
+    ]);
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph"],
+        }),
+        map: { getPane: (n: string) => panes.get(n) ?? null },
+        annotation: { paneNameFor: () => "annotation" },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      paneSpecs: specs("graph"),
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(annotationPane.style.opacity).toBe("0.4");
+  });
 });
 
 describe("LayerUI opacity restore / prune", () => {

@@ -1313,6 +1313,26 @@ describe("ExportRenderer.renderCanvasElement", () => {
     expect(load).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies element opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
+    canvas.style.opacity = "0.5";
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
+      positionedRC(1000, 1000, ctx),
+      canvas,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 // =============================================================================
@@ -1420,6 +1440,29 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies pane opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    p.style.opacity = "0.5";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 describe("ExportRenderer.renderPaneCanvas", () => {
@@ -1493,6 +1536,27 @@ describe("ExportRenderer.renderPaneCanvas", () => {
     );
 
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("applies canvas opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    const ce = canvasEl(10, 10, 200, 200);
+    ce.style.opacity = "0.5";
+    p.appendChild(ce);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
   });
 });
 

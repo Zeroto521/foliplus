@@ -33,6 +33,10 @@ class GridLayer {
 
 class TileLayer extends GridLayer {}
 
+class MarkerClusterGroup {
+  options: Record<string, unknown> = {};
+}
+
 /** A container: `eachLayer` is what makes `migrateLayers` recurse instead of
  *  treating it as a leaf. */
 class Group {
@@ -87,6 +91,8 @@ beforeEach(() => {
   window.L.Marker = Marker as unknown as typeof L.Marker;
   window.L.GridLayer = GridLayer as unknown as typeof L.GridLayer;
   window.L.TileLayer = TileLayer as unknown as typeof L.TileLayer;
+  window.L.MarkerClusterGroup =
+    MarkerClusterGroup as unknown as typeof L.MarkerClusterGroup;
   window.L.Renderer = class {} as unknown as typeof L.Renderer;
 });
 
@@ -620,5 +626,19 @@ describe("LayerSurface.destroy", () => {
     // A declared pane survives: the same id must be registrable again without
     // rebuilding its panes.
     expect(panes.graph).toBeDefined();
+  });
+});
+
+describe("LayerSurface capabilities", () => {
+  it("reports opacity none for a MarkerClusterGroup layer", () => {
+    const { map, host } = makeMap();
+    const cluster = new MarkerClusterGroup();
+    const surface = new LayerSurface(host, {
+      id: "cluster",
+      layer: cluster as unknown as L.Layer,
+    });
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.zoomRange).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
   });
 });
