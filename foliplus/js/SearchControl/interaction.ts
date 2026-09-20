@@ -1,4 +1,4 @@
-// SearchControl event binding — standalone functions called with `this` as ctrl.
+// SearchControl event binding �?standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
 import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
@@ -67,7 +67,7 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
   if (ctrl.selectedIdx === -1 && dir < 0) return;
   const cursor = ensureListCursor(ctrl);
   if (!cursor) return;
-  // Tests / Enter may have written selectedIdx directly — adopt before move.
+  // Tests / Enter may have written selectedIdx directly �?adopt before move.
   if (cursor.index !== ctrl.selectedIdx) cursor.set(ctrl.selectedIdx);
   // ArrowUp from the first item clears the selection (combobox leave-list).
   if (cursor.index === 0 && dir < 0) {
@@ -80,8 +80,13 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
 
 /**
  * Bind all DOM events for the SearchControl.
+ *
+ * Returns a cleanup closure for non-`on`-tracked resources (MutationObserver
+ * + `interaction.register`). DOM listeners �?including input / focus /
+ * scroll / resize �?go through `ctrl.on(...)` so the shared lifecycle
+ * signal owns their teardown.
  */
-const bindEvents = (ctrl: SearchControl): (() => void) => {
+const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -105,12 +110,12 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     ctrl.inp.focus();
   };
 
-  ctrl.inp.addEventListener("input", () => {
+  ctrl.on(ctrl.inp, "input", () => {
     ctrl.inp.placeholder =
       ctrl.mode === MODE.COORD ? T("coord_placeholder") : T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
-      // Input cleared — show history immediately
+      // Input cleared �?show history immediately
       ctrl.debouncedFetch.cancel();
       fetchSuggestions(ctrl, "");
     } else if (ctrl.mode === MODE.ADDR) {
@@ -161,7 +166,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
           return;
         }
         if (selected) {
-          // Guarded in renderAddressResult — refuses to fly while another
+          // Guarded in renderAddressResult �?refuses to fly while another
           // control holds a mode (showing the "blocked" hint). Only close
           // the panel on success so a mode-lock refusal keeps it open with
           // the hint visible, matching the mouse-click path.
@@ -175,10 +180,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     },
   ]);
 
-  ctrl.inp.addEventListener("focus", () => {
+  ctrl.on(ctrl.inp, "focus", () => {
     const val = ctrl.inp.value.trim();
-    // Empty input → show search history for current mode;
-    // non-empty → fetch suggestions (addr mode only)
+    // Empty input �?show search history for current mode;
+    // non-empty �?fetch suggestions (addr mode only)
     if (val.length === 0) fetchSuggestions(ctrl, "");
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
@@ -193,10 +198,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
-  ctrl.scrollTargets.forEach((t: Element | Window) =>
-    t.addEventListener("scroll", ctrl.repositionHandler, true),
+  ctrl.scrollTargets.forEach(t =>
+    ctrl.on(t, "scroll", ctrl.repositionHandler, { capture: true }),
   );
-  window.addEventListener("resize", ctrl.repositionHandler);
+  ctrl.on(window, "resize", ctrl.repositionHandler);
 
   return () => {
     collapseObserver.disconnect();

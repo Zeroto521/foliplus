@@ -12,12 +12,14 @@ function makeCtrl(): any {
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
   const handlers = {};
+  const cleanup: Array<() => void> = [];
+  const ac = new AbortController();
   const originalAdd = inp.addEventListener.bind(inp);
-  inp.addEventListener = vi.fn((event, fn) => {
+  inp.addEventListener = vi.fn((event, fn, options) => {
     // keydown: let KeyboardManager bind normally (real listener)
     // other events (input, focus, blur): capture for direct test calls
     if (event !== "keydown") handlers[event] = fn;
-    originalAdd(event, fn);
+    originalAdd(event, fn, options);
   });
   return {
     ctrl: ctrlDiv,
@@ -25,6 +27,8 @@ function makeCtrl(): any {
     clearBtn,
     inp,
     _handlers: handlers,
+    _ac: ac,
+    _cleanup: cleanup,
     mode: "coord",
     marker: null,
     delIcon: null,
@@ -36,6 +40,17 @@ function makeCtrl(): any {
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
     searchHistory: [],
+    get signal() {
+      return ac.signal;
+    },
+    on(target, type, fn, options) {
+      target.addEventListener(type, fn, { ...options, signal: ac.signal });
+      return () => target.removeEventListener(type, fn, options?.capture ?? false);
+    },
+    effect(setup) {
+      const r = setup();
+      if (typeof r === "function") cleanup.push(r);
+    },
   };
 }
 

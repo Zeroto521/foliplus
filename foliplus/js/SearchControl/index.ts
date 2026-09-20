@@ -33,7 +33,6 @@ class SearchControl extends BaseControl {
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
-  declare interactionCleanup: (() => void) | null;
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
   declare marker: L.Marker | null;
@@ -50,24 +49,20 @@ class SearchControl extends BaseControl {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
-    this.interactionCleanup = bindEvents(this);
+    this.effect(() => bindEvents(this));
     initFromUrl(this);
     bindOutsideCollapse({ container: this.ctrl });
     return this.container;
   }
 
   destroy() {
-    this.interactionCleanup?.();
     removePanel(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions.clear();
     this.searchHistory = [];
-    this.scrollTargets.forEach(t =>
-      t.removeEventListener("scroll", this.repositionHandler, true),
-    );
-    window.removeEventListener("resize", this.repositionHandler);
+    if (this.throttleTimer) clearTimeout(this.throttleTimer);
     this.modeBtn.onclick = null;
     this.clearBtn.onclick = null;
   }

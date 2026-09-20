@@ -216,6 +216,211 @@ const scriptTestStems = (): Set<string> =>
 const isCovered = (stem: string) =>
   scriptTestStems().has(stem) || stem in INTENTIONAL_NO_TEST;
 
+// ── No bare addEventListener in foliplus/js ─────────────────────────────────
+//
+// The pre-`BaseControl.on` design made document/window-level and capture
+// registrations inexpressible via the base class, which is exactly why so many
+// controls reached for `addEventListener` and then had to hand-track the
+// removal in a component-owned field. The refactor adds `BaseControl.on` with
+// a shared lifecycle `signal`, so `capture: true` and window-level targets
+// are first-class again. This guard stops new bare calls from creeping in.
+//
+// The allow-list records the current bare calls with the reason each cannot be
+// migrated yet — either the call is inside `BaseControl.on` itself (the sole
+// entry), it's a factory in `common/`/`core/` that cannot reach a control
+// instance, or the file is another PR's territory (T28 = LayerControl/ui/**).
+// Each entry pins the exact call count, so a new bare call in the same file
+// still fails. The list is intentionally large (this is the *downstream* work
+// the user scoped out); it is what makes the next migration visible.
+const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
+  f: string; // relative to foliplus/js/
+  n: number; // exact bare addEventListener call count
+  reason: string;
+}> = [
+  {
+    f: "BaseControl.ts",
+    n: 1,
+    reason: "the only sanctioned entry point — `on()` is the sole implementation",
+  },
+  {
+    f: "common/fetch.ts",
+    n: 1,
+    reason:
+      "signal.addEventListener('abort', ...) is AbortSignal composition, not a DOM listener — no control instance in scope",
+  },
+  {
+    f: "common/dom.ts",
+    n: 2,
+    reason:
+      "free-standing input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature",
+  },
+  {
+    f: "common/panel.ts",
+    n: 2,
+    reason:
+      "bindOutsideCollapse / bindFoldToggle factories return their own unbind closure — that is exactly the `effect` case, but the factory itself has no control instance",
+  },
+  {
+    f: "core/hint.ts",
+    n: 1,
+    reason:
+      "HintManager registers fullscreenchange at document level; the manager owns its own lifecycle, independent of any single control",
+  },
+  {
+    f: "core/interaction.ts",
+    n: 2,
+    reason:
+      "KeyboardManager binds per-element + document listeners on behalf of multiple controls; migration means threading a signal through the manager API",
+  },
+  {
+    f: "core/labelControl.ts",
+    n: 1,
+    reason:
+      "free-standing label widget in core, not yet routed through a BaseControl instance",
+  },
+  {
+    f: "core/listCursor.ts",
+    n: 1,
+    reason:
+      "free-standing list-cursor utility — keydown binding owned by the caller, no control in scope",
+  },
+  {
+    f: "ExportControl/manager.ts",
+    n: 1,
+    reason: "image preview click-dismiss — pending migration to `this.on`",
+  },
+  {
+    f: "FullscreenControl/logic.ts",
+    n: 1,
+    reason:
+      "fullscreenchange listener at document level — pending migration to `this.on(window/document, ...)`",
+  },
+  {
+    f: "HeatmapControl/ui.ts",
+    n: 1,
+    reason:
+      "scheme-dropdown outside-click — pending migration to `this.on(document, 'click', ..., {capture: true})`",
+  },
+  {
+    f: "MeasureControl/util.ts",
+    n: 1,
+    reason:
+      "SVG animationend listener on an ephemeral path element — pending migration to `this.on`",
+  },
+  {
+    f: "MeasureControl/mode/circle.ts",
+    n: 1,
+    reason:
+      "SVG animationend listener on an ephemeral ripple element — pending migration to `this.on`",
+  },
+  {
+    f: "LayerControl/ui/attr.ts",
+    n: 3,
+    reason:
+      "T28 in-flight — LayerControl/ui/** is another PR's scope; this guard names them so the count is pinned, not swept",
+  },
+  {
+    f: "LayerControl/ui/index.ts",
+    n: 13,
+    reason:
+      "T28 in-flight — LayerControl/ui/** is another PR's scope; 13 pinned, no more allowed without an explicit change",
+  },
+  {
+    f: "LayerControl/ui/menu.ts",
+    n: 1,
+    reason: "T28 in-flight — LayerControl/ui/** is another PR's scope",
+  },
+  {
+    f: "LayerControl/ui/style.ts",
+    n: 5,
+    reason: "T28 in-flight — LayerControl/ui/** is another PR's scope",
+  },
+];
+
+const BARE_RE = /\.\s*addEventListener\s*\(/g;
+const stripComments = (src: string): string =>
+  src.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, " ");
+
+const bareCallsIn = (src: string): number =>
+  stripComments(src).match(BARE_RE)?.length ?? 0;
+
+describe("no bare addEventListener in foliplus/js", () => {
+  it("every bare call is on the allow-list, and the allow-list still matches the tree", () => {
+    const files = globSync({
+      cwd: ROOT,
+      patterns: ["foliplus/js/**/*.ts"],
+    }).sort();
+    const problems: string[] = [];
+    const allow = new Map(BARE_ADD_EVENT_LISTENER.map(e => [e.f, e.n]));
+    const seen = new Set<string>();
+
+    for (const rel of files) {
+      const src = readFileSync(resolve(ROOT, rel), "utf8");
+      const n = bareCallsIn(src);
+      if (n === 0) continue;
+      const key = rel.replace(/^foliplus\/js\//, "");
+      const allowed = allow.get(key);
+      if (allowed === undefined) {
+        problems.push(
+          `${key}: ${n} bare addEventListener call(s) — not on the allow-list; ` +
+            "migrate to this.on or add an entry with the reason",
+        );
+      } else if (n !== allowed) {
+        problems.push(
+          `${key}: ${n} bare call(s), allow-list says ${allowed} — ` +
+            `a new one crept in, or the file was already migrated (drop the entry)`,
+        );
+      } else {
+        seen.add(key);
+      }
+    }
+
+    for (const e of BARE_ADD_EVENT_LISTENER) {
+      if (!seen.has(e.f)) {
+        problems.push(
+          `${e.f}: allow-list entry (n=${e.n}) but the file has no bare calls — ` +
+            `the entry is stale, remove it`,
+        );
+      }
+    }
+
+    expect(problems).toEqual([]);
+  });
+
+  it("BaseControl.ts is actually the sole addEventListener implementation", () => {
+    // Counter-proof. Without this the allow-list's BaseControl entry would
+    // let the guard pass vacuously after someone moved the entry point out
+    // (e.g. inlined it into each component) — the whole point of the guard
+    // would collapse silently.
+    const src = readFileSync(resolve(ROOT, "foliplus/js/BaseControl.ts"), "utf8");
+    expect(stripComments(src)).toMatch(/target\.addEventListener\(/);
+    expect(stripComments(src)).toMatch(/signal/);
+  });
+
+  it("the scan and the allow-list both still bite", () => {
+    // Counter-proof. Without this the loop above would keep passing after the
+    // regex stopped matching anything, or after the allow-list became a free
+    // pass for every file — the guard would go decorative and no test would
+    // notice. Every expected value here is one that must NOT be true.
+    expect(bareCallsIn("target.addEventListener('click', fn)")).toBe(1);
+    expect(bareCallsIn("target.addEventListener ('click', fn)")).toBe(1);
+    expect(bareCallsIn("// fake.addEventListener('click')")).toBe(0);
+    expect(bareCallsIn("/* x */ target.addEventListener('click', fn)")).toBe(1);
+    expect(bareCallsIn("target.addEventListener('click', fn)")).not.toBe(0);
+
+    const isAllowed = (f: string, n: number) => {
+      const e = BARE_ADD_EVENT_LISTENER.find(x => x.f === f);
+      return !!e && e.n === n;
+    };
+    expect(isAllowed("BaseControl.ts", 1)).toBe(true);
+    expect(isAllowed("BaseControl.ts", 2)).toBe(false);
+    expect(isAllowed("LayerControl/ui/index.ts", 13)).toBe(true);
+    expect(isAllowed("LayerControl/ui/index.ts", 14)).toBe(false);
+    expect(isAllowed("never-added.ts", 1)).toBe(false);
+    expect(isAllowed("never-added.ts", 0)).toBe(false);
+  });
+});
+
 describe("script module coverage", () => {
   it("every script module is tested, or named as deliberately untested", () => {
     const intentional = Object.entries(INTENTIONAL_NO_TEST)
