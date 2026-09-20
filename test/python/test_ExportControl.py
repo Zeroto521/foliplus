@@ -1013,9 +1013,7 @@ class TestExportControlBrowser:
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
-    def test_export_excludes_tiles_for_solid_color_basemap(
-        self, browser, tmp_path
-    ):
+    def test_export_excludes_tiles_for_solid_color_basemap(self, browser, tmp_path):
         """Solid-color basemap hides tilePane; the export must not draw tiles.
 
         Picking a colour marks tilePane ``foliplus-layer-tile-hidden`` rather
@@ -1030,7 +1028,9 @@ class TestExportControlBrowser:
         tells them apart. The red-pixel sanity check is a separate regression
         gate on the canvas layer's pixels surviving the export.
         """
-        with use_page(self._make_page, browser, tmp_path, slug="export_solid_color") as (
+        with use_page(
+            self._make_page, browser, tmp_path, slug="export_solid_color"
+        ) as (
             page,
             _,
         ):
@@ -1314,7 +1314,9 @@ class TestExportControlBrowser:
         own hiding" behaviour — prevents deleting `visibility`/`display` from
         the props whitelist, which would silently include hidden elements.
         """
-        with use_page(self._make_page, browser, tmp_path, slug="export_display_none") as (
+        with use_page(
+            self._make_page, browser, tmp_path, slug="export_display_none"
+        ) as (
             page,
             _,
         ):
@@ -1364,7 +1366,7 @@ class TestExportControlBrowser:
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
-            
+
             # Debug: check canvas state.
             debug2 = page.evaluate(
                 """() => {
@@ -1381,17 +1383,13 @@ class TestExportControlBrowser:
                 }"""
             )
             print(f"[debug] canvas: {debug2}")
-            
+
             assert result["vector"]["hit"] == 0, (
                 f"Hidden path (display:none) still has red pixels in export: {result}"
             )
             # Also verify the other two carriers are still present.
-            assert result["marker"]["hit"] > 0, (
-                f"Marker carrier missing: {result}"
-            )
-            assert result["canvas"]["hit"] > 0, (
-                f"Canvas carrier missing: {result}"
-            )
+            assert result["marker"]["hit"] > 0, f"Marker carrier missing: {result}"
+            assert result["canvas"]["hit"] > 0, f"Canvas carrier missing: {result}"
 
             assert len(errors) == 0, f"JS errors on display:none export: {errors}"
 
