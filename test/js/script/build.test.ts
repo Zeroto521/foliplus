@@ -160,7 +160,7 @@ describe("build artifacts", () => {
     // replay pass that re-applies a stored opacity and layer order when the
     // thing they describe arrives late).
     //
-    // Measured on this branch after merging main: 184475B. The growth is the
+    // Measured on this branch after merging main: 184403B. The growth is the
     // replay pass itself (replayLayerState, replaySavedOrder, mergeStoredOrder,
     // placeBeforeSavedNeighbor) plus the opacity -> state rename across the
     // nine hook call sites, over focus.ts's +1170B from the focus-overlay pane

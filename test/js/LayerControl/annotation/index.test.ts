@@ -2,9 +2,12 @@
 // The canvas is stubbed (it is the browser tests' job to verify drawing), and
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import { applyOpacityStateOne } from "#foliplus/LayerControl/ui/state.js";
+import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
@@ -748,5 +751,85 @@ describe("AnnotationManager — render & plan", () => {
 
     mgr.destroyLayer("a");
     expect(mgr.paneNameFor("a")).toBeNull();
+  });
+});
+
+describe("a pane that appears later picks up the stored intent", () => {
+  // The canvas is stubbed above, so `renderLabels` reaches `ensureCanvas` and
+  // the pane it creates is what is asserted on.
+  const labelLayer = () =>
+    ({
+      options: {},
+      eachLayer: (cb: (l: L.Layer) => void) =>
+        cb({
+          options: {},
+          feature: { properties: { v: "1200" } },
+          getLatLng: () => ({ lat: 35, lng: 105 }),
+        }),
+    }) as unknown as L.Layer;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("replays an opacity set before the annotation pane existed", () => {
+    // The stored opacity is applied on attach, when the layer has no annotation
+    // pane yet — so the pane that is created later must pick the value up at the
+    // moment it appears.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: { overlay1: { opacity: 0.3, overrides: ["opacity"] } },
+      }),
+    );
+    const { manager, ui, map } = initFixture();
+
+    // `getPane` in the fixture returns a fresh div per call, so a write and a
+    // later read would never meet. Stable panes per name, attached to the map
+    // container, stand in for Leaflet's registry.
+    const container = map._container as HTMLElement;
+    const panes = new Map<string, HTMLElement>();
+    const paneFor = (name: string) => {
+      let pane = panes.get(name);
+      if (!pane) {
+        pane = document.createElement("div");
+        pane.classList.add("foliplus-layer-pane");
+        container.appendChild(pane);
+        panes.set(name, pane);
+      }
+      return pane;
+    };
+    map.getPane = vi.fn((name: string) => paneFor(name));
+    map.createPane = vi.fn((name: string) => paneFor(name));
+    map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
+    map.latLngToContainerPoint = vi.fn(() => ({ x: 10, y: 20 }));
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => ({ x: 0, y: 0 }),
+    };
+
+    ui.opacityMap.overlay1 = 0.3;
+    ui.userOverrides.overlay1 = ["opacity"];
+    applyOpacityStateOne(ui, manager.layerRegistry.get("overlay1")!, 0.3);
+
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "v",
+      color: "#ffffff",
+      size: 11,
+      format: "auto",
+      collide: true,
+    });
+    (manager.layerRegistry.get("overlay1") as { layer: L.Layer }).layer = labelLayer();
+    manager.annotation.renderLabels("overlay1");
+
+    const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
+    expect(pane, "the annotation pane was created").toBeTruthy();
+    expect(getComputedStyle(pane!).opacity).toBe("0.3");
   });
 });

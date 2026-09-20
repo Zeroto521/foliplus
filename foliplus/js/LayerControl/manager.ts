@@ -76,10 +76,8 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
   const rank = new Map(stored.map((id, i) => [id, i]));
   const known = new Set(live);
   const order = [...live];
-  for (const id of stored) {
+  for (const [storedAt, id] of stored.entries()) {
     if (known.has(id)) continue;
-    const storedAt = rank.get(id);
-    if (storedAt === undefined) continue;
     // Insert before the first live id stored below it — at the end when every
     // registered layer sits above it.
     let at = order.length;
