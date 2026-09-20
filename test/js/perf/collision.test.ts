@@ -1,44 +1,70 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
 
-// The wall-clock half of MeasureControl/collision.ts's tests. Its functional
-// half stays in test/js/MeasureControl/collision.test.ts.
+// Attribution for `test/js/perf/`: a test belongs here iff BOTH
+//   (a) it reads real elapsed time (not a fake clock), AND
+//   (b) it runs inside the vitest process.
+// Operational check: "would removing load change the number?" If yes,
+// it's a wall-clock gate and belongs in perf/. The directory exists as
+// a boundary so vitest's pool / serialisation strategy can be scoped.
 //
-// The directory names the kind of test, the filename names the module — the
-// same rule the browser/ and script/ groups follow. That keeps the naming guard
-// usable if it is ever extended beyond test/js/script/: this file's stem is
-// `collision`, which is the module it tests, so no exception entry is owed.
-// `vitest.config.mjs` includes `test/js/**/*.test.ts`, so the group is picked
-// up without a config change.
-
-// These are the only wall-clock assertions in the suite, and they flaked under
-// the full suite's load. `vitest run --pool=threads` spreads 127 files over
-// ~21 workers on a 22-core box, so a budget taken against `performance.now()`
-// was competing for the CPU it was budgeting. Before this change the n=200 bar
-// measured 22.05 ms against a 20 ms budget on the first full-suite run and
+// Real-browser timing does NOT belong here — it lives in
+// test/js/browser/<Component>/ and is driven by the Python harness via
+// the `_js("LayerControl/...")` convention. Don't move those.
+//
+// Another real wall-clock gate, named here so a future clean-up doesn't
+// move or delete it by mistake: test/python/test_LayerControl.py::
+// test_toggle_performance (lines 2967-2985) — browser fixture +
+// test/js/browser/LayerControl/performance_toggle.js, 5 toggle-layer +
+// 3 toggle-all = 8 samples, asserted on the Python side as
+// `for r in results: assert r["ms"] < 100`. Hard 100ms budget. No
+// flake evidence today (the five past failures were all `Page.goto`
+// timeouts, unrelated to this gate). If it ever flakes under load, fix
+// it the same way this file does: multiple samples + fastest / median
+// estimator + relative gate + raised timeout — not by moving the
+// directory.
+//
+// The wall-clock half of MeasureControl/collision.ts's tests. Its
+// functional half stays in test/js/MeasureControl/collision.test.ts.
+//
+// The directory names the kind of test, the filename names the module —
+// the same rule the browser/ and script/ groups follow. That keeps the
+// naming guard usable if it is ever extended beyond test/js/script/:
+// this file's stem is `collision`, which is the module it tests, so no
+// exception entry is owed. `vitest.config.mjs` includes
+// `test/js/**/*.test.ts`, so the group is picked up without a config
+// change.
+//
+// This file itself flaked once, under full-suite load. `vitest run
+// --pool=threads` spreads 127 files over ~21 workers on a 22-core box,
+// so a budget taken against `performance.now()` was competing for the
+// CPU it was budgeting. Before this change the n=200 bar measured
+// 22.05 ms against a 20 ms budget on the first full-suite run and
 // passed when run alone.
 //
 // Three changes:
-//   1. Own file, so the 23 functional tests above no longer share a worker and
-//      a warm-up budget with the benchmarks.
-//   2. The estimator. `meanMs` averaged 5 plans, which folds contention from
-//      the other test files straight into the number being budgeted. Each plan
-//      is now timed separately and the fastest is kept — the least-contended
-//      sample is the closest thing a loaded machine has to the code's own
-//      speed. Measured 2.5-7.1 ms for n=200 across four full-suite runs
-//      (three uninstrumented, one `--coverage` as CI runs it).
-//      The budgets were deliberately NOT tightened to fit that: a tighter bar
-//      would make the gate drift with CI runner speed instead of with the code.
-//      Resolution of the absolute bars is ~4x — they catch a constant-factor
-//      regression of that size or larger, and every asymptotic regression. The
-//      ground in between is the ratio gate below, which is what keeps the suite
-//      honest when the absolute bars are too coarse to notice.
-//   3. A scaling gate. Small and large are timed back to back in the same
-//      round, so one contention window applies to both and cancels in the
-//      ratio. That half cannot go blind under load.
+//   1. Own file, so the 23 functional tests above no longer share a
+//      worker and a warm-up budget with the benchmarks.
+//   2. The estimator. `meanMs` averaged 5 plans, which folds contention
+//      from the other test files straight into the number being budgeted.
+//      Each plan is now timed separately and the fastest is kept — the
+//      least-contended sample is the closest thing a loaded machine has
+//      to the code's own speed. Measured 2.5-7.1 ms for n=200 across
+//      four full-suite runs (three uninstrumented, one `--coverage` as
+//      CI runs it). The budgets were deliberately NOT tightened to fit
+//      that: a tighter bar would make the gate drift with CI runner
+//      speed instead of with the code. Resolution of the absolute bars
+//      is ~4x — they catch a constant-factor regression of that size or
+//      larger, and every asymptotic regression. The ground in between
+//      is the ratio gate below, which is what keeps the suite honest
+//      when the absolute bars are too coarse to notice.
+//   3. A scaling gate. Small and large are timed back to back in the
+//      same round, so one contention window applies to both and cancels
+//      in the ratio. That half cannot go blind under load.
 //
-// As before, the bars are calibrated against an uninstrumented run: `--coverage`
-// roughly triples placeLabels, and the budgets carry headroom for it.
+// As before, the bars are calibrated against an uninstrumented run:
+// `--coverage` roughly triples placeLabels, and the budgets carry
+// headroom for it.
 
 type Box = { x: number; y: number; w: number; h: number };
 
