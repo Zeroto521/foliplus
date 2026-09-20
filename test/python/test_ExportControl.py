@@ -995,6 +995,8 @@ class TestExportControlBrowser:
 
             # Hook document.createElement to capture the export canvas —
             # the renderer creates it internally and never attaches it to the DOM.
+            # The patch is not restored: use_page gives each test a fresh page,
+            # so the interception cannot leak between tests.
             page.evaluate(
                 """() => {
                     window._capturedCanvases = [];
@@ -1029,12 +1031,18 @@ class TestExportControlBrowser:
             page.wait_for_timeout(2000)
 
             # Read the captured canvas pixels and verify the marker was
-            # drawn with reduced alpha (not full 255).
+            # drawn with reduced alpha (not full 255). Pick the largest canvas
+            # by area — the export canvas is viewport-sized and dominates any
+            # auxiliary canvases the renderer may create internally.
             result = page.evaluate(
                 """() => {
                     const canvases = window._capturedCanvases || [];
                     if (canvases.length === 0) return { found: false };
-                    const c = canvases[canvases.length - 1];
+                    const c = canvases.reduce(
+                        (best, cv) =>
+                            cv.width * cv.height > best.width * best.height ? cv : best,
+                        canvases[0],
+                    );
                     const ctx = c.getContext('2d');
                     if (!ctx) return { found: false };
                     const data = ctx.getImageData(0, 0, c.width, c.height).data;
