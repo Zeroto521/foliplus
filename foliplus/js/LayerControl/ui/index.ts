@@ -90,6 +90,7 @@ import {
   applyVisibleStateOne,
   dropPersistedLayerState,
   loadPersistedState,
+  replayLayerOpacity,
   saveFoldState,
   saveNamesState,
   saveState,
@@ -652,6 +653,9 @@ class LayerUI {
   }
   applyUserState(id?: string) {
     return applyUserState(this, id);
+  }
+  replayLayerOpacity(layerId: string) {
+    return replayLayerOpacity(this, layerId);
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);

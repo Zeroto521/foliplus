@@ -1,4 +1,3 @@
-import type { LayerRegistry } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -194,7 +193,6 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
  */
 class LayerPersistence {
   private readonly persistName: string;
-  private readonly registry: LayerRegistry;
 
   private timer: Debounced | undefined;
   /** Live sources registered so far, merged across calls and never cleared.
@@ -203,9 +201,8 @@ class LayerPersistence {
    *  is missing from — a saved value cannot regress to an older one. */
   private fields: LiveState = {};
 
-  constructor(registry: LayerRegistry) {
+  constructor() {
     this.persistName = CONF.name;
-    this.registry = registry;
   }
 
   // ── Read ───────────────────────────────────────────────────────────
@@ -214,32 +211,26 @@ class LayerPersistence {
    * Load every dimension. The only full read entry point, so a new dimension
    * cannot be missed on load and nothing else calls `Storage.load`.
    *
-   * Only order and annotation config are filtered against the registry: order is
-   * rebuilt on every save, so an unknown id is skipped when it is applied, and
-   * labels are a pure decoration, so nothing loses work if a stale id is dropped
-   * here. Hidden state and names deliberately are not -- this runs from
+   * Nothing here is filtered against the registry. This runs from
    * `LayerUI.attachUI`, which loads before HeatmapControl and MeasureControl
-   * register in their own constructor, so filtering here would drop their entries
-   * on the very first attach and show the default name or re-add the layer after
-   * every refresh. Stale ids are pruned only by `LayerManager.deleteLayer`, the
-   * one call that knows a layer is gone for good: `unregisterLayer` is a generic
-   * teardown that a component's empty-data pass goes through, and the attach
-   * sweep cannot tell "not registered yet" from "gone".
+   * register in their own constructor, so a registry filter would drop their
+   * entries on the very first attach -- showing the default name, re-adding a
+   * hidden layer, leaving a reordered layer at its author position, or losing a
+   * label config -- and every refresh. Order and annotation config are user
+   * intent exactly like hidden state and names; the only difference is that
+   * their replay is deferred until the id resolves. `LayerManager.replaySavedOrder`
+   * re-applies the order when a layer registers late, and `applyStyleLabelState`
+   * re-applies the config on `CONTROL_ATTACHED`.
+   *
+   * An unknown id is therefore not evidence that a layer is gone. Stale ids are
+   * pruned only by `LayerManager.deleteLayer`, the one call that knows a layer
+   * is gone for good: `unregisterLayer` is a generic teardown that a component's
+   * empty-data pass goes through, and no read-time sweep can tell "not
+   * registered yet" from "gone". Writes prune themselves through the live
+   * registry, so a stored id never stops being written back.
    */
   load(): PersistedRecord {
-    const record = parseRecord(
-      Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName),
-    );
-    const ids = new Set(this.registry.layers.map(layer => layer.id));
-    const annotations: Record<string, unknown> = {};
-    for (const [id, config] of Object.entries(record.annotations)) {
-      if (ids.has(id)) annotations[id] = config;
-    }
-    return {
-      ...record,
-      order: record.order ? record.order.filter(id => ids.has(id)) : null,
-      annotations,
-    };
+    return parseRecord(Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName));
   }
 
   /**
@@ -249,16 +240,17 @@ class LayerPersistence {
    * LayerControl's UI has attached, and it is the only dimension it needs. It
    * reads the same record as {@link load} -- one key either way -- so the two
    * calls still differ only in what they return, and this one runs at a
-   * different moment anyway: the registry still holds only the folium-declared
-   * layers, so the calls cannot be merged even if they wanted to be.
+   * different moment anyway, so the calls cannot be merged even if they wanted
+   * to be.
+   *
+   * The ids come back as stored, including ones that are not registered yet. A
+   * late registration reads its own position out of this list, and the manager
+   * carries the pending ids through the next flush, so this is the only place a
+   * stored position could disappear.
    */
   loadOrder(): string[] | null {
-    const record = parseRecord(
-      Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName),
-    );
-    if (!record.order) return null;
-    const ids = new Set(this.registry.layers.map(layer => layer.id));
-    return record.order.filter(id => ids.has(id));
+    return parseRecord(Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName))
+      .order;
   }
 
   // ── Write ──────────────────────────────────────────────────────────

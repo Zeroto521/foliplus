@@ -89,6 +89,12 @@ class AnnotationManager {
    *  booked in one place. Without it a stale spec could hand a rebuild a
    *  leftover z from the previous instance. */
   private readonly releaseOwnedPane: (name: string) => void;
+  /** Replay this layer's stored opacity the moment its annotation pane appears
+   *  (see {@link ensureCanvas}). Injected rather than inlined: the pane is the
+   *  opacity carrier (§5.4), but the value and its carrier resolution both live
+   *  in the UI's write pipeline, which is also what makes a canvas layer land
+   *  on `canvas.style` instead of a pane. */
+  private readonly replayLayerOpacity: (id: string) => void;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
@@ -113,16 +119,18 @@ class AnnotationManager {
   /** What the last full plan handed each canvas, kept for the pan translate. */
   private readonly lastPlanned = new Map<string, PlacedLabel[]>();
 
-  constructor(
-    mapInstance: L.Map,
-    layerFind: (id: string) => L.Layer | null,
-    ensureOwnedPane: (name: string) => HTMLElement,
-    releaseOwnedPane: (name: string) => void,
-  ) {
-    this.map = mapInstance;
-    this.layerFind = layerFind;
-    this.ensureOwnedPane = ensureOwnedPane;
-    this.releaseOwnedPane = releaseOwnedPane;
+  constructor(opts: {
+    map: L.Map;
+    layerFind: (id: string) => L.Layer | null;
+    ensureOwnedPane: (name: string) => HTMLElement;
+    releaseOwnedPane: (name: string) => void;
+    replayLayerOpacity: (id: string) => void;
+  }) {
+    this.map = opts.map;
+    this.layerFind = opts.layerFind;
+    this.ensureOwnedPane = opts.ensureOwnedPane;
+    this.releaseOwnedPane = opts.releaseOwnedPane;
+    this.replayLayerOpacity = opts.replayLayerOpacity;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -133,7 +141,7 @@ class AnnotationManager {
     // pair keeps the fixed-pixel labels off-screen while Leaflet
     // CSS-transforms mapPane (the #339 canvas did the same).
     this.mapCleanup = bindMapSync({
-      map: mapInstance,
+      map: this.map,
       hideEvents: ["zoomstart"],
       showEvents: ["zoomend"],
       updateEvents: ["zoom", "moveend", "resize"],
@@ -145,14 +153,14 @@ class AnnotationManager {
     // Membership changes repaint only the layer that moved — every other
     // layer's plan still stands (same boxes, same collision). Toggling a
     // 6k-point layer's checkbox must not re-plan the whole map.
-    mapInstance.on("layeradd", this.onLayerMembership);
-    mapInstance.on("layerremove", this.onLayerMembership);
+    this.map.on("layeradd", this.onLayerMembership);
+    this.map.on("layerremove", this.onLayerMembership);
 
     // Export safety: the exporter's locked path grows the container and shifts
     // the view, then captures on the very next frame — so the redraw here is
     // synchronous. A throttled one would land a frame late and the capture
     // would read the pre-export canvas.
-    const events = ensureEvents(mapInstance);
+    const events = ensureEvents(this.map);
     this.unsubscribe.push(
       events.on(EVENTS.BEFORE_EXPORT, () => this.refresh()),
       events.on(EVENTS.AFTER_EXPORT, () => this.refresh()),
@@ -563,6 +571,13 @@ class AnnotationManager {
     pane.classList.add("foliplus-annotation-pane");
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));
+    // The pane is the opacity carrier (§5.4), and it is created lazily -- often
+    // long after the slider was last moved -- so the stored value has to be
+    // replayed at the moment the pane appears rather than waiting for the next
+    // write, which may never come. Only opacity is replayed: this pane carries
+    // nothing else. `panes.set` must come first, since the writer resolves the
+    // carrier through `paneNameFor`.
+    this.replayLayerOpacity(id);
   }
 
   /** Drop a layer's canvas and pane. Called on unregister and on teardown; the

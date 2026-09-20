@@ -94,6 +94,11 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
+  /** The order dimension as stored, including ids that are not registered yet.
+   *  Held in step with {@link saveOrder}: a late registration reads its own
+   *  position out of it, and a flush must write the pending ids back instead of
+   *  erasing them. */
+  private savedOrder: string[] | null;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
@@ -168,18 +173,23 @@ class LayerManager implements LayerAPI {
     };
     this.map.on("layeradd", this.onLayerAdd);
 
-    this.persistence = new LayerPersistence(this.layerRegistry);
+    this.persistence = new LayerPersistence();
+    this.savedOrder = this.persistence.loadOrder();
     // The annotation manager plans each layer's labels on that layer's own
     // pane; enforceOrder z-orders the panes along with their layers. The pane
     // comes through PaneManager.ensurePane so it carries the base
     // foliplus-layer-pane class like every other owned pane, and it goes back
-    // out through removePane so the spec/cache are cleared in step.
-    this.annotation = new AnnotationManager(
-      this.map,
-      id => this.findLayer(id),
-      name => this.panes.ensurePane(name, false).pane,
-      name => this.panes.removePane(name),
-    );
+    // out through removePane so the spec/cache are cleared in step. The
+    // last hook is the pane's appearance replaying the layer's stored opacity:
+    // the pane is the opacity carrier and it is created lazily, so without it a
+    // slider move made before labels turned on would never reach them.
+    this.annotation = new AnnotationManager({
+      map: this.map,
+      layerFind: id => this.findLayer(id),
+      ensureOwnedPane: name => this.panes.ensurePane(name, false).pane,
+      releaseOwnedPane: name => this.panes.removePane(name),
+      replayLayerOpacity: id => this.ui?.replayLayerOpacity(id),
+    });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -220,7 +230,7 @@ class LayerManager implements LayerAPI {
   }
 
   loadSavedOrder() {
-    const data = this.persistence.loadOrder();
+    const data = this.savedOrder;
     if (!data) return;
     const layerMap = new Map(this.layers.map(l => [l.id, l]));
     const ordered: LayerInfo[] = [];
@@ -230,12 +240,112 @@ class LayerManager implements LayerAPI {
         layerMap.delete(id);
       }
     }
+    // Ids with no stored position go last. insertOverlayAt appends a new layer
+    // to the same end, so both paths leave the position the user never chose at
+    // the bottom and the user's own arrangement on top.
     this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
   }
 
-  /** Persist layer order — delegates to LayerPersistence for centralized I/O. */
+  /** Persist layer order — delegates to LayerPersistence for centralized I/O.
+   *
+   *  The write is the live registry order *plus* the stored ids that are not
+   *  registered yet. A flush can land between the record being loaded and a
+   *  component registering (Heatmap and Measure register in their own
+   *  constructor, after LayerControl has attached), and a write of the live ids
+   *  alone would erase the position that registration is meant to read back.
+   */
   saveOrder() {
-    this.persistence.schedule({ order: () => this.layers.map(l => l.id) });
+    const live = this.layers.map(l => l.id);
+    const known = new Set(live);
+    const order = [...live, ...(this.savedOrder?.filter(id => !known.has(id)) ?? [])];
+    this.savedOrder = order;
+    this.persistence.schedule({ order: () => order });
+  }
+
+  /** Re-apply the stored order now that a layer exists.
+   *
+   *  Neither appearance point is the constructor: a component may register after
+   *  the record was loaded, and the attach-time sweep drains registrations made
+   *  before the UI existed. Without a replay the layer keeps the slot it was
+   *  inserted into, which is not the position the user chose.
+   *
+   *  Ids with no stored position are left where they are -- appending them here
+   *  would move a layer the user never arranged.
+   */
+  replaySavedOrder(id?: string) {
+    const saved = this.savedOrder;
+    if (!saved) return;
+    const registry = this.layerRegistry;
+
+    if (id !== undefined) {
+      const layerInfo = registry.get(id);
+      if (!layerInfo) return;
+      const target = saved.indexOf(id);
+      if (target === -1) return;
+      this.placeBeforeSavedNeighbor(layerInfo, saved, target);
+      return;
+    }
+
+    const rank = new Map(saved.map((sid, i) => [sid, i]));
+    const items = [...this.layers];
+    // Stable, so ids with no stored rank keep their relative order and stay at
+    // the bottom -- the same end loadSavedOrder appends to.
+    items.sort((a, b) => {
+      const ra = rank.get(a.id);
+      const rb = rank.get(b.id);
+      if (ra === undefined) return rb === undefined ? 0 : 1;
+      if (rb === undefined) return -1;
+      return ra - rb;
+    });
+    registry.replace(items);
+  }
+
+  /** Move `layerInfo` just before the first saved-order neighbour that is
+   *  registered. Neighbours that are not registered yet cannot be located, so
+   *  this places it at the best spot the live registry can honour and a later
+   *  replay refines it as the neighbours arrive. */
+  private placeBeforeSavedNeighbor(
+    layerInfo: LayerInfo,
+    saved: string[],
+    target: number,
+  ): void {
+    const registry = this.layerRegistry;
+    const from = registry.indexOf(layerInfo);
+    for (let i = target + 1; i < saved.length; i++) {
+      const neighbour = registry.get(saved[i]);
+      if (!neighbour) continue;
+      const to = registry.indexOf(neighbour);
+      // `reorder` splices the item out first, which shifts every later index
+      // down by one.
+      if (from !== to) registry.reorder(from, from < to ? to - 1 : to);
+      return;
+    }
+    const last = registry.layers.length - 1;
+    if (from !== last) registry.reorder(from, last);
+  }
+
+  /** Where a new overlay enters the stack.
+   *
+   *  Without a stored order there is nothing to honour, so the layer goes on
+   *  top, which is what a fresh layer should do. With one, it takes the position
+   *  the user already chose -- or the bottom when the user never arranged it,
+   *  the same end {@link loadSavedOrder} appends to. The placement is done here
+   *  rather than left to a later sweep, because a registration that lands before
+   *  the UI attaches never gets that sweep.
+   */
+  private insertOverlayAt(layerInfo: LayerInfo): void {
+    const saved = this.savedOrder;
+    if (!saved) {
+      this.layerRegistry.prepend(layerInfo);
+      return;
+    }
+    const target = saved.indexOf(layerInfo.id);
+    if (target === -1) {
+      this.layerRegistry.insertAt(layerInfo, this.layers.length);
+      return;
+    }
+    this.layerRegistry.prepend(layerInfo);
+    this.placeBeforeSavedNeighbor(layerInfo, saved, target);
   }
 
   // ==================== Public API Methods ====================
@@ -382,7 +492,7 @@ class LayerManager implements LayerAPI {
       if (firstBaseIdx === -1) {
         this.layerRegistry.insertAt(layerInfo, this.layers.length);
       } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
-    } else this.layerRegistry.prepend(layerInfo);
+    } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it
     // joins the map. `options.pane` is read by `map.addLayer` and ignored
@@ -414,19 +524,22 @@ class LayerManager implements LayerAPI {
     }
 
     if (this.ui) {
-      if (existingIdx === -1) this.ui.insertLayerItem(layerInfo);
-      else {
+      if (existingIdx === -1) {
+        this.ui.insertLayerItem(layerInfo);
+      } else {
         this.ui.updateLayerItem(layerInfo, existingIdx);
         // Re-registration is how the API says "this layer's content changed", so
         // the cached field list and the resolved auto field are both stale now.
         // Invalidating re-renders as well, keeping the labels on the map in step
         // with what the picker offers.
         this.ui.invalidateFields(opts.id);
-        // A re-registration may replace the live layer/canvas object. Opacity
-        // is stored per-id, so re-apply it onto the fresh element (no-op when
-        // the user never changed it).
-        this.ui.applyUserState(opts.id);
       }
+      // A stored dimension must be replayed on first registration too. Heatmap
+      // and Measure register after LayerControl has attached, so this is the only
+      // pass that reaches a late-arriving layer's own visibility, opacity, name
+      // and order. On a re-registration it also re-applies opacity onto the fresh
+      // layer/canvas object (no-op when the user never changed it).
+      this.ui.applyUserState(opts.id);
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);

@@ -88,6 +88,10 @@ describe("LayerManager", () => {
   let map;
 
   beforeEach(() => {
+    // A test that flushes persistence leaves a real record behind, and the next
+    // constructor reads it: without this clear, an order written by one test
+    // decides where the next test's layers land.
+    window.localStorage.clear();
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
@@ -498,6 +502,7 @@ describe("LayerManager", () => {
       initTypesAndVisibility: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
+      applyUserState: vi.fn(),
     } as any;
     manager.registerLayer({
       id: "new1",
@@ -1211,7 +1216,7 @@ describe("LayerManager", () => {
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
     ]);
-    m.persistence = new LayerPersistence(m.layerRegistry);
+    m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "save");
     m.saveOrder();
     save.mockClear();
@@ -1227,7 +1232,7 @@ describe("LayerManager", () => {
     // Same ordering for per-layer intent: a hide just before teardown must
     // survive a reload, which is the whole point of the flush.
     const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
-    m.persistence = new LayerPersistence(m.layerRegistry);
+    m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "save");
     m.persistence.schedule({
       layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
@@ -1662,6 +1667,10 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   let map;
 
   beforeEach(() => {
+    // A test that flushes persistence leaves a real record behind, and the next
+    // constructor reads it: without this clear, an order written by one test
+    // decides where the next test's layers land.
+    window.localStorage.clear();
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}

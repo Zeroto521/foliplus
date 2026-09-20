@@ -141,8 +141,10 @@ describe("build artifacts", () => {
     // LayerControl is otherwise the largest component (~136KB unminified on
     // main; style-drawer delegation pushed the unminified dev bundle past
     // 160KB — rename, focus, reorder, fold, the annotation style panel, the
-    // escape-cancel chain, and the five-dimension persistence).
-    "foliplus-LayerControl.min.js": 180000,
+    // escape-cancel chain, the five-dimension persistence, and the state
+    // replay pass that re-applies a stored opacity and layer order when the
+    // thing they describe arrives late).
+    "foliplus-LayerControl.min.js": 200000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
