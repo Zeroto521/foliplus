@@ -32,8 +32,8 @@ class ScaleControl extends BaseControl {
         );
       };
       updateZoom();
-      // Tracked via listenMap — auto-unbound in onRemove.
-      this.listenMap("zoomend", updateZoom);
+      // Tracked via onMap — auto-unbound in onRemove.
+      this.onMap("zoomend", updateZoom);
     }
 
     return ctrl;

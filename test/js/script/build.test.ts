@@ -128,14 +128,17 @@ describe("build artifacts", () => {
     // R45 (this branch, basecontrol-listener-hygiene) moves every listener
     // registration in BaseControl behind a per-mounting AbortController. The
     // new surface — `ac` field, `get signal` (throws when detached), `on()`,
-    // `onMap()`, `effect()` with `.cancel()`/`.disconnect()` adaptation, the
-    // three legacy aliases `listenDOM`/`listenMap`/`trackCleanup`, and the
-    // idempotency guard in `onRemove()` — lands in BaseControl itself. That
-    // class is bundled into foliplus-common.min.js via runtime/index.ts:31,
-    // so the whole delta is common-bundle surface, not component-bundle
-    // surface. Every component keeps externalising BaseControl, so this is
-    // the only budget line that moves from this round; the per-component
-    // caps below are untouched.
+    // `onMap()`, `effect()` with `.cancel()`/`.disconnect()` adaptation, and
+    // the idempotency guard in `onRemove()` — lands in BaseControl itself.
+    // R45 also shipped the three legacy aliases `listenDOM`/`listenMap`/
+    // `trackCleanup` as zero-edit shims over those entries; T49 drops them
+    // along with the `events` field only `listenDOM` populated, so the
+    // 170 000 B figure below is measured with the aliases and still holds
+    // with extra headroom. That class is bundled into
+    // foliplus-common.min.js via runtime/index.ts:31, so the whole delta is
+    // common-bundle surface, not component-bundle surface. Every component
+    // keeps externalising BaseControl, so this is the only budget line that
+    // moves from this round; the per-component caps below are untouched.
     //
     // Measured after merge: 167 350 B dev-mode (same command), +6 453 B over
     // R9's 160 897 B. 170 000 leaves ~2.6 KB headroom.

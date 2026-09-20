@@ -16,11 +16,14 @@
 //      of leak to track down — so a fresh controller per mounting is
 //      mandatory.
 //
-// Helper surface (all tracked, auto-cleaned on remove):
+// Helper surface (exactly three, all tracked, auto-cleaned on remove):
 //   - this.on(target, event, fn, options?) — DOM listener via
 //     `addEventListener(..., {signal: this.signal})`; the browser handles
 //     teardown, so the component has nothing to remember. Returns an
-//     early-unbind function.
+//     early-unbind function. The `signal` option needs Chrome 98 /
+//     Firefox 88 / Safari 15.4 — inside the browserslist (`> 0.5%`,
+//     `last 2 versions`, `Firefox ESR`, `not dead`), but a tighter target
+//     would have to reimplement teardown itself.
 //   - this.onMap(event, fn) — Leaflet event listener (map / layer / control);
 //     Leaflet has no `signal` API, so this keeps its own bookkeeping.
 //   - this.effect(setup) — anything else a component sets up and has to
@@ -29,20 +32,21 @@
 //     may return a cleanup function or a value carrying its own
 //     `.cancel()` / `.disconnect()`; either is registered and runs on
 //     remove.
-//   - this.listenDOM / listenMap / trackCleanup — legacy aliases over the
-//     above; kept so existing call sites are untouched.
 //
 // Notes:
 //   - `map` is NOT a free variable here (common modules are imported, not
 //     wrapped by the Jinja IIFE). Use `this._map`, which Leaflet sets
 //     after the control is added to a map.
 //   - document/window-level listeners, and any listener with capture /
-//     passive / once options, MUST also come through `this.on` (or a
-//     legacy alias). Bare `addEventListener` has no removal owner, and
-//     the removal is exactly what this class exists for.
+//     passive / once options, MUST come through `this.on`. Bare
+//     `addEventListener` has no removal owner, and the removal is exactly
+//     what this class exists for.
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { createLogger } from "#common/log.js";
+
+const log = createLogger("BaseControl");
 
 class BaseControl extends L.Control {
   /**
@@ -67,11 +71,6 @@ class BaseControl extends L.Control {
    */
   private removed = false;
 
-  /** Legacy field. The signal handles DOM listener teardown, so this is
-   *  only populated by the `listenDOM` alias for backwards-compatible
-   *  introspection (e.g. "how many DOM listeners did this mounting
-   *  register"). Cleared on `onRemove` alongside every other array. */
-  events: Array<[EventTarget, string, EventListenerOrEventListenerObject]> = [];
   mapListeners: Array<[string, L.LeafletEventHandlerFn]> = [];
   cleanups: Array<() => void> = [];
 
@@ -140,7 +139,6 @@ class BaseControl extends L.Control {
       this.mapListeners = [];
       this.cleanups.forEach(fn => fn());
       this.cleanups = [];
-      this.events = [];
       this.ac?.abort();
       this.ac = null;
     }
@@ -197,8 +195,8 @@ class BaseControl extends L.Control {
 
   /**
    * Register a Leaflet event listener (map / layer / control). Leaflet
-   * has no `signal` API, so these live in a bookkeeping array the way
-   * the old `listenMap` did. Idempotent on the same `(event, fn)` pair.
+   * has no `signal` API, so these live in a bookkeeping array the base
+   * class unbinds on remove. Idempotent on the same `(event, fn)` pair.
    */
   onMap(event: string, fn: L.LeafletEventHandlerFn): void {
     if (this.mapListeners.some(it => it[0] === event && it[1] === fn)) return;
@@ -212,13 +210,19 @@ class BaseControl extends L.Control {
    *
    * Setup may return void (nothing to clean up), a teardown closure, or
    * a value carrying its own `.cancel()` / `.disconnect()` — any of which
-   * is wrapped into a cleanup and registered.
+   * is wrapped into a cleanup and registered. A value with neither hook
+   * is a no-op that logs a warning: registering it would be invoked at
+   * remove time and throw.
    *
    * Covers every shape of "resource the component owns for this
    * mounting": debounce factories, MutationObserver / ResizeObserver,
    * timers, raf loops, helper factories that return their own unbind,
    * and multi-step setup that installs several sub-resources and has to
    * unwind them all.
+   *
+   * A timer goes in wrapped, not as the bare handle: `setInterval` returns
+   * a number, which has no teardown hook, so returning it lands on the
+   * warning above. The closure hands back the disposer instead.
    */
   effect(
     setup: () => void | (() => void) | { cancel?: () => void; disconnect?: () => void },
@@ -233,46 +237,13 @@ class BaseControl extends L.Control {
         this.cleanups.push(cancel.bind(result));
         return;
       }
+      log.warn(
+        `${this.constructor.name}.effect(): setup returned a value with no ` +
+          `.cancel() or .disconnect() — nothing registered`,
+      );
       return;
     }
     this.cleanups.push(result);
-  }
-
-  /**
-   * Legacy alias for `effect(() => fn)`. New code should call `effect`
-   * directly — it accepts the setup-closure form and covers the same
-   * use case. Kept so `LayerControl/index.ts` and `HeatmapControl/index.ts`
-   * are untouched. Idempotent on the same `fn` reference, matching the
-   * original contract.
-   */
-  trackCleanup(fn: () => void): void {
-    if (this.cleanups.includes(fn)) return;
-    this.cleanups.push(fn);
-  }
-
-  /**
-   * Legacy alias for `on(el, event, fn, options?)`.
-   *
-   * Keeps the original idempotency contract: dedup by `(event, fn)`
-   * reference across repeated calls on the same mounting. The signal
-   * handles teardown at the browser level, so the alias only has to
-   * avoid double-registering.
-   */
-  listenDOM(
-    el: EventTarget,
-    event: string,
-    fn: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions,
-  ): void {
-    if (this.events.some(([_, e, f]) => e === event && f === fn)) return;
-    const unbind = this.on(el, event, fn, options);
-    this.events.push([el, event, fn]);
-    this.cleanups.push(unbind);
-  }
-
-  /** Legacy alias for `onMap`. */
-  listenMap(event: string, fn: L.LeafletEventHandlerFn): void {
-    this.onMap(event, fn);
   }
 }
 
