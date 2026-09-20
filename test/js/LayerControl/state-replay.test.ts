@@ -175,10 +175,27 @@ describe("state replay", () => {
       expect(m.layers.map(l => l.id)).toEqual(["B", "H", "A"]);
     });
 
+    it("keeps a layer stored below every registered layer at the bottom", () => {
+      // Nothing below H is registered, so the placement falls back to the end
+      // of the group. That end must actually be the end — the layer is the
+      // rightmost of the layers that exist, not the topmost.
+      seedStorage({ order: ["B", "A", "H"] });
+      const { map } = makeMap();
+      const m = new LayerManager(map as unknown as L.Map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+
+      m.registerLayer({ id: "H", name: "H", isBase: false });
+
+      expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
+    });
+
     it("keeps a stored position across a flush that lands first", () => {
       // A flush between the record being loaded and the late registration
       // writes the live ids only; the stored position of the id that is not
-      // registered yet must survive it.
+      // registered yet must survive it — at its slot, not appended to the
+      // end, where the next flush would persist the sink.
       seedStorage({ order: ["B", "H", "A"] });
       const { map } = makeMap();
       const m = new LayerManager(map as unknown as L.Map, [
@@ -192,7 +209,52 @@ describe("state replay", () => {
       const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
         order: string[] | null;
       };
-      expect(record.order).toContain("H");
+      expect(record.order).toEqual(["B", "H", "A"]);
+    });
+
+    it("splices each pending id into its own slot", () => {
+      // Two ids stored mid-stack, plus a registered layer the record never
+      // ranked (added this session). Each pending id keeps its slot relative
+      // to the ranked layers; the unranked one keeps its live position.
+      seedStorage({ order: ["H1", "A", "H2"] });
+      const { map } = makeMap();
+      const m = new LayerManager(map as unknown as L.Map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "X", name: "X", isBase: false },
+      ]);
+
+      m.saveOrder();
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["H1", "A", "X", "H2"]);
+    });
+
+    it("keeps the panel rows in the registry's order", () => {
+      // The row must land at the depth the registry chose. Pinned to the top of
+      // the group instead, the DOM order diverges from the drawn order and every
+      // index-based row lookup reads a neighbour's checkbox.
+      const { manager, ui } = initFixture({
+        seed: { order: ["B", "A", "H"] },
+        data: [
+          { id: "A", name: "A", isBase: false },
+          { id: "B", name: "B", isBase: false },
+        ],
+      });
+
+      manager.registerLayer({ id: "H", name: "H", isBase: false });
+
+      const registryIds = manager.layers.map(l => l.id);
+      const rowIds = Array.from(
+        ui.uiContainer.querySelectorAll<HTMLElement>(
+          `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
+        ),
+      ).map(el => el.dataset.layerId ?? "");
+
+      expect(rowIds).toEqual(registryIds);
+      expect(registryIds).toEqual(["B", "A", "H"]);
     });
   });
 

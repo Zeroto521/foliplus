@@ -144,6 +144,12 @@ describe("build artifacts", () => {
     // escape-cancel chain, the five-dimension persistence, and the state
     // replay pass that re-applies a stored opacity and layer order when the
     // thing they describe arrives late).
+    //
+    // Measured on this branch: 183305B. The growth is the replay pass itself
+    // (replayLayerState, replaySavedOrder, mergeStoredOrder,
+    // placeBeforeSavedNeighbor) plus the opacity -> state rename across the
+    // nine hook call sites. 200000 keeps the ~20% headroom this cap is
+    // documented as carrying.
     "foliplus-LayerControl.min.js": 200000,
   };
   it("component JS has reasonable size", () => {

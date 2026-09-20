@@ -63,6 +63,38 @@ const unpatchBringToFront = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
+/** The stored order with the ids it held that are not registered yet spliced
+ *  back into it.
+ *
+ *  Registered ids keep their live positions untouched. A pending id keeps the
+ *  *slot* it was stored in, not just its existence: appending it at the end
+ *  would sink a layer the user parked mid-stack, and the drift is permanent
+ *  because the next flush would persist the sunk position.
+ */
+const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => {
+  if (!stored || stored.length === 0) return [...live];
+  const rank = new Map(stored.map((id, i) => [id, i]));
+  const known = new Set(live);
+  const order = [...live];
+  for (const id of stored) {
+    if (known.has(id)) continue;
+    const storedAt = rank.get(id);
+    if (storedAt === undefined) continue;
+    // Insert before the first live id stored below it — at the end when every
+    // registered layer sits above it.
+    let at = order.length;
+    for (let i = 0; i < order.length; i++) {
+      const liveAt = rank.get(order[i]);
+      if (liveAt !== undefined && liveAt > storedAt) {
+        at = i;
+        break;
+      }
+    }
+    order.splice(at, 0, id);
+  }
+  return order;
+};
+
 // ==================== Core Manager: LayerManager ====================
 class LayerManager implements LayerAPI {
   /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
@@ -94,10 +126,13 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
-  /** The order dimension as stored, including ids that are not registered yet.
-   *  Held in step with {@link saveOrder}: a late registration reads its own
-   *  position out of it, and a flush must write the pending ids back instead of
-   *  erasing them. */
+  /** The order we know about: the live registry order together with the ids the
+   *  record stored that are not registered yet. NOT "the order the user
+   *  arranged" — {@link saveOrder} rewrites it to the current live order with
+   *  the pending ids spliced back into their stored slots, so a late
+   *  registration reads its position out of this rather than out of a stale
+   *  record. `null` means the record carried no order at all (a fresh page),
+   *  which is what keeps a new overlay on top. */
   private savedOrder: string[] | null;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
@@ -248,16 +283,15 @@ class LayerManager implements LayerAPI {
 
   /** Persist layer order — delegates to LayerPersistence for centralized I/O.
    *
-   *  The write is the live registry order *plus* the stored ids that are not
-   *  registered yet. A flush can land between the record being loaded and a
+   *  The write is the live registry order merged with the stored ids that are
+   *  not registered yet. A flush can land between the record being loaded and a
    *  component registering (Heatmap and Measure register in their own
    *  constructor, after LayerControl has attached), and a write of the live ids
    *  alone would erase the position that registration is meant to read back.
    */
   saveOrder() {
     const live = this.layers.map(l => l.id);
-    const known = new Set(live);
-    const order = [...live, ...(this.savedOrder?.filter(id => !known.has(id)) ?? [])];
+    const order = mergeStoredOrder(this.savedOrder, live);
     this.savedOrder = order;
     this.persistence.schedule({ order: () => order });
   }
@@ -311,13 +345,16 @@ class LayerManager implements LayerAPI {
   ): void {
     const registry = this.layerRegistry;
     const from = registry.indexOf(layerInfo);
+    // `reorder`'s second argument is the index in the *final* order, so the
+    // goal is expressed directly and no shift adjustment is applied.
+    let goal: number;
     for (let i = target + 1; i < saved.length; i++) {
       const neighbour = registry.get(saved[i]);
       if (!neighbour) continue;
       const to = registry.indexOf(neighbour);
-      // `reorder` splices the item out first, which shifts every later index
-      // down by one.
-      if (from !== to) registry.reorder(from, from < to ? to - 1 : to);
+      // Removing `layerInfo` first shifts every later index down by one.
+      goal = to - (from < to ? 1 : 0);
+      if (from !== goal) registry.reorder(from, goal);
       return;
     }
     // Nothing below it in the saved order is registered yet, so it is the
@@ -325,11 +362,11 @@ class LayerManager implements LayerAPI {
     // never the registry's: an overlay that lands under a base layer breaks the
     // overlay-before-base invariant, and the panel's index-based row lookup
     // would then read a neighbour's checkbox instead of its own.
-    const end =
+    goal =
       registry.firstBaseIdx === -1
         ? registry.layers.length - 1
         : registry.firstBaseIdx - 1;
-    if (from !== end) registry.reorder(from, from < end ? end - 1 : end);
+    if (from !== goal) registry.reorder(from, goal);
   }
 
   /** Where a new overlay enters the stack.
