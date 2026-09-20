@@ -240,6 +240,21 @@ const setPopupCloseTitle = (popup: L.Popup | undefined | null, title: string): v
   if (btn) btn.title = title;
 };
 
+/** Bind a map onto a control before a manual `onAdd()`, so `onAdd` sees
+ *  `this._map`.
+ *
+ *  `Control.onAdd` reads `this._map` on entry, but the only public route that
+ *  binds it is `addTo()`, which also attaches the returned element to the
+ *  map's corner. The caller wants the element back to wrap it in its own DOM,
+ *  so it takes `onAdd` off the base and calls it by hand — which needs the
+ *  back-reference written first. Not a substitute for `addTo`: this only
+ *  primes the field, the caller still owns the element and its attachment.
+ *  ScaleControl is the only caller; it builds its own `L.control.scale` and
+ *  wraps the result in `.foliplus-scale-wrap`. */
+const primeControlMap = (ctrl: L.Control, map: L.Map): void => {
+  Reflect.set(ctrl, "_map", map);
+};
+
 export {
   attributionEntries,
   destroyPane,
@@ -254,6 +269,7 @@ export {
   layerUrl,
   markerShadow,
   moveIntoPane,
+  primeControlMap,
   refreshAttributions,
   reinitInteraction,
   setPopupCloseTitle,

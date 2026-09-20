@@ -1,4 +1,5 @@
 import { createControlEnv } from "#core/controlEnv.js";
+import { primeControlMap } from "#core/leafletAdapter.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -11,7 +12,7 @@ const T = createScopedTranslator(CONF);
 class ScaleControl extends BaseControl {
   buildDOM() {
     const scaleCtrl = L.control.scale({ metric: true, imperial: false });
-    Reflect.set(scaleCtrl, "_map", this._map);
+    primeControlMap(scaleCtrl, this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");
 
