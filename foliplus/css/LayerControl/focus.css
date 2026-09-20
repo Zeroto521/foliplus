@@ -1,25 +1,26 @@
 /* ── Custom Pane Interaction Rules ── */
-/* layer-pane is created by PaneManager.ensurePane — LayerSurface materializes
-   a layer's pane before the layer joins the map, LayerFactory.createCanvas
-   makes one for an overlay canvas. LayerControl only z-orders it afterwards.
-   The pane takes no pointer, and neither does the SVG renderer container
-   inside it: an inline <svg> carrying pointer-events is hit over its WHOLE
-   box, not only where it paints, and every foliplus pane holds one. Left at
-   `auto`, the topmost would swallow clicks for every layer painted below it
-   and leave the cursor at the `grab` inherited from the container. Leaflet
-   never sets pointer-events on the svg for the same reason; its paths are
-   reached through the `.leaflet-interactive` rule below. */
+/* `foliplus-layer-pane` is the base class every foliplus-owned pane carries —
+   LayerSurface materialises a layer's pane before the layer joins the map,
+   LayerFactory.createCanvas makes one for an overlay canvas, and the
+   annotation manager makes one per labelled layer, all through
+   PaneManager.ensurePane (the single entry point). LayerControl only z-orders
+   them afterwards. The pane takes no pointer, and neither does the SVG
+   renderer container inside it: an inline <svg> carrying pointer-events is
+   hit over its WHOLE box, not only where it paints, and every foliplus pane
+   holds one. Left at `auto`, the topmost would swallow clicks for every layer
+   painted below it and leave the cursor at the `grab` inherited from the
+   container. Leaflet never sets pointer-events on the svg for the same reason;
+   its paths are reached through the `.leaflet-interactive` rule below. */
 .foliplus-layer-pane,
 .foliplus-layer-pane > svg {
   pointer-events: none;
 }
 /* `pointer-events` inherits, so everything inside the `none` pane starts off
-   unable to take a hit. A canvas in a pane IS the surface its owner paints
-   into — Leaflet hit-tests a canvas renderer by coordinate, not by element —
-   so it has to be switched back on. A canvas that paints decoration rather
-   than receiving hits says so itself: the overlay canvas
-   LayerFactory.createCanvas builds carries `.foliplus-canvas-layer`, and
-   AnnotationCanvas writes `pointer-events: none` on its own element. */
+   unable to take a hit. A canvas that paints decoration rather than receiving
+   hits carries `.foliplus-canvas-layer` and so keeps inheriting `none`; the
+   one canvas that must turn `auto` is Leaflet's own canvas renderer — a
+   canvas without that class, which is how the pane-level hit-test surface is
+   expressed. */
 .foliplus-layer-pane > canvas:not(.foliplus-canvas-layer) {
   pointer-events: auto;
 }
@@ -77,10 +78,9 @@ path.foliplus-focus-mask {
    with a single CSS rule — no per-pane JS visibility loop. The basemap lives
    in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
    and keeps the spatial context. Canvas layers (heatmap) live in their own
-   `.foliplus-layer-pane`, covered by the first selector; label panes are
-   per layer and need their own. */
-.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane),
-.foliplus-focus-active .foliplus-annotation-pane:not(.foliplus-focus-pane) {
+   `.foliplus-layer-pane`, and so do the annotation panes — every owned pane
+   is covered by the one base class, so the selector lists it once. */
+.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane) {
   visibility: hidden;
 }
 @keyframes foliplus-focus-march {

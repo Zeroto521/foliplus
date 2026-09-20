@@ -65,7 +65,7 @@
 - `LayerControl`/`MeasureControl`/`ExportControl`/`HeatmapControl`: re-entrant control lifecycle — managers are created lazily and rebuilt after `removeControl` + `addControl` on the same control ([#307](https://github.com/Zeroto521/foliplus/pull/307))
 - `ExportControl`/`HeatmapControl`/`LayerControl`/`MeasureControl`: carry CONF on the UI state instead of module-level free variables — UI code is now unit-testable and back in the coverage report ([#309](https://github.com/Zeroto521/foliplus/pull/309), [#311](https://github.com/Zeroto521/foliplus/pull/311))
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
-- `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350))
+- `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388))
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 
 ### Removed
