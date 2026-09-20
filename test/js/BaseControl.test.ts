@@ -224,6 +224,35 @@ describe("BaseControl", () => {
     expect(removeSpy.mock.calls[0]).toEqual(["mousedown", fn, true]);
   });
 
+  it("`on` listener is actually unbound when the signal aborts (real DOM)", () => {
+    // Behaviour gate: the existing tests only spy on addEventListener options
+    // shape — a wiring bug (e.g. dropping `signal`) would pass them silently.
+    // This one uses a real DOM element and verifies the handler stops firing
+    // after onRemove aborts the signal.
+    const handler = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onAdd();
+
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    ctrl.on(el, "click", handler);
+    el.dispatchEvent(new Event("click"));
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    ctrl.onRemove();
+    el.dispatchEvent(new Event("click"));
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    document.body.removeChild(el);
+  });
+
   it("listenMap tracks and unbinds map listeners", () => {
     const fn = vi.fn();
 
@@ -626,5 +655,32 @@ describe("BaseControl", () => {
     expect(destroy).toHaveBeenCalledTimes(1);
     ctrl.onRemove();
     expect(destroy, "second onRemove is a no-op").toHaveBeenCalledTimes(1);
+  });
+
+  it("a throwing destroy() still allows all tracked resources to be cleaned up", () => {
+    // The finally block in onRemove guarantees that map listeners, effect
+    // cleanups, and the signal abort all run even when destroy() throws.
+    // Without this, a single throw in a component's destroy() would leave
+    // every listener from that mounting permanently leaked — and the
+    // `removed` flag would prevent any future attempt to clean them up.
+    const cleanup = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+      destroy() {
+        this.trackCleanup(cleanup);
+        throw new Error("boom");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onAdd();
+
+    expect(() => ctrl.onRemove()).toThrow("boom");
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(ctrl.cleanups).toHaveLength(0);
+    expect(ctrl.ac).toBeNull();
   });
 });

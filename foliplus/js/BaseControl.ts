@@ -115,30 +115,35 @@ class BaseControl extends L.Control {
   onRemove(): void {
     // Idempotent: a second call (e.g. Leaflet removing the control again
     // after an internal state change) must not re-run destroy() or
-    // re-iterate the already-cleared arrays. The signal is already
-    // aborted, so registering against it in destroy() would silently
-    // no-op; but the component's own destroy() code would run twice.
+    // re-iterate the already-cleared arrays. `removed` is set before
+    // destroy() so a re-entrant call from destroy() itself is also
+    // guarded; the second call hits the early return and never reaches
+    // the cleanup — which is correct, because the first call's finally
+    // block has already torn everything down.
     // The flag is `removed`, not `ac === null` — the latter also
     // matches "never mounted", and a component that calls `onRemove()`
     // without a preceding `onAdd()` (the unit-test pattern) must still
     // have its registered listeners cleaned up.
     if (this.removed) return;
     this.removed = true;
-    this.destroy();
-    // Auto-unbind tracked listeners — always runs, cannot be skipped by
-    // subclasses. Order matters: map listeners are unbound against a
-    // live map, effect cleanups may still consult the signal (they see
-    // it live here), and only then does the signal abort. DOM listeners
-    // attached via `{signal}` are dropped by the browser on abort — no
-    // callback fires — so there is no window of double-cleanup to worry
-    // about.
-    this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
-    this.mapListeners = [];
-    this.cleanups.forEach(fn => fn());
-    this.cleanups = [];
-    this.events = [];
-    this.ac?.abort();
-    this.ac = null;
+    try {
+      this.destroy();
+    } finally {
+      // Auto-unbind tracked listeners — always runs, cannot be skipped by
+      // subclasses or by a throwing destroy(). Order matters: map listeners
+      // are unbound against a live map, effect cleanups may still consult
+      // the signal (they see it live here), and only then does the signal
+      // abort. DOM listeners attached via `{signal}` are dropped by the
+      // browser on abort — no callback fires — so there is no window of
+      // double-cleanup to worry about.
+      this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
+      this.mapListeners = [];
+      this.cleanups.forEach(fn => fn());
+      this.cleanups = [];
+      this.events = [];
+      this.ac?.abort();
+      this.ac = null;
+    }
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
@@ -234,7 +239,7 @@ class BaseControl extends L.Control {
   }
 
   /**
-   * Legacy alias for `effect(() => fn())`. New code should call `effect`
+   * Legacy alias for `effect(() => fn)`. New code should call `effect`
    * directly — it accepts the setup-closure form and covers the same
    * use case. Kept so `LayerControl/index.ts` and `HeatmapControl/index.ts`
    * are untouched. Idempotent on the same `fn` reference, matching the

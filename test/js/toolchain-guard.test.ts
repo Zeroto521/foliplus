@@ -338,13 +338,128 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<{
 ];
 
 const BARE_RE = /\.\s*addEventListener\s*\(/g;
-const stripComments = (src: string): string =>
-  src.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, " ");
+
+/**
+ * Strip line and block comments from TypeScript source, but skip over
+ * string literals (single, double, backtick) and regex literals so that
+ * a slash-slash inside a URL or a regex is not misinterpreted as a
+ * comment start.
+ *
+ * This is a character-by-character scanner: it tracks whether the current
+ * position is inside a string, template literal, or regex, and only
+ * treats slash-slash or block-comment delimiters as comments when we
+ * are in "code" mode.
+ */
+const stripComments = (src: string): string => {
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  let prev = "";
+  while (i < n) {
+    const ch = src[i];
+    const next = i + 1 < n ? src[i + 1] : "";
+    if (ch === "/" && next === "/") {
+      i += 2;
+      while (i < n && src[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      out += " ";
+      i += 2;
+      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      out += ch;
+      i++;
+      while (i < n && src[i] !== ch) {
+        if (src[i] === "\\") {
+          out += src[i] + (src[i + 1] ?? "");
+          i += 2;
+        } else {
+          out += src[i];
+          i++;
+        }
+      }
+      if (i < n) {
+        out += src[i];
+        i++;
+      }
+      prev = ch;
+      continue;
+    }
+    if (ch === "`") {
+      out += ch;
+      i++;
+      while (i < n && src[i] !== "`") {
+        if (src[i] === "\\") {
+          out += src[i] + (src[i + 1] ?? "");
+          i += 2;
+        } else if (src[i] === "$" && src[i + 1] === "{") {
+          out += src[i] + src[i + 1];
+          i += 2;
+          let depth = 1;
+          while (i < n && depth > 0) {
+            if (src[i] === "{") depth++;
+            else if (src[i] === "}") depth--;
+            if (depth > 0) out += src[i];
+            i++;
+          }
+        } else {
+          out += src[i];
+          i++;
+        }
+      }
+      if (i < n) {
+        out += src[i];
+        i++;
+      }
+      prev = "`";
+      continue;
+    }
+    if (ch === "/" && prev !== "a-zA-Z0-9_$)" && !"].}'.\"`".includes(prev)) {
+      out += ch;
+      i++;
+      while (i < n && src[i] !== "/") {
+        if (src[i] === "\\") {
+          out += src[i] + (src[i + 1] ?? "");
+          i += 2;
+          continue;
+        }
+        if (src[i] === "\n") {
+          out += "/";
+          prev = "/";
+          break;
+        }
+        out += src[i];
+        i++;
+      }
+      if (i < n && src[i] === "/") {
+        out += src[i];
+        i++;
+      }
+      prev = "/";
+      continue;
+    }
+    out += ch;
+    if (ch.trim() !== "") prev = ch;
+    i++;
+  }
+  return out;
+};
 
 const bareCallsIn = (src: string): number =>
   stripComments(src).match(BARE_RE)?.length ?? 0;
 
 describe("no bare addEventListener in foliplus/js", () => {
+  it("allow-list has no duplicate file entries", () => {
+    // A duplicate key silently overwrites the first entry in the Map,
+    // letting "duplicate + wrong count" pass undetected.
+    const files = BARE_ADD_EVENT_LISTENER.map(e => e.f);
+    expect(new Set(files).size).toBe(files.length);
+  });
+
   it("every bare call is on the allow-list, and the allow-list still matches the tree", () => {
     const files = globSync({
       cwd: ROOT,
@@ -407,6 +522,14 @@ describe("no bare addEventListener in foliplus/js", () => {
     expect(bareCallsIn("// fake.addEventListener('click')")).toBe(0);
     expect(bareCallsIn("/* x */ target.addEventListener('click', fn)")).toBe(1);
     expect(bareCallsIn("target.addEventListener('click', fn)")).not.toBe(0);
+    // String-aware: `//` inside a URL is not a comment start.
+    expect(
+      bareCallsIn('const u = "https://x"; target.addEventListener("click", fn)'),
+    ).toBe(1);
+    // `//` inside a regex literal is not a comment start.
+    expect(bareCallsIn('/\\/\\/x/.test(s); target.addEventListener("click", fn)')).toBe(
+      1,
+    );
 
     const isAllowed = (f: string, n: number) => {
       const e = BARE_ADD_EVENT_LISTENER.find(x => x.f === f);

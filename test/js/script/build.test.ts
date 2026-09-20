@@ -132,10 +132,13 @@ describe("build artifacts", () => {
     // three legacy aliases `listenDOM`/`listenMap`/`trackCleanup`, and the
     // idempotency guard in `onRemove()` — lands in BaseControl itself. That
     // class is bundled into foliplus-common.min.js via runtime/index.ts:31,
-    // so the whole +3KB over R9's 160897B measurement is common-bundle
-    // surface, not component-bundle surface. Every component keeps
-    // externalising BaseControl, so this is the only budget line that moves
-    // from this round; the per-component caps on line 137+ are untouched.
+    // so the whole delta is common-bundle surface, not component-bundle
+    // surface. Every component keeps externalising BaseControl, so this is
+    // the only budget line that moves from this round; the per-component
+    // caps below are untouched.
+    //
+    // Measured after merge: 167 350 B dev-mode (same command), +6 453 B over
+    // R9's 160 897 B. 170 000 leaves ~2.6 KB headroom.
     expect(size).toBeLessThan(170000);
   });
 
