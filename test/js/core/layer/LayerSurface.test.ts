@@ -641,4 +641,33 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities.zoomRange).toBe("none");
     expect(surface.capabilities.relocatable).toBe(false);
   });
+
+  it("instanceof false: L.MarkerClusterGroup is a function but layer is not an instance", () => {
+    const { map, host } = makeMap();
+    const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
+    const Ctor = function NotCluster() {} as unknown as new (
+      ...args: never[]
+    ) => unknown;
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = Ctor;
+    const layer = new Path() as unknown as L.Layer;
+    const surface = new LayerSurface(host, {
+      id: "plain",
+      layer,
+    });
+    expect(surface.capabilities.opacity).not.toBe("none");
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = saved;
+  });
+
+  it("fallback: _topClusterLevel is falsy when L.MarkerClusterGroup is undefined", () => {
+    const { map, host } = makeMap();
+    const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = undefined;
+    const layer = new Path() as unknown as L.Layer;
+    const surface = new LayerSurface(host, {
+      id: "plain2",
+      layer,
+    });
+    expect(surface.capabilities.opacity).not.toBe("none");
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = saved;
+  });
 });

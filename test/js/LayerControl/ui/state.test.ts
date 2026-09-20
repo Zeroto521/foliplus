@@ -767,6 +767,34 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     expect(ui.m.map.addLayer).not.toHaveBeenCalled();
     expect(layerInfo.visible).toBe(true);
   });
+
+  it("applyHiddenOne skips removeLayer when the layer is already off the map", () => {
+    // `!patch.visible && has` must be false when has=false, so the else-if
+    // body (removeLayer) is not entered — covers the false branch of the
+    // else-if guard.
+    const ui = makeApplyUi(false);
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = { id: "a", layer, isBase: false } as unknown as LayerInfo;
+    applyHiddenOne(ui, layerInfo, "a");
+    expect(ui.m.map.removeLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(false);
+  });
+
+  it("applyVisibleStateOne skips onToggle when a layer object exists", () => {
+    // `!layer && layerInfo.onToggle` is false when layer exists, even if
+    // onToggle is also present — the layer path takes priority.
+    const ui = makeApplyUi(true);
+    const onToggle = vi.fn();
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = {
+      id: "a",
+      layer,
+      onToggle,
+      isBase: false,
+    } as unknown as LayerInfo;
+    applyVisibleStateOne(ui, layerInfo);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
 });
 
 describe("ui/state saveFoldState", () => {
