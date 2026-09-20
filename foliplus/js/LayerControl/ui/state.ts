@@ -393,28 +393,25 @@ const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
 };
 
 /**
- * Bring one layer back on to the map —the inverse of
+ * Bring one layer back on to the map — the inverse of
  * {@link LayerUI.applyHiddenStateOne}.
  *
  * Needed because folium renders a `show=False` layer absent from the map
  * and nothing else ever puts it back. On reload such a layer is correctly
  * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
- * leaves it alone —and the map comes up with the author's default rather
+ * leaves it alone — and the map comes up with the author's default rather
  * than the user's last choice. This closes that half of the round trip.
  *
- * `addLayer` is a no-op when the layer is already on the map, so the sweep
- * can call this for every unhidden layer without re-adding the layers
- * folium already placed. Callback-only layers (canvas) have no Leaflet
- * layer to add, so they get the callback instead.
+ * Delegates to {@link applyLayerState} like the hide and opacity wrappers —
+ * the add/remove decision and the callback fallback stay in one place. That
+ * delegation also carries the "safe to call unconditionally" contract:
+ * `addLayer` is a no-op on a layer already on the map, so the sweep may apply
+ * this to every unhidden layer without re-adding the layers folium placed, and
+ * a callback-only layer (canvas) has no Leaflet layer to add, so it gets the
+ * callback instead.
  */
-
 const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const layer = ui.m.findLayer(layerInfo);
-
-  if (!layer && layerInfo.onToggle) layerInfo.onToggle(true);
-  else if (layer && !ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
-
-  layerInfo.visible = true;
+  applyLayerState(ui, layerInfo, { visible: true });
 };
 
 /** Apply one layer's opacity to the registry entry and to the live rendering.
