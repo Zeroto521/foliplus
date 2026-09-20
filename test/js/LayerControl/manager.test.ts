@@ -349,6 +349,53 @@ describe("LayerManager", () => {
     delete window["fb_b"];
   });
 
+  it("routes AnnotationManager's pane wiring through PaneManager", () => {
+    // AnnotationManager's own unit tests stub ensureOwnedPane / releaseOwnedPane,
+    // which leaves the two real wiring lambdas in LayerManager's constructor
+    // uncovered. This test drives the real manager end-to-end: renderLabels
+    // reaches PaneManager.ensurePane and unregisterLayer reaches
+    // PaneManager.removePane.
+    window.L.stamp = stableStamp;
+    const paneRegistry: Record<string, HTMLElement> = {};
+    map._panes = paneRegistry;
+    map.getPane = vi.fn((name: string) => paneRegistry[name] ?? null);
+    map.createPane = vi.fn((name: string) => {
+      const pane = document.createElement("div");
+      pane.classList.add("foliplus-layer-pane");
+      return (paneRegistry[name] = pane);
+    });
+    map.getPanes = vi.fn(() => ({}));
+    const leaf = {
+      options: {},
+      getLatLng: () => ({ lat: 0, lng: 0 }),
+      feature: { properties: { name: "hello" } },
+    } as unknown as L.Layer;
+    const m = new LayerManager(map, [
+      { id: "lbl", name: "Lbl", isBase: false, layer: leaf },
+    ]);
+    m.map.hasLayer.mockReturnValue(true);
+    m.annotation.setConfig("lbl", {
+      show: true,
+      field: "name",
+      color: "",
+      size: 12,
+      format: "default",
+      collide: false,
+    });
+    vi.spyOn(m.annotation as any, "refresh").mockImplementation(() => {});
+    m.annotation.renderLabels("lbl");
+
+    const paneName = CONST.ANNOTATION_PANE_PREFIX + "lbl";
+    const pane = paneRegistry[paneName];
+    expect(pane).toBeDefined();
+    expect(pane!.classList.contains("foliplus-layer-pane")).toBe(true);
+    expect(pane!.classList.contains("foliplus-annotation-pane")).toBe(true);
+
+    m.unregisterLayer("lbl");
+    expect(map._panes[paneName]).toBeUndefined();
+    expect(map.getPane(paneName)).toBeNull();
+  });
+
   it("unregisterLayer emits EVENTS.LAYER_REMOVED event with the layer id", () => {
     manager.registerLayer({ id: "test_layer", name: "Test" });
     const bus = map.foliplus!.events;
