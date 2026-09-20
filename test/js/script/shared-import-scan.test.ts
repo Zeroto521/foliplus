@@ -1,0 +1,348 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { dirname, join } from "path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  exportNames,
+  scanSharedImports as pluginScan,
+} from "#script/global-namespace-plugin.mjs";
+import { scanImports } from "#script/scan-registry.mjs";
+import {
+  canonicalSpec,
+  collectSources,
+  parseImportNames,
+  scanSharedImports,
+} from "#script/shared-import-scan.mjs";
+
+/** Write `{ relative path: content }` under `base`. */
+const writeTree = (base: string, files: Record<string, string>) => {
+  for (const [rel, content] of Object.entries(files)) {
+    const full = join(base, rel);
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, content, "utf-8");
+  }
+};
+
+let sandbox: string;
+beforeAll(() => {
+  sandbox = mkdtempSync(join(tmpdir(), "shared-import-scan-"));
+});
+afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
+
+let caseCount = 0;
+const freshDir = (files: Record<string, string>): string => {
+  const dir = join(sandbox, "case-" + caseCount++);
+  writeTree(dir, files);
+  return dir;
+};
+
+/** `{ rawSpec: sorted names[] }` — the plugin-shaped view. */
+const flatRaw = (m: Map<string, Set<string>>) => {
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of [...m].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    out[k] = [...v].sort();
+  }
+  return out;
+};
+
+/** `{ canonicalSpec: sorted names[] }` — the registry-shaped view. */
+const canonMap = (named: Map<string, Set<string>>, star: Map<string, Set<string>>) => {
+  const merged = new Map<string, Set<string>>();
+  for (const [spec, names] of [...named, ...star]) {
+    const key = canonicalSpec(spec);
+    const set = merged.get(key) || new Set<string>();
+    for (const n of names) set.add(n);
+    merged.set(key, set);
+  }
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of [...merged].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    out[k] = [...v].sort();
+  }
+  return out;
+};
+
+/** Order-independent JSON for comparing two `{ spec: names[] }` views. */
+const canonJson = (map: Record<string, string[]>) =>
+  JSON.stringify(Object.entries(map).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
+// ────────────────────────────────────────────────────────────────────────────
+// EQUIVALENCE GATE
+//
+// These expected values are what the two now-merged implementations produced
+// at HEAD (script/scan-registry.mjs:53-119 and
+// script/global-namespace-plugin.mjs:106-161). Captured by running both of them
+// — verbatim copies in .foliplus/legacy-scanners.mjs — over this corpus with
+// .foliplus/probe-import-scan.mjs. They are frozen here so that any future edit
+// to the shared engine has to justify itself against what both consumers got.
+// ────────────────────────────────────────────────────────────────────────────
+
+const EQUIV_CORPUS: Record<string, string> = {
+  "Named.ts": [
+    'import { alpha } from "#common/alpha.js";',
+    'import { beta } from "#core/beta.js";',
+    'import { eps as e, zeta } from "#common/eps.js";',
+    'import { type Theta, iota } from "#core/iota.js";',
+    'import type { kappa } from "#core/kappa.js";',
+    'import { lambda } from "#core/lambda/index.js";',
+    'import { BaseControl } from "#foliplus/BaseControl.js";',
+  ].join("\n"),
+  "Stars.ts": [
+    'import * as Storage from "#common/store.js";',
+    'Storage.load("key");',
+    'Storage.save("key", 1);',
+    'import * as Icons from "#common/icons.js";',
+    "const a = Icons.DOWNLOAD;",
+    "const b = Icons.CLOSE;",
+  ].join("\n"),
+  "sub/nested.ts": 'import { nested } from "#core/nested/index.js";',
+  // Both predecessors dropped .d.ts; keep them asserting that.
+  "types.d.ts": 'import { ghost } from "#common/ghost.js";',
+};
+
+const EQUIV_REGISTRY_VIEW = {
+  "common/alpha": ["alpha"],
+  "common/eps": ["eps", "zeta"],
+  "common/icons": ["CLOSE", "DOWNLOAD"],
+  "common/store": ["load", "save"],
+  "core/beta": ["beta"],
+  "core/iota": ["iota"],
+  "core/lambda": ["lambda"],
+  "core/nested": ["nested"],
+  "foliplus/BaseControl": ["BaseControl"],
+} as const;
+
+const EQUIV_PLUGIN_VIEW = {
+  used: {
+    "#common/alpha.js": ["alpha"],
+    "#common/eps.js": ["eps", "zeta"],
+    "#core/beta.js": ["beta"],
+    "#core/iota.js": ["iota"],
+    "#core/lambda/index.js": ["lambda"],
+    "#core/nested/index.js": ["nested"],
+    "#foliplus/BaseControl.js": ["BaseControl"],
+  },
+  starUsed: {
+    "#common/icons.js": ["CLOSE", "DOWNLOAD"],
+    "#common/store.js": ["load", "save"],
+  },
+} as const;
+
+describe("equivalence gate — engine == both legacy implementations", () => {
+  it("delivers the registry's canonical view unchanged", () => {
+    const dir = freshDir(EQUIV_CORPUS);
+    expect(scanImports(dir)).toEqual(EQUIV_REGISTRY_VIEW);
+    // The wrapper and the engine agree, which is what makes the adapter seam
+    // trustworthy: canonicalSpec() is the only difference between them.
+    const { named, starUsed } = scanSharedImports(dir);
+    expect(canonMap(named, starUsed)).toEqual(EQUIV_REGISTRY_VIEW);
+  });
+
+  it("delivers the plugin's raw-spec view unchanged", () => {
+    const dir = freshDir(EQUIV_CORPUS);
+    const { used, starUsed } = pluginScan(dir);
+    expect({ used: flatRaw(used), starUsed: flatRaw(starUsed) }).toEqual(
+      EQUIV_PLUGIN_VIEW,
+    );
+    // Same data straight off the engine, proving the plugin wrapper is a pure
+    // rename of { named, starUsed } and nothing else.
+    const eng = scanSharedImports(dir);
+    expect({ used: flatRaw(eng.named), starUsed: flatRaw(eng.starUsed) }).toEqual(
+      EQUIV_PLUGIN_VIEW,
+    );
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// DIVERGENCES
+//
+// One row per input where the two predecessors disagreed. `registryBefore` and
+// `pluginBefore` are what they each produced at HEAD; `engineNow` is the
+// assertion. The headline invariant is "every engine value was produced by at
+// least one predecessor": the engine never invents a result neither
+// predecessor had — it takes the better of the two.
+//
+// Every row is artifact-neutral on the real tree: the shim/registry sets the
+// engine produces for foliplus/js match HEAD byte-for-byte (verified with
+// .foliplus/probe-import-scan.mjs; the rows below are dead code paths today).
+// ────────────────────────────────────────────────────────────────────────────
+
+const DIVERGENCES = [
+  {
+    id: "single-quoted specifier",
+    files: { "a.ts": "import { solo } from '#core/solo.js';\n" },
+    registryBefore: {},
+    pluginBefore: { "core/solo": ["solo"] },
+    // Registry required `"`; a single-quoted import was shimmed by the runtime
+    // but read back as `undefined`. Engine takes the plugin's rule.
+    engineNow: { "core/solo": ["solo"] },
+  },
+  {
+    id: "whitespace-free specifier",
+    files: { "a.ts": 'import{solo2}from"#core/solo2.js";\n' },
+    registryBefore: { "core/solo2": ["solo2"] },
+    pluginBefore: {},
+    // Plugin required `\s+` after `import`/`}`/`from`, so this form fell back to
+    // shimming every export instead of the one name imported. Takes registry.
+    engineNow: { "core/solo2": ["solo2"] },
+  },
+  {
+    id: "tab inside `as`",
+    files: { "a.ts": 'import { solo3 as\ts } from "#core/solo3.js";\n' },
+    registryBefore: { "core/solo3": ["solo3"] },
+    pluginBefore: { "core/solo3": ["solo3 as\ts"] },
+    // Plugin split on the literal `" as "`, leaking the alias into the name.
+    // Takes registry's `\s+as\s+`.
+    engineNow: { "core/solo3": ["solo3"] },
+  },
+  {
+    id: "lowercase star prop on a non-`Storage` alias",
+    files: {
+      "a.ts": 'import * as Ico from "#common/ico.js";\nconst a = Ico.downloadIcon;\n',
+    },
+    registryBefore: {},
+    pluginBefore: { "common/ico": ["downloadIcon"] },
+    // Registry matched only `[A-Z]` props plus a hardcoded `Storage.load|save`
+    // escape hatch, so a lowercase icon accessor was shimmed but never
+    // published. Takes the plugin's any-identifier rule.
+    engineNow: { "common/ico": ["downloadIcon"] },
+  },
+  {
+    id: "unused star alias",
+    files: { "a.ts": 'import * as Unused from "#common/unused.js";\n' },
+    registryBefore: { "common/unused": [] },
+    pluginBefore: {},
+    // Registry kept an empty key, which generateRegistry discards anyway
+    // (`names.length === 0` → skip), so this is artifact-neutral. Takes the
+    // plugin: no entry, so the shim falls back to the full export set.
+    engineNow: {},
+  },
+  {
+    id: "alias embedded in a longer identifier",
+    files: {
+      "a.ts": 'import * as Store2 from "#common/store2.js";\nmyStore2.EXTRA();\n',
+    },
+    registryBefore: { "common/store2": ["EXTRA"] },
+    pluginBefore: {},
+    // Registry's `alias + "[.]"` had no word boundary, so `myStore2.EXTRA`
+    // counted as `Store2.EXTRA`. False positive removed; takes the plugin's
+    // `\b`-anchored alias.
+    engineNow: {},
+  },
+  {
+    id: ".js source file",
+    files: { "a.js": 'import { fromJs } from "#common/fromjs.js";\n' },
+    registryBefore: {},
+    pluginBefore: { "common/fromjs": ["fromJs"] },
+    // Registry walked `.ts` only. foliplus/js has no .js file today, so this is
+    // inert; the union keeps both predecessors' behavior reachable.
+    engineNow: { "common/fromjs": ["fromJs"] },
+  },
+  {
+    id: "star import of #foliplus",
+    files: {
+      "a.ts":
+        'import * as BC from "#foliplus/BaseControl.js";\nconst c = BC.BaseControl;\n',
+    },
+    registryBefore: {},
+    pluginBefore: { "foliplus/BaseControl": ["BaseControl"] },
+    // Registry's star regex only allowed `#common|#core`. Takes the plugin.
+    engineNow: { "foliplus/BaseControl": ["BaseControl"] },
+  },
+  {
+    id: "dot-dir source",
+    files: { ".hidden/x.ts": 'import { hidden } from "#common/hidden.js";\n' },
+    registryBefore: { "common/hidden": ["hidden"] },
+    pluginBefore: {},
+    // Registry recursed into dot-dirs, which would pull caches and `.git` into
+    // the scan. No dot-dir exists under foliplus/js today. Takes the plugin.
+    engineNow: {},
+  },
+];
+
+describe("divergences — engine takes the better of the two predecessors", () => {
+  it.each(DIVERGENCES)("$id", ({ files, engineNow }) => {
+    const { named, starUsed } = scanSharedImports(freshDir(files));
+    expect(canonMap(named, starUsed)).toEqual(engineNow);
+  });
+
+  it("every engine value was produced by at least one predecessor", () => {
+    for (const row of DIVERGENCES) {
+      const matches = (other: unknown) =>
+        canonJson(row.engineNow) === canonJson(other as Record<string, string[]>);
+      expect(matches(row.registryBefore) || matches(row.pluginBefore), row.id).toBe(
+        true,
+      );
+    }
+  });
+
+  it("every row is a genuine disagreement between the two predecessors", () => {
+    for (const row of DIVERGENCES) {
+      expect(
+        canonJson(row.registryBefore) === canonJson(row.pluginBefore),
+        row.id,
+      ).toBe(false);
+    }
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// ADAPTER SEAM
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("canonicalSpec", () => {
+  it("strips the hash, the .js extension and a trailing /index", () => {
+    expect(canonicalSpec("#core/geo/index.js")).toBe("core/geo");
+    expect(canonicalSpec("#common/dom.js")).toBe("common/dom");
+    expect(canonicalSpec("#foliplus/BaseControl.js")).toBe("foliplus/BaseControl");
+    expect(canonicalSpec("#core/index.js")).toBe("core");
+    expect(canonicalSpec("#core/layer/api.js")).toBe("core/layer/api");
+  });
+
+  it("passes an unrecognized extension through unchanged (as the predecessors did)", () => {
+    // Neither predecessor rewrote a `.ts` specifier. generateRegistry never sees
+    // the result: it enumerates the on-disk module list and looks each name up
+    // in the scan output, so a key like `core/geo/index.ts` matches nothing and
+    // is dropped. Not widened here — no source in the tree uses this form.
+    expect(canonicalSpec("#core/geo/index.ts")).toBe("core/geo/index.ts");
+  });
+});
+
+describe("parseImportNames", () => {
+  it("keeps the module-side name, drops `type` members", () => {
+    expect(parseImportNames(" foo, bar as b, type T ")).toEqual(["foo", "bar"]);
+    expect(parseImportNames("single")).toEqual(["single"]);
+    expect(parseImportNames(" type A, type B ")).toEqual([]);
+    expect(parseImportNames("")).toEqual([]);
+  });
+
+  it("splits `as` on any whitespace run, not the literal ' as '", () => {
+    expect(parseImportNames(" a as\ta ")).toEqual(["a"]);
+    expect(parseImportNames(" a  as  b ")).toEqual(["a"]);
+  });
+
+  it("is the mirror image of the plugin's exportNames (opposite `as` side)", () => {
+    // `import { a as b }` needs the module export `a`; `export { a as b }`
+    // publishes the alias `b`. One shared helper would be a live bug, so keep
+    // them separate and pin the distinction here.
+    expect(parseImportNames("a as b")).toEqual(["a"]);
+    expect(exportNames("a as b")).toEqual(["b"]);
+  });
+});
+
+describe("collectSources", () => {
+  it("walks .ts and .js, skips .d.ts and dot-dirs", () => {
+    const dir = freshDir({
+      "a.ts": "1",
+      "b.js": "2",
+      "c.d.ts": "3",
+      "sub/deep.ts": "4",
+      ".cache/dot.ts": "5",
+    });
+    const sources = collectSources(dir);
+    expect(sources.sort()).toEqual(["1", "2", "4"]);
+  });
+
+  it("returns [] for a missing directory instead of throwing", () => {
+    expect(collectSources(join(sandbox, "does-not-exist"))).toEqual([]);
+  });
+});
