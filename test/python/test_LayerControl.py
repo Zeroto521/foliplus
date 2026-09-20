@@ -2536,9 +2536,7 @@ class TestLayerControlBrowser:
             assert result["afterUnregister"] == {
                 "opacity": 0.35,
                 "overrides": ["opacity"],
-            }, (
-                f"unregister erased a value it had no right to drop: {result}"
-            )
+            }, f"unregister erased a value it had no right to drop: {result}"
 
             # The explicit path is what drops it -- and only it.
             assert result["deleteError"] is None, (
