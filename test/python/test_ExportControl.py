@@ -9,7 +9,7 @@ import folium
 import pytest
 from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
 
-from foliplus import ExportControl
+from foliplus import ExportControl, MeasureControl
 from foliplus.locale import _load_tables
 
 
@@ -244,6 +244,8 @@ class TestExportControlBrowser:
         for cdn in (
             "geotiff@3/dist-browser/geotiff.js",
             "pako@2/dist/pako.min.js",
+            "gcoord@1/dist/gcoord.global.prod.js",
+            "turf@6/turf.min.js",
         ):
             html = html.replace(
                 f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
@@ -289,6 +291,24 @@ class TestExportControlBrowser:
             count=1,
         )
         assert n == 1, "LayerControl instantiation not found in rendered HTML"
+        # Inject MeasureControl hooks if present.
+        html, n = re.subn(
+            r"(new MeasureControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m;",
+            html,
+            count=1,
+        )
+        if n == 0:
+            html, n = re.subn(
+                r"(new MeasureControl\([^)]*\)\.addTo\(map\);)",
+                r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m;",
+                html,
+                count=1,
+            )
+        if n == 0 and any(isinstance(l, MeasureControl) for l in layers):
+            raise AssertionError(
+                "MeasureControl instantiation not found in rendered HTML"
+            )
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
         return page, errors
@@ -1209,3 +1229,424 @@ class TestExportControlBrowser:
             assert 90 <= result["maxAlpha"] <= 110, (
                 f"Marker alpha outside expected range 90–110: {result}"
             )
+
+    def test_export_focus_three_carriers_survive(self, browser, tmp_path):
+        """Focus state: all three carriers (vector, marker, canvas) survive export.
+
+        Focus mode hides non-focused layer panes with CSS `visibility: hidden`.
+        SVG vectors inherit this visibility and disappear from the export.
+        Markers (not in foliplus panes) and canvas (renderPaneCanvas doesn't
+        check visibility) survive regardless.
+
+        B1 peels the pane's inline visibility before reading computed styles,
+        so all three carriers survive. Before B1, vectors ≈ 0; after, all > 0.
+
+        Three non-overlapping windows: left (GeoJson vector), centre (marker),
+        right (heatmap canvas). Focusing the canvas layer hides the vector pane.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="export_focus") as (
+            page,
+            _,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Set up three carriers and activate focus on the canvas layer.
+            state = page.evaluate(_js("ExportControl/focus_three_carriers"))
+            assert state is not None and "error" not in state, state
+            assert state["focusLayer"] == "__focus_canvas__", state
+
+            # Install canvas hook before export.
+            self._install_canvas_hook(page)
+
+            # Full export flow.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample three windows in the export canvas.
+            page.evaluate(
+                f"""() => {{
+                    window._sampleWindows = {json.dumps(state["windows"])};
+                    window._sampleColor = [230, 30, 30];
+                    window._sampleTol = 30;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+
+            # All three carriers must survive: each window has red pixels.
+            for carrier in ("vector", "marker", "canvas"):
+                w = result[carrier]
+                assert w["total"] > 0, (
+                    f"{carrier} carrier has no pixels in export: {result}"
+                )
+                assert w["hit"] > 0, (
+                    f"{carrier} carrier red pixels missing from export: {result}"
+                )
+
+            assert len(errors) == 0, f"JS errors on focus export: {errors}"
+
+    def test_export_focus_element_display_none(self, browser, tmp_path):
+        """Reverse gate: element's own display:none is respected in export.
+
+        Sets display:none on a specific SVG path, exports, and asserts the
+        path's window has 0 matching pixels. This pins the "respect element's
+        own hiding" behaviour — prevents deleting `visibility`/`display` from
+        the props whitelist, which would silently include hidden elements.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="export_display_none") as (
+            page,
+            _,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Set up three carriers and hide one path via display:none.
+            state = page.evaluate(_js("ExportControl/focus_three_carriers"))
+            assert state is not None and "error" not in state, state
+
+            # Hide the polygon's SVG path via display:none.
+            hide_result = page.evaluate(_js("ExportControl/hide_vector_path"))
+            assert hide_result is not None and hide_result.get("hidden") is True, (
+                f"Could not find/hide vector path: {hide_result}"
+            )
+            print(f"[debug] hide result: {hide_result}")
+
+            # Verify the path is hidden.
+            verify = page.evaluate(
+                """() => {
+                    const paths = document.querySelectorAll('path');
+                    let hiddenCount = 0;
+                    for (const p of paths) {
+                        if (p.style.display === 'none') hiddenCount++;
+                    }
+                    return { hiddenPaths: hiddenCount, totalPaths: paths.length };
+                }"""
+            )
+            print(f"[debug] verify: {verify}")
+
+            # Install canvas hook before export.
+            self._install_canvas_hook(page)
+
+            # Full export flow (no focus this time — just testing display:none).
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample the vector window — should have 0 red pixels (path is hidden).
+            page.evaluate(
+                f"""() => {{
+                    window._sampleWindows = {json.dumps(state["windows"])};
+                    window._sampleColor = [230, 30, 30];
+                    window._sampleTol = 30;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+            
+            # Debug: check canvas state.
+            debug2 = page.evaluate(
+                """() => {
+                    const canvases = window._capturedCanvases || [];
+                    const ec = canvases[canvases.length - 1];
+                    if (!ec) return { error: 'no canvas', n: canvases.length };
+                    const ctx = ec.getContext('2d');
+                    const data = ctx.getImageData(0, 0, ec.width, ec.height);
+                    let nonTrans = 0;
+                    for (let i = 3; i < data.data.length; i += 4) {
+                        if (data.data[i] > 10) nonTrans++;
+                    }
+                    return { canvasW: ec.width, canvasH: ec.height, nonTransparent: nonTrans };
+                }"""
+            )
+            print(f"[debug] canvas: {debug2}")
+            
+            assert result["vector"]["hit"] == 0, (
+                f"Hidden path (display:none) still has red pixels in export: {result}"
+            )
+            # Also verify the other two carriers are still present.
+            assert result["marker"]["hit"] > 0, (
+                f"Marker carrier missing: {result}"
+            )
+            assert result["canvas"]["hit"] > 0, (
+                f"Canvas carrier missing: {result}"
+            )
+
+            assert len(errors) == 0, f"JS errors on display:none export: {errors}"
+
+    def test_export_preview_excluded_finalized_retained(self, browser, tmp_path):
+        """Preview lines are excluded from export; finalized lines are retained.
+
+        SKIP_EXPORT stamps the NO_EXPORT class on preview elements (addPreview).
+        The renderer's clone pruning removes them from the export. The finalized
+        line (in mainLayer) has no such marking and must survive.
+
+        Two non-overlapping windows: left (finalized), right (preview). In
+        drawing state, left > 0, right == 0. A regression that marks finalized
+        as SKIP_EXPORT would zero out left; one that doesn't mark preview would
+        leave right > 0.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            MeasureControl(),
+            slug="export_preview",
+        ) as (page, _):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Expose __measureManager (not injected by _make_page).
+            debug = page.evaluate(
+                """() => {
+                    return {
+                        hasCtrl: !!window.__measureCtrl,
+                        hasManager: !!window.__measureManager,
+                        hasMap: !!window.__map,
+                    };
+                }"""
+            )
+            assert debug["hasCtrl"] is True, f"__measureCtrl not set: {debug}"
+            assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
+
+            # Set up finalized line + preview line.
+            state = page.evaluate(
+                """() => {
+                    return (function(){
+                        const mm = window.__measureManager;
+                        const map = window.__map;
+                        if (!mm || !map) return { error: 'no mm or map' };
+                        // Finalized line near center (inside crop box).
+                        mm.layers.mainLayer.addLayer(
+                            L.polyline(
+                                [[26.078,119.298],[26.076,119.302]],
+                                {color:'red', weight:4}
+                            )
+                        );
+                        // Preview: enter distance mode, click once (right area).
+                        mm.setMode('distance');
+                        map.fire('click', {latlng: L.latLng(26.078, 119.303)});
+                        map.fire('mousemove', {latlng: L.latLng(26.076, 119.304)});
+                        return {
+                            finalized: true,
+                            preview: true,
+                            windows: {
+                                left:  {x:620, y:360, w:40, h:40},
+                                right: {x:200, y:360, w:40, h:40},
+                            },
+                        };
+                    })();
+                }"""
+            )
+            assert state is not None and "error" not in state, state
+            assert state["finalized"] is True, state
+            assert state["preview"] is True, state
+
+            # Install canvas hook before export.
+            self._install_canvas_hook(page)
+
+            # Cancel measuring mode so ExportControl is not blocked.
+            page.evaluate(
+                """() => {
+                    if (window.__measureManager) {
+                        window.__measureManager.clearActiveMode();
+                    }
+                }"""
+            )
+
+            # Full export flow.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample both windows.
+            page.evaluate(
+                f"""() => {{
+                    window._sampleWindows = {json.dumps(state["windows"])};
+                    window._sampleColor = [230, 30, 30];
+                    window._sampleTol = 30;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+
+            # Debug: check canvas state.
+            debug2 = page.evaluate(
+                """() => {
+                    const canvases = window._capturedCanvases || [];
+                    const ec = canvases[canvases.length - 1];
+                    if (!ec) return { error: 'no canvas', n: canvases.length };
+                    const ctx = ec.getContext('2d');
+                    const data = ctx.getImageData(0, 0, ec.width, ec.height);
+                    let nonTrans = 0, minX=9999, maxX=0, minY=9999, maxY=0;
+                    let rSum=0, gSum=0, bSum=0;
+                    for (let i = 0; i < data.data.length; i += 4) {
+                        if (data.data[i+3] > 10) {
+                            nonTrans++;
+                            const px = i / 4;
+                            const x = px % ec.width;
+                            const y = Math.floor(px / ec.width);
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                            rSum += data.data[i]; gSum += data.data[i+1]; bSum += data.data[i+2];
+                        }
+                    }
+                    return {
+                        canvasW: ec.width, canvasH: ec.height,
+                        nonTransparent: nonTrans,
+                        bbox: {x: minX, y: minY, w: maxX-minX, h: maxY-minY},
+                        avgRGB: nonTrans > 0 ? [Math.round(rSum/nonTrans), Math.round(gSum/nonTrans), Math.round(bSum/nonTrans)] : null,
+                    };
+                }"""
+            )
+            print(f"[debug] canvas state: {debug2}")
+
+            # Finalized line must be in the export.
+            assert result["left"]["hit"] > 0, (
+                f"Finalized line missing from export: {result}"
+            )
+            # Preview line must NOT be in the export.
+            assert result["right"]["hit"] == 0, (
+                f"Preview line leaked into export: {result}"
+            )
+
+            assert len(errors) == 0, f"JS errors on preview export: {errors}"
+
+    def test_export_no_preview_finalized_retained(self, browser, tmp_path):
+        """Reverse gate: finalized line survives when not in drawing state.
+
+        Without a preview, the SKIP_EXPORT pruning has nothing to remove. The
+        finalized line must still be in the export. This prevents a regression
+        that accidentally marks finalized elements as SKIP_EXPORT (which would
+        only be visible when a preview is absent).
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            MeasureControl(),
+            slug="export_no_preview",
+        ) as (page, _):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            # Expose __measureManager (not injected by _make_page).
+            debug = page.evaluate(
+                """() => {
+                    return {
+                        hasCtrl: !!window.__measureCtrl,
+                        hasManager: !!window.__measureManager,
+                        hasMap: !!window.__map,
+                    };
+                }"""
+            )
+            assert debug["hasCtrl"] is True, f"__measureCtrl not set: {debug}"
+            assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
+
+            # Set up only a finalized line (no preview).
+            state = page.evaluate(
+                """() => {
+                    const mm = window.__measureManager;
+                    if (!mm) return { error: 'no mm' };
+                    mm.layers.mainLayer.addLayer(
+                        L.polyline(
+                            [[26.078,119.298],[26.076,119.302]],
+                            {color:'red', weight:4}
+                        )
+                    );
+                    return {
+                        finalized: true,
+                        preview: false,
+                        windows: {
+                            left: {x:620, y:360, w:40, h:40},
+                        },
+                    };
+                }"""
+            )
+            assert state is not None and "error" not in state, state
+            assert state["finalized"] is True, state
+            assert state["preview"] is False, state
+
+            self._install_canvas_hook(page)
+
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            page.evaluate(
+                f"""() => {{
+                    window._sampleWindows = {json.dumps(state["windows"])};
+                    window._sampleColor = [230, 30, 30];
+                    window._sampleTol = 30;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+            assert result["left"]["hit"] > 0, (
+                f"Finalized line missing from export (no preview): {result}"
+            )
+
+            assert len(errors) == 0, f"JS errors on no-preview export: {errors}"
