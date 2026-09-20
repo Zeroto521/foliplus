@@ -1143,6 +1143,8 @@ describe("absolute floor", () => {
     expect(out.split("\n")[0]).toBe("0");
     expect(out).toContain("below the absolute bar");
     expect(out).toContain("a.min.js");
+    // The bar is stated in bytes, so the growth it was held against is too.
+    expect(out).toMatch(/a\.min\.js: \+\d+ B \(/);
     // Neither the breach listing nor the "almost there" warning may fire — that
     // pair is what reads as "fix this" to the next person.
     expect(out).not.toContain("exceeded threshold");

@@ -138,7 +138,7 @@ const SPEC = {
   threshold: {
     type: "number",
     default: DEFAULT_THRESHOLD,
-    desc: "Max growth before failing, in % — the growth must also exceed the absolute floor",
+    desc: `Max growth before failing, in % — growth must also exceed the ${MIN_GROWTH_BYTES} B floor`,
   },
   enforce: {
     type: "bool",
@@ -178,6 +178,14 @@ const fmtDelta = (curr, prev) => {
   const d = curr - prev;
   return (d > 0 ? "+" : "") + (d / 1024).toFixed(2) + " KB";
 };
+// In bytes: the floor is stated in bytes, so the growth it was held against
+// must be too. A 7 B change reads "+0.01 KB" in the table above, which drops
+// the number that actually decides the verdict.
+const fmtDeltaBytes = (curr, prev) => {
+  if (curr == null || prev == null) return "—";
+  const d = curr - prev;
+  return (d > 0 ? "+" : "") + d + " B";
+};
 const fmtPct = (curr, prev) => {
   if (curr == null || !prev) return "—";
   const p = ((curr - prev) / prev) * 100;
@@ -192,7 +200,9 @@ const fmtPct = (curr, prev) => {
  *  `trivial` sits between `low` and `up`: growth that is positive and visible
  *  but under `MIN_GROWTH_BYTES`, so it can neither gate the build nor draw the
  *  low-margin warning. A shrink is never `trivial` — a decrease is news at any
- *  size, and it cannot gate regardless. */
+ *  size, and it cannot gate regardless. It also needs a computable percentage,
+ *  so a growth off a zero-size baseline falls through to `up`; that case is
+ *  unreachable here, since a zero-size brotli output is not a bundle. */
 const statusOf = (over, low, material, pct, delta) => {
   if (over) return "over";
   if (low) return "low";
@@ -473,7 +483,9 @@ const check = (args, root = ROOT) => {
       `\n${OK}  ${underFloor.length} bundle(s) grew by less than the ${MIN_GROWTH_BYTES} B floor — below the absolute bar, so the percentage alone is not evidence and the gate does not fire:`,
     );
     for (const u of underFloor) {
-      console.log(`  ${u.file}: ${fmtDelta(u.curr, u.prev)} (${u.pct.toFixed(1)}%)`);
+      console.log(
+        `  ${u.file}: ${fmtDeltaBytes(u.curr, u.prev)} (${u.pct.toFixed(1)}%)`,
+      );
     }
   }
   if (failures.length > 0) {
