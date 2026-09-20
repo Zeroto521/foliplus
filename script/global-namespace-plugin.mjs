@@ -6,9 +6,15 @@
 //
 // KEY OPTIMIZATION: Auto-scan component source for shared-module imports,
 // then generate shims ONLY for the actually-imported names. Unused exports
-// are never declared, so they cannot appear in the bundle.
-import { existsSync, readFileSync, readdirSync } from "fs";
-import { dirname, join, resolve } from "path";
+// are never declared, so they cannot appear in the bundle. The scan itself
+// lives in script/import-scan.mjs — the same engine
+// script/scan-registry.mjs uses, so publishing and reading cannot drift.
+import { existsSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import {
+  collectSources,
+  scanSharedImports as scanSharedImportsEngine,
+} from "./import-scan.mjs";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -16,7 +22,9 @@ const NAMED_RE = /export\s*\{([^}]+)\}/g;
 const STAR_RE = /export\s*\*\s*from\s*["']([^"']+)["']/g;
 const RE_EXPORT_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
 
-/** Parse a comma-separated export list, returning exported names (respects as). */
+/** Parse a comma-separated export list, returning exported names (respects as).
+ *  `type` is a modifier (`type A`), never a prefix — `export { typeFoo }` is
+ *  a real identifier and survives. */
 const exportNames = list =>
   list
     .split(",")
@@ -25,11 +33,7 @@ const exportNames = list =>
       const m = trimmed.match(/^(.+?)\s+as\s+(.+)$/);
       return m ? m[2].trim() : trimmed;
     })
-    .filter(n => n && !n.startsWith("type"));
-
-// Matches: import { A, B } from "#core/x.js"  |  import * as X from "#common/y.js"
-const SHARED_IMPORT_RE =
-  /import\s+(?:\{([^}]+)\}|\*\s+as\s+(\w+))\s+from\s+["']#((?:core|common|foliplus)\/[^"']+)["']/g;
+    .filter(n => n && !/^type\s/.test(n));
 
 const exportCache = new Map();
 
@@ -102,62 +106,13 @@ const sharedGlobalNamespace = spec => {
   return "foliplus.common." + mod;
 };
 
-/** Recursively collect all .ts/.js sources under a directory. */
-const collectSources = (dir, out = []) => {
-  try {
-    const entries = readdirSync(dir);
-    for (const entry of entries) {
-      const fullPath = join(dir, entry);
-      if (entry.endsWith(".d.ts")) continue;
-      if (entry.endsWith(".ts") || entry.endsWith(".js")) {
-        out.push(readFileSync(fullPath, "utf-8"));
-      } else if (!entry.startsWith(".")) {
-        collectSources(fullPath, out);
-      }
-    }
-  } catch {
-    // skip unreadable dirs
-  }
-  return out;
-};
-
-/** Analyze component sources for shared-module imports and their usage.
-    Returns { used: Map<spec, Set<names>>, starUsed: Map<spec, Set<names>> }. */
+/** Engine-backed scan, in the shape this plugin has always consumed:
+ *  `{ used, starUsed }` keyed by the RAW specifier, because `onLoad` receives
+ *  exactly what esbuild resolved. `collectSources` is re-exported verbatim
+ *  from script/import-scan.mjs. */
 const scanSharedImports = dir => {
-  const sources = collectSources(dir);
-  const used = new Map();
-  const starAliases = new Map(); // local alias -> spec
-  for (const src of sources) {
-    let m;
-    while ((m = SHARED_IMPORT_RE.exec(src))) {
-      const spec = "#" + m[3];
-      if (m[2]) {
-        starAliases.set(m[2], spec);
-      } else {
-        const names = (m[1] || "")
-          .split(",")
-          .map(x => x.split(" as ")[0].trim())
-          .filter(n => n && !n.startsWith("type"));
-        if (!used.has(spec)) used.set(spec, new Set());
-        for (const n of names) used.get(spec).add(n);
-      }
-    }
-  }
-  // Second pass: find `alias.Prop` usages for star imports.
-  const starUsed = new Map();
-  for (const [alias, spec] of starAliases) {
-    const propRe = new RegExp(
-      "\\b" + alias.replace(/[$]/g, "\\$") + "\\.([A-Za-z_$][\\w$]*)",
-      "g",
-    );
-    const names = new Set();
-    for (const src of sources) {
-      let pm;
-      while ((pm = propRe.exec(src))) names.add(pm[1]);
-    }
-    if (names.size) starUsed.set(spec, names);
-  }
-  return { used, starUsed };
+  const { named, starUsed } = scanSharedImportsEngine(dir);
+  return { used: named, starUsed };
 };
 
 /** Create the plugin for a given source root. */
@@ -218,6 +173,7 @@ const globalNamespacePlugin = sourceRoot => ({
 export {
   collectExports,
   collectSources,
+  exportNames,
   globalNamespacePlugin,
   scanSharedImports,
   sharedGlobalNamespace,

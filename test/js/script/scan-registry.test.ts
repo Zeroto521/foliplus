@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { generateRegistry, scanImports } from "#script/scan-registry.mjs";
+import { generateRegistry, registryUsedExports } from "#script/scan-registry.mjs";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -29,13 +29,13 @@ function mkDir(name: string, files: Record<string, string>): string {
   return tmpDir;
 }
 
-describe("scanImports", () => {
+describe("registryUsedExports", () => {
   it("scans named imports from component files", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { dom, cssVar } from "#common/dom.js";`,
       "Component2/index.ts": `import { debounce } from "#common/debounce.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/dom"]).toContain("dom");
     expect(result["common/dom"]).toContain("cssVar");
     expect(result["common/debounce"]).toContain("debounce");
@@ -46,7 +46,7 @@ describe("scanImports", () => {
       "Component1/index.ts": `import { foo } from "#common/foo.js";`,
       "Component1/util.ts": `import { bar } from "#common/bar.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/foo"]).toContain("foo");
     expect(result["common/bar"]).toContain("bar");
   });
@@ -55,7 +55,7 @@ describe("scanImports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { type SomeType, dom } from "#common/dom.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/dom"]).toContain("dom");
     expect(result["common/dom"]).not.toContain("SomeType");
   });
@@ -73,7 +73,7 @@ describe("scanImports", () => {
         Storage.save();
       `,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/icon"]).toContain("CLOSE");
     expect(result["common/icon"]).toContain("OPEN");
     expect(result["common/storage"]).toContain("load");
@@ -90,7 +90,7 @@ describe("scanImports", () => {
         arr.length;
       `,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/icon"]).toContain("CLOSE");
     // Should NOT contain array methods
     expect(result["common/icon"]).not.toContain("forEach");
@@ -106,7 +106,7 @@ describe("scanImports", () => {
         import { EventBus } from "#core/event/index.js";
       `,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["core/component"]).toContain("COMPONENTS");
     expect(result["core/hint"]).toContain("ensureHint");
     expect(result["core/event"]).toContain("EventBus");
@@ -116,7 +116,7 @@ describe("scanImports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["foliplus/BaseControl"]).toContain("BaseControl");
   });
 
@@ -125,13 +125,13 @@ describe("scanImports", () => {
       "Component1/index.ts": `import { dom } from "#common/dom.js";`,
       "Component2/index.ts": `import { createIconButton, dom } from "#common/dom.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/dom"]).toEqual(["createIconButton", "dom"]);
   });
 
   it("handles empty directory", () => {
     const dir = mkDir("empty", {});
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result).toEqual({});
   });
 
@@ -151,7 +151,7 @@ describe("scanImports", () => {
         import { fromWgs84 as again } from "#core/index.js";
       `,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result).toEqual({
       core: ["fromWgs84"],
       "core/geo": ["fromWgs84"],
@@ -163,7 +163,7 @@ describe("scanImports", () => {
       "Component1/index.ts": `import { dom } from "#common/dom.js";`,
       "Component1/types.d.ts": `import { dom } from "#common/dom.js";`,
     });
-    const result = scanImports(dir);
+    const result = registryUsedExports(dir);
     expect(result["common/dom"]).toEqual(["dom"]);
   });
 });
