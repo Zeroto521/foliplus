@@ -11,6 +11,7 @@ from conftest import (
     _js,
     assert_config_value,
     assert_locale,
+    heatmap_ready,
     make_browser_page,
     panel_ready,
     read_css,
@@ -22,7 +23,7 @@ from conftest import (
 )
 from folium import Element
 
-from foliplus import LayerControl
+from foliplus import HeatmapControl, LayerControl
 
 
 class TestLayerControlPython:
@@ -2287,16 +2288,14 @@ class TestLayerControlBrowser:
                 )
 
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
-        """Layers registered at runtime get pruned from the hidden set after a
-        reload -- they have no registry entry to prove they are coming back.
+        """A hidden layer that re-registers later comes back hidden, not reset.
 
         HeatmapControl and MeasureControl register in their own constructor,
         which runs after the LayerControl IIFE has attached, so a hidden id can
-        precede its row. The prune keeps ids that are still live (registry or
-        pending) and drops the rest, and it must not resurrect a dropped id
-        when the component re-registers later: that id stays pruned for the
-        lifetime of the session, which is the trade the prune makes to stay
-        bounded.
+        precede its row. The reload must leave the stored record alone -- a
+        missing registry entry is not evidence that the state should go, only
+        a delete is -- so when the component re-registers the layer returns the
+        way the user left it instead of resurrecting visible.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
@@ -2336,37 +2335,219 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # The probes were only registered at runtime, so they are gone
-            # until re-registered -- and their ids have been pruned along with
-            # them, because no registry entry survived the reload.
+            # until re-registered -- and their ids survive the reload in
+            # storage: nothing pruned them merely because their registry
+            # entries did not.
             rows = page.evaluate(_js("LayerControl/read_hidden_state"))
             assert len(rows["rows"]) == 1, f"expected 1 row, got {rows}"
             assert rows["rows"][0]["checked"] is False
             assert rows["rows"][0]["visible"] is False
             assert rows["rows"][0]["onMap"] is False
+            key = next(k for k in rows["storage"] if "layer_state" in k)
+            layers = json.loads(rows["storage"][key]).get("layers", {})
+            assert {lid for lid in layers if lid.startswith("__probe")} == {
+                "__probeA__",
+                "__probeB__",
+            }, f"reload pruned ids it had no right to drop: {rows['storage']}"
+            for lid in ("__probeA__", "__probeB__"):
+                assert layers[lid]["visible"] is False, (
+                    f"{lid}: reload changed a stored hidden state: {rows['storage']}"
+                )
 
             page.evaluate(_js("LayerControl/register_hidden_probes"))
             page.wait_for_timeout(300)
 
-            # Re-registration must not resurrect the pruned ids: the probes
-            # come back visible, and the pruned ids stay out of storage.
+            # Re-registration restores the stored state instead of resetting
+            # it: the probes come back off the map, unchecked, and the three
+            # projections of their state still agree.
             rows = page.evaluate(_js("LayerControl/read_hidden_state"))
             assert len(rows["rows"]) == 3, f"expected 3 rows, got {rows}"
             for row in rows["rows"]:
                 if row["id"].startswith("__probe"):
-                    assert row["checked"] is True, (
-                        f"{row['id']}: pruned id resurrected across re-register\n{rows}"
+                    assert row["checked"] is False, (
+                        f"{row['id']}: re-register reset a stored hidden state\n{rows}"
                     )
-                    assert row["visible"] is True, (
-                        f"{row['id']}: registry revived a pruned id\n{rows}"
+                    assert row["visible"] is False, (
+                        f"{row['id']}: registry lost a stored hidden state\n{rows}"
                     )
-                    assert row["onMap"] is True, (
-                        f"{row['id']}: re-entered the map while pruned\n{rows}"
+                    assert row["onMap"] is False, (
+                        f"{row['id']}: re-entered the map while hidden\n{rows}"
                     )
-            key = next(k for k in rows["storage"] if "layer_state" in k)
-            record = json.loads(rows["storage"][key])
-            layers = record.get("layers", {})
-            assert all(not lid.startswith("__probe") for lid in layers), (
-                f"pruned ids persisted again: {rows['storage']}"
+
+    def test_late_layer_opacity_survives_reload(self, browser, tmp_path):
+        """A lazily-registered layer keeps its stored opacity across a reload.
+
+        HeatmapControl registers its canvas in its own constructor, which runs
+        after the LayerControl IIFE has already attached the panel. On the
+        first attach the heatmap's id is therefore unresolvable, and the sweep
+        used to read that as "the layer is gone for good": it dropped the
+        stored opacity from memory and wrote the deletion back, so every
+        refresh reset the user's opacity to the author default. Nothing in the
+        page says the layer is gone -- only a delete does -- so a reload must
+        not touch the record at all.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html = m.get_root().render()
+        match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+        assert match, "map variable not found in rendered HTML"
+        # The visit under test is the reload: seed the record the previous
+        # visit would have written (heatmap at 35%), then re-read it. The
+        # heatmap id is the stable component id, not a per-map suffix.
+        seed = {
+            "order": None,
+            "foldedGroups": [],
+            "renamedNames": {},
+            "annotations": {},
+            "layers": {
+                "foliplus_heatmap": {
+                    "opacity": 0.35,
+                    "overrides": ["opacity"],
+                }
+            },
+        }
+
+        html_path = tmp_path / "test_late_layer_opacity_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.add_init_script(
+                f"localStorage.setItem("
+                f"'foliplus_layer_state_{match.group(1)}', "
+                f"{json.dumps(json.dumps(seed))});"
+            )
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            # The value the previous visit wrote must still be in storage.
+            after_attach = page.evaluate(_js("LayerControl/read_opacity_state"))
+            assert after_attach.get("id"), f"heatmap row missing: {after_attach}"
+            assert after_attach["stored"] == 0.35, (
+                f"attach dropped the stored opacity: {after_attach}"
+            )
+            assert after_attach["overrides"] == ["opacity"], (
+                f"attach dropped the stored provenance: {after_attach}"
+            )
+            assert after_attach["canvasRegistered"] is True, (
+                f"heatmap canvas never registered: {after_attach}"
+            )
+            assert after_attach["canvasOpacity"] == "0.35", (
+                f"attach reset the canvas to the author default: {after_attach}"
+            )
+
+            # And the user can still move the slider, then survive a reload.
+            set_result = page.evaluate(_js("LayerControl/set_heatmap_opacity"))
+            assert set_result.get("id"), f"could not set opacity: {set_result}"
+            assert set_result["value"] == 35, f"slider did not take 35: {set_result}"
+            page.wait_for_timeout(300)
+
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            after_reload = page.evaluate(_js("LayerControl/read_opacity_state"))
+            assert after_reload.get("id"), f"heatmap row missing: {after_reload}"
+            assert after_reload["stored"] == 0.35, (
+                f"reload reverted the user's opacity to the author default: "
+                f"{after_reload}"
+            )
+            assert after_reload["overrides"] == ["opacity"], (
+                f"reload dropped the stored provenance: {after_reload}"
+            )
+            assert after_reload["canvasOpacity"] == "0.35", (
+                f"reload painted the canvas at the author default: {after_reload}"
+            )
+
+    def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
+        """unregisterLayer never erases a value; only an explicit delete does.
+
+        The heatmap's empty-data frame reaches unregisterLayer the same way
+        this probe does, so the teardown that drops a stored opacity would
+        have fired on a data change -- the user would see "I only switched the
+        data source, why did my opacity reset?" Deleting the layer is the one
+        action that knows the id is gone for good.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_unregister_keeps_opacity.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(200)
+
+            result = page.evaluate(_js("LayerControl/canvas_unregister_keeps_state"))
+            assert result.get("afterSet"), f"probe did not reach the write: {result}"
+            assert result["afterSet"] == {
+                "opacity": 0.35,
+                "overrides": ["opacity"],
+            }, f"slider write did not persist: {result}"
+
+            # The layer is gone from the map and the panel...
+            assert result["registeredAfterUnregister"] is False, (
+                f"unregister did not remove the layer: {result}"
+            )
+            # ...but the stored opacity is untouched, and the registry did not
+            # keep a row for it either.
+            assert result["afterUnregister"] == {
+                "opacity": 0.35,
+                "overrides": ["opacity"],
+            }, f"unregister erased a value it had no right to drop: {result}"
+
+            # The explicit path is what drops it -- and only it.
+            assert result["deleteError"] is None, (
+                f"deleteLayer raised: {result['deleteError']}"
+            )
+            assert result["deleteReturn"] is True, f"deleteLayer failed: {result}"
+            assert result["afterDelete"] is None, (
+                f"delete did not drop the stored value: {result}"
+            )
+            assert result["registeredAfterDelete"] is False, (
+                f"delete left the layer registered: {result}"
             )
 
     def test_fold_toggle_hides_overlay_items(self, browser, tmp_path):
@@ -3930,6 +4111,169 @@ class TestLayerControlBrowser:
             assert result["rowHighlighted"] is True, (
                 f"row not highlighted, got {result}"
             )
+
+    def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):
+        """The focus overlay pane carries both the base and exclusion classes.
+
+        Every foliplus-owned pane goes through ``PaneManager.ensurePane``, so
+        the overlay pane carries ``foliplus-layer-pane`` — the semantic marker
+        that the pane belongs to us and the interaction rules in focus.css
+        apply uniformly. The focused-layer rule
+        ``.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)``
+        would hide it too without the exclusion tag, so ``drawFocusMask`` adds
+        ``foliplus-focus-pane`` alongside the base class. This gate reads the
+        pane as the code left it, then toggles the exclusion class to prove
+        the risk is real (dropping the tag collapses the spotlight).
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="focus_overlay_pane",
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/focus_overlay_pane_hides_with_base_class")
+            )
+            assert result is not None and result.get("pane") is True, (
+                f"focus overlay pane missing after dblclick: {result}"
+            )
+            assert result["focusActive"] is True, (
+                f"container must carry foliplus-focus-active during focus: {result}"
+            )
+            state = result["state"]
+            assert state["base"] is True, (
+                "the focus overlay pane must carry the base "
+                f"foliplus-layer-pane class: {state}"
+            )
+            assert state["exclusion"] is True, (
+                "the focus overlay pane must carry the foliplus-focus-pane "
+                f"exclusion tag so the spotlight is not hidden: {state}"
+            )
+            assert state["visibility"] == "visible", (
+                f"the spotlight pane must stay visible during focus: {state}"
+            )
+            # Q2 gate: the overlay pane is not in childPaneSpecs, so
+            # ensurePane skips its provisional-z branch and drawFocusMask pins
+            # FOCUS_Z.overlay itself. Assert the pin held AND that no other
+            # owned pane has climbed to or above it — otherwise the mask would
+            # be covered by a data layer and the dim would be silent.
+            assert state["zIndex"] == "9000", (
+                f"focus overlay pane must sit at FOCUS_Z.overlay (9000), got "
+                f"{state['zIndex']!r}"
+            )
+            assert result["maxPeerZ"] < 9000, (
+                "no other foliplus-layer-pane may sit at or above the focus "
+                f"overlay pane (highest peer z={result['maxPeerZ']})"
+            )
+            # Risk 1, proven: base class alone would hide the pane.
+            assert result["withoutExclusion"] == "hidden", (
+                "dropping the exclusion tag must hide the overlay pane — this is "
+                f"the risk the exclusion tag neutralises: {result}"
+            )
+            assert result["restored"] == "visible", (
+                f"restoring the tag must make the pane visible again: {result}"
+            )
+
+    def test_focus_overlay_pane_click_through(self, browser, tmp_path):
+        """The focus overlay pane must not intercept pointer events.
+
+        The base ``foliplus-layer-pane`` class carries ``pointer-events: none``
+        from focus.css, so the pane div — which the SVG renderer fills across
+        the whole map while a focus is live — never eats a click. Without the
+        base class the div defaults to ``auto`` and, sitting above every other
+        layer pane, it blocks every hit on the focused layer's own features
+        during focus: a silent regression the previous shape of the pane
+        produced. This gate pins the CSS invariant directly: drop the base
+        class (or the rule) and the assertion fires.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="focus_overlay_click",
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/focus_overlay_pane_click_through"))
+            assert result is not None and result.get("pane") is True, (
+                f"focus overlay pane missing after dblclick: {result}"
+            )
+            assert result["panePointerEvents"] == "none", (
+                "the focus overlay pane div must inherit pointer-events: none "
+                f"from the base class, got {result['panePointerEvents']!r}"
+            )
+
+    def test_focus_overlay_renderer_lifecycle(self, browser, tmp_path):
+        """Each focus owns exactly one SVG renderer in the overlay pane.
+
+        ``L.svg({ pane })`` builds a fresh renderer that mounts its own ``<svg>``
+        into the pane, which lives for the whole map's life. ``dismissFocus``
+        uses the public Leaflet teardown path (``map.removeLayer`` on the
+        renderer), so every focus cycle must leave the pane empty — the pane
+        itself persists (ensurePane memoises it), the renderer does not. The
+        control-teardown path (``removeControl`` + ``addControl`` on the same
+        control, documented in CLAUDE.md) runs ``dismissFocus`` inside
+        ``unbindEvents``, so an in-flight focus must not outlive the removal.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            slug="focus_overlay_lifecycle",
+        ) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/focus_overlay_renderer_lifecycle"))
+            assert result is not None and result.get("ctrl") is True, (
+                f"lifecycle probe failed to run: {result}"
+            )
+            assert result["before"] == 0, (
+                f"the overlay pane should start empty: {result}"
+            )
+            # One renderer per focus, cleanly removed on cancel.
+            for cycle in result["cycles"]:
+                assert cycle["row"] is True, f"missing row for {cycle['id']}: {cycle}"
+                assert cycle["svg"] == 1, (
+                    f"focus should mount exactly one SVG renderer: {cycle}"
+                )
+                assert cycle["rendererLive"] is True, cycle
+                assert cycle["after"]["svg"] == 0, (
+                    f"cancel must remove the SVG renderer — a non-zero count is a "
+                    f"leak: {cycle}"
+                )
+                assert cycle["after"]["rendererNull"] is True, cycle
+            teardown = result["teardown"]
+            assert teardown["svgAtRemove"] == 1, (
+                f"an in-flight focus must hold one SVG at the moment of "
+                f"removeControl: {teardown}"
+            )
+            assert teardown["svgAfterRemove"] == 0, (
+                f"removeControl must dismiss the in-flight focus, leaving no "
+                f"leaked renderer: {teardown}"
+            )
+            assert teardown["svgAfterAdd"] == 0, (
+                f"addControl must not resurrect the removed renderer: {teardown}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_plain_marker_layers_count_and_stay_stable(self, browser, tmp_path):
         """A plain folium.Marker (no GeoJSON .feature) counts as a point feature.

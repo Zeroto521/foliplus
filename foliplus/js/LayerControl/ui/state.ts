@@ -138,8 +138,19 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  * it goes through `applyNameProjection`, which writes only where the
  * projection still differs —a repeated pass is therefore a no-op.
  *
- * The sweep also prunes ids whose layers no longer exist so stale
- * persistence doesn't accumulate.
+ * The sweep is a pure projection: it never prunes and never writes back.
+ * A persisted id with no registry entry is *ignored*, not treated as
+ * evidence that its stored state should go. That distinction is the whole
+ * point —HeatmapControl and MeasureControl register in their own
+ * constructor, which runs after this UI has attached, so on the first
+ * attach their ids are unresolvable. Deleting them there (and writing the
+ * deletion back to storage) would discard the user's stored opacity, zoom
+ * range, and visibility on every reload: the exact symptom of the layer
+ * coming back at its author default after a refresh.
+ *
+ * Dropping a stored value is an explicit-user-action concern, and it is
+ * {@link dropPersistedLayerState}: "delete this layer", or the per-dimension
+ * reset that reduces to {@link unmarkOverride}. Nothing else calls it.
  *
  * @param {string} [id] Restrict to one layer id —a late-arriving row is
  *   already rendered with the right label, so it only needs its registry
@@ -155,7 +166,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
 
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // stale id —pruned by persistence on save
+    if (!layerInfo) return; // not registered yet —its stored state is kept
     // Both projections are membership-guarded —this path runs for every
     // late registration, including layers the user never touched. A layer
     // that was never hidden must not be hidden, and a missing rename is a
@@ -194,7 +205,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
         continue;
       }
       const layerInfo = registry.get(layerId);
-      if (!layerInfo) continue; // stale id —pruned by persistence on save
+      if (!layerInfo) continue; // not registered yet —its stored state is kept
       applyNameProjection(
         layerInfo,
         container?.querySelector(
@@ -204,7 +215,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       );
     }
     const layerInfo = registry.get(layerId);
-    if (!layerInfo) continue; // stale id —pruned by persistence on save
+    if (!layerInfo) continue; // not registered yet —its stored state is kept
     if (layerId in ui.opacityMap) {
       applyOpacityStateOne(ui, layerInfo, ui.opacityMap[layerId]);
     }
@@ -214,36 +225,34 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     }
   }
 
-  // Prune ids whose layers are gone for good, so the record cannot grow
-  // without bound. Live means "in the registry or still queued in
-  // pendingRegistrations" —attachUI drains that queue before this sweep, so
-  // neither implies a layer that will come back. The cost is a third-party
-  // layer hidden and re-registered on a later activation: it re-enters
-  // visible rather than coming back hidden. Value and provenance are pruned in
-  // one pass so the record never keeps an override for a layer it no longer
-  // records a value for; the write can only drop ids that stopped resolving,
-  // so nothing live is lost even though this runs before initLayerItem has
-  // corrected any checkbox.
-  const pending = new Set(ui.m.pendingRegistrations.map(li => li.id));
-  const stillPresent = (layerId: string) =>
-    registry.get(layerId) != null || pending.has(layerId);
-  const gone = new Set(
-    [
-      ...ui.hiddenIds,
-      ...Object.keys(ui.opacityMap),
-      ...Object.keys(ui.zoomRangeMap),
-      ...Object.keys(ui.userOverrides),
-    ].filter(layerId => !stillPresent(layerId)),
-  );
-  if (gone.size > 0) {
-    ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => !gone.has(layerId)));
-    for (const layerId of gone) {
-      delete ui.opacityMap[layerId];
-      delete ui.zoomRangeMap[layerId];
-      delete ui.userOverrides[layerId];
-    }
-    saveState(ui);
-  }
+  // Deliberately no prune here. An unresolvable id is not proof of absence —
+  // it may be a component that registers later, and the id space is bounded by
+  // the layers an author ever declares, so the record cannot grow away.
+  // Pruning was the one thing this sweep did that lost user work: the entry
+  // went from memory *and* storage in the same pass, so a late-registered
+  // layer (heatmap, measure) lost its stored opacity, zoom range, and
+  // visibility on the first attach of every reload.
+};
+
+/**
+ * Drop every persisted dimension for one layer —visibility, opacity, zoom
+ * range, and the provenance that says the user set them.
+ *
+ * This is the only routine that erases a stored value, and it is reachable
+ * from an explicit user action alone: "delete this layer". A layer that is
+ * merely not registered right now must keep its stored state, because the
+ * component that owns the id may register it later in this session or on the
+ * next load —{@link applyUserState} projects it then, unchanged.
+ *
+ * The value and its provenance leave together: a provenance marker with no
+ * value would be a record claiming the user chose something the record no
+ * longer holds, and {@link markOverride} refuses that combination.
+ */
+const dropPersistedLayerState = (ui: LayerUI, id: string) => {
+  ui.hiddenIds.delete(id);
+  delete ui.opacityMap[id];
+  delete ui.zoomRangeMap[id];
+  delete ui.userOverrides[id];
 };
 
 /**
@@ -472,6 +481,7 @@ export {
   markOverride,
   unmarkOverride,
   applyUserState,
+  dropPersistedLayerState,
   applyHiddenOne,
   applyHiddenStateOne,
   applyOpacityStateOne,

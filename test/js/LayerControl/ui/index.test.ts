@@ -188,6 +188,23 @@ describe("LayerUI shell — delegates", () => {
     });
   });
 
+  it("dropPersistedLayerState erases every stored dimension for one id", () => {
+    // The single routine that erases a stored value, reached only from an
+    // explicit delete — and it must not touch a neighbour's state.
+    ui.hiddenIds = new Set(["overlay1", "base1"]);
+    ui.opacityMap = { overlay1: 0.4 };
+    ui.zoomRangeMap = { overlay1: [3, 12] };
+    ui.userOverrides = { overlay1: ["visible", "opacity"] };
+
+    ui.dropPersistedLayerState("overlay1");
+
+    expect(ui.hiddenIds.has("overlay1")).toBe(false);
+    expect(ui.hiddenIds.has("base1")).toBe(true);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(ui.zoomRangeMap.overlay1).toBeUndefined();
+    expect(ui.userOverrides.overlay1).toBeUndefined();
+  });
+
   it("colorLayerName resolves the color row's display name", () => {
     expect(typeof ui.colorLayerName()).toBe("string");
   });
