@@ -11,7 +11,6 @@
 // minimal but faithful mock before importing. The mock reproduces both halves
 // of the leaky pattern: L.Control.Scale.onAdd registers `move` on the map keyed
 // to the scale instance, and setZoom fires that listener synchronously.
-
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 type EventEntry = { fn: (...args: unknown[]) => unknown; ctx: unknown };
@@ -102,11 +101,8 @@ class MockControl {
     const posEl =
       map._control[
         (this.options.position as
-          | "bottomleft"
-          | "bottomright"
-          | "topleft"
-          | "topright"
-          | undefined) ?? "bottomleft"
+          "bottomleft" | "bottomright" | "topleft" | "topright" | undefined) ??
+          "bottomleft"
       ] ?? map._control._bottomleft;
     posEl.appendChild(container);
     return this;
@@ -172,7 +168,8 @@ describe("ScaleControl inner-Leaflet-Scale teardown", () => {
   let scaleWrap: HTMLElement;
   let outerCtrl: MockControl & { destroy: () => void };
 
-  const scaleLineText = () => scaleWrap.querySelector(".leaflet-control-scale-line")?.textContent;
+  const scaleLineText = () =>
+    scaleWrap.querySelector(".leaflet-control-scale-line")?.textContent;
 
   beforeAll(async () => {
     vi.resetModules();
@@ -184,7 +181,9 @@ describe("ScaleControl inner-Leaflet-Scale teardown", () => {
 
     outerCtrl = Object.values(mockMap._control._controls)
       .map(entry => entry.instance)
-      .find(c => c.getContainer() === scaleWrap) as MockControl & { destroy: () => void };
+      .find(c => c.getContainer() === scaleWrap) as MockControl & {
+      destroy: () => void;
+    };
     expect(outerCtrl, "outer ScaleControl should be on the map").toBeDefined();
     expect(
       typeof outerCtrl.destroy,
@@ -196,9 +195,10 @@ describe("ScaleControl inner-Leaflet-Scale teardown", () => {
     const moveEntries = mockMap._events.move ?? [];
     expect(moveEntries.length).toBe(1);
     const entry = moveEntries[0];
-    expect(entry.ctx, "move listener should be owned by the inner Control.Scale").toBeInstanceOf(
-      MockScaleControl,
-    );
+    expect(
+      entry.ctx,
+      "move listener should be owned by the inner Control.Scale",
+    ).toBeInstanceOf(MockScaleControl);
     expect(entry.fn, "move listener should be scaleCtrl._update").toBe(
       (entry.ctx as MockScaleControl)._update,
     );
