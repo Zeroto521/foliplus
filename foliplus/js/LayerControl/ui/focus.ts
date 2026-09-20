@@ -391,13 +391,17 @@ const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null 
 const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
 
-  // Shared SVG renderer + pane for the mask and rectangle.
+  // Shared SVG renderer + pane for the mask and rectangle. The pane goes
+  // through PaneManager.ensurePane (the one entry every owned pane uses) so
+  // it carries the `foliplus-layer-pane` base class like every other pane;
+  // the `.foliplus-focus-pane` exclusion tag keeps the spotlight pane visible
+  // while the `.foliplus-focus-active` rule hides every other layer pane.
+  // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
+  // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusRenderer) {
-    let pane = map.getPane(CONST.FOCUS_PANE);
-    if (!pane) {
-      pane = map.createPane(CONST.FOCUS_PANE);
-      pane.style.zIndex = String(FOCUS_Z.overlay);
-    }
+    const { pane } = ui.m.panes.ensurePane(CONST.FOCUS_PANE, false);
+    pane.classList.add(CONST.CLASSES.FOCUS_PANE);
+    pane.style.zIndex = String(FOCUS_Z.overlay);
     ui.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
     ui.focusRenderer.addTo(map);
   }
