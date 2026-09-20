@@ -33,6 +33,14 @@ class GridLayer {
 
 class TileLayer extends GridLayer {}
 
+class MarkerClusterGroup {
+  options: Record<string, unknown> = {};
+}
+
+class ImageOverlay {
+  options: Record<string, unknown> = {};
+}
+
 /** A container: `eachLayer` is what makes `migrateLayers` recurse instead of
  *  treating it as a leaf. */
 class Group {
@@ -87,6 +95,9 @@ beforeEach(() => {
   window.L.Marker = Marker as unknown as typeof L.Marker;
   window.L.GridLayer = GridLayer as unknown as typeof L.GridLayer;
   window.L.TileLayer = TileLayer as unknown as typeof L.TileLayer;
+  window.L.MarkerClusterGroup =
+    MarkerClusterGroup as unknown as typeof L.MarkerClusterGroup;
+  window.L.ImageOverlay = ImageOverlay as unknown as typeof L.ImageOverlay;
   window.L.Renderer = class {} as unknown as typeof L.Renderer;
 });
 
@@ -620,5 +631,70 @@ describe("LayerSurface.destroy", () => {
     // A declared pane survives: the same id must be registrable again without
     // rebuilding its panes.
     expect(panes.graph).toBeDefined();
+  });
+});
+
+describe("LayerSurface capabilities", () => {
+  it("reports opacity none for a MarkerClusterGroup layer", () => {
+    const { map, host } = makeMap();
+    const cluster = new MarkerClusterGroup();
+    const surface = new LayerSurface(host, {
+      id: "cluster",
+      layer: cluster as unknown as L.Layer,
+    });
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.zoomRange).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+  });
+
+  it("instanceof false: L.MarkerClusterGroup is a function but layer is not an instance", () => {
+    const { map, host } = makeMap();
+    const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
+    const Ctor = function NotCluster() {} as unknown as new (
+      ...args: never[]
+    ) => unknown;
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = Ctor;
+    const layer = new Path() as unknown as L.Layer;
+    const surface = new LayerSurface(host, {
+      id: "plain",
+      layer,
+    });
+    expect(surface.capabilities.opacity).not.toBe("none");
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = saved;
+  });
+
+  it("fallback: _topClusterLevel is falsy when L.MarkerClusterGroup is undefined", () => {
+    const { map, host } = makeMap();
+    const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = undefined;
+    const layer = new Path() as unknown as L.Layer;
+    const surface = new LayerSurface(host, {
+      id: "plain2",
+      layer,
+    });
+    expect(surface.capabilities.opacity).not.toBe("none");
+    (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = saved;
+  });
+
+  it("reports native opacity and native zoomRange for a GridLayer", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "tiles",
+      layer: new GridLayer() as unknown as L.Layer,
+    });
+    expect(surface.capabilities.opacity).toBe("native");
+    expect(surface.capabilities.zoomRange).toBe("native");
+    expect(surface.capabilities.relocatable).toBe(true);
+  });
+
+  it("reports native opacity but none zoomRange for an ImageOverlay", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "overlay",
+      layer: new ImageOverlay() as unknown as L.Layer,
+    });
+    expect(surface.capabilities.opacity).toBe("native");
+    expect(surface.capabilities.zoomRange).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(true);
   });
 });

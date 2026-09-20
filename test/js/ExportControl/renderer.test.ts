@@ -621,13 +621,15 @@ describe("ExportRenderer.render — canvas creation", () => {
 //===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
+  const mockLayer = { options: { opacity: 1 } } as L.TileLayer;
+
   it("reports the cumulative tiles drawn after each batch", async () => {
     const total = CONST.TILE_CONCURRENCY * 2;
     stubBitmaps();
     const rc = makeRC(4096, 4096);
     const onProgress = vi.fn();
 
-    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), onProgress);
+    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), mockLayer, onProgress);
 
     // One report per batch, counting the tiles actually painted so far —
     // never the batch index, which would credit tiles that were still loading.
@@ -641,7 +643,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // render() does the clipping before calling, so an empty list is the only
     // way this pass starts.  The early return must not report anything.
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(100, 100), [], onProgress);
+    await makeRenderer().renderTileLayer(makeRC(100, 100), [], mockLayer, onProgress);
     expect(onProgress).not.toHaveBeenCalled();
   });
 
@@ -652,7 +654,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, onProgress);
+    await makeRenderer().renderTileLayer(
+      makeRC(1536, 512),
+      survivors,
+      mockLayer,
+      onProgress,
+    );
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -679,6 +686,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096, ctx),
       rcTiles(makeRC(4096, 4096, ctx), 2),
+      mockLayer,
       onProgress,
     );
 
@@ -694,6 +702,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), total),
+      mockLayer,
       onProgress,
     );
     // Two batches: a full one, then the single leftover tile — the last report
@@ -711,11 +720,27 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), CONST.TILE_CONCURRENCY),
+      mockLayer,
       onProgress,
     );
     // The tile was fetched and enumerated but nothing reached the canvas, so it
     // earns no progress: counting it would say the map is more done than it is.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([0]);
+  });
+
+  it("still draws every tile when no onProgress callback is passed", async () => {
+    // render() always forwards its own callback, but renderTileLayer is also
+    // reachable on its own, so the report has to stay optional.
+    const ctx = makeMockCtx();
+    stubBitmaps();
+
+    await makeRenderer().renderTileLayer(
+      makeRC(4096, 4096, ctx),
+      rcTiles(makeRC(4096, 4096, ctx), CONST.TILE_CONCURRENCY),
+      mockLayer,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(CONST.TILE_CONCURRENCY);
   });
 });
 
@@ -1079,9 +1104,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(async (_rc: any, _tiles: any, cb: any) => {
-      cb(1);
-    });
+    tileLayer.mockImplementation(
+      async (_rc: any, _tiles: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.
@@ -1301,6 +1328,26 @@ describe("ExportRenderer.renderCanvasElement", () => {
     expect(load).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies element opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
+    canvas.style.opacity = "0.5";
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
+      positionedRC(1000, 1000, ctx),
+      canvas,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 // =============================================================================
@@ -1408,6 +1455,29 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies pane opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    p.style.opacity = "0.5";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 describe("ExportRenderer.renderPaneCanvas", () => {
@@ -1481,6 +1551,27 @@ describe("ExportRenderer.renderPaneCanvas", () => {
     );
 
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("applies canvas opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    const ce = canvasEl(10, 10, 200, 200);
+    ce.style.opacity = "0.5";
+    p.appendChild(ce);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
   });
 });
 
@@ -1948,6 +2039,70 @@ describe("ExportRenderer.renderTextLabels", () => {
       restore();
     }
   });
+
+  it("draws a square text-label border using strokeRect", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const restore = withStyle({
+      backgroundColor: "rgb(10, 10, 10)",
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "rgb(255, 0, 0)",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("falls back to the background colour when the label declares no border colour", async () => {
+    // `borderColor` can be an empty string when only width and style are set;
+    // without the fallback the stroke would paint the canvas default (opaque
+    // black) over a label that asked for its own fill as the outline.
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const bg = "rgb(10, 10, 10)";
+    const restore = withStyle({
+      backgroundColor: bg,
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeStyle).toBe(bg);
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe("ExportRenderer.renderRemaining", () => {
@@ -2079,6 +2234,68 @@ describe("ExportRenderer.renderRemaining", () => {
         [root],
       );
       expect(ctx.fillRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("sets the color attribute on an inline SVG when the parent has a non-black color", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
+    root.appendChild(svg);
+    const restore = withStyle({ color: "#ff0" });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("injects xmlns into inline SVG source when the element was created without a namespace", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElement("svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElement("path"));
+    root.appendChild(svg);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a square background with a border using strokeRect", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 10, 10);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 0, 255)",
+      backgroundImage: "none",
+      borderRadius: "0px",
+      borderWidth: "2px",
+      borderStyle: "solid",
+      borderColor: "rgb(0, 0, 0)",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
     } finally {
       restore();
     }
