@@ -296,27 +296,18 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  *   - the layer's native setter (`ImageOverlay.setOpacity`, `TileLayer.options
  *     .opacity`) for the two shapes that own their own paint path.
  *   - "none": MarkerCluster's cluster icons stay in the shared `markerPane`,
- *     where `eachLayer` cannot reach them (§25.3-3); recording the intent in
- *     `layerInfo.opacity` keeps the panel row honest even though the write is
- *     a no-op.
+ *     where `eachLayer` cannot reach them (§25.3-3); no honest write exists,
+ *     so the value is not stored — a slider that writes nothing must not
+ *     persist (§6.2).
  *
  * Called from the style panel's slider and reset buttons and from the
  * count-change event (which re-fires the layer's stored opacity at the moment
  * the real geometry lands after the preview ends).
- */
-/**
- * The single write pipeline for one layer's visual state.
  *
- * Opacity and visibility converge here so a caller can never reach a carrier
- * that is not the honest one — the same `surface.capabilities` table that
- * gates the style-panel row decides which write is legal, and the walk fallback
- * that R3 made obsolete (the "content not yet in its own pane" window) is gone
- * because materialization now happens at `registerLayer`.
- *
- * Both writes are idempotent — callers may re-apply the current value as many
- * times as they like (the count-change event re-applies opacity on every
- * refresh, the visibility sweep may revisit a layer across `CONTROL_ATTACHED`
- * passes) without compounding the write.
+ * Both writes (opacity + visibility) are idempotent — callers may re-apply the
+ * current value as many times as they like (the count-change event re-applies
+ * opacity on every refresh, the visibility sweep may revisit a layer across
+ * `CONTROL_ATTACHED` passes) without compounding the write.
  *
  * @param patch.opacity  — 0..1 slider value; written to whichever carrier
  *   `surface.capabilities.opacity` names. When the carrier is "none" no honest
