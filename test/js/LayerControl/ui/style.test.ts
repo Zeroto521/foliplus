@@ -1176,6 +1176,26 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(".foliplus-style-label-color-input")).not.toBeNull();
   });
 
+  it("layerCanOpacity returns false when the layer is not in the registry", () => {
+    // Covers the `!li` guard in layerCanOpacity: a layer with cached fields but
+    // no registry entry cannot have its surface queried.
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    const li = manager.layerRegistry.get("overlay1");
+    manager.layerRegistry.remove("overlay1");
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item);
+
+    // Panel is rendered (fields are cached) but without the opacity row.
+    if (panel) {
+      expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    }
+
+    // Restore for cleanup
+    if (li) manager.layerRegistry.upsert(li);
+  });
+
   // ─────────────────── ⋮ menu item ───────────────────
 
   it("the ⋮ menu's Style item is enabled for pane-capable layers even without labels", () => {

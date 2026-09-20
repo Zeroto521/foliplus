@@ -553,4 +553,18 @@ describe("AnnotationManager — render & plan", () => {
     // Both sides of the export refresh in the same frame the capture reads.
     expect(c.paint).toHaveBeenCalledTimes(2);
   });
+
+  it("paneNameFor returns the pane name when the layer has labels, null otherwise", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager(map, () => oneLabel());
+
+    expect(mgr.paneNameFor("a")).toBeNull();
+
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    expect(mgr.paneNameFor("a")).toBe("foliplus-annotation-a");
+
+    mgr.destroyLayer("a");
+    expect(mgr.paneNameFor("a")).toBeNull();
+  });
 });

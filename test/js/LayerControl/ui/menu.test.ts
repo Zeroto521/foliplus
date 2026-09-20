@@ -423,12 +423,10 @@ describe("LayerUI menu", () => {
     });
 
     it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
-      const setters = new Map<string, unknown[]>();
-      setters.set("overlay1", [{}]);
-      window.foliplus.styleDelegation = {
-        fieldCache: new Map(),
-        styleSetters: setters,
-      };
+      // Set styleSetters on the layer info in the registry — layerHasStyleDelegation
+      // reads from ui.m.layerRegistry, not window.foliplus.styleDelegation.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = { color: vi.fn() };
 
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -437,6 +435,29 @@ describe("LayerUI menu", () => {
         ".foliplus-layer-more-menu li[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("disabled")).toBeNull();
+      ui.closeMoreMenu();
+    });
+
+    it("disables the style entry when the layer has no label fields and no style delegation", () => {
+      // A layer whose surface reports opacity/zoomRange as "none" (MarkerCluster)
+      // and has no label fields or style delegation — canConfigure is false.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = undefined;
+      // Force the surface to report "none" capabilities
+      const surface = ui.m.surfaceFor(li!);
+      (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
+        opacity: "none",
+        zoomRange: "none",
+        relocatable: false,
+      };
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("aria-disabled")).toBe("true");
       ui.closeMoreMenu();
     });
   });
