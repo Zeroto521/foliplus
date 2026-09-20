@@ -86,6 +86,32 @@ describe("createLocationMarker", () => {
     expect(closeBtn.title).toBe("Close");
   });
 
+  it("falls back to an empty title when the close label is empty", () => {
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup: vi.fn(),
+      getPopup: () => ({
+        _closeButton: closeBtn,
+        isOpen: vi.fn(() => false),
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      "Address",
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "",
+    );
+
+    expect(closeBtn.title).toBe("");
+  });
+
   it("removes existing marker", () => {
     const existing = { _map: map };
     createLocationMarker(
@@ -235,5 +261,37 @@ describe("createLocationMarker", () => {
     await new Promise(r => setTimeout(r, 10));
     expect(setPopupContent).not.toHaveBeenCalled();
     expect(openPopup).toHaveBeenCalled();
+  });
+
+  it("swallows reverseGeocode rejection without surfacing", async () => {
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup: vi.fn(),
+      setPopupContent: vi.fn(),
+      getPopup: () => ({
+        _closeButton: null,
+        isOpen: vi.fn(() => true),
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    window.foliplus.reverseGeocode = vi.fn(() => Promise.reject(new Error("network")));
+
+    expect(() =>
+      createLocationMarker(
+        map,
+        120,
+        30,
+        null,
+        "Title",
+        "Loading...",
+        "Lng,Lat:",
+        "Address:",
+        "Close",
+      ),
+    ).not.toThrow();
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(marker.setPopupContent).not.toHaveBeenCalled();
   });
 });
