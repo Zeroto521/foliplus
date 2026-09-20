@@ -708,7 +708,12 @@ describe("AnnotationManager — render & plan", () => {
 
   it("paneNameFor returns the pane name when the layer has labels, null otherwise", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager(map, () => oneLabel());
+    const mgr = new AnnotationManager(
+      map,
+      () => oneLabel(),
+      stubOwnedPane(map),
+      stubReleaseOwnedPane(map),
+    );
 
     expect(mgr.paneNameFor("a")).toBeNull();
 
