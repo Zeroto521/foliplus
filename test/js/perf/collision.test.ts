@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
 
-// collision.perf, split out of collision.test.ts.
+// The wall-clock half of MeasureControl/collision.ts's tests. Its functional
+// half stays in test/js/MeasureControl/collision.test.ts.
 //
+// The directory names the kind of test, the filename names the module — the
+// same rule the browser/ and script/ groups follow. That keeps the naming guard
+// usable if it is ever extended beyond test/js/script/: this file's stem is
+// `collision`, which is the module it tests, so no exception entry is owed.
+// `vitest.config.mjs` includes `test/js/**/*.test.ts`, so the group is picked
+// up without a config change.
+
 // These are the only wall-clock assertions in the suite, and they flaked under
 // the full suite's load. `vitest run --pool=threads` spreads 127 files over
 // ~21 workers on a 22-core box, so a budget taken against `performance.now()`
