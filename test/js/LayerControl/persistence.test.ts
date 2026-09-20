@@ -4,13 +4,7 @@ import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import type { PersistedRecord } from "#foliplus/LayerControl/persistence.js";
 import * as Storage from "#common/storage.js";
 
-const makeRegistry = (ids: string[]) =>
-  ({
-    layers: ids.map(id => ({ id })),
-    get: id => (ids.includes(id) ? { id } : null),
-  }) as any;
-
-const makePersistence = (ids: string[]) => new LayerPersistence(makeRegistry(ids));
+const makePersistence = () => new LayerPersistence();
 
 const emptyRecord = (): PersistedRecord => ({
   order: null,
@@ -57,7 +51,7 @@ describe("LayerPersistence", () => {
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
-      expect(makePersistence(["a", "b", "c"]).load()).toEqual({
+      expect(makePersistence().load()).toEqual({
         order: ["a", "b"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
@@ -88,13 +82,16 @@ describe("LayerPersistence", () => {
         },
       };
       seedStorage(record);
-      expect(makePersistence(ids).load()).toEqual(record);
+      expect(makePersistence().load()).toEqual(record);
     });
 
-    it("drops unknown ids from order and annotation config", () => {
-      // Order is rebuilt on every save, so a stale id is skipped when it is
-      // applied. Annotations are a pure decoration, so nothing loses work if a
-      // stale id is dropped here.
+    it("keeps ids that are not registered yet", () => {
+      // load() runs from LayerUI.attachUI, which lands before HeatmapControl and
+      // MeasureControl register in their own constructor. Pruning against the
+      // registry here would drop their order position and label config on the
+      // very first attach, so the record comes back whole: the order is replayed
+      // when the id registers (LayerManager.replaySavedOrder) and only
+      // deleteLayer prunes an id that is actually gone.
       seedStorage({
         order: ["a", "ghost", "b", "gone"],
         annotations: {
@@ -102,11 +99,11 @@ describe("LayerPersistence", () => {
           ghost: { show: true, field: "x", format: "int" },
         },
       });
-      const p = makePersistence(["a", "b", "c"]);
 
-      expect(p.load().order).toEqual(["a", "b"]);
-      expect(p.load().annotations).toEqual({
+      expect(makePersistence().load().order).toEqual(["a", "ghost", "b", "gone"]);
+      expect(makePersistence().load().annotations).toEqual({
         a: { show: true, field: "name", format: "auto" },
+        ghost: { show: true, field: "x", format: "int" },
       });
     });
 
@@ -119,7 +116,7 @@ describe("LayerPersistence", () => {
         layers: { a: { visible: false, overrides: ["visible"] } },
         renamedNames: { ghost: "Ghost", a: "A2" },
       });
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
 
       expect(p.load().layers).toEqual({
         a: { visible: false, overrides: ["visible"] },
@@ -128,15 +125,15 @@ describe("LayerPersistence", () => {
     });
 
     it("returns empty containers where storage has nothing", () => {
-      expect(makePersistence(["a"]).load()).toEqual(emptyRecord());
+      expect(makePersistence().load()).toEqual(emptyRecord());
     });
 
     it("tolerates a corrupt record of the wrong shape", () => {
       seedStorage("not-json-object");
-      expect(makePersistence(["a"]).load()).toEqual(emptyRecord());
+      expect(makePersistence().load()).toEqual(emptyRecord());
 
       seedStorage([42]);
-      expect(makePersistence(["a"]).load()).toEqual(emptyRecord());
+      expect(makePersistence().load()).toEqual(emptyRecord());
     });
 
     it("drops order when it holds a non-string entry", () => {
@@ -144,7 +141,7 @@ describe("LayerPersistence", () => {
       // keeping a partial order would silently re-order the layers the user
       // arranged, so failing to the declared order is safer.
       seedStorage({ order: ["a", 123, "b", null] });
-      expect(makePersistence(["a", "b"]).load().order).toEqual(null);
+      expect(makePersistence().load().order).toEqual(null);
     });
 
     it("drops non-string values from names and bad groups from fold state", () => {
@@ -152,7 +149,7 @@ describe("LayerPersistence", () => {
         renamedNames: { a: "A2", b: 123, c: null },
         foldedGroups: ["OVERLAYS", 7],
       });
-      const p = makePersistence(["a", "b", "c"]);
+      const p = makePersistence();
 
       expect(p.load().renamedNames).toEqual({ a: "A2" });
       expect(p.load().foldedGroups).toEqual([]);
@@ -170,10 +167,11 @@ describe("LayerPersistence", () => {
           d: ["array"],
         },
       });
-      const p = makePersistence(["a", "b", "c"]);
+      const p = makePersistence();
 
       expect(p.load().annotations).toEqual({
         a: { show: true, field: "name", format: "auto" },
+        ghost: { show: true, field: "x", format: "int" },
       });
     });
   });
@@ -196,7 +194,7 @@ describe("LayerPersistence", () => {
           },
         },
       });
-      expect(makePersistence(["a", "b", "c", "d", "e"]).load().layers).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         a: { visible: false, overrides: ["visible"] },
         b: { visible: true, overrides: ["visible"] },
         c: { opacity: 0.5, overrides: ["opacity"] },
@@ -222,9 +220,7 @@ describe("LayerPersistence", () => {
           g: { zoomRange: [7, 7], overrides: ["zoomRange"] },
         },
       });
-      expect(
-        makePersistence(["a", "b", "c", "d", "e", "f", "g"]).load().layers,
-      ).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         // The low end is allowed to equal the high end: a layer shown at one
         // zoom level only.
         f: { zoomRange: [0, 24], overrides: ["zoomRange"] },
@@ -247,7 +243,7 @@ describe("LayerPersistence", () => {
           e: { zoomRange: [3, 12] },
         },
       });
-      expect(makePersistence(["a", "b", "c", "d", "e"]).load().layers).toEqual({});
+      expect(makePersistence().load().layers).toEqual({});
     });
 
     it("drops an override that has no valid value", () => {
@@ -262,7 +258,7 @@ describe("LayerPersistence", () => {
       });
       // a, b, d and e claim a choice the record cannot honour, so they are
       // dropped entirely; c keeps its value and its provenance.
-      expect(makePersistence(["a", "b", "c", "d", "e"]).load().layers).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         c: { opacity: 0.5, overrides: ["opacity"] },
       });
     });
@@ -277,7 +273,7 @@ describe("LayerPersistence", () => {
           e: { opacity: NaN, overrides: ["opacity"] },
         },
       });
-      expect(makePersistence(["a", "b", "c", "d", "e"]).load().layers).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         d: { opacity: 0.5, overrides: ["opacity"] },
       });
     });
@@ -292,7 +288,7 @@ describe("LayerPersistence", () => {
           c: { opacity: 2, overrides: ["opacity"] },
         },
       });
-      expect(makePersistence(["a", "b", "c"]).load().layers).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         a: { visible: false, overrides: ["visible"] },
         b: { visible: true, opacity: 0.4, overrides: ["visible", "opacity"] },
       });
@@ -302,7 +298,7 @@ describe("LayerPersistence", () => {
       seedStorage({
         layers: { a: { visible: false, overrides: ["visible", "visible", "opacity"] } },
       });
-      expect(makePersistence(["a"]).load().layers).toEqual({
+      expect(makePersistence().load().layers).toEqual({
         a: { visible: false, overrides: ["visible"] },
       });
     });
@@ -326,7 +322,7 @@ describe("LayerPersistence", () => {
           c: { visible: false, overrides: ["zoomRange"] },
         },
       });
-      const record = makePersistence(["a", "b", "c"]).load();
+      const record = makePersistence().load();
 
       expect(record.layers.a).toEqual({ visible: false, overrides: ["visible"] });
       expect(record.layers.b).toBeUndefined();
@@ -337,22 +333,25 @@ describe("LayerPersistence", () => {
 
     it("drops a layer entry that is not an object", () => {
       seedStorage({ layers: { a: ["array"], b: null, c: "text" } });
-      expect(makePersistence(["a", "b", "c"]).load().layers).toEqual({});
+      expect(makePersistence().load().layers).toEqual({});
     });
   });
 
   describe("loadOrder", () => {
-    it("loads the order dimension and drops unknown ids", () => {
+    it("loads the order dimension, including ids that are not registered yet", () => {
+      // A late registration reads its own position out of this list, and the
+      // manager carries the pending ids through the next flush. Pruning here
+      // would be the one point where a stored position could disappear.
       seedStorage({ order: ["a", "ghost", "b", "gone"] });
-      expect(makePersistence(["a", "b", "c"]).loadOrder()).toEqual(["a", "b"]);
+      expect(makePersistence().loadOrder()).toEqual(["a", "ghost", "b", "gone"]);
     });
 
     it("returns null on missing or corrupt data", () => {
-      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      expect(makePersistence().loadOrder()).toEqual(null);
       seedStorage({ order: "not-array" });
-      expect(makePersistence(["a"]).loadOrder()).toEqual(null);
+      expect(makePersistence().loadOrder()).toEqual(null);
       seedStorage({ order: ["a", 123] });
-      expect(makePersistence(["a", "b"]).loadOrder()).toEqual(null);
+      expect(makePersistence().loadOrder()).toEqual(null);
     });
 
     it("reads the record key once", () => {
@@ -364,7 +363,7 @@ describe("LayerPersistence", () => {
         keys.push(String(key));
         return undefined;
       });
-      makePersistence(["a"]).loadOrder();
+      makePersistence().loadOrder();
       spy.mockRestore();
       expect(keys).toEqual([CONST.STORAGE.KEY]);
     });
@@ -376,7 +375,7 @@ describe("LayerPersistence", () => {
     it("debounces rapid writes into one record of the last state", () => {
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
       p.schedule({ order: () => ["a", "b"] });
       p.schedule({ order: () => ["b", "a"] });
       p.schedule({ order: () => ["b", "a", "c"] });
@@ -395,7 +394,7 @@ describe("LayerPersistence", () => {
     it("merges dimensions scheduled separately into one record", () => {
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
       p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
@@ -435,7 +434,7 @@ describe("LayerPersistence", () => {
       });
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
       p.schedule({ order: () => ["b", "a"] });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -454,7 +453,7 @@ describe("LayerPersistence", () => {
     it("writes the whole record to the single key", () => {
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a"]);
+      const p = makePersistence();
       p.schedule({ layers: () => ({ a: { visible: false, overrides: ["visible"] } }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -470,7 +469,7 @@ describe("LayerPersistence", () => {
 
     it("is a no-op when nothing is scheduled", () => {
       const save = spySave();
-      const p = makePersistence(["a"]);
+      const p = makePersistence();
       p.flushAll();
       expect(save).not.toHaveBeenCalled();
       save.mockRestore();
@@ -482,7 +481,7 @@ describe("LayerPersistence", () => {
     it("commits the pending record immediately", () => {
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
       p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
@@ -511,7 +510,7 @@ describe("LayerPersistence", () => {
       const layers: Record<string, unknown> = {
         a: { visible: false, overrides: ["visible"] },
       };
-      const p = makePersistence(["a"]);
+      const p = makePersistence();
       p.schedule({ layers: () => layers });
 
       layers.a = { visible: true, overrides: ["visible"] };
@@ -531,7 +530,7 @@ describe("LayerPersistence", () => {
       // removes the ordering dependency on the caller.
       vi.useFakeTimers();
       const save = spySave();
-      const p = makePersistence(["a", "b"]);
+      const p = makePersistence();
       p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
@@ -546,7 +545,7 @@ describe("LayerPersistence", () => {
     });
 
     it("is a no-op when no writes are pending", () => {
-      const p = makePersistence(["a"]);
+      const p = makePersistence();
       expect(() => p.destroy()).not.toThrow();
     });
   });

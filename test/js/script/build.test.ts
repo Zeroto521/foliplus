@@ -124,7 +124,25 @@ describe("build artifacts", () => {
     // +1771B over 2a381557 in dev mode, same command. Every byte lands in
     // core/layer + LayerControl, so R9's ceiling of 165000 accommodates it
     // with ~4KB headroom still.
-    expect(size).toBeLessThan(165000);
+    //
+    // R45 (this branch, basecontrol-listener-hygiene) moves every listener
+    // registration in BaseControl behind a per-mounting AbortController. The
+    // new surface — `ac` field, `get signal` (throws when detached), `on()`,
+    // `onMap()`, `effect()` with `.cancel()`/`.disconnect()` adaptation, and
+    // the idempotency guard in `onRemove()` — lands in BaseControl itself.
+    // R45 also shipped the three legacy aliases `listenDOM`/`listenMap`/
+    // `trackCleanup` as zero-edit shims over those entries; T49 drops them
+    // along with the `events` field only `listenDOM` populated, so the
+    // 170 000 B figure below is measured with the aliases and still holds
+    // with extra headroom. That class is bundled into
+    // foliplus-common.min.js via runtime/index.ts:31, so the whole delta is
+    // common-bundle surface, not component-bundle surface. Every component
+    // keeps externalising BaseControl, so this is the only budget line that
+    // moves from this round; the per-component caps below are untouched.
+    //
+    // Measured after merge: 167 350 B dev-mode (same command), +6 453 B over
+    // R9's 160 897 B. 170 000 leaves ~2.6 KB headroom.
+    expect(size).toBeLessThan(170000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
@@ -141,8 +159,17 @@ describe("build artifacts", () => {
     // LayerControl is otherwise the largest component (~136KB unminified on
     // main; style-drawer delegation pushed the unminified dev bundle past
     // 160KB — rename, focus, reorder, fold, the annotation style panel, the
-    // escape-cancel chain, and the five-dimension persistence).
-    "foliplus-LayerControl.min.js": 180000,
+    // escape-cancel chain, the five-dimension persistence, and the state
+    // replay pass that re-applies a stored opacity and layer order when the
+    // thing they describe arrives late).
+    //
+    // Measured on this branch after merging main: 184403B. The growth is the
+    // replay pass itself (replayLayerState, replaySavedOrder, mergeStoredOrder,
+    // placeBeforeSavedNeighbor) plus the opacity -> state rename across the
+    // nine hook call sites, over focus.ts's +1170B from the focus-overlay pane
+    // routing. 200000 keeps the ~20% headroom this cap is documented as
+    // carrying.
+    "foliplus-LayerControl.min.js": 200000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {

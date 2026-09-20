@@ -21,6 +21,11 @@ import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
+/** Seed the persisted record so a constructor or a replay reads it. */
+const seedStorage = (record: Record<string, unknown>) => {
+  window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(record));
+};
+
 // Leaflet models a TileLayer as a GridLayer subclass, and the manager relies on
 // that: a GridLayer carries its z natively (`setZIndex` / `options.zIndex`) and
 // therefore gets no pane of its own, a decision LayerSurface makes with the same
@@ -88,6 +93,10 @@ describe("LayerManager", () => {
   let map;
 
   beforeEach(() => {
+    // A test that flushes persistence leaves a real record behind, and the next
+    // constructor reads it: without this clear, an order written by one test
+    // decides where the next test's layers land.
+    window.localStorage.clear();
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
@@ -498,6 +507,7 @@ describe("LayerManager", () => {
       initTypesAndVisibility: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
+      applyUserState: vi.fn(),
     } as any;
     manager.registerLayer({
       id: "new1",
@@ -831,6 +841,138 @@ describe("LayerManager", () => {
       const keys = spy.mock.calls.map(c => c[0]);
       expect(keys).toEqual([CONST.STORAGE.KEY]);
       spy.mockRestore();
+    });
+  });
+
+  // ── Saved-order replay ─────────────────────────────────────────
+
+  // The record's order is read once at construction and held in `savedOrder`;
+  // nothing re-applies it afterwards, so every appearance point has to. A
+  // component that registers after the record was loaded (Heatmap, Measure)
+  // keeps the slot it was inserted into unless its position is replayed, and a
+  // flush that lands first would otherwise erase the position that registration
+  // is meant to read back.
+  describe("saved-order replay", () => {
+    it("places a late registration at its persisted position", () => {
+      seedStorage({ order: ["B", "H", "A"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+
+      m.registerLayer({ id: "H", name: "H", isBase: false });
+
+      expect(m.layers.map(l => l.id)).toEqual(["B", "H", "A"]);
+    });
+
+    it("keeps a layer stored below every registered layer at the bottom", () => {
+      // Nothing below H is registered, so the placement falls back to the end
+      // of the group. That end must actually be the end — the layer is the
+      // rightmost of the layers that exist, not the topmost.
+      seedStorage({ order: ["B", "A", "H"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+
+      m.registerLayer({ id: "H", name: "H", isBase: false });
+
+      expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
+    });
+
+    it("skips a saved neighbour that has not registered yet", () => {
+      // G sits between X and Y in the stored order but is not registered, so it
+      // cannot be located. The walk keeps going past the gap instead of stopping
+      // there and leaving X where prepend put it.
+      seedStorage({ order: ["X", "G", "Y"] });
+      const m = new LayerManager(map, [{ id: "Y", name: "Y", isBase: false }]);
+
+      m.registerLayer({ id: "X", name: "X", isBase: false });
+
+      expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
+    });
+
+    it("re-applies the stored order to a layer that drifted below its neighbour", () => {
+      // The drag moved A under B without a flush landing yet. A is now below its
+      // own saved neighbour, which is the case where the target index is not the
+      // neighbour's shifted-down index.
+      seedStorage({ order: ["A", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+      m.layerRegistry.reorder(0, 1);
+      expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
+
+      m.replaySavedOrder("A");
+
+      expect(m.layers.map(l => l.id)).toEqual(["A", "B"]);
+    });
+
+    it("leaves the registry alone for an id that is not registered", () => {
+      seedStorage({ order: ["A"] });
+      const m = new LayerManager(map, [{ id: "A", name: "A", isBase: false }]);
+
+      expect(() => m.replaySavedOrder("ghost")).not.toThrow();
+      expect(m.layers.map(l => l.id)).toEqual(["A"]);
+    });
+
+    it("keeps a layer the record never ranked at its live position", () => {
+      // D arrived this session, so the record has no rank for it. The sweep
+      // sorts the ranked ids by rank and leaves the unranked ones in their own
+      // relative order at the bottom.
+      seedStorage({ order: ["D"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+        { id: "C", name: "C", isBase: false },
+        { id: "D", name: "D", isBase: false },
+      ]);
+      m.layerRegistry.reorder(0, 2);
+      expect(m.layers.map(l => l.id)).toEqual(["A", "B", "D", "C"]);
+
+      m.replaySavedOrder();
+
+      expect(m.layers.map(l => l.id)).toEqual(["D", "A", "B", "C"]);
+    });
+
+    it("keeps a stored position across a flush that lands first", () => {
+      // A flush between the record being loaded and the late registration
+      // writes the live ids only; the stored position of the id that is not
+      // registered yet must survive it — at its slot, not appended to the end,
+      // where the next flush would persist the sink.
+      seedStorage({ order: ["B", "H", "A"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+
+      m.saveOrder();
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["B", "H", "A"]);
+    });
+
+    it("splices each pending id into its own slot", () => {
+      // Two ids stored mid-stack, plus a registered layer the record never
+      // ranked (added this session). Each pending id keeps its slot relative to
+      // the ranked layers; the unranked one keeps its live position.
+      seedStorage({ order: ["H1", "A", "H2"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "X", name: "X", isBase: false },
+      ]);
+
+      m.saveOrder();
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["H1", "A", "X", "H2"]);
     });
   });
 
@@ -1211,7 +1353,7 @@ describe("LayerManager", () => {
       { id: "a", name: "A", isBase: false },
       { id: "b", name: "B", isBase: false },
     ]);
-    m.persistence = new LayerPersistence(m.layerRegistry);
+    m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "save");
     m.saveOrder();
     save.mockClear();
@@ -1227,7 +1369,7 @@ describe("LayerManager", () => {
     // Same ordering for per-layer intent: a hide just before teardown must
     // survive a reload, which is the whole point of the flush.
     const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
-    m.persistence = new LayerPersistence(m.layerRegistry);
+    m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "save");
     m.persistence.schedule({
       layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
@@ -1662,6 +1804,10 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   let map;
 
   beforeEach(() => {
+    // A test that flushes persistence leaves a real record behind, and the next
+    // constructor reads it: without this clear, an order written by one test
+    // decides where the next test's layers land.
+    window.localStorage.clear();
     window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
