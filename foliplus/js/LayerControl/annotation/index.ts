@@ -79,6 +79,12 @@ const LABEL_PRIORITY = 50;
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
+  /** Route to PaneManager.ensurePane — the one entry point every owned pane
+   *  goes through, which stamps the base `foliplus-layer-pane` class onto the
+   *  pane div so the interaction rules in focus.css apply. Injected as a
+   *  narrow function (not the PaneManager itself) to match the `layerFind`
+   *  pattern and keep the annotation module coupled only to what it needs. */
+  private readonly ensureOwnedPane: (name: string) => HTMLElement;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
@@ -103,9 +109,14 @@ class AnnotationManager {
   /** What the last full plan handed each canvas, kept for the pan translate. */
   private readonly lastPlanned = new Map<string, PlacedLabel[]>();
 
-  constructor(mapInstance: L.Map, layerFind: (id: string) => L.Layer | null) {
+  constructor(
+    mapInstance: L.Map,
+    layerFind: (id: string) => L.Layer | null,
+    ensureOwnedPane: (name: string) => HTMLElement,
+  ) {
     this.map = mapInstance;
     this.layerFind = layerFind;
+    this.ensureOwnedPane = ensureOwnedPane;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -527,11 +538,13 @@ class AnnotationManager {
   }
 
   /** Lazily create a layer's pane + canvas. The pane is what puts labels at the
-   *  layer's place in the stack — LayerManager.enforceOrder z-orders it. */
+   *  layer's place in the stack — LayerManager.enforceOrder z-orders it. Goes
+   *  through PaneManager.ensurePane so the base `foliplus-layer-pane` class is
+   *  applied uniformly; `foliplus-annotation-pane` is the role marker on top. */
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
     const name = CONST.ANNOTATION_PANE_PREFIX + id;
-    const pane = this.map.getPane(name) ?? this.map.createPane(name);
+    const pane = this.ensureOwnedPane(name);
     pane.classList.add("foliplus-annotation-pane");
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));

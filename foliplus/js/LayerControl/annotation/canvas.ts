@@ -29,11 +29,13 @@ class AnnotationCanvas {
     this.container = map.getContainer();
 
     this.canvas = document.createElement("canvas");
-    this.canvas.className = "foliplus-annotation-canvas";
+    // `.foliplus-canvas-layer` declares this a decoration canvas — the pointer
+    // events are handed down by the base `.foliplus-layer-pane` rule, no inline
+    // style needed. Without it the pane's hit-test rule would turn this canvas
+    // `auto`, swallowing every click over the map.
+    this.canvas.className = "foliplus-annotation-canvas foliplus-canvas-layer";
     this.canvas.style.position = "absolute";
     this.canvas.style.inset = "0";
-    // The labels are not interactive: clicks land on the feature beneath.
-    this.canvas.style.pointerEvents = "none";
     pane.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
 
