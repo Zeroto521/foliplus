@@ -55,6 +55,16 @@
           for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
           return n;
         };
+        // Every owned pane carries the base class through ensurePane; the
+        // annotation role marker sits on top of it.
+        const paneClassesOf = id => {
+          const pane = window.map.getPane("foliplus-annotation-" + id);
+          if (!pane) return null;
+          return {
+            layer: pane.classList.contains("foliplus-layer-pane"),
+            annotation: pane.classList.contains("foliplus-annotation-pane"),
+          };
+        };
         resolve({
           canvas: true,
           // One pane + one canvas per labelled layer, z-ordered with the layer.
@@ -65,6 +75,8 @@
           annB: zOf("__ml_b__"),
           layerA: layerZOf("__ml_a__"),
           layerB: layerZOf("__ml_b__"),
+          paneClassesA: paneClassesOf("__ml_a__"),
+          paneClassesB: paneClassesOf("__ml_b__"),
         });
       }),
     );

@@ -63,14 +63,17 @@ const elOf = (canvas: AnnotationCanvas) =>
   (canvas as unknown as { canvas: HTMLCanvasElement }).canvas;
 
 describe("AnnotationCanvas", () => {
-  it("mounts a non-interactive canvas in the pane it is given, DPR-scaled", () => {
+  it("mounts a decoration canvas in the pane it is given, DPR-scaled", () => {
     const { pane, canvas } = makeEnv();
 
     const el = pane.querySelector("canvas")!;
     expect(el).toBe(elOf(canvas));
-    expect(el.className).toBe("foliplus-annotation-canvas");
-    // Labels must never intercept a click meant for the feature.
-    expect(el.style.pointerEvents).toBe("none");
+    // Both classes: the annotation role, and the decoration-canvas marker that
+    // lets the base .foliplus-layer-pane rule hand down pointer-events: none.
+    expect(el.classList.contains("foliplus-annotation-canvas")).toBe(true);
+    expect(el.classList.contains("foliplus-canvas-layer")).toBe(true);
+    // No inline pointer-events — the CSS owns it, per the pane naming contract.
+    expect(el.style.pointerEvents).toBe("");
     // jsdom devicePixelRatio is 1; the container box is what was measured.
     expect(el.width).toBe(800);
     expect(el.height).toBe(600);
