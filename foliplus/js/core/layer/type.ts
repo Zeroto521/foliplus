@@ -417,6 +417,11 @@ interface LayerAPI {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   /** Unregister and remove a layer; returns true if removed. */
   unregisterLayer: (id: string) => boolean;
+  /** Delete a layer and drop every persisted value the user set for it —the
+   *  single path that erases stored state. Unregister alone never does,
+   *  because a component that unregisters itself may simply be temporarily
+   *  empty. */
+  deleteLayer: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
   /**

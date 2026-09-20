@@ -204,7 +204,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(onToggle).toHaveBeenCalledWith(true);
     });
 
-    it("drops unknown ids from the persisted hidden set", () => {
+    it("keeps hidden ids that have no registry entry", () => {
+      // A missing registry entry is not evidence that the stored state should
+      // go: HeatmapControl and MeasureControl register in their own
+      // constructor, after this UI has attached, so their ids are unresolvable
+      // on the first sweep. A queued registration and an id never seen are
+      // indistinguishable here, and either may still arrive — both are kept.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -215,31 +220,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
-
-      u.applyUserState();
-
-      expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
-    });
-
-    it("keeps a hidden id for a pending registration", () => {
-      // A component can register before the panel attaches, in which case the
-      // layer is still queued in pendingRegistrations when this sweep runs
-      // (attachUI drains the queue before calling applyUserState). Such an id
-      // must not be read as "gone for good" — dropping it would lose the user's
-      // hidden state and the layer would come back on the map after every
-      // reload.
-      const { map } = makeTestMap();
-      const m = new LayerManager(map, [
-        {
-          id: "overlay1",
-          name: "Polygons",
-          isBase: false,
-          layer: testPolyLayer,
-        },
-      ]);
-      const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "later", "ghost"]);
+      u.hiddenIds = new Set(["overlay1", "later", "ghost", "gone"]);
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
@@ -249,10 +230,26 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.applyUserState();
 
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later"]));
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later", "ghost", "gone"]));
     });
 
-    it("persists the pruned hidden set after dropping stale ids", () => {
+    it("schedules no write and drops no stored id", () => {
+      // The sweep used to delete the ids that were not in the registry and
+      // write the deletion back to storage. That is the bug this file guards:
+      // a late-registering layer (heatmap, measure) lost its stored hidden
+      // state on the first attach of every reload, so it came back visible
+      // with no explanation. The sweep is a projection now; the record is
+      // read-only as far as it is concerned.
+      window.localStorage.setItem(
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            overlay1: { visible: false, overrides: ["visible"] },
+            ghost: { visible: false, overrides: ["visible"] },
+            gone: { visible: false, overrides: ["visible"] },
+          },
+        }),
+      );
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -263,26 +260,15 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
-      // userOverrides mirrors the hidden set so the persisted record carries
-      // provenance for every layer the user touched -- otherwise the record
-      // cannot distinguish "user hid it" from "author hid it" on reload.
-      u.userOverrides = {
-        overlay1: ["visible"],
-        ghost: ["visible"],
-        gone: ["visible"],
-      };
+      u.loadPersistedState();
+      const schedule = vi.spyOn(u.m.persistence, "schedule");
 
-      vi.useFakeTimers();
       u.applyUserState();
 
-      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
-      vi.useRealTimers();
-
+      expect(schedule).not.toHaveBeenCalled();
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "ghost", "gone"]));
       const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-      // Only the live id survives in storage — ghost/gone are gone for good.
-      expect(Object.keys(stored.layers)).toEqual(["overlay1"]);
-      expect(stored.layers.overlay1.visible).toBe(false);
+      expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
 
     it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
@@ -815,8 +801,8 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
   it("applyVisibleStateOne is a no-op for a stale id that resolves to nothing", () => {
     // The else-if has no else, so its skip count stays 0 unless this path is
     // really reached: an id the persistence record still holds but the registry
-    // has pruned — no Leaflet layer to add and no toggle callback to fire. Over
-    // such entries the sweep only moves the registry's visible flag.
+    // has no entry for — no Leaflet layer to add and no toggle callback to
+    // fire. Over such entries the sweep only moves the registry's visible flag.
     const ui = makeApplyUi(false);
     (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
     const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
@@ -844,7 +830,7 @@ describe("ui/state saveFoldState", () => {
   });
 });
 
-// ─────────────────── opacity apply / restore / prune ───────────────────
+// ─────────────────── opacity apply / restore / retention ─────────────────
 
 describe("applyOpacityStateOne", () => {
   /** A UI whose layer has "native" opacity capability (no pane). */
@@ -1114,7 +1100,7 @@ describe("applyOpacityStateOne", () => {
   });
 });
 
-describe("LayerUI opacity restore / prune", () => {
+describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
     const setStyle = vi.fn();
     const layer = { options: {}, setStyle } as unknown as L.Layer;
@@ -1195,7 +1181,10 @@ describe("LayerUI opacity restore / prune", () => {
     expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
   });
 
-  it("prunes opacity entries whose layers are gone", () => {
+  it("keeps opacity entries whose layers are gone", () => {
+    // An unresolvable id is not a leak to clean up — it may belong to a
+    // component that registers later, and the user's stored opacity must not
+    // revert to the author default while it waits.
     const { map, layer, panes } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
@@ -1203,16 +1192,18 @@ describe("LayerUI opacity restore / prune", () => {
 
     u.applyUserState();
 
-    expect(u.opacityMap).toEqual({ overlay1: 0.4 });
-    // The live entry was written to the pane; the ghost was pruned with no write.
+    expect(u.opacityMap).toEqual({ overlay1: 0.4, ghost: 0.1 });
+    // The live entry was written to the pane; the unresolvable one was kept
+    // in memory and written nowhere.
     const writtenPanes = [...panes.values()].filter(p => p.style.opacity);
     expect(writtenPanes).toHaveLength(1);
     expect(writtenPanes[0].style.opacity).toBe("0.4");
   });
 
-  it("prunes a zoom range and its provenance together when the layer is gone", () => {
-    // Value and provenance leave in the same pass, so the record cannot keep
-    // an override for a layer it no longer records a value for.
+  it("keeps a zoom range and its provenance for a layer that is gone", () => {
+    // Both halves stay. Only a provenance marker with no value is invalid
+    // ({@link markOverride} refuses it), never a value whose layer has not
+    // registered yet.
     const { map, layer } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
@@ -1221,8 +1212,8 @@ describe("LayerUI opacity restore / prune", () => {
 
     u.applyUserState();
 
-    expect(u.zoomRangeMap).toEqual({ overlay1: [4, 10] });
-    expect(u.userOverrides.ghost).toBeUndefined();
+    expect(u.zoomRangeMap).toEqual({ overlay1: [4, 10], ghost: [2, 8] });
+    expect(u.userOverrides.ghost).toEqual(["zoomRange"]);
   });
 
   it("leaves a live layer alone when no opacity is stored", () => {
