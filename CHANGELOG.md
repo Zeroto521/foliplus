@@ -94,7 +94,7 @@
 - `HeatmapControl`: a layer hidden in `LayerControl` no longer reappears on map zoom — the zoomend re-show now respects the layer's visibility state ([#329](https://github.com/Zeroto521/foliplus/pull/329))
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
-- `LayerControl`: the focus overlay pane now goes through `PaneManager.ensurePane` like every owned pane — it carries the base `foliplus-layer-pane` class alongside the `foliplus-focus-pane` exclusion tag, so the interaction rules apply uniformly without a special case and the spotlight stays visible ([#391](https://github.com/Zeroto521/foliplus/pull/391))
+- `LayerControl`: the focus overlay pane now goes through `PaneManager.ensurePane` like every owned pane — it carries the base `foliplus-layer-pane` class alongside the `foliplus-focus-pane` exclusion tag, so the interaction rules apply uniformly without a special case, the spotlight stays visible, and the dimming mask no longer blocks clicks on the focused layer ([#391](https://github.com/Zeroto521/foliplus/pull/391))
 
 ## [v0.3.0] (2026-08-02)
 

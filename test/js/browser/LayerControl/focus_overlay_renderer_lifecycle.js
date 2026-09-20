@@ -11,8 +11,10 @@
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { ctrl: false };
 
-  const focusRow = el => el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  const getRow = id => document.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
+  const focusRow = el =>
+    el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  const getRow = id =>
+    document.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
   const getPane = () => window.map.getPane("foliplus-focus-overlay");
   const countSvgs = () => getPane()?.querySelectorAll("svg").length ?? 0;
 
@@ -22,10 +24,12 @@
   for (let i = 0; i < 3; i++) {
     const id = `__fcyc_${i}`;
     const g = api.createLayers({ id, name: `Cycle${i}` });
-    g.mainLayer.addLayer(L.rectangle([
-      [26.05 + i * 0.02, 119.25 + i * 0.02],
-      [26.08 + i * 0.02, 119.28 + i * 0.02],
-    ]));
+    g.mainLayer.addLayer(
+      L.rectangle([
+        [26.05 + i * 0.02, 119.25 + i * 0.02],
+        [26.08 + i * 0.02, 119.28 + i * 0.02],
+      ]),
+    );
     // No declared panes → mainLayer.addLayer does not auto-register; call
     // register() explicitly so the row lands in the panel.
     g.register();

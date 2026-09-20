@@ -3982,6 +3982,19 @@ class TestLayerControlBrowser:
             assert state["visibility"] == "visible", (
                 f"the spotlight pane must stay visible during focus: {state}"
             )
+            # Q2 gate: the overlay pane is not in childPaneSpecs, so
+            # ensurePane skips its provisional-z branch and drawFocusMask pins
+            # FOCUS_Z.overlay itself. Assert the pin held AND that no other
+            # owned pane has climbed to or above it — otherwise the mask would
+            # be covered by a data layer and the dim would be silent.
+            assert state["zIndex"] == "9000", (
+                f"focus overlay pane must sit at FOCUS_Z.overlay (9000), got "
+                f"{state['zIndex']!r}"
+            )
+            assert result["maxPeerZ"] < 9000, (
+                "no other foliplus-layer-pane may sit at or above the focus "
+                f"overlay pane (highest peer z={result['maxPeerZ']})"
+            )
             # Risk 1, proven: base class alone would hide the pane.
             assert result["withoutExclusion"] == "hidden", (
                 "dropping the exclusion tag must hide the overlay pane — this is "
@@ -3991,10 +4004,48 @@ class TestLayerControlBrowser:
                 f"restoring the tag must make the pane visible again: {result}"
             )
 
+    def test_focus_overlay_pane_click_through(self, browser, tmp_path):
+        """The focus overlay pane must not intercept pointer events.
+
+        The base ``foliplus-layer-pane`` class carries ``pointer-events: none``
+        from focus.css, so the pane div — which the SVG renderer fills across
+        the whole map while a focus is live — never eats a click. Without the
+        base class the div defaults to ``auto`` and, sitting above every other
+        layer pane, it blocks every hit on the focused layer's own features
+        during focus: a silent regression the previous shape of the pane
+        produced. This gate pins the CSS invariant directly: drop the base
+        class (or the rule) and the assertion fires.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="focus_overlay_click",
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/focus_overlay_pane_click_through"))
+            assert result is not None and result.get("pane") is True, (
+                f"focus overlay pane missing after dblclick: {result}"
+            )
+            assert result["panePointerEvents"] == "none", (
+                "the focus overlay pane div must inherit pointer-events: none "
+                f"from the base class, got {result['panePointerEvents']!r}"
+            )
+
     def test_focus_overlay_renderer_lifecycle(self, browser, tmp_path):
         """Each focus owns exactly one SVG renderer in the overlay pane.
 
-        ``L.svg({ pane })` builds a fresh renderer that mounts its own ``<svg>``
+        ``L.svg({ pane })`` builds a fresh renderer that mounts its own ``<svg>``
         into the pane, which lives for the whole map's life. ``dismissFocus``
         uses the public Leaflet teardown path (``map.removeLayer`` on the
         renderer), so every focus cycle must leave the pane empty — the pane

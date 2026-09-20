@@ -32,7 +32,18 @@
           base: pane.classList.contains("foliplus-layer-pane"),
           exclusion: pane.classList.contains("foliplus-focus-pane"),
           visibility: visibility(),
+          // The overlay pane must stay above every layer pane so the dim covers
+          // them; ensurePane skips its provisional-z branch for panes outside
+          // childPaneSpecs, so drawFocusMask pins FOCUS_Z.overlay itself.
+          // This gate asserts the pin held AND that no other layer pane has
+          // climbed to or above it.
+          zIndex: pane.style.zIndex,
         };
+        const peerZ = Array.from(document.querySelectorAll(".foliplus-layer-pane"))
+          .filter(el => el !== pane)
+          .map(el => parseInt(el.style.zIndex, 10) || 0)
+          .sort((a, b) => b - a);
+        const maxPeerZ = peerZ[0] ?? 0;
 
         // 2. Simulate the risk: base class stays on, exclusion drops.
         //    The pane should become `visibility: hidden`.
@@ -47,6 +58,7 @@
           pane: true,
           focusActive: container.classList.contains("foliplus-focus-active"),
           state,
+          maxPeerZ,
           withoutExclusion,
           restored,
         });
