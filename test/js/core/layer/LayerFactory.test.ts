@@ -710,7 +710,6 @@ describe("LayerFactory", () => {
       expect(typeof api.registered).toBe("function");
       expect(typeof api.destroy).toBe("function");
       expect(typeof api.bringToFront).toBe("function");
-      expect(typeof api.setZIndex).toBe("function");
       expect(typeof api.setVisible).toBe("function");
     });
 
@@ -820,12 +819,6 @@ describe("LayerFactory", () => {
       expect(api.canvas.classList.contains("hidden")).toBe(true);
       api.setVisible(true);
       expect(api.canvas.classList.contains("hidden")).toBe(false);
-    });
-
-    it("setZIndex sets the dedicated pane style", () => {
-      const api = factory.createCanvas({ id: "canvas_test" });
-      api.setZIndex(42);
-      expect(api.canvas.parentElement?.style.zIndex).toBe("42");
     });
 
     it("mounts the canvas in a dedicated foliplus-layer-pane", () => {
@@ -1050,7 +1043,6 @@ describe("LayerFactory", () => {
           registered: handle.registered,
           destroy: handle.destroy,
           bringToFront: handle.bringToFront,
-          setZIndex: c.setZIndex,
           setVisible: c.setVisible,
         }).sort(),
       );
