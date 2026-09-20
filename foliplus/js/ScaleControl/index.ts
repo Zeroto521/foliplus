@@ -10,13 +10,13 @@ const T = createScopedTranslator(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {
-  private s?: L.Control;
+  private scaleCtrl?: L.Control;
 
   buildDOM() {
-    const s = L.control.scale({ metric: true, imperial: false });
-    this.s = s;
-    primeControlMap(s, this._map);
-    const ctrl = (s.onAdd as (map: L.Map) => HTMLElement)(this._map);
+    const scaleCtrl = L.control.scale({ metric: true, imperial: false });
+    this.scaleCtrl = scaleCtrl;
+    primeControlMap(scaleCtrl, this._map);
+    const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");
 
     // ==================== Zoom Label ====================
@@ -40,11 +40,11 @@ class ScaleControl extends BaseControl {
   }
 
   destroy() {
-    // s's onAdd bound a 'move' listener on the map directly; it is
+    // scaleCtrl's onAdd bound a 'move' listener on the map directly; it is
     // invisible to BaseControl.mapListeners, so unbind it here, symmetric to
     // the manual onAdd in buildDOM.
-    this.s?.onRemove?.(this._map);
-    this.s = undefined;
+    this.scaleCtrl?.onRemove?.(this._map);
+    this.scaleCtrl = undefined;
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRows, parseArgs } from "#script/bundle-size-check.mjs";
+import { MIN_GROWTH_BYTES, buildRows, parseArgs } from "#script/bundle-size-check.mjs";
 import { FAIL, OK, STATUS, WARN } from "#script/glyph.mjs";
 
 // glyph.mjs is four literals, so the tests here are about the contract the
@@ -109,12 +109,22 @@ describe("marker table matches the status vocabulary", () => {
    * would red this test about bundle-size-check instead of about glyph.mjs.
    * Sweeping from three times below to three times above the threshold
    * collects whatever the current config can emit, and the range follows the
-   * threshold if it moves. */
+   * threshold if it moves.
+   *
+   * `base` is a multiple of the absolute floor rather than a literal, and it
+   * has to land between two limits or a status becomes unreachable and this
+   * test goes red for a reason that has nothing to do with glyph.mjs: large
+   * enough that a step just inside the low-margin band still means more bytes
+   * than the floor, else `low` is never emitted; small enough that a 1% step
+   * stays under the floor, else `trivial` is not. Those limits are 20x and
+   * 100x the floor. The step is half a percent because at whole percents the
+   * first step inside the low-margin band lands exactly on its edge and float
+   * rounding, not the code under test, decides between `up` and `low`. */
   const statuses = (): Set<string> => {
     const { threshold } = parseArgs([]);
-    const base = 1000;
+    const base = MIN_GROWTH_BYTES * 40;
     const seen = new Set<string>();
-    for (let pct = -3 * threshold; pct <= 3 * threshold; pct++) {
+    for (let pct = -3 * threshold; pct <= 3 * threshold; pct += 0.5) {
       const curr = Math.max(0, Math.round(base * (1 + pct / 100)));
       for (const r of buildRows(
         { "diff.min.js": curr, "new.min.js": base },

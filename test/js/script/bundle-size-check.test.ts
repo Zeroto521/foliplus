@@ -5,6 +5,7 @@ import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { brotliCompressSync } from "zlib";
 import {
+  MIN_GROWTH_BYTES,
   buildRows,
   check,
   emit,
@@ -21,6 +22,28 @@ import {
 } from "#script/bundle-size-check.mjs";
 
 const brotli = (s: string) => brotliCompressSync(Buffer.from(s)).length;
+
+// `check` measures brotli bytes, and brotli crushes a repeated literal to a few
+// bytes: the old fixtures (a ten-byte statement ×100, "a" ×2000) compressed to
+// 33 B and 11 B respectively. Any percentage breach built on such a fixture is
+// therefore a handful of bytes and lands under the absolute floor, so the gate
+// cannot fire at all and the test quietly stops testing the threshold.
+// `payload` is incompressible, so its compressed size tracks its raw length and
+// a fractional baseline produces a genuinely material delta.
+const payload = (bytes: number) => {
+  let x = 0x2f6e2b1;
+  let out = "";
+  for (let i = 0; i < bytes; i++) {
+    x = (Math.imul(x, 1103515245) + 12345) >>> 0;
+    out += String.fromCharCode(33 + (x % 94));
+  }
+  return out;
+};
+
+// A fixture whose brotli size is large enough for the floor to be inert: past
+// this length 10% growth already means more than `MIN_GROWTH_BYTES`, so the
+// verdict here is the percentage verdict alone.
+const BODY = payload(4096);
 
 let tmpRoots: string[] = [];
 
@@ -170,30 +193,43 @@ describe("parseArgs", () => {
 });
 
 describe("buildRows", () => {
-  it("classifies over/low/up/down/same/new/missing", () => {
+  it("classifies over/trivial/low/up/down/same/new/missing", () => {
+    // Sizes are all in the kilobyte range so the absolute floor does not
+    // dominate the verdict; "e" is the one deliberately-small exception.
     const current = {
-      "a.min.js": 100,
-      "b.min.js": 90,
-      "c.min.js": 100,
-      "d.min.js": 108,
-      "new.min.js": 50,
+      "a.min.js": 4800,
+      "b.min.js": 3600,
+      "c.min.js": 4000,
+      "d.min.js": 4240,
+      "e.min.js": 471,
+      "f.min.js": 4160,
+      "new.min.js": 5000,
     };
     const baseline = {
       files: {
-        "a.min.js": 80,
-        "b.min.js": 100,
-        "c.min.js": 100,
-        "d.min.js": 100,
-        "gone.min.js": 10,
+        "a.min.js": 4000,
+        "b.min.js": 4000,
+        "c.min.js": 4000,
+        "d.min.js": 4000,
+        "e.min.js": 371,
+        "f.min.js": 4000,
+        "gone.min.js": 4000,
       },
     };
     const byFile = Object.fromEntries(
       buildRows(current, baseline, 10).map(r => [r.file, r]),
     );
-    expect(byFile["a.min.js"].status).toBe("over"); // +25% > 10%
+    expect(byFile["a.min.js"].status).toBe("over"); // +20% and +800 B: both bars
     expect(byFile["b.min.js"].status).toBe("down"); // -10%
     expect(byFile["c.min.js"].status).toBe("same");
-    expect(byFile["d.min.js"].status).toBe("low"); // +8% within the 5% low-margin band
+    // +6% inside the 5% low-margin band, and +240 B so the floor does not
+    // swallow it.
+    expect(byFile["d.min.js"].status).toBe("low");
+    // +100 B on 371 B is +27%: the percentage bar alone calls this over, but
+    // the growth is still under the absolute floor, so it stays trivial.
+    expect(byFile["e.min.js"].status).toBe("trivial");
+    expect(byFile["e.min.js"].over).toBe(false);
+    expect(byFile["f.min.js"].status).toBe("up"); // +4% and +160 B
     expect(byFile["new.min.js"].status).toBe("new");
     expect(byFile["gone.min.js"].status).toBe("missing");
     expect(byFile["gone.min.js"].over).toBe(false);
@@ -357,7 +393,7 @@ describe("formatters", () => {
 describe("check", () => {
   it("returns 0 when all bundles are within threshold", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     expect(check(argsWithBaseline(root, { files: { "a.min.js": size } }), root)).toBe(
@@ -370,7 +406,7 @@ describe("check", () => {
     // been written, so a non-zero exit here would only hide it from the PR
     // comment that follows. `--enforce` is the explicit opt-in.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 20% smaller → 25% growth > 10%
@@ -384,7 +420,7 @@ describe("check", () => {
 
   it("returns non-zero when a bundle exceeds the threshold with --enforce", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     const baseline = writeBaseline(root, {
@@ -407,7 +443,7 @@ describe("check", () => {
 
   it("warns but returns 0 when a bundle is in the low-margin band", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 7% smaller → ~7.5% growth, inside the 5% low-margin band (not over)
@@ -421,7 +457,7 @@ describe("check", () => {
 
   it("honors an explicit --threshold", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // 25% growth but --threshold=30 → not over
@@ -462,7 +498,7 @@ describe("check", () => {
     // The report is read out of the base branch's build, so the commit pair is
     // what tells the reader which two trees are being compared.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = parseArgs([
@@ -492,7 +528,7 @@ describe("check", () => {
   it("drops the comparison line when neither commit is given", () => {
     // A bare local run has no base/head pair.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = parseArgs([
@@ -509,7 +545,7 @@ describe("check", () => {
     // "base (?) to head (3374c53)" reads worse than no range, so the line is
     // suppressed rather than padded.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = parseArgs([
@@ -526,7 +562,7 @@ describe("check", () => {
 
   it("compares against a custom baseline via --baseline", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // custom baseline 20% smaller → 25% growth > 10%.
@@ -545,7 +581,7 @@ describe("check", () => {
 
   it("writes a collapsible Markdown report via --report", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
@@ -567,7 +603,7 @@ describe("check", () => {
     // abort before the comment was written and the table would stay on the
     // verdict from the last green run. The report file must exist either way.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content, "b.min.css": content });
     const report = join(root, "report.md");
@@ -596,7 +632,7 @@ describe("check", () => {
 
   it("flags over-threshold bundles in the report summary", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // baseline 20% smaller → 25% growth > 10%
@@ -612,7 +648,7 @@ describe("check", () => {
 
   it("bolds the over-threshold count in the report summary with HTML", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
@@ -659,7 +695,7 @@ ${body}`;
     // The comparison itself already succeeded, so this must not change the
     // exit code or abort the check.
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     const dir = join(root, "report-dir");
@@ -685,7 +721,7 @@ ${body}`;
 
   it("renders a baseline bundle that is missing from dist without failing", () => {
     const root = mkTmp();
-    const content = "const x = 1;".repeat(100);
+    const content = BODY;
     const size = brotli(content);
     mkDist(root, { "a.min.js": content });
     // "gone.min.js" is in the baseline but no longer built.
@@ -869,7 +905,7 @@ describe("failure listing", () => {
   // line must name the bundle and show the growth it measured.
   it("lists every over-threshold bundle with its growth", () => {
     const root = mkTmp();
-    const body = "const x = 1;".repeat(100);
+    const body = BODY;
     const size = brotli(body);
     mkDist(root, { "a.min.js": body, "b.min.js": body });
     const out = runCheck(
@@ -893,7 +929,7 @@ describe("failure listing", () => {
     // The non-enforce message must name the opt-in, or the reader cannot tell
     // that this run chose not to gate.
     const root = mkTmp();
-    const body = "const x = 1;".repeat(100);
+    const body = BODY;
     const size = brotli(body);
     mkDist(root, { "a.min.js": body });
     const out = runCheck(root, { files: { "a.min.js": Math.round(size * 0.5) } }, true);
@@ -931,11 +967,16 @@ const runEnforce = (root: string, data: unknown, ...extra: string[]): string => 
 // baseline a tenth of the real output reads as a bundle that vanished rather
 // than as growth, so the percentage the threshold is applied to would be wrong.
 const growDist = (root: string, factor: number) => {
-  const body = "a".repeat(2000);
-  const curr = brotli(body);
-  mkDist(root, { "a.min.js": body });
+  const curr = brotli(BODY);
+  mkDist(root, { "a.min.js": BODY });
   return { files: { "a.min.js": Math.max(1, Math.round(curr * (1 - factor))) } };
 };
+
+// These tests spawn a node process or compress a megabyte of data, so they are
+// far slower than the in-process cases. Under the full suite's parallel load
+// the default 5 s budget was not enough, and the failure said nothing about the
+// script. The assertions are unchanged; only the budget is wider.
+const SLOW = 60000;
 
 // Runs the checked-in script as CI does. Hoisted so the exit-code tests can
 // compare the real process status, not the value `check` returns.
@@ -952,20 +993,21 @@ describe("threshold and enforce", () => {
   // flags cannot silently ignore each other.
   it("admits growth inside an explicit threshold even under --enforce", () => {
     // If `--enforce` were ignored the run would still exit 0, and if
-    // `--threshold` were ignored it would exit 2 on a growth the raised bar
-    // admits — either way this catches it. A 1% baseline cut grows the bundle
-    // by ~1.01%, far inside a 20% bar.
+    // `--threshold` were ignored it would exit 2 — the growth below sits between
+    // the default 10% and the explicit 20%, so only the explicit bar admits it.
+    // Either flag silently dropped and this would catch it. The cut is large
+    // enough in bytes that the absolute floor is not what admits it.
     const root = mkTmp();
-    const data = growDist(root, 0.01);
+    const data = growDist(root, 0.12);
     const a = runEnforce(root, data, "--threshold=20");
     expect(a.split("\n")[0]).toBe("0");
     expect(a).toContain("All bundles within threshold.");
   });
 
   it("fails under --enforce when an explicit threshold is exceeded", () => {
-    // A 25% cut grows the bundle by ~33%: past the doubled 20% bar but inside
-    // the default 10%, which proves the explicit threshold is the one applied,
-    // not the default.
+    // A 25% cut grows the bundle by ~33%: past the raised 20% bar. Paired with
+    // the test above — which admits a growth the default 10% would reject — it
+    // is what pins the explicit threshold as the bar that is applied.
     const root = mkTmp();
     const data = growDist(root, 0.25);
     const a = runEnforce(root, data, "--threshold=20");
@@ -984,26 +1026,195 @@ describe("threshold and enforce", () => {
     expect(a).toContain("exceeded threshold");
   });
 
-  it("distinguishes the three exit codes end to end", () => {
-    // 0 = a verdict, 2 = the build chose to gate on it, 1 = the tool cannot
-    // run. One shared code would make a malformed flag and a real breach read
-    // alike, so all three are exercised from the same dist tree. The baseline
-    // must hold a size close to the real brotli output: a tiny baseline grows
-    // to "new"-territory and reads as an unknown percentage.
+  it(
+    "distinguishes the three exit codes end to end",
+    () => {
+      // 0 = a verdict, 2 = the build chose to gate on it, 1 = the tool cannot
+      // run. One shared code would make a malformed flag and a real breach read
+      // alike, so all three are exercised from the same dist tree. The baseline
+      // must hold a size close to the real brotli output: a tiny baseline turns
+      // the same breach into a thousands-percent growth, which would make the
+      // assertion measure arithmetic instead of the gate.
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": BODY });
+      const baseline = writeBaseline(root, {
+        files: { "a.min.js": Math.round(brotli(BODY) * 0.75) },
+      });
+      const verdict = runProcess(root, "--baseline=" + baseline);
+      const gated = runProcess(root, "--baseline=" + baseline, "--enforce");
+      const broken = runProcess(root, "--threshold=abc");
+      expect(verdict.status).toBe(0); // no --enforce: the verdict does not gate
+      expect(gated.status).toBe(2); // --enforce: the same verdict does
+      expect(broken.status).toBe(1); // malformed flag: the run never started
+      expect(verdict.status).not.toBe(gated.status);
+      expect(broken.status).not.toBe(gated.status);
+    },
+    SLOW,
+  );
+});
+
+describe("absolute floor", () => {
+  // The gate needs both bars crossed. The buildRows cases pin the rule on exact
+  // numbers; the `check` cases pin it through the exit code `--enforce`
+  // produces, which is what the CI gate step actually reads.
+  //
+  // TINY_BASE is what the smallest JS bundle (foliplus-ScaleControl.min.js)
+  // measured before #389: the base side of the +33 B / +8.9% growth that put a
+  // percentage-only bar in play. main carries the golfed 404 B.
+  const TINY_BASE = 371;
+
+  it("does not flag a small bundle that breaches the percent but not the bytes", () => {
+    // +33 B on 371 B is +8.9%: a sub-threshold percentage that the old rule
+    // reported as "8.9% growth (1.1% margin left)" and pushed into renaming
+    // identifiers. It is neither over nor in the low-margin band now.
+    const rows = buildRows(
+      { "a.min.js": TINY_BASE + 33 },
+      { files: { "a.min.js": TINY_BASE } },
+      10,
+    );
+    const r = rows[0];
+    expect(r.pct.toFixed(1)).toBe("8.9");
+    expect(r.status).toBe("trivial");
+    expect(r.over).toBe(false);
+    expect(r.material).toBe(false);
+  });
+
+  it("keeps a small bundle red once the byte growth clears the floor", () => {
+    const rows = buildRows(
+      { "a.min.js": TINY_BASE + MIN_GROWTH_BYTES + 1 },
+      { files: { "a.min.js": TINY_BASE } },
+      10,
+    );
+    expect(rows[0].status).toBe("over");
+  });
+
+  it("gates on the byte strictly above the floor, not at it", () => {
+    // A 1.28 KB bundle: 10% growth is exactly the floor, so here the two bars
+    // move together and the boundary is readable as one number.
+    const base = MIN_GROWTH_BYTES * 10;
+    const over = (delta: number) =>
+      buildRows({ "a.min.js": base + delta }, { files: { "a.min.js": base } }, 10)[0]
+        .over;
+    expect(over(MIN_GROWTH_BYTES)).toBe(false);
+    expect(over(MIN_GROWTH_BYTES + 1)).toBe(true);
+  });
+
+  it("does not gate a shrink however large it is", () => {
+    // Shrinking is never a breach, and the floor must not turn a large
+    // decrease into one.
+    const rows = buildRows({ "a.min.js": 0 }, { files: { "a.min.js": 400000 } }, 10);
+    expect(rows[0].over).toBe(false);
+    expect(rows[0].status).toBe("down");
+  });
+
+  it("keeps a large bundle red on a large growth", () => {
+    // The other direction of the rule: the floor must not read as "anything
+    // under 128 B is fine", i.e. it must not disable the gate for big bundles.
+    // The baseline is the largest bundle main carries (foliplus-common.min.js).
+    const prev = 21422;
+    const rows = buildRows(
+      { "a.min.js": prev + 300000 },
+      { files: { "a.min.js": prev } },
+      10,
+    );
+    const r = rows[0];
+    expect(r.status).toBe("over");
+    expect(r.delta).toBe(300000);
+    expect(r.pct).toBeGreaterThan(10);
+  });
+
+  it("exits 0 under --enforce for a sub-floor growth, and says why", () => {
+    // The green half of the gate. The same input exits 2 before the floor
+    // existed, because the growth below breaches the percentage alone — the
+    // assertion pins that it really does, so only the new absolute bar keeps
+    // the exit code at 0.
     const root = mkTmp();
-    const body = "a".repeat(2000);
+    const body = payload(460);
+    const size = brotli(body);
+    const delta = Math.round(MIN_GROWTH_BYTES / 2);
+    const base = Math.max(1, size - delta);
     mkDist(root, { "a.min.js": body });
-    const baseline = writeBaseline(root, {
-      files: { "a.min.js": Math.round(brotli(body) * 0.75) },
-    });
-    const verdict = runProcess(root, "--baseline=" + baseline);
-    const gated = runProcess(root, "--baseline=" + baseline, "--enforce");
-    const broken = runProcess(root, "--threshold=abc");
-    expect(verdict.status).toBe(0); // no --enforce: the verdict does not gate
-    expect(gated.status).toBe(2); // --enforce: the same verdict does
-    expect(broken.status).toBe(1); // malformed flag: the run never started
-    expect(verdict.status).not.toBe(gated.status);
-    expect(broken.status).not.toBe(gated.status);
+    expect(
+      (delta / base) * 100,
+      "the fixture must actually breach the percent",
+    ).toBeGreaterThan(10);
+
+    const out = runEnforce(root, { files: { "a.min.js": base } });
+    expect(out.split("\n")[0]).toBe("0");
+    expect(out).toContain("below the absolute bar");
+    expect(out).toContain("a.min.js");
+    // Neither the breach listing nor the "almost there" warning may fire — that
+    // pair is what reads as "fix this" to the next person.
+    expect(out).not.toContain("exceeded threshold");
+    expect(out).not.toContain("margin left");
+    expect(out).toContain("All bundles within threshold.");
+  });
+
+  it(
+    "still exits 2 under --enforce when a bundle grows by hundreds of kilobytes",
+    () => {
+      // The red half of the gate: the floor must not have turned the check into
+      // a rubber stamp. `payload` is incompressible, so a 1 MB source is a ~800
+      // KB bundle and the baseline cut below is a ~240 KB growth. Two brotli
+      // passes over that data make this the slowest test in the file.
+      const root = mkTmp();
+      const big = payload(1_000_000);
+      const size = brotli(big);
+      const base = Math.round(size * 0.7);
+      expect(size - base, "the fixture must really be a large growth").toBeGreaterThan(
+        100000,
+      );
+      mkDist(root, { "big.min.js": big });
+
+      const out = runEnforce(root, { files: { "big.min.js": base } });
+      expect(out.split("\n")[0]).toBe("2");
+      expect(out).toContain("exceeded threshold");
+      expect(out).toContain("big.min.js");
+    },
+    SLOW,
+  );
+
+  it("exits 2 under --enforce when a small bundle clears both bars", () => {
+    // The floor must not read as "small bundles are exempt". A ~400 B bundle
+    // growing by half its size is +200 B and +100% — both bars cross and the
+    // gate fires exactly as it would for a large bundle.
+    const root = mkTmp();
+    const body = payload(400);
+    mkDist(root, { "a.min.js": body });
+    const size = brotli(body);
+    const base = Math.max(1, Math.round(size * 0.5));
+    const delta = size - base;
+    expect(delta, "the fixture must really clear the byte floor").toBeGreaterThan(
+      MIN_GROWTH_BYTES,
+    );
+    expect(
+      (delta / base) * 100,
+      "the fixture must really breach the percent",
+    ).toBeGreaterThan(10);
+
+    const out = runEnforce(root, { files: { "a.min.js": base } });
+    expect(out.split("\n")[0]).toBe("2");
+    expect(out).toContain("exceeded threshold");
+    expect(out).toContain("a.min.js");
+  });
+
+  it("states both bars in the report so a reader sees why nothing was gated", () => {
+    const root = mkTmp();
+    const body = payload(460);
+    mkDist(root, { "a.min.js": body });
+    const report = join(root, "report.md");
+    const args = parseArgs([
+      "--baseline=" +
+        writeBaseline(root, {
+          files: { "a.min.js": brotli(body) - Math.round(MIN_GROWTH_BYTES / 2) },
+        }),
+      "--report=" + report,
+    ]);
+    expect(check(args, root)).toBe(0);
+    const md = readFileSync(report, "utf-8");
+    expect(md).toContain(`threshold: 10%, floor: ${MIN_GROWTH_BYTES} B`);
+    expect(md).toContain("crosses **both** bars");
+    expect(md).toContain("trivial");
   });
 });
 
@@ -1016,55 +1227,79 @@ describe("cli entry point", () => {
   const run = (root: string, ...argv: string[]) =>
     runProcess(root, ...(argv.length ? argv : ["--baseline=absent.json"]));
 
-  it("exits 0 and renders the sizes when no baseline exists", () => {
-    const root = mkTmp();
-    mkDist(root, { "a.min.js": "const x = 1;" });
-    const res = run(root);
-    expect(res.status).toBe(0);
-    expect(res.stdout).toContain("Bundle Sizes");
-    expect(res.stdout).toContain("a.min.js");
-    expect(res.stderr).toContain("No baseline provided");
-  });
+  it(
+    "exits 0 and renders the sizes when no baseline exists",
+    () => {
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": "const x = 1;" });
+      const res = run(root);
+      expect(res.status).toBe(0);
+      expect(res.stdout).toContain("Bundle Sizes");
+      expect(res.stdout).toContain("a.min.js");
+      expect(res.stderr).toContain("No baseline provided");
+    },
+    SLOW,
+  );
 
-  it("reports the breach and exits 0 without --enforce", () => {
-    const root = mkTmp();
-    mkDist(root, { "a.min.js": "const x = 1;" });
-    // A growth from 10 bytes to ~20 is far past the 10% threshold, so the
-    // breach is real; what varies is whether it gates the process. The verdict
-    // is printed to stderr either way, which is what the CI reads.
-    const baseline = join(root, "base.json");
-    writeFileSync(baseline, JSON.stringify({ files: { "a.min.js": 10 } }), "utf-8");
-    const res = run(root, "--baseline=" + baseline);
-    expect(res.status).toBe(0);
-    expect(res.stderr).toContain("exceeded threshold");
-    expect(res.stderr).toContain("--enforce");
-  });
+  it(
+    "reports the breach and exits 0 without --enforce",
+    () => {
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": BODY });
+      // A 20% baseline cut is a real breach on both bars; what varies is whether
+      // it gates the process. The verdict is printed to stderr either way, which
+      // is what the CI reads.
+      const baseline = join(root, "base.json");
+      writeFileSync(
+        baseline,
+        JSON.stringify({ files: { "a.min.js": Math.round(brotli(BODY) * 0.8) } }),
+        "utf-8",
+      );
+      const res = run(root, "--baseline=" + baseline);
+      expect(res.status).toBe(0);
+      expect(res.stderr).toContain("exceeded threshold");
+      expect(res.stderr).toContain("--enforce");
+    },
+    SLOW,
+  );
 
-  it("exits non-zero on a breach when --enforce is passed", () => {
-    // `--enforce` is the explicit opt-in the workflow gate step uses. A breach
-    // without it must not abort a job, because the sticky comment is a later
-    // step in that same job and would never be written.
-    const root = mkTmp();
-    mkDist(root, { "a.min.js": "const x = 1;" });
-    const baseline = join(root, "base.json");
-    writeFileSync(baseline, JSON.stringify({ files: { "a.min.js": 10 } }), "utf-8");
-    const res = run(root, "--baseline=" + baseline, "--enforce");
-    expect(res.status).toBe(2);
-    expect(res.stderr).toContain("the build fails here");
-  });
+  it(
+    "exits non-zero on a breach when --enforce is passed",
+    () => {
+      // `--enforce` is the explicit opt-in the workflow gate step uses. A breach
+      // without it must not abort a job, because the sticky comment is a later
+      // step in that same job and would never be written.
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": BODY });
+      const baseline = join(root, "base.json");
+      writeFileSync(
+        baseline,
+        JSON.stringify({ files: { "a.min.js": Math.round(brotli(BODY) * 0.8) } }),
+        "utf-8",
+      );
+      const res = run(root, "--baseline=" + baseline, "--enforce");
+      expect(res.status).toBe(2);
+      expect(res.stderr).toContain("the build fails here");
+    },
+    SLOW,
+  );
 
-  it("exits 1 without running when an argument is malformed", () => {
-    // The comparison must not happen at all: running with a coerced default
-    // would report a verdict at the wrong threshold. The usage block is
-    // printed so the reader can fix the invocation.
-    const root = mkTmp();
-    mkDist(root, { "a.min.js": "const x = 1;" });
-    const res = run(root, "--threshold=abc");
-    expect(res.status).toBe(1);
-    expect(res.stderr).toContain("must be a number");
-    expect(res.stderr).toContain("Usage:");
-    expect(res.stderr).not.toContain("Bundle Size Check");
-  });
+  it(
+    "exits 1 without running when an argument is malformed",
+    () => {
+      // The comparison must not happen at all: running with a coerced default
+      // would report a verdict at the wrong threshold. The usage block is
+      // printed so the reader can fix the invocation.
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": "const x = 1;" });
+      const res = run(root, "--threshold=abc");
+      expect(res.status).toBe(1);
+      expect(res.stderr).toContain("must be a number");
+      expect(res.stderr).toContain("Usage:");
+      expect(res.stderr).not.toContain("Bundle Size Check");
+    },
+    SLOW,
+  );
 
   it("treats an unreadable tool manifest as absent, not fatal", () => {
     // `toolVersion` guards `JSON.parse`; the guard must not take the run down.
