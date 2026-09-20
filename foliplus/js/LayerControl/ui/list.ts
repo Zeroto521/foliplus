@@ -139,7 +139,21 @@ const insertLayerItem = (
     const nextAnchor = container.querySelector(nextGroupSel);
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
-  } else container.insertBefore(frag, firstOfGroup);
+  } else {
+    // Anchor on the registry neighbour below this layer, so the row lands at
+    // the position the registry chose rather than always at the top of the
+    // group. A late registration replayed onto its stored position would
+    // otherwise sit at the top of the panel while painting at its stored
+    // depth, and initLayerItem's index-based lookup would hit that neighbour's
+    // checkbox instead.
+    const below = ui.m.layers
+      .slice(idx + 1)
+      .find(li => li && li.isBase === layerInfo.isBase);
+    const row = below
+      ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(below.id)}"]`)
+      : null;
+    container.insertBefore(frag, row ?? firstOfGroup);
+  }
 
   if (reindex) reindexItems(ui);
   // insertLayerItem is where a late-registered (third-party) layer first

@@ -180,15 +180,15 @@ class LayerManager implements LayerAPI {
     // comes through PaneManager.ensurePane so it carries the base
     // foliplus-layer-pane class like every other owned pane, and it goes back
     // out through removePane so the spec/cache are cleared in step. The
-    // last hook is the pane's appearance replaying the layer's stored opacity:
-    // the pane is the opacity carrier and it is created lazily, so without it a
-    // slider move made before labels turned on would never reach them.
+    // last hook is the pane's appearance replaying the layer's stored intent:
+    // the pane is a carrier and it is created lazily, so without it a slider
+    // move made before labels turned on would never reach them.
     this.annotation = new AnnotationManager({
       map: this.map,
       layerFind: id => this.findLayer(id),
       ensureOwnedPane: name => this.panes.ensurePane(name, false).pane,
       releaseOwnedPane: name => this.panes.removePane(name),
-      replayLayerOpacity: id => this.ui?.replayLayerOpacity(id),
+      replayLayerState: id => this.ui?.replayLayerState(id),
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -320,31 +320,32 @@ class LayerManager implements LayerAPI {
       if (from !== to) registry.reorder(from, from < to ? to - 1 : to);
       return;
     }
-    const last = registry.layers.length - 1;
-    if (from !== last) registry.reorder(from, last);
+    // Nothing below it in the saved order is registered yet, so it is the
+    // rightmost of the layers that exist. That end is the overlay group's,
+    // never the registry's: an overlay that lands under a base layer breaks the
+    // overlay-before-base invariant, and the panel's index-based row lookup
+    // would then read a neighbour's checkbox instead of its own.
+    const end =
+      registry.firstBaseIdx === -1
+        ? registry.layers.length - 1
+        : registry.firstBaseIdx - 1;
+    if (from !== end) registry.reorder(from, from < end ? end - 1 : end);
   }
 
   /** Where a new overlay enters the stack.
    *
-   *  Without a stored order there is nothing to honour, so the layer goes on
-   *  top, which is what a fresh layer should do. With one, it takes the position
-   *  the user already chose -- or the bottom when the user never arranged it,
-   *  the same end {@link loadSavedOrder} appends to. The placement is done here
-   *  rather than left to a later sweep, because a registration that lands before
-   *  the UI attaches never gets that sweep.
+   *  A layer without a stored position goes on top — a fresh layer has no user
+   *  arrangement to honour, and top is what every other caller of `prepend`
+   *  promises. With a stored position it takes the slot the user already chose.
+   *  The placement is done here rather than left to a later sweep, because a
+   *  registration that lands before the UI attaches never gets that sweep.
    */
   private insertOverlayAt(layerInfo: LayerInfo): void {
-    const saved = this.savedOrder;
-    if (!saved) {
-      this.layerRegistry.prepend(layerInfo);
-      return;
-    }
-    const target = saved.indexOf(layerInfo.id);
-    if (target === -1) {
-      this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      return;
-    }
     this.layerRegistry.prepend(layerInfo);
+    const saved = this.savedOrder;
+    if (!saved) return;
+    const target = saved.indexOf(layerInfo.id);
+    if (target === -1) return; // no stored position — a fresh layer stays on top
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
   }
 

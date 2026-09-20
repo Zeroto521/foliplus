@@ -89,12 +89,12 @@ class AnnotationManager {
    *  booked in one place. Without it a stale spec could hand a rebuild a
    *  leftover z from the previous instance. */
   private readonly releaseOwnedPane: (name: string) => void;
-  /** Replay this layer's stored opacity the moment its annotation pane appears
+  /** Replay this layer's stored intent the moment its annotation pane appears
    *  (see {@link ensureCanvas}). Injected rather than inlined: the pane is the
    *  opacity carrier (§5.4), but the value and its carrier resolution both live
    *  in the UI's write pipeline, which is also what makes a canvas layer land
    *  on `canvas.style` instead of a pane. */
-  private readonly replayLayerOpacity: (id: string) => void;
+  private readonly replayLayerState: (id: string) => void;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
@@ -124,13 +124,13 @@ class AnnotationManager {
     layerFind: (id: string) => L.Layer | null;
     ensureOwnedPane: (name: string) => HTMLElement;
     releaseOwnedPane: (name: string) => void;
-    replayLayerOpacity: (id: string) => void;
+    replayLayerState: (id: string) => void;
   }) {
     this.map = opts.map;
     this.layerFind = opts.layerFind;
     this.ensureOwnedPane = opts.ensureOwnedPane;
     this.releaseOwnedPane = opts.releaseOwnedPane;
-    this.replayLayerOpacity = opts.replayLayerOpacity;
+    this.replayLayerState = opts.replayLayerState;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -572,12 +572,11 @@ class AnnotationManager {
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));
     // The pane is the opacity carrier (§5.4), and it is created lazily -- often
-    // long after the slider was last moved -- so the stored value has to be
+    // long after the slider was last moved -- so the stored intent has to be
     // replayed at the moment the pane appears rather than waiting for the next
-    // write, which may never come. Only opacity is replayed: this pane carries
-    // nothing else. `panes.set` must come first, since the writer resolves the
-    // carrier through `paneNameFor`.
-    this.replayLayerOpacity(id);
+    // write, which may never come. `panes.set` must come first, since the writer
+    // resolves the carrier through `paneNameFor`.
+    this.replayLayerState(id);
   }
 
   /** Drop a layer's canvas and pane. Called on unregister and on teardown; the

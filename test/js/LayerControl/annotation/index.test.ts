@@ -116,7 +116,7 @@ describe("AnnotationManager — formatting and fields", () => {
     layerFind: () => null,
     ensureOwnedPane: stubOwnedPane(map),
     releaseOwnedPane: stubReleaseOwnedPane(map),
-    replayLayerOpacity: () => {},
+    replayLayerState: () => {},
   });
 
   it("formats numbers per style and passes strings through", () => {
@@ -183,7 +183,7 @@ describe("AnnotationManager — formatting and fields", () => {
       layerFind: () => group,
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     expect(m.collectFields("l1")).toEqual([
       { name: "name", numeric: false },
@@ -204,7 +204,7 @@ describe("AnnotationManager — config", () => {
       layerFind: () => null,
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
 
     expect(mgr.getConfig("none")).toEqual({
@@ -248,7 +248,7 @@ describe("AnnotationManager — config", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, size: 12 });
     mgr.renderLabels("a");
@@ -269,7 +269,7 @@ describe("AnnotationManager — config", () => {
         layerFind: () => null,
         ensureOwnedPane: stubOwnedPane(map),
         releaseOwnedPane: stubReleaseOwnedPane(map),
-        replayLayerOpacity: () => {},
+        replayLayerState: () => {},
       });
       expect(mgr.getConfig("none").collide).toBe(false);
     } finally {
@@ -285,7 +285,7 @@ describe("AnnotationManager — config", () => {
         mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
 
     // No explicit field: the shared auto pick resolves to the only column.
@@ -307,7 +307,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
 
     mgr.setConfig("a", CONFIG);
@@ -334,7 +334,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, show: false });
 
@@ -350,7 +350,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -365,7 +365,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     for (const id of ["a", "b"]) {
       mgr.setConfig(id, CONFIG);
@@ -396,7 +396,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => group,
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, collide: false });
     mgr.renderLabels("a");
@@ -416,7 +416,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => group,
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -436,7 +436,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -475,7 +475,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -504,7 +504,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -532,7 +532,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: id => (id === "a" ? layerA : layerB),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.setConfig("b", CONFIG);
@@ -565,7 +565,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
 
@@ -582,7 +582,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -608,7 +608,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -634,7 +634,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -656,7 +656,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -681,7 +681,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -712,7 +712,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -737,7 +737,7 @@ describe("AnnotationManager — render & plan", () => {
       layerFind: () => oneLabel(),
       ensureOwnedPane: stubOwnedPane(map),
       releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerOpacity: () => {},
+      replayLayerState: () => {},
     });
 
     expect(mgr.paneNameFor("a")).toBeNull();

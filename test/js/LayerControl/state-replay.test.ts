@@ -204,7 +204,7 @@ describe("state replay", () => {
         },
       });
 
-      expect(new LayerPersistence({ layers: [] } as never).load().annotations).toEqual({
+      expect(new LayerPersistence().load().annotations).toEqual({
         H: { show: true, field: "v", format: "auto", color: "#ffffff", size: 11 },
       });
     });

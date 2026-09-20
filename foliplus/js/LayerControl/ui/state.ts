@@ -444,7 +444,7 @@ const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number
 };
 
 /**
- * Replay one layer's stored opacity at the moment a carrier for it appears.
+ * Replay one layer's stored intent at the moment a carrier for it appears.
  *
  * An annotation pane is created lazily — when labels first turn on, which can be
  * long after the slider was last moved — and nothing writes to a pane that does
@@ -454,16 +454,27 @@ const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number
  * own canvas keeps writing `canvas.style` instead of picking up a second,
  * multiplying write on a pane (§4.2).
  *
- * Only opacity is replayed, because that is all the pane carries, and only when
- * the user actually stored a value, so an untouched layer keeps the author's
- * default.
+ * The name names the trigger, not the dimension: `visible` rides on map
+ * membership / `onToggle` and `zoomRange` is a declaration, so neither goes
+ * through a pane, and one hook per dimension would be wrong. The patch is
+ * derived from `userOverrides` instead, so this replays what the user stored for
+ * the id. A pane carries only opacity today — a fact about panes, not about this
+ * hook — and when one gains a dimension the derivation below is what changes.
+ *
+ * Only stored values are replayed, so an untouched layer keeps the author's
+ * declared default.
  */
-const replayLayerOpacity = (ui: LayerUI, id: string) => {
+const replayLayerState = (ui: LayerUI, id: string) => {
   const layerInfo = ui.m.layerRegistry.get(id);
-  if (!layerInfo) return; // not registered yet —its stored value is kept
-  const opacity = ui.opacityMap[id];
-  if (typeof opacity !== "number") return; // never stored — nothing to replay
-  applyLayerState(ui, layerInfo, { opacity });
+  if (!layerInfo) return; // not registered yet —its stored state is kept
+  const stored = ui.userOverrides[id] ?? [];
+  const patch: { opacity?: number } = {};
+  if (stored.includes("opacity")) {
+    const opacity = ui.opacityMap[id];
+    if (typeof opacity === "number") patch.opacity = opacity;
+  }
+  if (patch.opacity === undefined) return; // nothing stored — nothing to replay
+  applyLayerState(ui, layerInfo, patch);
 };
 
 /** Save user-assigned names, coalescing rapid calls. */
@@ -517,7 +528,7 @@ export {
   applyHiddenOne,
   applyHiddenStateOne,
   applyOpacityStateOne,
-  replayLayerOpacity,
+  replayLayerState,
   applyVisibleStateOne,
   saveNamesState,
   syncHiddenId,
