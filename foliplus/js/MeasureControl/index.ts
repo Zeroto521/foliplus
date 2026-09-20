@@ -69,10 +69,12 @@ class MeasureControl extends BaseControl {
     bindFoldToggle({ container: ctrl, toggleBtn });
 
     // Collapse when clicking outside, but NOT when a tool is active
-    bindOutsideCollapse({
-      container: ctrl,
-      skipCheck: () => this.m.currentMode !== null,
-    });
+    this.effect(() =>
+      bindOutsideCollapse({
+        container: ctrl,
+        skipCheck: () => this.m.currentMode !== null,
+      }),
+    );
 
     this.m.toolBtns.forEach((btn: HTMLElement) => {
       btn.onclick = (event: MouseEvent) => {
