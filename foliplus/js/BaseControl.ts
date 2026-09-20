@@ -44,19 +44,6 @@
 //     is a programming error, and a silent fallback would hide it.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 
-/** Tag cleanup closures so the legacy `listenDOM` alias can dedup by
- *  `(event, fn)` without a parallel array. The signal already prevents
- *  duplicate browser listeners, but a second registration would still
- *  push a second cleanup entry, doubling the unbind call. */
-const FINGERPRINT = "__fp";
-
-type TaggedCleanup = (() => void) & { [FINGERPRINT]?: string };
-
-const fingerprint = (event: string, fn: unknown): string => {
-  const s = fn as { toString?: () => string };
-  return `${event}\u0001${typeof s.toString === "function" ? s.toString() : ""}`;
-};
-
 class BaseControl extends L.Control {
   /**
    * One AbortController per mounting. Installed on every `onAdd()` so
@@ -69,16 +56,16 @@ class BaseControl extends L.Control {
    * `null` between construction and the first `onAdd()`, which is why
    * the `signal` getter throws on a detached read.
    */
-  private _ac: AbortController | null = null;
+  private ac: AbortController | null = null;
 
   /**
-   * Idempotency flag for `onRemove()`. Distinct from `_ac === null`:
+   * Idempotency flag for `onRemove()`. Distinct from `ac === null`:
    * the latter also covers "never mounted", and a component that calls
    * `onRemove()` without a preceding `onAdd()` (the unit-test pattern)
    * must still have its registered listeners cleaned up. Only the
    * second call within the same mounting cycle short-circuits.
    */
-  private _removed = false;
+  private removed = false;
 
   /** Legacy field. The signal handles DOM listener teardown, so this is
    *  only populated by the `listenDOM` alias for backwards-compatible
@@ -95,9 +82,6 @@ class BaseControl extends L.Control {
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.events = [];
-    this.mapListeners = [];
-    this.cleanups = [];
     this.init?.();
   }
 
@@ -108,8 +92,8 @@ class BaseControl extends L.Control {
     // would silently disable every `{signal}` listener registered against
     // it — no error, no warning, just dead handlers — so a stale
     // controller is exactly the failure mode to prevent.
-    this._ac = new AbortController();
-    this._removed = false;
+    this.ac = new AbortController();
+    this.removed = false;
     const container =
       this.buildDOM?.() ?? this.build?.() ?? document.createElement("div");
     L.DomEvent.disableClickPropagation(container);
@@ -134,12 +118,12 @@ class BaseControl extends L.Control {
     // re-iterate the already-cleared arrays. The signal is already
     // aborted, so registering against it in destroy() would silently
     // no-op; but the component's own destroy() code would run twice.
-    // The flag is `_removed`, not `_ac === null` — the latter also
+    // The flag is `removed`, not `ac === null` — the latter also
     // matches "never mounted", and a component that calls `onRemove()`
     // without a preceding `onAdd()` (the unit-test pattern) must still
     // have its registered listeners cleaned up.
-    if (this._removed) return;
-    this._removed = true;
+    if (this.removed) return;
+    this.removed = true;
     this.destroy();
     // Auto-unbind tracked listeners — always runs, cannot be skipped by
     // subclasses. Order matters: map listeners are unbound against a
@@ -153,8 +137,8 @@ class BaseControl extends L.Control {
     this.cleanups.forEach(fn => fn());
     this.cleanups = [];
     this.events = [];
-    this._ac?.abort();
-    this._ac = null;
+    this.ac?.abort();
+    this.ac = null;
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
@@ -171,13 +155,13 @@ class BaseControl extends L.Control {
    * it.
    */
   get signal(): AbortSignal {
-    if (!this._ac) {
+    if (!this.ac) {
       throw new Error(
         `${this.constructor.name}: read of \`signal\` on a detached control — ` +
           `register listeners inside onAdd/buildDOM, not at construction.`,
       );
     }
-    return this._ac.signal;
+    return this.ac.signal;
   }
 
   /**
@@ -248,29 +232,24 @@ class BaseControl extends L.Control {
   }
 
   /**
-   * Legacy alias for `trackCleanup(fn)`. New code should call `effect`
+   * Legacy alias for `effect(() => fn())`. New code should call `effect`
    * directly — it accepts the setup-closure form and covers the same
    * use case. Kept so `LayerControl/index.ts` and `HeatmapControl/index.ts`
    * are untouched. Idempotent on the same `fn` reference, matching the
    * original contract.
    */
   trackCleanup(fn: () => void): void {
-    const fp = `${FINGERPRINT}\u0001${fn.toString()}`;
-    if (this.cleanups.some(c => (c as TaggedCleanup)[FINGERPRINT] === fp)) return;
-    const tagged = (() => fn()) as TaggedCleanup;
-    tagged[FINGERPRINT] = fp;
-    this.cleanups.push(tagged);
+    if (this.cleanups.includes(fn)) return;
+    this.cleanups.push(fn);
   }
 
   /**
    * Legacy alias for `on(el, event, fn, options?)`.
    *
    * Keeps the original idempotency contract: dedup by `(event, fn)`
-   * across repeated calls on the same mounting. The dedup piggybacks on
-   * the fingerprint tag `on` sets on the returned unbind closure, so no
-   * parallel tracking array is needed. The signal handles teardown at
-   * the browser level, so the alias does not need to keep its own
-   * listener table.
+   * reference across repeated calls on the same mounting. The signal
+   * handles teardown at the browser level, so the alias only has to
+   * avoid double-registering.
    */
   listenDOM(
     el: EventTarget,
@@ -278,10 +257,8 @@ class BaseControl extends L.Control {
     fn: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions,
   ): void {
-    const fp = fingerprint(event, fn);
-    if (this.cleanups.some(c => (c as TaggedCleanup)[FINGERPRINT] === fp)) return;
+    if (this.events.some(([_, e, f]) => e === event && f === fn)) return;
     const unbind = this.on(el, event, fn, options);
-    (unbind as TaggedCleanup)[FINGERPRINT] = fp;
     this.events.push([el, event, fn]);
     this.cleanups.push(unbind);
   }

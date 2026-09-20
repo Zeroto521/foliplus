@@ -421,7 +421,7 @@ describe("BaseControl", () => {
   });
 
   it("signal throws when read on a detached control", () => {
-    // After onRemove, the controller is discarded and _ac is null.
+    // After onRemove, the controller is discarded and ac is null.
     // A late read of `signal` on the detached instance is a programming
     // error — a silent fallback would hide the lifecycle bug (e.g. a
     // component accidentally registering a listener in destroy()).

@@ -124,7 +124,19 @@ describe("build artifacts", () => {
     // +1771B over 2a381557 in dev mode, same command. Every byte lands in
     // core/layer + LayerControl, so R9's ceiling of 165000 accommodates it
     // with ~4KB headroom still.
-    expect(size).toBeLessThan(165000);
+    //
+    // R45 (this branch, basecontrol-listener-hygiene) moves every listener
+    // registration in BaseControl behind a per-mounting AbortController. The
+    // new surface — `ac` field, `get signal` (throws when detached), `on()`,
+    // `onMap()`, `effect()` with `.cancel()`/`.disconnect()` adaptation, the
+    // three legacy aliases `listenDOM`/`listenMap`/`trackCleanup`, and the
+    // idempotency guard in `onRemove()` — lands in BaseControl itself. That
+    // class is bundled into foliplus-common.min.js via runtime/index.ts:31,
+    // so the whole +3KB over R9's 160897B measurement is common-bundle
+    // surface, not component-bundle surface. Every component keeps
+    // externalising BaseControl, so this is the only budget line that moves
+    // from this round; the per-component caps on line 137+ are untouched.
+    expect(size).toBeLessThan(170000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
