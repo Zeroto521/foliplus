@@ -241,6 +241,28 @@ describe("BaseControl", () => {
     expect(map.off).toHaveBeenCalledWith("zoomend", fn);
   });
 
+  it("onMap does not double-register the same (event, fn) pair", () => {
+    // Leaflet does not dedup `map.on`, so the base class must — otherwise a
+    // second registration on the same pair would fire the handler twice on
+    // every event.
+    const fn = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onMap("zoomend", fn);
+    ctrl.onMap("zoomend", fn);
+    expect(map.on).toHaveBeenCalledTimes(1);
+    expect(ctrl.mapListeners).toHaveLength(1);
+
+    ctrl.onRemove();
+    expect(map.off).toHaveBeenCalledTimes(1);
+  });
+
   it("onRemove is idempotent (safe to call twice)", () => {
     class TestCtrl extends BaseControl {
       buildDOM() {
@@ -418,6 +440,46 @@ describe("BaseControl", () => {
     expect(() => ctrl.effect(() => undefined)).not.toThrow();
     expect(ctrl.cleanups).toHaveLength(0);
     expect(() => ctrl.onRemove()).not.toThrow();
+  });
+
+  it("effect ignores a setup closure that returns a bare object (no cancel/disconnect)", () => {
+    // Defensive fall-through: an object without either method is a no-op —
+    // the caller passed something that isn't a teardown resource. Registering
+    // it as a cleanup would call it at remove time and throw.
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onAdd();
+
+    ctrl.effect(() => ({ value: 42 }));
+    expect(ctrl.cleanups).toHaveLength(0);
+    expect(() => ctrl.onRemove()).not.toThrow();
+  });
+
+  it("onAdd falls back to build() when buildDOM is not overridden", () => {
+    const container = document.createElement("section");
+
+    class TestCtrl extends BaseControl {
+      build() {
+        return container;
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    expect(ctrl.onAdd()).toBe(container);
+  });
+
+  it("onAdd creates a plain div when neither buildDOM nor build is overridden", () => {
+    class TestCtrl extends BaseControl {}
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    const container = ctrl.onAdd();
+    expect(container.tagName).toBe("DIV");
+    expect(container).toBeInstanceOf(HTMLElement);
   });
 
   it("signal throws when read on a detached control", () => {
