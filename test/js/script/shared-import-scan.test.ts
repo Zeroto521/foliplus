@@ -199,7 +199,10 @@ const DIVERGENCES = [
     files: {
       "a.ts": 'import * as Ico from "#common/ico.js";\nconst a = Ico.downloadIcon;\n',
     },
-    registryBefore: {},
+    // The empty entry is the same star-side-effect as "unused star alias": the
+    // registry always creates a key for a star spec, then the uppercase-only
+    // pass finds nothing in it.
+    registryBefore: { "common/ico": [] },
     pluginBefore: { "common/ico": ["downloadIcon"] },
     // Registry matched only `[A-Z]` props plus a hardcoded `Storage.load|save`
     // escape hatch, so a lowercase icon accessor was shimmed but never
