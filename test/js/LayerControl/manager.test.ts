@@ -1153,7 +1153,7 @@ describe("LayerManager", () => {
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 
-  it("unregisterLayer removes the UI row and reindexes", () => {
+  it("unregisterLayer removes the UI row", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const row = document.createElement("div");
     row.setAttribute("data-layer-id", "overlay1");
@@ -1164,13 +1164,11 @@ describe("LayerManager", () => {
       opacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
-      reindexItems: vi.fn(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
-    expect(manager.ui.reindexItems).toHaveBeenCalled();
   });
 
   it("unregisterLayer leaves every persisted section alone", () => {
@@ -1190,7 +1188,6 @@ describe("LayerManager", () => {
         base1: ["visible"],
       },
       renamedNames: { overlay1: "Renamed" },
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1224,7 +1221,6 @@ describe("LayerManager", () => {
       },
       renamedNames: { overlay1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -1250,7 +1246,6 @@ describe("LayerManager", () => {
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1283,7 +1278,6 @@ describe("LayerManager", () => {
       userOverrides: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),

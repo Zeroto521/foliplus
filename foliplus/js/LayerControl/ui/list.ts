@@ -101,11 +101,7 @@ const renderInitialList = (ui: LayerUI) => {
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = (
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  { reindex = true }: { reindex?: boolean } = {},
-) => {
+const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -154,7 +150,6 @@ const insertLayerItem = (
     else container.insertBefore(frag, firstOfGroup);
   }
 
-  if (reindex) reindexItems(ui);
   // insertLayerItem is where a late-registered (third-party) layer first
   // shows up, so the user's name and visibility land with the row instead
   // of waiting for a later pass. Only this layer's id is applied —a full
@@ -164,7 +159,7 @@ const insertLayerItem = (
   syncListCursor(ui);
 };
 
-const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, _idx: number) => {
+const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
@@ -444,13 +439,6 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   return baseVisible;
 };
 
-// dataset.index was the panel's addressing key, consumed by drag.ts and
-// visibility.ts. Both now resolve layers by data-layer-id, so no handler reads
-// the index any more. The function is retained as a no-op: its call sites
-// (attachUI, unregister, drag reorder, insertLayerItem) live outside this
-// module and still invoke it on every list mutation.
-const reindexItems = (_ui: LayerUI) => {};
-
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
@@ -483,6 +471,5 @@ export {
   colorLayerName,
   renderColorLayerItem,
   initLayerItem,
-  reindexItems,
   reindexAfterMove,
 };

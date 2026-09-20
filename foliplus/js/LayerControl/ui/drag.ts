@@ -2,7 +2,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import { initTypesAndVisibility, reindexItems, renderInitialList } from "./list.js";
+import { initTypesAndVisibility, renderInitialList } from "./list.js";
 import { saveFoldState } from "./state.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
@@ -140,7 +140,6 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     target.parentNode.insertBefore(movedItem, target.nextSibling);
   }
 
-  reindexItems(ui);
   ui.m.enforceOrder();
   ui.m.saveOrder();
   ui.dragIdx = null;
