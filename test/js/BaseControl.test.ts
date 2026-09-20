@@ -101,6 +101,8 @@ describe("BaseControl", () => {
     // A stale, already-aborted signal would leave every {signal} listener
     // permanently dead without any error — the whole reason BaseControl
     // keeps a per-mounting controller rather than a per-instance one.
+    // The signal is not readable before the first onAdd (detached read
+    // is a lifecycle bug, so the getter throws).
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");
@@ -108,23 +110,22 @@ describe("BaseControl", () => {
     }
     const ctrl = new TestCtrl();
     ctrl._map = map;
+    expect(() => ctrl.signal).toThrow(/detached control/);
+
+    ctrl.onAdd();
     const first = ctrl.signal;
     expect(first.aborted).toBe(false);
-    ctrl.onAdd();
-    const second = ctrl.signal;
-    expect(second).not.toBe(first);
-    expect(second.aborted).toBe(false);
 
     ctrl.onRemove();
     // After onRemove the old signal is aborted.
-    expect(second.aborted).toBe(true);
+    expect(first.aborted).toBe(true);
 
     ctrl.onAdd();
     // A re-add installs a brand-new controller — the previous abort
     // cannot affect listeners registered on this mounting.
-    const third = ctrl.signal;
-    expect(third).not.toBe(second);
-    expect(third.aborted).toBe(false);
+    const second = ctrl.signal;
+    expect(second).not.toBe(first);
+    expect(second.aborted).toBe(false);
   });
 
   it("registering a DOM listener via `on` and unregistering on remove", () => {
@@ -547,6 +548,7 @@ describe("BaseControl", () => {
     // destroy must not run twice, or a destroy() that resets state would
     // silently re-run its teardown.
     const destroy = vi.fn();
+
     class TestCtrl extends BaseControl {
       buildDOM() {
         return document.createElement("div");

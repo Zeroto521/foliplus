@@ -59,14 +59,26 @@ const fingerprint = (event: string, fn: unknown): string => {
 
 class BaseControl extends L.Control {
   /**
-   * One AbortController per mounting. Installed once at construction so
-   * `this.signal` is readable from `init()` onward; replaced on every
-   * `onAdd()` so a re-attached instance never carries a stale, already-
-   * aborted signal. An aborted signal would leave every `{signal}`
-   * listener permanently dead without any error — no error, no warning,
-   * just silently-dead handlers — the hardest leak to track down.
+   * One AbortController per mounting. Installed on every `onAdd()` so
+   * listeners registered inside `buildDOM()` capture the signal for that
+   * mounting; aborted on `onRemove()` and the field set to `null`. A
+   * re-attached instance never carries a stale, already-aborted signal —
+   * an aborted signal would leave every `{signal}` listener permanently
+   * dead without any error (no error, no warning, just silently-dead
+   * handlers), the hardest class of leak to track down. The field is
+   * `null` between construction and the first `onAdd()`, which is why
+   * the `signal` getter throws on a detached read.
    */
-  private _ac = new AbortController();
+  private _ac: AbortController | null = null;
+
+  /**
+   * Idempotency flag for `onRemove()`. Distinct from `_ac === null`:
+   * the latter also covers "never mounted", and a component that calls
+   * `onRemove()` without a preceding `onAdd()` (the unit-test pattern)
+   * must still have its registered listeners cleaned up. Only the
+   * second call within the same mounting cycle short-circuits.
+   */
+  private _removed = false;
 
   /** Legacy field. The signal handles DOM listener teardown, so this is
    *  only populated by the `listenDOM` alias for backwards-compatible
@@ -97,6 +109,7 @@ class BaseControl extends L.Control {
     // it — no error, no warning, just dead handlers — so a stale
     // controller is exactly the failure mode to prevent.
     this._ac = new AbortController();
+    this._removed = false;
     const container =
       this.buildDOM?.() ?? this.build?.() ?? document.createElement("div");
     L.DomEvent.disableClickPropagation(container);
@@ -121,7 +134,12 @@ class BaseControl extends L.Control {
     // re-iterate the already-cleared arrays. The signal is already
     // aborted, so registering against it in destroy() would silently
     // no-op; but the component's own destroy() code would run twice.
-    if (this._ac === null) return;
+    // The flag is `_removed`, not `_ac === null` — the latter also
+    // matches "never mounted", and a component that calls `onRemove()`
+    // without a preceding `onAdd()` (the unit-test pattern) must still
+    // have its registered listeners cleaned up.
+    if (this._removed) return;
+    this._removed = true;
     this.destroy();
     // Auto-unbind tracked listeners — always runs, cannot be skipped by
     // subclasses. Order matters: map listeners are unbound against a
