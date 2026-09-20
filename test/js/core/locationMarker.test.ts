@@ -17,6 +17,7 @@ describe("createLocationMarker", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete window.foliplus.reverseGeocode;
     map = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(),
@@ -84,7 +85,9 @@ describe("createLocationMarker", () => {
     expect(closeBtn.title).toBe("Close");
   });
 
-  it("falls back to an empty title when the close label is empty", () => {
+  it("falls back to an empty title when the close label is undefined", () => {
+    // Passing undefined (not "") distinguishes the two implementations:
+    // without the || "" fallback, DOM coerces undefined to "undefined".
     const closeBtn = document.createElement("a");
     const marker = {
       bindPopup: vi.fn().mockReturnThis(),
@@ -105,7 +108,7 @@ describe("createLocationMarker", () => {
       "Loading...",
       "Lng,Lat:",
       "Address:",
-      "",
+      undefined as unknown as string,
     );
 
     expect(closeBtn.title).toBe("");
@@ -273,24 +276,25 @@ describe("createLocationMarker", () => {
       }),
     };
     window.L.marker = vi.fn(() => marker);
-    window.foliplus.reverseGeocode = vi.fn(() => Promise.reject(new Error("network")));
+    const reject = vi.fn(() => Promise.reject(new Error("network")));
+    window.foliplus.reverseGeocode = reject;
 
-    expect(() =>
-      createLocationMarker(
-        map,
-        120,
-        30,
-        null,
-        "Title",
-        "Loading...",
-        "Lng,Lat:",
-        "Address:",
-        "Close",
-      ),
-    ).not.toThrow();
+    const result = createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+    );
+    expect(result).toBe(marker);
 
     await Promise.resolve();
     await Promise.resolve();
+    expect(reject).toHaveBeenCalled();
     expect(marker.setPopupContent).not.toHaveBeenCalled();
   });
 });
