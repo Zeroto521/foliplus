@@ -19,6 +19,7 @@ import {
   moveIntoPane,
   refreshAttributions,
   reinitInteraction,
+  setPopupCloseTitle,
 } from "#foliplus/core/leafletAdapter.js";
 
 // `getRendererFor` builds an SVG renderer; the shared Leaflet mock carries no
@@ -40,7 +41,7 @@ beforeEach(() => {
 //                                       (leaf + renderer internals: adapter-owned)
 //   _url                                (tile URL template: adapter-owned)
 //   _attributions, _update              (attribution control: adapter-owned)
-//   _closeButton                        (popup close button: counted exception)
+//   _closeButton                        (popup close button: adapter-owned)
 // It is not a claim about "every private reach". Fields outside this set —
 // `Marker._latlng`, anything a future Leaflet adds — are simply not watched.
 // Widening the set is the way to widen the guard.
@@ -108,27 +109,15 @@ const COMMENT_RE = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
 
 const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 
-// Reaches this module deliberately does not own, counted rather than ignored so
-// a *new* one in any of these files still fails. Neither entry is a judgement
-// about whether the field is Leaflet's:
-//   - common/dom.ts titles a popup's close button through `_closeButton`. The
-//     probe could live here, but common/ never imports from #core/ (core does
-//     the importing; no common file reaches up today), so routing that reach
-//     through this module would invert the layering — and there was a prior
-//     incident of a common→core inversion to unwind. The popup-title logic
-//     arguably does not belong in common/ at all; it is marker/popup business,
-//     not a generic DOM utility. Moving it is a separate step, and the probe
-//     comes with it.
+// One reach this module deliberately does not own, counted rather than
+// ignored so a *new* one in that file still fails:
 //   - ScaleControl/index.ts primes `_map` onto the control it built itself —
 //     `Reflect.set(L.control.scale(…), "_map", this._map)` — so `onAdd` sees a
 //     map already bound. That is a write on a self-created object, not a read
 //     of another object's private field. It is exactly the string-keyed shape
 //     branch 3 exists to catch, which is why it is now counted here rather
 //     than remaining invisible to the scan.
-const OUT_OF_CHARTER = [
-  { f: "common/dom.ts", n: 1 },
-  { f: "ScaleControl/index.ts", n: 1 },
-] as const;
+const OUT_OF_CHARTER = [{ f: "ScaleControl/index.ts", n: 1 }] as const;
 
 const ADAPTER = "foliplus/js/core/leafletAdapter.ts";
 
@@ -195,6 +184,7 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
     // _update precedes _url (the deciding character is p, then r).
     expect([...new Set(found)].sort()).toEqual([
       "_attributions",
+      "_closeButton",
       "_container",
       "_icon",
       "_initInteraction",
@@ -323,6 +313,7 @@ describe("source pins", () => {
       "moveIntoPane",
       "refreshAttributions",
       "reinitInteraction",
+      "setPopupCloseTitle",
     ]);
   });
 });
@@ -603,5 +594,21 @@ describe("attributionEntries / refreshAttributions", () => {
     const ctrl = leafStub({ _attributions: {}, _update: update });
     refreshAttributions(ctrl);
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("setPopupCloseTitle", () => {
+  it("writes the title onto the popup's close button", () => {
+    const btn = document.createElement("a");
+    setPopupCloseTitle({ _closeButton: btn } as unknown as L.Popup, "Close");
+    expect(btn.title).toBe("Close");
+  });
+
+  it("is a no-op when the popup is null", () => {
+    expect(() => setPopupCloseTitle(null, "Close")).not.toThrow();
+  });
+
+  it("is a no-op when the popup has no close button", () => {
+    expect(() => setPopupCloseTitle({} as unknown as L.Popup, "Close")).not.toThrow();
   });
 });
