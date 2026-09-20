@@ -979,19 +979,35 @@ class TestExportControlBrowser:
         R5 moved opacity writes to the pane element; the four DOM rendering
         paths (renderMarkers, renderFontAwesome, renderTextLabels, renderRemaining)
         must read the ancestor-chain alpha via effectiveOpacity(). This test
-        creates a marker at 0.4 opacity, exports, and verifies the pane opacity
-        was set correctly and the export completed without errors.
+        creates a marker at 0.4 opacity, exports, captures the renderer's
+        internal canvas (via a document.createElement hook), and reads its
+        pixels to assert the marker was drawn with alpha ≈ 0.4 × 255 ≈ 102.
 
-        Pixel-level verification of the exported canvas requires hooking into
-        the renderer's internal canvas (not in the DOM). The pane opacity
-        assertion here confirms the input to the rendering pipeline is correct.
+        A tight range catches both "forgot to draw" (maxAlpha=0) and
+        "forgot to apply alpha" (maxAlpha=255) regressions.
         """
-        with use_page(self._make_page, browser, tmp_path) as (page, _):
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Set up a marker layer with 0.4 opacity.
             state = page.evaluate(_js("ExportControl/export_opacity_blend"))
             assert state is not None and state["marker"] is True, state
             assert state["paneOpacity"] == "0.4", state
             assert state["paneName"] == "__export_opacity_pane__", state
+
+            # Hook document.createElement to capture the export canvas —
+            # the renderer creates it internally and never attaches it to the DOM.
+            page.evaluate(
+                """() => {
+                    window._capturedCanvases = [];
+                    const orig = document.createElement.bind(document);
+                    document.createElement = function(tag, ...args) {
+                        const el = orig(tag, ...args);
+                        if (tag === 'canvas') {
+                            window._capturedCanvases.push(el);
+                        }
+                        return el;
+                    };
+                }"""
+            )
 
             # Full export flow: open, lock, export.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -1010,16 +1026,26 @@ class TestExportControlBrowser:
                 }""",
                 timeout=30000,
             )
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(2000)
 
-            # The export's synchronous redraw must not have destroyed the pane
-            # or changed its opacity.
-            paneOpacityAfter = page.evaluate(
+            # Read the captured canvas pixels and verify the marker was
+            # drawn with reduced alpha (not full 255).
+            result = page.evaluate(
                 """() => {
-                    const pane = window.map.getPane('__export_opacity_pane__');
-                    return pane ? window.getComputedStyle(pane).opacity : null;
+                    const canvases = window._capturedCanvases || [];
+                    if (canvases.length === 0) return { found: false };
+                    const c = canvases[canvases.length - 1];
+                    const ctx = c.getContext('2d');
+                    if (!ctx) return { found: false };
+                    const data = ctx.getImageData(0, 0, c.width, c.height).data;
+                    let maxAlpha = 0;
+                    for (let i = 3; i < data.length; i += 4) {
+                        if (data[i] > maxAlpha) maxAlpha = data[i];
+                    }
+                    return { found: true, maxAlpha };
                 }"""
             )
-            assert paneOpacityAfter == "0.4", (
-                f"Pane opacity changed after export: {paneOpacityAfter}"
+            assert result["found"] is True, result
+            assert 90 <= result["maxAlpha"] <= 110, (
+                f"Marker alpha outside expected range 90–110: {result}"
             )
