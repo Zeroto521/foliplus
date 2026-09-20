@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { displayName } from "#foliplus/LayerControl/ui/list.js";
+import { displayName, initLayerItem } from "#foliplus/LayerControl/ui/list.js";
 import { initFixture } from "./fixture.js";
 
 const makeUi = () =>
@@ -63,5 +63,42 @@ describe("ui/list row placement", () => {
 
     expect(rowIds).toEqual(registryIds);
     expect(registryIds).toEqual(["B", "A", "H"]);
+  });
+
+  it("initLayerItem updates the row it owns, not the one at that DOM index", () => {
+    // Register three overlays so the registry order is A-B-C.
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
+        { id: "B", name: "B", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
+        { id: "C", name: "C", isBase: false, layer: { options: {}, eachLayer: vi.fn() } },
+      ],
+    });
+
+    // Scramble the DOM to C-A-B.
+    const rows = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+    expect(rows.length).toBe(3);
+    const container = rows[0].parentNode!;
+    container.insertBefore(rows[2], rows[0]); // A,B,C -> C,A,B
+
+    // Call initLayerItem for A (registry idx 0). The old code would read
+    // inputs[0] which is C's checkbox (first in DOM). The new code resolves
+    // by data-layer-id, so it updates A's row.
+    const layerA = manager.layerRegistry.get("A")!;
+    initLayerItem(ui, layerA);
+
+    // A's checkbox should be updated (aria-label set), not C's.
+    const rowA = container.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!;
+    const rowC = container.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="C"]`)!;
+    const cbA = rowA.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const cbC = rowC.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    expect(cbA.getAttribute("aria-label")).toBe("A");
+    // C's checkbox should not have been touched by A's init pass.
+    expect(cbC.getAttribute("aria-label")).not.toBe("A");
   });
 });

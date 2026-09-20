@@ -30,7 +30,14 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
-  ui.dragIdx = parseInt(item.dataset.index ?? "", 10);
+  // Translate the DOM row into a registry index: the row carries the identity
+  // in data-layer-id, and reorder takes registry indices —not DOM positions.
+  // A late registration can sit anywhere in the DOM, so reading
+  // dataset.index here would drag a neighbour's layer.
+  const id = item.getAttribute(CONST.DATA.LAYER_ID);
+  const idx = id ? ui.m.layers.findIndex(l => l.id === id) : -1;
+  if (idx < 0) return;
+  ui.dragIdx = idx;
   item.classList.add(CONST.CLASSES.DRAGGING);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
@@ -54,7 +61,11 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   ) as HTMLElement | null;
   if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
-  const targetIdx = parseInt(item.dataset.index ?? "", 10);
+  const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
+  const targetIdx = targetId
+    ? ui.m.layers.findIndex(l => l.id === targetId)
+    : -1;
+  if (targetIdx < 0) return;
   const prev = ui.lastDragOverItem;
   if (prev && prev !== item) {
     prev.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
@@ -97,18 +108,28 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  const targetIdx = parseInt(target.dataset.index ?? "", 10);
+  const targetId = target.getAttribute(CONST.DATA.LAYER_ID);
+  const targetIdx = targetId ? ui.m.layers.findIndex(l => l.id === targetId) : -1;
+  if (targetIdx < 0) return;
   if (ui.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(ui.dragIdx, targetIdx)) {
     showReorderBlockedHint(ui);
     return;
   }
 
+  // Capture the dragged id before reorder: after the move the registry index
+  // of the dragged layer equals targetIdx, but the id is the stable key for
+  // locating its DOM row to physically relocate.
+  const dragId = ui.m.layers[ui.dragIdx]?.id;
+  if (!dragId) {
+    ui.dragIdx = null;
+    return;
+  }
+
   ui.m.layerRegistry.reorder(ui.dragIdx, targetIdx);
-  const moved = ui.m.layers[targetIdx];
 
   const movedItem = ui.uiContainer.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${CSS.escape(moved.id)}"]`,
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(dragId)}"]`,
   );
   if (!movedItem) {
     ui.dragIdx = null;

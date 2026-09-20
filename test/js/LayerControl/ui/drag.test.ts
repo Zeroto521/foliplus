@@ -78,6 +78,84 @@ describe("ui/drag", () => {
     )!;
     expect(() => handleDrop(ui, dragEvent(row))).not.toThrow();
   });
+
+  describe("DOM order diverges from registry order", () => {
+    /** Build a ui with 3 layers (A-B-C in registry) and DOM scrambled to C-A-B,
+     *  with dataset.index simulating a stale reindexItems pass (DOM position). */
+    const makeScrambledUi = () => {
+      const layers: LayerInfo[] = [
+        { id: "A", name: "A", isBase: false } as LayerInfo,
+        { id: "B", name: "B", isBase: false } as LayerInfo,
+        { id: "C", name: "C", isBase: false } as LayerInfo,
+      ];
+      const uiContainer = document.createElement("div");
+      for (const id of ["C", "A", "B"]) {
+        const row = document.createElement("div");
+        row.className = CONST.CLASSES.LAYER_ITEM;
+        row.setAttribute(CONST.DATA.LAYER_ID, id);
+        row.dataset.index = "0";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = true;
+        row.appendChild(box);
+        uiContainer.appendChild(row);
+      }
+      // Simulate stale reindexItems: DOM position, not registry position.
+      Array.from(
+        uiContainer.querySelectorAll<HTMLElement>(`${CONST.SEL.LAYER_ITEM}`),
+      ).forEach((row, i) => {
+        row.dataset.index = String(i);
+      });
+
+      const reorder = vi.fn();
+      const canReorderBetween = vi.fn(() => true);
+      return {
+        layers,
+        ui: {
+          uiContainer,
+          foldedGroups: new Set<string>(),
+          saveFoldState: vi.fn(),
+          dragIdx: 0,
+          lastDragOverItem: null,
+          m: {
+            layers,
+            findLayer: vi.fn(() => ({ options: {} })),
+            map: {
+              hasLayer: vi.fn(() => true),
+              removeLayer: vi.fn(),
+              addLayer: vi.fn(),
+              foliplus: { showHint: vi.fn() },
+            },
+            debouncedEnforce: vi.fn(),
+            saveOrder: vi.fn(),
+            enforceOrder: vi.fn(),
+            canReorderBetween,
+            moveLayer: vi.fn(() => true),
+            layerRegistry: { indexOf: () => 0, reorder },
+            persistence: { schedule: vi.fn() } as any,
+          },
+        } as unknown as LayerUI,
+        reorder,
+      };
+    };
+
+    it("handleDrop translates the target row's id to a registry index, not its DOM position", () => {
+      const { ui, reorder } = makeScrambledUi();
+      // DOM: C(0), A(1), B(2). Registry: [A(0), B(1), C(2)].
+      // Drag A (registry 0) onto B (DOM position 2, dataset.index="2").
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+      expect(target.dataset.index).toBe("2");
+      (ui as unknown as { dragIdx: number }).dragIdx = 0; // A's registry index
+
+      handleDrop(ui, dragEvent(target));
+
+      // Old code: targetIdx = 2 (DOM position), reorder(0, 2) — wrong target.
+      // New code: targetIdx = 1 (B's registry index), reorder(0, 1) — correct.
+      expect(reorder).toHaveBeenCalledWith(0, 1);
+    });
+  });
 });
 
 describe("LayerUI.deselectAllBaseMaps", () => {

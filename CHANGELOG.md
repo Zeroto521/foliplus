@@ -96,6 +96,7 @@
 - `SearchControl`: a failed suggestion request no longer escapes as an unhandled promise rejection ([#342](https://github.com/Zeroto521/foliplus/pull/342), [#372](https://github.com/Zeroto521/foliplus/pull/372))
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 - `LayerControl`: a late-registered layer no longer loses its stored opacity, zoom range, and visibility on reload — Heatmap and Measure register after the panel attaches, so the sweep read their missing registry entries as deleted and wrote it back; only an explicit delete now drops stored values ([#390](https://github.com/Zeroto521/foliplus/pull/390), [#393](https://github.com/Zeroto521/foliplus/pull/393))
+- `LayerControl`: checkbox, toggle-all, and drag-drop now resolve layers by `data-layer-id` instead of `data-index`, so a late registration that lands at a different DOM position can no longer cause a click or drop to act on a neighbour's layer; `data-index` is retired as an addressing key ([#TBD](https://github.com/Zeroto521/foliplus/pull/TBD))
 
 ## [v0.3.0] (2026-08-02)
 
