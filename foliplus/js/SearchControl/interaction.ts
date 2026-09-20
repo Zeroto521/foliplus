@@ -80,8 +80,13 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
 
 /**
  * Bind all DOM events for the SearchControl.
+ *
+ * Returns a cleanup closure for non-`on`-tracked resources (MutationObserver
+ * + `interaction.register`). DOM listeners — including input / focus /
+ * scroll / resize — go through `ctrl.on(...)` so the shared lifecycle
+ * signal owns their teardown.
  */
-const bindEvents = (ctrl: SearchControl): (() => void) => {
+const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
@@ -105,7 +110,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     ctrl.inp.focus();
   };
 
-  ctrl.inp.addEventListener("input", () => {
+  ctrl.on(ctrl.inp, "input", () => {
     ctrl.inp.placeholder =
       ctrl.mode === MODE.COORD ? T("coord_placeholder") : T("addr_placeholder");
 
@@ -175,10 +180,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
     },
   ]);
 
-  ctrl.inp.addEventListener("focus", () => {
+  ctrl.on(ctrl.inp, "focus", () => {
     const val = ctrl.inp.value.trim();
-    // Empty input → show search history for current mode;
-    // non-empty → fetch suggestions (addr mode only)
+    // Empty input — show search history for current mode;
+    // non-empty — fetch suggestions (addr mode only)
     if (val.length === 0) fetchSuggestions(ctrl, "");
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
@@ -193,10 +198,10 @@ const bindEvents = (ctrl: SearchControl): (() => void) => {
   ctrl.repositionHandler = () => positionPanel(ctrl);
   const leafletContainer = document.querySelector(".leaflet-container");
   ctrl.scrollTargets = leafletContainer ? [window, leafletContainer] : [window];
-  ctrl.scrollTargets.forEach((t: Element | Window) =>
-    t.addEventListener("scroll", ctrl.repositionHandler, true),
+  ctrl.scrollTargets.forEach(t =>
+    ctrl.on(t, "scroll", ctrl.repositionHandler, { capture: true }),
   );
-  window.addEventListener("resize", ctrl.repositionHandler);
+  ctrl.on(window, "resize", ctrl.repositionHandler);
 
   return () => {
     collapseObserver.disconnect();
