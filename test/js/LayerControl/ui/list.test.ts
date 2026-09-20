@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { displayName } from "#foliplus/LayerControl/ui/list.js";
+import { initFixture } from "./fixture.js";
 
 const makeUi = () =>
   ({
@@ -25,5 +26,42 @@ describe("ui/list displayName", () => {
     const ui = makeUi();
     expect(displayName(ui, CONST.COLOR.MAP_ID)).toContain("color_map_label");
     expect(displayName(ui, "ghost")).toBe("");
+  });
+});
+
+describe("ui/list row placement", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("lands a late row at the depth the registry chose", () => {
+    // The row must land at the depth the registry chose. Pinned to the top of
+    // the group instead, the DOM order diverges from the drawn order and every
+    // index-based row lookup reads a neighbour's checkbox.
+    const { manager, ui } = initFixture({
+      seed: { order: ["B", "A", "H"] },
+      data: [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ],
+    });
+
+    manager.registerLayer({ id: "H", name: "H", isBase: false });
+
+    const registryIds = manager.layers.map(l => l.id);
+    const rowIds = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
+      ),
+    ).map(el => el.dataset.layerId ?? "");
+
+    expect(rowIds).toEqual(registryIds);
+    expect(registryIds).toEqual(["B", "A", "H"]);
   });
 });
