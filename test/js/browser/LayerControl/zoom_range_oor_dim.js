@@ -52,7 +52,6 @@
   ui.closeStylePanel(false);
   return {
     current,
-    hasOor,
     rowOor,
     rowTitle,
     trackComputedBg: trackBg ? getComputedStyle(trackBg).backgroundColor : null,

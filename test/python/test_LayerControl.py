@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -4539,13 +4540,22 @@ class TestLayerControlBrowser:
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
         t1 = folium.TileLayer(
-            tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            tiles="https://tiles.foliplus.test/{z}/{x}/{y}.png",
             name="NativeProbe",
+            attr="Foliplus zoom range probe",
         )
         with use_page(self._make_page, browser, tmp_path, t1, slug="zr_nat") as (
             page,
             errors,
         ):
+            page.route(
+                "https://tiles.foliplus.test/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    body=base64.b64decode(_TINY_PNG.split(",", 1)[1]),
+                    content_type="image/png",
+                ),
+            )
             panel_ready(page)
             page.evaluate("window.__probe = " + json.dumps({"id": t1.get_name()}))
             result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))

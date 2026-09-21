@@ -1,4 +1,4 @@
-() => {
+async () => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.m.map;
   const ui = ctrl.m.ui;
@@ -30,11 +30,10 @@
   const beforeLeft = marker ? marker.style.left : null;
   const beforeLabel = markerLabel ? markerLabel.textContent : null;
 
-  // Zoom out by 2 levels, then fire zoomend.
-  const after = before - 2;
-  map.setZoom(after);
-  map.fire("zoomend");
+  map.setZoom(before - 2);
+  await new Promise(resolve => map.once("zoomend", resolve));
 
+  const after = map.getZoom();
   const afterLeft = marker ? marker.style.left : null;
   const afterLabel = markerLabel ? markerLabel.textContent : null;
   const afterTitle = marker ? marker.title : null;

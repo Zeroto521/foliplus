@@ -265,13 +265,19 @@ const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
 
 /** Update the zoom-range row's visual state: fill position, value labels,
  *  and the out-of-range dimming. Does not write to the map or persistence —
- *  that is the commit pass's job. */
-const syncZoomRangeRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
+ *  that is the commit pass's job. Pass the live thumb values so the row can
+ *  update before the change is committed. */
+const syncZoomRangeRow = (
+  ui: LayerUI,
+  layerId: string,
+  row: HTMLElement,
+  liveRange?: [number, number],
+): void => {
   const mapMin = ui.m.map.getMinZoom();
   const mapMax = ui.m.map.getMaxZoom();
-  const stored = ui.zoomRangeMap[layerId];
-  const min = stored ? Math.max(stored[0], mapMin) : mapMin;
-  const max = stored ? Math.min(stored[1], mapMax) : mapMax;
+  const range = liveRange ?? ui.zoomRangeMap[layerId];
+  const min = range ? Math.max(range[0], mapMin) : mapMin;
+  const max = range ? Math.min(range[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
 
   const minPct = zoomToPct(min, mapMin, mapMax);
@@ -896,8 +902,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
     }
 
-    // Live pass: update the visual state only (fill, values, out-of-range).
-    syncZoomRangeRow(ui, layerId, row);
+    // Live pass: update the visual state from the thumbs (fill, values,
+    // out-of-range) before the change is committed.
+    syncZoomRangeRow(ui, layerId, row, [min, max]);
 
     if (commit) {
       commitZoomRange(ui, layerId, min, max);
