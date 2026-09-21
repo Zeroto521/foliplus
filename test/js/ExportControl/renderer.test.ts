@@ -1690,6 +1690,25 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(byAttr.parentNode).toBe(svg);
     expect(byClass.parentNode).toBe(svg);
   });
+
+  it("injects xmlns into the serialised source when the SVG was created without a namespace", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    // createElement (no namespace) — XMLSerializer will emit the XHTML
+    // namespace, so the renderer's replace must kick in.
+    const svg = document.createElement("svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElement("path"));
+    p.appendChild(svg);
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ExportRenderer.renderPaneCanvas", () => {
