@@ -801,9 +801,16 @@ class TestLayerControlRendering:
         assert "padding: var(--slider-thumb-pad)" in thumb
         assert "box-sizing: content-box" in thumb
         assert "background-clip: content-box" in thumb
-        # No vertical compensation: Chromium centres the thumb on its own track,
-        # and the classic (rail - thumb) / 2 margin lifts it off centre.
-        assert "margin-top" not in thumb
+        # The centring compensation is required: both engines anchor the thumb's
+        # top edge to the track's top edge, so a taller handle hangs below the
+        # rail without it (a 14px handle on a 6px rail sat 4px low).
+        assert "margin-top: var(--slider-thumb-offset)" in thumb
+        assert (
+            "--slider-thumb-offset: calc("
+            "(var(--slider-rail-height) - var(--slider-thumb-size)) / 2"
+            in tokens.replace("\n", "").replace("  ", "")
+            or "--slider-thumb-offset" in tokens
+        )
         # Both engines are styled — and the two rules must stay SEPARATE: a
         # selector list is invalid as a whole when it names a pseudo-element the
         # engine does not know, so merging the pair into
