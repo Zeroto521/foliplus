@@ -4514,18 +4514,10 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
-            assert result["rowOor"] is True, (
-                f"row not marked out-of-range: {result}"
-            )
-            assert result["rowTitle"], (
-                "row tooltip missing when out of range"
-            )
-            assert result["markerLabelText"], (
-                "current-zoom label missing from marker"
-            )
-            assert result["markerTitle"], (
-                "marker title missing"
-            )
+            assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
+            assert result["rowTitle"], "row tooltip missing when out of range"
+            assert result["markerLabelText"], "current-zoom label missing from marker"
+            assert result["markerTitle"], "marker title missing"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
@@ -4541,9 +4533,7 @@ class TestLayerControlBrowser:
             assert result["labelUpdated"] is True, (
                 f"current-zoom label did not update on zoomend: {result}"
             )
-            assert result["afterTitle"], (
-                "marker title missing after zoomend"
-            )
+            assert result["afterTitle"], "marker title missing after zoomend"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
@@ -4557,10 +4547,7 @@ class TestLayerControlBrowser:
             errors,
         ):
             panel_ready(page)
-            page.evaluate(
-                "window.__probe = "
-                + json.dumps({"id": t1.get_name()})
-            )
+            page.evaluate("window.__probe = " + json.dumps({"id": t1.get_name()}))
             result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
