@@ -256,3 +256,28 @@ describe("LayerUI shell — delegates", () => {
     expect(visible).toBe(true);
   });
 });
+
+describe("LayerUI zoom-range delegates", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("applyZoomRangeStateOne no-ops for a layer id that is not in the registry", () => {
+    expect(() => ui.applyZoomRangeStateOne("nonexistent", [3, 10])).not.toThrow();
+  });
+
+  it("unbindEvents() tolerates an onZoomEnd that was never set", () => {
+    ui.onZoomEnd = null;
+    expect(() => ui.unbindEvents()).not.toThrow();
+  });
+});

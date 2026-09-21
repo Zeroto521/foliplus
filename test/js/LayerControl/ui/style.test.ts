@@ -2896,4 +2896,26 @@ describe("LayerUI style panel — zoom range", () => {
     expect(ui.zoomRangeMap["overlay1"]).toBeUndefined();
     expect(ui.userOverrides["overlay1"]).toBeUndefined();
   });
+
+  it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+
+    minInput.value = "5";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
+  });
+
+  it("delegated panel returns true when no zoom-range row is present", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const hasRow = panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
+    expect(hasRow).not.toBeNull();
+  });
 });

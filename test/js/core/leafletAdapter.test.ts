@@ -20,6 +20,7 @@ import {
   primeControlMap,
   refreshAttributions,
   reinitInteraction,
+  resetGridLayerView,
   setPopupCloseTitle,
 } from "#foliplus/core/leafletAdapter.js";
 
@@ -635,5 +636,18 @@ describe("primeControlMap", () => {
     const ctrl = leafStub({ _map: { id: "old" } });
     primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
     expect((ctrl as { _map?: unknown })._map).toBe(map);
+  });
+});
+
+describe("resetGridLayerView", () => {
+  it("calls _resetView when the layer has one", () => {
+    const reset = vi.fn();
+    const layer = leafStub({ _resetView: reset });
+    resetGridLayerView(layer as unknown as L.Layer);
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a no-op when the layer has no _resetView", () => {
+    expect(() => resetGridLayerView(leafStub({}) as unknown as L.Layer)).not.toThrow();
   });
 });
