@@ -234,6 +234,9 @@
    row's edges, anything else placed by JS. */
 .foliplus-slider-values {
   position: relative;
+  /* The same inset the rail takes, so a label's 0% / 100% means the rail's end —
+     which is where its dot sits — instead of the cell's edge. */
+  margin: 0 calc(var(--slider-thumb-size) / 2);
   height: var(--font-size-md);
   line-height: var(--font-size-md);
   font-size: var(--font-size-sm);
@@ -248,12 +251,9 @@
 }
 .foliplus-slider-values > span:first-child {
   left: 0;
-  transform: none;
 }
 .foliplus-slider-values > span:last-child {
-  right: 0;
-  left: auto;
-  transform: none;
+  left: 100%;
 }
 /* Dropped when its mark is too close to another to sit under it. */
 .foliplus-slider-label-hidden {
