@@ -23,6 +23,7 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
+import { resolveExportBackground } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -604,7 +605,7 @@ class ExportManager {
     if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
       scaleValue = window.devicePixelRatio || 1;
     }
-    const bg = CONF.background;
+    const bg = resolveExportBackground(this.mapContainer);
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
