@@ -129,12 +129,12 @@
   --slider-rail-height: var(--size-6);
   --slider-thumb-size: 14px;
   --slider-dot-size: 10px;
-  --slider-thumb-hit: var(--size-24);
+  --slider-thumb-hit: 18px;
   --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
   --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
   --slider-thumb-ring: var(--accent-primary);
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
-  --slider-thumb-glow: 0 0 0 var(--size-4) var(--accent-soft-shadow);
+  --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
   /* The uncovered span of a rail: a fine grey checkerboard, the "nothing
      rendered here" convention. Two tokens because a rail's uncovered span is
      not always a plain colour — set `--slider-rail-pattern: none` and

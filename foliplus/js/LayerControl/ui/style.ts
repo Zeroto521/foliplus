@@ -971,6 +971,26 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     if (!t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE)) return false;
     const raw = parseFloat(t.value);
     if (!commit && !(raw >= 0 && raw <= 100)) return true;
+
+    // Live value above the handle, the same affordance the zoom range uses.
+    const rail = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
+    ) as HTMLElement | null;
+    let bubble = rail?.querySelector(
+      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
+    ) as HTMLElement | null;
+    if (commit) {
+      bubble?.remove();
+    } else if (rail) {
+      if (!bubble) {
+        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
+        rail.appendChild(bubble);
+      }
+      const pct = clampPct(raw);
+      bubble.style.left = railPos(pct);
+      bubble.textContent = String(pct);
+    }
+
     commitOpacityPct(ui, layerId, panel, raw, commit);
     return true;
   };

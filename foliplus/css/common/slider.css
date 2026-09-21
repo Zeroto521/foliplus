@@ -123,18 +123,13 @@
    the hit box, clear of the dot). */
 .foliplus-slider-handle {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  /* The border box is the hit area: a thumb that overflows its input is only
-     grabbable inside the input's own box in some engines/builds, so the box is
-     grown to the full 24px target with transparent padding. `content-box` keeps
-     the content at the rail's height, which is what the track and the thumb are
-     laid out against — the geometry is unchanged. */
-  height: var(--slider-rail-height);
-  box-sizing: content-box;
-  padding-block: calc((var(--slider-thumb-hit) - var(--slider-rail-height)) / 2);
-  transform: translateY(-50%);
+  /* The input spans the rail exactly, which is what keeps the thumb centred on
+     it — the browser centres a slider thumb on its own track. Anything that
+     over-constrains this box (a height, a padding, a translate) moves the thumb
+     off the rail's centre line. */
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   background: transparent;
   pointer-events: none;
@@ -197,28 +192,28 @@
 /* Parked is a small dot; in use it grows. Size carries "held", the ring carries
    coverage, the bubble carries the value. */
 .foliplus-slider-handle:hover::-webkit-slider-thumb {
-  transform: scale(1.25);
+  transform: scale(1.1);
 }
 .foliplus-slider-handle:hover::-moz-range-thumb {
-  transform: scale(1.25);
+  transform: scale(1.1);
 }
 .foliplus-slider-handle:active::-webkit-slider-thumb {
   cursor: grabbing;
-  transform: scale(1.5);
+  transform: scale(1.15);
   box-shadow: var(--slider-thumb-glow);
 }
 .foliplus-slider-handle:active::-moz-range-thumb {
   cursor: grabbing;
-  transform: scale(1.5);
+  transform: scale(1.15);
   box-shadow: var(--slider-thumb-glow);
 }
 .foliplus-slider-handle:focus-visible::-webkit-slider-thumb {
-  transform: scale(1.5);
-  box-shadow: var(--focus-ring);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
 }
 .foliplus-slider-handle:focus-visible::-moz-range-thumb {
-  transform: scale(1.5);
-  box-shadow: var(--focus-ring);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
 }
 
 /* The scale's numbers, under the marks they belong to: the fixed ends at the
@@ -239,9 +234,12 @@
 }
 .foliplus-slider-values > span:first-child {
   left: 0;
+  transform: none;
 }
 .foliplus-slider-values > span:last-child {
-  left: 100%;
+  right: 0;
+  left: auto;
+  transform: none;
 }
 /* Dropped when its mark is too close to another to sit under it. */
 .foliplus-slider-label-hidden {

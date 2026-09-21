@@ -37,21 +37,8 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range: the selection on the rail goes flat grey and the handles'
-       rings follow it — the same readout the dots give — while the current level
-       turns accent red. A warning, not a disabled state, so the text keeps full
-       contrast.
-       `&` is load-bearing: the out-of-range class lands on THIS row, so a bare
-       nested selector flattens to `...-row ...-out-of-range ...`, which wants the
-       class on a descendant — and would never match. */
-    &.foliplus-zoom-range-out-of-range {
-      --slider-thumb-ring: var(--neutral-500);
-    }
-    &.foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-fill {
-      background: var(--neutral-500);
-    }
-    &.foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-value {
-      color: var(--accent-primary);
-    }
+    /* Out of range is carried by the dots' rings alone (the readout they
+       exist for), so the rail stays accent and the text stays ink. The row
+       only keeps the tooltip and the class itself. */
   }
 }

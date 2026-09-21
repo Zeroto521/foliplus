@@ -815,8 +815,8 @@ class TestLayerControlRendering:
         assert "::-webkit-slider-thumb,\n" not in css
         assert "::-moz-range-thumb," not in css
         # States: parked is small, held and focused grow.
-        assert "scale(1.25)" in css
-        assert "scale(1.5)" in css
+        assert "scale(1.1)" in css
+        assert "scale(1.15)" in css
         assert ":hover::-webkit-slider-thumb" in css
         assert ":focus-visible::-webkit-slider-thumb" in css
 
@@ -839,17 +839,17 @@ class TestLayerControlRendering:
             assert "--slider-rail-height" not in raw, rel
 
     def test_zoom_range_row_css(self):
-        """The zoom-range row states coverage, and does it with `&`.
+        """The row adds no styling of its own.
 
-        Out-of-range has to be `&`-anchored: nested without it the rule flattens
-        to `...-row ...-out-of-range ...`, which wants the class on a descendant,
-        so the state never applied at all. The state sets the shared
-        `--slider-thumb-ring`, which is how the handles' rings follow it.
+        Coverage is a readout, not a recolouring: the dots' rings carry it (grey
+        where the range does not reach), so the rail stays accent and the text
+        stays ink whatever the map's zoom is. The row keeps its hook class and
+        the tooltip, nothing else.
         """
         css = read_css("foliplus/css/LayerControl/style.css")
         assert ".foliplus-style-zoom-range-row" in css
-        assert "&.foliplus-zoom-range-out-of-range" in css
-        assert "--slider-thumb-ring: var(--neutral-500)" in css
+        assert "--slider-thumb-ring" not in css
+        assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
         assert ".foliplus-style-zoom-range-current-value" in css
 
     def test_style_panel_locale_keys_present(self):
@@ -4620,21 +4620,19 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # This probe puts the current level out of range, so its dot must
-            # read as uncovered — a grey ring, the same readout the handles take.
-            assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
-                "out of range, the current dot must read as uncovered"
-            )
-            # The OOR *visuals*, not just the class: the selection goes flat grey
-            # and the current level turns accent. This is the assertion that was
-            # missing while the rules were nested without `&`, so they flattened
-            # to a descendant selector and never matched.
-            assert result["fillComputedBg"] == self._sample_token(
+            # Out of range is a readout on the dots' rings, not a recolouring:
+            # the rail keeps its accent fill and the text stays ink, so nothing
+            # about "the layer is hidden at this zoom" is carried by colour on
+            # the numbers the user reads.
+            assert result["fillComputedBg"] != self._sample_token(
                 page, "--neutral-500"
-            ), "out-of-range fill is not the muted grey"
+            ), "out of range must not grey the selection"
             assert result["currentValueColor"] == self._sample_token(
-                page, "--accent-primary"
-            ), "out-of-range current level is not the accent warning colour"
+                page, "--text-primary"
+            ), "out of range must not recolour the current level"
+            assert result["markerRing"] == self._sample_token(
+                page, "--neutral-500"
+            ), "out of range, the current dot must read as uncovered"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
