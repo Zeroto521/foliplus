@@ -58,7 +58,10 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+  /* Flat accent — the same red as the panel's toggle switches, so the two
+     hand controls read as one family. A gradient made the bar read as a
+     different (darker) red at one end. */
+  background: var(--accent-primary);
   border-radius: calc(var(--slider-rail-height) / 2);
   pointer-events: none;
   transition:
