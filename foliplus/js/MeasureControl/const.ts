@@ -84,6 +84,10 @@ const CLASSES = {
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
   NODE_HOLLOW: "foliplus-measure-node",
+  // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
+  // the exported image.  Stamped on preview layers only — the preview is a
+  // drawing aid, not content.
+  NO_EXPORT: "foliplus-no-export",
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
