@@ -5,7 +5,7 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   layerHasLabelFields,
   layerHasStyleDelegation,
-} from "#foliplus/LayerControl/ui/style.js";
+} from "#foliplus/LayerControl/ui/style/index.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";

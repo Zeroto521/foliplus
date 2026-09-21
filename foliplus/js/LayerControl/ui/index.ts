@@ -102,7 +102,7 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
-} from "./style.js";
+} from "./style/index.js";
 import {
   applyVisibility,
   getLayerItems,
