@@ -4562,8 +4562,7 @@ class TestLayerControlBrowser:
                 f"out-of-range minZoom: {result}"
             )
             assert result["restoredOk"] is True, (
-                f"tiles not restored after deleting options + _resetView: "
-                f"{result}"
+                f"tiles not restored after deleting options + _resetView: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 
