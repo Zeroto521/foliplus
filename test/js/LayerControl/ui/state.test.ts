@@ -31,7 +31,7 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
-import { TileLayer, installLeafletGlobals } from "./fixture.js";
+import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
@@ -1371,9 +1371,10 @@ describe("event-driven row refresh", () => {
 describe("ui/state userOverrides and per-layer state persistence", () => {
   let manager: LayerManager;
   let ui: LayerUI;
+  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui } = initFixture());
+    ({ manager, ui, map } = initFixture());
     window.localStorage.clear();
   });
 
@@ -1596,6 +1597,42 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     ui.applyUserState("overlay1");
 
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("applyUserState(id) re-applies a stored zoom range on late registration", () => {
+    // A stored range has to come back with its layer: without this pass a layer
+    // that was out of range on the previous load would join the map at its
+    // author default instead of staying inside the range the user chose.
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
+    const li = manager.layerRegistry.get("grid1")!;
+    ui.zoomRangeMap = { grid1: [4, 9] };
+
+    ui.applyUserState("grid1");
+
+    // The native carrier is the layer's own options.
+    expect((li.layer as { options: Record<string, unknown> }).options).toMatchObject({
+      minZoom: 4,
+      maxZoom: 9,
+    });
+  });
+
+  it("applyUserState(id) leaves a native range alone when there is no layer", () => {
+    // A callback-only entry carries no Leaflet layer. A surface that reports the
+    // range as native has nothing to dereference, so the pass has to bail
+    // instead of writing into a layer that is not there.
+    manager.registerLayer({ id: "ghostLayer", name: "Ghost", onToggle: vi.fn() });
+    const li = manager.layerRegistry.get("ghostLayer")!;
+    manager.surfaceFor(li).capabilities.zoomRange = "native";
+    ui.zoomRangeMap = { ghostLayer: [4, 9] };
+    const mapWrites =
+      map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
+
+    ui.applyUserState("ghostLayer");
+
+    expect(li.layer).toBeNull();
+    expect(map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length).toBe(
+      mapWrites,
+    );
   });
 
   it("applyUserState renames the color basemap row without a registry entry", () => {

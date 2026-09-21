@@ -2765,4 +2765,312 @@ describe("LayerUI style panel — zoom range", () => {
     const hasRow = panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
     expect(hasRow).not.toBeNull();
   });
+
+  it("the live pass (input) drives the opacity row and floats the value", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+    ) as HTMLInputElement;
+    const fill = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
+    ) as HTMLElement;
+    const rail = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
+    ) as HTMLElement;
+
+    range.value = "40";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // The live pass moves the fill and shows the value above the handle.
+    expect(fill.style.width).toBe("40%");
+    const bubble = rail.querySelector(
+      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
+    ) as HTMLElement | null;
+    expect(bubble).not.toBeNull();
+    expect(bubble!.textContent).toBe("40");
+
+    // A second live pass reuses that bubble instead of stacking another.
+    range.value = "60";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(rail.querySelectorAll(`.${CONST.CLASSES.SLIDER_BUBBLE}`).length).toBe(1);
+    expect(bubble!.textContent).toBe("60");
+
+    // The settle pass takes it away again.
+    range.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+  });
+
+  it("ignores a live value that does not parse", () => {
+    const li = manager.layerRegistry.get("overlay1")!;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+    ) as HTMLInputElement;
+    const rail = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
+    ) as HTMLElement;
+    const before = li.opacity;
+
+    // A range input refuses to hold a non-numeric value — it falls back to the
+    // mid-point — so the guard is reached through a field that kept the
+    // slider's class but no longer constrains its value, the shape a
+    // consumer's hand-edited markup has. It must not write through.
+    range.type = "text";
+    range.value = "abc";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(li.opacity).toBe(before);
+    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+  });
+
+  it("a single-level map yields a zero percentage rather than NaN", () => {
+    map.getMinZoom.mockReturnValue(7);
+    map.getMaxZoom.mockReturnValue(7);
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+
+    minInput.value = "7";
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const labels = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}`)!;
+    expect(labels.textContent).not.toMatch(/NaN/);
+  });
+
+  it("keeps working when the row has lost its painted parts", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+
+    // Every sync guards these lookups, so removing them must not throw — a row
+    // that a consumer emptied (or a stale panel) still answers a change.
+    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`)?.remove();
+    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}-current`)?.remove();
+    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}`)?.replaceChildren();
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+
+    expect(() => {
+      minInput.value = "4";
+      minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }).not.toThrow();
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, map.getMaxZoom()]);
+  });
+
+  it("the zoom-range live pass updates the map and the bubble", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const rail = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
+    ) as HTMLElement;
+    const maxInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+    ) as HTMLInputElement;
+
+    maxInput.value = "10";
+    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([0, 10]);
+    const bubble = rail.querySelector(
+      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
+    ) as HTMLElement | null;
+    expect(bubble).not.toBeNull();
+    expect(bubble!.textContent).toBe("10");
+
+    maxInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+  });
+
+  it("renders no Layer rows for a delegated layer that carries neither", () => {
+    // MarkerCluster duck: opacity "none" and zoomRange "none". The delegated
+    // label controls are the panel's whole content — the Layer section has
+    // nothing to put in it.
+    manager.registerLayer({
+      id: "cluster3",
+      name: "Cluster3",
+      layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
+      styleProvider: () => ({ labelShow: true, labelSize: 14, labelColor: "#ff0000" }),
+      styleSetters: { labelShow: vi.fn(), labelSize: vi.fn(), labelColor: vi.fn() },
+    });
+    const item = findItem(ui, "cluster3");
+    ui.openStylePanel("cluster3");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(zoomRowOf(panel)).toBeNull();
+    expect(
+      panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("still commits when the opacity row has lost its rail and fill", () => {
+    const li = manager.layerRegistry.get("overlay1")!;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+    ) as HTMLInputElement;
+
+    // The handle outlives the rail it was drawn in, and the rail took the fill
+    // and the dots with it. Neither ornament carries the value — the input does,
+    // so the write still has to land.
+    panel.appendChild(range);
+    panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RAIL}`)?.remove();
+    range.value = "30";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_FILL}`)).toBeNull();
+    expect(li.opacity).toBe(0.3);
+    expect(panel.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+  });
+
+  it("resets the range when the row has lost a handle", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    ui.zoomRangeMap["overlay1"] = [4, 9];
+    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)?.remove();
+
+    // The reset pass syncs the row's remaining marks, so a missing handle has to
+    // be skipped rather than dereferenced — and the click still has to reach the
+    // panel close at the end of the handler.
+    const reset = panel.querySelector(".foliplus-style-reset-btn")!;
+    reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect("overlay1" in ui.zoomRangeMap).toBe(false);
+    expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("skips a layer that was unregistered mid-drag", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+
+    minInput.value = "4";
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+
+    // The row outlives its layer: nothing is left to write the range into, so
+    // the live pass has to bail instead of writing a range for a ghost.
+    manager.unregisterLayer("overlay1");
+    minInput.value = "6";
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+  });
+
+  it("gives a delegated layer a zoom row when only opacity is unavailable", () => {
+    manager.registerLayer({
+      id: "rangeOnly",
+      name: "RangeOnly",
+      layer: { options: {}, eachLayer: vi.fn() },
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    // `detectCapabilities` never returns an opacity-less surface that can still
+    // carry a zoom range, so the two gates' independence is pinned by hand: each
+    // row answers to its own capability, never to its neighbour's.
+    const li = manager.layerRegistry.get("rangeOnly")!;
+    manager.surfaceFor(li).capabilities.opacity = "none";
+
+    const item = findItem(ui, "rangeOnly");
+    ui.openStylePanel("rangeOnly");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(zoomRowOf(panel)).not.toBeNull();
+  });
+
+  it("gives an annotation layer a zoom row when only opacity is unavailable", () => {
+    // Same split, annotation flavour: the panel still offers the zoom range.
+    manager.registerLayer({
+      id: "annotOnly",
+      name: "AnnotOnly",
+      layer: { options: {}, eachLayer: vi.fn() },
+    });
+    ui.fieldCache.set("annotOnly", [{ name: "count", numeric: true }]);
+    const li = manager.layerRegistry.get("annotOnly")!;
+    manager.surfaceFor(li).capabilities.opacity = "none";
+
+    const item = findItem(ui, "annotOnly");
+    ui.openStylePanel("annotOnly");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(zoomRowOf(panel)).not.toBeNull();
+  });
+
+  it("ignores a range change once the row is out of the panel", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+
+    minInput.value = "4";
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+
+    // A handle whose row is gone still bubbles to the panel it was built in;
+    // with no row to read there is nothing to write.
+    panel.appendChild(minInput);
+    row.remove();
+    minInput.value = "6";
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+  });
+
+  it("reuses the range bubble and keeps the range when the rail is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const track = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
+    ) as HTMLElement;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+    const maxInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+    ) as HTMLInputElement;
+
+    minInput.value = "4";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    maxInput.value = "9";
+    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // One bubble, moved to the handle being held — not one per live pass.
+    const bubbles = track.querySelectorAll(`.${CONST.CLASSES.SLIDER_BUBBLE}`);
+    expect(bubbles.length).toBe(1);
+    expect(bubbles[0].textContent).toBe("9");
+
+    // The rail is only the readout's host: losing it costs the bubble, not the
+    // range.
+    row.appendChild(minInput);
+    row.appendChild(maxInput);
+    track.remove();
+    minInput.value = "3";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([3, 9]);
+  });
 });
