@@ -129,7 +129,12 @@
   --slider-rail-height: var(--size-6);
   --slider-thumb-size: 14px;
   --slider-dot-size: 10px;
-  --slider-thumb-hit: 18px;
+  /* The thumb's box IS its visible size: the travel is inset by half of it, so a
+     box larger than the handle leaves the handle short of the rail's ends. The
+     24px grab target is not achievable that way — the input is inert and a
+     thumb's transparent padding is not hit-testable — so the handle is the
+     target, and it is flush. */
+  --slider-thumb-hit: var(--slider-thumb-size);
   --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
   --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
   --slider-thumb-ring: var(--accent-primary);
