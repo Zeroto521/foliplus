@@ -4630,9 +4630,9 @@ class TestLayerControlBrowser:
             assert result["currentValueColor"] == self._sample_token(
                 page, "--text-primary"
             ), "out of range must not recolour the current level"
-            assert result["markerRing"] == self._sample_token(
-                page, "--neutral-500"
-            ), "out of range, the current dot must read as uncovered"
+            assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
+                "out of range, the current dot must read as uncovered"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
