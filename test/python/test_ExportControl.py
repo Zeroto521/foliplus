@@ -31,7 +31,6 @@ class TestExportControlPython:
         assert ctrl.format == "png"
         assert ctrl.quality == 0.92
         assert ctrl.scale == 2.0
-        assert ctrl.background is None
         assert ctrl.timeout == 7500
 
     def test_custom_args(self):
@@ -40,14 +39,12 @@ class TestExportControlPython:
             format="jpeg",
             quality=0.8,
             scale=3.5,
-            background="#ffffff",
             timeout=10000,
         )
         assert ctrl.filename == "my_map"
         assert ctrl.format == "jpeg"
         assert ctrl.quality == 0.8
         assert ctrl.scale == 3.5
-        assert ctrl.background == "#ffffff"
         assert ctrl.timeout == 10000
 
     def test_default_locale(self):
@@ -63,9 +60,6 @@ class TestExportControlPython:
     def test_edge_scale_values(self):
         assert ExportControl(scale=1.0).scale == 1.0
         assert ExportControl(scale=3.0).scale == 3.0
-
-    def test_background_white(self):
-        assert ExportControl(background="#ffffff").background == "#ffffff"
 
     def test_timeout_zero(self):
         assert ExportControl(timeout=0).timeout == 0
@@ -170,7 +164,6 @@ class TestExportControlRendering:
                 format="jpeg",
                 quality=0.8,
                 scale=1.5,
-                background="#000000",
                 timeout=5000,
             )
         )
@@ -223,7 +216,6 @@ class TestExportControlRendering:
         ctrl = ExportControl()
         assert hasattr(ctrl, "filename")
         assert hasattr(ctrl, "scale")
-        assert hasattr(ctrl, "background")
         assert hasattr(ctrl, "timeout")
         assert hasattr(ctrl, "position")
         assert hasattr(ctrl, "_template")
@@ -999,16 +991,38 @@ class TestExportControlBrowser:
             )
             assert after > 0, f"annotation labels lost after export: {after}"
 
-            # Pixel gate: sample the export canvas for the label colour. The
+            # Pixel gate: the export canvas now has an opaque background
+            # fill (the container's computed backgroundColor), so the source
+            # annotation colour is blended. Instead of matching the source
+            # colour, check that the export canvas has non-background pixels —
+            # pixels that differ significantly from the grey background. The
             # annotation canvas carries `.foliplus-canvas-layer`; a blanket
-            # exclude of that class would drop the annotation labels from the
-            # export and leave zero matching pixels. The halo has alpha
-            # ~191 (0.75 * 255), so lower the alpha threshold to include it.
-            result = self._red_pixels_in_export(
-                page, match=state["sample"], alpha_min=100
+            # exclude of that class would drop the labels and leave zero
+            # non-background pixels.
+            result = page.evaluate(
+                """() => {
+                    const canvases = window._capturedCanvases || [];
+                    if (canvases.length === 0) return { found: false };
+                    const c = canvases[canvases.length - 1];
+                    const ctx = c.getContext('2d');
+                    if (!ctx) return { found: false };
+                    const { data } = ctx.getImageData(0, 0, c.width, c.height);
+                    // Count pixels that are NOT the background grey (221,221,221)
+                    // within tolerance 20. These are the annotation label pixels.
+                    let nonBg = 0;
+                    for (let i = 0; i < data.length; i += 4) {
+                        if (data[i + 3] === 0) continue;
+                        const isBg =
+                            Math.abs(data[i] - 221) < 20 &&
+                            Math.abs(data[i + 1] - 221) < 20 &&
+                            Math.abs(data[i + 2] - 221) < 20;
+                        if (!isBg) nonBg++;
+                    }
+                    return { found: true, nonBg };
+                }"""
             )
-            assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, (
+            assert result["found"] is True, result
+            assert result["nonBg"] > 0, (
                 f"annotation label pixels missing from export: {result}"
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
@@ -1093,6 +1107,144 @@ class TestExportControlBrowser:
                 f"canvas layer's red pixels missing from export: {result}"
             )
             assert len(errors) == 0, f"JS errors on solid-color export: {errors}"
+
+    def _sample_bg_pixels_in_export(
+        self, page, match: list[int], tol: int = 20, alpha_min: int = 200
+    ) -> dict:
+        """Count pixels matching ``match`` in the renderer's output canvas."""
+        page.evaluate(
+            f"""() => {{
+                window._sampleColor = {match};
+                window._sampleTol = {tol};
+                window._sampleAlphaMin = {alpha_min};
+            }}"""
+        )
+        return page.evaluate(_js("ExportControl/sample_export_canvas"))
+
+    def test_export_uses_solid_color_basemap_as_background(self, browser, tmp_path):
+        """Picking a solid-color basemap → the export canvas is filled with it.
+
+        Before this fix the export background came from ``CONF.background`` (a
+        Python-static config), so the colour the user just picked on screen was
+        missing from the image. The export now reads the map container's computed
+        ``backgroundColor`` — the same value the user sees — and fills the canvas
+        with it.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, slug="export_color_bg"
+        ) as (
+            page,
+            errors,
+        ):
+            self._install_canvas_hook(page)
+
+            # Drive the colour input through the real LayerControl UI path so
+            # the container gets `.active` + `--color-layer-bg` set, exactly as
+            # `showColorLayer` does.
+            state = page.evaluate(_js("ExportControl/set_color_basemap"))
+            assert state["ok"] is True, state
+            assert state["containerActive"] is True, state
+            assert state["cssVar"] == "#dc1e1e", state
+            assert state["bg"] == "rgb(220, 30, 30)", state
+
+            # Full export flow: open, lock, export.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample the whole canvas for the basemap colour. The fillRect
+            # covers every pixel, so the hit count should dominate the total.
+            result = self._sample_bg_pixels_in_export(page, match=[220, 30, 30])
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] > 0, (
+                f"basemap colour missing from export: {result}"
+            )
+            # The fillRect paints the whole canvas, so nearly every non-
+            # transparent pixel should match — a regression (e.g. falling back
+            # to CONF.background, which was None/transparent) would leave hit ≈ 0.
+            assert result["hit"] > result["total"] * 0.5, (
+                f"basemap colour not dominant in export: {result}"
+            )
+            assert len(errors) == 0, f"JS errors on color-basemap export: {errors}"
+
+    def test_export_uses_leaflet_default_background_without_color_basemap(
+        self, browser, tmp_path
+    ):
+        """No solid-color basemap → the export canvas is filled with the map
+        container's default background (Leaflet's ``#ddd``).
+
+        The container's computed ``backgroundColor`` is always opaque (Leaflet's
+        own CSS sets ``#ddd``), so the export matches what the user sees: a
+        plain grey base, not a transparent one. This replaces the old
+        ``CONF.background`` (default ``None`` → transparent canvas), which
+        disagreed with the screen.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, slug="export_default_bg"
+        ) as (
+            page,
+            errors,
+        ):
+            self._install_canvas_hook(page)
+
+            # No colour basemap picked: container should be in its default
+            # state (Leaflet #ddd, no .active, no --color-layer-bg).
+            state = page.evaluate(
+                """() => {
+                    const c = document.querySelector(".leaflet-container");
+                    return {
+                        bg: getComputedStyle(c).backgroundColor,
+                        hasActive: c.classList.contains("active"),
+                    };
+                }"""
+            )
+            assert state["bg"] == "rgb(221, 221, 221)", state
+            assert state["hasActive"] is False, state
+
+            # Full export flow: open, lock, export.
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            # Sample for Leaflet's default grey. The fillRect paints the whole
+            # canvas, so the hit count should dominate.
+            result = self._sample_bg_pixels_in_export(page, match=[221, 221, 221])
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] > 0, (
+                f"default grey missing from export: {result}"
+            )
+            assert result["hit"] > result["total"] * 0.5, (
+                f"default grey not dominant in export: {result}"
+            )
+            assert len(errors) == 0, f"JS errors on default-bg export: {errors}"
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Drag bottom-right handle to resize the crop box."""
@@ -1203,9 +1355,17 @@ class TestExportControlBrowser:
             page.wait_for_timeout(2000)
 
             # Read the captured canvas pixels and verify the marker was
-            # drawn with reduced alpha (not full 255). Pick the largest canvas
-            # by area — the export canvas is viewport-sized and dominates any
-            # auxiliary canvases the renderer may create internally.
+            # drawn. The export canvas now has an opaque background fill, so
+            # the marker's alpha composites onto the background — the
+            # resulting pixel alpha is 255 (from the background), and the
+            # opacity is reflected in the colour blend rather than in alpha.
+            #
+            # The background is Leaflet's default grey (221, 221, 221). The
+            # marker is a red pin; even at 0.4 opacity the blended pixel is
+            # visibly different from grey. Count pixels that differ from the
+            # background by more than tolerance 30 in any channel — this
+            # catches "marker drawn at any opacity" and "marker not drawn
+            # at all" (all pixels would be grey).
             result = page.evaluate(
                 """() => {
                     const canvases = window._capturedCanvases || [];
@@ -1218,16 +1378,25 @@ class TestExportControlBrowser:
                     const ctx = c.getContext('2d');
                     if (!ctx) return { found: false };
                     const data = ctx.getImageData(0, 0, c.width, c.height).data;
-                    let maxAlpha = 0;
-                    for (let i = 3; i < data.length; i += 4) {
-                        if (data[i] > maxAlpha) maxAlpha = data[i];
+                    let nonBg = 0;
+                    let sample = null;
+                    for (let i = 0; i < data.length; i += 4) {
+                        if (data[i + 3] === 0) continue;
+                        const isBg =
+                            Math.abs(data[i] - 221) <= 30 &&
+                            Math.abs(data[i + 1] - 221) <= 30 &&
+                            Math.abs(data[i + 2] - 221) <= 30;
+                        if (!isBg) {
+                            nonBg++;
+                            if (!sample) sample = [data[i], data[i + 1], data[i + 2]];
+                        }
                     }
-                    return { found: true, maxAlpha };
+                    return { found: true, nonBg, sample };
                 }"""
             )
             assert result["found"] is True, result
-            assert 90 <= result["maxAlpha"] <= 110, (
-                f"Marker alpha outside expected range 90–110: {result}"
+            assert result["nonBg"] > 0, (
+                f"Marker pixels missing from export: {result}"
             )
 
     def test_export_focus_three_carriers_survive(self, browser, tmp_path):

@@ -4,7 +4,7 @@
 
 ### Added
 
-- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#167](https://github.com/Zeroto521/foliplus/pull/167), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242), [#245](https://github.com/Zeroto521/foliplus/pull/245), [#251](https://github.com/Zeroto521/foliplus/pull/251), [#396](https://github.com/Zeroto521/foliplus/pull/396))
+- `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#167](https://github.com/Zeroto521/foliplus/pull/167), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242), [#245](https://github.com/Zeroto521/foliplus/pull/245), [#251](https://github.com/Zeroto521/foliplus/pull/251), [#396](https://github.com/Zeroto521/foliplus/pull/396), [#401](https://github.com/Zeroto521/foliplus/pull/401))
 - `MeasureControl`: `show_bearing` parameter (default `true`) to display azimuth in distance segment labels ([#113](https://github.com/Zeroto521/foliplus/pull/113), [#127](https://github.com/Zeroto521/foliplus/pull/127))
 - `MeasureControl`: polygon area measurement mode — draw polygons, see area at centroid, per-segment and closing-edge distance labels ([#114](https://github.com/Zeroto521/foliplus/pull/114))
 - `LocateControl`: Fly to the user's current position ([#129](https://github.com/Zeroto521/foliplus/pull/129), [#134](https://github.com/Zeroto521/foliplus/pull/134), [#212](https://github.com/Zeroto521/foliplus/pull/212))
@@ -75,6 +75,7 @@
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
+- `ExportControl`: remove the `background` parameter — a breaking change; the export canvas background now comes from the map container's computed `backgroundColor`, so the exported image matches what the user sees on screen. Precedent: ScaleControl `unit` (#186), HeatmapControl `field` (#375) ([#401](https://github.com/Zeroto521/foliplus/pull/401))
 
 ### Fixed
 
@@ -97,6 +98,7 @@
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 - `LayerControl`: a late-registered layer no longer loses its stored opacity, zoom range, and visibility on reload — Heatmap and Measure register after the panel attaches, so the sweep read their missing registry entries as deleted and wrote it back; only an explicit delete now drops stored values ([#390](https://github.com/Zeroto521/foliplus/pull/390), [#393](https://github.com/Zeroto521/foliplus/pull/393))
 - `LayerControl`: layer rows are now addressed by `data-layer-id` instead of a positional index, so a click, toggle-all or drag always acts on the row's own layer; `data-index` is retired ([#397](https://github.com/Zeroto521/foliplus/pull/397))
+- `ExportControl`: the export canvas now fills with the map container's computed `backgroundColor` — a solid-color basemap picked in LayerControl is captured in the export, and the default (Leaflet `#ddd`) matches the screen. Replaces the old `CONF.background` static config, which disagreed with what the user saw ([#396](https://github.com/Zeroto521/foliplus/pull/396), [#401](https://github.com/Zeroto521/foliplus/pull/401))
 
 ## [v0.3.0] (2026-08-02)
 

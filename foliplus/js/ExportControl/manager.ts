@@ -604,7 +604,20 @@ class ExportManager {
     if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
       scaleValue = window.devicePixelRatio || 1;
     }
-    const bg = CONF.background;
+    // Background = the map container's computed backgroundColor. This is the
+    // single source of truth for "what the user sees on screen": Leaflet's
+    // own #ddd default when no solid-color basemap is picked, or the colour
+    // LayerControl writes when one is. Reading the container's computed style
+    // keeps ExportControl decoupled from any component's internal state —
+    // any control that sets the container background is picked up the same
+    // way.
+    const bg = (() => {
+      const color = window.getComputedStyle(this.mapContainer).backgroundColor;
+      if (!color || color === "transparent" || color === "rgba(0, 0, 0, 0)") {
+        return undefined;
+      }
+      return color;
+    })();
 
     // Abort if pixel limit is exceeded (warning already shown by showHintWithInfo).
     if (this.pixelOverLimit) {
