@@ -88,16 +88,21 @@ const SEL = {
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
-   * Opt-out attribute for export.  Set this attribute on any element
-   * that should NOT appear in the exported image.
+   * Opt-out for export.  Elements matching this selector are dropped from the
+   * exported image.  This is the single judgement point: a component that adds
+   * internal UI to a layer pane (delete buttons, resize handles, an
+   * in-progress preview) opts out here and needs no change to ExportControl.
    *
-   * Usage:  `<div data-foliplus-export="exclude">...</div>`
+   * Two carriers, because a Leaflet Path only exposes a construction-time
+   * `className` hook and has no attribute hook to stamp later:
    *
-   * Components that add elements to a layer pane can use this to
-   * exclude internal UI (delete buttons, resize handles, etc.)
-   * from the export canvas without needing to update ExportControl.
+   *   Usage:  `<div data-foliplus-export="exclude">...</div>`
+   *   Usage:  `<path class="foliplus-no-export" />`
+   *
+   * Only an element's own marker counts.  Pane-level hiding (focus) is a
+   * transient view state and the export ignores it — see renderPaneSVG.
    */
-  SKIP_EXPORT: '[data-foliplus-export="exclude"]',
+  SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-no-export',
 };
 
 // ============================================================================
