@@ -4622,9 +4622,9 @@ class TestLayerControlBrowser:
             assert result["markerLabelText"], "current-zoom label missing from marker"
             # This probe puts the current level out of range, so its dot must
             # read as uncovered — a grey ring, the same readout the handles take.
-            assert result["markerRing"] == self._sample_token(
-                page, "--neutral-500"
-            ), "out of range, the current dot must read as uncovered"
+            assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
+                "out of range, the current dot must read as uncovered"
+            )
             # The OOR *visuals*, not just the class: the selection goes flat grey
             # and the current level turns accent. This is the assertion that was
             # missing while the rules were nested without `&`, so they flattened
