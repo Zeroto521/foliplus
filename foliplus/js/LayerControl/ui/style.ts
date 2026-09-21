@@ -300,17 +300,14 @@ const syncZoomRangeRow = (
     const currentLabel = ui
       .T("style_zoom_range_current")
       .replace("{zoom}", String(current));
-    const label = marker.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_LABEL}`,
-    ) as HTMLElement | null;
-    if (label) label.textContent = currentLabel;
     marker.title = currentLabel;
   }
 
   const values = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
-  if (values.length >= 2) {
+  if (values.length >= 3) {
     values[0].textContent = String(min);
-    values[1].textContent = String(max);
+    values[1].textContent = String(current);
+    values[2].textContent = String(max);
   }
 
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
@@ -349,19 +346,11 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const currentLabel = ui
     .T("style_zoom_range_current")
     .replace("{zoom}", String(current));
-  const marker = dom.el(
-    "div",
-    {
-      class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
-      style: `left:${currentPct}%`,
-      title: currentLabel,
-    },
-    dom.el(
-      "span",
-      { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_LABEL },
-      currentLabel,
-    ),
-  );
+  const marker = dom.el("div", {
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
+    style: `left:${currentPct}%`,
+    title: currentLabel,
+  });
 
   const minInput = dom.el("input", {
     type: "range",
@@ -395,6 +384,11 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: CONST.CLASSES.STYLE_ZOOM_RANGE_VAL },
     dom.el("span", {}, String(min)),
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE },
+      String(current),
+    ),
     dom.el("span", {}, String(max)),
   );
 
@@ -423,21 +417,32 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   return row;
 };
 
-/** Apply a new zoom range to a layer: persist it, mark the override, and
- *  update the live map state. The values are already clamped to the map's
- *  [min, max] by the caller. */
-const commitZoomRange = (
+/** Live pass: update the map and visual state without persisting. Called
+ *  on every `input` event so the layer responds in real-time as the user
+ *  drags a thumb — the slider is a live preview, not a deferred commit. */
+const applyZoomRangeLive = (
   ui: LayerUI,
   layerId: string,
+  row: HTMLElement,
   min: number,
   max: number,
 ): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
   ui.zoomRangeMap[layerId] = [min, max];
+  syncZoomRangeRow(ui, layerId, row, [min, max]);
+  applyZoomRangeStateOne(ui, li, [min, max]);
+};
+
+/** Commit pass: persist the zoom range to localStorage. The value and the
+ *  map state are already updated by {@link applyZoomRangeLive}; this only
+ *  records the override and schedules the storage write. */
+const commitZoomRange = (
+  ui: LayerUI,
+  layerId: string,
+): void => {
   markOverride(ui, layerId, "zoomRange");
   saveState(ui);
-  applyZoomRangeStateOne(ui, li, [min, max]);
 };
 
 /** Shared Reset footer — divider + button, same vocabulary for the annotation
@@ -865,9 +870,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     return true;
   };
 
-  /** Shared zoom-range handler for both panel flavours. `commit` separates
-   *  the live pass (input event — update the visual state only, no persist)
-   *  from the blur/change pass (commit the value and persist). */
+  /** Shared zoom-range handler for both panel flavours. The live pass
+   *  (`input` event) updates the map and visual state in real-time so the
+   *  layer responds as the user drags a thumb. The commit pass (`change`
+   *  event) persists the value to localStorage. */
   const handleZoomRangeTarget = (t: EventTarget | null, commit: boolean): boolean => {
     if (!(t instanceof HTMLInputElement)) return false;
     if (
@@ -902,12 +908,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
     }
 
-    // Live pass: update the visual state from the thumbs (fill, values,
-    // out-of-range) before the change is committed.
-    syncZoomRangeRow(ui, layerId, row, [min, max]);
+    applyZoomRangeLive(ui, layerId, row, min, max);
 
     if (commit) {
-      commitZoomRange(ui, layerId, min, max);
+      commitZoomRange(ui, layerId);
     }
     return true;
   };

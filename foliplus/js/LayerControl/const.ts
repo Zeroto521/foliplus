@@ -128,6 +128,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_MAX: "foliplus-style-zoom-range-max",
   STYLE_ZOOM_RANGE_CURRENT: "foliplus-style-zoom-range-current",
   STYLE_ZOOM_RANGE_CURRENT_LABEL: "foliplus-style-zoom-range-current-label",
+  STYLE_ZOOM_RANGE_CURRENT_VALUE: "foliplus-style-zoom-range-current-value",
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
   /** Marks the row when the map's current zoom falls outside the layer's
    *  range — a dimmed state that reads "you set this to hide at the current

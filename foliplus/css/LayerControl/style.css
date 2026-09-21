@@ -53,36 +53,25 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      background: var(--accent-primary);
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary, var(--accent-primary)));
       border-radius: calc(var(--zoom-track-height) / 2);
       pointer-events: none;
+      transition: left 0.15s ease, right 0.15s ease;
     }
 
-    /* The current-zoom marker: a vertical line crossing the track with a
-       small label above it showing the current level. */
+    /* The current-zoom marker: a vertical line crossing the track.
+       No label above — the values row below shows the current level,
+       so the marker never overlaps content above the track. */
     .foliplus-style-zoom-range-current {
       position: absolute;
-      top: -3px;
-      bottom: -3px;
+      top: -2px;
+      bottom: -2px;
       width: 2px;
       background: var(--ink-strong, #333);
-      pointer-events: auto;
-    }
-
-    .foliplus-style-zoom-range-current-label {
-      position: absolute;
-      bottom: calc(100% + 3px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: nowrap;
-      font-size: 10px;
-      line-height: 1.2;
-      color: var(--ink-strong, #333);
-      background: var(--bg-elevated, #fff);
-      border: 1px solid var(--border-thin, #ddd);
-      padding: 0 3px;
-      border-radius: 3px;
+      border-radius: 1px;
       pointer-events: none;
+      transition: left 0.15s ease;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
     }
 
     /* The two overlapping range inputs. Only the thumbs accept pointer
@@ -110,13 +99,16 @@
       border-radius: 50%;
       background: #fff;
       border: 2px solid var(--accent-primary);
-      box-shadow: 0 0 0 1px var(--border-thin);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-thin);
       cursor: grab;
       margin-top: calc((var(--zoom-track-height) - var(--zoom-thumb-size)) / 2);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
     .foliplus-style-zoom-range-min:active::-webkit-slider-thumb,
     .foliplus-style-zoom-range-max:active::-webkit-slider-thumb {
       cursor: grabbing;
+      transform: scale(1.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 0 0 2px var(--accent-primary);
     }
 
     .foliplus-style-zoom-range-min::-moz-range-thumb,
@@ -127,17 +119,25 @@
       border-radius: 50%;
       background: #fff;
       border: 2px solid var(--accent-primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
       cursor: grab;
     }
 
-    /* The value labels row: min · max · current. Compact, same font as the
-       number fields elsewhere in the panel. */
+    /* The value labels row: min · current · max. Compact, same font as the
+       number fields elsewhere in the panel. Current is centered and
+       visually distinct from the endpoints. */
     .foliplus-style-zoom-range-values {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: 12px;
       color: var(--neutral-600, #666);
       font-variant-numeric: tabular-nums;
+    }
+
+    .foliplus-style-zoom-range-current-value {
+      color: var(--ink-strong, #333);
+      font-weight: 500;
     }
 
     /* Out-of-range: dim the track + fill + markers, and shift the fill to
@@ -152,9 +152,8 @@
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current {
       background: var(--neutral-500, #888);
     }
-    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-label {
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-value {
       color: var(--neutral-500, #888);
-      border-color: var(--neutral-300, #ccc);
     }
   }
 }
