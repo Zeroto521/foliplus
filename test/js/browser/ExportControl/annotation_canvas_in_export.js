@@ -32,8 +32,14 @@
           .getContext("2d")
           .getImageData(0, 0, canvas.width, canvas.height).data;
         let n = 0;
-        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
-        resolve({ canvas: true, opaqueBefore: n });
+        let sample = null;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] > 0) {
+            n++;
+            if (!sample) sample = [data[i], data[i + 1], data[i + 2]];
+          }
+        }
+        resolve({ canvas: true, opaqueBefore: n, sample });
       }),
     );
   });

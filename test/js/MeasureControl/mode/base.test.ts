@@ -98,6 +98,27 @@ describe("PreviewMode — tracking preview layers", () => {
     const result = mode.addPreview(fakeLayer);
     expect(result).toBe(fakeLayer);
   });
+
+  it("stamps the export opt-out onto a preview layer's element", () => {
+    // The preview is a drawing aid, so a mid-drawing export must not freeze it
+    // in the picture.  addPreview is the single funnel — pinToTop and
+    // moveCursorNode rebuild by remove + re-add through it — so the stamp lives
+    // here rather than at each call site.
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    const classList = { add: vi.fn() };
+    mode.addPreview({ getElement: () => ({ classList }) } as any);
+    expect(classList.add).toHaveBeenCalledWith(CONST.CLASSES.NO_EXPORT);
+  });
+
+  it("re-stamps after a pinToTop rebuild and skips a layer with no element", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    const classList = { add: vi.fn() };
+    mode.pinToTop({ getElement: () => ({ classList }) } as any);
+    expect(classList.add).toHaveBeenCalledTimes(1);
+    expect(() => mode.addPreview({} as any)).not.toThrow();
+  });
 });
 
 describe("Mode — TYPE constants", () => {
