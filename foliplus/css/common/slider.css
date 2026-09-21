@@ -209,11 +209,15 @@
 }
 .foliplus-slider-handle:focus-visible::-webkit-slider-thumb {
   transform: scale(1.15);
-  box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
+  /* The panel's one focus ring, same as every input beside it — and the
+     static one: the inputs' breathing pulse is not repeated here. */
+  box-shadow: var(--focus-ring);
 }
 .foliplus-slider-handle:focus-visible::-moz-range-thumb {
   transform: scale(1.15);
-  box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
+  /* The panel's one focus ring, same as every input beside it — and the
+     static one: the inputs' breathing pulse is not repeated here. */
+  box-shadow: var(--focus-ring);
 }
 
 /* The scale's numbers, under the marks they belong to: the fixed ends at the
