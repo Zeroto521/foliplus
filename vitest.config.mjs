@@ -34,6 +34,11 @@ export default defineConfig({
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
         // Glob so a newly added mode is excluded without editing this list.
         "foliplus/js/MeasureControl/mode/*.ts",
+        // MeasureControl ui layer — DOM interaction callbacks (drag/click)
+        // need a browser runtime; jsdom coverage isn't the tool for this
+        // layer, the browser suite covers it. Same precedent as mode/*.ts
+        // above. Glob so a newly added ui/*.ts is auto-excluded.
+        "foliplus/js/MeasureControl/ui/*.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
